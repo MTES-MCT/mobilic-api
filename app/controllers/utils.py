@@ -23,7 +23,7 @@ def _convert_data_to_dict(data):
 def parse_request_with_schema(data_class, many=False):
     def decorator(method):
         def wrapper(*args, **kwargs):
-            data = _convert_data_to_dict(request.data)
+            data = _convert_data_to_dict(request.get_json())
             try:
                 data_class.schema().load(data, many=many)
             except ValidationError as e:
