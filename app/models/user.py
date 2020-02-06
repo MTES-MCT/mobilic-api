@@ -1,0 +1,24 @@
+from sqlalchemy.orm import synonym
+from werkzeug.security import generate_password_hash
+
+from app.models.base import BaseModel
+from app import db
+
+
+class User(BaseModel):
+    email = db.Column(db.String(255), unique=True)
+    _password = db.Column("password", db.String(255))
+    company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
+    company = db.relationship("Company", backref="users")
+    token = db.Column(db.String(255))
+
+    @property
+    def password(self):
+        return self._password
+
+    @password.setter
+    def password(self, plain_text):
+        password_hash = generate_password_hash(plain_text.encode("utf8"))
+        self._password = password_hash.decode("utf8")
+
+    password = synonym("_password", descriptor=password)
