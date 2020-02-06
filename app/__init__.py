@@ -12,3 +12,4 @@ db = SQLAlchemy(app)
 Migrate(app, db)
 
 from app.models import *
+from app.controllers import api
