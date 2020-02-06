@@ -1,0 +1,5 @@
+# Make iPython the default shell for interactive scripts
+import os, IPython
+if IPython.get_ipython() is None:
+    IPython.start_ipython()
+    raise SystemExit
