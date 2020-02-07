@@ -1,16 +1,15 @@
-from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json, config
+from dataclasses import field
+from dataclasses_json import config
 from typing import List, Optional
-from datetime import datetime
 from marshmallow import fields
 
+from app.controllers.utils import request_data_schema
 from app.data_access.utils import mm_enum_field
 from app.helpers.time import from_timestamp, to_timestamp
 from app.models.activity import InputableActivityTypes
 
 
-@dataclass_json
-@dataclass
+@request_data_schema
 class GroupActivityData:
     event_time: int = field(
         metadata=config(

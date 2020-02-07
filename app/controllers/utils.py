@@ -3,6 +3,9 @@ from werkzeug.datastructures import MultiDict
 from marshmallow import ValidationError
 from contextlib import contextmanager
 from sqlalchemy import event
+from dataclasses_json import dataclass_json
+from dataclasses import dataclass
+
 from app import db
 
 
@@ -40,6 +43,10 @@ def parse_request_with_schema(data_class, many=False):
         return wrapper
 
     return decorator
+
+
+def request_data_schema(cls):
+    return dataclass_json(dataclass(cls))
 
 
 def _raise_commit_error(*args, **kwargs):

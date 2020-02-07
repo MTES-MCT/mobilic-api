@@ -1,9 +1,7 @@
-from dataclasses_json import dataclass_json
-from dataclasses import dataclass
+from app.controllers.utils import request_data_schema
 
 
-@dataclass_json
-@dataclass
+@request_data_schema
 class SignupData:
     email: str
     password: str
