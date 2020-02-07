@@ -1,5 +1,5 @@
 from sqlalchemy.orm import synonym
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from uuid import uuid4
 
 from app.models.base import BaseModel
@@ -11,7 +11,7 @@ class User(BaseModel):
     _password = db.Column("password", db.String(255))
     company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
     company = db.relationship("Company", backref="users")
-    token = db.Column(db.String(255))
+    refresh_token_nonce = db.Column(db.String(255))
     first_name = db.Column(db.String(255))
     last_name = db.Column(db.String(255))
 
@@ -23,6 +23,9 @@ class User(BaseModel):
     def password(self, plain_text):
         password_hash = generate_password_hash(plain_text.encode("utf8"))
         self._password = password_hash
+
+    def check_password(self, plain_text):
+        return check_password_hash(self.password, plain_text.encode("utf-8"))
 
     password = synonym("_password", descriptor=password)
 
@@ -47,3 +50,10 @@ class User(BaseModel):
         if not acknowledged_activities:
             return None
         return max(acknowledged_activities, key=lambda act: act.event_time)
+
+    def revoke_refresh_token(self):
+        self.refresh_token_nonce = None
+
+    def generate_refresh_token_nonce(self):
+        self.refresh_token_nonce = uuid4().hex
+        return self.refresh_token_nonce
