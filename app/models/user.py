@@ -1,5 +1,6 @@
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash
+from uuid import uuid4
 
 from app.models.base import BaseModel
 from app import db
@@ -11,6 +12,8 @@ class User(BaseModel):
     company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
     company = db.relationship("Company", backref="users")
     token = db.Column(db.String(255))
+    first_name = db.Column(db.String(255))
+    last_name = db.Column(db.String(255))
 
     @property
     def password(self):
@@ -19,6 +22,13 @@ class User(BaseModel):
     @password.setter
     def password(self, plain_text):
         password_hash = generate_password_hash(plain_text.encode("utf8"))
-        self._password = password_hash.decode("utf8")
+        self._password = password_hash
 
     password = synonym("_password", descriptor=password)
+
+    @staticmethod
+    def _generate_id():
+        while True:
+            id_ = int(str(uuid4().int)[:9])
+            if User.query.get(id_) is None:
+                return id_

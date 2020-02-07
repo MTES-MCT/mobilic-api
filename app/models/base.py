@@ -24,10 +24,3 @@ class BaseModel(db.Model):
                 generated_id = self._generate_id()
                 kwargs = dict(kwargs, id=generated_id)
         super().__init__(**kwargs)
-
-    def update(self, kwargs):
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                raise AttributeError(f"Model ${self} has no attribute ${key}")
