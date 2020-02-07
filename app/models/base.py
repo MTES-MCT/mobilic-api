@@ -8,7 +8,7 @@ class BaseModel(db.Model):
     __abstract__ = True
 
     creation_time = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow
+        db.DateTime, nullable=False, default=datetime.now
     )
 
     @declared_attr

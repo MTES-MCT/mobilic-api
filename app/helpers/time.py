@@ -1,12 +1,9 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
 
 def from_timestamp(ts):
-    return datetime.fromtimestamp(ts, tz=timezone.utc)
+    return datetime.fromtimestamp(ts / 1000)
 
 
 def to_timestamp(date_time):
-    aware_date_time = date_time
-    if date_time.tzinfo is None:
-        aware_date_time = date_time.replace(tzinfo=timezone.utc)
-    return aware_date_time.timestamp()
+    return int(date_time.timestamp() * 1000)
