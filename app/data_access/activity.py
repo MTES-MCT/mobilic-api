@@ -11,8 +11,8 @@ from app.models.activity import InputableActivityTypes
 
 @dataclass_json
 @dataclass
-class ActivityData:
-    event_time: datetime = field(
+class GroupActivityData:
+    event_time: int = field(
         metadata=config(
             encoder=to_timestamp, decoder=from_timestamp, mm_field=fields.Int()
         )

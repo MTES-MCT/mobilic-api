@@ -1,61 +1,52 @@
 from flask_restful import Resource
 from typing import List
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.controllers.utils import parse_request_with_schema, atomic_transaction
-from app.data_access.activity import ActivityData
-from app.domain.log_activities import log_activity
+from app.data_access.activity import GroupActivityData
+from app.domain.log_activities import log_group_activity
 from app.models.user import User
 from app.models.company import Company
+from app.models.activity import Activity
 
 
 class ActivityController(Resource):
-    @parse_request_with_schema(ActivityData, many=True)
-    def post(self, data: List[ActivityData]):
+    @parse_request_with_schema(GroupActivityData, many=True)
+    def post(self, data: List[GroupActivityData]):
         with atomic_transaction(commit_at_end=True):
             concerned_user_ids = {
                 user_id
-                for single_activity_data in data
-                for user_id in single_activity_data.user_ids
+                for group_activity in data
+                for user_id in group_activity.user_ids
             }
             concerned_submitter_ids = {
-                single_activity_data.submitter_id
-                for single_activity_data in data
+                group_activity.submitter_id for group_activity in data
             }
-            all_concerned_users = User.query.filter(
+            User.query.options(joinedload(User.activities)).filter(
                 User.id.in_(list(concerned_user_ids | concerned_submitter_ids))
-            )
-            all_concerned_user_map = {
-                user.id: user for user in all_concerned_users
-            }
-            companies = Company.query.filter(
+            ).all()
+
+            Company.query.filter(
                 Company.id.in_(
-                    [
-                        single_activity_data.company_id
-                        for single_activity_data in data
-                    ]
+                    [group_activity.company_id for group_activity in data]
                 )
-            )
-            company_map = {c.id for c in companies}
-            for single_activity_data in data:
-                activity_logs = log_activity(
-                    submitter=all_concerned_user_map[
-                        single_activity_data.submitter_id
-                    ],
-                    company=company_map[single_activity_data.id],
+            ).all()
+            for group_activity in data:
+                activity_logs = log_group_activity(
+                    submitter=User.query.get(group_activity.submitter_id),
+                    company=Company.query.get(group_activity.company_id),
                     users=[
-                        all_concerned_user_map[u_id]
-                        for u_id in single_activity_data.user_ids
+                        User.query.get(uid) for uid in group_activity.user_ids
                     ],
-                    activity_type=single_activity_data.type,
-                    event_time=single_activity_data.event_time,
-                    driver=all_concerned_user_map[
-                        single_activity_data.user_ids[
-                            single_activity_data.driver_idx
-                        ]
-                    ]
-                    if single_activity_data.driver_idx
+                    type=group_activity.type,
+                    event_time=group_activity.event_time,
+                    driver=User.query.get(
+                        group_activity.user_ids[group_activity.driver_idx]
+                    )
+                    if group_activity.driver_idx is not None
                     else None,
                 )
                 for log in activity_logs:
-                    db.session.add(log)
+                    if type(log) == Activity:
+                        db.session.add(log)

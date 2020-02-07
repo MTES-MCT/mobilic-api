@@ -32,3 +32,18 @@ class User(BaseModel):
             id_ = int(str(uuid4().int)[:9])
             if User.query.get(id_) is None:
                 return id_
+
+    @property
+    def acknowledged_activities(self):
+        return [
+            activity
+            for activity in self.activities
+            if activity.is_acknowledged
+        ]
+
+    @property
+    def current_acknowledged_activity(self):
+        acknowledged_activities = self.acknowledged_activities
+        if not acknowledged_activities:
+            return None
+        return max(acknowledged_activities, key=lambda act: act.event_time)
