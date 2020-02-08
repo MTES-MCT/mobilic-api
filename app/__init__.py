@@ -14,3 +14,7 @@ Migrate(app, db)
 from app import models
 from app.controllers import api
 from app.helpers import cli
+
+from app.helpers.auth import auth
+
+app.register_blueprint(auth, url_prefix="/auth")
