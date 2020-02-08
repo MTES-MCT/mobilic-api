@@ -24,3 +24,14 @@ class BaseModel(db.Model):
                 generated_id = self._generate_id()
                 kwargs = dict(kwargs, id=generated_id)
         super().__init__(**kwargs)
+
+    @classmethod
+    def create(cls, **kwargs):
+        obj = cls(**kwargs)
+        try:
+            db.session.add(obj)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
+        return obj

@@ -12,10 +12,10 @@ def test():
     with app.app_context():
         db.engine.execute("DROP schema public CASCADE; CREATE schema public;")
         upgrade()
+        root_project_path = os.path.dirname(app.root_path)
         test_suite = TestLoader().discover(
-            app.root_path,
+            os.path.join(app.root_path, "tests"),
             pattern="test_*.py",
-            top_level_dir=os.path.dirname(app.root_path),
+            top_level_dir=root_project_path,
         )
-        print(f"Found {test_suite.countTestCases()} tests to run")
-        TextTestRunner().run(test_suite)
+        TextTestRunner(verbosity=2).run(test_suite)

@@ -11,7 +11,7 @@ class User(BaseModel):
     _password = db.Column("password", db.String(255))
     company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
     company = db.relationship("Company", backref="users")
-    refresh_token_nonce = db.Column(db.String(255))
+    refresh_token_nonce = db.Column(db.String(255), default=None)
     first_name = db.Column(db.String(255))
     last_name = db.Column(db.String(255))
 
