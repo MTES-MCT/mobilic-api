@@ -11,5 +11,6 @@ db = SQLAlchemy(app)
 
 Migrate(app, db)
 
-from app.models import *
+from app import models
 from app.controllers import api
+from app.helpers import cli
