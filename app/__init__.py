@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -15,6 +15,7 @@ Migrate(app, db)
 from app.helpers.json import CustomJSONEncoder
 
 app.json_encoder = CustomJSONEncoder
+
 
 from app.controllers import api
 from app.helpers import cli

@@ -1,4 +1,5 @@
 from flask_restful import Resource
+from flask import jsonify
 
 from app.controllers.utils import parse_request_with_schema, atomic_transaction
 from app.data_access.signup import SignupPostData
@@ -13,5 +14,6 @@ class UserController(Resource):
             user = User(**data.to_dict())
             db.session.add(user)
             db.session.commit()
+            return jsonify(user)
         except Exception as e:
             raise e

@@ -57,3 +57,12 @@ class User(BaseModel):
     def generate_refresh_token_nonce(self):
         self.refresh_token_nonce = uuid4().hex
         return self.refresh_token_nonce
+
+    def to_dict(self):
+        return dict(
+            id=self.id,
+            email=self.email,
+            company=self.company.to_dict(),
+            first_name=self.first_name,
+            last_name=self.last_name,
+        )

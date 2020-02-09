@@ -70,3 +70,14 @@ class Activity(BaseModel):
             ActivityValidationStatus.PENDING,
             ActivityValidationStatus.VALIDATED,
         ]
+
+    def to_dict(self):
+        return dict(
+            id=self.id,
+            type=self.type,
+            event_time=self.event_time,
+            user=self.user.to_dict(),
+            company=self.company.to_dict(),
+            submitter=self.submitter.to_dict(),
+            validation_status=self.validation_status,
+        )

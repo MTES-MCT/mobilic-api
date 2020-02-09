@@ -1,3 +1,4 @@
+from flask import jsonify
 from flask_jwt_extended import jwt_required, current_user
 from flask_restful import Resource
 from typing import List
@@ -6,6 +7,7 @@ from sqlalchemy.orm import joinedload
 from app.controllers.utils import parse_request_with_schema, atomic_transaction
 from app.data_access.activity import ActivityPostData
 from app.domain.log_activities import log_group_activity
+from app.models import Activity
 from app.models.user import User
 from app.models.company import Company
 
@@ -30,8 +32,9 @@ class ActivityController(Resource):
                     [group_activity.company_id for group_activity in data]
                 )
             ).all()
+            activity_logs = []
             for group_activity in data:
-                activity_logs = log_group_activity(
+                activity_logs += log_group_activity(
                     submitter=submitter,
                     company=Company.query.get(group_activity.company_id),
                     users=[
@@ -46,4 +49,4 @@ class ActivityController(Resource):
                     else None,
                 )
 
-        return {}
+        return jsonify([a for a in activity_logs if type(a) is Activity])
