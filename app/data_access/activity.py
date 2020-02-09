@@ -19,7 +19,6 @@ class GroupActivityData:
     type: str = field(
         metadata=config(mm_field=mm_enum_field(InputableActivityTypes))
     )
-    submitter_id: int
     user_ids: List[int]
     company_id: int
     driver_idx: Optional[int] = None

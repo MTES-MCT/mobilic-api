@@ -61,20 +61,26 @@ def log_activity(submitter, user, company, type, event_time):
         validation_status = ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
     else:
         latest_activity_log = user.current_acknowledged_activity
-        if latest_activity_log.event_time >= event_time:
-            validation_status = (
-                ActivityValidationStatus.CONFLICTING_WITH_HISTORY
-            )
-        else:
-            if event_time - latest_activity_log.event_time < timedelta(
-                minutes=app.config["MINIMUM_ACTIVITY_DURATION"]
-            ):
-                db.session.delete(latest_activity_log)
-                latest_activity_log = user.current_acknowledged_activity
-            if latest_activity_log.type == type:
-                validation_status = ActivityValidationStatus.NO_ACTIVITY_SWITCH
+        if latest_activity_log:
+            if latest_activity_log.event_time >= event_time:
+                validation_status = (
+                    ActivityValidationStatus.CONFLICTING_WITH_HISTORY
+                )
+            else:
+                if event_time - latest_activity_log.event_time < timedelta(
+                    minutes=app.config["MINIMUM_ACTIVITY_DURATION"]
+                ):
+                    if latest_activity_log.id is not None:
+                        db.session.delete(latest_activity_log)
+                    else:
+                        db.session.expunge(latest_activity_log)
+                    latest_activity_log = user.current_acknowledged_activity
+                if latest_activity_log.type == type:
+                    validation_status = (
+                        ActivityValidationStatus.NO_ACTIVITY_SWITCH
+                    )
 
-    return Activity(
+    activity = Activity(
         type=type,
         event_time=event_time,
         reception_time=reception_time,
@@ -83,6 +89,8 @@ def log_activity(submitter, user, company, type, event_time):
         submitter=submitter,
         validation_status=validation_status,
     )
+    db.session.add(activity)
+    return activity
 
 
 def _can_submitter_log_for_user(
