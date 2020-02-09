@@ -10,7 +10,7 @@ from app.models.activity import InputableActivityTypes
 
 
 @request_data_schema
-class GroupActivityData:
+class ActivityPostData:
     event_time: int = field(
         metadata=config(
             encoder=to_timestamp, decoder=from_timestamp, mm_field=fields.Int()

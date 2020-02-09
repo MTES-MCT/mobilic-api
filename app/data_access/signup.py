@@ -2,7 +2,7 @@ from app.controllers.utils import request_data_schema
 
 
 @request_data_schema
-class SignupData:
+class SignupPostData:
     email: str
     password: str
     first_name: str

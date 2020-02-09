@@ -4,16 +4,16 @@ from typing import List
 from sqlalchemy.orm import joinedload
 
 from app.controllers.utils import parse_request_with_schema, atomic_transaction
-from app.data_access.activity import GroupActivityData
+from app.data_access.activity import ActivityPostData
 from app.domain.log_activities import log_group_activity
 from app.models.user import User
 from app.models.company import Company
 
 
 class ActivityController(Resource):
-    @parse_request_with_schema(GroupActivityData, many=True)
+    @parse_request_with_schema(ActivityPostData, many=True)
     @jwt_required
-    def post(self, data: List[GroupActivityData]):
+    def post(self, data: List[ActivityPostData]):
         with atomic_transaction(commit_at_end=True):
             concerned_user_ids = {
                 user_id
