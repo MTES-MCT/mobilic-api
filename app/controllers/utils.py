@@ -30,7 +30,7 @@ def parse_request_with_schema(data_class, many=False):
             try:
                 data_class.schema().load(data, many=many)
             except ValidationError as e:
-                raise e
+                return {"validation_error": e.normalized_messages()}, 400
             if many:
                 if type(data) is list:
                     parsed_data = [data_class.from_dict(item) for item in data]
