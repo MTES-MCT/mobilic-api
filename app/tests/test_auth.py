@@ -1,22 +1,14 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
 
-from app.tests import BaseTest
+from app.tests import BaseTest, UserFactory
 from app import app, db
-from app.models import User, Company
 
 
 class TestAuth(BaseTest):
     def setUp(self):
         super().setUp()
-        company = Company.create(name="world corp")
-        self.user = User.create(
-            email="test@test.test",
-            password="passwd",
-            first_name="Moby",
-            last_name="Lick",
-            company=company,
-        )
+        self.user = UserFactory.create(password="passwd")
 
     def test_login_fails_on_wrong_email(self):
         with app.test_client() as c:
