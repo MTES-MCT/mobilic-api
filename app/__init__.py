@@ -12,7 +12,10 @@ db = SQLAlchemy(app)
 
 Migrate(app, db)
 
-from app import models
+from app.helpers.json import CustomJSONEncoder
+
+app.json_encoder = CustomJSONEncoder
+
 from app.controllers import api
 from app.helpers import cli
 
