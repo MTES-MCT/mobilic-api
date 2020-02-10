@@ -11,6 +11,7 @@ class EventBaseValidationStatus(str, Enum):
     VALIDATED = "validated"
     PENDING = "pending"
     REJECTED = "rejected"
+    UNAUTHORIZED_SUBMITTER = ("unauthorized_submitter",)
 
 
 class EventBaseModel(BaseModel):

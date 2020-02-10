@@ -9,7 +9,7 @@ from app.models.activity import (
 )
 
 
-class ActivityLogError:
+class EventLogError:
     pass
 
 
@@ -55,12 +55,12 @@ def log_activity(
     mission,
 ):
     if not submitter or not user or not company:
-        return ActivityLogError
+        return EventLogError
 
     reception_time = datetime.now()
 
     if event_time >= reception_time:
-        return ActivityLogError
+        return EventLogError
 
     already_existing_logs_for_activity = [
         activity
@@ -76,7 +76,7 @@ def log_activity(
 
     validation_status = ActivityValidationStatus.PENDING
 
-    if not _can_submitter_log_for_user(submitter, user, company):
+    if not can_submitter_log_for_user(submitter, user, company):
         validation_status = ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
     else:
         latest_activity_log = user.current_acknowledged_activity
@@ -114,7 +114,7 @@ def log_activity(
     return activity
 
 
-def _can_submitter_log_for_user(
+def can_submitter_log_for_user(
     submitter, user, company,
 ):
     return submitter.company_id == user.company_id == company.id

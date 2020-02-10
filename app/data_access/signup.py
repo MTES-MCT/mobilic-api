@@ -3,6 +3,7 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 
 from app.controllers.utils import request_data_schema
 from app.data_access.activity import ActivityOutput
+from app.data_access.expenditure import ExpenditureOutput
 from app.domain.permissions import self_or_company_admin, belongs_to_company
 from app.helpers.authorization import with_authorization_policy
 from app.models import User, Company
@@ -34,12 +35,19 @@ class UserOutput(SQLAlchemyObjectType):
         )
 
     activities = graphene.List(ActivityOutput)
+    expenditures = graphene.List(ExpenditureOutput)
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_activities(self, info):
         return self.acknowledged_activities
+
+    @with_authorization_policy(
+        self_or_company_admin, get_target_from_args=lambda self, info: self
+    )
+    def resolve_expenditures(self, info):
+        return self.expenditures
 
 
 class CompanyOutput(SQLAlchemyObjectType):

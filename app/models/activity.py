@@ -27,7 +27,6 @@ ActivityTypes = Enum(
 ActivityValidationStatus = Enum(
     "ActivityValidationStatus",
     dict(
-        UNAUTHORIZED_SUBMITTER="unauthorized_submitter",
         CONFLICTING_WITH_HISTORY="conflicting_with_history",
         NO_ACTIVITY_SWITCH="no_activity_switch",
         **{

@@ -36,3 +36,10 @@ class Query(graphene.ObjectType):
     def resolve_company(self, info, id):
         matching_company = _query_company_with_relations(id)
         return matching_company
+
+
+@with_authorization_policy(
+    company_admin, get_target_from_args=lambda id, *args, **kwargs: id
+)
+def download_activity_report(id):
+    company = _query_company_with_relations(id)

@@ -26,7 +26,6 @@ class ActivityLog(graphene.Mutation):
                 for group_activity in input
                 for user_id in group_activity.user_ids
             }
-            submitter = current_user
             User.query.options(joinedload(User.activities)).filter(
                 User.id.in_(list(concerned_user_ids))
             ).all()
@@ -39,7 +38,7 @@ class ActivityLog(graphene.Mutation):
             activity_logs = []
             for group_activity in input:
                 activity_logs += log_group_activity(
-                    submitter=submitter,
+                    submitter=current_user,
                     company=Company.query.get(group_activity.company_id),
                     users=[
                         User.query.get(uid) for uid in group_activity.user_ids
