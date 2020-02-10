@@ -9,215 +9,330 @@ class TestAuth(BaseTest):
     def setUp(self):
         super().setUp()
         self.user = UserFactory.create(password="passwd")
+        self.login_query = """
+            mutation ($input: InputWithValidation!) {
+                    auth {
+                        login (input: $input) {
+                            accessToken
+                            refreshToken
+                        }
+                    }
+                }
+            """
+
+        self.refresh_query = """
+            mutation {
+                    auth {
+                        refresh {
+                            accessToken
+                            refreshToken
+                        }
+                    }
+                }
+            """
+
+        self.check_query = """
+            mutation {
+                    auth {
+                        check {
+                            message
+                            userId
+                        }
+                    }
+                }
+            """
 
     def test_login_fails_on_wrong_email(self):
         with app.test_client() as c:
-            login_response = c.post(
-                "/auth/login",
-                json=dict(email="random-junk", password="passwd"),
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email="random-junk", password="passwd")
+                ),
             )
-            self.assertEqual(login_response.status_code, 401)
+            self.assertIsNotNone(login_response.json.get("errors"))
+            self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
-            login_response = c.post(
-                "/auth/login",
-                json=dict(email="testt@test.test", password="passwd"),
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email="testt@test.test", password="passwd")
+                ),
             )
-            self.assertEqual(login_response.status_code, 401)
+            self.assertIsNotNone(login_response.json.get("errors"))
+            self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
     def test_login_fails_on_wrong_password(self):
         with app.test_client() as c:
-            login_response = c.post(
-                "/auth/login",
-                json=dict(email=self.user.email, password="passwdd"),
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email=self.user.email, password="passw")
+                ),
             )
-            self.assertEqual(login_response.status_code, 401)
+            self.assertIsNotNone(login_response.json.get("errors"))
+            self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
-            login_response = c.post(
-                "/auth/login",
-                json=dict(email=self.user.email, password="passw"),
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email=self.user.email, password="passwdd")
+                ),
             )
-            self.assertEqual(login_response.status_code, 401)
+            self.assertIsNotNone(login_response.json.get("errors"))
+            self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
-            login_response = c.post(
-                "/auth/login", json=dict(email="random-junk", password="passw")
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email="random-junk", password="passwdd")
+                ),
             )
-            self.assertEqual(login_response.status_code, 401)
+            self.assertIsNotNone(login_response.json.get("errors"))
+            self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
     def test_auth_token_flow_works_correctly(self):
         base_time = datetime.now()
         with app.test_client() as c:
             # Step 1 : login
             with freeze_time(base_time):
-                login_response = c.post(
-                    "/auth/login",
-                    json=dict(email=self.user.email, password="passwd"),
+                login_response = c.post_graphql(
+                    self.login_query,
+                    variables=dict(
+                        input=dict(email=self.user.email, password="passwd")
+                    ),
                 )
                 self.assertEqual(login_response.status_code, 200)
+                login_response_data = login_response.json["data"]["auth"][
+                    "login"
+                ]
+                self.assertIn("accessToken", login_response_data)
+                self.assertIn("refreshToken", login_response_data)
 
             # Step 2 : access protected endpoint within token expiration time
             with freeze_time(base_time + timedelta(seconds=30)):
-                access_response = c.post(
-                    "/auth/check",
+                access_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['access_token']}",
+                            f"Bearer {login_response_data['accessToken']}",
                         )
                     ],
                 )
                 self.assertEqual(access_response.status_code, 200)
-                self.assertEqual(access_response.json["user_id"], self.user.id)
+                access_response_data = access_response.json["data"]["auth"][
+                    "check"
+                ]
+                self.assertEqual(access_response_data["userId"], self.user.id)
 
             # Refresh access token after expiration
             with freeze_time(
                 base_time
                 + timedelta(minutes=10 + app.config["ACCESS_TOKEN_EXPIRATION"])
             ):
-                expired_access_response = c.post(
-                    "/auth/check",
+                expired_access_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['access_token']}",
+                            f"Bearer {login_response_data['accessToken']}",
                         )
                     ],
                 )
-                self.assertEqual(expired_access_response.status_code, 401)
+                self.assertIsNotNone(
+                    expired_access_response.json.get("errors")
+                )
+                self.assertIsNone(
+                    expired_access_response.json["data"]["auth"]["check"]
+                )
 
-                refresh_response = c.post(
-                    "/auth/refresh",
+                refresh_response = c.post_graphql(
+                    self.refresh_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['refresh_token']}",
+                            f"Bearer {login_response_data['refreshToken']}",
                         )
                     ],
                 )
                 self.assertEqual(refresh_response.status_code, 200)
+                refresh_response_data = refresh_response.json["data"]["auth"][
+                    "refresh"
+                ]
+                self.assertIn("accessToken", refresh_response_data)
+                self.assertIn("refreshToken", refresh_response_data)
 
-                new_access_response = c.post(
-                    "/auth/check",
+                new_access_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {refresh_response.json['access_token']}",
+                            f"Bearer {refresh_response_data['accessToken']}",
                         )
                     ],
                 )
                 self.assertEqual(new_access_response.status_code, 200)
+                new_access_response_data = new_access_response.json["data"][
+                    "auth"
+                ]["check"]
                 self.assertEqual(
-                    new_access_response.json["user_id"], self.user.id
+                    new_access_response_data["userId"], self.user.id
                 )
 
-                reuse_refresh_token_response = c.post(
-                    "/auth/refresh",
+                reuse_refresh_token_response = c.post_graphql(
+                    self.refresh_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['refresh_token']}",
+                            f"Bearer {login_response_data['refreshToken']}",
                         )
                     ],
                 )
-                self.assertEqual(reuse_refresh_token_response.status_code, 401)
+                self.assertIsNotNone(
+                    reuse_refresh_token_response.json.get("errors")
+                )
+                self.assertIsNone(
+                    reuse_refresh_token_response.json["data"]["auth"][
+                        "refresh"
+                    ]
+                )
 
     def test_access_fails_on_bad_token(self):
         base_time = datetime.now()
         with app.test_client() as c:
             # Step 1 : login
             with freeze_time(base_time):
-                login_response = c.post(
-                    "/auth/login",
-                    json=dict(email=self.user.email, password="passwd"),
+                login_response = c.post_graphql(
+                    self.login_query,
+                    variables=dict(
+                        input=dict(email=self.user.email, password="passwd")
+                    ),
                 )
                 self.assertEqual(login_response.status_code, 200)
+                login_response_data = login_response.json["data"]["auth"][
+                    "login"
+                ]
+                self.assertIn("accessToken", login_response_data)
+                self.assertIn("refreshToken", login_response_data)
 
             with freeze_time(base_time + timedelta(seconds=30)):
-                wrong_access_response = c.post(
-                    "/auth/check",
+                wrong_access_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['access_token']}abc",
+                            f"Bearer {login_response_data['accessToken']}abc",
                         )
                     ],
                 )
-                self.assertEqual(wrong_access_response.status_code, 401)
+                self.assertIsNotNone(wrong_access_response.json.get("errors"))
+                self.assertIsNone(
+                    wrong_access_response.json["data"]["auth"]["check"]
+                )
 
-                mixing_tokens_response = c.post(
-                    "/auth/check",
+                mixing_tokens_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['refresh_token']}",
+                            f"Bearer {login_response_data['refreshToken']}",
                         )
                     ],
                 )
-                self.assertEqual(mixing_tokens_response.status_code, 401)
+                self.assertIsNotNone(mixing_tokens_response.json.get("errors"))
+                self.assertIsNone(
+                    mixing_tokens_response.json["data"]["auth"]["check"]
+                )
 
     def test_refresh_fails_on_bad_token(self):
         with app.test_client() as c:
-            login_response = c.post(
-                "/auth/login",
-                json=dict(email=self.user.email, password="passwd"),
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(
+                    input=dict(email=self.user.email, password="passwd")
+                ),
             )
             self.assertEqual(login_response.status_code, 200)
+            login_response_data = login_response.json["data"]["auth"]["login"]
+            self.assertIn("accessToken", login_response_data)
+            self.assertIn("refreshToken", login_response_data)
 
-            wrong_refresh_response = c.post(
-                "/auth/refresh",
+            wrong_refresh_response = c.post_graphql(
+                self.refresh_query,
                 headers=[
                     (
                         "Authorization",
-                        f"Bearer {login_response.json['refresh_token']}abc",
+                        f"Bearer {login_response_data['refreshToken']}abc",
                     )
                 ],
             )
-            self.assertEqual(wrong_refresh_response.status_code, 401)
+            self.assertIsNotNone(wrong_refresh_response.json.get("errors"))
+            self.assertIsNone(
+                wrong_refresh_response.json["data"]["auth"]["refresh"]
+            )
 
-            mixing_tokens_response = c.post(
-                "/auth/refresh",
+            mixing_tokens_response = c.post_graphql(
+                self.refresh_query,
                 headers=[
                     (
                         "Authorization",
-                        f"Bearer {login_response.json['access_token']}",
+                        f"Bearer {login_response_data['accessToken']}",
                     )
                 ],
             )
-            self.assertEqual(mixing_tokens_response.status_code, 401)
+            self.assertIsNotNone(mixing_tokens_response.json.get("errors"))
+            self.assertIsNone(
+                mixing_tokens_response.json["data"]["auth"]["refresh"]
+            )
 
     def test_tokens_fail_on_revoked_user(self):
         base_time = datetime.now()
         with app.test_client() as c:
             # Step 1 : login
             with freeze_time(base_time):
-                login_response = c.post(
-                    "/auth/login",
-                    json=dict(email=self.user.email, password="passwd"),
+                login_response = c.post_graphql(
+                    self.login_query,
+                    variables=dict(
+                        input=dict(email=self.user.email, password="passwd")
+                    ),
                 )
                 self.assertEqual(login_response.status_code, 200)
+                login_response_data = login_response.json["data"]["auth"][
+                    "login"
+                ]
+                self.assertIn("accessToken", login_response_data)
+                self.assertIn("refreshToken", login_response_data)
 
             # Revoke user
             self.user.refresh_token_nonce = None
             db.session.commit()
 
             with freeze_time(base_time + timedelta(seconds=30)):
-                wrong_access_response = c.post(
-                    "/auth/check",
+                wrong_access_response = c.post_graphql(
+                    self.check_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['access_token']}",
+                            f"Bearer {login_response_data['accessToken']}",
                         )
                     ],
                 )
-                self.assertEqual(wrong_access_response.status_code, 401)
+                self.assertIsNotNone(wrong_access_response.json.get("errors"))
+                self.assertIsNone(
+                    wrong_access_response.json["data"]["auth"]["check"]
+                )
 
-                wrong_refresh_response = c.post(
-                    "/auth/refresh",
+                wrong_refresh_response = c.post_graphql(
+                    self.refresh_query,
                     headers=[
                         (
                             "Authorization",
-                            f"Bearer {login_response.json['refresh_token']}",
+                            f"Bearer {login_response_data['refreshToken']}",
                         )
                     ],
                 )
-                self.assertEqual(wrong_refresh_response.status_code, 401)
+                self.assertIsNotNone(wrong_refresh_response.json.get("errors"))
+                self.assertIsNone(
+                    wrong_refresh_response.json["data"]["auth"]["refresh"]
+                )

@@ -9,7 +9,11 @@ def mm_enum_field(enum):
 
 
 def with_input_from_schema(data_class, many=False):
-    class MarshmallowDataClassSchemaInput(generic.GenericScalar):
+    # Careful when renaming this class since the name is used by GraphQL as type identifier
+    # This will notably break the tests
+    class InputWithValidation(generic.GenericScalar):
+        name = "InputWithValidation"
+
         @staticmethod
         def serialize(dc):
             raise NotImplementedError(
@@ -19,7 +23,7 @@ def with_input_from_schema(data_class, many=False):
         @staticmethod
         def parse_literal(node):
             data = generic.GenericScalar.parse_literal(node)
-            return MarshmallowDataClassSchemaInput.parse_value(data)
+            return InputWithValidation.parse_value(data)
 
         @staticmethod
         def parse_value(data):
@@ -42,9 +46,7 @@ def with_input_from_schema(data_class, many=False):
     def decorator(cls):
         class WithInputFromMarshmallowSchema(cls):
             class Arguments:
-                input = graphene.Argument(
-                    MarshmallowDataClassSchemaInput, required=True
-                )
+                input = graphene.Argument(InputWithValidation, required=True)
 
         return WithInputFromMarshmallowSchema
 

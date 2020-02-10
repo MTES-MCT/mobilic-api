@@ -1,11 +1,10 @@
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
-from datetime import datetime
 import factory
+from flask.testing import FlaskClient
 
 from app import app, db
-from app.models import User, Company, Activity
-from app.models.activity import ActivityTypes, ActivityValidationStatus
+from app.models import User, Company
 from config import TestConfig
 
 
@@ -41,6 +40,43 @@ class MockAuthenticationWithUser:
     def __exit__(self, *args, **kwargs):
         self.mocked_authenticated_user.__exit__(*args, **kwargs)
         self.mocked_token_verification.__exit__(*args, **kwargs)
+
+
+class GraphQLTestClient(FlaskClient):
+    def __init__(self, *args, mock_authentication_with_user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mocked_authenticated_user = None
+        self.mocked_token_verification = None
+        if mock_authentication_with_user:
+            self.mocked_token_verification = patch(
+                "flask_jwt_extended.view_decorators.verify_jwt_in_request",
+                new=MagicMock(return_value=None),
+            )
+            self.mocked_authenticated_user = patch(
+                "flask_jwt_extended.utils.get_current_user",
+                new=MagicMock(return_value=mock_authentication_with_user),
+            )
+
+    def __enter__(self, *args, **kwargs):
+        super().__enter__(*args, **kwargs)
+        if self.mocked_authenticated_user:
+            self.mocked_token_verification.__enter__(*args, **kwargs)
+            self.mocked_authenticated_user.__enter__(*args, **kwargs)
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        if self.mocked_token_verification:
+            self.mocked_authenticated_user.__exit__(*args, **kwargs)
+            self.mocked_token_verification.__exit__(*args, **kwargs)
+        super().__exit__(*args, **kwargs)
+
+    def post_graphql(self, query, variables=None, **kwargs):
+        return self.post(
+            "/graphql", json=dict(query=query, variables=variables), **kwargs
+        )
+
+
+app.test_client_class = GraphQLTestClient
 
 
 class BaseFactory(factory.alchemy.SQLAlchemyModelFactory):
