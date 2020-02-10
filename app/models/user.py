@@ -14,6 +14,7 @@ class User(BaseModel):
     refresh_token_nonce = db.Column(db.String(255), default=None)
     first_name = db.Column(db.String(255))
     last_name = db.Column(db.String(255))
+    is_company_admin = db.Column(db.Boolean, default=False, nullable=False)
 
     @property
     def password(self):
