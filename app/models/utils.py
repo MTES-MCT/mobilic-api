@@ -8,5 +8,6 @@ def enum_column(enum, **kwargs):
             native_enum=False,
             validate_strings=True,
             values_callable=lambda e: [item.value for item in e],
-        )
+        ),
+        **kwargs,
     )
