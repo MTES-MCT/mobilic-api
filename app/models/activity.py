@@ -1,6 +1,6 @@
 from enum import Enum
-from app.models.base import BaseModel
 from app import db
+from app.models.event import EventBaseValidationStatus, EventBaseModel
 from app.models.utils import enum_column
 
 
@@ -24,38 +24,27 @@ ActivityTypes = Enum(
 )
 
 
-class ActivityValidationStatus(str, Enum):
-    UNAUTHORIZED_SUBMITTER = "unauthorized_submitter"
-    CONFLICTING_WITH_HISTORY = "conflicting_with_history"
-    NO_ACTIVITY_SWITCH = "no_activity_switch"
-    VALIDATED = "validated"
-    PENDING = "pending"
-    REJECTED = "rejected"
+ActivityValidationStatus = Enum(
+    "ActivityValidationStatus",
+    dict(
+        UNAUTHORIZED_SUBMITTER="unauthorized_submitter",
+        CONFLICTING_WITH_HISTORY="conflicting_with_history",
+        NO_ACTIVITY_SWITCH="no_activity_switch",
+        **{
+            event_validation_status.name: event_validation_status.value
+            for event_validation_status in EventBaseValidationStatus
+        },
+    ),
+)
 
 
-class Activity(BaseModel):
+class Activity(EventBaseModel):
+    backref_base_name = "activities"
+
     type = enum_column(ActivityTypes, nullable=False)
-    event_time = db.Column(db.DateTime, nullable=False)
-    reception_time = db.Column(db.DateTime, nullable=False)
 
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
-    )
-    user = db.relationship(
-        "User", backref="activities", foreign_keys=[user_id]
-    )
-
-    company_id = db.Column(
-        db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
-    )
-    company = db.relationship("Company", backref="activities")
-
-    submitter_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
-    )
-    submitter = db.relationship(
-        "User", backref="submitted_activities", foreign_keys=[submitter_id]
-    )
+    vehicle_registration_number = db.Column(db.String(255))
+    mission = db.Column(db.String(255))
 
     validation_status = enum_column(ActivityValidationStatus, nullable=False)
 
@@ -64,20 +53,6 @@ class Activity(BaseModel):
     # - version (each version represents a set of changes to the day activities)
     # OR revises (indicates which prior activity the current one revises)
 
-    @property
-    def is_acknowledged(self):
-        return self.validation_status in [
-            ActivityValidationStatus.PENDING,
-            ActivityValidationStatus.VALIDATED,
-        ]
-
     def to_dict(self):
-        return dict(
-            id=self.id,
-            type=self.type,
-            event_time=self.event_time,
-            user=self.user.to_dict(),
-            company=self.company.to_dict(),
-            submitter=self.submitter.to_dict(),
-            validation_status=self.validation_status,
-        )
+        base_dict = super().to_dict()
+        return dict(**base_dict, type=self.type,)

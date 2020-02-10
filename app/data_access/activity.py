@@ -23,6 +23,8 @@ class ActivityInputData:
     user_ids: List[int]
     company_id: int
     driver_idx: Optional[int] = None
+    vehicle_registration_number: Optional[str] = None
+    mission: Optional[str] = None
 
 
 class ActivityOutput(SQLAlchemyObjectType):

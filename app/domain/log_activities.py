@@ -13,7 +13,16 @@ class ActivityLogError:
     pass
 
 
-def log_group_activity(submitter, company, users, type, event_time, driver):
+def log_group_activity(
+    submitter,
+    company,
+    users,
+    type,
+    event_time,
+    driver,
+    vehicle_registration_number,
+    mission,
+):
     activities_per_user = {user: type for user in users}
     if type == ActivityTypes.DRIVE:
         for user in users:
@@ -29,12 +38,22 @@ def log_group_activity(submitter, company, users, type, event_time, driver):
             user=user,
             company=company,
             submitter=submitter,
+            vehicle_registration_number=vehicle_registration_number,
+            mission=mission,
         )
         for user in users
     ]
 
 
-def log_activity(submitter, user, company, type, event_time):
+def log_activity(
+    submitter,
+    user,
+    company,
+    type,
+    event_time,
+    vehicle_registration_number,
+    mission,
+):
     if not submitter or not user or not company:
         return ActivityLogError
 
@@ -88,6 +107,8 @@ def log_activity(submitter, user, company, type, event_time):
         company=company,
         submitter=submitter,
         validation_status=validation_status,
+        vehicle_registration_number=vehicle_registration_number,
+        mission=mission,
     )
     db.session.add(activity)
     return activity

@@ -51,6 +51,8 @@ class ActivityLog(graphene.Mutation):
                     )
                     if group_activity.driver_idx is not None
                     else None,
+                    vehicle_registration_number=group_activity.vehicle_registration_number,
+                    mssion=group_activity.mission,
                 )
 
         return ActivityLog(
