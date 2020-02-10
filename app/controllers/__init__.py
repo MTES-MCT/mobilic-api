@@ -1,5 +1,6 @@
 import graphene
 
+from app.controllers.expenditure import ExpenditureLog
 from app.helpers.authentication import AuthMutation
 from app.controllers.activity import ActivityLog
 import app.controllers.user
@@ -11,6 +12,7 @@ class Mutations(graphene.ObjectType):
         AuthMutation, resolver=lambda root, info: AuthMutation()
     )
     log_activities = ActivityLog.Field()
+    log_expenditures = ExpenditureLog.Field()
     signup_user = user.UserSignup.Field()
     signup_company = company.CompanySignup.Field()
 
