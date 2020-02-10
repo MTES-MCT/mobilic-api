@@ -18,8 +18,11 @@ from app.helpers import cli
 from app.controllers import graphql_schema
 
 
+graphql_api_path = "/api/graphql"
+
+
 app.add_url_rule(
-    "/api",
+    graphql_api_path,
     view_func=GraphQLView.as_view(
         "graphql", schema=graphql_schema, graphiql=True
     ),

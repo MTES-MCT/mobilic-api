@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import factory
 from flask.testing import FlaskClient
 
-from app import app, db
+from app import app, db, graphql_api_path
 from app.models import User, Company
 from config import TestConfig
 
@@ -72,7 +72,9 @@ class GraphQLTestClient(FlaskClient):
 
     def post_graphql(self, query, variables=None, **kwargs):
         return self.post(
-            "/api", json=dict(query=query, variables=variables), **kwargs
+            graphql_api_path,
+            json=dict(query=query, variables=variables),
+            **kwargs,
         )
 
 
