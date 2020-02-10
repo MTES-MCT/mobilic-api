@@ -8,15 +8,9 @@ def mm_enum_field(enum):
     return fields.Str(validate=validate.OneOf(list(enum)))
 
 
-# Careful when renaming this class since the name is used by GraphQL as type identifier
-# This will notably break the tests
-class InputWithValidation(generic.GenericScalar):
-    pass
-
-
 def with_input_from_schema(data_class, many=False):
     def decorator(cls):
-        class MarshmallowDataClassSchemaInput(InputWithValidation):
+        class MarshmallowDataClassSchemaInput(generic.GenericScalar):
             class Meta:
                 name = cls.__name__ + "Input"
 

@@ -15,15 +15,18 @@ def authenticated(user):
 
 
 def with_authorization_policy(
-    authorization_rule, get_target_from_parent=None, get_target_from_self=None
+    authorization_rule,
+    get_target_from_args=None,
+    get_target_from_return_value=None,
 ):
     rule_requires_target = len(signature(authorization_rule).parameters) > 1
     if rule_requires_target and (
-        (get_target_from_parent is None) == (get_target_from_self is None)
+        (get_target_from_args is None)
+        == (get_target_from_return_value is None)
     ):
         raise ValueError(
             f"The authorization rule {authorization_rule} needs a target to be applied to. "
-            f"You must set exactly one of get_target_from_parent or get_target_from_self"
+            f"You must set exactly one of get_target_from_args or get_target_from_return_value"
         )
 
     def decorator(resolver):
@@ -31,19 +34,19 @@ def with_authorization_policy(
             return resolver
 
         @wraps(resolver)
-        def decorated_resolver(parent, info, *args, **kwargs):
+        def decorated_resolver(*args, **kwargs):
             if not rule_requires_target and not authorization_rule(
                 current_user
             ):
                 raise GraphQLError("Unauthorized")
-            elif rule_requires_target and get_target_from_parent:
-                target = get_target_from_parent(parent)
+            elif rule_requires_target and get_target_from_args:
+                target = get_target_from_args(*args, **kwargs)
                 if not authorization_rule(current_user, target):
                     raise GraphQLError("Unauthorized")
-            value = resolver(parent, info, *args, **kwargs)
+            value = resolver(*args, **kwargs)
 
-            if rule_requires_target and get_target_from_self:
-                target = get_target_from_self(value)
+            if rule_requires_target and get_target_from_return_value:
+                target = get_target_from_return_value(value)
                 if not authorization_rule(current_user, target):
                     raise GraphQLError("Unauthorized")
             return value

@@ -36,7 +36,7 @@ class UserOutput(SQLAlchemyObjectType):
     activities = graphene.List(ActivityOutput)
 
     @with_authorization_policy(
-        self_or_company_admin, get_target_from_parent=lambda parent: parent
+        self_or_company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_activities(self, info):
         return self.acknowledged_activities
@@ -50,7 +50,7 @@ class CompanyOutput(SQLAlchemyObjectType):
     users = graphene.List(UserOutput)
 
     @with_authorization_policy(
-        belongs_to_company, get_target_from_parent=lambda parent: parent
+        belongs_to_company, get_target_from_args=lambda self, info: self
     )
     def resolve_users(self, info):
         return self.users

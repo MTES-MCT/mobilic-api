@@ -1,13 +1,5 @@
-from app.helpers.time import from_timestamp
-from app.models.activity import (
-    InputableActivityTypes,
-    ActivityValidationStatus,
-    ActivityTypes,
-)
 from app.tests import BaseTest, UserFactory
-from app import app, db
-from app.models import User
-from sqlalchemy.orm import joinedload
+from app import app
 
 
 class TestQueries(BaseTest):

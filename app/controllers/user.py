@@ -25,7 +25,7 @@ class Query(graphene.ObjectType):
     user = graphene.Field(UserOutput, id=graphene.Int(required=True))
 
     @with_authorization_policy(
-        self_or_company_admin, get_target_from_self=lambda self: self
+        self_or_company_admin, get_target_from_return_value=lambda user: user
     )
     def resolve_user(self, info, id):
         matching_user = User.query.options(joinedload(User.activities)).get(id)
