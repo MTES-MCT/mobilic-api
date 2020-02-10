@@ -9,42 +9,6 @@ from dataclasses import dataclass
 from app import db
 
 
-def _convert_data_to_dict(data):
-    if (type(data)) is list:
-        return data
-    if type(data) is dict:
-        return data
-    if type(data) is MultiDict:
-        arg_dict_with_list_values = data.to_dict(flat=False)
-        return {
-            key: value[0] if len(value) == 1 else value
-            for key, value in arg_dict_with_list_values.items()
-        }
-    raise ValueError("Could not parse input data")
-
-
-def parse_request_with_schema(data_class, many=False):
-    def decorator(method):
-        def wrapper(*args, **kwargs):
-            data = _convert_data_to_dict(request.get_json())
-            try:
-                data_class.schema().load(data, many=many)
-            except ValidationError as e:
-                return {"validation_error": e.normalized_messages()}, 400
-            if many:
-                if type(data) is list:
-                    parsed_data = [data_class.from_dict(item) for item in data]
-                else:
-                    parsed_data = [data_class.from_dict(data)]
-            else:
-                parsed_data = data_class.from_dict(data)
-            return method(*args, data=parsed_data, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
 def request_data_schema(cls):
     return dataclass_json(dataclass(cls))
 

@@ -72,7 +72,7 @@ class GraphQLTestClient(FlaskClient):
 
     def post_graphql(self, query, variables=None, **kwargs):
         return self.post(
-            "/graphql", json=dict(query=query, variables=variables), **kwargs
+            "/api", json=dict(query=query, variables=variables), **kwargs
         )
 
 

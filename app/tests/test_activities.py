@@ -6,13 +6,13 @@ from app.models.activity import (
     ActivityValidationStatus,
     ActivityTypes,
 )
-from app.tests import BaseTest, UserFactory, MockAuthenticationWithUser
+from app.tests import BaseTest, UserFactory
 from app import app, db
 from app.models import User
 from sqlalchemy.orm import joinedload
 
 
-class TestAuth(BaseTest):
+class TestLogActivities(BaseTest):
     def setUp(self):
         super().setUp()
         self.team_leader = UserFactory.create()
@@ -45,11 +45,21 @@ class TestAuth(BaseTest):
             for user in users
         }
 
-        with app.test_client() as c:
-            with MockAuthenticationWithUser(submitter):
-                response = c.post(
-                    "/api/activities",
-                    json=[
+        with app.test_client(mock_authentication_with_user=submitter) as c:
+            response = c.post_graphql(
+                """
+                mutation ($input: ActivityLogInput!) {
+                    logActivities (input: $input) {
+                        activities {
+                            id
+                            type
+                            validationStatus
+                        }
+                    }
+                }
+                """,
+                variables=dict(
+                    input=[
                         dict(
                             user_ids=a["user_ids"],
                             event_time=a["event_time"],
@@ -58,8 +68,9 @@ class TestAuth(BaseTest):
                             driver_idx=a.get("driver_idx", 0),
                         )
                         for a in activities
-                    ],
-                )
+                    ]
+                ),
+            )
         if should_fail_parsing:
             self.assertEqual(response.status_code, 400)
         else:

@@ -1,19 +1,18 @@
-from flask_restful import Resource
-from flask import jsonify
+import graphene
 
-from app.controllers.utils import parse_request_with_schema, atomic_transaction
-from app.data_access.signup import SignupPostData
+from app.data_access.utils import with_input_from_schema
+from app.data_access.signup import SignupPostData, UserOutput
 from app.models import User
 from app import db
 
 
-class UserController(Resource):
-    @parse_request_with_schema(SignupPostData)
-    def post(self, data):
-        try:
-            user = User(**data.to_dict())
-            db.session.add(user)
-            db.session.commit()
-            return jsonify(user)
-        except Exception as e:
-            raise e
+@with_input_from_schema(SignupPostData)
+class UserSignup(graphene.Mutation):
+    user = graphene.Field(UserOutput)
+
+    @classmethod
+    def mutate(cls, _, info, input):
+        user = User(**input.to_dict())
+        db.session.add(user)
+        db.session.commit()
+        return UserSignup(user=user)

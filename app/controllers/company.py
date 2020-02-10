@@ -1,24 +1,18 @@
-from flask_restful import Resource
+import graphene
 
-from app.controllers.utils import (
-    parse_request_with_schema,
-    request_data_schema,
-)
+from app.data_access.signup import CompanySignupData, CompanyOutput
+from app.data_access.utils import with_input_from_schema
 from app.models import Company
 from app import db
 
 
-@request_data_schema
-class CompanySignupData:
-    name: str
+@with_input_from_schema(CompanySignupData)
+class CompanySignup(graphene.Mutation):
+    company = graphene.Field(CompanyOutput)
 
-
-class CompanyController(Resource):
-    @parse_request_with_schema(CompanySignupData)
-    def post(self, data):
-        try:
-            company = Company(name=data.name)
-            db.session.add(company)
-            db.session.commit()
-        except Exception as e:
-            raise e
+    @classmethod
+    def mutate(cls, _, info, input):
+        company = Company(name=input.name)
+        db.session.add(company)
+        db.session.commit()
+        return CompanySignup(company=company)

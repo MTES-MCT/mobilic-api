@@ -10,7 +10,7 @@ class TestAuth(BaseTest):
         super().setUp()
         self.user = UserFactory.create(password="passwd")
         self.login_query = """
-            mutation ($input: InputWithValidation!) {
+            mutation ($input: LoginMutationInput!) {
                     auth {
                         login (input: $input) {
                             accessToken
