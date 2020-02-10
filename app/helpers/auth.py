@@ -1,4 +1,3 @@
-from flask import Blueprint, jsonify
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -7,21 +6,20 @@ from flask_jwt_extended import (
     current_user,
     JWTManager,
 )
+import graphene
+from graphql import GraphQLError
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
 from datetime import timedelta
 from functools import wraps
 
-from app.controllers.utils import (
-    request_data_schema,
-    parse_request_with_schema,
-)
+
+from app.controllers.utils import request_data_schema
+from app.data_access.utils import with_input_from_schema
 from app.models.user import User
 from app import app, db
 
 jwt = JWTManager(app)
-
-auth = Blueprint("auth", __name__)
 
 
 class AuthError(Exception):
@@ -34,7 +32,9 @@ def with_auth_error_handling(f):
         try:
             return f(*args, **kwargs)
         except (AuthError, JWTExtendedException, PyJWTError) as e:
-            return jsonify({"error": "Unauthorized access"}), 401
+            raise GraphQLError(
+                "Authentication error", extensions=dict(details=str(e))
+            )
 
     return wrapper
 
@@ -76,40 +76,62 @@ def create_access_tokens_for(user):
     }
 
 
-@auth.route("/refresh", methods=["POST"])
-@with_auth_error_handling
-@jwt_refresh_token_required
-def refresh_user_token():
-    return jsonify(create_access_tokens_for(current_user)), 200
-
-
 @request_data_schema
 class LoginData:
     email: str
     password: str
 
 
-@auth.route("/login", methods=["POST"])
-@with_auth_error_handling
-@parse_request_with_schema(LoginData)
-def login(data):
-    user = User.query.filter(User.email == data.email).one_or_none()
-    if not user or not user.check_password(data.password):
-        raise AuthError()
-    return jsonify(create_access_tokens_for(user)), 200
+@with_input_from_schema(LoginData)
+class LoginMutation(graphene.Mutation):
+    access_token = graphene.String()
+    refresh_token = graphene.String()
+
+    @classmethod
+    @with_auth_error_handling
+    def mutate(cls, _, info, input: LoginData):
+        user = User.query.filter(User.email == input.email).one_or_none()
+        if not user or not user.check_password(input.password):
+            raise AuthError("Wrong credentials")
+        return LoginMutation(**create_access_tokens_for(user))
 
 
-@auth.route("/logout", methods=["POST"])
-@with_auth_error_handling
-@jwt_required
-def logout():
-    current_user.refresh_token_nonce = None
-    db.session.commit()
-    return jsonify(), 200
+class CheckMutation(graphene.Mutation):
+    message = graphene.String()
+    user_id = graphene.Int()
+
+    @classmethod
+    @with_auth_error_handling
+    @jwt_required
+    def mutate(cls, _, info):
+        return CheckMutation(message="success", user_id=current_user.id)
 
 
-@auth.route("/check", methods=["POST"])
-@with_auth_error_handling
-@jwt_required
-def check():
-    return jsonify({"message": "success", "user_id": current_user.id}), 200
+class LogoutMutation(graphene.Mutation):
+    message = graphene.String()
+
+    @classmethod
+    @with_auth_error_handling
+    @jwt_required
+    def mutate(cls, _, info):
+        current_user.refresh_token_nonce = None
+        db.session.commit()
+        return LogoutMutation(message="success")
+
+
+class RefreshMutation(graphene.Mutation):
+    access_token = graphene.String()
+    refresh_token = graphene.String()
+
+    @classmethod
+    @with_auth_error_handling
+    @jwt_refresh_token_required
+    def mutate(cls, _, info):
+        return RefreshMutation(**create_access_tokens_for(current_user))
+
+
+class AuthMutation(graphene.ObjectType):
+    login = LoginMutation.Field()
+    refresh = RefreshMutation.Field()
+    check = CheckMutation.Field()
+    logout = LogoutMutation.Field()

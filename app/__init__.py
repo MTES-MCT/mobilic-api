@@ -1,4 +1,6 @@
-from flask import Flask, jsonify
+import graphene
+from flask import Flask
+from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 
@@ -12,14 +14,24 @@ db = SQLAlchemy(app)
 
 Migrate(app, db)
 
-from app.helpers.json import CustomJSONEncoder
-
-app.json_encoder = CustomJSONEncoder
-
 
 from app.controllers import api
 from app.helpers import cli
 
-from app.helpers.auth import auth
+from app.helpers.auth import AuthMutation
 
-app.register_blueprint(auth, url_prefix="/auth")
+
+class Mutations(graphene.ObjectType):
+    auth = graphene.Field(
+        AuthMutation, resolver=lambda root, info: AuthMutation()
+    )
+
+
+graphql_schema = graphene.Schema(mutation=Mutations)
+
+app.add_url_rule(
+    "/graphql",
+    view_func=GraphQLView.as_view(
+        "graphql", schema=graphql_schema, graphiql=True
+    ),
+)
