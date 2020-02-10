@@ -13,7 +13,6 @@ from jwt import PyJWTError
 from datetime import timedelta
 from functools import wraps
 
-
 from app.controllers.utils import request_data_schema
 from app.data_access.utils import with_input_from_schema
 from app.models.user import User

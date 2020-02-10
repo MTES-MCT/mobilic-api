@@ -1,0 +1,25 @@
+from graphql import GraphQLError
+
+from app.models import Company, User
+
+
+def company_admin(actor, company_obj_or_id):
+    return actor.is_company_admin and belongs_to_company(
+        actor, company_obj_or_id
+    )
+
+
+def belongs_to_company(actor, company_obj_or_id):
+    company_id = company_obj_or_id
+    if type(company_obj_or_id) is Company:
+        company_id = company_obj_or_id.id
+    return actor.company_id == company_id
+
+
+def self_or_company_admin(actor, user_obj_or_id):
+    user = user_obj_or_id
+    if type(user_obj_or_id) is int:
+        user = User.query.get(user_obj_or_id)
+    if not user or not type(user) is User:
+        return False
+    return actor == user or company_admin(actor, user.company_id)
