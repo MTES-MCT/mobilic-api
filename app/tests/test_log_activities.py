@@ -54,6 +54,7 @@ class TestLogActivities(BaseTest):
                             id
                             type
                             validationStatus
+                            eventTime
                         }
                     }
                 }

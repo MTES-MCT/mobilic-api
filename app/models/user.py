@@ -46,6 +46,14 @@ class User(BaseModel):
         ]
 
     @property
+    def acknowledged_expenditures(self):
+        return [
+            expenditure
+            for expenditure in self.expenditures
+            if expenditure.is_acknowledged
+        ]
+
+    @property
     def current_acknowledged_activity(self):
         acknowledged_activities = self.acknowledged_activities
         if not acknowledged_activities:
