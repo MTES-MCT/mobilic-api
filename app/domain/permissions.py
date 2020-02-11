@@ -23,3 +23,11 @@ def self_or_company_admin(actor, user_obj_or_id):
     if not user or not type(user) is User:
         return False
     return actor == user or company_admin(actor, user.company_id)
+
+
+def can_submitter_log_for_user(
+    submitter, user, company,
+):
+    return belongs_to_company(submitter, company.id) and belongs_to_company(
+        user, company.id
+    )

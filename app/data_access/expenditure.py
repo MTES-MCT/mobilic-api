@@ -1,8 +1,9 @@
 from dataclasses import field
 from dataclasses_json import config
 from typing import List
-from marshmallow import fields
+
 from graphene_sqlalchemy import SQLAlchemyObjectType
+from marshmallow import fields
 
 from app.controllers.utils import request_data_schema
 from app.data_access.utils import mm_enum_field

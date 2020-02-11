@@ -1,6 +1,8 @@
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 from app import app, db
+from app.domain.log_events import get_response_if_event_should_not_be_logged
+from app.domain.permissions import can_submitter_log_for_user
 from app.helpers.time import from_timestamp
 from app.models.activity import (
     ActivityTypes,
@@ -9,16 +11,13 @@ from app.models.activity import (
 )
 
 
-class EventLogError:
-    pass
-
-
 def log_group_activity(
     submitter,
     company,
     users,
     type,
     event_time,
+    reception_time,
     driver,
     vehicle_registration_number,
     mission,
@@ -35,6 +34,7 @@ def log_group_activity(
         log_activity(
             type=activities_per_user[user],
             event_time=from_timestamp(event_time),
+            reception_time=reception_time,
             user=user,
             company=company,
             submitter=submitter,
@@ -51,28 +51,21 @@ def log_activity(
     company,
     type,
     event_time,
+    reception_time,
     vehicle_registration_number,
     mission,
 ):
-    if not submitter or not user or not company:
-        return EventLogError
-
-    reception_time = datetime.now()
-
-    if event_time >= reception_time:
-        return EventLogError
-
-    already_existing_logs_for_activity = [
-        activity
-        for activity in user.activities
-        if activity.event_time == event_time
-        and activity.type == type
-        and activity.submitter == submitter
-        and activity.company == company
-    ]
-
-    if len(already_existing_logs_for_activity) > 0:
-        return already_existing_logs_for_activity[0]
+    response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
+        user=user,
+        submitter=submitter,
+        company=company,
+        event_time=event_time,
+        reception_time=reception_time,
+        type=type,
+        event_history=user.activities,
+    )
+    if response_if_event_should_not_be_logged:
+        return response_if_event_should_not_be_logged
 
     validation_status = ActivityValidationStatus.PENDING
 
@@ -112,9 +105,3 @@ def log_activity(
     )
     db.session.add(activity)
     return activity
-
-
-def can_submitter_log_for_user(
-    submitter, user, company,
-):
-    return submitter.company_id == user.company_id == company.id

@@ -34,6 +34,7 @@ ActivityValidationStatus = Enum(
             for event_validation_status in EventBaseValidationStatus
         },
     ),
+    type=str,
 )
 
 

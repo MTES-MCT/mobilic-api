@@ -1,8 +1,9 @@
 from flask_jwt_extended import current_user
 from typing import List
-from sqlalchemy.orm import joinedload
+from datetime import datetime
 import graphene
 
+from app.controllers.event import preload_relevant_resources_from_events
 from app.controllers.utils import atomic_transaction
 from app.data_access.activity import ActivityInputData, ActivityOutput
 from app.data_access.utils import with_input_from_schema
@@ -21,22 +22,11 @@ class ActivityLog(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, input: List[ActivityInputData]):
         with atomic_transaction(commit_at_end=True):
-            concerned_user_ids = {
-                user_id
-                for group_activity in input
-                for user_id in group_activity.user_ids
-            }
-            User.query.options(joinedload(User.activities)).filter(
-                User.id.in_(list(concerned_user_ids))
-            ).all()
-
-            Company.query.filter(
-                Company.id.in_(
-                    [group_activity.company_id for group_activity in input]
-                )
-            ).all()
+            reception_time = datetime.now()
+            events = sorted(input, key=lambda e: e.event_time)
+            preload_relevant_resources_from_events(events)
             activity_logs = []
-            for group_activity in input:
+            for group_activity in events:
                 activity_logs += log_group_activity(
                     submitter=current_user,
                     company=Company.query.get(group_activity.company_id),
@@ -45,13 +35,14 @@ class ActivityLog(graphene.Mutation):
                     ],
                     type=group_activity.type,
                     event_time=group_activity.event_time,
+                    reception_time=reception_time,
                     driver=User.query.get(
                         group_activity.user_ids[group_activity.driver_idx]
                     )
                     if group_activity.driver_idx is not None
                     else None,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
-                    mssion=group_activity.mission,
+                    mission=group_activity.mission,
                 )
 
         return ActivityLog(
