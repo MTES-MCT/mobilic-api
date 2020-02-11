@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List
 from datetime import timedelta
 
+from app.helpers import to_timestamp
 from app.models import Activity, User, Expenditure
 from app.models.activity import ActivityTypes
 
@@ -29,13 +30,16 @@ class WorkDay:
 
     @property
     def activity_timers(self):
-        timers = defaultdict(lambda: timedelta(0))
+        timers = defaultdict(lambda: 0)
+        timers["total_service"] = to_timestamp(self.end_time) - to_timestamp(
+            self.start_time
+        )
         for activity, next_activity in zip(
             self.activities[:-1], self.activities[1:]
         ):
-            timers[activity.type] += (
-                next_activity.event_time - activity.event_time
-            )
+            timers[activity.type] += to_timestamp(
+                next_activity.event_time
+            ) - to_timestamp(activity.event_time)
         return timers
 
     @property
