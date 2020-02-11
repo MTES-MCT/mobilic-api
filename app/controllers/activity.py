@@ -46,5 +46,9 @@ class ActivityLog(graphene.Mutation):
                 )
 
         return ActivityLog(
-            activities=[a for a in activity_logs if type(a) is Activity]
+            activities=[
+                a
+                for a in activity_logs
+                if type(a) is Activity and a.id is not None
+            ]
         )

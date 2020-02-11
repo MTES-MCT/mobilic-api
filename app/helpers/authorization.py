@@ -3,6 +3,7 @@ from graphql import GraphQLError
 from inspect import signature
 from functools import wraps
 
+from app import app
 from app.helpers.authentication import with_auth_error_handling
 
 
@@ -30,7 +31,10 @@ def with_authorization_policy(
         )
 
     def decorator(resolver):
-        if authorization_rule == allow_all:
+        if (
+            authorization_rule == allow_all
+            or app.config["DISABLE_AUTH_FOR_TESTING"]
+        ):
             return resolver
 
         @wraps(resolver)

@@ -4,7 +4,9 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 from app.controllers.utils import request_data_schema
 from app.data_access.activity import ActivityOutput
 from app.data_access.expenditure import ExpenditureOutput
+from app.data_access.work_day import WorkDayOutput
 from app.domain.permissions import self_or_company_admin, belongs_to_company
+from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.models import User, Company
 
@@ -36,6 +38,7 @@ class UserOutput(SQLAlchemyObjectType):
 
     activities = graphene.List(ActivityOutput)
     expenditures = graphene.List(ExpenditureOutput)
+    work_days = graphene.List(WorkDayOutput)
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
@@ -48,6 +51,12 @@ class UserOutput(SQLAlchemyObjectType):
     )
     def resolve_expenditures(self, info):
         return self.expenditures
+
+    @with_authorization_policy(
+        self_or_company_admin, get_target_from_args=lambda self, info: self
+    )
+    def resolve_work_days(self, info):
+        return group_user_events_by_day(self)
 
 
 class CompanyOutput(SQLAlchemyObjectType):
