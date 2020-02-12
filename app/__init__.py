@@ -2,6 +2,8 @@ from flask import Flask
 from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+
 
 from config import Config
 
@@ -13,6 +15,7 @@ db = SQLAlchemy(app)
 
 Migrate(app, db)
 
+CORS(app)
 
 from app.helpers import cli
 from app.controllers import graphql_schema
