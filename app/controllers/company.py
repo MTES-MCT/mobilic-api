@@ -1,9 +1,9 @@
 import graphene
 from sqlalchemy.orm import joinedload
 
-from app.data_access.signup import CompanySignupData, CompanyOutput
-from app.data_access.utils import with_input_from_schema
+from app.data_access.signup import CompanyOutput
 from app.domain.permissions import belongs_to_company, company_admin
+from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.models import Company, User
 from app import db
@@ -15,13 +15,15 @@ def _query_company_with_relations(id):
     ).get(id)
 
 
-@with_input_from_schema(CompanySignupData)
 class CompanySignup(graphene.Mutation):
+    class Arguments:
+        name = graphene.String(required=True)
+
     company = graphene.Field(CompanyOutput)
 
     @classmethod
-    def mutate(cls, _, info, input):
-        company = Company(name=input.name)
+    def mutate(cls, _, info, name):
+        company = Company(name=name)
         db.session.add(company)
         db.session.commit()
         return CompanySignup(company=company)
@@ -43,3 +45,6 @@ class Query(graphene.ObjectType):
 )
 def download_activity_report(id):
     company = _query_company_with_relations(id)
+    all_users_work_days = []
+    for user in company.users:
+        all_users_work_days += group_user_events_by_day(user)

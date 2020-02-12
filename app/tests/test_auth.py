@@ -10,9 +10,9 @@ class TestAuth(BaseTest):
         super().setUp()
         self.user = UserFactory.create(password="passwd")
         self.login_query = """
-            mutation ($input: LoginMutationInput!) {
+            mutation ($email: String!, $password: String!) {
                     auth {
-                        login (input: $input) {
+                        login (email: $email, password: $password) {
                             accessToken
                             refreshToken
                         }
@@ -46,18 +46,14 @@ class TestAuth(BaseTest):
         with app.test_client() as c:
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email="random-junk", password="passwd")
-                ),
+                variables=dict(email="random-junk", password="passwd"),
             )
             self.assertIsNotNone(login_response.json.get("errors"))
             self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email="testt@test.test", password="passwd")
-                ),
+                variables=dict(email="testt@test.test", password="passwd"),
             )
             self.assertIsNotNone(login_response.json.get("errors"))
             self.assertIsNone(login_response.json["data"]["auth"]["login"])
@@ -66,27 +62,21 @@ class TestAuth(BaseTest):
         with app.test_client() as c:
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email=self.user.email, password="passw")
-                ),
+                variables=dict(email=self.user.email, password="passw"),
             )
             self.assertIsNotNone(login_response.json.get("errors"))
             self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email=self.user.email, password="passwdd")
-                ),
+                variables=dict(email=self.user.email, password="passwdd"),
             )
             self.assertIsNotNone(login_response.json.get("errors"))
             self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email="random-junk", password="passwdd")
-                ),
+                variables=dict(email="random-junk", password="passwdd"),
             )
             self.assertIsNotNone(login_response.json.get("errors"))
             self.assertIsNone(login_response.json["data"]["auth"]["login"])
@@ -98,9 +88,7 @@ class TestAuth(BaseTest):
             with freeze_time(base_time):
                 login_response = c.post_graphql(
                     self.login_query,
-                    variables=dict(
-                        input=dict(email=self.user.email, password="passwd")
-                    ),
+                    variables=dict(email=self.user.email, password="passwd"),
                 )
                 self.assertEqual(login_response.status_code, 200)
                 login_response_data = login_response.json["data"]["auth"][
@@ -205,9 +193,7 @@ class TestAuth(BaseTest):
             with freeze_time(base_time):
                 login_response = c.post_graphql(
                     self.login_query,
-                    variables=dict(
-                        input=dict(email=self.user.email, password="passwd")
-                    ),
+                    variables=dict(email=self.user.email, password="passwd"),
                 )
                 self.assertEqual(login_response.status_code, 200)
                 login_response_data = login_response.json["data"]["auth"][
@@ -249,9 +235,7 @@ class TestAuth(BaseTest):
         with app.test_client() as c:
             login_response = c.post_graphql(
                 self.login_query,
-                variables=dict(
-                    input=dict(email=self.user.email, password="passwd")
-                ),
+                variables=dict(email=self.user.email, password="passwd"),
             )
             self.assertEqual(login_response.status_code, 200)
             login_response_data = login_response.json["data"]["auth"]["login"]
@@ -293,9 +277,7 @@ class TestAuth(BaseTest):
             with freeze_time(base_time):
                 login_response = c.post_graphql(
                     self.login_query,
-                    variables=dict(
-                        input=dict(email=self.user.email, password="passwd")
-                    ),
+                    variables=dict(email=self.user.email, password="passwd"),
                 )
                 self.assertEqual(login_response.status_code, 200)
                 login_response_data = login_response.json["data"]["auth"][

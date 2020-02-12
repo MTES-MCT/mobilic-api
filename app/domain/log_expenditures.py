@@ -1,7 +1,6 @@
 from app import db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
-from app.helpers.time import from_timestamp
 from app.models import Expenditure
 from app.models.event import EventBaseValidationStatus
 
@@ -12,7 +11,7 @@ def log_group_expenditure(
     return [
         log_expenditure(
             type=type,
-            event_time=from_timestamp(event_time),
+            event_time=event_time,
             reception_time=reception_time,
             user=user,
             company=company,

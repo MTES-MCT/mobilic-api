@@ -3,7 +3,7 @@ from graphene.types.generic import GenericScalar
 
 from app.data_access.activity import ActivityOutput
 from app.data_access.expenditure import ExpenditureOutput
-from app.helpers import DateTimeWithTimeStampSerialization
+from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 
 class WorkDayOutput(graphene.ObjectType):

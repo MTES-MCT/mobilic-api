@@ -34,8 +34,6 @@ class TestQueries(BaseTest):
                 variables=dict(id=self.user_company1.id),
             )
 
-            print(response.json)
-
             self.assertEqual(response.status_code, 200)
             self.assertIsNone(response.json.get("errors"))
 

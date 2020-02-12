@@ -1,7 +1,6 @@
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from app.controllers.utils import request_data_schema
 from app.data_access.activity import ActivityOutput
 from app.data_access.expenditure import ExpenditureOutput
 from app.data_access.work_day import WorkDayOutput
@@ -9,20 +8,6 @@ from app.domain.permissions import self_or_company_admin, belongs_to_company
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.models import User, Company
-
-
-@request_data_schema
-class SignupPostData:
-    email: str
-    password: str
-    first_name: str
-    last_name: str
-    company_id: int
-
-
-@request_data_schema
-class CompanySignupData:
-    name: str
 
 
 class UserOutput(SQLAlchemyObjectType):

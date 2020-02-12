@@ -1,9 +1,8 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
-from datetime import timedelta
 
-from app.helpers import to_timestamp
+from app.helpers.time import to_timestamp
 from app.models import Activity, User, Expenditure
 from app.models.activity import ActivityTypes
 

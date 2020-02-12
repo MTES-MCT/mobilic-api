@@ -1,21 +1,26 @@
 import graphene
 from sqlalchemy.orm import joinedload
 
-from app.data_access.utils import with_input_from_schema
-from app.data_access.signup import SignupPostData, UserOutput
+from app.data_access.signup import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.helpers.authorization import with_authorization_policy
 from app.models import User
 from app import db
 
 
-@with_input_from_schema(SignupPostData)
 class UserSignup(graphene.Mutation):
+    class Arguments:
+        email = graphene.String(required=True)
+        password = graphene.String(required=True)
+        first_name = graphene.String(required=True)
+        last_name = graphene.String(required=True)
+        company_id = graphene.Int(required=True)
+
     user = graphene.Field(UserOutput)
 
     @classmethod
-    def mutate(cls, _, info, input):
-        user = User(**input.to_dict())
+    def mutate(cls, _, info, **data):
+        user = User(**data)
         db.session.add(user)
         db.session.commit()
         return UserSignup(user=user)

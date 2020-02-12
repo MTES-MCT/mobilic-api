@@ -3,7 +3,6 @@ from datetime import timedelta
 from app import app, db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
-from app.helpers.time import from_timestamp
 from app.models.activity import (
     ActivityTypes,
     Activity,
@@ -33,7 +32,7 @@ def log_group_activity(
     return [
         log_activity(
             type=activities_per_user[user],
-            event_time=from_timestamp(event_time),
+            event_time=event_time,
             reception_time=reception_time,
             user=user,
             company=company,

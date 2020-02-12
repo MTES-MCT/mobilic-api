@@ -1,13 +1,7 @@
 from contextlib import contextmanager
 from sqlalchemy import event
-from dataclasses_json import dataclass_json
-from dataclasses import dataclass
 
 from app import db
-
-
-def request_data_schema(cls):
-    return dataclass_json(dataclass(cls))
 
 
 def _raise_commit_error(*args, **kwargs):

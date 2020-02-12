@@ -48,8 +48,8 @@ class TestLogActivities(BaseTest):
         with app.test_client(mock_authentication_with_user=submitter) as c:
             response = c.post_graphql(
                 """
-                mutation ($input: ActivityLogInput!) {
-                    logActivities (input: $input) {
+                mutation ($data: [SingleActivityInput]!) {
+                    logActivities (data: $data) {
                         activities {
                             id
                             type
@@ -60,13 +60,13 @@ class TestLogActivities(BaseTest):
                 }
                 """,
                 variables=dict(
-                    input=[
+                    data=[
                         dict(
-                            user_ids=a["user_ids"],
-                            event_time=a["event_time"],
+                            userIds=a["user_ids"],
+                            eventTime=a["event_time"],
                             type=a["type"],
-                            company_id=a["company_id"],
-                            driver_idx=a.get("driver_idx", 0),
+                            companyId=a["company_id"],
+                            driverIdx=a.get("driver_idx", 0),
                         )
                         for a in activities
                     ]

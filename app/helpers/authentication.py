@@ -13,8 +13,6 @@ from jwt import PyJWTError
 from datetime import timedelta
 from functools import wraps
 
-from app.controllers.utils import request_data_schema
-from app.data_access.utils import with_input_from_schema
 from app.models.user import User
 from app import app, db
 
@@ -75,22 +73,19 @@ def create_access_tokens_for(user):
     }
 
 
-@request_data_schema
-class LoginData:
-    email: str
-    password: str
-
-
-@with_input_from_schema(LoginData)
 class LoginMutation(graphene.Mutation):
+    class Arguments:
+        email = graphene.String(required=True)
+        password = graphene.String(required=True)
+
     access_token = graphene.String()
     refresh_token = graphene.String()
 
     @classmethod
     @with_auth_error_handling
-    def mutate(cls, _, info, input: LoginData):
-        user = User.query.filter(User.email == input.email).one_or_none()
-        if not user or not user.check_password(input.password):
+    def mutate(cls, _, info, email, password):
+        user = User.query.filter(User.email == email).one_or_none()
+        if not user or not user.check_password(password):
             raise AuthError("Wrong credentials")
         return LoginMutation(**create_access_tokens_for(user))
 
