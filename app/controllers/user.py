@@ -3,6 +3,7 @@ from sqlalchemy.orm import joinedload
 
 from app.data_access.signup import UserOutput
 from app.domain.permissions import self_or_company_admin
+from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
 from app.models import User
 from app import db
@@ -14,16 +15,21 @@ class UserSignup(graphene.Mutation):
         password = graphene.String(required=True)
         first_name = graphene.String(required=True)
         last_name = graphene.String(required=True)
-        company_id = graphene.Int(required=True)
+        company_name_to_resolve = graphene.String(required=True)
+        company_id = graphene.Int(required=False)
 
     user = graphene.Field(UserOutput)
+    access_token = graphene.String()
+    refresh_token = graphene.String()
 
     @classmethod
     def mutate(cls, _, info, **data):
+        if not data.get("company_id"):
+            data["company_id"] = 1
         user = User(**data)
         db.session.add(user)
         db.session.commit()
-        return UserSignup(user=user)
+        return UserSignup(user=user, **create_access_tokens_for(user))
 
 
 class Query(graphene.ObjectType):
