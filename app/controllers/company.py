@@ -5,8 +5,9 @@ from app.data_access.signup import CompanyOutput
 from app.domain.permissions import belongs_to_company, company_admin
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
+from app.helpers.xls import send_work_days_as_excel
 from app.models import Company, User
-from app import db
+from app import db, app
 
 
 def _query_company_with_relations(id):
@@ -40,6 +41,7 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
+@app.route("/api/download_company_activity_report/<int:id>")
 @with_authorization_policy(
     company_admin, get_target_from_args=lambda id, *args, **kwargs: id
 )
@@ -48,3 +50,5 @@ def download_activity_report(id):
     all_users_work_days = []
     for user in company.users:
         all_users_work_days += group_user_events_by_day(user)
+
+    return send_work_days_as_excel(all_users_work_days)
