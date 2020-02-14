@@ -38,23 +38,14 @@ def with_auth_error_handling(f):
 
 @jwt.user_loader_callback_loader
 def get_user_from_token_identity(identity):
-    # Refresh token
-    if type(identity) is dict:
-        user = User.query.get(identity["id"])
-        nonce = identity["nonce"]
-        if (
-            user
-            and user.refresh_token_nonce
-            and nonce == user.refresh_token_nonce
-        ):
-            return user
+    user = User.query.get(identity["id"])
+    if not user or not user.refresh_token_nonce:
         return None
-
-    # Access token
-    user = User.query.get(identity)
-    if user and user.refresh_token_nonce:
-        return user
-    return None
+    nonce = identity.get("nonce")
+    # Specific refresh token check
+    if nonce and nonce != user.refresh_token_nonce:
+        return None
+    return user
 
 
 def create_access_tokens_for(user):
@@ -62,10 +53,8 @@ def create_access_tokens_for(user):
     db.session.commit()
     return {
         "access_token": create_access_token(
-            user.id,
-            expires_delta=timedelta(
-                minutes=app.config["ACCESS_TOKEN_EXPIRATION"]
-            ),
+            {"id": user.id, "company_admin": user.is_company_admin},
+            expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
         ),
         "refresh_token": create_refresh_token(
             {"id": user.id, "nonce": new_refresh_nonce}, expires_delta=False
