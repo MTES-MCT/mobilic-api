@@ -8,7 +8,7 @@ from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 def preload_or_create_relevant_resources_from_events(events):
     concerned_user_ids = set()
-    concerned_new_users_created = set()
+    concerned_new_users_created = dict()
     for event in events:
         event.user_id_or_objs = []
         for possible_user in event.team:
@@ -59,8 +59,8 @@ def preload_or_create_relevant_resources_from_events(events):
 
 class TeamMemberInput(graphene.InputObjectType):
     id = graphene.Int(required=False)
-    first_name = graphene.Int(required=False)
-    last_name = graphene.Int(required=False)
+    first_name = graphene.String(required=False)
+    last_name = graphene.String(required=False)
 
 
 class EventInput(graphene.InputObjectType):
