@@ -62,7 +62,7 @@ class TestLogActivities(BaseTest):
                 variables=dict(
                     data=[
                         dict(
-                            userIds=a["user_ids"],
+                            team=[{"id": value} for value in a["user_ids"]],
                             eventTime=a["event_time"],
                             type=a["type"],
                             companyId=a["company_id"],

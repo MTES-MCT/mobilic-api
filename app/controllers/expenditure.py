@@ -2,9 +2,12 @@ from flask_jwt_extended import current_user
 from datetime import datetime
 import graphene
 
-from app.controllers.event import preload_relevant_resources_from_events
+from app.controllers.event import (
+    preload_or_create_relevant_resources_from_events,
+)
 from app.controllers.utils import atomic_transaction
 from app.data_access.expenditure import ExpenditureOutput
+from app.data_access.signup import CompanyOutput
 from app.domain.log_expenditures import log_group_expenditure
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import graphene_enum_type
@@ -24,6 +27,7 @@ class ExpenditureLog(graphene.Mutation):
         data = graphene.List(SingleExpenditureInput, required=True)
 
     expenditures = graphene.List(ExpenditureOutput)
+    company = graphene.Field(CompanyOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -31,10 +35,9 @@ class ExpenditureLog(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)
-            preload_relevant_resources_from_events(events)
-            expenditure_logs = []
+            preload_or_create_relevant_resources_from_events(events)
             for group_expenditure in events:
-                expenditure_logs += log_group_expenditure(
+                log_group_expenditure(
                     submitter=current_user,
                     company=Company.query.get(group_expenditure.company_id),
                     users=[
@@ -46,8 +49,7 @@ class ExpenditureLog(graphene.Mutation):
                     reception_time=reception_time,
                 )
 
-        return ExpenditureInputData(
-            expenditures=[
-                e for e in expenditure_logs if type(e) is Expenditure
-            ]
+        return ExpenditureLog(
+            expenditures=current_user.acknowledged_expenditures,
+            company=current_user.company,
         )

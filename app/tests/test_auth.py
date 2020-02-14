@@ -117,7 +117,8 @@ class TestAuth(BaseTest):
             # Refresh access token after expiration
             with freeze_time(
                 base_time
-                + timedelta(minutes=10 + app.config["ACCESS_TOKEN_EXPIRATION"])
+                + timedelta(minutes=10)
+                + app.config["ACCESS_TOKEN_EXPIRATION"]
             ):
                 expired_access_response = c.post_graphql(
                     self.check_query,

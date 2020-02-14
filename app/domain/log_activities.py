@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from app import app, db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
@@ -22,14 +20,15 @@ def log_group_activity(
     mission,
 ):
     activities_per_user = {user: type for user in users}
-    if type == ActivityTypes.DRIVE:
-        for user in users:
-            if user == driver:
-                activities_per_user[user] = ActivityTypes.DRIVE
-            else:
-                activities_per_user[user] = ActivityTypes.SUPPORT
+    if len(users) > 1:
+        if type == ActivityTypes.DRIVE:
+            for user in users:
+                if user == driver:
+                    activities_per_user[user] = ActivityTypes.DRIVE
+                else:
+                    activities_per_user[user] = ActivityTypes.SUPPORT
 
-    return [
+    for user in users:
         log_activity(
             type=activities_per_user[user],
             event_time=event_time,
@@ -39,9 +38,8 @@ def log_group_activity(
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
             mission=mission,
+            team=[u.id for u in users],
         )
-        for user in users
-    ]
 
 
 def log_activity(
@@ -53,6 +51,7 @@ def log_activity(
     reception_time,
     vehicle_registration_number,
     mission,
+    team,
 ):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
@@ -64,7 +63,7 @@ def log_activity(
         event_history=user.activities,
     )
     if response_if_event_should_not_be_logged:
-        return response_if_event_should_not_be_logged
+        return
 
     validation_status = ActivityValidationStatus.PENDING
 
@@ -78,15 +77,22 @@ def log_activity(
                     ActivityValidationStatus.CONFLICTING_WITH_HISTORY
                 )
             else:
-                if event_time - latest_activity_log.event_time < timedelta(
-                    minutes=app.config["MINIMUM_ACTIVITY_DURATION"]
+                if (
+                    event_time - latest_activity_log.event_time
+                    < app.config["MINIMUM_ACTIVITY_DURATION"]
                 ):
+                    print("Deleting previous activity")
                     if latest_activity_log.id is not None:
                         db.session.delete(latest_activity_log)
                     else:
                         db.session.expunge(latest_activity_log)
-                    latest_activity_log = user.current_acknowledged_activity
-                if latest_activity_log.type == type:
+                    user_activities = user.acknowledged_activities
+                    latest_activity_log = (
+                        user_activities[-2]
+                        if len(user_activities) >= 2
+                        else None
+                    )
+                if latest_activity_log and latest_activity_log.type == type:
                     validation_status = (
                         ActivityValidationStatus.NO_ACTIVITY_SWITCH
                     )
@@ -101,6 +107,6 @@ def log_activity(
         validation_status=validation_status,
         vehicle_registration_number=vehicle_registration_number,
         mission=mission,
+        team=team,
     )
     db.session.add(activity)
-    return activity

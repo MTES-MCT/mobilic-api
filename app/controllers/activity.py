@@ -2,13 +2,15 @@ from flask_jwt_extended import current_user
 from datetime import datetime
 import graphene
 
-from app.controllers.event import preload_relevant_resources_from_events
+from app.controllers.event import (
+    preload_or_create_relevant_resources_from_events,
+)
 from app.controllers.utils import atomic_transaction
 from app.data_access.activity import ActivityOutput
+from app.data_access.signup import CompanyOutput
 from app.domain.log_activities import log_group_activity
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import graphene_enum_type
-from app.models import Activity
 from app.models.activity import InputableActivityTypes
 from app.models.user import User
 from app.models.company import Company
@@ -27,6 +29,7 @@ class ActivityLog(graphene.Mutation):
         data = graphene.List(SingleActivityInput, required=True)
 
     activities = graphene.List(ActivityOutput)
+    company = graphene.Field(CompanyOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -34,11 +37,10 @@ class ActivityLog(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)
-            preload_relevant_resources_from_events(events)
-            activity_logs = []
+            preload_or_create_relevant_resources_from_events(events)
             for group_activity in events:
-                activity_logs += log_group_activity(
-                    submitter=current_user or User.query.get(282382697),
+                log_group_activity(
+                    submitter=current_user,
                     company=Company.query.get(group_activity.company_id),
                     users=[
                         User.query.get(uid) for uid in group_activity.user_ids
@@ -56,9 +58,6 @@ class ActivityLog(graphene.Mutation):
                 )
 
         return ActivityLog(
-            activities=[
-                a
-                for a in activity_logs
-                if type(a) is Activity and a.id is not None
-            ]
+            activities=current_user.acknowledged_activities,
+            company=current_user.company,
         )

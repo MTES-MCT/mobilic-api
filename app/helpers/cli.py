@@ -18,4 +18,4 @@ def test():
             pattern="test_*.py",
             top_level_dir=root_project_path,
         )
-        TextTestRunner(verbosity=2).run(test_suite)
+        TextTestRunner(verbosity=3).run(test_suite)

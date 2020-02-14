@@ -8,7 +8,7 @@ from app.models.event import EventBaseValidationStatus
 def log_group_expenditure(
     submitter, company, users, type, event_time, reception_time
 ):
-    return [
+    for user in users:
         log_expenditure(
             type=type,
             event_time=event_time,
@@ -17,8 +17,6 @@ def log_group_expenditure(
             company=company,
             submitter=submitter,
         )
-        for user in users
-    ]
 
 
 def log_expenditure(
@@ -34,7 +32,7 @@ def log_expenditure(
         event_history=user.expenditures,
     )
     if response_if_event_should_not_be_logged:
-        return response_if_event_should_not_be_logged
+        return
 
     expenditure = Expenditure(
         type=type,
@@ -48,4 +46,3 @@ def log_expenditure(
         else EventBaseValidationStatus.UNAUTHORIZED_SUBMITTER,
     )
     db.session.add(expenditure)
-    return expenditure
