@@ -36,12 +36,17 @@ def convert_column_to_custom_datetime(type, column, registry=None):
     return DateTimeWithTimeStampSerialization
 
 
+GRAPHENE_ENUM_TYPES = {}
+
+
 def graphene_enum_type(enum):
+    name = enum.__name__ + "Enum"
+    if name in GRAPHENE_ENUM_TYPES:
+        return GRAPHENE_ENUM_TYPES[name]
+
     class GrapheneEnumType(graphene.String):
         class Meta:
             name = enum.__name__ + "Enum"
-            print(enum)
-            print(name)
             description = f"Values : {', '.join([e.value for e in enum])}"
 
         @staticmethod
@@ -54,5 +59,7 @@ def graphene_enum_type(enum):
                 if enum_item == value:
                     return enum_item
             return None
+
+    GRAPHENE_ENUM_TYPES[name] = GrapheneEnumType
 
     return GrapheneEnumType
