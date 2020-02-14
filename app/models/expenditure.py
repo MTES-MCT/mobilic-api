@@ -8,6 +8,7 @@ class ExpenditureTypes(str, Enum):
     DAY_MEAL = "day_meal"
     NIGHT_MEAL = "night_meal"
     SLEEP_OVER = "sleep_over"
+    SNACK = "snack"
 
 
 class Expenditure(EventBaseModel):
