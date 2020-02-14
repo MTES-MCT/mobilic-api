@@ -7,8 +7,8 @@ from app import db
 
 
 class User(BaseModel):
-    email = db.Column(db.String(255), unique=True)
-    _password = db.Column("password", db.String(255))
+    email = db.Column(db.String(255), unique=True, nullable=True, default=None)
+    _password = db.Column("password", db.String(255), default=None)
     company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
     company = db.relationship("Company", backref="users")
     company_name_to_resolve = db.Column(db.String(255))
@@ -40,26 +40,32 @@ class User(BaseModel):
 
     @property
     def acknowledged_activities(self):
-        return [
-            activity
-            for activity in self.activities
-            if activity.is_acknowledged
-        ]
+        return sorted(
+            [
+                activity
+                for activity in self.activities
+                if activity.is_acknowledged
+            ],
+            key=lambda a: a.event_time,
+        )
 
     @property
     def acknowledged_expenditures(self):
-        return [
-            expenditure
-            for expenditure in self.expenditures
-            if expenditure.is_acknowledged
-        ]
+        return sorted(
+            [
+                expenditure
+                for expenditure in self.expenditures
+                if expenditure.is_acknowledged
+            ],
+            key=lambda e: e.event_time,
+        )
 
     @property
     def current_acknowledged_activity(self):
         acknowledged_activities = self.acknowledged_activities
         if not acknowledged_activities:
             return None
-        return max(acknowledged_activities, key=lambda act: act.event_time)
+        return acknowledged_activities[-1]
 
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
