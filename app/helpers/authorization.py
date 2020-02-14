@@ -15,6 +15,10 @@ def authenticated(user):
     return user is not None
 
 
+def admin_only(user):
+    return user.admin
+
+
 def with_authorization_policy(
     authorization_rule,
     get_target_from_args=None,

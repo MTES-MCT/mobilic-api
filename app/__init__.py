@@ -19,6 +19,7 @@ CORS(app)
 
 from app.helpers import cli
 from app.controllers import graphql_schema
+from app.helpers.admin import admin
 
 
 graphql_api_path = "/api/graphql"
