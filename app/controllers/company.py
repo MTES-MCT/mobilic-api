@@ -25,8 +25,12 @@ class CompanySignup(graphene.Mutation):
     @classmethod
     def mutate(cls, _, info, name):
         company = Company(name=name)
-        db.session.add(company)
-        db.session.commit()
+        try:
+            db.session.add(company)
+            db.session.commit()
+            app.logger.info(f"Signed up new company {company}")
+        except Exception as e:
+            app.logger.info(f"Error during company signup for {company} : {e}")
         return CompanySignup(company=company)
 
 
@@ -47,6 +51,7 @@ class Query(graphene.ObjectType):
 )
 def download_activity_report(id):
     company = _query_company_with_relations(id)
+    app.logger.info(f"Downloading activity report for {company}")
     all_users_work_days = []
     for user in company.users:
         all_users_work_days += group_user_events_by_day(user)

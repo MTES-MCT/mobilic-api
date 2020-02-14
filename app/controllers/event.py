@@ -2,7 +2,7 @@ from sqlalchemy.orm import joinedload
 import graphene
 
 from app.models import User, Company
-from app import db
+from app import db, app
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 
@@ -26,6 +26,7 @@ def preload_or_create_relevant_resources_from_events(events):
                         last_name=possible_user.last_name,
                         company_id=event.company_id,
                     )
+                    app.logger.info(f"Creating new user {new_user}")
                     concerned_new_users_created[
                         concerned_new_user_key
                     ] = new_user

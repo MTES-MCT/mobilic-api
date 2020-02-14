@@ -10,7 +10,6 @@ import graphene
 from graphql import GraphQLError
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
-from datetime import timedelta
 from functools import wraps
 
 from app.models.user import User
@@ -29,6 +28,7 @@ def with_auth_error_handling(f):
         try:
             return f(*args, **kwargs)
         except (AuthError, JWTExtendedException, PyJWTError) as e:
+            app.logger.error(f"Authentication error : {e}")
             raise GraphQLError(
                 "Authentication error", extensions=dict(details=str(e))
             )
@@ -73,6 +73,7 @@ class LoginMutation(graphene.Mutation):
     @classmethod
     @with_auth_error_handling
     def mutate(cls, _, info, email, password):
+        app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
         if not user or not user.check_password(password):
             raise AuthError("Wrong credentials")

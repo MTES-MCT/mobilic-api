@@ -6,7 +6,7 @@ from app.domain.permissions import self_or_company_admin
 from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
 from app.models import User
-from app import db
+from app import db, app
 
 
 class UserSignup(graphene.Mutation):
@@ -27,8 +27,13 @@ class UserSignup(graphene.Mutation):
         if not data.get("company_id"):
             data["company_id"] = 1
         user = User(**data)
-        db.session.add(user)
-        db.session.commit()
+        try:
+            db.session.add(user)
+            db.session.commit()
+            app.logger.info(f"Signed up new user {user}")
+        except Exception as e:
+            app.logger.error(f"Error during user signup for {user} : {e}")
+            raise e
         return UserSignup(user=user, **create_access_tokens_for(user))
 
 

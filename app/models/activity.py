@@ -58,3 +58,6 @@ class Activity(EventBaseModel):
     def to_dict(self):
         base_dict = super().to_dict()
         return dict(**base_dict, type=self.type,)
+
+    def __repr__(self):
+        return f"<Activity [{self.id}] : {self.type.value}>"

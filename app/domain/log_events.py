@@ -1,3 +1,6 @@
+from app import app
+
+
 class EventLogError:
     pass
 
@@ -12,9 +15,11 @@ def get_response_if_event_should_not_be_logged(
     **kwargs,
 ):
     if not submitter or not user or not company or not event_time:
+        app.logger.warn("Event is missing some core params : will not log")
         return EventLogError
 
     if event_time >= reception_time:
+        app.logger.warn("Event time is in the future : will not log")
         return EventLogError
 
     event_param_dict = dict(
@@ -37,6 +42,7 @@ def get_response_if_event_should_not_be_logged(
     ]
 
     if len(already_existing_logs_for_event) > 0:
+        app.logger.info("Event already logged, aborting")
         return already_existing_logs_for_event[0]
 
     return None

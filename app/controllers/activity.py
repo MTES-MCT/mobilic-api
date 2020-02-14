@@ -2,6 +2,7 @@ from flask_jwt_extended import current_user
 from datetime import datetime
 import graphene
 
+from app import app
 from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
@@ -34,6 +35,9 @@ class ActivityLog(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, data):
+        app.logger.info(
+            f"Logging activities submitted by {current_user} of company {current_user.company}"
+        )
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)

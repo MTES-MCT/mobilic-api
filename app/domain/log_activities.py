@@ -68,11 +68,13 @@ def log_activity(
     validation_status = ActivityValidationStatus.PENDING
 
     if not can_submitter_log_for_user(submitter, user, company):
+        app.logger.warn("Event is submitted from unauthorized user")
         validation_status = ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
     else:
         latest_activity_log = user.current_acknowledged_activity
         if latest_activity_log:
             if latest_activity_log.event_time >= event_time:
+                app.logger.warn("Event is conflicting with previous logs")
                 validation_status = (
                     ActivityValidationStatus.CONFLICTING_WITH_HISTORY
                 )
@@ -81,7 +83,9 @@ def log_activity(
                     event_time - latest_activity_log.event_time
                     < app.config["MINIMUM_ACTIVITY_DURATION"]
                 ):
-                    print("Deleting previous activity")
+                    app.logger.info(
+                        "Event time is close to previous logs, deleting these"
+                    )
                     if latest_activity_log.id is not None:
                         db.session.delete(latest_activity_log)
                     else:
