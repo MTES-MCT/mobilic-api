@@ -100,6 +100,7 @@ columns_in_user_sheet = [
 
 
 def send_work_days_as_excel(user_wdays):
+    complete_work_days = [wd for wd in user_wdays if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
 
@@ -111,7 +112,7 @@ def send_work_days_as_excel(user_wdays):
     formats = dict(bold=wb.add_format({"bold": True}), **date_formats)
 
     wdays_by_user = defaultdict(list)
-    for work_day in user_wdays:
+    for work_day in complete_work_days:
         wdays_by_user[work_day.user].append(work_day)
 
     main_sheet = wb.add_worksheet("Global")
@@ -144,6 +145,7 @@ def send_work_days_as_excel(user_wdays):
             col_idx += 1
 
         for wday in sorted(work_days, key=lambda wd: wd.start_time):
+            print(wday)
             main_col_idx = 0
             for (main_col_name, resolver, style) in columns_in_main_sheet:
                 if style in date_formats:
