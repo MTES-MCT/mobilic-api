@@ -48,6 +48,8 @@ class Activity(EventBaseModel):
 
     validation_status = enum_column(ActivityValidationStatus, nullable=False)
 
+    team = db.Column(db.ARRAY(db.Integer), nullable=True)
+
     # TODO : add (maybe)
     # - validator
     # - version (each version represents a set of changes to the day activities)
