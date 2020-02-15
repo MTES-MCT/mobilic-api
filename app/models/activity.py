@@ -50,6 +50,8 @@ class Activity(EventBaseModel):
 
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
+    driver_idx = db.Column(db.Integer, nullable=True)
+
     # TODO : add (maybe)
     # - validator
     # - version (each version represents a set of changes to the day activities)

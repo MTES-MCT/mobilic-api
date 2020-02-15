@@ -52,11 +52,7 @@ class ActivityLog(graphene.Mutation):
                     type=group_activity.type,
                     event_time=group_activity.event_time,
                     reception_time=reception_time,
-                    driver=User.query.get(
-                        group_activity.user_ids[group_activity.driver_idx]
-                    )
-                    if group_activity.driver_idx is not None
-                    else None,
+                    driver_idx=group_activity.driver_idx,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
                     mission=group_activity.mission,
                 )

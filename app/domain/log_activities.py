@@ -15,13 +15,14 @@ def log_group_activity(
     type,
     event_time,
     reception_time,
-    driver,
+    driver_idx,
     vehicle_registration_number,
     mission,
 ):
     activities_per_user = {user: type for user in users}
     if len(users) > 1:
         if type == ActivityTypes.DRIVE:
+            driver = users[driver_idx] if driver_idx is not None else None
             for user in users:
                 if user == driver:
                     activities_per_user[user] = ActivityTypes.DRIVE
@@ -52,6 +53,7 @@ def log_activity(
     vehicle_registration_number,
     mission,
     team,
+    driver_idx,
 ):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
@@ -112,5 +114,6 @@ def log_activity(
         vehicle_registration_number=vehicle_registration_number,
         mission=mission,
         team=team,
+        driver_idx=driver_idx,
     )
     db.session.add(activity)
