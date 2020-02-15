@@ -56,7 +56,7 @@ class WorkDay:
 
 def group_user_events_by_day(user):
     activities = sorted(
-        user.acknowledged_activities, key=lambda e: e.event_time
+        user.acknowledged_deduplicated_activities, key=lambda e: e.event_time
     )
     expenditures = sorted(
         user.acknowledged_expenditures, key=lambda e: e.event_time

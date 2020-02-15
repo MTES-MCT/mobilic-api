@@ -40,6 +40,7 @@ def log_group_activity(
             vehicle_registration_number=vehicle_registration_number,
             mission=mission,
             team=[u.id for u in users],
+            driver_idx=driver_idx,
         )
 
 
@@ -99,9 +100,20 @@ def log_activity(
                         else None
                     )
                 if latest_activity_log and latest_activity_log.type == type:
-                    validation_status = (
-                        ActivityValidationStatus.NO_ACTIVITY_SWITCH
-                    )
+                    if (
+                        type == ActivityTypes.SUPPORT
+                        and team[driver_idx]
+                        != latest_activity_log.team[
+                            latest_activity_log.driver_idx
+                        ]
+                    ):
+                        validation_status = (
+                            ActivityValidationStatus.DRIVER_SWITCH
+                        )
+                    else:
+                        validation_status = (
+                            ActivityValidationStatus.NO_ACTIVITY_SWITCH
+                        )
 
     activity = Activity(
         type=type,

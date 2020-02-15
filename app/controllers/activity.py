@@ -58,6 +58,6 @@ class ActivityLog(graphene.Mutation):
                 )
 
         return ActivityLog(
-            activities=current_user.acknowledged_activities,
+            activities=current_user.acknowledged_deduplicated_activities_with_driver_switch,
             company=current_user.company,
         )

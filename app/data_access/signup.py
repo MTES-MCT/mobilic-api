@@ -29,7 +29,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         self_or_company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_activities(self, info):
-        return self.acknowledged_activities
+        return self.acknowledged_deduplicated_activities_with_driver_switch
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self

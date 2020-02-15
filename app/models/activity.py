@@ -29,6 +29,7 @@ ActivityValidationStatus = Enum(
     dict(
         CONFLICTING_WITH_HISTORY="conflicting_with_history",
         NO_ACTIVITY_SWITCH="no_activity_switch",
+        DRIVER_SWITCH="driver_switch",
         **{
             event_validation_status.name: event_validation_status.value
             for event_validation_status in EventBaseValidationStatus
@@ -50,7 +51,7 @@ class Activity(EventBaseModel):
 
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
-    driver_idx = db.Column(db.Integer, nullable=True)
+    driver_idx = db.Column(db.Integer, nullable=True, default=None)
 
     # TODO : add (maybe)
     # - validator
@@ -63,3 +64,23 @@ class Activity(EventBaseModel):
 
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
+
+    @property
+    def is_acknowledged(self):
+        return self.validation_status in [
+            ActivityValidationStatus.PENDING,
+            ActivityValidationStatus.VALIDATED,
+            ActivityValidationStatus.NO_ACTIVITY_SWITCH,
+            ActivityValidationStatus.DRIVER_SWITCH,
+        ]
+
+    @property
+    def is_duplicate(self):
+        return self.validation_status in [
+            ActivityValidationStatus.NO_ACTIVITY_SWITCH,
+            ActivityValidationStatus.DRIVER_SWITCH,
+        ]
+
+    @property
+    def is_driver_switch(self):
+        return self.validation_status == ActivityValidationStatus.DRIVER_SWITCH

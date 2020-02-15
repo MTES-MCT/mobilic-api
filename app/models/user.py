@@ -51,6 +51,18 @@ class User(BaseModel):
         )
 
     @property
+    def acknowledged_deduplicated_activities(self):
+        return [a for a in self.acknowledged_activities if not a.is_duplicate]
+
+    @property
+    def acknowledged_deduplicated_activities_with_driver_switch(self):
+        return [
+            a
+            for a in self.acknowledged_activities
+            if a.is_driver_switch or not a.is_duplicate
+        ]
+
+    @property
     def acknowledged_expenditures(self):
         return sorted(
             [
