@@ -1,4 +1,5 @@
 import graphene
+from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 from graphene.types import DateTime
 from graphql.language import ast
@@ -63,3 +64,10 @@ def graphene_enum_type(enum):
     GRAPHENE_ENUM_TYPES[name] = GrapheneEnumType
 
     return GrapheneEnumType
+
+
+class BaseSQLAlchemyObjectType(SQLAlchemyObjectType):
+    class Meta:
+        abstract = True
+
+    id = graphene.Field(graphene.Int)

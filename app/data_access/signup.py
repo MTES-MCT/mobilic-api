@@ -1,5 +1,4 @@
 import graphene
-from graphene_sqlalchemy import SQLAlchemyObjectType
 
 from app.data_access.activity import ActivityOutput
 from app.data_access.expenditure import ExpenditureOutput
@@ -7,10 +6,11 @@ from app.data_access.work_day import WorkDayOutput
 from app.domain.permissions import self_or_company_admin, belongs_to_company
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import User, Company
 
 
-class UserOutput(SQLAlchemyObjectType):
+class UserOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = User
         only_fields = (
@@ -44,7 +44,7 @@ class UserOutput(SQLAlchemyObjectType):
         return group_user_events_by_day(self)
 
 
-class CompanyOutput(SQLAlchemyObjectType):
+class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
         only_fields = ("id", "name")

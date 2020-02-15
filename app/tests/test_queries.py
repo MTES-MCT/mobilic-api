@@ -43,7 +43,7 @@ class TestQueries(BaseTest):
                 dict(
                     firstName=self.user_company1.first_name,
                     lastName=self.user_company1.last_name,
-                    id=str(self.user_company1.id),
+                    id=self.user_company1.id,
                 ),
             )
 
@@ -74,12 +74,12 @@ class TestQueries(BaseTest):
                 company_data,
                 dict(
                     name=self.company1.name,
-                    id=str(self.company1.id),
+                    id=self.company1.id,
                     users=company_data["users"],
                 ),
             )
             self.assertSetEqual(
-                {str(self.user_company1.id), str(self.admin_company1.id)},
+                {self.user_company1.id, self.admin_company1.id},
                 set([u["id"] for u in company_data["users"]]),
             )
 
@@ -111,12 +111,12 @@ class TestQueries(BaseTest):
                 company_data,
                 dict(
                     name=self.company1.name,
-                    id=str(self.company1.id),
+                    id=self.company1.id,
                     users=company_data["users"],
                 ),
             )
             self.assertSetEqual(
-                {str(self.user_company1.id), str(self.admin_company1.id)},
+                {self.user_company1.id, self.admin_company1.id},
                 set([u["id"] for u in company_data["users"]]),
             )
             self.assertSetEqual(
