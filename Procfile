@@ -1,3 +1,2 @@
-web: gunicorn app:app --preload
-release: flask db upgrade
-
+web: ./run.sh
+release: ./upgrade_db.sh
