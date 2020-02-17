@@ -145,7 +145,6 @@ def send_work_days_as_excel(user_wdays):
             col_idx += 1
 
         for wday in sorted(work_days, key=lambda wd: wd.start_time):
-            print(wday)
             main_col_idx = 0
             for (main_col_name, resolver, style) in columns_in_main_sheet:
                 if style in date_formats:
