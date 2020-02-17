@@ -5,25 +5,21 @@ from app.models import Comment
 from app.models.event import EventBaseValidationStatus
 
 
-def log_group_comment(
-    submitter, company, users, content, event_time, reception_time
-):
+def log_group_comment(submitter, users, content, event_time, reception_time):
     for user in users:
         log_comment(
             event_time=event_time,
             reception_time=reception_time,
             user=user,
-            company=company,
             submitter=submitter,
             content=content,
         )
 
 
-def log_comment(submitter, user, company, event_time, reception_time, content):
+def log_comment(submitter, user, event_time, reception_time, content):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
         submitter=submitter,
-        company=company,
         event_time=event_time,
         reception_time=reception_time,
         content=content,
@@ -36,11 +32,11 @@ def log_comment(submitter, user, company, event_time, reception_time, content):
         event_time=event_time,
         reception_time=reception_time,
         user=user,
-        company=company,
+        company_id=submitter.company_id,
         content=content,
         submitter=submitter,
         validation_status=EventBaseValidationStatus.PENDING
-        if can_submitter_log_for_user(submitter, user, company)
+        if can_submitter_log_for_user(submitter, user)
         else EventBaseValidationStatus.UNAUTHORIZED_SUBMITTER,
     )
     db.session.add(comment)

@@ -65,7 +65,6 @@ class TestLogActivities(BaseTest):
                             team=[{"id": value} for value in a["user_ids"]],
                             eventTime=a["event_time"],
                             type=a["type"],
-                            companyId=a["company_id"],
                             driverIdx=a.get("driver_idx", 0),
                         )
                         for a in activities
@@ -137,7 +136,7 @@ class TestLogActivities(BaseTest):
                     from_timestamp(exp_acti["event_time"]),
                 )
                 self.assertEqual(real_acti.submitter, submitter)
-                self.assertEqual(real_acti.company_id, exp_acti["company_id"])
+                self.assertEqual(real_acti.company_id, submitter.company_id)
                 self.assertEqual(
                     real_acti.validation_status,
                     user_specifics.get(
@@ -171,7 +170,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.WORK,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     )
                 ],
             )
@@ -185,7 +183,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.WORK,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         should_not_create=True,
                     )
                 ],
@@ -200,7 +197,6 @@ class TestLogActivities(BaseTest):
                         type=ActivityTypes.SUPPORT,  # Can't input that
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         should_not_create=True,
                     )
                 ],
@@ -220,7 +216,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.DRIVE,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         driver_idx=0,  # team_leader,
                         user_specifics={
                             u.id: {
@@ -233,19 +228,16 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.BREAK,
                         event_time=1581055546977,  # 2020-02-07 07:05
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.WORK,
                         event_time=1581065546977,  # 2020-02-07 09:49
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
                         event_time=1581075546977,  # 2020-02-07 12:43
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                 ],
             )
@@ -263,7 +255,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.DRIVE,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         driver_idx=0,  # team_leader,
                         user_specifics={
                             u.id: {
@@ -276,27 +267,23 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.BREAK,
                         event_time=1581055546977,  # 2020-02-07 07:05
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         should_not_create=True,
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
                         event_time=1581055556977,  # Only 10s after previous event time
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         should_not_create=True,
                     ),
                     dict(
                         type=InputableActivityTypes.WORK,
                         event_time=1581055566977,  # Only 10s after previous event time
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
                         event_time=1581075546977,  # 2020-02-07 12:43
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                 ],
             )
@@ -314,7 +301,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.DRIVE,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         driver_idx=0,  # team_leader,
                         user_specifics={
                             u.id: {
@@ -327,13 +313,11 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.WORK,
                         event_time=1581055546977,  # 2020-02-07 07:05
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.WORK,
                         event_time=1581065546977,  # 2020-02-07 09:49
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         user_specifics={
                             u.id: {
                                 "validation_status": ActivityValidationStatus.NO_ACTIVITY_SWITCH
@@ -345,7 +329,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.REST,
                         event_time=1581075546977,  # 2020-02-07 12:43
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                 ],
             )
@@ -365,7 +348,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.DRIVE,
                         event_time=1581045546977,  # 2020-02-07 04:19
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                         driver_idx=0,  # team_leader,
                         user_specifics={
                             u.id: {
@@ -378,19 +360,16 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.BREAK,
                         event_time=1581055546977,  # 2020-02-07 07:05
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.WORK,
                         event_time=1581065546977,  # 2020-02-07 09:49
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
                         event_time=1581075546977,  # 2020-02-07 12:43
                         user_ids=[u.id for u in self.team],
-                        company_id=self.company.id,
                     ),
                 ],
             )
@@ -405,7 +384,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.WORK,
                         event_time=1581060556977,  # 2020-02-07 08:30
                         user_ids=[self.team_leader.id],
-                        company_id=self.company.id,
                         user_specifics={
                             self.team_leader.id: {
                                 "validation_status": ActivityValidationStatus.CONFLICTING_WITH_HISTORY
@@ -416,7 +394,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.REST,
                         event_time=1581085546977,  # 2020-02-07 16:27
                         user_ids=[self.team_leader.id],
-                        company_id=self.company.id,
                         user_specifics={
                             self.team_leader.id: {
                                 "validation_status": ActivityValidationStatus.NO_ACTIVITY_SWITCH
@@ -427,7 +404,6 @@ class TestLogActivities(BaseTest):
                         type=InputableActivityTypes.DRIVE,
                         event_time=1581145546977,  # 2020-02-08 08:05
                         user_ids=[self.team_leader.id],
-                        company_id=self.company.id,
                         driver_idx=0,  # team_leader,
                     ),
                 ],
@@ -443,7 +419,6 @@ class TestLogActivities(BaseTest):
                             type=InputableActivityTypes.DRIVE,
                             event_time=1581145566977,  # 2020-02-08 08:05
                             user_ids=[u.id for u in self.team],
-                            company_id=self.company.id,
                             driver_idx=1,  # First team mate
                             user_specifics={
                                 self.team_leader.id: {
@@ -462,19 +437,16 @@ class TestLogActivities(BaseTest):
                             type=InputableActivityTypes.BREAK,
                             event_time=1581155556977,  # 2020-02-07 10:49
                             user_ids=[u.id for u in self.team],
-                            company_id=self.company.id,
                         ),
                         dict(
                             type=InputableActivityTypes.WORK,
                             event_time=1581165546977,  # 2020-02-07 13:33
                             user_ids=[u.id for u in self.team],
-                            company_id=self.company.id,
                         ),
                         dict(
                             type=InputableActivityTypes.REST,
                             event_time=1581175546977,  # 2020-02-07 16:17
                             user_ids=[u.id for u in self.team],
-                            company_id=self.company.id,
                         ),
                     ],
                 )

@@ -42,7 +42,6 @@ class ExpenditureLog(graphene.Mutation):
             for group_expenditure in events:
                 log_group_expenditure(
                     submitter=current_user,
-                    company=Company.query.get(group_expenditure.company_id),
                     users=[
                         User.query.get(uid)
                         for uid in group_expenditure.user_ids

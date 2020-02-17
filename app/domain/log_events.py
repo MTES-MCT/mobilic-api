@@ -6,15 +6,9 @@ class EventLogError:
 
 
 def get_response_if_event_should_not_be_logged(
-    user,
-    submitter,
-    company,
-    event_time,
-    reception_time,
-    event_history,
-    **kwargs,
+    user, submitter, event_time, reception_time, event_history, **kwargs,
 ):
-    if not submitter or not user or not company or not event_time:
+    if not submitter or not user or not event_time:
         app.logger.warn("Event is missing some core params : will not log")
         return EventLogError
 
@@ -25,7 +19,7 @@ def get_response_if_event_should_not_be_logged(
     event_param_dict = dict(
         event_time=event_time,
         submitter=submitter,
-        company=company,
+        company_id=submitter.company_id,
         user=user,
         **kwargs,
     )

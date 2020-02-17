@@ -14,7 +14,6 @@ from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import graphene_enum_type
 from app.models.activity import InputableActivityTypes
 from app.models.user import User
-from app.models.company import Company
 from app.controllers.event import EventInput
 
 
@@ -45,7 +44,6 @@ class ActivityLog(graphene.Mutation):
             for group_activity in events:
                 log_group_activity(
                     submitter=current_user,
-                    company=Company.query.get(group_activity.company_id),
                     users=[
                         User.query.get(uid) for uid in group_activity.user_ids
                     ],

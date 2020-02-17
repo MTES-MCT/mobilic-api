@@ -10,7 +10,6 @@ from app.models.activity import (
 
 def log_group_activity(
     submitter,
-    company,
     users,
     type,
     event_time,
@@ -35,7 +34,6 @@ def log_group_activity(
             event_time=event_time,
             reception_time=reception_time,
             user=user,
-            company=company,
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
             mission=mission,
@@ -45,9 +43,9 @@ def log_group_activity(
 
 
 def _get_activity_validation_status(
-    submitter, user, company, type, event_time, team, driver_idx,
+    submitter, user, type, event_time, team, driver_idx,
 ):
-    if not can_submitter_log_for_user(submitter, user, company):
+    if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
         return ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
     else:
@@ -91,7 +89,6 @@ def _get_activity_validation_status(
 def log_activity(
     submitter,
     user,
-    company,
     type,
     event_time,
     reception_time,
@@ -103,7 +100,6 @@ def log_activity(
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
         submitter=submitter,
-        company=company,
         event_time=event_time,
         reception_time=reception_time,
         type=type,
@@ -115,7 +111,6 @@ def log_activity(
     validation_status = _get_activity_validation_status(
         submitter=submitter,
         user=user,
-        company=company,
         type=type,
         event_time=event_time,
         team=team,
@@ -127,7 +122,7 @@ def log_activity(
         event_time=event_time,
         reception_time=reception_time,
         user=user,
-        company=company,
+        company_id=submitter.company_id,
         submitter=submitter,
         validation_status=validation_status,
         vehicle_registration_number=vehicle_registration_number,

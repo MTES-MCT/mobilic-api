@@ -5,27 +5,21 @@ from app.models import Expenditure
 from app.models.event import EventBaseValidationStatus
 
 
-def log_group_expenditure(
-    submitter, company, users, type, event_time, reception_time
-):
+def log_group_expenditure(submitter, users, type, event_time, reception_time):
     for user in users:
         log_expenditure(
             type=type,
             event_time=event_time,
             reception_time=reception_time,
             user=user,
-            company=company,
             submitter=submitter,
         )
 
 
-def log_expenditure(
-    submitter, user, company, type, event_time, reception_time
-):
+def log_expenditure(submitter, user, type, event_time, reception_time):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
         submitter=submitter,
-        company=company,
         event_time=event_time,
         reception_time=reception_time,
         type=type,
@@ -39,10 +33,10 @@ def log_expenditure(
         event_time=event_time,
         reception_time=reception_time,
         user=user,
-        company=company,
+        company_id=submitter.company_id,
         submitter=submitter,
         validation_status=EventBaseValidationStatus.PENDING
-        if can_submitter_log_for_user(submitter, user, company)
+        if can_submitter_log_for_user(submitter, user)
         else EventBaseValidationStatus.UNAUTHORIZED_SUBMITTER,
     )
     db.session.add(expenditure)

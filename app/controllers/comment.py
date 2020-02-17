@@ -38,7 +38,6 @@ class CommentLog(graphene.Mutation):
             for group_comment in events:
                 log_group_comment(
                     submitter=current_user,
-                    company=Company.query.get(group_comment.company_id),
                     users=[
                         User.query.get(uid) for uid in group_comment.user_ids
                     ],
