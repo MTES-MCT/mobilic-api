@@ -92,7 +92,7 @@ columns_in_main_sheet = [
 ]
 
 columns_in_user_sheet = [
-    ("Activité", lambda activity: activity.type, None),
+    ("Activité", lambda activity: ACTIVITY_TYPE_LABEL[activity.type], None),
     ("Jour", lambda activity: activity.event_time, "date_format"),
     ("Heure", lambda activity: activity.event_time, "time_format"),
     ("Saisi par", lambda activity: activity.submitter.display_name, None),
