@@ -3,7 +3,6 @@ from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import logging
 
 
 from config import Config
@@ -21,8 +20,7 @@ CORS(app)
 from app.helpers import cli
 from app.controllers import graphql_schema
 from app.helpers.admin import admin
-
-app.logger.setLevel(logging.INFO)
+from app.helpers import logging
 
 
 graphql_api_path = "/api/graphql"

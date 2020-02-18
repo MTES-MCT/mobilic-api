@@ -30,7 +30,7 @@ class CompanySignup(graphene.Mutation):
             db.session.commit()
             app.logger.info(f"Signed up new company {company}")
         except Exception as e:
-            app.logger.info(f"Error during company signup for {company} : {e}")
+            app.logger.exception(f"Error during company signup for {company}")
         return CompanySignup(company=company)
 
 

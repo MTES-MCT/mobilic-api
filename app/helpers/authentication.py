@@ -28,7 +28,7 @@ def with_auth_error_handling(f):
         try:
             return f(*args, **kwargs)
         except (AuthError, JWTExtendedException, PyJWTError) as e:
-            app.logger.error(f"Authentication error : {e}")
+            app.logger.exception(f"Authentication error")
             raise GraphQLError(
                 "Authentication error", extensions=dict(details=str(e))
             )

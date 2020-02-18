@@ -11,6 +11,7 @@ class Config:
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
+    SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
 
 
 class TestConfig(Config):

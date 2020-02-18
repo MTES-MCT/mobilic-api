@@ -30,10 +30,11 @@ class UserSignup(graphene.Mutation):
         try:
             db.session.add(user)
             db.session.commit()
-            app.logger.info(f"Signed up new user {user}")
+            app.logger.info(
+                f"Signed up new user {user}", extra={"post_to_slack": True}
+            )
         except Exception as e:
-            app.logger.error(f"Error during user signup for {user} : {e}")
-            raise e
+            app.logger.exception(f"Error during user signup for {user}")
         return UserSignup(user=user, **create_access_tokens_for(user))
 
 
