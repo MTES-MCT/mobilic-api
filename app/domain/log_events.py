@@ -13,7 +13,9 @@ def get_response_if_event_should_not_be_logged(
         return EventLogError
 
     if event_time >= reception_time:
-        app.logger.warn("Event time is in the future : will not log")
+        app.logger.warn(
+            f"Event time is in the future by {event_time - reception_time} : will not log"
+        )
         return EventLogError
 
     event_param_dict = dict(
