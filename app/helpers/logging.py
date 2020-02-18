@@ -69,7 +69,7 @@ class SlackHandler(logging.Handler):
             self.format(record),
             emoji,
             color,
-            [("Logged user", current_user), ("Device", record.device)],
+            [("User", current_user), ("Device", record.device)],
         )
 
 
