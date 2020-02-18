@@ -12,7 +12,10 @@ def get_response_if_event_should_not_be_logged(
         app.logger.warn("Event is missing some core params : will not log")
         return EventLogError
 
-    if event_time >= reception_time:
+    if (
+        event_time - reception_time
+        >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
+    ):
         app.logger.warn(
             f"Event time is in the future by {event_time - reception_time} : will not log"
         )
