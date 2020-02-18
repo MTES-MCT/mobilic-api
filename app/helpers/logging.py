@@ -21,10 +21,9 @@ formatter = LogFormatter(
 
 
 def post_to_slack(message, emoji, color, tuples=None):
-    msg = message.replace("\n", " ")
     tuples_ = tuples if tuples else []
     blocks = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": msg}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": message}},
         {
             "type": "section",
             "fields": [
@@ -66,7 +65,7 @@ class SlackFormatter(logging.Formatter):
         return super().format(record)
 
     def formatException(self, ei):
-        return f" : {ei[1]}"
+        return f"{ei[1]}"
 
 
 app.logger.setLevel(logging.INFO)
