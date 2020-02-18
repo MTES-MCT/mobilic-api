@@ -1,6 +1,8 @@
+import os
 from flask_jwt_extended import current_user
 import logging
 from flask.logging import default_handler
+from flask import request, has_request_context
 from slacker import Slacker
 
 from app import app
@@ -9,15 +11,17 @@ from app import app
 slack = Slacker(app.config["SLACK_TOKEN"])
 
 
-class LogFormatter(logging.Formatter):
-    def format(self, record):
-        record.current_user = current_user
-        return super().format(record)
-
-
-formatter = LogFormatter(
-    "[%(asctime)s] user=%(current_user)s %(levelname)s in %(name)s: %(message)s"
-)
+def add_request_and_user_context(record):
+    record.current_user = current_user
+    if has_request_context():
+        record.device = "{} ({} {})".format(
+            request.user_agent.platform,
+            request.user_agent.browser,
+            request.user_agent.version,
+        )
+    else:
+        record.device = None
+    return True
 
 
 def post_to_slack(message, emoji, color, tuples=None):
@@ -27,7 +31,10 @@ def post_to_slack(message, emoji, color, tuples=None):
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": f"*{tuple[0]}*\n{tuple[1]}"}
+                {
+                    "type": "mrkdwn",
+                    "text": "*{}*\n{}".format(tuple[0], tuple[1]),
+                }
                 for tuple in tuples_
             ],
         },
@@ -36,7 +43,9 @@ def post_to_slack(message, emoji, color, tuples=None):
     return slack.chat.post_message(
         channel="#mobilic-alerts",
         as_user=False,
-        username="Mobilic backend",
+        username="Mobilic backend"
+        if os.environ.get("MOBILIC_ENV", "") == "prod"
+        else "Mobilic backend test",
         attachments=[{"blocks": blocks, "color": color}],
         icon_emoji=emoji,
     )
@@ -51,10 +60,16 @@ class SlackHandler(logging.Handler):
             emoji = ":warning:"
             color = "#ffba20"
         else:
-            emoji = ":information:"
+            emoji = ":information_source:"
             color = "#36a64f"
+        em = getattr(record, "emoji", None)
+        if em:
+            emoji = em
         return post_to_slack(
-            self.format(record), emoji, color, [("User", current_user)]
+            self.format(record),
+            emoji,
+            color,
+            [("Logged user", current_user), ("Device", record.device)],
         )
 
 
@@ -69,7 +84,12 @@ class SlackFormatter(logging.Formatter):
 
 
 app.logger.setLevel(logging.INFO)
-default_handler.setFormatter(formatter)
+app.logger.addFilter(add_request_and_user_context)
+default_handler.setFormatter(
+    logging.Formatter(
+        "[%(asctime)s] user=%(current_user)s %(levelname)s in %(name)s: %(message)s"
+    )
+)
 
 
 if app.config["SLACK_TOKEN"]:
