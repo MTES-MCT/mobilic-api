@@ -3,13 +3,15 @@ from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+import os
 
-
-from config import Config
+import config
 
 
 app = Flask(__name__)
-app.config.from_object(Config)
+
+env = os.environ.get("MOBILIC_ENV", "")
+app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
 db = SQLAlchemy(app)
 
