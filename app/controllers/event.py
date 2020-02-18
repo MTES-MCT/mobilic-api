@@ -1,4 +1,5 @@
 from sqlalchemy.orm import joinedload
+from flask_jwt_extended import current_user
 import graphene
 
 from app.models import User, Company
@@ -31,7 +32,7 @@ def preload_or_create_relevant_resources_from_events(events):
                     new_user = User(
                         first_name=possible_user.first_name,
                         last_name=possible_user.last_name,
-                        company_id=event.submitter.company_id,
+                        company_id=current_user.company_id,
                     )
                     app.logger.info(f"Creating new user {new_user}")
                     new_users_created[new_user_key] = new_user
