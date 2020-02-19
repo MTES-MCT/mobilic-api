@@ -47,4 +47,5 @@ class Query(graphene.ObjectType):
     )
     def resolve_user(self, info, id):
         matching_user = User.query.options(joinedload(User.activities)).get(id)
+        app.logger.info(f"Sending user data for {matching_user}")
         return matching_user
