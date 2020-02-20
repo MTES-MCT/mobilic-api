@@ -1,4 +1,4 @@
-from flask import Flask, redirect
+from flask import Flask
 from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -23,6 +23,12 @@ from app.helpers import cli
 from app.controllers import graphql_schema
 from app.helpers.admin import admin
 from app.helpers import logging
+
+
+@app.before_first_request
+def configure_app():
+    if env == "prod":
+        db.engine.dispose()
 
 
 graphql_api_path = "/graphql"
