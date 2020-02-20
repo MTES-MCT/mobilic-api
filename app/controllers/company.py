@@ -45,7 +45,7 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
-@app.route("/api/download_company_activity_report/<int:id>")
+@app.route("/download_company_activity_report/<int:id>")
 @with_authorization_policy(
     company_admin, get_target_from_args=lambda id, *args, **kwargs: id
 )

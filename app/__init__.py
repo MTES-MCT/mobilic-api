@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, redirect
 from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -25,7 +25,12 @@ from app.helpers.admin import admin
 from app.helpers import logging
 
 
-graphql_api_path = "/api/graphql"
+graphql_api_path = "/graphql"
+
+
+@app.route("/api/<path:u_path>")
+def redirect_to_new_routes(u_path):
+    return redirect(f"/{u_path}")
 
 
 app.add_url_rule(
