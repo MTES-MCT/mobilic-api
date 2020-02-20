@@ -1,3 +1,3 @@
-web: bin/proximo gunicorn app:app --preload
-release: bin/proximo flask db upgrade
+web: gunicorn app:app --preload
+release: flask db upgrade
 
