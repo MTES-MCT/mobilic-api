@@ -28,14 +28,16 @@ from app.helpers import logging
 graphql_api_path = "/graphql"
 
 
-@app.route("/api/<path:u_path>")
-def redirect_to_new_routes(u_path):
-    return redirect(f"/{u_path}")
-
-
 app.add_url_rule(
     graphql_api_path,
     view_func=GraphQLView.as_view(
         "graphql", schema=graphql_schema, graphiql=True
+    ),
+)
+
+app.add_url_rule(
+    "/api" + graphql_api_path,
+    view_func=GraphQLView.as_view(
+        "old_graphql", schema=graphql_schema, graphiql=True
     ),
 )
