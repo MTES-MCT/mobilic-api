@@ -76,7 +76,9 @@ class LoginMutation(graphene.Mutation):
         app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
         if not user or not user.check_password(password):
-            raise AuthError(f"Wrong credentials for email {email}")
+            raise AuthError(
+                f"Wrong email/password combination for email {email}"
+            )
         return LoginMutation(**create_access_tokens_for(user))
 
 
