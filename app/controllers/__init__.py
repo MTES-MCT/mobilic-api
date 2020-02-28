@@ -1,7 +1,7 @@
 import graphene
 
 from app.controllers.comment import CommentLog
-from app.controllers.expenditure import ExpenditureLog
+from app.controllers.expenditure import ExpenditureLog, CancelExpenditures
 from app.helpers.authentication import AuthMutation
 from app.controllers.activity import ActivityLog
 import app.controllers.user
@@ -17,6 +17,7 @@ class Mutations(graphene.ObjectType):
     log_comments = CommentLog.Field()
     signup_user = user.UserSignup.Field()
     signup_company = company.CompanySignup.Field()
+    cancel_expenditures = CancelExpenditures.Field()
 
 
 class Query(user.Query, company.Query, graphene.ObjectType):

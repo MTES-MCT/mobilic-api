@@ -15,6 +15,11 @@ class Expenditure(EventBaseModel):
     backref_base_name = "expenditures"
 
     type = enum_column(ExpenditureTypes, nullable=False)
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def is_acknowledged(self):
+        return super().is_acknowledged and self.cancelled_at is None
 
     def to_dict(self):
         base_dict = super().to_dict()
