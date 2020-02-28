@@ -1,6 +1,7 @@
 from app import app, db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
+from app.helpers.time import local_to_utc
 from app.models.activity import (
     ActivityTypes,
     Activity,
@@ -48,40 +49,46 @@ def _get_activity_validation_status(
     if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
         return ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
-    else:
-        latest_activity_log = user.current_acknowledged_activity
-        if latest_activity_log:
-            if latest_activity_log.event_time >= event_time:
-                app.logger.warn("Event is conflicting with previous logs")
-                return ActivityValidationStatus.CONFLICTING_WITH_HISTORY
-            else:
-                if (
-                    event_time - latest_activity_log.event_time
-                    < app.config["MINIMUM_ACTIVITY_DURATION"]
-                ):
-                    app.logger.info(
-                        "Event time is close to previous logs, deleting these"
-                    )
-                    if latest_activity_log.id is not None:
-                        db.session.delete(latest_activity_log)
-                    else:
-                        db.session.expunge(latest_activity_log)
-                    user_activities = user.acknowledged_activities
-                    latest_activity_log = (
-                        user_activities[-2]
-                        if len(user_activities) >= 2
-                        else None
-                    )
-        if not latest_activity_log and type == ActivityTypes.REST:
-            return ActivityValidationStatus.NO_ACTIVITY_SWITCH
-        if latest_activity_log and latest_activity_log.type == type:
+
+    latest_activity_log = user.current_acknowledged_activity
+    if latest_activity_log:
+        if latest_activity_log.event_time >= event_time:
+            app.logger.warn("Event is conflicting with previous logs")
+            return ActivityValidationStatus.CONFLICTING_WITH_HISTORY
+        else:
             if (
-                type == ActivityTypes.SUPPORT
-                and team[driver_idx]
-                != latest_activity_log.team[latest_activity_log.driver_idx]
+                event_time - latest_activity_log.event_time
+                < app.config["MINIMUM_ACTIVITY_DURATION"]
             ):
-                return ActivityValidationStatus.DRIVER_SWITCH
-            return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+                app.logger.info(
+                    "Event time is close to previous logs, deleting these"
+                )
+                if latest_activity_log.id is not None:
+                    db.session.delete(latest_activity_log)
+                else:
+                    db.session.expunge(latest_activity_log)
+                user_activities = user.acknowledged_activities
+                latest_activity_log = (
+                    user_activities[-2] if len(user_activities) >= 2 else None
+                )
+    if not latest_activity_log and type == ActivityTypes.REST:
+        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+    if latest_activity_log and latest_activity_log.type == type:
+        if (
+            type == ActivityTypes.SUPPORT
+            and team[driver_idx]
+            != latest_activity_log.team[latest_activity_log.driver_idx]
+        ):
+            return ActivityValidationStatus.DRIVER_SWITCH
+        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+    if (
+        latest_activity_log
+        and latest_activity_log.type == ActivityTypes.REST
+        and local_to_utc(latest_activity_log.event_time).date()
+        == local_to_utc(event_time).date()
+    ):
+        latest_activity_log.type = ActivityTypes.BREAK
+        db.session.add(latest_activity_log)
 
     return ActivityValidationStatus.PENDING
 
