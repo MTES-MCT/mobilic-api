@@ -37,7 +37,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         self_or_company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_expenditures(self, info):
-        return self.expenditures
+        return self.acknowledged_expenditures
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self

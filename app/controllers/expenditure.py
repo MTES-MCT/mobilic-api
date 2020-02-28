@@ -38,7 +38,7 @@ class ExpenditureLog(graphene.Mutation):
     def mutate(cls, _, info, data):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
-                f"Logging activities submitted by {current_user} of company {current_user.company}"
+                f"Logging expenditures submitted by {current_user} of company {current_user.company}"
             )
             reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)

@@ -11,7 +11,6 @@ from app.data_access.comment import CommentOutput
 from app.domain.log_comments import log_group_comment
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.models.user import User
-from app.models.company import Company
 from app.controllers.event import EventInput
 
 
