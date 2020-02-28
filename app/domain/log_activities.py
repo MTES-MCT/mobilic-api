@@ -89,6 +89,14 @@ def _get_activity_validation_status(
     ):
         latest_activity_log.type = ActivityTypes.BREAK
         db.session.add(latest_activity_log)
+    if (
+        latest_activity_log
+        and latest_activity_log.type == ActivityTypes.BREAK
+        and type == ActivityTypes.REST
+    ):
+        latest_activity_log.type = ActivityTypes.REST
+        db.session.add(latest_activity_log)
+        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
 
     return ActivityValidationStatus.PENDING
 
