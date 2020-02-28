@@ -89,6 +89,11 @@ columns_in_main_sheet = [
         ),
         None,
     ),
+    (
+        "Commentaires",
+        lambda wday: "\n".join([" - " + c.content for c in wday.comments]),
+        None,
+    ),
 ]
 
 columns_in_user_sheet = [

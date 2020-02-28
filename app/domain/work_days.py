@@ -1,9 +1,10 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
+from datetime import datetime
 
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Expenditure
+from app.models import Activity, User, Expenditure, Comment
 from app.models.activity import ActivityTypes
 
 
@@ -12,6 +13,7 @@ class WorkDay:
     user: User
     activities: List[Activity]
     expenditures: List[Expenditure]
+    comments: List[Comment]
 
     @property
     def is_complete(self):
@@ -61,6 +63,7 @@ def group_user_events_by_day(user):
     expenditures = sorted(
         user.acknowledged_expenditures, key=lambda e: e.event_time
     )
+    comments = sorted(user.comments, key=lambda e: e.event_time)
 
     work_days = []
     current_work_day = None
@@ -71,7 +74,7 @@ def group_user_events_by_day(user):
             current_work_day = None
         elif not current_work_day:
             current_work_day = WorkDay(
-                user=user, activities=[activity], expenditures=[]
+                user=user, activities=[activity], expenditures=[], comments=[]
             )
         else:
             current_work_day.activities.append(activity)
@@ -79,12 +82,21 @@ def group_user_events_by_day(user):
     if current_work_day:
         work_days.append(current_work_day)
 
-    for day in work_days:
+    for idx, day in enumerate(work_days):
+        if idx == len(work_days) - 1:
+            next_day_start_time = datetime.now()
+        else:
+            next_day_start_time = work_days[idx + 1].start_time
         if day.is_complete:
             day.expenditures = [
                 e
                 for e in expenditures
                 if day.start_time <= e.event_time <= day.end_time
+            ]
+            day.comments = [
+                c
+                for c in comments
+                if day.start_time <= c.event_time < next_day_start_time
             ]
 
     return work_days
