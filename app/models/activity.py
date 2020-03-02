@@ -1,6 +1,11 @@
 from enum import Enum
 from app import db
-from app.models.event import EventBaseValidationStatus, EventBaseModel
+from app.models.event import (
+    EventBaseContext,
+    EventBaseModel,
+    Cancellable,
+    Revisable,
+)
 from app.models.utils import enum_column
 
 
@@ -24,22 +29,22 @@ ActivityTypes = Enum(
 )
 
 
-ActivityValidationStatus = Enum(
-    "ActivityValidationStatus",
+ActivityContext = Enum(
+    "ActivityContext",
     dict(
         CONFLICTING_WITH_HISTORY="conflicting_with_history",
         NO_ACTIVITY_SWITCH="no_activity_switch",
         DRIVER_SWITCH="driver_switch",
         **{
-            event_validation_status.name: event_validation_status.value
-            for event_validation_status in EventBaseValidationStatus
+            event_context.name: event_context.value
+            for event_context in EventBaseContext
         },
     ),
     type=str,
 )
 
 
-class Activity(EventBaseModel):
+class Activity(EventBaseModel, Cancellable, Revisable):
     backref_base_name = "activities"
 
     type = enum_column(ActivityTypes, nullable=False)
@@ -47,7 +52,7 @@ class Activity(EventBaseModel):
     vehicle_registration_number = db.Column(db.String(255))
     mission = db.Column(db.String(255))
 
-    validation_status = enum_column(ActivityValidationStatus, nullable=False)
+    context = enum_column(ActivityContext, nullable=True)
 
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
@@ -67,20 +72,19 @@ class Activity(EventBaseModel):
 
     @property
     def is_acknowledged(self):
-        return self.validation_status in [
-            ActivityValidationStatus.PENDING,
-            ActivityValidationStatus.VALIDATED,
-            ActivityValidationStatus.NO_ACTIVITY_SWITCH,
-            ActivityValidationStatus.DRIVER_SWITCH,
+        return self.context in [
+            None,
+            ActivityContext.NO_ACTIVITY_SWITCH,
+            ActivityContext.DRIVER_SWITCH,
         ]
 
     @property
     def is_duplicate(self):
-        return self.validation_status in [
-            ActivityValidationStatus.NO_ACTIVITY_SWITCH,
-            ActivityValidationStatus.DRIVER_SWITCH,
+        return self.context in [
+            ActivityContext.NO_ACTIVITY_SWITCH,
+            ActivityContext.DRIVER_SWITCH,
         ]
 
     @property
     def is_driver_switch(self):
-        return self.validation_status == ActivityValidationStatus.DRIVER_SWITCH
+        return self.context == ActivityContext.DRIVER_SWITCH

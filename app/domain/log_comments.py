@@ -2,7 +2,7 @@ from app import db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.models import Comment
-from app.models.event import EventBaseValidationStatus
+from app.models.event import EventBaseContext
 
 
 def log_group_comment(submitter, users, content, event_time, reception_time):
@@ -35,8 +35,8 @@ def log_comment(submitter, user, event_time, reception_time, content):
         company_id=submitter.company_id,
         content=content,
         submitter=submitter,
-        validation_status=EventBaseValidationStatus.PENDING
+        context=None
         if can_submitter_log_for_user(submitter, user)
-        else EventBaseValidationStatus.UNAUTHORIZED_SUBMITTER,
+        else EventBaseContext.UNAUTHORIZED_SUBMITTER,
     )
     db.session.add(comment)

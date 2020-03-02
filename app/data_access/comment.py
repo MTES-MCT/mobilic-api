@@ -5,7 +5,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import EventBaseValidationStatus
+from app.models.event import EventBaseContext
 
 
 class CommentOutput(BaseSQLAlchemyObjectType):
@@ -13,4 +13,4 @@ class CommentOutput(BaseSQLAlchemyObjectType):
         model = Comment
 
     team = graphene.List(graphene.Int)
-    validation_status = graphene_enum_type(EventBaseValidationStatus)()
+    context = graphene_enum_type(EventBaseContext)()

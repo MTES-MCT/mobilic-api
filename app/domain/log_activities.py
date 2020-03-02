@@ -5,7 +5,7 @@ from app.helpers.time import local_to_utc
 from app.models.activity import (
     ActivityTypes,
     Activity,
-    ActivityValidationStatus,
+    ActivityContext,
 )
 
 
@@ -43,18 +43,18 @@ def log_group_activity(
         )
 
 
-def _get_activity_validation_status(
+def _get_activity_context(
     submitter, user, type, event_time, team, driver_idx,
 ):
     if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
-        return ActivityValidationStatus.UNAUTHORIZED_SUBMITTER
+        return ActivityContext.UNAUTHORIZED_SUBMITTER
 
     latest_activity_log = user.current_acknowledged_activity
     if latest_activity_log:
         if latest_activity_log.event_time >= event_time:
             app.logger.warn("Event is conflicting with previous logs")
-            return ActivityValidationStatus.CONFLICTING_WITH_HISTORY
+            return ActivityContext.CONFLICTING_WITH_HISTORY
         else:
             if (
                 event_time - latest_activity_log.event_time
@@ -72,15 +72,15 @@ def _get_activity_validation_status(
                     user_activities[-2] if len(user_activities) >= 2 else None
                 )
     if not latest_activity_log and type == ActivityTypes.REST:
-        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+        return ActivityContext.NO_ACTIVITY_SWITCH
     if latest_activity_log and latest_activity_log.type == type:
         if (
             type == ActivityTypes.SUPPORT
             and team[driver_idx]
             != latest_activity_log.team[latest_activity_log.driver_idx]
         ):
-            return ActivityValidationStatus.DRIVER_SWITCH
-        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+            return ActivityContext.DRIVER_SWITCH
+        return ActivityContext.NO_ACTIVITY_SWITCH
     if (
         latest_activity_log
         and latest_activity_log.type == ActivityTypes.REST
@@ -96,9 +96,9 @@ def _get_activity_validation_status(
     ):
         latest_activity_log.type = ActivityTypes.REST
         db.session.add(latest_activity_log)
-        return ActivityValidationStatus.NO_ACTIVITY_SWITCH
+        return ActivityContext.NO_ACTIVITY_SWITCH
 
-    return ActivityValidationStatus.PENDING
+    return None
 
 
 def log_activity(
@@ -123,7 +123,7 @@ def log_activity(
     if response_if_event_should_not_be_logged:
         return
 
-    validation_status = _get_activity_validation_status(
+    context = _get_activity_context(
         submitter=submitter,
         user=user,
         type=type,
@@ -139,7 +139,7 @@ def log_activity(
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
-        validation_status=validation_status,
+        context=context,
         vehicle_registration_number=vehicle_registration_number,
         mission=mission,
         team=team,

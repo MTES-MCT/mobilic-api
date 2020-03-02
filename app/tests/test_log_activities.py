@@ -3,7 +3,7 @@ from freezegun import freeze_time
 from app.helpers.time import from_timestamp
 from app.models.activity import (
     InputableActivityTypes,
-    ActivityValidationStatus,
+    ActivityContext,
     ActivityTypes,
 )
 from app.tests import BaseTest, UserFactory
@@ -138,10 +138,7 @@ class TestLogActivities(BaseTest):
                 self.assertEqual(real_acti.submitter, submitter)
                 self.assertEqual(real_acti.company_id, submitter.company_id)
                 self.assertEqual(
-                    real_acti.validation_status,
-                    user_specifics.get(
-                        "validation_status", ActivityValidationStatus.PENDING
-                    ),
+                    real_acti.context, user_specifics.get("context"),
                 )
 
                 # 3. In case of replace, check that the latest of the old activities was deleted
@@ -320,7 +317,7 @@ class TestLogActivities(BaseTest):
                         user_ids=[u.id for u in self.team],
                         user_specifics={
                             u.id: {
-                                "validation_status": ActivityValidationStatus.NO_ACTIVITY_SWITCH
+                                "context": ActivityContext.NO_ACTIVITY_SWITCH
                             }
                             for u in self.team
                         },
@@ -386,7 +383,7 @@ class TestLogActivities(BaseTest):
                         user_ids=[self.team_leader.id],
                         user_specifics={
                             self.team_leader.id: {
-                                "validation_status": ActivityValidationStatus.CONFLICTING_WITH_HISTORY
+                                "context": ActivityContext.CONFLICTING_WITH_HISTORY
                             }
                         },
                     ),
@@ -396,7 +393,7 @@ class TestLogActivities(BaseTest):
                         user_ids=[self.team_leader.id],
                         user_specifics={
                             self.team_leader.id: {
-                                "validation_status": ActivityValidationStatus.NO_ACTIVITY_SWITCH
+                                "context": ActivityContext.NO_ACTIVITY_SWITCH
                             }
                         },
                     ),
