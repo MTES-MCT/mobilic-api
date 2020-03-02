@@ -5,6 +5,7 @@ from graphql import GraphQLError
 import graphene
 
 from app import app, db
+from app.controllers.cancel import CancelEvents
 from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
@@ -61,52 +62,14 @@ class ExpenditureLog(graphene.Mutation):
         )
 
 
-class CancelSingleExpenditureInput(graphene.InputObjectType):
-    expenditure_id = graphene.Field(graphene.Int, required=True)
-    cancel_time = graphene.Field(
-        DateTimeWithTimeStampSerialization, required=True
-    )
-
-
-class CancelExpenditures(graphene.Mutation):
-    class Arguments:
-        data = graphene.List(CancelSingleExpenditureInput, required=True)
+class CancelExpenditures(CancelEvents):
+    model = Expenditure
 
     expenditures = graphene.List(ExpenditureOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, data):
-        with atomic_transaction(commit_at_end=True):
-            all_expenditures = Expenditure.query.filter(
-                Expenditure.id.in_([e.expenditure_id for e in data])
-            ).all()
-
-            if not all(
-                [
-                    e.submitter_id == current_user.id
-                    or e.user_id == current_user.id
-                    for e in all_expenditures
-                ]
-            ):
-                raise GraphQLError("Unauthorized")
-
-            for event in data:
-                expenditure_matches = [
-                    e for e in all_expenditures if e.id == event.expenditure_id
-                ]
-                if not expenditure_matches:
-                    app.logger.warn(
-                        f"Could not find expenditures with id {event.expenditure_id} to cancel"
-                    )
-                else:
-                    expenditure_to_cancel = expenditure_matches[0]
-                    app.logger.info(
-                        f"Cancelling expenditure {expenditure_to_cancel}"
-                    )
-                    expenditure_to_cancel.cancelled_at = event.cancel_time
-                    db.session.add(expenditure_to_cancel)
-
+    def mutate(cls, *args, **kwargs):
+        super().mutate(*args, **kwargs)
         return CancelExpenditures(
             expenditures=current_user.acknowledged_expenditures
         )

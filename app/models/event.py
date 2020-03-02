@@ -116,6 +116,6 @@ class Revisable:
     def is_revised(self):
         return self.revised_by_id is not None
 
-    def set_revision(self, revision):
+    def set_revision(self, revision, time):
         self.revised_by = revision
-        self.revised_at = datetime.now()
+        self.revised_at = time

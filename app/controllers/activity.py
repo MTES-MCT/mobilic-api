@@ -3,6 +3,7 @@ from datetime import datetime
 import graphene
 
 from app import app
+from app.controllers.cancel import CancelEvents
 from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
@@ -12,7 +13,7 @@ from app.data_access.signup import CompanyOutput
 from app.domain.log_activities import log_group_activity
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import graphene_enum_type
-from app.models.activity import InputableActivityTypes
+from app.models.activity import InputableActivityTypes, Activity
 from app.models.user import User
 from app.controllers.event import EventInput
 
@@ -58,4 +59,17 @@ class ActivityLog(graphene.Mutation):
         return ActivityLog(
             activities=current_user.acknowledged_deduplicated_activities_with_driver_switch,
             company=current_user.company,
+        )
+
+
+class CancelActivities(CancelEvents):
+    model = Activity
+
+    activities = graphene.List(ActivityOutput)
+
+    @classmethod
+    def mutate(cls, *args, **kwargs):
+        super().mutate(*args, **kwargs)
+        return CancelActivities(
+            activities=current_user.acknowledged_activities
         )
