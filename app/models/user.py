@@ -80,6 +80,12 @@ class User(BaseModel):
             return None
         return acknowledged_activities[-1]
 
+    def current_acknowledged_activity_at(self, time):
+        for activity in reversed(self.acknowledged_activities):
+            if activity.event_time <= time:
+                return activity
+        return None
+
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
 

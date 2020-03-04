@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from app import app, db
 from app.domain.log_events import get_response_if_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
@@ -44,13 +46,16 @@ def log_group_activity(
 
 
 def _get_activity_context(
-    submitter, user, type, event_time, team, driver_idx,
+    submitter, user, type, event_time, team, driver_idx, revise_mode
 ):
     if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
         return ActivityContext.UNAUTHORIZED_SUBMITTER
 
-    latest_activity_log = user.current_acknowledged_activity
+    if revise_mode:
+        latest_activity_log = user.current_acknowledged_activity_at(event_time)
+    else:
+        latest_activity_log = user.current_acknowledged_activity
     if latest_activity_log:
         if latest_activity_log.event_time >= event_time:
             app.logger.warn("Event is conflicting with previous logs")
@@ -68,9 +73,16 @@ def _get_activity_context(
                 else:
                     db.session.expunge(latest_activity_log)
                 user_activities = user.acknowledged_activities
-                latest_activity_log = (
-                    user_activities[-2] if len(user_activities) >= 2 else None
-                )
+                if revise_mode:
+                    latest_activity_log = user.current_acknowledged_activity_at(
+                        latest_activity_log.event_time - timedelta(seconds=1)
+                    )
+                else:
+                    latest_activity_log = (
+                        user_activities[-2]
+                        if len(user_activities) >= 2
+                        else None
+                    )
     if not latest_activity_log and type == ActivityTypes.REST:
         return ActivityContext.NO_ACTIVITY_SWITCH
     if latest_activity_log and latest_activity_log.type == type:
@@ -111,6 +123,7 @@ def log_activity(
     mission,
     team,
     driver_idx,
+    revise_mode=False,
 ):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
@@ -130,6 +143,7 @@ def log_activity(
         event_time=event_time,
         team=team,
         driver_idx=driver_idx,
+        revise_mode=revise_mode,
     )
 
     activity = Activity(
@@ -146,3 +160,4 @@ def log_activity(
         driver_idx=driver_idx,
     )
     db.session.add(activity)
+    return activity

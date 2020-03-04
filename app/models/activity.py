@@ -72,11 +72,16 @@ class Activity(EventBaseModel, Cancellable, Revisable):
 
     @property
     def is_acknowledged(self):
-        return self.context in [
-            None,
-            ActivityContext.NO_ACTIVITY_SWITCH,
-            ActivityContext.DRIVER_SWITCH,
-        ]
+        return (
+            self.context
+            in [
+                None,
+                ActivityContext.NO_ACTIVITY_SWITCH,
+                ActivityContext.DRIVER_SWITCH,
+            ]
+            and not self.is_cancelled
+            and not self.is_revised
+        )
 
     @property
     def is_duplicate(self):
