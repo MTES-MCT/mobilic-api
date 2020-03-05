@@ -1,11 +1,11 @@
 from enum import Enum
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import backref
+from sqlalchemy.orm import synonym
 
 from app.models.base import BaseModel
 from app.models import User, Company
 from app import db
-from app.models.utils import enum_column
 
 
 class EventBaseContext(str, Enum):
@@ -64,11 +64,26 @@ class EventBaseModel(BaseModel):
             backref="submitted_" + cls.backref_base_name,
         )
 
-    context = enum_column(EventBaseContext, nullable=True)
+    _context = db.Column("context", db.ARRAY(db.String(255)), nullable=True)
+
+    def _context_getter(self):
+        return set(self._context) if self._context is not None else {}
+
+    def _context_setter(self, context_set):
+        if not context_set:
+            self._context = None
+        self._context = list(context_set)
+
+    @declared_attr
+    def context(cls):
+        return synonym(
+            "_context",
+            descriptor=property(cls._context_getter, cls._context_setter),
+        )
 
     @property
     def is_acknowledged(self):
-        return self.context is None
+        return not self.context
 
     def to_dict(self):
         return dict(

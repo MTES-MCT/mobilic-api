@@ -32,8 +32,8 @@ def log_comment(submitter, user, event_time, content):
         company_id=submitter.company_id,
         content=content,
         submitter=submitter,
-        context=None
+        context={}
         if can_submitter_log_for_user(submitter, user)
-        else EventBaseContext.UNAUTHORIZED_SUBMITTER,
+        else {EventBaseContext.UNAUTHORIZED_SUBMITTER},
     )
     db.session.add(comment)

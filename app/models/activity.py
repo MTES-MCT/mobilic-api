@@ -53,8 +53,6 @@ class Activity(EventBaseModel, Cancellable, Revisable):
     vehicle_registration_number = db.Column(db.String(255))
     mission = db.Column(db.String(255))
 
-    context = enum_column(ActivityContext, nullable=True)
-
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
     driver_idx = db.Column(db.Integer, nullable=True, default=None)
@@ -74,23 +72,26 @@ class Activity(EventBaseModel, Cancellable, Revisable):
     @property
     def is_acknowledged(self):
         return (
-            self.context
-            in [
-                None,
-                ActivityContext.NO_ACTIVITY_SWITCH,
-                ActivityContext.DRIVER_SWITCH,
-            ]
+            self.context.issubset(
+                {
+                    ActivityContext.NO_ACTIVITY_SWITCH,
+                    ActivityContext.DRIVER_SWITCH,
+                }
+            )
             and not self.is_cancelled
             and not self.is_revised
         )
 
     @property
     def is_duplicate(self):
-        return self.context in [
-            ActivityContext.NO_ACTIVITY_SWITCH,
-            ActivityContext.DRIVER_SWITCH,
-        ]
+        return bool(
+            self.context
+            & {
+                ActivityContext.NO_ACTIVITY_SWITCH,
+                ActivityContext.DRIVER_SWITCH,
+            }
+        )
 
     @property
     def is_driver_switch(self):
-        return self.context == ActivityContext.DRIVER_SWITCH
+        return ActivityContext.DRIVER_SWITCH in self.context

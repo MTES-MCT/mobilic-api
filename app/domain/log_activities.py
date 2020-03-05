@@ -50,7 +50,7 @@ def _get_activity_context(
 ):
     if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
-        return ActivityContext.UNAUTHORIZED_SUBMITTER
+        return {ActivityContext.UNAUTHORIZED_SUBMITTER}
 
     if revise_mode:
         latest_activity_log = user.current_acknowledged_activity_at(start_time)
@@ -59,7 +59,7 @@ def _get_activity_context(
     if latest_activity_log:
         if latest_activity_log.start_time >= start_time:
             app.logger.warn("Event is conflicting with previous logs")
-            return ActivityContext.CONFLICTING_WITH_HISTORY
+            return {ActivityContext.CONFLICTING_WITH_HISTORY}
         else:
             if (
                 start_time - latest_activity_log.start_time
@@ -84,15 +84,15 @@ def _get_activity_context(
                         else None
                     )
     if not latest_activity_log and type == ActivityTypes.REST:
-        return ActivityContext.NO_ACTIVITY_SWITCH
+        return {ActivityContext.NO_ACTIVITY_SWITCH}
     if latest_activity_log and latest_activity_log.type == type:
         if (
             type == ActivityTypes.SUPPORT
             and team[driver_idx]
             != latest_activity_log.team[latest_activity_log.driver_idx]
         ):
-            return ActivityContext.DRIVER_SWITCH
-        return ActivityContext.NO_ACTIVITY_SWITCH
+            return {ActivityContext.DRIVER_SWITCH}
+        return {ActivityContext.NO_ACTIVITY_SWITCH}
     if (
         latest_activity_log
         and latest_activity_log.type == ActivityTypes.REST
@@ -108,9 +108,9 @@ def _get_activity_context(
     ):
         latest_activity_log.type = ActivityTypes.REST
         db.session.add(latest_activity_log)
-        return ActivityContext.NO_ACTIVITY_SWITCH
+        return {ActivityContext.NO_ACTIVITY_SWITCH}
 
-    return None
+    return {}
 
 
 def log_activity(

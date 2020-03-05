@@ -29,8 +29,8 @@ def log_expenditure(submitter, user, type, event_time):
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
-        context=None
+        context={}
         if can_submitter_log_for_user(submitter, user)
-        else EventBaseContext.UNAUTHORIZED_SUBMITTER,
+        else {EventBaseContext.UNAUTHORIZED_SUBMITTER},
     )
     db.session.add(expenditure)
