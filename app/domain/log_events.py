@@ -24,6 +24,10 @@ def check_whether_event_should_be_logged(
         )
         return EventLogError
 
+    if "start_time" in kwargs and kwargs["start_time"] > event_time:
+        app.logger.warn(f"Start time is after event time : will not log")
+        return EventLogError
+
     event_param_dict = dict(
         event_time=event_time,
         submitter=submitter,

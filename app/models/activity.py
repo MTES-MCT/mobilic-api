@@ -57,6 +57,13 @@ class Activity(EventBaseModel, Cancellable, Revisable):
 
     driver_idx = db.Column(db.Integer, nullable=True, default=None)
 
+    __table_args__ = (
+        db.CheckConstraint(
+            "(event_time >= start_time)",
+            name="activity_start_time_before_event_time",
+        ),
+    )
+
     # TODO : add (maybe)
     # - validator
     # - version (each version represents a set of changes to the day activities)
