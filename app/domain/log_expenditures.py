@@ -5,23 +5,18 @@ from app.models import Expenditure
 from app.models.event import EventBaseContext
 
 
-def log_group_expenditure(submitter, users, type, event_time, reception_time):
+def log_group_expenditure(submitter, users, type, event_time):
     for user in users:
         log_expenditure(
-            type=type,
-            event_time=event_time,
-            reception_time=reception_time,
-            user=user,
-            submitter=submitter,
+            type=type, event_time=event_time, user=user, submitter=submitter,
         )
 
 
-def log_expenditure(submitter, user, type, event_time, reception_time):
+def log_expenditure(submitter, user, type, event_time):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
-        reception_time=reception_time,
         type=type,
         event_history=user.expenditures,
     )
@@ -31,7 +26,6 @@ def log_expenditure(submitter, user, type, event_time, reception_time):
     expenditure = Expenditure(
         type=type,
         event_time=event_time,
-        reception_time=reception_time,
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,

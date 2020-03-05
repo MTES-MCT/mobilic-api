@@ -5,23 +5,21 @@ from app.models import Comment
 from app.models.event import EventBaseContext
 
 
-def log_group_comment(submitter, users, content, event_time, reception_time):
+def log_group_comment(submitter, users, content, event_time):
     for user in users:
         log_comment(
             event_time=event_time,
-            reception_time=reception_time,
             user=user,
             submitter=submitter,
             content=content,
         )
 
 
-def log_comment(submitter, user, event_time, reception_time, content):
+def log_comment(submitter, user, event_time, content):
     response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
-        reception_time=reception_time,
         content=content,
         event_history=user.comments,
     )
@@ -30,7 +28,6 @@ def log_comment(submitter, user, event_time, reception_time, content):
 
     comment = Comment(
         event_time=event_time,
-        reception_time=reception_time,
         user=user,
         company_id=submitter.company_id,
         content=content,

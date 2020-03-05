@@ -16,7 +16,6 @@ def log_group_activity(
     users,
     type,
     event_time,
-    reception_time,
     driver_idx,
     vehicle_registration_number,
     mission,
@@ -35,7 +34,6 @@ def log_group_activity(
         log_activity(
             type=activities_per_user[user],
             event_time=event_time,
-            reception_time=reception_time,
             user=user,
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
@@ -118,7 +116,6 @@ def log_activity(
     user,
     type,
     event_time,
-    reception_time,
     vehicle_registration_number,
     mission,
     team,
@@ -129,7 +126,6 @@ def log_activity(
         user=user,
         submitter=submitter,
         event_time=event_time,
-        reception_time=reception_time,
         type=type,
         event_history=user.activities,
     )
@@ -149,7 +145,6 @@ def log_activity(
     activity = Activity(
         type=type,
         event_time=event_time,
-        reception_time=reception_time,
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,

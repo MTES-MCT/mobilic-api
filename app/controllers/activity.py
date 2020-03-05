@@ -42,7 +42,6 @@ class ActivityLog(graphene.Mutation):
             f"Logging activities submitted by {current_user} of company {current_user.company}"
         )
         with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)
             preload_or_create_relevant_resources_from_events(events)
             for group_activity in events:
@@ -53,7 +52,6 @@ class ActivityLog(graphene.Mutation):
                     ],
                     type=group_activity.type,
                     event_time=group_activity.event_time,
-                    reception_time=reception_time,
                     driver_idx=group_activity.driver_idx,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
                     mission=group_activity.mission,
@@ -100,7 +98,6 @@ class ReviseActivities(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, data):
         with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
             all_relevant_activities = get_all_associated_events(
                 cls.model, [e.event_id for e in data]
             )
@@ -126,7 +123,6 @@ class ReviseActivities(graphene.Mutation):
                             user=db_activity.user,
                             type=db_activity.type,
                             event_time=event.event_time,
-                            reception_time=reception_time,
                             vehicle_registration_number=db_activity.vehicle_registration_number,
                             mission=db_activity.mission,
                             team=db_activity.team,

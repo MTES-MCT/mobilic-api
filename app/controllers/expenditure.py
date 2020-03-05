@@ -41,7 +41,6 @@ class ExpenditureLog(graphene.Mutation):
             app.logger.info(
                 f"Logging expenditures submitted by {current_user} of company {current_user.company}"
             )
-            reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)
             preload_or_create_relevant_resources_from_events(events)
             for group_expenditure in events:
@@ -53,7 +52,6 @@ class ExpenditureLog(graphene.Mutation):
                     ],
                     type=group_expenditure.type,
                     event_time=group_expenditure.event_time,
-                    reception_time=reception_time,
                 )
 
         return ExpenditureLog(

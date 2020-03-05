@@ -1,7 +1,6 @@
 from enum import Enum
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import backref
-from datetime import datetime
 
 from app.models.base import BaseModel
 from app.models import User, Company
@@ -19,7 +18,6 @@ class EventBaseModel(BaseModel):
     backref_base_name = "events"
 
     event_time = db.Column(db.DateTime, nullable=False)
-    reception_time = db.Column(db.DateTime, nullable=False)
 
     @declared_attr
     def user_id(cls):

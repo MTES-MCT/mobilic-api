@@ -31,7 +31,6 @@ class CommentLog(graphene.Mutation):
             app.logger.info(
                 f"Logging comments submitted by {current_user} of company {current_user.company}"
             )
-            reception_time = datetime.now()
             events = sorted(data, key=lambda e: e.event_time)
             preload_or_create_relevant_resources_from_events(events)
             for group_comment in events:
@@ -42,7 +41,6 @@ class CommentLog(graphene.Mutation):
                     ],
                     content=group_comment.content,
                     event_time=group_comment.event_time,
-                    reception_time=reception_time,
                 )
 
         return CommentLog(comments=current_user.comments,)

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app import app
 
 
@@ -6,8 +8,9 @@ class EventLogError:
 
 
 def get_response_if_event_should_not_be_logged(
-    user, submitter, event_time, reception_time, event_history, **kwargs,
+    user, submitter, event_time, event_history, **kwargs,
 ):
+    reception_time = datetime.now()
     if not submitter or not user or not event_time:
         app.logger.warn("Event is missing some core params : will not log")
         return EventLogError
