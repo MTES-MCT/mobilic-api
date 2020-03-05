@@ -1,5 +1,4 @@
 from flask_jwt_extended import current_user
-from datetime import datetime
 import graphene
 
 from app import app, db
@@ -23,6 +22,7 @@ from app.controllers.event import EventInput
 
 class SingleActivityInput(EventInput):
     type = graphene_enum_type(InputableActivityTypes)(required=True)
+    start_time = DateTimeWithTimeStampSerialization(required=False)
     driver_idx = graphene.Int(required=False)
     vehicle_registration_number = graphene.String(required=False)
     mission = graphene.String(required=False)
@@ -52,6 +52,8 @@ class ActivityLog(graphene.Mutation):
                     ],
                     type=group_activity.type,
                     event_time=group_activity.event_time,
+                    start_time=group_activity.start_time
+                    or group_activity.event_time,
                     driver_idx=group_activity.driver_idx,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
                     mission=group_activity.mission,
@@ -78,10 +80,10 @@ class CancelActivities(CancelEvents):
 
 class ActivityRevisionInput(graphene.InputObjectType):
     event_id = graphene.Field(graphene.Int, required=True)
-    revision_time = graphene.Field(
+    event_time = graphene.Field(
         DateTimeWithTimeStampSerialization, required=True
     )
-    event_time = graphene.Field(
+    start_time = graphene.Field(
         DateTimeWithTimeStampSerialization, required=True
     )
 
@@ -123,6 +125,7 @@ class ReviseActivities(graphene.Mutation):
                             user=db_activity.user,
                             type=db_activity.type,
                             event_time=event.event_time,
+                            start_time=event.start_time,
                             vehicle_registration_number=db_activity.vehicle_registration_number,
                             mission=db_activity.mission,
                             team=db_activity.team,
@@ -130,7 +133,7 @@ class ReviseActivities(graphene.Mutation):
                             revise_mode=True,
                         )
                         db_activity.set_revision(
-                            new_activity, event.revision_time
+                            new_activity, event.event_time
                         )
                         db.session.add(db_activity)
 

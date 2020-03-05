@@ -48,6 +48,7 @@ class Activity(EventBaseModel, Cancellable, Revisable):
     backref_base_name = "activities"
 
     type = enum_column(ActivityTypes, nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
 
     vehicle_registration_number = db.Column(db.String(255))
     mission = db.Column(db.String(255))
@@ -65,7 +66,7 @@ class Activity(EventBaseModel, Cancellable, Revisable):
 
     def to_dict(self):
         base_dict = super().to_dict()
-        return dict(**base_dict, type=self.type,)
+        return dict(**base_dict, type=self.type, start_time=self.start_time)
 
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"

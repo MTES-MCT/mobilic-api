@@ -16,6 +16,7 @@ def log_group_activity(
     users,
     type,
     event_time,
+    start_time,
     driver_idx,
     vehicle_registration_number,
     mission,
@@ -34,6 +35,7 @@ def log_group_activity(
         log_activity(
             type=activities_per_user[user],
             event_time=event_time,
+            start_time=start_time,
             user=user,
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
@@ -44,23 +46,23 @@ def log_group_activity(
 
 
 def _get_activity_context(
-    submitter, user, type, event_time, team, driver_idx, revise_mode
+    submitter, user, type, start_time, team, driver_idx, revise_mode
 ):
     if not can_submitter_log_for_user(submitter, user):
         app.logger.warn("Event is submitted from unauthorized user")
         return ActivityContext.UNAUTHORIZED_SUBMITTER
 
     if revise_mode:
-        latest_activity_log = user.current_acknowledged_activity_at(event_time)
+        latest_activity_log = user.current_acknowledged_activity_at(start_time)
     else:
         latest_activity_log = user.current_acknowledged_activity
     if latest_activity_log:
-        if latest_activity_log.event_time >= event_time:
+        if latest_activity_log.start_time >= start_time:
             app.logger.warn("Event is conflicting with previous logs")
             return ActivityContext.CONFLICTING_WITH_HISTORY
         else:
             if (
-                event_time - latest_activity_log.event_time
+                start_time - latest_activity_log.start_time
                 < app.config["MINIMUM_ACTIVITY_DURATION"]
             ):
                 app.logger.info(
@@ -73,7 +75,7 @@ def _get_activity_context(
                 user_activities = user.acknowledged_activities
                 if revise_mode:
                     latest_activity_log = user.current_acknowledged_activity_at(
-                        latest_activity_log.event_time - timedelta(seconds=1)
+                        latest_activity_log.start_time - timedelta(seconds=1)
                     )
                 else:
                     latest_activity_log = (
@@ -94,8 +96,8 @@ def _get_activity_context(
     if (
         latest_activity_log
         and latest_activity_log.type == ActivityTypes.REST
-        and local_to_utc(latest_activity_log.event_time).date()
-        == local_to_utc(event_time).date()
+        and local_to_utc(latest_activity_log.start_time).date()
+        == local_to_utc(start_time).date()
     ):
         latest_activity_log.type = ActivityTypes.BREAK
         db.session.add(latest_activity_log)
@@ -116,6 +118,7 @@ def log_activity(
     user,
     type,
     event_time,
+    start_time,
     vehicle_registration_number,
     mission,
     team,
@@ -127,6 +130,7 @@ def log_activity(
         submitter=submitter,
         event_time=event_time,
         type=type,
+        start_time=start_time,
         event_history=user.activities,
     )
     if response_if_event_should_not_be_logged:
@@ -136,7 +140,7 @@ def log_activity(
         submitter=submitter,
         user=user,
         type=type,
-        event_time=event_time,
+        start_time=start_time,
         team=team,
         driver_idx=driver_idx,
         revise_mode=revise_mode,
@@ -145,6 +149,7 @@ def log_activity(
     activity = Activity(
         type=type,
         event_time=event_time,
+        start_time=start_time,
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,

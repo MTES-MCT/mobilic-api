@@ -107,7 +107,7 @@ class TestLogActivities(BaseTest):
                             expected_activity_count_diff += 1
 
             # Sort actual and expected activities by event time
-            real_new_activities.sort(key=lambda a: a.event_time)
+            real_new_activities.sort(key=lambda a: a.start_time)
             expected_new_activities.sort(key=lambda a: a["event_time"])
 
             # Checks
@@ -132,7 +132,7 @@ class TestLogActivities(BaseTest):
                     user_specifics.get("type", exp_acti["type"]),
                 )
                 self.assertEqual(
-                    real_acti.event_time,
+                    real_acti.start_time,
                     from_timestamp(exp_acti["event_time"]),
                 )
                 self.assertEqual(real_acti.submitter, submitter)
