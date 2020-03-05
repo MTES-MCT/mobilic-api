@@ -1,5 +1,5 @@
 from app import db
-from app.domain.log_events import get_response_if_event_should_not_be_logged
+from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.models import Comment
 from app.models.event import EventBaseContext
@@ -16,7 +16,7 @@ def log_group_comment(submitter, users, content, event_time):
 
 
 def log_comment(submitter, user, event_time, content):
-    response_if_event_should_not_be_logged = get_response_if_event_should_not_be_logged(
+    response_if_event_should_not_be_logged = check_whether_event_should_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
