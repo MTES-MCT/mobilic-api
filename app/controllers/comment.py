@@ -32,7 +32,9 @@ class CommentLog(graphene.Mutation):
                 f"Logging comments submitted by {current_user} of company {current_user.company}"
             )
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(events)
+            preload_or_create_relevant_resources_from_events(
+                events, User.comments
+            )
             for group_comment in events:
                 log_group_comment(
                     submitter=current_user,

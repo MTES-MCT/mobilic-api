@@ -7,8 +7,10 @@ from app import db, app
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 
-def preload_or_create_relevant_resources_from_events(events):
-    User.query.options(joinedload(User.activities)).options(
+def preload_or_create_relevant_resources_from_events(
+    events, relevant_relationship
+):
+    User.query.options(joinedload(relevant_relationship)).options(
         joinedload(User.company).joinedload(Company.users)
     ).filter(
         User.id.in_(

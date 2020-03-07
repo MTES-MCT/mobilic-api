@@ -42,7 +42,9 @@ class ExpenditureLog(graphene.Mutation):
                 f"Logging expenditures submitted by {current_user} of company {current_user.company}"
             )
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(events)
+            preload_or_create_relevant_resources_from_events(
+                events, User.expenditures
+            )
             for group_expenditure in events:
                 log_group_expenditure(
                     submitter=current_user,

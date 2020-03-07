@@ -13,7 +13,7 @@ app = Flask(__name__)
 env = os.environ.get("MOBILIC_ENV", "")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
-db = SQLAlchemy(app)
+db = SQLAlchemy(app, session_options={"expire_on_commit": False})
 
 Migrate(app, db)
 

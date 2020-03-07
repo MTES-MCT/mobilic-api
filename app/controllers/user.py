@@ -5,7 +5,7 @@ from app.data_access.signup import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
-from app.models import User
+from app.models import User, Company
 from app import db, app
 
 
@@ -49,9 +49,10 @@ class Query(graphene.ObjectType):
         matching_user = (
             User.query.options(joinedload(User.activities))
             .options(joinedload(User.expenditures))
-            .options(joinedload(User.company))
+            .options(joinedload(User.company).joinedload(Company.users))
             .options(joinedload(User.comments))
-            .get(id)
+            .filter(User.id == id)
+            .one_or_none()
         )
         app.logger.info(f"Sending user data for {matching_user}")
         return matching_user

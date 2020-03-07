@@ -43,7 +43,9 @@ class ActivityLog(graphene.Mutation):
         )
         with atomic_transaction(commit_at_end=True):
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(events)
+            preload_or_create_relevant_resources_from_events(
+                events, User.activities
+            )
             for group_activity in events:
                 log_group_activity(
                     submitter=current_user,
