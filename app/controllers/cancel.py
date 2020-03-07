@@ -4,8 +4,11 @@ from graphql import GraphQLError
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
+from app.domain.log_activities import check_and_fix_neighbour_inconsistencies
 from app.helpers.authorization import authenticated, with_authorization_policy
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
+from app.models import Activity
+from app.models.event import DismissType
 
 
 def get_all_associated_events(model, event_ids):
@@ -37,7 +40,7 @@ def get_all_associated_events(model, event_ids):
 
 class CancelEventInput(graphene.InputObjectType):
     event_id = graphene.Field(graphene.Int, required=True)
-    cancel_time = graphene.Field(
+    event_time = graphene.Field(
         DateTimeWithTimeStampSerialization, required=True
     )
 
@@ -61,6 +64,8 @@ class CancelEvents(graphene.Mutation):
                     )
                 else:
                     events_to_cancel = [matched_event]
+                    # If cancellor of event is the submitter, we look for other events submitted at the same time,
+                    # since they might be the same event logged for team mates (and we will cancel them as well)
                     if matched_event.submitter_id == current_user.id:
                         events_to_cancel = [
                             e
@@ -70,5 +75,7 @@ class CancelEvents(graphene.Mutation):
                         ]
                     for db_event in events_to_cancel:
                         app.logger.info(f"Cancelling {db_event}")
-                        db_event.cancelled_at = event.cancel_time
+                        db_event.dismiss(
+                            DismissType.USER_CANCEL, event.event_time
+                        )
                         db.session.add(db_event)

@@ -102,6 +102,16 @@ class Activity(EventBaseModel, Revisable):
             or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
         )
 
+    def dismiss(self, type, dismiss_time=None):
+        from app.domain.log_activities import (
+            check_and_fix_neighbour_inconsistencies,
+        )
+
+        super().dismiss(type, dismiss_time)
+        check_and_fix_neighbour_inconsistencies(
+            *self.previous_and_next_acknowledged_activities, dismiss_time,
+        )
+
     def update_or_revise(self, revision_time, **updated_props):
         if self.is_revised:
             raise ValueError(f"You can't revise the already revised {self}")

@@ -61,7 +61,7 @@ def _check_and_delete_corrected_log(user, start_time):
             latest_activity_log.dismissed_at = True
 
 
-def _check_and_fix_neighbour_inconsistencies(
+def check_and_fix_neighbour_inconsistencies(
     previous_activity, next_activity, dismiss_or_revision_time=None
 ):
     if not next_activity or not next_activity.is_acknowledged:
@@ -99,7 +99,7 @@ def _check_and_fix_neighbour_inconsistencies(
         revised_next_activity.dismiss(
             ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
         )
-        _check_and_fix_neighbour_inconsistencies(
+        check_and_fix_neighbour_inconsistencies(
             previous_activity,
             previous_activity.next_acknowledged_activity,
             dismiss_or_revision_time,
@@ -122,7 +122,7 @@ def _check_and_fix_neighbour_inconsistencies(
         next_activity.dismiss(
             ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
         )
-        _check_and_fix_neighbour_inconsistencies(
+        check_and_fix_neighbour_inconsistencies(
             previous_activity,
             previous_activity.next_acknowledged_activity,
             dismiss_or_revision_time,
@@ -187,7 +187,7 @@ def log_activity(
             prev_activity,
             next_activity,
         ) = activity.previous_and_next_acknowledged_activities
-        _check_and_fix_neighbour_inconsistencies(prev_activity, activity)
-        _check_and_fix_neighbour_inconsistencies(activity, next_activity)
+        check_and_fix_neighbour_inconsistencies(prev_activity, activity)
+        check_and_fix_neighbour_inconsistencies(activity, next_activity)
 
     return activity
