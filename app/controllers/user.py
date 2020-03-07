@@ -1,11 +1,10 @@
 import graphene
-from sqlalchemy.orm import joinedload
 
 from app.data_access.signup import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
-from app.models import User, Company
+from app.models import User
 from app import db, app
 
 
@@ -46,13 +45,6 @@ class Query(graphene.ObjectType):
         self_or_company_admin, get_target_from_return_value=lambda user: user
     )
     def resolve_user(self, info, id):
-        matching_user = (
-            User.query.options(joinedload(User.activities))
-            .options(joinedload(User.expenditures))
-            .options(joinedload(User.company).joinedload(Company.users))
-            .options(joinedload(User.comments))
-            .filter(User.id == id)
-            .one_or_none()
-        )
+        matching_user = User.query.get(id)
         app.logger.info(f"Sending user data for {matching_user}")
         return matching_user
