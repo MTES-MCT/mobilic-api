@@ -47,7 +47,7 @@ class User(BaseModel):
                 for activity in self.activities
                 if activity.is_acknowledged
             ],
-            key=lambda a: a.event_time,
+            key=lambda a: a.start_time,
         )
 
     @property

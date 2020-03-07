@@ -114,7 +114,7 @@ class Activity(EventBaseModel, Revisable):
             type=self.type,
             event_time=revision_time,
             start_time=self.start_time,
-            user_id=self.user_id,
+            user=self.user,
             company_id=self.company_id,
             submitter=current_user,
             vehicle_registration_number=self.vehicle_registration_number,
