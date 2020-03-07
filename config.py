@@ -7,7 +7,7 @@ class Config:
         "DATABASE_URL", "postgresql://localhost:5432/mobilic"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    MINIMUM_ACTIVITY_DURATION = timedelta(minutes=3)
+    MINIMUM_ACTIVITY_DURATION = timedelta(seconds=5)
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
@@ -22,3 +22,4 @@ class TestConfig(Config):
 
 class ProdConfig(Config):
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
+    MINIMUM_ACTIVITY_DURATION = timedelta(minutes=3)
