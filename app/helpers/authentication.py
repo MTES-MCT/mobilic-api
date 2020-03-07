@@ -50,8 +50,7 @@ def get_user_from_token_identity(identity):
 
 def create_access_tokens_for(user):
     new_refresh_nonce = user.generate_refresh_token_nonce()
-    db.session.commit()
-    return {
+    tokens = {
         "access_token": create_access_token(
             {"id": user.id, "company_admin": user.is_company_admin},
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
@@ -60,6 +59,8 @@ def create_access_tokens_for(user):
             {"id": user.id, "nonce": new_refresh_nonce}, expires_delta=False
         ),
     }
+    db.session.commit()
+    return tokens
 
 
 class LoginMutation(graphene.Mutation):

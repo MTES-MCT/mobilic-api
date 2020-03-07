@@ -60,7 +60,7 @@ class ActivityLog(graphene.Mutation):
                 )
 
         return ActivityLog(
-            activities=current_user.acknowledged_deduplicated_activities_with_driver_switch,
+            activities=current_user.acknowledged_activities,
             company=current_user.company,
         )
 
@@ -74,7 +74,7 @@ class CancelActivities(CancelEvents):
     def mutate(cls, *args, **kwargs):
         super().mutate(*args, **kwargs)
         return CancelActivities(
-            activities=current_user.acknowledged_deduplicated_activities_with_driver_switch
+            activities=current_user.acknowledged_activities
         )
 
 
@@ -138,5 +138,5 @@ class ReviseActivities(graphene.Mutation):
                         db.session.add(db_activity)
 
         return ReviseActivities(
-            activities=current_user.acknowledged_deduplicated_activities_with_driver_switch
+            activities=current_user.acknowledged_activities
         )

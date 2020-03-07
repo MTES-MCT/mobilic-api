@@ -51,6 +51,7 @@ def with_authorization_policy(
                 target = get_target_from_args(*args, **kwargs)
                 if not authorization_rule(current_user, target):
                     raise GraphQLError("Unauthorized")
+
             value = resolver(*args, **kwargs)
 
             if rule_requires_target and get_target_from_return_value:

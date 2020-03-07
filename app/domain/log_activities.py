@@ -1,14 +1,10 @@
-from datetime import timedelta
+from datetime import datetime
 
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.helpers.time import local_to_utc
-from app.models.activity import (
-    ActivityTypes,
-    Activity,
-    ActivityContext,
-)
+from app.models.activity import ActivityTypes, Activity, ActivityDismissType
 
 
 def log_group_activity(
@@ -45,72 +41,92 @@ def log_group_activity(
         )
 
 
-def _get_activity_context(
-    submitter, user, type, start_time, team, driver_idx, revise_mode
-):
-    if not can_submitter_log_for_user(submitter, user):
-        app.logger.warn("Event is submitted from unauthorized user")
-        return {ActivityContext.UNAUTHORIZED_SUBMITTER}
-
-    if revise_mode:
-        latest_activity_log = user.current_acknowledged_activity_at(start_time)
-    else:
-        latest_activity_log = user.current_acknowledged_activity
+def _check_and_delete_corrected_log(user, start_time):
+    latest_activity_log = user.current_acknowledged_activity
     if latest_activity_log:
         if latest_activity_log.start_time >= start_time:
-            app.logger.warn("Event is conflicting with previous logs")
-            return {ActivityContext.CONFLICTING_WITH_HISTORY}
-        else:
-            if (
-                start_time - latest_activity_log.start_time
-                < app.config["MINIMUM_ACTIVITY_DURATION"]
-            ):
-                app.logger.info(
-                    "Event time is close to previous logs, deleting these"
-                )
-                if latest_activity_log.id is not None:
-                    db.session.delete(latest_activity_log)
-                else:
-                    db.session.expunge(latest_activity_log)
-                user_activities = user.acknowledged_activities
-                if revise_mode:
-                    latest_activity_log = user.current_acknowledged_activity_at(
-                        latest_activity_log.start_time - timedelta(seconds=1)
-                    )
-                else:
-                    latest_activity_log = (
-                        user_activities[-2]
-                        if len(user_activities) >= 2
-                        else None
-                    )
-    if not latest_activity_log and type == ActivityTypes.REST:
-        return {ActivityContext.NO_ACTIVITY_SWITCH}
-    if latest_activity_log and latest_activity_log.type == type:
-        if (
-            type == ActivityTypes.SUPPORT
-            and team[driver_idx]
-            != latest_activity_log.team[latest_activity_log.driver_idx]
+            app.logger.warn("Activity event is revising previous history")
+        elif (
+            start_time - latest_activity_log.start_time
+            < app.config["MINIMUM_ACTIVITY_DURATION"]
         ):
-            return {ActivityContext.DRIVER_SWITCH}
-        return {ActivityContext.NO_ACTIVITY_SWITCH}
-    if (
-        latest_activity_log
-        and latest_activity_log.type == ActivityTypes.REST
-        and local_to_utc(latest_activity_log.start_time).date()
-        == local_to_utc(start_time).date()
-    ):
-        latest_activity_log.type = ActivityTypes.BREAK
-        db.session.add(latest_activity_log)
-    if (
-        latest_activity_log
-        and latest_activity_log.type == ActivityTypes.BREAK
-        and type == ActivityTypes.REST
-    ):
-        latest_activity_log.type = ActivityTypes.REST
-        db.session.add(latest_activity_log)
-        return {ActivityContext.NO_ACTIVITY_SWITCH}
+            app.logger.info(
+                "Event time is close to previous logs, deleting these"
+            )
+            if latest_activity_log.id is not None:
+                db.session.delete(latest_activity_log)
+            else:
+                db.session.expunge(latest_activity_log)
+            # This is a dirty hack to have SQLAlchemy immediately propagate object deletion to parent relations
+            latest_activity_log.dismissed_at = True
 
-    return {}
+
+def _check_and_fix_neighbour_inconsistencies(
+    previous_activity, next_activity, dismiss_or_revision_time=None
+):
+    if not next_activity or not next_activity.is_acknowledged:
+        return
+    if not dismiss_or_revision_time:
+        dismiss_or_revision_time = datetime.now()
+    if not previous_activity and next_activity.type == ActivityTypes.REST:
+        next_activity.dismiss(
+            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
+        )
+    if not previous_activity or not previous_activity.is_acknowledged:
+        return
+
+    db.session.add(previous_activity)
+    db.session.add(next_activity)
+    if previous_activity.type == next_activity.type:
+        if (
+            next_activity.type == ActivityTypes.SUPPORT
+            and next_activity.team[next_activity.driver_idx]
+            != previous_activity.team[previous_activity.driver_idx]
+        ):
+            next_activity.is_driver_switch = True
+        else:
+            next_activity.dismiss(
+                ActivityDismissType.NO_ACTIVITY_SWITCH,
+                dismiss_or_revision_time,
+            )
+    elif (
+        previous_activity.type == ActivityTypes.REST
+        and next_activity.type == ActivityTypes.BREAK
+    ):
+        revised_next_activity = next_activity.update_or_revise(
+            dismiss_or_revision_time, type=ActivityTypes.REST
+        )
+        revised_next_activity.dismiss(
+            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
+        )
+        _check_and_fix_neighbour_inconsistencies(
+            previous_activity,
+            previous_activity.next_acknowledged_activity,
+            dismiss_or_revision_time,
+        )
+    elif (
+        previous_activity.type == ActivityTypes.REST
+        and local_to_utc(previous_activity.start_time).date()
+        == local_to_utc(next_activity.start_time).date()
+    ):
+        previous_activity.update_or_revise(
+            dismiss_or_revision_time, type=ActivityTypes.BREAK
+        )
+    elif (
+        previous_activity.type == ActivityTypes.BREAK
+        and next_activity.type == ActivityTypes.REST
+    ):
+        previous_activity.update_or_revise(
+            dismiss_or_revision_time, type=ActivityTypes.REST
+        )
+        next_activity.dismiss(
+            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
+        )
+        _check_and_fix_neighbour_inconsistencies(
+            previous_activity,
+            previous_activity.next_acknowledged_activity,
+            dismiss_or_revision_time,
+        )
 
 
 def log_activity(
@@ -123,8 +139,10 @@ def log_activity(
     mission,
     team,
     driver_idx,
-    revise_mode=False,
 ):
+    # 1. Check that event :
+    # - is not ahead in the future
+    # - was not already processed
     response_if_event_should_not_be_logged = check_whether_event_should_be_logged(
         user=user,
         submitter=submitter,
@@ -136,16 +154,18 @@ def log_activity(
     if response_if_event_should_not_be_logged:
         return
 
-    context = _get_activity_context(
-        submitter=submitter,
-        user=user,
-        type=type,
-        start_time=start_time,
-        team=team,
-        driver_idx=driver_idx,
-        revise_mode=revise_mode,
-    )
+    # 2. Assess whether the event submitter is authorized to log for the user
+    dismiss_type = None
+    if not can_submitter_log_for_user(submitter, user):
+        app.logger.warn("Event is submitted from unauthorized user")
+        dismiss_type = ActivityDismissType.UNAUTHORIZED_SUBMITTER
 
+    # 3. Quick correction mechanics : if it's two real-time logs in succession, delete the first one
+    is_revision = event_time != start_time
+    if not dismiss_type and not is_revision:
+        _check_and_delete_corrected_log(user, start_time)
+
+    # 4. Log the activity
     activity = Activity(
         type=type,
         event_time=event_time,
@@ -153,11 +173,21 @@ def log_activity(
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
-        context=context,
         vehicle_registration_number=vehicle_registration_number,
         mission=mission,
         team=team,
         driver_idx=driver_idx,
     )
     db.session.add(activity)
+
+    if dismiss_type:
+        activity.dismiss(dismiss_type)
+    else:
+        (
+            prev_activity,
+            next_activity,
+        ) = activity.previous_and_next_acknowledged_activities
+        _check_and_fix_neighbour_inconsistencies(prev_activity, activity)
+        _check_and_fix_neighbour_inconsistencies(activity, next_activity)
+
     return activity

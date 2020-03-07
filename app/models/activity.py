@@ -1,11 +1,8 @@
 from enum import Enum
+from flask_jwt_extended import current_user
+
 from app import db
-from app.models.event import (
-    EventBaseContext,
-    EventBaseModel,
-    Cancellable,
-    Revisable,
-)
+from app.models.event import EventBaseModel, Revisable, DismissType
 from app.models.utils import enum_column
 
 
@@ -29,22 +26,19 @@ ActivityTypes = Enum(
 )
 
 
-ActivityContext = Enum(
-    "ActivityContext",
+ActivityDismissType = Enum(
+    "ActivityDismissType",
     dict(
-        CONFLICTING_WITH_HISTORY="conflicting_with_history",
         NO_ACTIVITY_SWITCH="no_activity_switch",
-        DRIVER_SWITCH="driver_switch",
         **{
-            event_context.name: event_context.value
-            for event_context in EventBaseContext
+            dismiss_type.name: dismiss_type.value
+            for dismiss_type in DismissType
         },
     ),
-    type=str,
 )
 
 
-class Activity(EventBaseModel, Cancellable, Revisable):
+class Activity(EventBaseModel, Revisable):
     backref_base_name = "activities"
 
     type = enum_column(ActivityTypes, nullable=False)
@@ -56,6 +50,9 @@ class Activity(EventBaseModel, Cancellable, Revisable):
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
     driver_idx = db.Column(db.Integer, nullable=True, default=None)
+    is_driver_switch = db.Column(db.Boolean, nullable=True, default=None)
+
+    dismiss_type = enum_column(ActivityDismissType, nullable=True)
 
     __table_args__ = (
         db.CheckConstraint(
@@ -78,27 +75,55 @@ class Activity(EventBaseModel, Cancellable, Revisable):
 
     @property
     def is_acknowledged(self):
-        return (
-            self.context.issubset(
-                {
-                    ActivityContext.NO_ACTIVITY_SWITCH,
-                    ActivityContext.DRIVER_SWITCH,
-                }
-            )
-            and not self.is_cancelled
-            and not self.is_revised
-        )
+        return not self.is_dismissed and not self.is_revised
+
+    @property
+    def previous_and_next_acknowledged_activities(self):
+        previous_activity = None
+        for activity in self.user.acknowledged_activities:
+            if activity.start_time > self.start_time:
+                return previous_activity, activity
+            if activity != self:
+                previous_activity = activity
+        return previous_activity, None
+
+    @property
+    def previous_acknowledged_activity(self):
+        return self.previous_and_next_acknowledged_activities[0]
+
+    @property
+    def next_acknowledged_activity(self):
+        return self.previous_and_next_acknowledged_activities[1]
 
     @property
     def is_duplicate(self):
-        return bool(
-            self.context
-            & {
-                ActivityContext.NO_ACTIVITY_SWITCH,
-                ActivityContext.DRIVER_SWITCH,
-            }
+        return (
+            self.is_driver_switch
+            or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
         )
 
-    @property
-    def is_driver_switch(self):
-        return ActivityContext.DRIVER_SWITCH in self.context
+    def update_or_revise(self, revision_time, **updated_props):
+        if self.is_revised:
+            raise ValueError(f"You can't revise the already revised {self}")
+        if not self.id:
+            for prop, value in updated_props.items():
+                setattr(self, prop, value)
+            db.session.add(self)
+            return self
+        dict_ = dict(
+            type=self.type,
+            event_time=revision_time,
+            start_time=self.start_time,
+            user_id=self.user_id,
+            company_id=self.company_id,
+            submitter=current_user,
+            vehicle_registration_number=self.vehicle_registration_number,
+            mission=self.mission,
+            team=self.team,
+            driver_idx=self.driver_idx,
+        )
+        dict_.update(updated_props)
+        revision = Activity(**dict_)
+        self.set_revision(revision, revision_time)
+        db.session.add(revision)
+        return revision

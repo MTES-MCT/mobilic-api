@@ -1,5 +1,5 @@
 from enum import Enum
-from app.models.event import EventBaseModel, Cancellable
+from app.models.event import EventBaseModel
 from app.models.utils import enum_column
 
 
@@ -10,14 +10,10 @@ class ExpenditureTypes(str, Enum):
     SNACK = "snack"
 
 
-class Expenditure(EventBaseModel, Cancellable):
+class Expenditure(EventBaseModel):
     backref_base_name = "expenditures"
 
     type = enum_column(ExpenditureTypes, nullable=False)
-
-    @property
-    def is_acknowledged(self):
-        return super().is_acknowledged and not self.is_cancelled
 
     def to_dict(self):
         base_dict = super().to_dict()

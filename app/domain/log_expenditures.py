@@ -2,7 +2,7 @@ from app import db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.models import Expenditure
-from app.models.event import EventBaseContext
+from app.models.event import DismissType
 
 
 def log_group_expenditure(submitter, users, type, event_time):
@@ -29,8 +29,7 @@ def log_expenditure(submitter, user, type, event_time):
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
-        context={}
-        if can_submitter_log_for_user(submitter, user)
-        else {EventBaseContext.UNAUTHORIZED_SUBMITTER},
     )
+    if not can_submitter_log_for_user(submitter, user):
+        expenditure.dismiss(DismissType.UNAUTHORIZED_SUBMITTER)
     db.session.add(expenditure)

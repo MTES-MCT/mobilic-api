@@ -46,6 +46,12 @@ class Query(graphene.ObjectType):
         self_or_company_admin, get_target_from_return_value=lambda user: user
     )
     def resolve_user(self, info, id):
-        matching_user = User.query.options(joinedload(User.activities)).get(id)
+        matching_user = (
+            User.query.options(joinedload(User.activities))
+            .options(joinedload(User.expenditures))
+            .options(joinedload(User.company))
+            .options(joinedload(User.comments))
+            .get(id)
+        )
         app.logger.info(f"Sending user data for {matching_user}")
         return matching_user

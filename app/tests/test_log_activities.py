@@ -3,8 +3,8 @@ from freezegun import freeze_time
 from app.helpers.time import from_timestamp
 from app.models.activity import (
     InputableActivityTypes,
-    ActivityContext,
     ActivityTypes,
+    ActivityDismissType,
 )
 from app.tests import BaseTest, UserFactory
 from app import app, db
@@ -53,7 +53,6 @@ class TestLogActivities(BaseTest):
                         activities {
                             id
                             type
-                            validationStatus
                             eventTime
                         }
                     }
@@ -137,8 +136,8 @@ class TestLogActivities(BaseTest):
                 )
                 self.assertEqual(real_acti.submitter, submitter)
                 self.assertEqual(real_acti.company_id, submitter.company_id)
-                self.assertSetEqual(
-                    real_acti.context, user_specifics.get("context", set()),
+                self.assertEqual(
+                    real_acti.dismiss_type, user_specifics.get("dismiss_type"),
                 )
 
                 # 3. In case of replace, check that the latest of the old activities was deleted
@@ -317,7 +316,7 @@ class TestLogActivities(BaseTest):
                         user_ids=[u.id for u in self.team],
                         user_specifics={
                             u.id: {
-                                "context": {ActivityContext.NO_ACTIVITY_SWITCH}
+                                "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH
                             }
                             for u in self.team
                         },
@@ -378,16 +377,9 @@ class TestLogActivities(BaseTest):
                 submitter=self.team_leader,
                 activities=[
                     dict(
-                        type=InputableActivityTypes.WORK,
+                        type=InputableActivityTypes.DRIVE,
                         event_time=1581060556977,  # 2020-02-07 08:30
                         user_ids=[self.team_leader.id],
-                        user_specifics={
-                            self.team_leader.id: {
-                                "context": {
-                                    ActivityContext.CONFLICTING_WITH_HISTORY
-                                }
-                            }
-                        },
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
@@ -395,7 +387,7 @@ class TestLogActivities(BaseTest):
                         user_ids=[self.team_leader.id],
                         user_specifics={
                             self.team_leader.id: {
-                                "context": {ActivityContext.NO_ACTIVITY_SWITCH}
+                                "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH
                             }
                         },
                     ),

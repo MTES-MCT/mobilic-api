@@ -55,14 +55,6 @@ class User(BaseModel):
         return [a for a in self.acknowledged_activities if not a.is_duplicate]
 
     @property
-    def acknowledged_deduplicated_activities_with_driver_switch(self):
-        return [
-            a
-            for a in self.acknowledged_activities
-            if a.is_driver_switch or not a.is_duplicate
-        ]
-
-    @property
     def acknowledged_expenditures(self):
         return sorted(
             [
@@ -79,12 +71,6 @@ class User(BaseModel):
         if not acknowledged_activities:
             return None
         return acknowledged_activities[-1]
-
-    def current_acknowledged_activity_at(self, time):
-        for activity in reversed(self.acknowledged_activities):
-            if activity.event_time <= time:
-                return activity
-        return None
 
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
