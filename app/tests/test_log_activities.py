@@ -15,10 +15,15 @@ from sqlalchemy.orm import joinedload
 class TestLogActivities(BaseTest):
     def setUp(self):
         super().setUp()
-        self.team_leader = UserFactory.create()
+        self.team_leader = UserFactory.create(
+            first_name="Tim", last_name="Leader"
+        )
         self.company = self.team_leader.company
         self.team_mates = [
-            UserFactory.create(company=self.company) for i in range(0, 3)
+            UserFactory.create(
+                company=self.company, first_name="Tim", last_name="Mate"
+            )
+            for i in range(0, 3)
         ]
         self.team = [self.team_leader] + self.team_mates
 
@@ -34,6 +39,7 @@ class TestLogActivities(BaseTest):
             .all()
         )
         db.session.commit()
+        db.session.expire_all()
 
         existing_activity_ids_per_user = {
             user: dict(
@@ -74,6 +80,7 @@ class TestLogActivities(BaseTest):
             self.assertEqual(response.status_code, 400)
         else:
             self.assertEqual(response.status_code, 200)
+        db.session.expire_all()
 
         for user in users:
             # Get the newly created activities
@@ -267,13 +274,24 @@ class TestLogActivities(BaseTest):
                     ),
                     dict(
                         type=InputableActivityTypes.REST,
-                        event_time=1581055556977,  # Only 10s after previous event time
+                        event_time=1581055546977
+                        + round(
+                            app.config[
+                                "MINIMUM_ACTIVITY_DURATION"
+                            ].total_seconds()
+                        ),
                         user_ids=[u.id for u in self.team],
                         should_not_create=True,
                     ),
                     dict(
                         type=InputableActivityTypes.WORK,
-                        event_time=1581055566977,  # Only 10s after previous event time
+                        event_time=1581055546977
+                        + 2
+                        * round(
+                            app.config[
+                                "MINIMUM_ACTIVITY_DURATION"
+                            ].total_seconds()
+                        ),
                         user_ids=[u.id for u in self.team],
                     ),
                     dict(
@@ -408,7 +426,7 @@ class TestLogActivities(BaseTest):
                     activities=[
                         dict(
                             type=InputableActivityTypes.DRIVE,
-                            event_time=1581145566977,  # 2020-02-08 08:05
+                            event_time=1581145546978,  # 2020-02-08 08:05
                             user_ids=[u.id for u in self.team],
                             driver_idx=1,  # First team mate
                             user_specifics={
