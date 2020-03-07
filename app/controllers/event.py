@@ -1,8 +1,8 @@
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from flask_jwt_extended import current_user
 import graphene
 
-from app.models import User, Company
+from app.models import User
 from app import db, app
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
@@ -10,8 +10,8 @@ from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 def preload_or_create_relevant_resources_from_events(
     events, relevant_relationship
 ):
-    User.query.options(joinedload(relevant_relationship)).options(
-        joinedload(User.company).joinedload(Company.users)
+    User.query.options(selectinload(relevant_relationship)).options(
+        selectinload(User.company)
     ).filter(
         User.id.in_(
             list([u.id for event in events for u in event.team if u.id])

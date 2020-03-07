@@ -1,19 +1,20 @@
 from flask import Flask
 from flask_graphql import GraphQLView
 from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import os
 
 import config
-
+from app.helpers.db import SQLAlchemyWithStrongRefSession
 
 app = Flask(__name__)
 
 env = os.environ.get("MOBILIC_ENV", "")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
-db = SQLAlchemy(app, session_options={"expire_on_commit": False})
+db = SQLAlchemyWithStrongRefSession(
+    app, session_options={"expire_on_commit": False}
+)
 
 Migrate(app, db)
 
