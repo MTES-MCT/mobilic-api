@@ -123,13 +123,26 @@ EVENT_SUBMIT_OPERATIONS = {
                         activities {
                             id
                             type
-                            eventTime
+                            startTime
                         }
                     }
                 }
             """,
     },
-    "cancel_activities": None,
+    "cancel_activities": {
+        "model": Activity,
+        "query": """
+                mutation($data: [CancelEventInput]!) {
+                    cancelActivities(data: $data) {
+                        activities {
+                            id
+                            type
+                            startTime
+                        }
+                    }
+                }
+            """,
+    },
     "revise_activities": None,
 }
 
@@ -196,6 +209,12 @@ class SubmitEventsTest:
         ) = self.expected_db_event.compare_with_db_diff(
             all_events_before_submit, all_events_after_submit
         )
+        if expected_changes_not_committed:
+            print("The following expected changes did not happen !")
+            print(expected_changes_not_committed)
+        if unexpectedly_committed_changes:
+            print("Unexpected changes to database !")
+            print(unexpectedly_committed_changes)
         test.assertTupleEqual(
             (expected_changes_not_committed, unexpectedly_committed_changes),
             ([], []),
@@ -221,8 +240,9 @@ class SubmitEventsTest:
             raise ValueError(
                 "Expected 'dismiss_type' argument to should_dismiss function"
             )
+
         before_event_dict = {**event_dict}
-        before_event_dict.update(dismiss_type=None)
+        before_event_dict.update(dismiss_type=None, dismissed_at=None)
         self.expected_db_event += DBUnitUpdate(
             before=before_event_dict, after=event_dict
         )
@@ -246,7 +266,7 @@ class SubmitEventsTest:
         return self
 
 
-class SubmitEventsTestSuite:
+class SubmitEventsTestChain:
     def __init__(self, tests=None):
         self.tests = tests or []
 

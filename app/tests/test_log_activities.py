@@ -8,7 +8,7 @@ from app.models.activity import (
 )
 from app.tests import BaseTest, UserFactory
 
-from app.tests.helpers import SubmitEventsTest, SubmitEventsTestSuite
+from app.tests.helpers import SubmitEventsTest, SubmitEventsTestChain
 
 
 class TestLogActivities(BaseTest):
@@ -576,7 +576,7 @@ class TestLogActivities(BaseTest):
             )
 
         test_suite = (
-            SubmitEventsTestSuite()
+            SubmitEventsTestChain()
             + test_case
             + second_test_case
             + third_test_case
