@@ -79,3 +79,8 @@ class CancelEvents(graphene.Mutation):
                             DismissType.USER_CANCEL, event.event_time
                         )
                         db.session.add(db_event)
+                        if cls.model == Activity:
+                            check_and_fix_neighbour_inconsistencies(
+                                *db_event.previous_and_next_acknowledged_activities,
+                                event.event_time,
+                            )
