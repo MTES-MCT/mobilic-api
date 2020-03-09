@@ -69,6 +69,7 @@ class EventBaseModel(BaseModel):
 
     dismissed_at = db.Column(db.DateTime, nullable=True)
     dismiss_type = enum_column(DismissType, nullable=True)
+    dismiss_received_at = db.Column(db.DateTime, nullable=True)
 
     @property
     def is_dismissed(self):
@@ -89,15 +90,17 @@ class EventBaseModel(BaseModel):
         )
 
     def dismiss(self, type, dismiss_time=None):
+        dismiss_received_at = datetime.now()
         if not dismiss_time:
-            dismiss_time = datetime.now()
+            dismiss_time = dismiss_received_at
         self.dismiss_type = type
         self.dismissed_at = dismiss_time
+        self.dismiss_received_at = dismiss_received_at
         self.dismiss_author = current_user
 
     __table_args__ = (
         db.CheckConstraint(
-            "((dismissed_at is not null)::bool = (dismiss_type is not null)::bool)",
+            "((dismissed_at is not null)::bool = (dismiss_type is not null)::bool AND (dismiss_type is not null)::bool = (dismiss_received_at is not null)::bool)",
             "non_nullable_dismiss_type",
         ),
         db.CheckConstraint(
