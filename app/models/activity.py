@@ -102,19 +102,13 @@ class Activity(EventBaseModel, Revisable):
             or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
         )
 
-    def dismiss(self, type, dismiss_time=None):
-        from app.domain.log_activities import (
-            check_and_fix_neighbour_inconsistencies,
-        )
-
-        super().dismiss(type, dismiss_time)
-        check_and_fix_neighbour_inconsistencies(
-            *self.previous_and_next_acknowledged_activities, dismiss_time,
-        )
-
     def update_or_revise(self, revision_time, **updated_props):
-        if self.is_revised:
-            raise ValueError(f"You can't revise the already revised {self}")
+        from app.domain.log_activities import log_activity
+
+        if self.is_revised or self.is_dismissed:
+            raise ValueError(
+                f"You can't revise the already revised or dismissed {self}"
+            )
         if not self.id:
             for prop, value in updated_props.items():
                 setattr(self, prop, value)
@@ -125,7 +119,6 @@ class Activity(EventBaseModel, Revisable):
             event_time=revision_time,
             start_time=self.start_time,
             user=self.user,
-            company_id=self.company_id,
             submitter=current_user,
             vehicle_registration_number=self.vehicle_registration_number,
             mission=self.mission,
@@ -133,7 +126,7 @@ class Activity(EventBaseModel, Revisable):
             driver_idx=self.driver_idx,
         )
         dict_.update(updated_props)
-        revision = Activity(**dict_)
+        revision = log_activity(**dict_)
         self.set_revision(revision, revision_time)
         db.session.add(revision)
         return revision

@@ -143,7 +143,20 @@ EVENT_SUBMIT_OPERATIONS = {
                 }
             """,
     },
-    "revise_activities": None,
+    "revise_activities": {
+        "model": Activity,
+        "query": """
+                mutation($data: [ActivityRevisionInput]!) {
+                    reviseActivities(data: $data) {
+                        activities {
+                            id
+                            type
+                            startTime
+                        }
+                    }
+                }
+            """,
+    },
 }
 
 
@@ -248,11 +261,9 @@ class SubmitEventsTest:
         )
         return self
 
-    def should_revise(
-        self, before, after, revision_time, dismiss_revision=False
-    ):
+    def should_revise(self, before, after, revision_time):
         after["revised_at"] = None
-        if dismiss_revision:
+        if after.get("dismiss_type"):
             after["dismissed_at"] = revision_time
         self.expected_db_event += DBUnitUpdate(
             before={**before, "revised_at": None},

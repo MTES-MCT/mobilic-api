@@ -1,7 +1,7 @@
 from flask_jwt_extended import current_user
 import graphene
 
-from app import app, db
+from app import app
 from app.controllers.cancel import CancelEvents, get_all_associated_events
 from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
@@ -9,7 +9,10 @@ from app.controllers.event import (
 from app.controllers.utils import atomic_transaction
 from app.data_access.activity import ActivityOutput
 from app.data_access.signup import CompanyOutput
-from app.domain.log_activities import log_group_activity, log_activity
+from app.domain.log_activities import (
+    log_group_activity,
+    check_and_fix_neighbour_inconsistencies,
+)
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (
     graphene_enum_type,
@@ -105,7 +108,7 @@ class ReviseActivities(graphene.Mutation):
             all_relevant_activities = get_all_associated_events(
                 cls.model, [e.event_id for e in data]
             )
-            for event in data:
+            for event in sorted(data, key=lambda e: e.event_time):
                 matched_activity = all_relevant_activities.get(event.event_id)
                 if not matched_activity:
                     app.logger.warn(
@@ -122,22 +125,28 @@ class ReviseActivities(graphene.Mutation):
                         ]
                     for db_activity in activities_to_revise:
                         app.logger.info(f"Revising {db_activity}")
-                        new_activity = log_activity(
-                            submitter=current_user,
-                            user=db_activity.user,
-                            type=db_activity.type,
-                            event_time=event.event_time,
-                            start_time=event.start_time,
-                            vehicle_registration_number=db_activity.vehicle_registration_number,
-                            mission=db_activity.mission,
-                            team=db_activity.team,
-                            driver_idx=db_activity.driver_idx,
-                            revise_mode=True,
+                        new_activity = db_activity.update_or_revise(
+                            event.event_time, start_time=event.start_time
                         )
-                        db_activity.set_revision(
-                            new_activity, event.event_time
+                        revised_activity_neighbours = (
+                            new_activity.previous_and_next_acknowledged_activities
                         )
-                        db.session.add(db_activity)
+                        neighbours_to_check = {
+                            (revised_activity_neighbours[0], new_activity),
+                            (new_activity, revised_activity_neighbours[1]),
+                            db_activity.previous_and_next_acknowledged_activities,
+                        }
+                        neighbours_to_check_in_historical_order = sorted(
+                            list(neighbours_to_check),
+                            key=lambda prev_next: prev_next[0].start_time,
+                        )
+                        for (
+                            prev,
+                            next,
+                        ) in neighbours_to_check_in_historical_order:
+                            check_and_fix_neighbour_inconsistencies(
+                                prev, next, event.event_time
+                            )
 
         return ReviseActivities(
             activities=current_user.acknowledged_activities

@@ -28,7 +28,7 @@ def log_group_activity(
                     activities_per_user[user] = ActivityTypes.SUPPORT
 
     for user in users:
-        log_activity(
+        activity = log_activity(
             type=activities_per_user[user],
             event_time=event_time,
             start_time=start_time,
@@ -39,6 +39,17 @@ def log_group_activity(
             team=[u.id for u in users],
             driver_idx=driver_idx,
         )
+        if not activity.is_dismissed:
+            (
+                prev_activity,
+                next_activity,
+            ) = activity.previous_and_next_acknowledged_activities
+            check_and_fix_neighbour_inconsistencies(
+                prev_activity, activity, event_time
+            )
+            check_and_fix_neighbour_inconsistencies(
+                activity, next_activity, event_time
+            )
 
 
 def _check_and_delete_corrected_log(user, start_time):
@@ -182,12 +193,5 @@ def log_activity(
 
     if dismiss_type:
         activity.dismiss(dismiss_type)
-    else:
-        (
-            prev_activity,
-            next_activity,
-        ) = activity.previous_and_next_acknowledged_activities
-        check_and_fix_neighbour_inconsistencies(prev_activity, activity)
-        check_and_fix_neighbour_inconsistencies(activity, next_activity)
 
     return activity
