@@ -1,15 +1,14 @@
-from freezegun import freeze_time
+from datetime import datetime
 
-from app.helpers.time import from_timestamp
+from app.helpers.time import to_timestamp
 from app.models.activity import (
     InputableActivityTypes,
     ActivityTypes,
     ActivityDismissType,
 )
 from app.tests import BaseTest, UserFactory
-from app import app, db
-from app.models import User
-from sqlalchemy.orm import joinedload
+
+from app.tests.helpers import SubmitEventsTest, SubmitEventsTestSuite
 
 
 class TestLogActivities(BaseTest):
@@ -27,325 +26,321 @@ class TestLogActivities(BaseTest):
         ]
         self.team = [self.team_leader] + self.team_mates
 
-    def _create_activities_and_check_logs(
-        self, submitter, activities, should_fail_parsing=False
-    ):
-        all_user_ids = [
-            uid for activity in activities for uid in activity["user_ids"]
-        ]
-        users = (
-            User.query.options(joinedload(User.activities))
-            .filter(User.id.in_(all_user_ids))
-            .all()
-        )
-        db.session.commit()
-        db.session.expire_all()
-
-        existing_activity_ids_per_user = {
-            user: dict(
-                all=[a.id for a in user.activities],
-                current=user.current_acknowledged_activity.id
-                if user.current_acknowledged_activity
-                else None,
-            )
-            for user in users
-        }
-
-        with app.test_client(mock_authentication_with_user=submitter) as c:
-            response = c.post_graphql(
-                """
-                mutation ($data: [SingleActivityInput]!) {
-                    logActivities (data: $data) {
-                        activities {
-                            id
-                            type
-                            eventTime
-                        }
-                    }
-                }
-                """,
-                variables=dict(
-                    data=[
-                        dict(
-                            team=[{"id": value} for value in a["user_ids"]],
-                            eventTime=a["event_time"],
-                            type=a["type"],
-                            driverIdx=a.get("driver_idx", 0),
-                        )
-                        for a in activities
-                    ]
-                ),
-            )
-        if should_fail_parsing:
-            self.assertEqual(response.status_code, 400)
-        else:
-            self.assertEqual(response.status_code, 200)
-        db.session.expire_all()
-
-        for user in users:
-            # Get the newly created activities
-            real_activity_count_diff = len(user.activities) - len(
-                existing_activity_ids_per_user[user]["all"]
-            )
-            real_new_activities = [
-                a
-                for a in user.activities
-                if a.id not in existing_activity_ids_per_user[user]["all"]
-            ]
-
-            # Get the activities that should have been created
-            expected_new_activities = []
-            expected_activity_count_diff = 0
-            for activity in activities:
-                if user.id in activity["user_ids"]:
-                    user_specifics = activity.get("user_specifics", {}).get(
-                        user.id, {}
-                    )
-                    if activity.get("should_not_create") or user_specifics.get(
-                        "should_not_create"
-                    ):
-                        pass
-                    else:
-                        expected_new_activities.append(activity)
-                        if not activity.get(
-                            "should_replace"
-                        ) and not user_specifics.get("should_replace"):
-                            expected_activity_count_diff += 1
-
-            # Sort actual and expected activities by event time
-            real_new_activities.sort(key=lambda a: a.start_time)
-            expected_new_activities.sort(key=lambda a: a["event_time"])
-
-            # Checks
-            ## 1. Check that the right number of logs were created
-            self.assertEqual(
-                real_activity_count_diff, expected_activity_count_diff
-            )
-            self.assertEqual(
-                len(real_new_activities), len(expected_new_activities)
-            )
-
-            ## 2. Check that the new activities were created with the expected params
-            for (real_acti, exp_acti) in zip(
-                real_new_activities, expected_new_activities
-            ):
-                user_specifics = exp_acti.get("user_specifics", {}).get(
-                    user.id, {}
-                )
-
-                self.assertEqual(
-                    real_acti.type,
-                    user_specifics.get("type", exp_acti["type"]),
-                )
-                self.assertEqual(
-                    real_acti.start_time,
-                    from_timestamp(exp_acti["event_time"]),
-                )
-                self.assertEqual(real_acti.submitter, submitter)
-                self.assertEqual(real_acti.company_id, submitter.company_id)
-                self.assertEqual(
-                    real_acti.dismiss_type, user_specifics.get("dismiss_type"),
-                )
-
-                # 3. In case of replace, check that the latest of the old activities was deleted
-                if (
-                    exp_acti.get("should_replace")
-                    or user_specifics.get("should_replace") == 0
-                ):
-                    self.assertNotIn(
-                        existing_activity_ids_per_user[user]["current"],
-                        [a.id for a in user.activities],
-                    )
-
-        # Check that we didn't create new users for initially unknown user ids
-        for user_id in all_user_ids:
-            if user_id not in [u.id for u in users]:
-                self.assertIsNone(User.query.get(user_id))
-
     def test_log_simple_activity(self):
         """ Logging one simple activity for everybody
         """
-        with freeze_time("2020-02-07 23:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                    )
-                ],
+        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            dict(
+                type=InputableActivityTypes.WORK,
+                event_time=to_timestamp(event_time),
+                team=[{"id": u.id} for u in self.team],
+            ),
+            submitter=self.team_leader,
+            submit_time=datetime(2020, 2, 7, 23),
+        )
+        for team_member in self.team:
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=event_time,
+                dismissed_at=None,
+                revised_at=None,
             )
+        test_case.test(self)
 
     def test_cannot_log_in_advance(self):
-        with freeze_time("2020-02-07 03:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        should_not_create=True,
-                    )
-                ],
-            )
+        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            dict(
+                type=InputableActivityTypes.WORK,
+                event_time=to_timestamp(event_time),
+                team=[{"id": u.id} for u in self.team],
+            ),
+            submit_time=datetime(2020, 2, 7, 3),
+            submitter=self.team_leader,
+        )
+        test_case.test(self)
 
     def test_can_only_log_inputable_activities(self):
-        with freeze_time("2020-02-07 23:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=ActivityTypes.SUPPORT,  # Can't input that
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        should_not_create=True,
-                    )
-                ],
-                should_fail_parsing=True,
-            )
+        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            dict(
+                type=ActivityTypes.SUPPORT,
+                event_time=to_timestamp(event_time),
+                team=[{"id": u.id} for u in self.team],
+            ),
+            submitter=self.team_leader,
+            submit_time=datetime(2020, 2, 7, 23),
+            request_should_fail_with={"status": 400},
+        )
+        test_case.test(self)
 
     def test_log_linear_activity_list(self):
         """ Logging a list of activities for the team,
 
         with long durations and valid activity switches
         """
-        with freeze_time("2020-02-09 23:00:00"):
-            self._create_activities_and_check_logs(
+        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
+        third_event_time = datetime(2020, 2, 7, 9, 49, 6, 977000)
+        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
+        test_case = (
+            SubmitEventsTest(
+                "log_activities",
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(first_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                    driver_idx=0,  # team_leader,
+                ),
+                submit_time=datetime(2020, 2, 9, 23),
                 submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        driver_idx=0,  # team_leader,
-                        user_specifics={
-                            u.id: {
-                                "type": ActivityTypes.SUPPORT
-                            }  # For the non drivers
-                            for u in self.team_mates
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.BREAK,
-                        event_time=1581055546977,  # 2020-02-07 07:05
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581065546977,  # 2020-02-07 09:49
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581075546977,  # 2020-02-07 12:43
-                        user_ids=[u.id for u in self.team],
-                    ),
-                ],
             )
+            .add_event(
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(
+                        second_event_time
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                )
+            )
+            .add_event(
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(
+                        third_event_time
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                )
+            )
+            .add_event(
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(
+                        fourth_event_time
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                )
+            )
+        )
+        for team_member in self.team:
+            test_case.should_create(
+                type=ActivityTypes.DRIVE
+                if team_member == self.team_leader
+                else ActivityTypes.SUPPORT,
+                event_time=first_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=first_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.BREAK,
+                event_time=second_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=second_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=third_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=third_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.BREAK,
+                event_time=fourth_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=fourth_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+        test_case.test(self)
 
     def test_log_activity_list_with_short_durations(self):
         """ Logging activities for the team,
 
         with several ones having a very short duration (few secs). These should not be logged
         """
-        with freeze_time("2020-02-09 23:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        driver_idx=0,  # team_leader,
-                        user_specifics={
-                            u.id: {
-                                "type": ActivityTypes.SUPPORT
-                            }  # For the non drivers
-                            for u in self.team_mates
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.BREAK,
-                        event_time=1581055546977,  # 2020-02-07 07:05
-                        user_ids=[u.id for u in self.team],
-                        should_not_create=True,
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581055546977
-                        + round(
-                            app.config[
-                                "MINIMUM_ACTIVITY_DURATION"
-                            ].total_seconds()
-                        ),
-                        user_ids=[u.id for u in self.team],
-                        should_not_create=True,
-                    ),
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581055546977
-                        + 2
-                        * round(
-                            app.config[
-                                "MINIMUM_ACTIVITY_DURATION"
-                            ].total_seconds()
-                        ),
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581075546977,  # 2020-02-07 12:43
-                        user_ids=[u.id for u in self.team],
-                    ),
-                ],
+        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
+        second_event_time_plus_dt = datetime(2020, 2, 7, 7, 5, 7, 977000)
+        second_event_time_plus_2_dt = datetime(2020, 2, 7, 7, 5, 8, 977000)
+        third_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            [
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(
+                        first_event_time
+                    ),  # 2020-02-07 04:19
+                    team=[{"id": u.id} for u in self.team],
+                    driver_idx=0,  # team_leader,
+                ),
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(
+                        second_event_time
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.REST,
+                    event_time=to_timestamp(
+                        second_event_time_plus_dt
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(
+                        second_event_time_plus_2_dt
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.REST,
+                    event_time=to_timestamp(
+                        third_event_time
+                    ),  # 2020-02-07 12:43
+                    team=[{"id": u.id} for u in self.team],
+                ),
+            ],
+            submitter=self.team_leader,
+            submit_time=datetime(2020, 2, 9, 23),
+        )
+        for team_member in self.team:
+            test_case.should_create(
+                type=ActivityTypes.DRIVE
+                if team_member == self.team_leader
+                else ActivityTypes.SUPPORT,
+                event_time=first_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=first_event_time,
+                dismissed_at=None,
+                revised_at=None,
             )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=second_event_time_plus_2_dt,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=second_event_time_plus_2_dt,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.REST,
+                event_time=third_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=third_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+        test_case.test(self)
 
     def test_log_activity_list_with_activity_duplicates(self):
         """ Logging activities for the team,
 
         with two subsequent activities having the same type (no switch)
         """
-        with freeze_time("2020-02-09 23:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        driver_idx=0,  # team_leader,
-                        user_specifics={
-                            u.id: {
-                                "type": ActivityTypes.SUPPORT
-                            }  # For the non drivers
-                            for u in self.team_mates
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581055546977,  # 2020-02-07 07:05
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581065546977,  # 2020-02-07 09:49
-                        user_ids=[u.id for u in self.team],
-                        user_specifics={
-                            u.id: {
-                                "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH
-                            }
-                            for u in self.team
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581075546977,  # 2020-02-07 12:43
-                        user_ids=[u.id for u in self.team],
-                    ),
-                ],
+        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
+        third_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
+        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            [
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(
+                        first_event_time
+                    ),  # 2020-02-07 04:19
+                    team=[{"id": u.id} for u in self.team],
+                    driver_idx=0,  # team_leader,
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(
+                        second_event_time
+                    ),  # 2020-02-07 07:05
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(
+                        third_event_time
+                    ),  # 2020-02-07 09:49
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.REST,
+                    event_time=to_timestamp(
+                        fourth_event_time
+                    ),  # 2020-02-07 12:43
+                    team=[{"id": u.id} for u in self.team],
+                ),
+            ],
+            submit_time=datetime(2020, 2, 9, 23),
+            submitter=self.team_leader,
+        )
+        for team_member in self.team:
+            test_case.should_create(
+                type=ActivityTypes.DRIVE
+                if team_member == self.team_leader
+                else ActivityTypes.SUPPORT,
+                event_time=first_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=first_event_time,
+                dismissed_at=None,
+                revised_at=None,
             )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=second_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=second_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=third_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=third_event_time,
+                dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.REST,
+                event_time=fourth_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=fourth_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+        test_case.test(self)
 
     def test_several_logs_of_activity_lists(self):
         """ Logging several lists of activities for the team,
@@ -354,108 +349,236 @@ class TestLogActivities(BaseTest):
         """
 
         # Log 1 : standard day for the whole team
-        with freeze_time("2020-02-07 15:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581045546977,  # 2020-02-07 04:19
-                        user_ids=[u.id for u in self.team],
-                        driver_idx=0,  # team_leader,
-                        user_specifics={
-                            u.id: {
-                                "type": ActivityTypes.SUPPORT
-                            }  # For the non drivers
-                            for u in self.team_mates
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.BREAK,
-                        event_time=1581055546977,  # 2020-02-07 07:05
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.WORK,
-                        event_time=1581065546977,  # 2020-02-07 09:49
-                        user_ids=[u.id for u in self.team],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581075546977,  # 2020-02-07 12:43
-                        user_ids=[u.id for u in self.team],
-                    ),
-                ],
+        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
+        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
+        third_event_time = datetime(2020, 2, 7, 9, 49, 6, 977000)
+        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
+        fifth_event_time = datetime(2020, 2, 7, 14, 00, 6, 977000)
+        test_case = SubmitEventsTest(
+            "log_activities",
+            [
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(first_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                    driver_idx=0,  # team_leader,
+                ),
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(second_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(third_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(fourth_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(fifth_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+            ],
+            submit_time=datetime(2020, 2, 7, 15),
+            submitter=self.team_leader,
+        )
+        for team_member in self.team:
+            test_case.should_create(
+                type=ActivityTypes.DRIVE
+                if team_member == self.team_leader
+                else ActivityTypes.SUPPORT,
+                event_time=first_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=first_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.BREAK,
+                event_time=second_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=second_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=third_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=third_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.BREAK,
+                event_time=fourth_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=fourth_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=fifth_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=fifth_event_time,
+                dismissed_at=None,
+                revised_at=None,
             )
 
         # Log 2 : The team leader is rewriting the past logged period
         # for himself only
-        with freeze_time("2020-02-08 12:00:00"):
-            self._create_activities_and_check_logs(
-                submitter=self.team_leader,
-                activities=[
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581060556977,  # 2020-02-07 08:30
-                        user_ids=[self.team_leader.id],
-                    ),
-                    dict(
-                        type=InputableActivityTypes.REST,
-                        event_time=1581085546977,  # 2020-02-07 16:27
-                        user_ids=[self.team_leader.id],
-                        user_specifics={
-                            self.team_leader.id: {
-                                "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH
-                            }
-                        },
-                    ),
-                    dict(
-                        type=InputableActivityTypes.DRIVE,
-                        event_time=1581145546977,  # 2020-02-08 08:05
-                        user_ids=[self.team_leader.id],
-                        driver_idx=0,  # team_leader,
-                    ),
-                ],
+        first_event_time = datetime(2020, 2, 7, 8, 30, 6, 977000)
+        second_event_time = datetime(2020, 2, 7, 16, 27, 6, 977000)
+        third_event_time = datetime(2020, 2, 8, 8, 5, 6, 977000)
+        second_test_case = SubmitEventsTest(
+            "log_activities",
+            [
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(first_event_time),
+                    team=[{"id": self.team_leader.id}],
+                    driver_idx=0,  # team_leader,
+                ),
+                dict(
+                    type=InputableActivityTypes.REST,
+                    event_time=to_timestamp(second_event_time),
+                    team=[{"id": self.team_leader.id}],
+                ),
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(third_event_time),
+                    team=[{"id": self.team_leader.id}],
+                    driver_idx=0,
+                ),
+            ],
+            submit_time=datetime(2020, 2, 8, 12),
+            submitter=self.team_leader,
+        )
+        second_test_case.should_create(
+            type=ActivityTypes.DRIVE,
+            event_time=first_event_time,
+            user_id=self.team_leader.id,
+            submitter_id=self.team_leader.id,
+            start_time=first_event_time,
+            dismissed_at=None,
+            revised_at=None,
+        )
+        second_test_case.should_create(
+            type=ActivityTypes.REST,
+            event_time=second_event_time,
+            user_id=self.team_leader.id,
+            submitter_id=self.team_leader.id,
+            start_time=second_event_time,
+            dismissed_at=None,
+            revised_at=None,
+        )
+        second_test_case.should_create(
+            type=ActivityTypes.DRIVE,
+            event_time=third_event_time,
+            user_id=self.team_leader.id,
+            submitter_id=self.team_leader.id,
+            start_time=third_event_time,
+            dismissed_at=None,
+            revised_at=None,
+        )
+
+        # Log 3 : The team leader is logging again for the whole team,
+        # for a new day whose start is very close to the last team leader's log
+        team_leader_last_activity_event_time = third_event_time
+        first_event_time = datetime(2020, 2, 8, 8, 5, 7, 977000)
+        second_event_time = datetime(2020, 2, 8, 10, 49, 6, 977000)
+        third_event_time = datetime(2020, 2, 8, 13, 33, 6, 977000)
+        fourth_event_time = datetime(2020, 2, 8, 16, 17, 6, 977000)
+        third_test_case = SubmitEventsTest(
+            "log_activities",
+            [
+                dict(
+                    type=InputableActivityTypes.DRIVE,
+                    event_time=to_timestamp(first_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                    driver_idx=1,  # team_leader,
+                ),
+                dict(
+                    type=InputableActivityTypes.BREAK,
+                    event_time=to_timestamp(second_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.WORK,
+                    event_time=to_timestamp(third_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+                dict(
+                    type=InputableActivityTypes.REST,
+                    event_time=to_timestamp(fourth_event_time),
+                    team=[{"id": u.id} for u in self.team],
+                ),
+            ],
+            submit_time=datetime(2020, 2, 8, 23),
+            submitter=self.team_leader,
+        )
+        third_test_case.should_delete(
+            type=ActivityTypes.DRIVE,
+            event_time=team_leader_last_activity_event_time,
+            user_id=self.team_leader.id,
+            submitter_id=self.team_leader.id,
+            start_time=team_leader_last_activity_event_time,
+        )
+        for team_member in self.team:
+            third_test_case.should_create(
+                type=ActivityTypes.DRIVE
+                if team_member == self.team_mates[0]
+                else ActivityTypes.SUPPORT,
+                event_time=first_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=first_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            third_test_case.should_create(
+                type=ActivityTypes.BREAK,
+                event_time=second_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=second_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            third_test_case.should_create(
+                type=ActivityTypes.WORK,
+                event_time=third_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=third_event_time,
+                dismissed_at=None,
+                revised_at=None,
+            )
+            third_test_case.should_create(
+                type=ActivityTypes.REST,
+                event_time=fourth_event_time,
+                user_id=team_member.id,
+                submitter_id=self.team_leader.id,
+                start_time=fourth_event_time,
+                dismissed_at=None,
+                revised_at=None,
             )
 
-            # Log 2 : The team leader is logging again for the whole team,
-            # for a new day whose start is very close to the last team leader's log
-            with freeze_time("2020-02-08 23:00:00"):
-                self._create_activities_and_check_logs(
-                    submitter=self.team_leader,
-                    activities=[
-                        dict(
-                            type=InputableActivityTypes.DRIVE,
-                            event_time=1581145546978,  # 2020-02-08 08:05
-                            user_ids=[u.id for u in self.team],
-                            driver_idx=1,  # First team mate
-                            user_specifics={
-                                self.team_leader.id: {
-                                    "should_replace": True,
-                                    "type": ActivityTypes.SUPPORT,
-                                },
-                                self.team_mates[1].id: {
-                                    "type": ActivityTypes.SUPPORT
-                                },
-                                self.team_mates[2].id: {
-                                    "type": ActivityTypes.SUPPORT
-                                },
-                            },
-                        ),
-                        dict(
-                            type=InputableActivityTypes.BREAK,
-                            event_time=1581155556977,  # 2020-02-07 10:49
-                            user_ids=[u.id for u in self.team],
-                        ),
-                        dict(
-                            type=InputableActivityTypes.WORK,
-                            event_time=1581165546977,  # 2020-02-07 13:33
-                            user_ids=[u.id for u in self.team],
-                        ),
-                        dict(
-                            type=InputableActivityTypes.REST,
-                            event_time=1581175546977,  # 2020-02-07 16:17
-                            user_ids=[u.id for u in self.team],
-                        ),
-                    ],
-                )
+        test_suite = (
+            SubmitEventsTestSuite()
+            + test_case
+            + second_test_case
+            + third_test_case
+        )
+        test_suite.test(self)

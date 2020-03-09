@@ -2,6 +2,7 @@ from unittest import TestCase
 from unittest.mock import patch, MagicMock
 import factory
 from flask.testing import FlaskClient
+from enum import Enum
 
 from app import app, db, graphql_api_path
 from app.models import User, Company
