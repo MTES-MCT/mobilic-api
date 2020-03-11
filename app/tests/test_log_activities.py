@@ -2,8 +2,8 @@ from datetime import datetime
 
 from app.helpers.time import to_timestamp
 from app.models.activity import (
-    InputableActivityTypes,
-    ActivityTypes,
+    InputableActivityType,
+    ActivityType,
     ActivityDismissType,
 )
 from app.tests import BaseTest, UserFactory
@@ -33,7 +33,7 @@ class TestLogActivities(BaseTest):
         test_case = SubmitEventsTest(
             "log_activities",
             dict(
-                type=InputableActivityTypes.WORK,
+                type=InputableActivityType.WORK,
                 event_time=to_timestamp(event_time),
                 team=[{"id": u.id} for u in self.team],
             ),
@@ -42,7 +42,7 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -57,7 +57,7 @@ class TestLogActivities(BaseTest):
         test_case = SubmitEventsTest(
             "log_activities",
             dict(
-                type=InputableActivityTypes.WORK,
+                type=InputableActivityType.WORK,
                 event_time=to_timestamp(event_time),
                 team=[{"id": u.id} for u in self.team],
             ),
@@ -71,7 +71,7 @@ class TestLogActivities(BaseTest):
         test_case = SubmitEventsTest(
             "log_activities",
             dict(
-                type=ActivityTypes.SUPPORT,
+                type=ActivityType.SUPPORT,
                 event_time=to_timestamp(event_time),
                 team=[{"id": u.id} for u in self.team],
             ),
@@ -94,7 +94,7 @@ class TestLogActivities(BaseTest):
             SubmitEventsTest(
                 "log_activities",
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(first_event_time),
                     team=[{"id": u.id} for u in self.team],
                     driver_idx=0,  # team_leader,
@@ -104,7 +104,7 @@ class TestLogActivities(BaseTest):
             )
             .add_event(
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(
                         second_event_time
                     ),  # 2020-02-07 07:05
@@ -113,7 +113,7 @@ class TestLogActivities(BaseTest):
             )
             .add_event(
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(
                         third_event_time
                     ),  # 2020-02-07 07:05
@@ -122,7 +122,7 @@ class TestLogActivities(BaseTest):
             )
             .add_event(
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(
                         fourth_event_time
                     ),  # 2020-02-07 07:05
@@ -132,9 +132,9 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             test_case.should_create(
-                type=ActivityTypes.DRIVE
+                type=ActivityType.DRIVE
                 if team_member == self.team_leader
-                else ActivityTypes.SUPPORT,
+                else ActivityType.SUPPORT,
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -143,7 +143,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -152,7 +152,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -161,7 +161,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -185,7 +185,7 @@ class TestLogActivities(BaseTest):
             "log_activities",
             [
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(
                         first_event_time
                     ),  # 2020-02-07 04:19
@@ -193,28 +193,28 @@ class TestLogActivities(BaseTest):
                     driver_idx=0,  # team_leader,
                 ),
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(
                         second_event_time
                     ),  # 2020-02-07 07:05
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.REST,
+                    type=InputableActivityType.REST,
                     event_time=to_timestamp(
                         second_event_time_plus_dt
                     ),  # 2020-02-07 07:05
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(
                         second_event_time_plus_2_dt
                     ),  # 2020-02-07 07:05
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.REST,
+                    type=InputableActivityType.REST,
                     event_time=to_timestamp(
                         third_event_time
                     ),  # 2020-02-07 12:43
@@ -226,9 +226,9 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             test_case.should_create(
-                type=ActivityTypes.DRIVE
+                type=ActivityType.DRIVE
                 if team_member == self.team_leader
-                else ActivityTypes.SUPPORT,
+                else ActivityType.SUPPORT,
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -237,7 +237,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=second_event_time_plus_2_dt,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -246,7 +246,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.REST,
+                type=ActivityType.REST,
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -269,7 +269,7 @@ class TestLogActivities(BaseTest):
             "log_activities",
             [
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(
                         first_event_time
                     ),  # 2020-02-07 04:19
@@ -277,21 +277,21 @@ class TestLogActivities(BaseTest):
                     driver_idx=0,  # team_leader,
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(
                         second_event_time
                     ),  # 2020-02-07 07:05
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(
                         third_event_time
                     ),  # 2020-02-07 09:49
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.REST,
+                    type=InputableActivityType.REST,
                     event_time=to_timestamp(
                         fourth_event_time
                     ),  # 2020-02-07 12:43
@@ -303,9 +303,9 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             test_case.should_create(
-                type=ActivityTypes.DRIVE
+                type=ActivityType.DRIVE
                 if team_member == self.team_leader
-                else ActivityTypes.SUPPORT,
+                else ActivityType.SUPPORT,
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -314,7 +314,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -323,7 +323,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -332,7 +332,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.REST,
+                type=ActivityType.REST,
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -358,28 +358,28 @@ class TestLogActivities(BaseTest):
             "log_activities",
             [
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(first_event_time),
                     team=[{"id": u.id} for u in self.team],
                     driver_idx=0,  # team_leader,
                 ),
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(second_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(third_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(fourth_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(fifth_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
@@ -389,9 +389,9 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             test_case.should_create(
-                type=ActivityTypes.DRIVE
+                type=ActivityType.DRIVE
                 if team_member == self.team_leader
-                else ActivityTypes.SUPPORT,
+                else ActivityType.SUPPORT,
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -400,7 +400,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -409,7 +409,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -418,7 +418,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -427,7 +427,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=fifth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -445,18 +445,18 @@ class TestLogActivities(BaseTest):
             "log_activities",
             [
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(first_event_time),
                     team=[{"id": self.team_leader.id}],
                     driver_idx=0,  # team_leader,
                 ),
                 dict(
-                    type=InputableActivityTypes.REST,
+                    type=InputableActivityType.REST,
                     event_time=to_timestamp(second_event_time),
                     team=[{"id": self.team_leader.id}],
                 ),
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(third_event_time),
                     team=[{"id": self.team_leader.id}],
                     driver_idx=0,
@@ -466,7 +466,7 @@ class TestLogActivities(BaseTest):
             submitter=self.team_leader,
         )
         second_test_case.should_create(
-            type=ActivityTypes.DRIVE,
+            type=ActivityType.DRIVE,
             event_time=first_event_time,
             user_id=self.team_leader.id,
             submitter_id=self.team_leader.id,
@@ -475,7 +475,7 @@ class TestLogActivities(BaseTest):
             revised_at=None,
         )
         second_test_case.should_create(
-            type=ActivityTypes.REST,
+            type=ActivityType.REST,
             event_time=second_event_time,
             user_id=self.team_leader.id,
             submitter_id=self.team_leader.id,
@@ -484,7 +484,7 @@ class TestLogActivities(BaseTest):
             revised_at=None,
         )
         second_test_case.should_create(
-            type=ActivityTypes.DRIVE,
+            type=ActivityType.DRIVE,
             event_time=third_event_time,
             user_id=self.team_leader.id,
             submitter_id=self.team_leader.id,
@@ -504,23 +504,23 @@ class TestLogActivities(BaseTest):
             "log_activities",
             [
                 dict(
-                    type=InputableActivityTypes.DRIVE,
+                    type=InputableActivityType.DRIVE,
                     event_time=to_timestamp(first_event_time),
                     team=[{"id": u.id} for u in self.team],
                     driver_idx=1,  # team_leader,
                 ),
                 dict(
-                    type=InputableActivityTypes.BREAK,
+                    type=InputableActivityType.BREAK,
                     event_time=to_timestamp(second_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.WORK,
+                    type=InputableActivityType.WORK,
                     event_time=to_timestamp(third_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
                 dict(
-                    type=InputableActivityTypes.REST,
+                    type=InputableActivityType.REST,
                     event_time=to_timestamp(fourth_event_time),
                     team=[{"id": u.id} for u in self.team],
                 ),
@@ -529,7 +529,7 @@ class TestLogActivities(BaseTest):
             submitter=self.team_leader,
         )
         third_test_case.should_delete(
-            type=ActivityTypes.DRIVE,
+            type=ActivityType.DRIVE,
             event_time=team_leader_last_activity_event_time,
             user_id=self.team_leader.id,
             submitter_id=self.team_leader.id,
@@ -537,9 +537,9 @@ class TestLogActivities(BaseTest):
         )
         for team_member in self.team:
             third_test_case.should_create(
-                type=ActivityTypes.DRIVE
+                type=ActivityType.DRIVE
                 if team_member == self.team_mates[0]
-                else ActivityTypes.SUPPORT,
+                else ActivityType.SUPPORT,
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -548,7 +548,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             third_test_case.should_create(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -557,7 +557,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             third_test_case.should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
@@ -566,7 +566,7 @@ class TestLogActivities(BaseTest):
                 revised_at=None,
             )
             third_test_case.should_create(
-                type=ActivityTypes.REST,
+                type=ActivityType.REST,
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,

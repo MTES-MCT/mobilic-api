@@ -18,13 +18,13 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models.expenditure import ExpenditureTypes, Expenditure
+from app.models.expenditure import ExpenditureType, Expenditure
 from app.models.user import User
 from app.controllers.event import EventInput
 
 
 class SingleExpenditureInput(EventInput):
-    type = graphene_enum_type(ExpenditureTypes)(required=True)
+    type = graphene_enum_type(ExpenditureType)(required=True)
 
 
 class ExpenditureLog(graphene.Mutation):

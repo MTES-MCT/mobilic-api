@@ -18,13 +18,13 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models.activity import InputableActivityTypes, Activity
+from app.models.activity import InputableActivityType, Activity
 from app.models.user import User
 from app.controllers.event import EventInput
 
 
 class SingleActivityInput(EventInput):
-    type = graphene_enum_type(InputableActivityTypes)(required=True)
+    type = graphene_enum_type(InputableActivityType)(required=True)
     start_time = DateTimeWithTimeStampSerialization(required=False)
     driver_idx = graphene.Int(required=False)
     vehicle_registration_number = graphene.String(required=False)

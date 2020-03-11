@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.helpers.time import to_timestamp
 from app.models import Activity, User, Expenditure, Comment
-from app.models.activity import ActivityTypes
+from app.models.activity import ActivityType
 
 
 @dataclass
@@ -18,7 +18,7 @@ class WorkDay:
     @property
     def is_complete(self):
         return (
-            self.activities and self.activities[-1].type == ActivityTypes.REST
+            self.activities and self.activities[-1].type == ActivityType.REST
         )
 
     @property
@@ -68,7 +68,7 @@ def group_user_events_by_day(user):
     work_days = []
     current_work_day = None
     for activity in activities:
-        if activity.type == ActivityTypes.REST and current_work_day:
+        if activity.type == ActivityType.REST and current_work_day:
             current_work_day.activities.append(activity)
             work_days.append(current_work_day)
             current_work_day = None

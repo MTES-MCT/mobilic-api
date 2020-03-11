@@ -53,9 +53,7 @@ class BaseModelView(ModelView):
         abort(404)
 
 
-admin = Admin(
-    app, name="mobilic", index_view=IndexView(), template_mode="bootstrap3"
-)
+admin = Admin(app, name="mobilic", index_view=IndexView())
 
 
 admin.add_view(BaseModelView(User, db.session))

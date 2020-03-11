@@ -6,20 +6,19 @@ from app.models.event import EventBaseModel, Revisable, DismissType
 from app.models.utils import enum_column
 
 
-class InputableActivityTypes(str, Enum):
+class InputableActivityType(str, Enum):
     DRIVE = "drive"
     WORK = "work"
     BREAK = "break"
     REST = "rest"
 
 
-ActivityTypes = Enum(
+ActivityType = Enum(
     "ActivityTypes",
     dict(
         SUPPORT="support",
         **{
-            activity.name: activity.value
-            for activity in InputableActivityTypes
+            activity.name: activity.value for activity in InputableActivityType
         },
     ),
     type=str,
@@ -41,7 +40,7 @@ ActivityDismissType = Enum(
 class Activity(EventBaseModel, Revisable):
     backref_base_name = "activities"
 
-    type = enum_column(ActivityTypes, nullable=False)
+    type = enum_column(ActivityType, nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
 
     vehicle_registration_number = db.Column(db.String(255))

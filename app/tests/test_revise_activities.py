@@ -2,8 +2,8 @@ from datetime import datetime
 
 from app.helpers.time import to_timestamp
 from app.models.activity import (
-    InputableActivityTypes,
-    ActivityTypes,
+    InputableActivityType,
+    ActivityType,
     Activity,
     ActivityDismissType,
 )
@@ -28,22 +28,22 @@ class TestLogActivities(BaseTest):
         self.team = [self.team_leader] + self.team_mates
         full_day_events = {
             datetime(2020, 2, 7, 8): {
-                "type": InputableActivityTypes.DRIVE,
+                "type": InputableActivityType.DRIVE,
                 "driver_idx": 0,
             },
-            datetime(2020, 2, 7, 10): {"type": InputableActivityTypes.WORK},
-            datetime(2020, 2, 7, 12): {"type": InputableActivityTypes.BREAK},
-            datetime(2020, 2, 7, 14): {"type": InputableActivityTypes.WORK},
-            datetime(2020, 2, 7, 16): {"type": InputableActivityTypes.BREAK},
+            datetime(2020, 2, 7, 10): {"type": InputableActivityType.WORK},
+            datetime(2020, 2, 7, 12): {"type": InputableActivityType.BREAK},
+            datetime(2020, 2, 7, 14): {"type": InputableActivityType.WORK},
+            datetime(2020, 2, 7, 16): {"type": InputableActivityType.BREAK},
             datetime(2020, 2, 7, 18): {
-                "type": InputableActivityTypes.DRIVE,
+                "type": InputableActivityType.DRIVE,
                 "driver_idx": 0,
             },
             datetime(2020, 2, 7, 19): {
-                "type": InputableActivityTypes.DRIVE,
+                "type": InputableActivityType.DRIVE,
                 "driver_idx": 1,
             },
-            datetime(2020, 2, 7, 20): {"type": InputableActivityTypes.REST},
+            datetime(2020, 2, 7, 20): {"type": InputableActivityType.REST},
         }
         self.submit_full_day_events = SubmitEventsTest(
             "log_activities",
@@ -62,10 +62,10 @@ class TestLogActivities(BaseTest):
             for team_member in self.team:
                 activity_type = event_params["type"]
                 if (
-                    activity_type == ActivityTypes.DRIVE
+                    activity_type == ActivityType.DRIVE
                     and team_member != self.team[event_params["driver_idx"]]
                 ):
-                    activity_type = ActivityTypes.SUPPORT
+                    activity_type = ActivityType.SUPPORT
                 self.submit_full_day_events.should_create(
                     type=activity_type,
                     event_time=event_time,
@@ -77,13 +77,13 @@ class TestLogActivities(BaseTest):
                 )
         half_day_events = {
             datetime(2020, 2, 8, 8): {
-                "type": InputableActivityTypes.DRIVE,
+                "type": InputableActivityType.DRIVE,
                 "driver_idx": 0,
             },
-            datetime(2020, 2, 8, 10): {"type": InputableActivityTypes.WORK},
-            datetime(2020, 2, 8, 12): {"type": InputableActivityTypes.BREAK},
-            datetime(2020, 2, 8, 14): {"type": InputableActivityTypes.WORK},
-            datetime(2020, 2, 8, 16): {"type": InputableActivityTypes.BREAK},
+            datetime(2020, 2, 8, 10): {"type": InputableActivityType.WORK},
+            datetime(2020, 2, 8, 12): {"type": InputableActivityType.BREAK},
+            datetime(2020, 2, 8, 14): {"type": InputableActivityType.WORK},
+            datetime(2020, 2, 8, 16): {"type": InputableActivityType.BREAK},
         }
         self.submit_half_day_events = SubmitEventsTest(
             "log_activities",
@@ -102,10 +102,10 @@ class TestLogActivities(BaseTest):
             for team_member in self.team:
                 activity_type = event_params["type"]
                 if (
-                    activity_type == ActivityTypes.DRIVE
+                    activity_type == ActivityType.DRIVE
                     and team_member != self.team[event_params["driver_idx"]]
                 ):
-                    activity_type = ActivityTypes.SUPPORT
+                    activity_type = ActivityType.SUPPORT
                 self.submit_half_day_events.should_create(
                     type=activity_type,
                     event_time=event_time,
@@ -139,13 +139,13 @@ class TestLogActivities(BaseTest):
         for team_member in self.team:
             test_case.should_revise(
                 before=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_member.id,
                     start_time=activity_to_revise_start_time,
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_member.id,
                     start_time=new_start_time,
                     dismissed_at=None,
@@ -174,13 +174,13 @@ class TestLogActivities(BaseTest):
             submit_time=datetime(2020, 2, 7, 21, 1),
         ).should_revise(
             before=dict(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 user_id=team_mate.id,
                 start_time=activity_to_revise_start_time,
                 dismissed_at=None,
             ),
             after=dict(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 user_id=team_mate.id,
                 start_time=new_start_time,
                 dismissed_at=None,
@@ -228,13 +228,13 @@ class TestLogActivities(BaseTest):
             )
             .should_revise(
                 before=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=first_activity_to_revise_start_time,
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=first_activity_new_start_time,
                     dismissed_at=None,
@@ -243,13 +243,13 @@ class TestLogActivities(BaseTest):
             )
             .should_revise(
                 before=dict(
-                    type=ActivityTypes.WORK,
+                    type=ActivityType.WORK,
                     user_id=team_mate.id,
                     start_time=second_activity_to_revise_start_time,
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.WORK,
+                    type=ActivityType.WORK,
                     user_id=team_mate.id,
                     start_time=second_activity_new_start_time,
                     dismissed_at=None,
@@ -303,13 +303,13 @@ class TestLogActivities(BaseTest):
         )
         first_test_case.should_revise(
             before=dict(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 user_id=team_mate.id,
                 start_time=first_activity_to_revise_start_time,
                 dismissed_at=None,
             ),
             after=dict(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 user_id=team_mate.id,
                 start_time=first_activity_new_start_time,
                 dismissed_at=None,
@@ -318,13 +318,13 @@ class TestLogActivities(BaseTest):
         )
         second_test_case.should_revise(
             before=dict(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 user_id=team_mate.id,
                 start_time=second_activity_to_revise_start_time,
                 dismissed_at=None,
             ),
             after=dict(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 user_id=team_mate.id,
                 start_time=second_activity_new_start_time,
                 dismissed_at=None,
@@ -355,13 +355,13 @@ class TestLogActivities(BaseTest):
             )
             .should_revise(
                 before=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=activity_to_revise_start_time,
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=new_start_time,
                     dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
@@ -369,7 +369,7 @@ class TestLogActivities(BaseTest):
                 revision_time=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 user_id=team_mate.id,
                 start_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
@@ -399,27 +399,27 @@ class TestLogActivities(BaseTest):
             )
             .should_revise(
                 before=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=activity_to_revise_start_time,
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=new_start_time,
                 ),
                 revision_time=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 user_id=team_mate.id,
                 start_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 user_id=team_mate.id,
                 start_time=datetime(2020, 2, 7, 16),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
@@ -436,7 +436,7 @@ class TestLogActivities(BaseTest):
                 "log_activities",
                 dict(
                     event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
-                    type=ActivityTypes.WORK,
+                    type=ActivityType.WORK,
                     team=[{"id": team_mate.id}],
                 ),
                 submitter=team_mate,
@@ -444,13 +444,13 @@ class TestLogActivities(BaseTest):
             )
             .should_revise(
                 before=dict(
-                    type=ActivityTypes.REST,
+                    type=ActivityType.REST,
                     user_id=team_mate.id,
                     start_time=datetime(2020, 2, 7, 20),
                     dismissed_at=None,
                 ),
                 after=dict(
-                    type=ActivityTypes.BREAK,
+                    type=ActivityType.BREAK,
                     user_id=team_mate.id,
                     start_time=datetime(2020, 2, 7, 20),
                     dismissed_at=None,
@@ -458,7 +458,7 @@ class TestLogActivities(BaseTest):
                 revision_time=datetime(2020, 2, 7, 20, 30),
             )
             .should_create(
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 user_id=team_mate.id,
                 start_time=datetime(2020, 2, 7, 20, 30),
                 dismissed_at=None,
@@ -475,13 +475,13 @@ class TestLogActivities(BaseTest):
             dict(
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 start_time=to_timestamp(datetime(2020, 2, 7, 7, 30)),
-                type=ActivityTypes.WORK,
+                type=ActivityType.WORK,
                 team=[{"id": team_mate.id}],
             ),
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 21, 2),
         ).should_create(
-            type=ActivityTypes.WORK,
+            type=ActivityType.WORK,
             user_id=team_mate.id,
             start_time=datetime(2020, 2, 7, 7, 30),
             event_time=datetime(2020, 2, 7, 21),
@@ -495,13 +495,13 @@ class TestLogActivities(BaseTest):
             dict(
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 start_time=to_timestamp(datetime(2020, 2, 7, 9, 50)),
-                type=ActivityTypes.BREAK,
+                type=ActivityType.BREAK,
                 team=[{"id": team_mate.id}],
             ),
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 21, 2),
         ).should_create(
-            type=ActivityTypes.BREAK,
+            type=ActivityType.BREAK,
             user_id=team_mate.id,
             start_time=datetime(2020, 2, 7, 9, 50),
             event_time=datetime(2020, 2, 7, 21),

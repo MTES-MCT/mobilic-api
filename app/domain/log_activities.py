@@ -4,7 +4,7 @@ from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.helpers.time import local_to_utc
-from app.models.activity import ActivityTypes, Activity, ActivityDismissType
+from app.models.activity import ActivityType, Activity, ActivityDismissType
 
 
 def log_group_activity(
@@ -19,13 +19,13 @@ def log_group_activity(
 ):
     activities_per_user = {user: type for user in users}
     if len(users) > 1:
-        if type == ActivityTypes.DRIVE:
+        if type == ActivityType.DRIVE:
             driver = users[driver_idx] if driver_idx is not None else None
             for user in users:
                 if user == driver:
-                    activities_per_user[user] = ActivityTypes.DRIVE
+                    activities_per_user[user] = ActivityType.DRIVE
                 else:
-                    activities_per_user[user] = ActivityTypes.SUPPORT
+                    activities_per_user[user] = ActivityType.SUPPORT
 
     for user in users:
         activity = log_activity(
@@ -79,7 +79,7 @@ def check_and_fix_neighbour_inconsistencies(
         return
     if not dismiss_or_revision_time:
         dismiss_or_revision_time = datetime.now()
-    if not previous_activity and next_activity.type == ActivityTypes.REST:
+    if not previous_activity and next_activity.type == ActivityType.REST:
         next_activity.dismiss(
             ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
         )
@@ -90,7 +90,7 @@ def check_and_fix_neighbour_inconsistencies(
     db.session.add(next_activity)
     if previous_activity.type == next_activity.type:
         if (
-            next_activity.type == ActivityTypes.SUPPORT
+            next_activity.type == ActivityType.SUPPORT
             and next_activity.team[next_activity.driver_idx]
             != previous_activity.team[previous_activity.driver_idx]
         ):
@@ -101,11 +101,11 @@ def check_and_fix_neighbour_inconsistencies(
                 dismiss_or_revision_time,
             )
     elif (
-        previous_activity.type == ActivityTypes.REST
-        and next_activity.type == ActivityTypes.BREAK
+        previous_activity.type == ActivityType.REST
+        and next_activity.type == ActivityType.BREAK
     ):
         revised_next_activity = next_activity.update_or_revise(
-            dismiss_or_revision_time, type=ActivityTypes.REST
+            dismiss_or_revision_time, type=ActivityType.REST
         )
         revised_next_activity.dismiss(
             ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
@@ -116,19 +116,19 @@ def check_and_fix_neighbour_inconsistencies(
             dismiss_or_revision_time,
         )
     elif (
-        previous_activity.type == ActivityTypes.REST
+        previous_activity.type == ActivityType.REST
         and local_to_utc(previous_activity.start_time).date()
         == local_to_utc(next_activity.start_time).date()
     ):
         previous_activity.update_or_revise(
-            dismiss_or_revision_time, type=ActivityTypes.BREAK
+            dismiss_or_revision_time, type=ActivityType.BREAK
         )
     elif (
-        previous_activity.type == ActivityTypes.BREAK
-        and next_activity.type == ActivityTypes.REST
+        previous_activity.type == ActivityType.BREAK
+        and next_activity.type == ActivityType.REST
     ):
         previous_activity.update_or_revise(
-            dismiss_or_revision_time, type=ActivityTypes.REST
+            dismiss_or_revision_time, type=ActivityType.REST
         )
         next_activity.dismiss(
             ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time

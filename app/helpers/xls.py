@@ -4,16 +4,16 @@ from xlsxwriter import Workbook
 from datetime import timedelta
 from io import BytesIO
 
-from app.models.activity import ActivityTypes
-from app.models.expenditure import ExpenditureTypes
+from app.models.activity import ActivityType
+from app.models.expenditure import ExpenditureType
 
 
 ACTIVITY_TYPE_LABEL = {
-    ActivityTypes.DRIVE: "conduite",
-    ActivityTypes.WORK: "autre tâche",
-    ActivityTypes.BREAK: "pause",
-    ActivityTypes.SUPPORT: "accompagnement",
-    ActivityTypes.REST: "repos",
+    ActivityType.DRIVE: "conduite",
+    ActivityType.WORK: "autre tâche",
+    ActivityType.BREAK: "pause",
+    ActivityType.SUPPORT: "accompagnement",
+    ActivityType.REST: "repos",
 }
 
 EXCEL_MIMETYPE = (
@@ -31,28 +31,28 @@ columns_in_main_sheet = [
     (
         "Conduite",
         lambda wday: timedelta(
-            milliseconds=wday.activity_timers[ActivityTypes.DRIVE]
+            milliseconds=wday.activity_timers[ActivityType.DRIVE]
         ),
         "duration_format",
     ),
     (
         "Accompagnement",
         lambda wday: timedelta(
-            milliseconds=wday.activity_timers[ActivityTypes.SUPPORT]
+            milliseconds=wday.activity_timers[ActivityType.SUPPORT]
         ),
         "duration_format",
     ),
     (
         "Autre tâche",
         lambda wday: timedelta(
-            milliseconds=wday.activity_timers[ActivityTypes.WORK]
+            milliseconds=wday.activity_timers[ActivityType.WORK]
         ),
         "duration_format",
     ),
     (
         "Pause",
         lambda wday: timedelta(
-            milliseconds=wday.activity_timers[ActivityTypes.BREAK]
+            milliseconds=wday.activity_timers[ActivityType.BREAK]
         ),
         "duration_format",
     ),
@@ -62,7 +62,7 @@ columns_in_main_sheet = [
             [
                 e
                 for e in wday.expenditures
-                if e.type == ExpenditureTypes.DAY_MEAL
+                if e.type == ExpenditureType.DAY_MEAL
             ]
         ),
         None,
@@ -73,7 +73,7 @@ columns_in_main_sheet = [
             [
                 e
                 for e in wday.expenditures
-                if e.type == ExpenditureTypes.NIGHT_MEAL
+                if e.type == ExpenditureType.NIGHT_MEAL
             ]
         ),
         None,
@@ -84,7 +84,7 @@ columns_in_main_sheet = [
             [
                 e
                 for e in wday.expenditures
-                if e.type == ExpenditureTypes.SLEEP_OVER
+                if e.type == ExpenditureType.SLEEP_OVER
             ]
         ),
         None,
