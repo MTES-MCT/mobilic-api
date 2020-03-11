@@ -125,28 +125,29 @@ class ReviseActivities(graphene.Mutation):
                         ]
                     for db_activity in activities_to_revise:
                         app.logger.info(f"Revising {db_activity}")
-                        new_activity = db_activity.update_or_revise(
+                        new_activity = db_activity.revise(
                             event.event_time, start_time=event.start_time
                         )
-                        revised_activity_neighbours = (
-                            new_activity.previous_and_next_acknowledged_activities
-                        )
-                        neighbours_to_check = {
-                            (revised_activity_neighbours[0], new_activity),
-                            (new_activity, revised_activity_neighbours[1]),
-                            db_activity.previous_and_next_acknowledged_activities,
-                        }
-                        neighbours_to_check_in_historical_order = sorted(
-                            list(neighbours_to_check),
-                            key=lambda prev_next: prev_next[0].start_time,
-                        )
-                        for (
-                            prev,
-                            next,
-                        ) in neighbours_to_check_in_historical_order:
-                            check_and_fix_neighbour_inconsistencies(
-                                prev, next, event.event_time
+                        if new_activity:
+                            revised_activity_neighbours = (
+                                new_activity.previous_and_next_acknowledged_activities
                             )
+                            neighbours_to_check = {
+                                (revised_activity_neighbours[0], new_activity),
+                                (new_activity, revised_activity_neighbours[1]),
+                                db_activity.previous_and_next_acknowledged_activities,
+                            }
+                            neighbours_to_check_in_historical_order = sorted(
+                                list(neighbours_to_check),
+                                key=lambda prev_next: prev_next[0].start_time,
+                            )
+                            for (
+                                prev,
+                                next,
+                            ) in neighbours_to_check_in_historical_order:
+                                check_and_fix_neighbour_inconsistencies(
+                                    prev, next, event.event_time
+                                )
 
         return ReviseActivities(
             activities=current_user.acknowledged_activities

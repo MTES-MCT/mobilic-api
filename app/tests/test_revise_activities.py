@@ -137,20 +137,12 @@ class TestLogActivities(BaseTest):
             submit_time=datetime(2020, 2, 7, 21, 1),
         )
         for team_member in self.team:
-            test_case.should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_member.id,
-                    start_time=activity_to_revise_start_time,
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_member.id,
-                    start_time=new_start_time,
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            test_case.should_create(
+                type=ActivityType.BREAK,
+                user_id=team_member.id,
+                start_time=new_start_time,
+                dismissed_at=None,
+                event_time=datetime(2020, 2, 7, 21),
             )
         test_case.test(self)
 
@@ -172,20 +164,13 @@ class TestLogActivities(BaseTest):
             ),
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 21, 1),
-        ).should_revise(
-            before=dict(
-                type=ActivityType.BREAK,
-                user_id=team_mate.id,
-                start_time=activity_to_revise_start_time,
-                dismissed_at=None,
-            ),
-            after=dict(
-                type=ActivityType.BREAK,
-                user_id=team_mate.id,
-                start_time=new_start_time,
-                dismissed_at=None,
-            ),
-            revision_time=datetime(2020, 2, 7, 21),
+        ).should_create(
+            type=ActivityType.BREAK,
+            user_id=team_mate.id,
+            start_time=new_start_time,
+            dismissed_at=None,
+            event_time=datetime(2020, 2, 7, 21),
+            revisee_id=activity_to_revise.id,
         )
         test_case.test(self)
 
@@ -226,35 +211,21 @@ class TestLogActivities(BaseTest):
                 submitter=team_mate,
                 submit_time=datetime(2020, 2, 7, 21, 1),
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=first_activity_to_revise_start_time,
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=first_activity_new_start_time,
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            .should_create(
+                type=ActivityType.BREAK,
+                user_id=team_mate.id,
+                start_time=first_activity_new_start_time,
+                dismissed_at=None,
+                event_time=datetime(2020, 2, 7, 21),
+                revisee_id=first_activity_to_revise.id,
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.WORK,
-                    user_id=team_mate.id,
-                    start_time=second_activity_to_revise_start_time,
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.WORK,
-                    user_id=team_mate.id,
-                    start_time=second_activity_new_start_time,
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            .should_create(
+                type=ActivityType.WORK,
+                user_id=team_mate.id,
+                start_time=second_activity_new_start_time,
+                dismissed_at=None,
+                event_time=datetime(2020, 2, 7, 21),
+                revisee_id=second_activity_to_revise.id,
             )
         )
         test_case.test(self)
@@ -301,35 +272,21 @@ class TestLogActivities(BaseTest):
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 22, 1),
         )
-        first_test_case.should_revise(
-            before=dict(
-                type=ActivityType.BREAK,
-                user_id=team_mate.id,
-                start_time=first_activity_to_revise_start_time,
-                dismissed_at=None,
-            ),
-            after=dict(
-                type=ActivityType.BREAK,
-                user_id=team_mate.id,
-                start_time=first_activity_new_start_time,
-                dismissed_at=None,
-            ),
-            revision_time=datetime(2020, 2, 7, 21),
+        first_test_case.should_create(
+            type=ActivityType.BREAK,
+            user_id=team_mate.id,
+            start_time=first_activity_new_start_time,
+            dismissed_at=None,
+            event_time=datetime(2020, 2, 7, 21),
+            revisee_id=first_activity_to_revise.id,
         )
-        second_test_case.should_revise(
-            before=dict(
-                type=ActivityType.WORK,
-                user_id=team_mate.id,
-                start_time=second_activity_to_revise_start_time,
-                dismissed_at=None,
-            ),
-            after=dict(
-                type=ActivityType.WORK,
-                user_id=team_mate.id,
-                start_time=second_activity_new_start_time,
-                dismissed_at=None,
-            ),
-            revision_time=datetime(2020, 2, 7, 22),
+        second_test_case.should_create(
+            type=ActivityType.WORK,
+            user_id=team_mate.id,
+            start_time=second_activity_new_start_time,
+            dismissed_at=None,
+            event_time=datetime(2020, 2, 7, 22),
+            revisee_id=second_activity_to_revise.id,
         )
         SubmitEventsTestChain([first_test_case, second_test_case]).test(self)
 
@@ -353,20 +310,14 @@ class TestLogActivities(BaseTest):
                 submitter=team_mate,
                 submit_time=datetime(2020, 2, 7, 21, 1),
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=activity_to_revise_start_time,
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=new_start_time,
-                    dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            .should_create(
+                type=ActivityType.BREAK,
+                user_id=team_mate.id,
+                start_time=new_start_time,
+                dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
+                event_time=datetime(2020, 2, 7, 21),
+                revisee=activity_to_revise.id,
+                dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
                 type=ActivityType.WORK,
@@ -397,19 +348,12 @@ class TestLogActivities(BaseTest):
                 submitter=team_mate,
                 submit_time=datetime(2020, 2, 7, 21, 1),
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=activity_to_revise_start_time,
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=new_start_time,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            .should_create(
+                type=ActivityType.BREAK,
+                user_id=team_mate.id,
+                start_time=new_start_time,
+                event_time=datetime(2020, 2, 7, 21),
+                revisee_id=activity_to_revise.id,
             )
             .should_dismiss(
                 type=ActivityType.WORK,
@@ -442,20 +386,12 @@ class TestLogActivities(BaseTest):
                 submitter=team_mate,
                 submit_time=datetime(2020, 2, 7, 21, 2),
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.REST,
-                    user_id=team_mate.id,
-                    start_time=datetime(2020, 2, 7, 20),
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=datetime(2020, 2, 7, 20),
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 20, 30),
+            .should_create(
+                type=ActivityType.BREAK,
+                user_id=team_mate.id,
+                start_time=datetime(2020, 2, 7, 20),
+                dismissed_at=None,
+                event_time=datetime(2020, 2, 7, 20, 30),
             )
             .should_create(
                 type=ActivityType.WORK,

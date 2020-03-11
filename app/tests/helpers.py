@@ -261,17 +261,6 @@ class SubmitEventsTest:
         )
         return self
 
-    def should_revise(self, before, after, revision_time):
-        after["revised_at"] = None
-        if after.get("dismiss_type"):
-            after["dismissed_at"] = revision_time
-        self.expected_db_event += DBUnitUpdate(
-            before={**before, "revised_at": None},
-            after={**before, "revised_at": revision_time},
-        )
-        self.expected_db_event += DBUnitUpdate(before=None, after=after)
-        return self
-
     def add_event(self, data):
         self.data.append(data)
         return self

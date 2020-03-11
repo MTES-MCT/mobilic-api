@@ -1,7 +1,7 @@
 from enum import Enum
 from flask_jwt_extended import current_user
 
-from app import db
+from app import app, db
 from app.models.event import EventBaseModel, Revisable, DismissType
 from app.models.utils import enum_column
 
@@ -101,13 +101,11 @@ class Activity(EventBaseModel, Revisable):
             or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
         )
 
-    def update_or_revise(self, revision_time, **updated_props):
+    def revise(self, revision_time, **updated_props):
         from app.domain.log_activities import log_activity
 
-        if self.is_revised or self.is_dismissed:
-            raise ValueError(
-                f"You can't revise the already revised or dismissed {self}"
-            )
+        if self.is_dismissed:
+            raise ValueError(f"You can't revise the already dismissed {self}")
         if not self.id:
             for prop, value in updated_props.items():
                 setattr(self, prop, value)
@@ -126,6 +124,11 @@ class Activity(EventBaseModel, Revisable):
         )
         dict_.update(updated_props)
         revision = log_activity(**dict_)
-        self.set_revision(revision, revision_time)
+        if not revision:
+            app.logger.warning(
+                f"Could not create revision for {self} with arguments {updated_props}"
+            )
+            return None
+        self.set_revision(revision)
         db.session.add(revision)
         return revision

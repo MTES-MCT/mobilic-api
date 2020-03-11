@@ -295,7 +295,6 @@ class TestLogActivities(BaseTest):
             start_time=second_activity_to_cancel_start_time,
             dismiss_type=ActivityDismissType.USER_CANCEL,
             dismissed_at=datetime(2020, 2, 7, 22),
-            revised_at=None,
         )
         SubmitEventsTestChain([first_test_case, second_test_case]).test(self)
 
@@ -329,7 +328,6 @@ class TestLogActivities(BaseTest):
                 start_time=activity_to_cancel_start_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
-                revised_at=None,
             )
             .should_dismiss(
                 type=ActivityType.WORK,
@@ -337,7 +335,6 @@ class TestLogActivities(BaseTest):
                 start_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
-                revised_at=None,
             )
         )
         test_case.test(self)
@@ -384,7 +381,6 @@ class TestLogActivities(BaseTest):
                 start_time=first_activity_to_cancel_start_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
-                revised_at=None,
             )
             .should_dismiss(
                 type=ActivityType.SUPPORT,
@@ -393,7 +389,6 @@ class TestLogActivities(BaseTest):
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 is_driver_switch=True,
                 dismissed_at=datetime(2020, 2, 7, 21),
-                revised_at=None,
             )
             .should_dismiss(
                 type=ActivityType.REST,
@@ -401,22 +396,13 @@ class TestLogActivities(BaseTest):
                 start_time=datetime(2020, 2, 7, 20),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
-                revised_at=None,
             )
-            .should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_mate.id,
-                    start_time=datetime(2020, 2, 7, 16),
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.REST,
-                    user_id=team_mate.id,
-                    start_time=datetime(2020, 2, 7, 16),
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 21),
+            .should_create(
+                type=ActivityType.REST,
+                user_id=team_mate.id,
+                start_time=datetime(2020, 2, 7, 16),
+                dismissed_at=None,
+                event_time=datetime(2020, 2, 7, 21),
             )
         )
         test_case.test(self)
@@ -466,7 +452,6 @@ class TestLogActivities(BaseTest):
                 start_time=first_activity_to_cancel_start_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 22),
-                revised_at=None,
             ).should_dismiss(
                 type=ActivityType.DRIVE
                 if team_member == self.team_mates[0]
@@ -478,27 +463,16 @@ class TestLogActivities(BaseTest):
                 if team_member == self.team_mates[1]
                 else None,
                 dismissed_at=datetime(2020, 2, 7, 22),
-                revised_at=None,
             ).should_dismiss(
                 type=ActivityType.REST,
                 user_id=team_member.id,
                 start_time=datetime(2020, 2, 7, 20),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 22),
-                revised_at=None,
-            ).should_revise(
-                before=dict(
-                    type=ActivityType.BREAK,
-                    user_id=team_member.id,
-                    start_time=datetime(2020, 2, 7, 16),
-                    dismissed_at=None,
-                ),
-                after=dict(
-                    type=ActivityType.REST,
-                    user_id=team_member.id,
-                    start_time=datetime(2020, 2, 7, 16),
-                    dismissed_at=None,
-                ),
-                revision_time=datetime(2020, 2, 7, 22),
+            ).should_create(
+                type=ActivityType.REST,
+                user_id=team_member.id,
+                start_time=datetime(2020, 2, 7, 16),
+                dismissed_at=None,
             )
         test_case.test(self)

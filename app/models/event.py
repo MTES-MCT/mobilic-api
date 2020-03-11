@@ -90,12 +90,11 @@ class EventBaseModel(BaseModel):
         )
 
     def dismiss(self, type, dismiss_time=None):
-        dismiss_received_at = datetime.now()
+        self.dismiss_received_at = datetime.now()
         if not dismiss_time:
-            dismiss_time = dismiss_received_at
+            dismiss_time = self.dismiss_received_at
         self.dismiss_type = type
         self.dismissed_at = dismiss_time
-        self.dismiss_received_at = dismiss_received_at
         self.dismiss_author = current_user
 
     __table_args__ = (
@@ -113,6 +112,10 @@ class EventBaseModel(BaseModel):
     def is_acknowledged(self):
         return not self.is_dismissed
 
+    @property
+    def authorized_submit(self):
+        return self.dismiss_type != DismissType.UNAUTHORIZED_SUBMITTER
+
     def to_dict(self):
         return dict(
             id=self.id,
@@ -124,10 +127,8 @@ class EventBaseModel(BaseModel):
 
 
 class Revisable:
-    revised_at = db.Column(db.DateTime, nullable=True)
-
     @declared_attr
-    def revised_by_id(cls):
+    def revisee_id(cls):
         return db.Column(
             db.Integer,
             db.ForeignKey(cls.__tablename__ + ".id"),
@@ -136,18 +137,16 @@ class Revisable:
         )
 
     @declared_attr
-    def revised_by(cls):
+    def revisee(cls):
         return db.relationship(
             cls,
-            backref=backref("revises"),
+            backref=backref("revised_by", lazy="selectin"),
             remote_side=[cls.id],
-            uselist=False,
         )
 
     @property
     def is_revised(self):
-        return self.revised_by is not None
+        return len([a for a in self.revised_by if a.authorized_submit])
 
-    def set_revision(self, revision, time):
-        self.revised_by = revision
-        self.revised_at = time
+    def set_revision(self, revision):
+        revision.revisee = self

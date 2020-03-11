@@ -104,30 +104,32 @@ def check_and_fix_neighbour_inconsistencies(
         previous_activity.type == ActivityType.REST
         and next_activity.type == ActivityType.BREAK
     ):
-        revised_next_activity = next_activity.update_or_revise(
+        revised_next_activity = next_activity.revise(
             dismiss_or_revision_time, type=ActivityType.REST
         )
-        revised_next_activity.dismiss(
-            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
-        )
-        check_and_fix_neighbour_inconsistencies(
-            previous_activity,
-            previous_activity.next_acknowledged_activity,
-            dismiss_or_revision_time,
-        )
+        if revised_next_activity:
+            revised_next_activity.dismiss(
+                ActivityDismissType.NO_ACTIVITY_SWITCH,
+                dismiss_or_revision_time,
+            )
+            check_and_fix_neighbour_inconsistencies(
+                previous_activity,
+                previous_activity.next_acknowledged_activity,
+                dismiss_or_revision_time,
+            )
     elif (
         previous_activity.type == ActivityType.REST
         and local_to_utc(previous_activity.start_time).date()
         == local_to_utc(next_activity.start_time).date()
     ):
-        previous_activity.update_or_revise(
+        previous_activity.revise(
             dismiss_or_revision_time, type=ActivityType.BREAK
         )
     elif (
         previous_activity.type == ActivityType.BREAK
         and next_activity.type == ActivityType.REST
     ):
-        previous_activity.update_or_revise(
+        previous_activity.revise(
             dismiss_or_revision_time, type=ActivityType.REST
         )
         next_activity.dismiss(
