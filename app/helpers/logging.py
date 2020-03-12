@@ -69,7 +69,7 @@ class SlackHandler(logging.Handler):
             self.format(record),
             emoji,
             color,
-            [("User", current_user), ("Device", record.device)],
+            [("User", record.current_user), ("Device", record.device)],
         )
 
 
@@ -94,9 +94,10 @@ default_handler.setFormatter(
 
 if app.config["SLACK_TOKEN"]:
     slack_handler = SlackHandler()
+    slack_handler.addFilter(add_request_and_user_context)
     slack_handler.addFilter(
         lambda r: r.levelno >= logging.WARNING
         or getattr(r, "post_to_slack", False)
     )
     slack_handler.setFormatter(SlackFormatter("%(message)s"))
-    app.logger.addHandler(slack_handler)
+    logging.getLogger().addHandler(slack_handler)
