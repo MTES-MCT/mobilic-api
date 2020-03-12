@@ -445,3 +445,75 @@ class TestLogActivities(BaseTest):
             revised_at=None,
         )
         test_case.test(self)
+
+    def test_revise_lone_activity(self):
+        user = UserFactory.create()
+
+        lone_activity_submit = SubmitEventsTest(
+            "log_activities",
+            dict(
+                event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
+                type=ActivityType.WORK,
+                team=[{"id": user.id}],
+            ),
+            submitter=user,
+            submit_time=datetime(2020, 2, 7, 21, 2),
+        ).should_create(
+            event_time=datetime(2020, 2, 7, 20, 30),
+            user_id=user.id,
+            type=ActivityType.WORK,
+        )
+        lone_activity_submit.test(self)
+
+        lone_activity = Activity.query.filter(
+            Activity.user_id == user.id
+        ).one()
+
+        # Revise lone activity
+        SubmitEventsTest(
+            "revise_activities",
+            dict(
+                event_id=lone_activity.id,
+                start_time=to_timestamp(datetime(2020, 2, 7, 14, 30)),
+                event_time=to_timestamp(datetime(2020, 2, 7, 22, 0)),
+            ),
+            submitter=user,
+            submit_time=datetime(2020, 2, 7, 22, 1),
+        ).should_create(
+            event_time=datetime(2020, 2, 7, 22, 0),
+            start_time=datetime(2020, 2, 7, 14, 30),
+            user_id=user.id,
+            type=ActivityType.WORK,
+            revisee_id=lone_activity.id,
+        ).test(
+            self
+        )
+
+        new_lone_activity = [
+            a
+            for a in Activity.query.filter(Activity.user_id == user.id).all()
+            if a.is_acknowledged
+        ]
+
+        self.assertEqual(len(new_lone_activity), 1)
+        new_lone_activity = new_lone_activity[0]
+
+        # Cancel lone activity
+        SubmitEventsTest(
+            "cancel_activities",
+            dict(
+                event_id=new_lone_activity.id,
+                event_time=to_timestamp(datetime(2020, 2, 7, 23, 0)),
+            ),
+            submitter=user,
+            submit_time=datetime(2020, 2, 7, 23, 1),
+        ).should_dismiss(
+            start_time=datetime(2020, 2, 7, 14, 30),
+            user_id=user.id,
+            type=ActivityType.WORK,
+            revisee_id=lone_activity.id,
+            dismiss_type=ActivityDismissType.USER_CANCEL,
+            dismissed_at=datetime(2020, 2, 7, 23, 0),
+        ).test(
+            self
+        )

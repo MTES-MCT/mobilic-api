@@ -29,6 +29,11 @@ def _snake_to_camel(obj):
         return first_word + "".join(word.title() for word in rest)
 
 
+def _db_event_to_dict(obj):
+    exclude_fields = ["revised_by", "_sa_instance_state"]
+    return {k: v for k, v in obj.__dict__.items() if k not in exclude_fields}
+
+
 def _equals_on_intersect(d1, d2):
     if d1 is None or d2 is None:
         return d1 == d2
@@ -183,8 +188,7 @@ class SubmitEventsTest:
     def test(self, test: TestCase):
         # 1. Query db to get state of events before the submit
         all_events_before_submit = [
-            {k: v for k, v in a.__dict__.items() if k != "_sa_instance_state"}
-            for a in self.event_model.query.all()
+            _db_event_to_dict(a) for a in self.event_model.query.all()
         ]
 
         db.session.rollback()
@@ -210,8 +214,7 @@ class SubmitEventsTest:
 
         # 3. Query again db to get state of events after the submit
         all_events_after_submit = [
-            {k: v for k, v in a.__dict__.items() if k != "_sa_instance_state"}
-            for a in self.event_model.query.all()
+            _db_event_to_dict(a) for a in self.event_model.query.all()
         ]
 
         db.session.rollback()
