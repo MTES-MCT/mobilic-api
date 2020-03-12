@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask_jwt_extended import current_user
 import graphene
 
@@ -139,7 +140,9 @@ class ReviseActivities(graphene.Mutation):
                             }
                             neighbours_to_check_in_historical_order = sorted(
                                 list(neighbours_to_check),
-                                key=lambda prev_next: prev_next[0].start_time,
+                                key=lambda prev_next: prev_next[0].start_time
+                                if prev_next[0]
+                                else datetime.fromtimestamp(0),
                             )
                             for (
                                 prev,
