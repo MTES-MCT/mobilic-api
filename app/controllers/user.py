@@ -30,7 +30,7 @@ class UserSignup(graphene.Mutation):
             db.session.add(user)
             db.session.commit()
             app.logger.info(
-                f"Signed up new user {user}",
+                f"Signed up new user {user} of company {data.get('company_name_to_resolve', None)}",
                 extra={"post_to_slack": True, "emoji": ":tada:"},
             )
         except Exception as e:
