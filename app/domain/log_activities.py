@@ -39,7 +39,7 @@ def log_group_activity(
             team=[u.id for u in users],
             driver_idx=driver_idx,
         )
-        if not activity.is_dismissed:
+        if activity and not activity.is_dismissed:
             (
                 prev_activity,
                 next_activity,
@@ -165,7 +165,7 @@ def log_activity(
         event_history=user.activities,
     )
     if response_if_event_should_not_be_logged:
-        return
+        return None
 
     # 2. Assess whether the event submitter is authorized to log for the user
     dismiss_type = None

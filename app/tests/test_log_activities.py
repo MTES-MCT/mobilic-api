@@ -582,3 +582,34 @@ class TestLogActivities(BaseTest):
             + third_test_case
         )
         test_suite.test(self)
+
+    def test_should_not_log_activity_twice(self):
+        user = UserFactory.create()
+
+        SubmitEventsTest(
+            "log_activities",
+            dict(
+                event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
+                type=ActivityType.WORK,
+                team=[{"id": user.id}],
+            ),
+            submitter=user,
+            submit_time=datetime(2020, 2, 7, 21, 2),
+        ).should_create(
+            event_time=datetime(2020, 2, 7, 20, 30),
+            user_id=user.id,
+            type=ActivityType.WORK,
+        ).test(
+            self
+        )
+
+        SubmitEventsTest(
+            "log_activities",
+            dict(
+                event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
+                type=ActivityType.WORK,
+                team=[{"id": user.id}],
+            ),
+            submitter=user,
+            submit_time=datetime(2020, 2, 7, 21, 2),
+        ).test(self)
