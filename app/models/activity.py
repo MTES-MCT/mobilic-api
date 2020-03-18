@@ -1,7 +1,12 @@
 from enum import Enum
 from flask_jwt_extended import current_user
+import graphene
 
 from app import app, db
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    graphene_enum_type,
+)
 from app.models.event import EventBaseModel, Revisable, DismissType
 from app.models.utils import enum_column
 
@@ -132,3 +137,12 @@ class Activity(EventBaseModel, Revisable):
         self.set_revision(revision)
         db.session.add(revision)
         return revision
+
+
+class ActivityOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = Activity
+
+    type = graphene_enum_type(ActivityType)()
+    team = graphene.List(graphene.Int)
+    dismiss_type = graphene_enum_type(ActivityDismissType)(required=False)

@@ -8,7 +8,6 @@ from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
 from app.controllers.utils import atomic_transaction
-from app.data_access.activity import ActivityOutput
 from app.data_access.signup import CompanyOutput
 from app.domain.log_activities import (
     log_group_activity,
@@ -19,7 +18,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models.activity import InputableActivityType, Activity
+from app.models.activity import InputableActivityType, Activity, ActivityOutput
 from app.models.user import User
 from app.controllers.event import EventInput
 
