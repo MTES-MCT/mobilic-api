@@ -1,7 +1,7 @@
 import graphene
 from sqlalchemy.orm import joinedload
 
-from app.data_access.signup import CompanyOutput
+from app.data_access.company import CompanyOutput
 from app.domain.permissions import belongs_to_company, company_admin
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy

@@ -1,8 +1,8 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
-from app.data_access.activity import ActivityOutput
-from app.data_access.expenditure import ExpenditureOutput
+from app.models.activity import ActivityOutput
+from app.models.expenditure import ExpenditureOutput
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 

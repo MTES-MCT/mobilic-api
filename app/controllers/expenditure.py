@@ -10,7 +10,7 @@ from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
 from app.controllers.utils import atomic_transaction
-from app.data_access.signup import CompanyOutput
+from app.data_access.company import CompanyOutput
 from app.domain.log_expenditures import log_group_expenditure
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (

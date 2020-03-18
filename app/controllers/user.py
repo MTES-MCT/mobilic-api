@@ -1,6 +1,6 @@
 import graphene
 
-from app.data_access.signup import UserOutput
+from app.data_access.user import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy

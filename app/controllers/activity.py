@@ -8,7 +8,7 @@ from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
 from app.controllers.utils import atomic_transaction
-from app.data_access.signup import CompanyOutput
+from app.data_access.company import CompanyOutput
 from app.domain.log_activities import (
     log_group_activity,
     check_and_fix_neighbour_inconsistencies,
