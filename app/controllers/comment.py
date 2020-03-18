@@ -7,7 +7,7 @@ from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
 from app.controllers.utils import atomic_transaction
-from app.data_access.comment import CommentOutput
+from app.models.comment import CommentOutput
 from app.domain.log_comments import log_group_comment
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.models.user import User

@@ -1,8 +1,22 @@
+import graphene
+
 from app import db
-from app.models.event import EventBaseModel
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    graphene_enum_type,
+)
+from app.models.event import EventBaseModel, DismissType
 
 
 class Comment(EventBaseModel):
     backref_base_name = "comments"
 
     content = db.Column(db.TEXT, nullable=False)
+
+
+class CommentOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = Comment
+
+    team = graphene.List(graphene.Int)
+    dismiss_type = graphene_enum_type(DismissType)(required=False)
