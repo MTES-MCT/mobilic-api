@@ -10,7 +10,6 @@ from app.controllers.event import (
     preload_or_create_relevant_resources_from_events,
 )
 from app.controllers.utils import atomic_transaction
-from app.data_access.expenditure import ExpenditureOutput
 from app.data_access.signup import CompanyOutput
 from app.domain.log_expenditures import log_group_expenditure
 from app.helpers.authorization import with_authorization_policy, authenticated
@@ -18,7 +17,11 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models.expenditure import ExpenditureType, Expenditure
+from app.models.expenditure import (
+    ExpenditureType,
+    Expenditure,
+    ExpenditureOutput,
+)
 from app.models.user import User
 from app.controllers.event import EventInput
 
