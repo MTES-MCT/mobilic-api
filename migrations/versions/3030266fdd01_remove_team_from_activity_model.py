@@ -18,7 +18,7 @@ from app.models.team_enrollment import TeamEnrollmentType
 
 # revision identifiers, used by Alembic.
 revision = "3030266fdd01"
-down_revision = "b448927b940a"
+down_revision = "a0c708394373"
 branch_labels = None
 depends_on = None
 
