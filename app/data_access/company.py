@@ -1,7 +1,7 @@
 import graphene
 
 from app.data_access.user import UserOutput
-from app.domain.permissions import belongs_to_company
+from app.domain.permissions import company_admin
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import Company
@@ -15,7 +15,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     users = graphene.List(UserOutput)
 
     @with_authorization_policy(
-        belongs_to_company, get_target_from_args=lambda self, info: self
+        company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_users(self, info):
         return self.users
