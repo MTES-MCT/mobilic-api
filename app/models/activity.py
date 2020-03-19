@@ -6,7 +6,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import EventBaseModel, Revisable, DismissType
+from app.models.event import DismissType, RevisableEvent
 from app.models.utils import enum_column
 
 
@@ -41,7 +41,7 @@ ActivityDismissType = Enum(
 )
 
 
-class Activity(EventBaseModel, Revisable):
+class Activity(RevisableEvent):
     backref_base_name = "activities"
 
     type = enum_column(ActivityType, nullable=False)

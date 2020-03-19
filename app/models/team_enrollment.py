@@ -1,11 +1,12 @@
 from enum import Enum
+from flask_jwt_extended import current_user
 
 from app import db
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import EventBaseModel, DismissType
+from app.models.event import RevisableEvent, DismissType
 from app.models.utils import enum_column
 
 
@@ -14,7 +15,7 @@ class TeamEnrollmentType(str, Enum):
     REMOVE = "remove"
 
 
-class TeamEnrollment(EventBaseModel):
+class TeamEnrollment(RevisableEvent):
     backref_base_name = "team_enrollments"
 
     type = enum_column(TeamEnrollmentType, nullable=False)
@@ -34,6 +35,28 @@ class TeamEnrollment(EventBaseModel):
     def to_dict(self):
         base_dict = super().to_dict()
         return dict(**base_dict, type=self.type,)
+
+    def revise(self, revision_time, **updated_props):
+        if self.is_dismissed:
+            raise ValueError(f"You can't revise the already dismissed {self}")
+        if not self.id:
+            for prop, value in updated_props.items():
+                setattr(self, prop, value)
+            db.session.add(self)
+            return self
+        dict_ = dict(
+            type=self.type,
+            event_time=revision_time,
+            action_time=self.action_time,
+            user=self.user,
+            company_id=self.company_id,
+            submitter=current_user,
+        )
+        dict_.update(updated_props)
+        revision = TeamEnrollment(**dict_)
+        self.set_revision(revision)
+        db.session.add(revision)
+        return revision
 
 
 class TeamEnrollmentOutput(BaseSQLAlchemyObjectType):

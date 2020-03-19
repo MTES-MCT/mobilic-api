@@ -126,7 +126,9 @@ class EventBaseModel(BaseModel):
         )
 
 
-class Revisable:
+class RevisableEvent(EventBaseModel):
+    __abstract__ = True
+
     @declared_attr
     def revisee_id(cls):
         return db.Column(
@@ -146,7 +148,7 @@ class Revisable:
 
     @property
     def is_revised(self):
-        return len([a for a in self.revised_by if a.authorized_submit])
+        return len([e for e in self.revised_by if e.authorized_submit]) > 0
 
     def set_revision(self, revision):
         revision.revisee = self
