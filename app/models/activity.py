@@ -1,6 +1,5 @@
 from enum import Enum
 from flask_jwt_extended import current_user
-import graphene
 
 from app import app, db
 from app.helpers.graphene_types import (
@@ -51,9 +50,11 @@ class Activity(EventBaseModel, Revisable):
     vehicle_registration_number = db.Column(db.String(255))
     mission = db.Column(db.String(255))
 
+    driver_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=False)
+    driver = db.relationship("User", foreign_keys=[driver_id])
+
     team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
-    driver_idx = db.Column(db.Integer, nullable=True, default=None)
     is_driver_switch = db.Column(db.Boolean, nullable=True, default=None)
 
     dismiss_type = enum_column(ActivityDismissType, nullable=True)
@@ -124,8 +125,7 @@ class Activity(EventBaseModel, Revisable):
             submitter=current_user,
             vehicle_registration_number=self.vehicle_registration_number,
             mission=self.mission,
-            team=self.team,
-            driver_idx=self.driver_idx,
+            driver_id=self.driver_id,
         )
         dict_.update(updated_props)
         revision = log_activity(**dict_)
@@ -144,5 +144,4 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         model = Activity
 
     type = graphene_enum_type(ActivityType)()
-    team = graphene.List(graphene.Int)
     dismiss_type = graphene_enum_type(ActivityDismissType)(required=False)

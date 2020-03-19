@@ -13,14 +13,13 @@ def log_group_activity(
     type,
     event_time,
     start_time,
-    driver_idx,
+    driver,
     vehicle_registration_number,
     mission,
 ):
     activities_per_user = {user: type for user in users}
     if len(users) > 1:
         if type == ActivityType.DRIVE:
-            driver = users[driver_idx] if driver_idx is not None else None
             for user in users:
                 if user == driver:
                     activities_per_user[user] = ActivityType.DRIVE
@@ -36,8 +35,7 @@ def log_group_activity(
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
             mission=mission,
-            team=[u.id for u in users],
-            driver_idx=driver_idx,
+            driver=driver,
         )
         if activity and not activity.is_dismissed:
             (
@@ -91,8 +89,7 @@ def check_and_fix_neighbour_inconsistencies(
     if previous_activity.type == next_activity.type:
         if (
             next_activity.type == ActivityType.SUPPORT
-            and next_activity.team[next_activity.driver_idx]
-            != previous_activity.team[previous_activity.driver_idx]
+            and next_activity.driver_id != previous_activity.driver_id
         ):
             next_activity.is_driver_switch = True
         else:
@@ -150,8 +147,7 @@ def log_activity(
     start_time,
     vehicle_registration_number,
     mission,
-    team,
-    driver_idx,
+    driver,
 ):
     # 1. Check that event :
     # - is not ahead in the future
@@ -188,8 +184,7 @@ def log_activity(
         submitter=submitter,
         vehicle_registration_number=vehicle_registration_number,
         mission=mission,
-        team=team,
-        driver_idx=driver_idx,
+        driver=driver,
     )
     db.session.add(activity)
 
