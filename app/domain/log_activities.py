@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app import app, db
-from app.domain.log_events import check_whether_event_should_be_logged
+from app.domain.log_events import check_whether_event_should_not_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.helpers.time import local_to_utc
 from app.models import TeamEnrollment
@@ -19,18 +19,9 @@ def log_group_activity(
     vehicle_registration_number,
     mission,
 ):
-    activities_per_user = {user: type for user in users}
-    if len(users) > 1:
-        if type == ActivityType.DRIVE:
-            for user in users:
-                if user == driver:
-                    activities_per_user[user] = ActivityType.DRIVE
-                else:
-                    activities_per_user[user] = ActivityType.SUPPORT
-
     for user in users:
         activity = log_activity(
-            type=activities_per_user[user],
+            type=type,
             event_time=event_time,
             start_time=start_time,
             user=user,
@@ -39,17 +30,9 @@ def log_group_activity(
             mission=mission,
             driver=driver,
         )
-        if activity and not activity.is_dismissed:
-            (
-                prev_activity,
-                next_activity,
-            ) = activity.previous_and_next_acknowledged_activities
-            check_and_fix_neighbour_inconsistencies(
-                prev_activity, activity, event_time
-            )
-            check_and_fix_neighbour_inconsistencies(
-                activity, next_activity, event_time
-            )
+        check_and_fix_inconsistencies_created_by_new_activity(
+            activity, event_time
+        )
 
 
 def _check_and_delete_corrected_log(user, start_time):
@@ -70,6 +53,22 @@ def _check_and_delete_corrected_log(user, start_time):
                 db.session.expunge(latest_activity_log)
             # This is a dirty hack to have SQLAlchemy immediately propagate object deletion to parent relations
             latest_activity_log.dismissed_at = True
+
+
+def check_and_fix_inconsistencies_created_by_new_activity(
+    activity, event_time
+):
+    if activity and not activity.is_dismissed:
+        (
+            prev_activity,
+            next_activity,
+        ) = activity.previous_and_next_acknowledged_activities
+        check_and_fix_neighbour_inconsistencies(
+            prev_activity, activity, event_time
+        )
+        check_and_fix_neighbour_inconsistencies(
+            activity, next_activity, event_time
+        )
 
 
 def check_and_fix_neighbour_inconsistencies(
@@ -151,10 +150,16 @@ def log_activity(
     mission,
     driver,
 ):
+    if type == ActivityType.DRIVE:
+        if driver is None or user == driver:
+            type = ActivityType.DRIVE
+        else:
+            type = ActivityType.SUPPORT
+
     # 1. Check that event :
     # - is not ahead in the future
     # - was not already processed
-    response_if_event_should_not_be_logged = check_whether_event_should_be_logged(
+    response_if_event_should_not_be_logged = check_whether_event_should_not_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,

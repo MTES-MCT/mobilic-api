@@ -67,6 +67,16 @@ class User(BaseModel):
             key=lambda e: e.event_time,
         )
 
+    def latest_acknowledged_activity_at(self, date_time):
+        acknowledged_activities = [
+            a
+            for a in self.acknowledged_activities
+            if a.start_time <= date_time
+        ]
+        if not acknowledged_activities:
+            return None
+        return acknowledged_activities[-1]
+
     @property
     def current_acknowledged_activity(self):
         acknowledged_activities = self.acknowledged_activities
@@ -75,11 +85,22 @@ class User(BaseModel):
         return acknowledged_activities[-1]
 
     @property
-    def acknowledged_team_enrollments(self):
+    def acknowledged_submitted_team_enrollments(self):
         return sorted(
             [
                 enrollment
                 for enrollment in self.submitted_team_enrollments
+                if enrollment.is_acknowledged
+            ],
+            key=lambda e: e.action_time,
+        )
+
+    @property
+    def acknowledged_team_enrollments(self):
+        return sorted(
+            [
+                enrollment
+                for enrollment in self.team_enrollments
                 if enrollment.is_acknowledged
             ],
             key=lambda e: e.action_time,
@@ -108,7 +129,7 @@ class User(BaseModel):
 
         relevant_team_enrollments = [
             e
-            for e in self.acknowledged_team_enrollments
+            for e in self.acknowledged_submitted_team_enrollments
             if date_time >= e.action_time > latest_acknowledged_day_end_at_time
         ]
         relevant_team_enrollments_by_user = defaultdict(list)
@@ -120,6 +141,25 @@ class User(BaseModel):
             if relevant_team_enrollments_by_user[u][-1].type
             == TeamEnrollmentType.ENROLL
         ]
+
+    @property
+    def enrollable_coworkers(self):
+        from app.models.team_enrollment import TeamEnrollmentType
+
+        enrollable_coworkers = []
+        for coworker in self.company.users:
+            if coworker != self and not coworker.is_company_admin:
+                team_enrollments = coworker.acknowledged_team_enrollments
+                latest_team_enrollment = (
+                    team_enrollments[-1] if team_enrollments else None
+                )
+                if (
+                    not latest_team_enrollment
+                    or latest_team_enrollment.type == TeamEnrollmentType.REMOVE
+                    or latest_team_enrollment.submitter == self
+                ):
+                    enrollable_coworkers.append(coworker)
+        return enrollable_coworkers
 
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None

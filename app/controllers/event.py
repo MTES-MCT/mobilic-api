@@ -18,11 +18,5 @@ def preload_relevant_resources_for_event_logging(relevant_relationship):
     ).one()
 
 
-class TeamMemberInput(graphene.InputObjectType):
-    id = graphene.Int(required=False)
-    first_name = graphene.String(required=False)
-    last_name = graphene.String(required=False)
-
-
 class EventInput(graphene.InputObjectType):
     event_time = DateTimeWithTimeStampSerialization(required=True)
