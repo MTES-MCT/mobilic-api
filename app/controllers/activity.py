@@ -46,16 +46,16 @@ class ActivityLog(graphene.Mutation):
             events = sorted(data, key=lambda e: e.event_time)
             preload_relevant_resources_for_event_logging(User.activities)
             for group_activity in events:
+                start_time = (
+                    group_activity.start_time or group_activity.event_time
+                )
                 log_group_activity(
                     submitter=current_user,
                     users=[current_user]
-                    + current_user.acknowledged_team_at(
-                        group_activity.start_time
-                    ),
+                    + current_user.acknowledged_team_at(start_time),
                     type=group_activity.type,
                     event_time=group_activity.event_time,
-                    start_time=group_activity.start_time
-                    or group_activity.event_time,
+                    start_time=start_time,
                     driver=User.query.get(group_activity.driver_id)
                     if group_activity.driver_id
                     else None,

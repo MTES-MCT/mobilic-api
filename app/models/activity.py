@@ -125,7 +125,7 @@ class Activity(EventBaseModel, Revisable):
             submitter=current_user,
             vehicle_registration_number=self.vehicle_registration_number,
             mission=self.mission,
-            driver_id=self.driver_id,
+            driver=self.driver,
         )
         dict_.update(updated_props)
         revision = log_activity(**dict_)

@@ -4,7 +4,9 @@ from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
 from app.helpers.time import local_to_utc
+from app.models import TeamEnrollment
 from app.models.activity import ActivityType, Activity, ActivityDismissType
+from app.models.team_enrollment import TeamEnrollmentType
 
 
 def log_group_activity(
@@ -89,7 +91,7 @@ def check_and_fix_neighbour_inconsistencies(
     if previous_activity.type == next_activity.type:
         if (
             next_activity.type == ActivityType.SUPPORT
-            and next_activity.driver_id != previous_activity.driver_id
+            and next_activity.driver != previous_activity.driver
         ):
             next_activity.is_driver_switch = True
         else:
@@ -187,6 +189,20 @@ def log_activity(
         driver=driver,
     )
     db.session.add(activity)
+
+    # 5. If activity marks the end of the day, release the team
+    if not dismiss_type and not is_revision and type == ActivityType.REST:
+        for user in submitter.acknowledged_team_at(start_time):
+            db.session.add(
+                TeamEnrollment(
+                    type=TeamEnrollmentType.REMOVE,
+                    event_time=start_time,
+                    action_time=start_time,
+                    user=user,
+                    company_id=submitter.company_id,
+                    submitter=submitter,
+                )
+            )
 
     if dismiss_type:
         activity.dismiss(dismiss_type)

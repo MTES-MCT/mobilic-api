@@ -1,12 +1,15 @@
 from datetime import datetime
 
+from app import db
 from app.helpers.time import to_timestamp
+from app.models import TeamEnrollment
 from app.models.activity import (
     InputableActivityType,
     ActivityType,
     Activity,
     ActivityDismissType,
 )
+from app.models.team_enrollment import TeamEnrollmentType
 from app.tests import BaseTest, UserFactory
 
 from app.tests.helpers import SubmitEventsTest, SubmitEventsTestChain
@@ -26,10 +29,11 @@ class TestLogActivities(BaseTest):
             for i in range(0, 3)
         ]
         self.team = [self.team_leader] + self.team_mates
+        self._enroll(self.team_mates, datetime(2020, 2, 7, 8))
         full_day_events = {
             datetime(2020, 2, 7, 8): {
                 "type": InputableActivityType.DRIVE,
-                "driver_idx": 0,
+                "driver_id": self.team_leader.id,
             },
             datetime(2020, 2, 7, 10): {"type": InputableActivityType.WORK},
             datetime(2020, 2, 7, 12): {"type": InputableActivityType.BREAK},
@@ -37,22 +41,18 @@ class TestLogActivities(BaseTest):
             datetime(2020, 2, 7, 16): {"type": InputableActivityType.BREAK},
             datetime(2020, 2, 7, 18): {
                 "type": InputableActivityType.DRIVE,
-                "driver_idx": 0,
+                "driver_id": self.team_leader.id,
             },
             datetime(2020, 2, 7, 19): {
                 "type": InputableActivityType.DRIVE,
-                "driver_idx": 1,
+                "driver_id": self.team_mates[0].id,
             },
             datetime(2020, 2, 7, 20): {"type": InputableActivityType.REST},
         }
         self.submit_full_day_events = SubmitEventsTest(
             "log_activities",
             [
-                {
-                    **event_props,
-                    "event_time": to_timestamp(event_time),
-                    "team": [{"id": u.id} for u in self.team],
-                }
+                {**event_props, "event_time": to_timestamp(event_time),}
                 for event_time, event_props in full_day_events.items()
             ],
             submitter=self.team_leader,
@@ -63,7 +63,7 @@ class TestLogActivities(BaseTest):
                 activity_type = event_params["type"]
                 if (
                     activity_type == ActivityType.DRIVE
-                    and team_member != self.team[event_params["driver_idx"]]
+                    and team_member.id != event_params["driver_id"]
                 ):
                     activity_type = ActivityType.SUPPORT
                 self.submit_full_day_events.should_create(
@@ -75,10 +75,11 @@ class TestLogActivities(BaseTest):
                     dismissed_at=None,
                     revised_at=None,
                 )
+        self._enroll(self.team_mates, datetime(2020, 2, 8, 8))
         half_day_events = {
             datetime(2020, 2, 8, 8): {
                 "type": InputableActivityType.DRIVE,
-                "driver_idx": 0,
+                "driver_id": self.team_leader.id,
             },
             datetime(2020, 2, 8, 10): {"type": InputableActivityType.WORK},
             datetime(2020, 2, 8, 12): {"type": InputableActivityType.BREAK},
@@ -88,11 +89,7 @@ class TestLogActivities(BaseTest):
         self.submit_half_day_events = SubmitEventsTest(
             "log_activities",
             [
-                {
-                    **event_props,
-                    "event_time": to_timestamp(event_time),
-                    "team": [{"id": u.id} for u in self.team],
-                }
+                {**event_props, "event_time": to_timestamp(event_time),}
                 for event_time, event_props in half_day_events.items()
             ],
             submitter=self.team_leader,
@@ -103,7 +100,7 @@ class TestLogActivities(BaseTest):
                 activity_type = event_params["type"]
                 if (
                     activity_type == ActivityType.DRIVE
-                    and team_member != self.team[event_params["driver_idx"]]
+                    and team_member.id != event_params["driver_id"]
                 ):
                     activity_type = ActivityType.SUPPORT
                 self.submit_half_day_events.should_create(
@@ -117,6 +114,20 @@ class TestLogActivities(BaseTest):
                 )
         self.submit_full_day_events.test(self)
         self.submit_half_day_events.test(self)
+
+    def _enroll(self, mates, time):
+        for mate in mates:
+            db.session.add(
+                TeamEnrollment(
+                    type=TeamEnrollmentType.ENROLL,
+                    action_time=time,
+                    event_time=time,
+                    submitter_id=self.team_leader.id,
+                    user_id=mate.id,
+                    company_id=self.company.id,
+                )
+            )
+        db.session.commit()
 
     def test_revise_activity_as_team_leader(self):
         activity_to_revise_start_time = datetime(2020, 2, 7, 16)
@@ -381,7 +392,6 @@ class TestLogActivities(BaseTest):
                 dict(
                     event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
                     type=ActivityType.WORK,
-                    team=[{"id": team_mate.id}],
                 ),
                 submitter=team_mate,
                 submit_time=datetime(2020, 2, 7, 21, 2),
@@ -412,7 +422,6 @@ class TestLogActivities(BaseTest):
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 start_time=to_timestamp(datetime(2020, 2, 7, 7, 30)),
                 type=ActivityType.WORK,
-                team=[{"id": team_mate.id}],
             ),
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 21, 2),
@@ -432,7 +441,6 @@ class TestLogActivities(BaseTest):
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 start_time=to_timestamp(datetime(2020, 2, 7, 9, 50)),
                 type=ActivityType.BREAK,
-                team=[{"id": team_mate.id}],
             ),
             submitter=team_mate,
             submit_time=datetime(2020, 2, 7, 21, 2),
@@ -454,7 +462,6 @@ class TestLogActivities(BaseTest):
             dict(
                 event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
                 type=ActivityType.WORK,
-                team=[{"id": user.id}],
             ),
             submitter=user,
             submit_time=datetime(2020, 2, 7, 21, 2),

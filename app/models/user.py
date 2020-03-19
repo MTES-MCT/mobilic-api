@@ -91,7 +91,7 @@ class User(BaseModel):
         rest_activities = [
             a
             for a in self.acknowledged_activities
-            if a.type == ActivityType.REST and a.start_time < date_time
+            if a.type == ActivityType.REST and a.start_time <= date_time
         ]
         if not rest_activities:
             return None
@@ -109,7 +109,7 @@ class User(BaseModel):
         relevant_team_enrollments = [
             e
             for e in self.acknowledged_team_enrollments
-            if date_time > e.action_time > latest_acknowledged_day_end_at_time
+            if date_time >= e.action_time > latest_acknowledged_day_end_at_time
         ]
         relevant_team_enrollments_by_user = defaultdict(list)
         for rte in relevant_team_enrollments:
