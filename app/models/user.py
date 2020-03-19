@@ -1,6 +1,8 @@
+from collections import defaultdict
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from uuid import uuid4
+from datetime import datetime
 
 from app.models.base import BaseModel
 from app import db
@@ -71,6 +73,53 @@ class User(BaseModel):
         if not acknowledged_activities:
             return None
         return acknowledged_activities[-1]
+
+    @property
+    def acknowledged_team_enrollments(self):
+        return sorted(
+            [
+                enrollment
+                for enrollment in self.submitted_team_enrollments
+                if enrollment.is_acknowledged
+            ],
+            key=lambda e: e.action_time,
+        )
+
+    def latest_acknowledged_day_end_at(self, date_time):
+        from app.models.activity import ActivityType
+
+        rest_activities = [
+            a
+            for a in self.acknowledged_activities
+            if a.type == ActivityType.REST and a.start_time < date_time
+        ]
+        if not rest_activities:
+            return None
+        return rest_activities[-1].start_time
+
+    def acknowledged_team_at(self, date_time):
+        from app.models.team_enrollment import TeamEnrollmentType
+
+        latest_acknowledged_day_end_at_time = self.latest_acknowledged_day_end_at(
+            date_time
+        )
+        if not latest_acknowledged_day_end_at_time:
+            latest_acknowledged_day_end_at_time = datetime.fromtimestamp(0)
+
+        relevant_team_enrollments = [
+            e
+            for e in self.acknowledged_team_enrollments
+            if date_time > e.action_time > latest_acknowledged_day_end_at_time
+        ]
+        relevant_team_enrollments_by_user = defaultdict(list)
+        for rte in relevant_team_enrollments:
+            relevant_team_enrollments_by_user[rte.user].append(rte)
+        return [
+            u
+            for u in relevant_team_enrollments_by_user
+            if relevant_team_enrollments_by_user[u][-1].type
+            == TeamEnrollmentType.ENROLL
+        ]
 
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
