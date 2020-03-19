@@ -26,6 +26,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     expenditures = graphene.List(ExpenditureOutput)
     comments = graphene.List(CommentOutput)
     work_days = graphene.List(WorkDayOutput)
+    enrollable_coworkers = graphene.List(lambda: UserOutput)
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
@@ -50,3 +51,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_work_days(self, info):
         return group_user_events_by_day(self)
+
+    def resolve_enrollable_coworkers(self, info):
+        return self.enrollable_coworkers
