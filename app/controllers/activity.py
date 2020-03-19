@@ -4,9 +4,7 @@ import graphene
 
 from app import app
 from app.controllers.cancel import CancelEvents, get_all_associated_events
-from app.controllers.event import (
-    preload_or_create_relevant_resources_from_events,
-)
+from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
 from app.domain.log_activities import (
@@ -26,7 +24,7 @@ from app.controllers.event import EventInput
 class SingleActivityInput(EventInput):
     type = graphene_enum_type(InputableActivityType)(required=True)
     start_time = DateTimeWithTimeStampSerialization(required=False)
-    driver_idx = graphene.Int(required=False)
+    driver_id = graphene.Int(required=False)
     vehicle_registration_number = graphene.String(required=False)
     mission = graphene.String(required=False)
 
@@ -46,20 +44,21 @@ class ActivityLog(graphene.Mutation):
         )
         with atomic_transaction(commit_at_end=True):
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(
-                events, User.activities
-            )
+            preload_relevant_resources_for_event_logging(User.activities)
             for group_activity in events:
                 log_group_activity(
                     submitter=current_user,
-                    users=[
-                        User.query.get(uid) for uid in group_activity.user_ids
-                    ],
+                    users=[current_user]
+                    + current_user.acknowledged_team_at(
+                        group_activity.start_time
+                    ),
                     type=group_activity.type,
                     event_time=group_activity.event_time,
                     start_time=group_activity.start_time
                     or group_activity.event_time,
-                    driver_idx=group_activity.driver_idx,
+                    driver=User.query.get(group_activity.driver_id)
+                    if group_activity.driver_id
+                    else None,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
                     mission=group_activity.mission,
                 )

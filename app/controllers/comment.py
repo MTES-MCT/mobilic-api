@@ -1,11 +1,8 @@
 from flask_jwt_extended import current_user
-from datetime import datetime
 import graphene
 
 from app import app
-from app.controllers.event import (
-    preload_or_create_relevant_resources_from_events,
-)
+from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
 from app.models.comment import CommentOutput
 from app.domain.log_comments import log_group_comment
@@ -32,15 +29,14 @@ class CommentLog(graphene.Mutation):
                 f"Logging comments submitted by {current_user} of company {current_user.company}"
             )
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(
-                events, User.comments
-            )
+            preload_relevant_resources_for_event_logging(User.comments)
             for group_comment in events:
                 log_group_comment(
                     submitter=current_user,
-                    users=[
-                        User.query.get(uid) for uid in group_comment.user_ids
-                    ],
+                    users=[current_user]
+                    + current_user.acknowledged_team_at(
+                        group_comment.event_time
+                    ),
                     content=group_comment.content,
                     event_time=group_comment.event_time,
                 )

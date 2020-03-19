@@ -1,22 +1,14 @@
 from flask_jwt_extended import current_user
-from datetime import datetime
-
-from graphql import GraphQLError
 import graphene
 
 from app import app, db
 from app.controllers.cancel import CancelEvents
-from app.controllers.event import (
-    preload_or_create_relevant_resources_from_events,
-)
+from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
 from app.domain.log_expenditures import log_group_expenditure
 from app.helpers.authorization import with_authorization_policy, authenticated
-from app.helpers.graphene_types import (
-    graphene_enum_type,
-    DateTimeWithTimeStampSerialization,
-)
+from app.helpers.graphene_types import graphene_enum_type
 from app.models.expenditure import (
     ExpenditureType,
     Expenditure,
@@ -45,16 +37,14 @@ class ExpenditureLog(graphene.Mutation):
                 f"Logging expenditures submitted by {current_user} of company {current_user.company}"
             )
             events = sorted(data, key=lambda e: e.event_time)
-            preload_or_create_relevant_resources_from_events(
-                events, User.expenditures
-            )
+            preload_relevant_resources_for_event_logging(User.expenditures)
             for group_expenditure in events:
                 log_group_expenditure(
                     submitter=current_user,
-                    users=[
-                        User.query.get(uid)
-                        for uid in group_expenditure.user_ids
-                    ],
+                    users=[current_user]
+                    + current_user.acknowledged_team_at(
+                        group_expenditure.event_time
+                    ),
                     type=group_expenditure.type,
                     event_time=group_expenditure.event_time,
                 )
