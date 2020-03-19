@@ -20,6 +20,17 @@ class TeamEnrollment(EventBaseModel):
     type = enum_column(TeamEnrollmentType, nullable=False)
     action_time = db.Column(db.DateTime, nullable=False)
 
+    __table_args__ = (
+        db.CheckConstraint(
+            "(event_time >= action_time)",
+            name="team_enrollment_action_time_before_event_time",
+        ),
+        db.CheckConstraint(
+            "(submitter_id != user_id)",
+            name="team_enrollment_cannot_target_self",
+        ),
+    )
+
     def to_dict(self):
         base_dict = super().to_dict()
         return dict(**base_dict, type=self.type,)
