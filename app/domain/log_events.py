@@ -7,7 +7,7 @@ class EventLogError:
     pass
 
 
-def check_whether_event_should_be_logged(
+def check_whether_event_should_not_be_logged(
     user, submitter, event_time, event_history, **kwargs,
 ):
     reception_time = datetime.now()
