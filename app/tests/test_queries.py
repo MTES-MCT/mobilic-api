@@ -57,9 +57,6 @@ class TestQueries(BaseTest):
                     company (id: $id) {
                         name
                         id
-                        users {
-                            id
-                        }
                     }
                 }
                 """,
@@ -72,20 +69,12 @@ class TestQueries(BaseTest):
             company_data = response.json["data"]["company"]
             self.assertDictEqual(
                 company_data,
-                dict(
-                    name=self.company1.name,
-                    id=self.company1.id,
-                    users=company_data["users"],
-                ),
-            )
-            self.assertSetEqual(
-                {self.user_company1.id, self.admin_company1.id},
-                set([u["id"] for u in company_data["users"]]),
+                dict(name=self.company1.name, id=self.company1.id,),
             )
 
     def test_user_can_customize_return_data(self):
         with app.test_client(
-            mock_authentication_with_user=self.user_company1
+            mock_authentication_with_user=self.admin_company1
         ) as c:
             response = c.post_graphql(
                 """
@@ -150,10 +139,7 @@ class TestQueries(BaseTest):
             self.assertIsNotNone(response.json.get("errors"))
 
             company_data = response.json["data"]["company"]
-            self.assertNotEqual(
-                [user["activities"] for user in company_data["users"]],
-                [[], []],
-            )
+            self.assertIsNone(company_data["users"])
 
         with app.test_client(
             mock_authentication_with_user=self.admin_company1
