@@ -197,14 +197,19 @@ def log_activity(
     db.session.add(activity)
 
     # 5. If activity marks the end of the day, release the team
-    if not dismiss_type and not is_revision and type == ActivityType.REST:
-        for user in submitter.acknowledged_team_at(start_time):
+    if (
+        not dismiss_type
+        and not is_revision
+        and type == ActivityType.REST
+        and user == submitter
+    ):
+        for u in submitter.acknowledged_team_at(start_time):
             db.session.add(
                 TeamEnrollment(
                     type=TeamEnrollmentType.REMOVE,
                     event_time=start_time,
                     action_time=start_time,
-                    user=user,
+                    user=u,
                     company_id=submitter.company_id,
                     submitter=submitter,
                 )
