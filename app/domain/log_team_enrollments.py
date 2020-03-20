@@ -19,7 +19,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
     else:
         user = User.query.get(user_id)
 
-    if not check_whether_event_should_not_be_logged(
+    if check_whether_event_should_not_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
@@ -65,7 +65,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
 def unenroll(submitter, user_id, action_time, event_time):
     user = User.query.get(user_id)
 
-    if not check_whether_event_should_not_be_logged(
+    if check_whether_event_should_not_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
@@ -83,3 +83,14 @@ def unenroll(submitter, user_id, action_time, event_time):
         company_id=submitter.company_id,
     )
     db.session.add(team_enrollment)
+
+    log_activity(
+        submitter=submitter,
+        user=user,
+        type=ActivityType.REST,
+        event_time=event_time,
+        start_time=action_time,
+        vehicle_registration_number=None,
+        mission=None,
+        driver=None,
+    )

@@ -11,7 +11,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models.team_enrollment import TeamEnrollmentType
+from app.models.team_enrollment import TeamEnrollmentType, TeamEnrollmentOutput
 from app.models.user import User
 from app.controllers.event import EventInput
 
@@ -28,7 +28,8 @@ class TeamEnrollmentLog(graphene.Mutation):
     class Arguments:
         data = graphene.List(SingleTeamEnrollmentInput, required=True)
 
-    coworkers = graphene.List(UserOutput)
+    enrollable_coworkers = graphene.List(UserOutput)
+    team_enrollments = graphene.List(TeamEnrollmentOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -59,4 +60,7 @@ class TeamEnrollmentLog(graphene.Mutation):
                         action_time=event.action_time or event.event_time,
                     )
 
-        return TeamEnrollmentLog(coworkers=current_user.enrollable_coworkers)
+        return TeamEnrollmentLog(
+            enrollable_coworkers=current_user.enrollable_coworkers,
+            team_enrollments=current_user.acknowledged_submitted_team_enrollments,
+        )
