@@ -151,7 +151,8 @@ def log_activity(
     driver,
 ):
     if type == ActivityType.DRIVE:
-        if driver is None or user == driver:
+        # Default to marking the submitter as driver if no driver is provided
+        if (driver is None and user == submitter) or user == driver:
             type = ActivityType.DRIVE
         else:
             type = ActivityType.SUPPORT
