@@ -6,7 +6,6 @@ from app import app
 from app.controllers.cancel import CancelEvents, get_all_associated_events
 from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
-from app.data_access.company import CompanyOutput
 from app.domain.log_activities import (
     log_group_activity,
     check_and_fix_neighbour_inconsistencies,
@@ -34,7 +33,6 @@ class ActivityLog(graphene.Mutation):
         data = graphene.List(SingleActivityInput, required=True)
 
     activities = graphene.List(ActivityOutput)
-    company = graphene.Field(CompanyOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -63,10 +61,7 @@ class ActivityLog(graphene.Mutation):
                     mission=group_activity.mission,
                 )
 
-        return ActivityLog(
-            activities=current_user.acknowledged_activities,
-            company=current_user.company,
-        )
+        return ActivityLog(activities=current_user.acknowledged_activities)
 
 
 class CancelActivities(CancelEvents):
