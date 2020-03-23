@@ -31,5 +31,4 @@ class ExpenditureOutput(BaseSQLAlchemyObjectType):
         model = Expenditure
 
     type = graphene_enum_type(ExpenditureType)()
-    team = graphene.List(graphene.Int)
     dismiss_type = graphene_enum_type(DismissType)(required=False)
