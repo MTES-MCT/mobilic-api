@@ -23,21 +23,6 @@ class EventBaseModel(BaseModel):
     event_time = db.Column(db.DateTime, nullable=False)
 
     @declared_attr
-    def user_id(cls):
-        return db.Column(
-            db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
-        )
-
-    @declared_attr
-    def user(cls):
-        return db.relationship(
-            User,
-            # primaryjoin=lambda: User.id == cls.user_id,
-            foreign_keys=[cls.user_id],
-            backref=cls.backref_base_name,
-        )
-
-    @declared_attr
     def submitter_id(cls):
         return db.Column(
             db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
@@ -67,6 +52,21 @@ class EventBaseModel(BaseModel):
             backref=cls.backref_base_name,
         )
 
+    @property
+    def authorized_submit(self):
+        return self.dismiss_type != DismissType.UNAUTHORIZED_SUBMITTER
+
+    def to_dict(self):
+        return dict(
+            id=self.id,
+            event_time=self.event_time,
+            user=self.user.to_dict(),
+            company=self.company.to_dict(),
+            submitter=self.submitter.to_dict(),
+        )
+
+
+class Dismissable:
     dismissed_at = db.Column(db.DateTime, nullable=True)
     dismiss_type = enum_column(DismissType, nullable=True)
     dismiss_received_at = db.Column(db.DateTime, nullable=True)
@@ -112,23 +112,27 @@ class EventBaseModel(BaseModel):
     def is_acknowledged(self):
         return not self.is_dismissed
 
-    @property
-    def authorized_submit(self):
-        return self.dismiss_type != DismissType.UNAUTHORIZED_SUBMITTER
 
-    def to_dict(self):
-        return dict(
-            id=self.id,
-            event_time=self.event_time,
-            user=self.user.to_dict(),
-            company=self.company.to_dict(),
-            submitter=self.submitter.to_dict(),
+class UserEventBaseModel(EventBaseModel):
+    __abstract__ = True
+
+    @declared_attr
+    def user_id(cls):
+        return db.Column(
+            db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
+        )
+
+    @declared_attr
+    def user(cls):
+        return db.relationship(
+            User,
+            # primaryjoin=lambda: User.id == cls.user_id,
+            foreign_keys=[cls.user_id],
+            backref=cls.backref_base_name,
         )
 
 
-class RevisableEvent(EventBaseModel):
-    __abstract__ = True
-
+class Revisable(Dismissable):
     @declared_attr
     def revisee_id(cls):
         return db.Column(

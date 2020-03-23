@@ -2,7 +2,6 @@ from collections import defaultdict
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from uuid import uuid4
-from datetime import datetime
 
 from app.models.base import BaseModel
 from app import db

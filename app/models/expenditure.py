@@ -5,7 +5,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import EventBaseModel, DismissType
+from app.models.event import UserEventBaseModel, Dismissable, DismissType
 from app.models.utils import enum_column
 
 
@@ -16,7 +16,7 @@ class ExpenditureType(str, Enum):
     SNACK = "snack"
 
 
-class Expenditure(EventBaseModel):
+class Expenditure(UserEventBaseModel, Dismissable):
     backref_base_name = "expenditures"
 
     type = enum_column(ExpenditureType, nullable=False)

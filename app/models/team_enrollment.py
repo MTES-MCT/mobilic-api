@@ -6,7 +6,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import RevisableEvent, DismissType
+from app.models.event import UserEventBaseModel, Revisable, DismissType
 from app.models.utils import enum_column
 
 
@@ -15,7 +15,7 @@ class TeamEnrollmentType(str, Enum):
     REMOVE = "remove"
 
 
-class TeamEnrollment(RevisableEvent):
+class TeamEnrollment(UserEventBaseModel, Revisable):
     backref_base_name = "team_enrollments"
 
     type = enum_column(TeamEnrollmentType, nullable=False)

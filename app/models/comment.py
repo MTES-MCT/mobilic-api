@@ -5,10 +5,10 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import EventBaseModel, DismissType
+from app.models.event import UserEventBaseModel, Dismissable, DismissType
 
 
-class Comment(EventBaseModel):
+class Comment(UserEventBaseModel, Dismissable):
     backref_base_name = "comments"
 
     content = db.Column(db.TEXT, nullable=False)

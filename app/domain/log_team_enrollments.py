@@ -16,6 +16,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
             last_name=last_name,
             company_id=submitter.company_id,
         )
+        db.session.add(user)
     else:
         user = User.query.get(user_id)
 
