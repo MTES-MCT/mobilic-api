@@ -55,7 +55,6 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
             event_time=event_time,
             start_time=action_time,
             vehicle_registration_number=team_activity_at_enrollment_time.vehicle_registration_number,
-            mission=team_activity_at_enrollment_time.mission,
             driver=team_activity_at_enrollment_time.driver,
         )
         check_and_fix_inconsistencies_created_by_new_activity(
@@ -92,6 +91,5 @@ def unenroll(submitter, user_id, action_time, event_time):
         event_time=event_time,
         start_time=action_time,
         vehicle_registration_number=None,
-        mission=None,
         driver=None,
     )

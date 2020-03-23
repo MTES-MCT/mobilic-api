@@ -17,7 +17,6 @@ def log_group_activity(
     start_time,
     driver,
     vehicle_registration_number,
-    mission,
 ):
     for user in users:
         activity = log_activity(
@@ -27,7 +26,6 @@ def log_group_activity(
             user=user,
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
-            mission=mission,
             driver=driver,
         )
         check_and_fix_inconsistencies_created_by_new_activity(
@@ -147,7 +145,6 @@ def log_activity(
     event_time,
     start_time,
     vehicle_registration_number,
-    mission,
     driver,
 ):
     if type == ActivityType.DRIVE:
@@ -191,7 +188,6 @@ def log_activity(
         company_id=submitter.company_id,
         submitter=submitter,
         vehicle_registration_number=vehicle_registration_number,
-        mission=mission,
         driver=driver,
     )
     db.session.add(activity)
