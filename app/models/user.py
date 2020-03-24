@@ -1,4 +1,7 @@
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
+
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from uuid import uuid4
@@ -142,6 +145,52 @@ class User(BaseModel):
                     enrollable_coworkers.append(coworker)
         return enrollable_coworkers
 
+    @property
+    def acknowledged_team_enrollment_periods(self):
+        from app.models.team_enrollment import TeamEnrollmentType
+
+        periods_by_submitter = defaultdict(list)
+        for e in self.acknowledged_team_enrollments:
+            submitter_periods = periods_by_submitter[e.submitter]
+            if (
+                not submitter_periods or submitter_periods[-1].end_time
+            ) and e.type == TeamEnrollmentType.ENROLL:
+                submitter_periods.append(
+                    TeamEnrollmentPeriod(
+                        submitter=e.submitter, start_time=e.action_time
+                    )
+                )
+            elif (
+                not submitter_periods[-1].end_time
+                and e.type == TeamEnrollmentType.ENROLL
+            ):
+                submitter_periods[-1].end_time = e.action_time
+
+        periods = []
+        for submitter_periods in periods_by_submitter.values():
+            periods.extend(submitter_periods)
+
+        return sorted(periods, key=lambda p: p.start_time)
+
+    @property
+    def missions(self):
+        missions_submitted_by_self = self.submitted_missions
+        missions_submitted_by_others = []
+        for period in self.acknowledged_team_enrollment_periods:
+            missions_submitted_by_others.extend(
+                [
+                    m
+                    for m in period.submitter.submitted_missions
+                    if period.start_time
+                    <= m.start_time
+                    < (period.end_time or datetime(2100, 1, 1))
+                ]
+            )
+        return sorted(
+            missions_submitted_by_self + missions_submitted_by_others,
+            key=lambda m: m.start_time,
+        )
+
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
 
@@ -164,3 +213,10 @@ class User(BaseModel):
 
     def __repr__(self):
         return f"<User [{self.id}] : {self.display_name}>"
+
+
+@dataclass
+class TeamEnrollmentPeriod:
+    submitter: User
+    start_time: datetime
+    end_time: datetime = None
