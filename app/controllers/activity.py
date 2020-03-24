@@ -10,6 +10,7 @@ from app.domain.log_activities import (
     log_group_activity,
     check_and_fix_neighbour_inconsistencies,
 )
+from app.domain.log_missions import log_mission
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (
     graphene_enum_type,
@@ -49,6 +50,13 @@ class ActivityLog(graphene.Mutation):
                 start_time = (
                     group_activity.start_time or group_activity.event_time
                 )
+                if group_activity.mission:
+                    log_mission(
+                        name=group_activity.mission,
+                        start_time=start_time,
+                        event_time=group_activity.event_time,
+                        submitter=current_user,
+                    )
                 log_group_activity(
                     submitter=current_user,
                     users=[current_user]
