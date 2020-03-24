@@ -6,6 +6,7 @@ from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
 from app.domain.log_missions import log_mission
 from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 from app.models.mission import MissionOutput
 from app.models.user import User
 from app.controllers.event import EventInput
@@ -13,6 +14,7 @@ from app.controllers.event import EventInput
 
 class MissionInput(EventInput):
     name = graphene.Field(graphene.String)
+    start_time = DateTimeWithTimeStampSerialization(required=False)
 
 
 class MissionLog(graphene.Mutation):
@@ -35,7 +37,7 @@ class MissionLog(graphene.Mutation):
             for mission in events:
                 log_mission(
                     submitter=current_user,
-                    start_time=mission.event_time,
+                    start_time=mission.start_time or mission.event_time,
                     event_time=mission.event_time,
                     name=mission.name,
                 )
