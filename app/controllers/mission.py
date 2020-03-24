@@ -42,4 +42,4 @@ class MissionLog(graphene.Mutation):
                     name=mission.name,
                 )
 
-        return MissionInput(missions=current_user.missions)
+        return MissionLog(missions=current_user.missions)

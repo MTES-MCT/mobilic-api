@@ -9,6 +9,7 @@ from app.models import User
 from app.models.activity import ActivityOutput
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
+from app.models.mission import MissionOutput
 from app.models.team_enrollment import TeamEnrollmentOutput
 
 
@@ -29,6 +30,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     work_days = graphene.List(WorkDayOutput)
     enrollable_coworkers = graphene.List(lambda: UserOutput)
     team_enrollments = graphene.List(TeamEnrollmentOutput)
+    missions = graphene.List(MissionOutput)
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
@@ -65,3 +67,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_team_enrollments(self, info):
         return self.acknowledged_submitted_team_enrollments
+
+    @with_authorization_policy(
+        self_or_company_admin, get_target_from_args=lambda self, info: self
+    )
+    def resolve_missions(self, info):
+        return self.missions

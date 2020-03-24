@@ -17,6 +17,7 @@ from app.helpers.graphene_types import (
     DateTimeWithTimeStampSerialization,
 )
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
+from app.models.mission import MissionOutput
 from app.models.team_enrollment import TeamEnrollmentOutput
 from app.models.user import User
 from app.controllers.event import EventInput
@@ -36,6 +37,7 @@ class ActivityLog(graphene.Mutation):
 
     activities = graphene.List(ActivityOutput)
     team_enrollments = graphene.List(TeamEnrollmentOutput)
+    missions = graphene.List(MissionOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -72,6 +74,7 @@ class ActivityLog(graphene.Mutation):
 
         return ActivityLog(
             activities=current_user.acknowledged_activities,
+            missions=current_user.missions,
             team_enrollments=current_user.acknowledged_submitted_team_enrollments,
         )
 
