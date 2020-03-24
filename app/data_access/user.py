@@ -11,6 +11,7 @@ from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
 from app.models.mission import MissionOutput
 from app.models.team_enrollment import TeamEnrollmentOutput
+from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -31,6 +32,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     enrollable_coworkers = graphene.List(lambda: UserOutput)
     team_enrollments = graphene.List(TeamEnrollmentOutput)
     missions = graphene.List(MissionOutput)
+    vehicle_bookings = graphene.List(VehicleBookingOutput)
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
@@ -73,3 +75,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_missions(self, info):
         return self.missions
+
+    @with_authorization_policy(
+        self_or_company_admin, get_target_from_args=lambda self, info: self
+    )
+    def resolve_vehicle_bookings(self, info):
+        return self.vehicle_bookings

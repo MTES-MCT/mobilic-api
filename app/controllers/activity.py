@@ -21,6 +21,7 @@ from app.models.mission import MissionOutput
 from app.models.team_enrollment import TeamEnrollmentOutput
 from app.models.user import User
 from app.controllers.event import EventInput
+from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class SingleActivityInput(EventInput):
@@ -37,6 +38,7 @@ class ActivityLog(graphene.Mutation):
 
     activities = graphene.List(ActivityOutput)
     team_enrollments = graphene.List(TeamEnrollmentOutput)
+    vehicle_bookings = graphene.List(VehicleBookingOutput)
     missions = graphene.List(MissionOutput)
 
     @classmethod
@@ -75,6 +77,7 @@ class ActivityLog(graphene.Mutation):
         return ActivityLog(
             activities=current_user.acknowledged_activities,
             missions=current_user.missions,
+            vehicle_bookings=current_user.vehicle_bookings,
             team_enrollments=current_user.acknowledged_submitted_team_enrollments,
         )
 

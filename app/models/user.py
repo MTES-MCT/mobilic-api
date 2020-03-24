@@ -173,23 +173,32 @@ class User(BaseModel):
 
         return sorted(periods, key=lambda p: p.start_time)
 
-    @property
-    def missions(self):
-        missions_submitted_by_self = self.submitted_missions
-        missions_submitted_by_others = []
+    def _get_events_from_team_enrollments(self, event_attr):
+        events_submitted_by_self = getattr(self, event_attr)
+        events_submitted_by_others = []
         for period in self.acknowledged_team_enrollment_periods:
-            missions_submitted_by_others.extend(
+            events_submitted_by_others.extend(
                 [
-                    m
-                    for m in period.submitter.submitted_missions
+                    e
+                    for e in getattr(period.submitter, event_attr)
                     if period.start_time
-                    <= m.start_time
+                    <= e.start_time
                     < (period.end_time or datetime(2100, 1, 1))
                 ]
             )
         return sorted(
-            missions_submitted_by_self + missions_submitted_by_others,
+            events_submitted_by_self + events_submitted_by_others,
             key=lambda m: m.start_time,
+        )
+
+    @property
+    def missions(self):
+        return self._get_events_from_team_enrollments("submitted_missions")
+
+    @property
+    def vehicle_bookings(self):
+        return self._get_events_from_team_enrollments(
+            "submitted_vehicle_bookings"
         )
 
     def revoke_refresh_token(self):
