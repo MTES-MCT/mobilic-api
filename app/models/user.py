@@ -161,8 +161,9 @@ class User(BaseModel):
                     )
                 )
             elif (
-                not submitter_periods[-1].end_time
-                and e.type == TeamEnrollmentType.ENROLL
+                submitter_periods
+                and not submitter_periods[-1].end_time
+                and e.type == TeamEnrollmentType.REMOVE
             ):
                 submitter_periods[-1].end_time = e.action_time
 
