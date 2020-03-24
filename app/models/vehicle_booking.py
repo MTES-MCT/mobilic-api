@@ -12,7 +12,7 @@ class VehicleBooking(EventBaseModel):
     __table_args__ = (
         db.CheckConstraint(
             "(event_time >= start_time)",
-            name="activity_start_time_before_event_time",
+            name="vehicle_booking_start_time_before_event_time",
         ),
     )
 
