@@ -63,6 +63,8 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 
     dismiss_type = enum_column(ActivityDismissType, nullable=True)
 
+    creation_comment = db.Column(db.TEXT, nullable=True)
+
     # TODO : add (maybe)
     # - validator
     # - version (each version represents a set of changes to the day activities)

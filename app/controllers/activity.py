@@ -30,6 +30,7 @@ class SingleActivityInput(EventInput):
     driver_id = graphene.Int(required=False)
     vehicle_registration_number = graphene.String(required=False)
     mission = graphene.String(required=False)
+    comment = graphene.String(required=False)
 
 
 class ActivityLog(graphene.Mutation):
@@ -72,6 +73,7 @@ class ActivityLog(graphene.Mutation):
                     if group_activity.driver_id
                     else None,
                     vehicle_registration_number=group_activity.vehicle_registration_number,
+                    comment=group_activity.comment,
                 )
 
         return ActivityLog(

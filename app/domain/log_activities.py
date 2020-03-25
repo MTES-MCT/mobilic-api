@@ -17,6 +17,7 @@ def log_group_activity(
     user_time,
     driver,
     vehicle_registration_number,
+    comment,
 ):
     for user in users:
         activity = log_activity(
@@ -27,6 +28,7 @@ def log_group_activity(
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
             driver=driver,
+            comment=comment,
         )
         check_and_fix_inconsistencies_created_by_new_activity(
             activity, event_time
@@ -146,6 +148,7 @@ def log_activity(
     user_time,
     vehicle_registration_number,
     driver,
+    comment=None,
 ):
     if type == ActivityType.DRIVE:
         # Default to marking the submitter as driver if no driver is provided
@@ -189,6 +192,7 @@ def log_activity(
         submitter=submitter,
         vehicle_registration_number=vehicle_registration_number,
         driver=driver,
+        creation_comment=comment,
     )
     db.session.add(activity)
 
