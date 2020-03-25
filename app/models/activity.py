@@ -6,7 +6,12 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import DismissType, UserEventBaseModel, Revisable
+from app.models.event import (
+    DismissType,
+    UserEventBaseModel,
+    DeferrableEventBaseModel,
+    Revisable,
+)
 from app.models.utils import enum_column
 
 
@@ -41,11 +46,10 @@ ActivityDismissType = Enum(
 )
 
 
-class Activity(UserEventBaseModel, Revisable):
+class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
     backref_base_name = "activities"
 
     type = enum_column(ActivityType, nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
 
     vehicle_registration_number = db.Column(db.String(255))
     mission = db.Column(db.String(255))
@@ -58,13 +62,6 @@ class Activity(UserEventBaseModel, Revisable):
     is_driver_switch = db.Column(db.Boolean, nullable=True, default=None)
 
     dismiss_type = enum_column(ActivityDismissType, nullable=True)
-
-    __table_args__ = (
-        db.CheckConstraint(
-            "(event_time >= start_time)",
-            name="activity_start_time_before_event_time",
-        ),
-    )
 
     # TODO : add (maybe)
     # - validator
@@ -82,7 +79,7 @@ class Activity(UserEventBaseModel, Revisable):
     def previous_and_next_acknowledged_activities(self):
         previous_activity = None
         for activity in self.user.acknowledged_activities:
-            if activity.start_time > self.start_time:
+            if activity.user_time > self.user_time:
                 return previous_activity, activity
             if activity != self:
                 previous_activity = activity
@@ -116,7 +113,7 @@ class Activity(UserEventBaseModel, Revisable):
         dict_ = dict(
             type=self.type,
             event_time=revision_time,
-            start_time=self.start_time,
+            user_time=self.user_time,
             user=self.user,
             submitter=current_user,
             vehicle_registration_number=self.vehicle_registration_number,

@@ -6,7 +6,12 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
 )
-from app.models.event import UserEventBaseModel, Revisable, DismissType
+from app.models.event import (
+    UserEventBaseModel,
+    Revisable,
+    DismissType,
+    DeferrableEventBaseModel,
+)
 from app.models.utils import enum_column
 
 
@@ -15,17 +20,12 @@ class TeamEnrollmentType(str, Enum):
     REMOVE = "remove"
 
 
-class TeamEnrollment(UserEventBaseModel, Revisable):
+class TeamEnrollment(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
     backref_base_name = "team_enrollments"
 
     type = enum_column(TeamEnrollmentType, nullable=False)
-    action_time = db.Column(db.DateTime, nullable=False)
 
     __table_args__ = (
-        db.CheckConstraint(
-            "(event_time >= action_time)",
-            name="team_enrollment_action_time_before_event_time",
-        ),
         db.CheckConstraint(
             "(submitter_id != user_id)",
             name="team_enrollment_cannot_target_self",
@@ -43,7 +43,7 @@ class TeamEnrollment(UserEventBaseModel, Revisable):
         dict_ = dict(
             type=self.type,
             event_time=revision_time,
-            action_time=self.action_time,
+            user_time=self.user_time,
             user=self.user,
             company_id=self.company_id,
             submitter=current_user,

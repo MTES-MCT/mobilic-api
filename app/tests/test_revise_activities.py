@@ -71,7 +71,7 @@ class TestLogActivities(BaseTest):
                     event_time=event_time,
                     user_id=team_member.id,
                     submitter_id=self.team_leader.id,
-                    start_time=event_time,
+                    user_time=event_time,
                     dismissed_at=None,
                     revised_at=None,
                 )
@@ -108,7 +108,7 @@ class TestLogActivities(BaseTest):
                     event_time=event_time,
                     user_id=team_member.id,
                     submitter_id=self.team_leader.id,
-                    start_time=event_time,
+                    user_time=event_time,
                     dismissed_at=None,
                     revised_at=None,
                 )
@@ -120,7 +120,7 @@ class TestLogActivities(BaseTest):
             db.session.add(
                 TeamEnrollment(
                     type=TeamEnrollmentType.ENROLL,
-                    action_time=time,
+                    user_time=time,
                     event_time=time,
                     submitter_id=self.team_leader.id,
                     user_id=mate.id,
@@ -130,10 +130,10 @@ class TestLogActivities(BaseTest):
         db.session.commit()
 
     def test_revise_activity_as_team_leader(self):
-        activity_to_revise_start_time = datetime(2020, 2, 7, 16)
-        new_start_time = datetime(2020, 2, 7, 15)
+        activity_to_revise_user_time = datetime(2020, 2, 7, 16)
+        new_user_time = datetime(2020, 2, 7, 15)
         activity_to_revise = Activity.query.filter(
-            Activity.start_time == activity_to_revise_start_time,
+            Activity.user_time == activity_to_revise_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -141,7 +141,7 @@ class TestLogActivities(BaseTest):
             "revise_activities",
             dict(
                 event_id=activity_to_revise.id,
-                start_time=to_timestamp(new_start_time),
+                user_time=to_timestamp(new_user_time),
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
             ),
             submitter=self.team_leader,
@@ -151,7 +151,7 @@ class TestLogActivities(BaseTest):
             test_case.should_create(
                 type=ActivityType.BREAK,
                 user_id=team_member.id,
-                start_time=new_start_time,
+                user_time=new_user_time,
                 dismissed_at=None,
                 event_time=datetime(2020, 2, 7, 21),
             )
@@ -159,10 +159,10 @@ class TestLogActivities(BaseTest):
 
     def test_revise_activity_as_simple_member(self):
         team_mate = self.team_mates[0]
-        activity_to_revise_start_time = datetime(2020, 2, 7, 16)
-        new_start_time = datetime(2020, 2, 7, 15)
+        activity_to_revise_user_time = datetime(2020, 2, 7, 16)
+        new_user_time = datetime(2020, 2, 7, 15)
         activity_to_revise = Activity.query.filter(
-            Activity.start_time == activity_to_revise_start_time,
+            Activity.user_time == activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -170,7 +170,7 @@ class TestLogActivities(BaseTest):
             "revise_activities",
             dict(
                 event_id=activity_to_revise.id,
-                start_time=to_timestamp(new_start_time),
+                user_time=to_timestamp(new_user_time),
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
             ),
             submitter=team_mate,
@@ -178,7 +178,7 @@ class TestLogActivities(BaseTest):
         ).should_create(
             type=ActivityType.BREAK,
             user_id=team_mate.id,
-            start_time=new_start_time,
+            user_time=new_user_time,
             dismissed_at=None,
             event_time=datetime(2020, 2, 7, 21),
             revisee_id=activity_to_revise.id,
@@ -188,17 +188,17 @@ class TestLogActivities(BaseTest):
     def test_revise_multiple_activities_in_single_batch(self):
         team_mate = self.team_mates[0]
 
-        first_activity_to_revise_start_time = datetime(2020, 2, 7, 16)
-        first_activity_new_start_time = datetime(2020, 2, 7, 15)
+        first_activity_to_revise_user_time = datetime(2020, 2, 7, 16)
+        first_activity_new_user_time = datetime(2020, 2, 7, 15)
         first_activity_to_revise = Activity.query.filter(
-            Activity.start_time == first_activity_to_revise_start_time,
+            Activity.user_time == first_activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
-        second_activity_to_revise_start_time = datetime(2020, 2, 7, 14)
-        second_activity_new_start_time = datetime(2020, 2, 7, 13)
+        second_activity_to_revise_user_time = datetime(2020, 2, 7, 14)
+        second_activity_new_user_time = datetime(2020, 2, 7, 13)
         second_activity_to_revise = Activity.query.filter(
-            Activity.start_time == second_activity_to_revise_start_time,
+            Activity.user_time == second_activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -208,14 +208,12 @@ class TestLogActivities(BaseTest):
                 [
                     dict(
                         event_id=first_activity_to_revise.id,
-                        start_time=to_timestamp(first_activity_new_start_time),
+                        user_time=to_timestamp(first_activity_new_user_time),
                         event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                     ),
                     dict(
                         event_id=second_activity_to_revise.id,
-                        start_time=to_timestamp(
-                            second_activity_new_start_time
-                        ),
+                        user_time=to_timestamp(second_activity_new_user_time),
                         event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                     ),
                 ],
@@ -225,7 +223,7 @@ class TestLogActivities(BaseTest):
             .should_create(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=first_activity_new_start_time,
+                user_time=first_activity_new_user_time,
                 dismissed_at=None,
                 event_time=datetime(2020, 2, 7, 21),
                 revisee_id=first_activity_to_revise.id,
@@ -233,7 +231,7 @@ class TestLogActivities(BaseTest):
             .should_create(
                 type=ActivityType.WORK,
                 user_id=team_mate.id,
-                start_time=second_activity_new_start_time,
+                user_time=second_activity_new_user_time,
                 dismissed_at=None,
                 event_time=datetime(2020, 2, 7, 21),
                 revisee_id=second_activity_to_revise.id,
@@ -244,17 +242,17 @@ class TestLogActivities(BaseTest):
     def test_revise_multiple_activities_in_multiple_batches(self):
         team_mate = self.team_mates[0]
 
-        first_activity_to_revise_start_time = datetime(2020, 2, 7, 16)
-        first_activity_new_start_time = datetime(2020, 2, 7, 15)
+        first_activity_to_revise_user_time = datetime(2020, 2, 7, 16)
+        first_activity_new_user_time = datetime(2020, 2, 7, 15)
         first_activity_to_revise = Activity.query.filter(
-            Activity.start_time == first_activity_to_revise_start_time,
+            Activity.user_time == first_activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
-        second_activity_to_revise_start_time = datetime(2020, 2, 7, 14)
-        second_activity_new_start_time = datetime(2020, 2, 7, 13)
+        second_activity_to_revise_user_time = datetime(2020, 2, 7, 14)
+        second_activity_new_user_time = datetime(2020, 2, 7, 13)
         second_activity_to_revise = Activity.query.filter(
-            Activity.start_time == second_activity_to_revise_start_time,
+            Activity.user_time == second_activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -263,7 +261,7 @@ class TestLogActivities(BaseTest):
             [
                 dict(
                     event_id=first_activity_to_revise.id,
-                    start_time=to_timestamp(first_activity_new_start_time),
+                    user_time=to_timestamp(first_activity_new_user_time),
                     event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 ),
             ],
@@ -276,7 +274,7 @@ class TestLogActivities(BaseTest):
             [
                 dict(
                     event_id=second_activity_to_revise.id,
-                    start_time=to_timestamp(second_activity_new_start_time),
+                    user_time=to_timestamp(second_activity_new_user_time),
                     event_time=to_timestamp(datetime(2020, 2, 7, 22)),
                 ),
             ],
@@ -286,7 +284,7 @@ class TestLogActivities(BaseTest):
         first_test_case.should_create(
             type=ActivityType.BREAK,
             user_id=team_mate.id,
-            start_time=first_activity_new_start_time,
+            user_time=first_activity_new_user_time,
             dismissed_at=None,
             event_time=datetime(2020, 2, 7, 21),
             revisee_id=first_activity_to_revise.id,
@@ -294,7 +292,7 @@ class TestLogActivities(BaseTest):
         second_test_case.should_create(
             type=ActivityType.WORK,
             user_id=team_mate.id,
-            start_time=second_activity_new_start_time,
+            user_time=second_activity_new_user_time,
             dismissed_at=None,
             event_time=datetime(2020, 2, 7, 22),
             revisee_id=second_activity_to_revise.id,
@@ -303,10 +301,10 @@ class TestLogActivities(BaseTest):
 
     def test_revise_activity_with_neigbour_inconsistencies(self):
         team_mate = self.team_mates[0]
-        activity_to_revise_start_time = datetime(2020, 2, 7, 12)
-        new_start_time = datetime(2020, 2, 7, 17)
+        activity_to_revise_user_time = datetime(2020, 2, 7, 12)
+        new_user_time = datetime(2020, 2, 7, 17)
         activity_to_revise = Activity.query.filter(
-            Activity.start_time == activity_to_revise_start_time,
+            Activity.user_time == activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -315,7 +313,7 @@ class TestLogActivities(BaseTest):
                 "revise_activities",
                 dict(
                     event_id=activity_to_revise.id,
-                    start_time=to_timestamp(new_start_time),
+                    user_time=to_timestamp(new_user_time),
                     event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 ),
                 submitter=team_mate,
@@ -324,7 +322,7 @@ class TestLogActivities(BaseTest):
             .should_create(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=new_start_time,
+                user_time=new_user_time,
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 event_time=datetime(2020, 2, 7, 21),
                 revisee=activity_to_revise.id,
@@ -333,7 +331,7 @@ class TestLogActivities(BaseTest):
             .should_dismiss(
                 type=ActivityType.WORK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 14),
+                user_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
@@ -341,10 +339,10 @@ class TestLogActivities(BaseTest):
         test_case.test(self)
 
         team_mate = self.team_mates[1]
-        activity_to_revise_start_time = datetime(2020, 2, 7, 12)
-        new_start_time = datetime(2020, 2, 7, 15)
+        activity_to_revise_user_time = datetime(2020, 2, 7, 12)
+        new_user_time = datetime(2020, 2, 7, 15)
         activity_to_revise = Activity.query.filter(
-            Activity.start_time == activity_to_revise_start_time,
+            Activity.user_time == activity_to_revise_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -353,7 +351,7 @@ class TestLogActivities(BaseTest):
                 "revise_activities",
                 dict(
                     event_id=activity_to_revise.id,
-                    start_time=to_timestamp(new_start_time),
+                    user_time=to_timestamp(new_user_time),
                     event_time=to_timestamp(datetime(2020, 2, 7, 21)),
                 ),
                 submitter=team_mate,
@@ -362,21 +360,21 @@ class TestLogActivities(BaseTest):
             .should_create(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=new_start_time,
+                user_time=new_user_time,
                 event_time=datetime(2020, 2, 7, 21),
                 revisee_id=activity_to_revise.id,
             )
             .should_dismiss(
                 type=ActivityType.WORK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 14),
+                user_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 16),
+                user_time=datetime(2020, 2, 7, 16),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
@@ -399,14 +397,14 @@ class TestLogActivities(BaseTest):
             .should_create(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 20),
+                user_time=datetime(2020, 2, 7, 20),
                 dismissed_at=None,
                 event_time=datetime(2020, 2, 7, 20, 30),
             )
             .should_create(
                 type=ActivityType.WORK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 20, 30),
+                user_time=datetime(2020, 2, 7, 20, 30),
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -420,7 +418,7 @@ class TestLogActivities(BaseTest):
             "log_activities",
             dict(
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
-                start_time=to_timestamp(datetime(2020, 2, 7, 7, 30)),
+                user_time=to_timestamp(datetime(2020, 2, 7, 7, 30)),
                 type=ActivityType.WORK,
             ),
             submitter=team_mate,
@@ -428,7 +426,7 @@ class TestLogActivities(BaseTest):
         ).should_create(
             type=ActivityType.WORK,
             user_id=team_mate.id,
-            start_time=datetime(2020, 2, 7, 7, 30),
+            user_time=datetime(2020, 2, 7, 7, 30),
             event_time=datetime(2020, 2, 7, 21),
             dismissed_at=None,
             revised_at=None,
@@ -439,7 +437,7 @@ class TestLogActivities(BaseTest):
             "log_activities",
             dict(
                 event_time=to_timestamp(datetime(2020, 2, 7, 21)),
-                start_time=to_timestamp(datetime(2020, 2, 7, 9, 50)),
+                user_time=to_timestamp(datetime(2020, 2, 7, 9, 50)),
                 type=ActivityType.BREAK,
             ),
             submitter=team_mate,
@@ -447,7 +445,7 @@ class TestLogActivities(BaseTest):
         ).should_create(
             type=ActivityType.BREAK,
             user_id=team_mate.id,
-            start_time=datetime(2020, 2, 7, 9, 50),
+            user_time=datetime(2020, 2, 7, 9, 50),
             event_time=datetime(2020, 2, 7, 21),
             dismissed_at=None,
             revised_at=None,
@@ -481,14 +479,14 @@ class TestLogActivities(BaseTest):
             "revise_activities",
             dict(
                 event_id=lone_activity.id,
-                start_time=to_timestamp(datetime(2020, 2, 7, 14, 30)),
+                user_time=to_timestamp(datetime(2020, 2, 7, 14, 30)),
                 event_time=to_timestamp(datetime(2020, 2, 7, 22, 0)),
             ),
             submitter=user,
             submit_time=datetime(2020, 2, 7, 22, 1),
         ).should_create(
             event_time=datetime(2020, 2, 7, 22, 0),
-            start_time=datetime(2020, 2, 7, 14, 30),
+            user_time=datetime(2020, 2, 7, 14, 30),
             user_id=user.id,
             type=ActivityType.WORK,
             revisee_id=lone_activity.id,
@@ -515,7 +513,7 @@ class TestLogActivities(BaseTest):
             submitter=user,
             submit_time=datetime(2020, 2, 7, 23, 1),
         ).should_dismiss(
-            start_time=datetime(2020, 2, 7, 14, 30),
+            user_time=datetime(2020, 2, 7, 14, 30),
             user_id=user.id,
             type=ActivityType.WORK,
             revisee_id=lone_activity.id,

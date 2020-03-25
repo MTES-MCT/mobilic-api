@@ -9,7 +9,7 @@ from app.models.activity import ActivityType
 from app.models.team_enrollment import TeamEnrollmentType
 
 
-def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
+def enroll(submitter, user_id, first_name, last_name, user_time, event_time):
     if not user_id:
         user = User(
             first_name=first_name,
@@ -25,14 +25,14 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
         submitter=submitter,
         event_time=event_time,
         event_history=submitter.submitted_team_enrollments,
-        action_time=action_time,
+        user_time=user_time,
     ):
         return
 
     # 1. Create enrollment
     team_enrollment = TeamEnrollment(
         type=TeamEnrollmentType.ENROLL,
-        action_time=action_time,
+        user_time=user_time,
         event_time=event_time,
         user=user,
         submitter=submitter,
@@ -42,7 +42,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
 
     # 2. Create activity if needed
     team_activity_at_enrollment_time = submitter.latest_acknowledged_activity_at(
-        action_time
+        user_time
     )
     if (
         team_activity_at_enrollment_time
@@ -53,7 +53,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
             user=user,
             type=team_activity_at_enrollment_time.type,
             event_time=event_time,
-            start_time=action_time,
+            user_time=user_time,
             vehicle_registration_number=team_activity_at_enrollment_time.vehicle_registration_number,
             driver=team_activity_at_enrollment_time.driver,
         )
@@ -62,7 +62,7 @@ def enroll(submitter, user_id, first_name, last_name, action_time, event_time):
         )
 
 
-def unenroll(submitter, user_id, action_time, event_time):
+def unenroll(submitter, user_id, user_time, event_time):
     user = User.query.get(user_id)
 
     if check_whether_event_should_not_be_logged(
@@ -70,13 +70,13 @@ def unenroll(submitter, user_id, action_time, event_time):
         submitter=submitter,
         event_time=event_time,
         event_history=submitter.submitted_team_enrollments,
-        action_time=action_time,
+        user_time=user_time,
     ):
         return
 
     team_enrollment = TeamEnrollment(
         type=TeamEnrollmentType.REMOVE,
-        action_time=action_time,
+        user_time=user_time,
         event_time=event_time,
         user=user,
         submitter=submitter,
@@ -89,7 +89,7 @@ def unenroll(submitter, user_id, action_time, event_time):
         user=user,
         type=ActivityType.REST,
         event_time=event_time,
-        start_time=action_time,
+        user_time=user_time,
         vehicle_registration_number=None,
         driver=None,
     )

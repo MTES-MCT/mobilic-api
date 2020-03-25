@@ -24,7 +24,7 @@ def check_whether_event_should_not_be_logged(
         )
         return EventLogError
 
-    if "start_time" in kwargs and kwargs["start_time"] > event_time:
+    if "user_time" in kwargs and kwargs["user_time"] > event_time:
         app.logger.warn(f"Start time is after event time : will not log")
         return EventLogError
 

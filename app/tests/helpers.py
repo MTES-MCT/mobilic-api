@@ -128,7 +128,7 @@ EVENT_SUBMIT_OPERATIONS = {
                         activities {
                             id
                             type
-                            startTime
+                            userTime
                         }
                     }
                 }
@@ -142,7 +142,7 @@ EVENT_SUBMIT_OPERATIONS = {
                         activities {
                             id
                             type
-                            startTime
+                            userTime
                         }
                     }
                 }
@@ -156,7 +156,7 @@ EVENT_SUBMIT_OPERATIONS = {
                         activities {
                             id
                             type
-                            startTime
+                            userTime
                         }
                     }
                 }

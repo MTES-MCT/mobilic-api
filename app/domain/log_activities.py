@@ -14,7 +14,7 @@ def log_group_activity(
     users,
     type,
     event_time,
-    start_time,
+    user_time,
     driver,
     vehicle_registration_number,
 ):
@@ -22,7 +22,7 @@ def log_group_activity(
         activity = log_activity(
             type=type,
             event_time=event_time,
-            start_time=start_time,
+            user_time=user_time,
             user=user,
             submitter=submitter,
             vehicle_registration_number=vehicle_registration_number,
@@ -33,13 +33,13 @@ def log_group_activity(
         )
 
 
-def _check_and_delete_corrected_log(user, start_time):
+def _check_and_delete_corrected_log(user, user_time):
     latest_activity_log = user.current_acknowledged_activity
     if latest_activity_log:
-        if latest_activity_log.start_time >= start_time:
+        if latest_activity_log.user_time >= user_time:
             app.logger.warn("Activity event is revising previous history")
         elif (
-            start_time - latest_activity_log.start_time
+            user_time - latest_activity_log.user_time
             < app.config["MINIMUM_ACTIVITY_DURATION"]
         ):
             app.logger.info(
@@ -115,8 +115,8 @@ def check_and_fix_neighbour_inconsistencies(
             )
     elif (
         previous_activity.type == ActivityType.REST
-        and local_to_utc(previous_activity.start_time).date()
-        == local_to_utc(next_activity.start_time).date()
+        and local_to_utc(previous_activity.user_time).date()
+        == local_to_utc(next_activity.user_time).date()
     ):
         previous_activity.revise(
             dismiss_or_revision_time, type=ActivityType.BREAK
@@ -143,7 +143,7 @@ def log_activity(
     user,
     type,
     event_time,
-    start_time,
+    user_time,
     vehicle_registration_number,
     driver,
 ):
@@ -162,7 +162,7 @@ def log_activity(
         submitter=submitter,
         event_time=event_time,
         type=type,
-        start_time=start_time,
+        user_time=user_time,
         event_history=user.activities,
     )
     if response_if_event_should_not_be_logged:
@@ -175,15 +175,15 @@ def log_activity(
         dismiss_type = ActivityDismissType.UNAUTHORIZED_SUBMITTER
 
     # 3. Quick correction mechanics : if it's two real-time logs in succession, delete the first one
-    is_revision = event_time != start_time
+    is_revision = event_time != user_time
     if not dismiss_type and not is_revision:
-        _check_and_delete_corrected_log(user, start_time)
+        _check_and_delete_corrected_log(user, user_time)
 
     # 4. Log the activity
     activity = Activity(
         type=type,
         event_time=event_time,
-        start_time=start_time,
+        user_time=user_time,
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
@@ -199,12 +199,12 @@ def log_activity(
         and type == ActivityType.REST
         and user == submitter
     ):
-        for u in submitter.acknowledged_team_at(start_time):
+        for u in submitter.acknowledged_team_at(user_time):
             db.session.add(
                 TeamEnrollment(
                     type=TeamEnrollmentType.REMOVE,
-                    event_time=start_time,
-                    action_time=start_time,
+                    event_time=user_time,
+                    user_time=user_time,
                     user=u,
                     company_id=submitter.company_id,
                     submitter=submitter,

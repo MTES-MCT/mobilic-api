@@ -3,7 +3,7 @@ from app.domain.log_events import check_whether_event_should_not_be_logged
 from app.models import Mission
 
 
-def log_mission(name, start_time, event_time, submitter):
+def log_mission(name, user_time, event_time, submitter):
     if check_whether_event_should_not_be_logged(
         submitter=submitter,
         event_time=event_time,
@@ -15,7 +15,7 @@ def log_mission(name, start_time, event_time, submitter):
     db.session.add(
         Mission(
             name=name,
-            start_time=start_time,
+            user_time=user_time,
             event_time=event_time,
             submitter=submitter,
             company_id=submitter.company_id,

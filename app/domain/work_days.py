@@ -23,11 +23,11 @@ class WorkDay:
 
     @property
     def start_time(self):
-        return self.activities[0].start_time if self.activities else None
+        return self.activities[0].user_time if self.activities else None
 
     @property
     def end_time(self):
-        return self.activities[-1].start_time if self.is_complete else None
+        return self.activities[-1].user_time if self.is_complete else None
 
     @property
     def activity_timers(self):
@@ -39,8 +39,8 @@ class WorkDay:
             self.activities[:-1], self.activities[1:]
         ):
             timers[activity.type] += to_timestamp(
-                next_activity.start_time
-            ) - to_timestamp(activity.start_time)
+                next_activity.user_time
+            ) - to_timestamp(activity.user_time)
         return timers
 
     @property
@@ -58,7 +58,7 @@ class WorkDay:
 
 def group_user_events_by_day(user):
     activities = sorted(
-        user.acknowledged_deduplicated_activities, key=lambda e: e.start_time
+        user.acknowledged_deduplicated_activities, key=lambda e: e.user_time
     )
     expenditures = sorted(
         user.acknowledged_expenditures, key=lambda e: e.event_time

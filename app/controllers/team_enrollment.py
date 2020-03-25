@@ -18,7 +18,7 @@ from app.controllers.event import EventInput
 
 class SingleTeamEnrollmentInput(EventInput):
     type = graphene_enum_type(TeamEnrollmentType)(required=True)
-    action_time = DateTimeWithTimeStampSerialization(required=False)
+    user_time = DateTimeWithTimeStampSerialization(required=False)
     user_id = graphene.Int(required=False)
     first_name = graphene.String(required=False)
     last_name = graphene.String(required=False)
@@ -50,14 +50,14 @@ class TeamEnrollmentLog(graphene.Mutation):
                         first_name=event.first_name,
                         last_name=event.last_name,
                         event_time=event.event_time,
-                        action_time=event.action_time or event.event_time,
+                        user_time=event.user_time or event.event_time,
                     )
                 else:
                     unenroll(
                         submitter=current_user,
                         user_id=event.user_id,
                         event_time=event.event_time,
-                        action_time=event.action_time or event.event_time,
+                        user_time=event.user_time or event.event_time,
                     )
 
         return TeamEnrollmentLog(

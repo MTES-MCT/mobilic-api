@@ -51,7 +51,7 @@ class User(BaseModel):
                 for activity in self.activities
                 if activity.is_acknowledged
             ],
-            key=lambda a: a.start_time,
+            key=lambda a: a.user_time,
         )
 
     @property
@@ -71,9 +71,7 @@ class User(BaseModel):
 
     def latest_acknowledged_activity_at(self, date_time):
         acknowledged_activities = [
-            a
-            for a in self.acknowledged_activities
-            if a.start_time <= date_time
+            a for a in self.acknowledged_activities if a.user_time <= date_time
         ]
         if not acknowledged_activities:
             return None
@@ -94,7 +92,7 @@ class User(BaseModel):
                 for enrollment in self.submitted_team_enrollments
                 if enrollment.is_acknowledged
             ],
-            key=lambda e: e.action_time,
+            key=lambda e: e.user_time,
         )
 
     @property
@@ -105,7 +103,7 @@ class User(BaseModel):
                 for enrollment in self.team_enrollments
                 if enrollment.is_acknowledged
             ],
-            key=lambda e: e.action_time,
+            key=lambda e: e.user_time,
         )
 
     def acknowledged_team_at(self, date_time):
@@ -114,7 +112,7 @@ class User(BaseModel):
         relevant_team_enrollments = [
             e
             for e in self.acknowledged_submitted_team_enrollments
-            if date_time >= e.action_time
+            if date_time >= e.user_time
         ]
         relevant_team_enrollments_by_user = defaultdict(list)
         for rte in relevant_team_enrollments:
@@ -157,7 +155,7 @@ class User(BaseModel):
             ) and e.type == TeamEnrollmentType.ENROLL:
                 submitter_periods.append(
                     TeamEnrollmentPeriod(
-                        submitter=e.submitter, start_time=e.action_time
+                        submitter=e.submitter, start_time=e.user_time
                     )
                 )
             elif (
@@ -165,7 +163,7 @@ class User(BaseModel):
                 and not submitter_periods[-1].end_time
                 and e.type == TeamEnrollmentType.REMOVE
             ):
-                submitter_periods[-1].end_time = e.action_time
+                submitter_periods[-1].end_time = e.user_time
 
         periods = []
         for submitter_periods in periods_by_submitter.values():
@@ -182,13 +180,13 @@ class User(BaseModel):
                     e
                     for e in getattr(period.submitter, event_attr)
                     if period.start_time
-                    <= e.start_time
+                    <= e.user_time
                     < (period.end_time or datetime(2100, 1, 1))
                 ]
             )
         return sorted(
             events_submitted_by_self + events_submitted_by_others,
-            key=lambda m: m.start_time,
+            key=lambda e: e.user_time,
         )
 
     @property

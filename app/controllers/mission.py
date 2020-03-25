@@ -14,7 +14,7 @@ from app.controllers.event import EventInput
 
 class MissionInput(EventInput):
     name = graphene.Field(graphene.String)
-    start_time = DateTimeWithTimeStampSerialization(required=False)
+    user_time = DateTimeWithTimeStampSerialization(required=False)
 
 
 class MissionLog(graphene.Mutation):
@@ -37,7 +37,7 @@ class MissionLog(graphene.Mutation):
             for mission in events:
                 log_mission(
                     submitter=current_user,
-                    start_time=mission.start_time or mission.event_time,
+                    user_time=mission.user_time or mission.event_time,
                     event_time=mission.event_time,
                     name=mission.name,
                 )

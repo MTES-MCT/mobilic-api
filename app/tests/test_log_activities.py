@@ -34,7 +34,7 @@ class TestLogActivities(BaseTest):
             db.session.add(
                 TeamEnrollment(
                     type=TeamEnrollmentType.ENROLL,
-                    action_time=time,
+                    user_time=time,
                     event_time=time,
                     submitter_id=self.team_leader.id,
                     user_id=mate.id,
@@ -63,7 +63,7 @@ class TestLogActivities(BaseTest):
                 event_time=event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=event_time,
+                user_time=event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -151,7 +151,7 @@ class TestLogActivities(BaseTest):
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=first_event_time,
+                user_time=first_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -160,7 +160,7 @@ class TestLogActivities(BaseTest):
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=second_event_time,
+                user_time=second_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -169,7 +169,7 @@ class TestLogActivities(BaseTest):
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=third_event_time,
+                user_time=third_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -178,7 +178,7 @@ class TestLogActivities(BaseTest):
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=fourth_event_time,
+                user_time=fourth_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -242,7 +242,7 @@ class TestLogActivities(BaseTest):
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=first_event_time,
+                user_time=first_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -251,7 +251,7 @@ class TestLogActivities(BaseTest):
                 event_time=second_event_time_plus_2_dt,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=second_event_time_plus_2_dt,
+                user_time=second_event_time_plus_2_dt,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -260,7 +260,7 @@ class TestLogActivities(BaseTest):
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=third_event_time,
+                user_time=third_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -316,7 +316,7 @@ class TestLogActivities(BaseTest):
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=first_event_time,
+                user_time=first_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -325,7 +325,7 @@ class TestLogActivities(BaseTest):
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=second_event_time,
+                user_time=second_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -334,7 +334,7 @@ class TestLogActivities(BaseTest):
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=third_event_time,
+                user_time=third_event_time,
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 revised_at=None,
             )
@@ -343,7 +343,7 @@ class TestLogActivities(BaseTest):
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=fourth_event_time,
+                user_time=fourth_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -398,7 +398,7 @@ class TestLogActivities(BaseTest):
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=first_event_time,
+                user_time=first_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -407,7 +407,7 @@ class TestLogActivities(BaseTest):
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=second_event_time,
+                user_time=second_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -416,7 +416,7 @@ class TestLogActivities(BaseTest):
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=third_event_time,
+                user_time=third_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -425,7 +425,7 @@ class TestLogActivities(BaseTest):
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=fourth_event_time,
+                user_time=fourth_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -434,7 +434,7 @@ class TestLogActivities(BaseTest):
                 event_time=fifth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=fifth_event_time,
+                user_time=fifth_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -471,7 +471,7 @@ class TestLogActivities(BaseTest):
             event_time=first_event_time,
             user_id=mate.id,
             submitter_id=mate.id,
-            start_time=first_event_time,
+            user_time=first_event_time,
             dismissed_at=None,
             revised_at=None,
         )
@@ -480,7 +480,7 @@ class TestLogActivities(BaseTest):
             event_time=second_event_time,
             user_id=mate.id,
             submitter_id=mate.id,
-            start_time=second_event_time,
+            user_time=second_event_time,
             dismissed_at=None,
             revised_at=None,
         )
@@ -489,7 +489,7 @@ class TestLogActivities(BaseTest):
             event_time=third_event_time,
             user_id=mate.id,
             submitter_id=mate.id,
-            start_time=third_event_time,
+            user_time=third_event_time,
             dismissed_at=None,
             revised_at=None,
         )
@@ -530,7 +530,7 @@ class TestLogActivities(BaseTest):
             event_time=first_mate_last_activity_event_time,
             user_id=mate.id,
             submitter_id=mate.id,
-            start_time=first_mate_last_activity_event_time,
+            user_time=first_mate_last_activity_event_time,
         )
         for team_member in self.team:
             third_test_case.should_create(
@@ -540,7 +540,7 @@ class TestLogActivities(BaseTest):
                 event_time=first_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=first_event_time,
+                user_time=first_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -549,7 +549,7 @@ class TestLogActivities(BaseTest):
                 event_time=second_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=second_event_time,
+                user_time=second_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -558,7 +558,7 @@ class TestLogActivities(BaseTest):
                 event_time=third_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=third_event_time,
+                user_time=third_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )
@@ -567,7 +567,7 @@ class TestLogActivities(BaseTest):
                 event_time=fourth_event_time,
                 user_id=team_member.id,
                 submitter_id=self.team_leader.id,
-                start_time=fourth_event_time,
+                user_time=fourth_event_time,
                 dismissed_at=None,
                 revised_at=None,
             )

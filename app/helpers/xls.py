@@ -98,8 +98,8 @@ columns_in_main_sheet = [
 
 columns_in_user_sheet = [
     ("Activité", lambda activity: ACTIVITY_TYPE_LABEL[activity.type], None),
-    ("Jour", lambda activity: activity.start_time, "date_format"),
-    ("Heure", lambda activity: activity.start_time, "time_format"),
+    ("Jour", lambda activity: activity.user_time, "date_format"),
+    ("Heure", lambda activity: activity.user_time, "time_format"),
     ("Saisi par", lambda activity: activity.submitter.display_name, None),
 ]
 
@@ -131,7 +131,7 @@ def send_work_days_as_excel(user_wdays):
     user_idx = 1
     for user, work_days in wdays_by_user.items():
         activities = [a for wday in work_days for a in wday.activities]
-        activities.sort(key=lambda a: a.start_time)
+        activities.sort(key=lambda a: a.user_time)
         user_sheet = wb.add_worksheet(user.display_name + f" ({user_idx})")
         col_idx = 0
         for (col_name, resolver, style) in columns_in_user_sheet:

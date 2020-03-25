@@ -66,6 +66,21 @@ class EventBaseModel(BaseModel):
         )
 
 
+class DeferrableEventBaseModel(EventBaseModel):
+    __abstract__ = True
+
+    user_time = db.Column(db.DateTime, nullable=False)
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            db.CheckConstraint(
+                "(event_time >= user_time)",
+                name=cls.__tablename__ + "_user_time_before_event_time",
+            ),
+        )
+
+
 class Dismissable:
     dismissed_at = db.Column(db.DateTime, nullable=True)
     dismiss_type = enum_column(DismissType, nullable=True)

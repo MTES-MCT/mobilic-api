@@ -62,7 +62,7 @@ class TestLogActivities(BaseTest):
                     event_time=event_time,
                     user_id=team_member.id,
                     submitter_id=self.team_leader.id,
-                    start_time=event_time,
+                    user_time=event_time,
                     dismissed_at=None,
                     revised_at=None,
                 )
@@ -99,7 +99,7 @@ class TestLogActivities(BaseTest):
                     event_time=event_time,
                     user_id=team_member.id,
                     submitter_id=self.team_leader.id,
-                    start_time=event_time,
+                    user_time=event_time,
                     dismissed_at=None,
                     revised_at=None,
                 )
@@ -112,7 +112,7 @@ class TestLogActivities(BaseTest):
             db.session.add(
                 TeamEnrollment(
                     type=TeamEnrollmentType.ENROLL,
-                    action_time=time,
+                    user_time=time,
                     event_time=time,
                     submitter_id=self.team_leader.id,
                     user_id=mate.id,
@@ -124,9 +124,9 @@ class TestLogActivities(BaseTest):
     def test_cancel_activity_as_team_leader(self):
         self.submit_all_day_events.test(self)
 
-        activity_to_cancel_start_time = datetime(2020, 2, 7, 16)
+        activity_to_cancel_user_time = datetime(2020, 2, 7, 16)
         activity_to_cancel = Activity.query.filter(
-            Activity.start_time == activity_to_cancel_start_time,
+            Activity.user_time == activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -143,7 +143,7 @@ class TestLogActivities(BaseTest):
             test_case.should_dismiss(
                 type=ActivityType.BREAK,
                 user_id=team_member.id,
-                start_time=activity_to_cancel_start_time,
+                user_time=activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
                 revised_at=None,
@@ -154,9 +154,9 @@ class TestLogActivities(BaseTest):
         team_mate = self.team_mates[0]
         self.submit_all_day_events.test(self)
 
-        activity_to_cancel_start_time = datetime(2020, 2, 7, 16)
+        activity_to_cancel_user_time = datetime(2020, 2, 7, 16)
         activity_to_cancel = Activity.query.filter(
-            Activity.start_time == activity_to_cancel_start_time,
+            Activity.user_time == activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -171,7 +171,7 @@ class TestLogActivities(BaseTest):
         ).should_dismiss(
             type=ActivityType.BREAK,
             user_id=team_mate.id,
-            start_time=activity_to_cancel_start_time,
+            user_time=activity_to_cancel_user_time,
             dismiss_type=ActivityDismissType.USER_CANCEL,
             dismissed_at=datetime(2020, 2, 7, 21),
             revised_at=None,
@@ -181,9 +181,9 @@ class TestLogActivities(BaseTest):
     def test_cancel_activity_on_running_day(self):
         self.submit_half_day_events.test(self)
 
-        activity_to_cancel_start_time = datetime(2020, 2, 7, 16)
+        activity_to_cancel_user_time = datetime(2020, 2, 7, 16)
         activity_to_cancel = Activity.query.filter(
-            Activity.start_time == activity_to_cancel_start_time,
+            Activity.user_time == activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -200,7 +200,7 @@ class TestLogActivities(BaseTest):
             test_case.should_dismiss(
                 type=ActivityType.BREAK,
                 user_id=team_member.id,
-                start_time=activity_to_cancel_start_time,
+                user_time=activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
                 revised_at=None,
@@ -210,15 +210,15 @@ class TestLogActivities(BaseTest):
     def test_cancel_multiple_activities_in_one_batch(self):
         self.submit_all_day_events.test(self)
 
-        first_activity_to_cancel_start_time = datetime(2020, 2, 7, 16)
+        first_activity_to_cancel_user_time = datetime(2020, 2, 7, 16)
         first_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == first_activity_to_cancel_start_time,
+            Activity.user_time == first_activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
-        second_activity_to_cancel_start_time = datetime(2020, 2, 7, 8)
+        second_activity_to_cancel_user_time = datetime(2020, 2, 7, 8)
         second_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == second_activity_to_cancel_start_time,
+            Activity.user_time == second_activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -241,7 +241,7 @@ class TestLogActivities(BaseTest):
             test_case.should_dismiss(
                 type=ActivityType.BREAK,
                 user_id=team_member.id,
-                start_time=first_activity_to_cancel_start_time,
+                user_time=first_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
                 revised_at=None,
@@ -251,7 +251,7 @@ class TestLogActivities(BaseTest):
                 if team_member == self.team_leader
                 else ActivityType.SUPPORT,
                 user_id=team_member.id,
-                start_time=second_activity_to_cancel_start_time,
+                user_time=second_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
                 revised_at=None,
@@ -262,9 +262,9 @@ class TestLogActivities(BaseTest):
         team_mate = self.team_mates[0]
         self.submit_all_day_events.test(self)
 
-        first_activity_to_cancel_start_time = datetime(2020, 2, 7, 16)
+        first_activity_to_cancel_user_time = datetime(2020, 2, 7, 16)
         first_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == first_activity_to_cancel_start_time,
+            Activity.user_time == first_activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -279,15 +279,15 @@ class TestLogActivities(BaseTest):
         ).should_dismiss(
             type=ActivityType.BREAK,
             user_id=team_mate.id,
-            start_time=first_activity_to_cancel_start_time,
+            user_time=first_activity_to_cancel_user_time,
             dismiss_type=ActivityDismissType.USER_CANCEL,
             dismissed_at=datetime(2020, 2, 7, 21),
             revised_at=None,
         )
 
-        second_activity_to_cancel_start_time = datetime(2020, 2, 7, 8)
+        second_activity_to_cancel_user_time = datetime(2020, 2, 7, 8)
         second_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == second_activity_to_cancel_start_time,
+            Activity.user_time == second_activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -302,7 +302,7 @@ class TestLogActivities(BaseTest):
         ).should_dismiss(
             type=ActivityType.SUPPORT,
             user_id=team_mate.id,
-            start_time=second_activity_to_cancel_start_time,
+            user_time=second_activity_to_cancel_user_time,
             dismiss_type=ActivityDismissType.USER_CANCEL,
             dismissed_at=datetime(2020, 2, 7, 22),
         )
@@ -316,9 +316,9 @@ class TestLogActivities(BaseTest):
         team_mate = self.team_mates[1]
         self.submit_all_day_events.test(self)
 
-        activity_to_cancel_start_time = datetime(2020, 2, 7, 12)
+        activity_to_cancel_user_time = datetime(2020, 2, 7, 12)
         activity_to_cancel = Activity.query.filter(
-            Activity.start_time == activity_to_cancel_start_time,
+            Activity.user_time == activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -335,14 +335,14 @@ class TestLogActivities(BaseTest):
             .should_dismiss(
                 type=ActivityType.BREAK,
                 user_id=team_mate.id,
-                start_time=activity_to_cancel_start_time,
+                user_time=activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
                 type=ActivityType.WORK,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 14),
+                user_time=datetime(2020, 2, 7, 14),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
@@ -357,15 +357,15 @@ class TestLogActivities(BaseTest):
         team_mate = self.team_mates[2]
         self.submit_all_day_events.test(self)
 
-        first_activity_to_cancel_start_time = datetime(2020, 2, 7, 18)
+        first_activity_to_cancel_user_time = datetime(2020, 2, 7, 18)
         first_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == first_activity_to_cancel_start_time,
+            Activity.user_time == first_activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
-        second_activity_to_cancel_start_time = datetime(2020, 2, 7, 19)
+        second_activity_to_cancel_user_time = datetime(2020, 2, 7, 19)
         second_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == second_activity_to_cancel_start_time,
+            Activity.user_time == second_activity_to_cancel_user_time,
             Activity.user_id == team_mate.id,
         ).one()
 
@@ -388,14 +388,14 @@ class TestLogActivities(BaseTest):
             .should_dismiss(
                 type=ActivityType.SUPPORT,
                 user_id=team_mate.id,
-                start_time=first_activity_to_cancel_start_time,
+                user_time=first_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_dismiss(
                 type=ActivityType.SUPPORT,
                 user_id=team_mate.id,
-                start_time=second_activity_to_cancel_start_time,
+                user_time=second_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 is_driver_switch=True,
                 dismissed_at=datetime(2020, 2, 7, 21),
@@ -403,14 +403,14 @@ class TestLogActivities(BaseTest):
             .should_dismiss(
                 type=ActivityType.REST,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 20),
+                user_time=datetime(2020, 2, 7, 20),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 21),
             )
             .should_create(
                 type=ActivityType.REST,
                 user_id=team_mate.id,
-                start_time=datetime(2020, 2, 7, 16),
+                user_time=datetime(2020, 2, 7, 16),
                 dismissed_at=None,
                 event_time=datetime(2020, 2, 7, 21),
             )
@@ -426,15 +426,15 @@ class TestLogActivities(BaseTest):
 
         team = [self.team_leader] + self.team_mates[:-1]
 
-        first_activity_to_cancel_start_time = datetime(2020, 2, 7, 18)
+        first_activity_to_cancel_user_time = datetime(2020, 2, 7, 18)
         first_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == first_activity_to_cancel_start_time,
+            Activity.user_time == first_activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
-        second_activity_to_cancel_start_time = datetime(2020, 2, 7, 19)
+        second_activity_to_cancel_user_time = datetime(2020, 2, 7, 19)
         second_activity_to_cancel = Activity.query.filter(
-            Activity.start_time == second_activity_to_cancel_start_time,
+            Activity.user_time == second_activity_to_cancel_user_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -459,7 +459,7 @@ class TestLogActivities(BaseTest):
                 if team_member == self.team_leader
                 else ActivityType.SUPPORT,
                 user_id=team_member.id,
-                start_time=first_activity_to_cancel_start_time,
+                user_time=first_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 dismissed_at=datetime(2020, 2, 7, 22),
             ).should_dismiss(
@@ -467,7 +467,7 @@ class TestLogActivities(BaseTest):
                 if team_member == self.team_mates[0]
                 else ActivityType.SUPPORT,
                 user_id=team_member.id,
-                start_time=second_activity_to_cancel_start_time,
+                user_time=second_activity_to_cancel_user_time,
                 dismiss_type=ActivityDismissType.USER_CANCEL,
                 is_driver_switch=True
                 if team_member == self.team_mates[1]
@@ -476,13 +476,13 @@ class TestLogActivities(BaseTest):
             ).should_dismiss(
                 type=ActivityType.REST,
                 user_id=team_member.id,
-                start_time=datetime(2020, 2, 7, 20),
+                user_time=datetime(2020, 2, 7, 20),
                 dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
                 dismissed_at=datetime(2020, 2, 7, 22),
             ).should_create(
                 type=ActivityType.REST,
                 user_id=team_member.id,
-                start_time=datetime(2020, 2, 7, 16),
+                user_time=datetime(2020, 2, 7, 16),
                 dismissed_at=None,
             )
         test_case.test(self)
