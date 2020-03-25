@@ -32,10 +32,6 @@ class TeamEnrollment(UserEventBaseModel, Revisable):
         ),
     )
 
-    def to_dict(self):
-        base_dict = super().to_dict()
-        return dict(**base_dict, type=self.type,)
-
     def revise(self, revision_time, **updated_props):
         if self.is_dismissed:
             raise ValueError(f"You can't revise the already dismissed {self}")

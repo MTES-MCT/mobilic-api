@@ -208,15 +208,6 @@ class User(BaseModel):
         self.refresh_token_nonce = uuid4().hex
         return self.refresh_token_nonce
 
-    def to_dict(self):
-        return dict(
-            id=self.id,
-            email=self.email,
-            company=self.company.to_dict(),
-            first_name=self.first_name,
-            last_name=self.last_name,
-        )
-
     @property
     def display_name(self):
         return f"{self.first_name} {self.last_name}"

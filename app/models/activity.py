@@ -71,10 +71,6 @@ class Activity(UserEventBaseModel, Revisable):
     # - version (each version represents a set of changes to the day activities)
     # OR revises (indicates which prior activity the current one revises)
 
-    def to_dict(self):
-        base_dict = super().to_dict()
-        return dict(**base_dict, type=self.type, start_time=self.start_time)
-
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 

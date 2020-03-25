@@ -1,5 +1,3 @@
-import graphene
-
 from app import db
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,

@@ -21,10 +21,6 @@ class Expenditure(UserEventBaseModel, Dismissable):
 
     type = enum_column(ExpenditureType, nullable=False)
 
-    def to_dict(self):
-        base_dict = super().to_dict()
-        return dict(**base_dict, type=self.type,)
-
 
 class ExpenditureOutput(BaseSQLAlchemyObjectType):
     class Meta:
