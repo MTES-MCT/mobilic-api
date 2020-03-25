@@ -100,7 +100,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
         )
 
-    def revise(self, revision_time, **updated_props):
+    def revise(self, revision_time, revision_comment=None, **updated_props):
         from app.domain.log_activities import log_activity
 
         if self.is_dismissed:
@@ -126,7 +126,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
                 f"Could not create revision for {self} with arguments {updated_props}"
             )
             return None
-        self.set_revision(revision)
+        self.set_revision(revision, revision_comment)
         db.session.add(revision)
         return revision
 

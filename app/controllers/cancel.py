@@ -43,6 +43,7 @@ class CancelEventInput(graphene.InputObjectType):
     event_time = graphene.Field(
         DateTimeWithTimeStampSerialization, required=True
     )
+    comment = graphene.Field(graphene.String, required=False)
 
 
 class CancelEvents(graphene.Mutation):
@@ -76,7 +77,9 @@ class CancelEvents(graphene.Mutation):
                     for db_event in events_to_cancel:
                         app.logger.info(f"Cancelling {db_event}")
                         db_event.dismiss(
-                            DismissType.USER_CANCEL, event.event_time
+                            DismissType.USER_CANCEL,
+                            event.event_time,
+                            event.comment,
                         )
                         db.session.add(db_event)
                         if cls.model == Activity:

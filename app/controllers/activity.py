@@ -103,6 +103,7 @@ class ActivityRevisionInput(graphene.InputObjectType):
     user_time = graphene.Field(
         DateTimeWithTimeStampSerialization, required=True
     )
+    comment = graphene.Field(graphene.String, required=False)
 
 
 class ReviseActivities(graphene.Mutation):
@@ -138,7 +139,9 @@ class ReviseActivities(graphene.Mutation):
                     for db_activity in activities_to_revise:
                         app.logger.info(f"Revising {db_activity}")
                         new_activity = db_activity.revise(
-                            event.event_time, user_time=event.user_time
+                            event.event_time,
+                            revision_comment=event.comment,
+                            user_time=event.user_time,
                         )
                         if new_activity:
                             revised_activity_neighbours = (

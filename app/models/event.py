@@ -86,6 +86,8 @@ class Dismissable:
     dismiss_type = enum_column(DismissType, nullable=True)
     dismiss_received_at = db.Column(db.DateTime, nullable=True)
 
+    dismiss_comment = db.Column(db.TEXT, nullable=True)
+
     @property
     def is_dismissed(self):
         return self.dismissed_at is not None
@@ -104,10 +106,11 @@ class Dismissable:
             backref="dismissed_" + cls.backref_base_name,
         )
 
-    def dismiss(self, type, dismiss_time=None):
+    def dismiss(self, type, dismiss_time=None, comment=None):
         self.dismiss_received_at = datetime.now()
         if not dismiss_time:
             dismiss_time = self.dismiss_received_at
+        self.dismiss_comment = comment
         self.dismiss_type = type
         self.dismissed_at = dismiss_time
         self.dismiss_author = current_user
@@ -148,6 +151,8 @@ class UserEventBaseModel(EventBaseModel):
 
 
 class Revisable(Dismissable):
+    revision_comment = db.Column(db.TEXT, nullable=True)
+
     @declared_attr
     def revisee_id(cls):
         return db.Column(
@@ -169,5 +174,6 @@ class Revisable(Dismissable):
     def is_revised(self):
         return len([e for e in self.revised_by if e.authorized_submit]) > 0
 
-    def set_revision(self, revision):
+    def set_revision(self, revision, comment=None):
         revision.revisee = self
+        revision.revision_comment = comment
