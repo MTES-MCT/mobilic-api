@@ -11,8 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm.session import Session
 
-from app.models import Activity, Mission
-
 # revision identifiers, used by Alembic.
 revision = "cc9bc7a3b096"
 down_revision = "3030266fdd01"
@@ -23,39 +21,63 @@ depends_on = None
 def _migrate_mission():
     session = Session(bind=op.get_bind())
     missions_to_create = defaultdict(list)
-    activities = sorted(
-        session.query(Activity).all(), key=lambda a: a.start_time
+    activities = session.execute(
+        """
+        SELECT a.submitter_id, a.start_time, a.mission, a.event_time, u.company_id
+        FROM activity a
+        JOIN "user" u
+        ON a.submitter_id = u.id
+        """
     )
+    submitter_to_company = {}
 
-    for activity in activities:
-        submitter = activity.submitter
-        if activity.mission:
+    for activity in sorted(activities, key=lambda a: a[1]):
+        submitter_id = activity[0]
+        submitter_to_company[submitter_id] = activity[4]
+        if activity[2]:
             if (
-                not missions_to_create[submitter]
-                or missions_to_create[submitter][-1]["name"]
-                != activity.mission
+                not missions_to_create[submitter_id]
+                or missions_to_create[submitter_id][-1]["name"] != activity[2]
             ):
-                missions_to_create[submitter].append(
+                missions_to_create[submitter_id].append(
                     {
-                        "name": activity.mission,
-                        "start_time": activity.start_time,
-                        "event_time": activity.event_time,
+                        "name": activity[2],
+                        "start_time": activity[1],
+                        "event_time": activity[3],
                     }
                 )
             else:
-                missions_to_create[submitter][-1]["event_time"] = min(
-                    missions_to_create[submitter][-1]["event_time"],
-                    activity.event_time,
+                missions_to_create[submitter_id][-1]["event_time"] = min(
+                    missions_to_create[submitter_id][-1]["event_time"],
+                    activity[3],
                 )
 
-    for submitter, missions in missions_to_create.items():
+    for submitter_id, missions in missions_to_create.items():
         for mission in missions:
-            session.add(
-                Mission(
-                    submitter=submitter,
-                    company_id=submitter.company_id,
-                    **mission,
+            session.execute(
+                """
+                INSERT INTO mission(
+                    creation_time,
+                    name,
+                    start_time,
+                    event_time,
+                    submitter_id,
+                    company_id
                 )
+                VALUES(
+                    NOW(),
+                    :name,
+                    :start_time,
+                    :event_time,
+                    :submitter_id,
+                    :company_id
+                )
+                """,
+                dict(
+                    submitter_id=submitter_id,
+                    company_id=submitter_to_company[submitter_id],
+                    **mission,
+                ),
             )
 
     session.flush()

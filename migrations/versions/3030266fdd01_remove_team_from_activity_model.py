@@ -10,11 +10,9 @@ from datetime import timedelta
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm.session import Session
 
-from app.models import Activity, TeamEnrollment
-from app.models.team_enrollment import TeamEnrollmentType
+from app.models import TeamEnrollment
 
 # revision identifiers, used by Alembic.
 revision = "3030266fdd01"
@@ -26,19 +24,37 @@ depends_on = None
 def _migrate_team():
     session = Session(bind=op.get_bind())
     teams_to_create = defaultdict(lambda: defaultdict(list))
-    for activity in session.query(Activity).all():
-        submitter = activity.submitter
-        latest_day_end = submitter.latest_acknowledged_day_end_at(
-            activity.start_time
-        )
-        teams_to_create[activity.submitter][latest_day_end].append(
-            (activity.team, activity.start_time)
-        )
+    activities = session.execute(
+        """
+        SELECT a.submitter_id, a.start_time, a.team, a.type, a.dismiss_type, a2.id, u.company_id
+        FROM activity a
+        JOIN "user" u
+        ON a.submitter_id = u.id 
+        LEFT JOIN activity a2
+        ON a2.revisee_id = a.id
+        """
+    )
+    submitter_to_company = {}
+    activities_per_submitter = defaultdict(list)
 
-    for submitter in teams_to_create:
-        for latest_day_end in teams_to_create[submitter]:
+    for activity in activities:
+        activities_per_submitter[activity[0]].append(activity)
+        submitter_to_company[activity[0]] = activity[6]
+
+    for submitter_id, submitter_activities in activities_per_submitter.items():
+        latest_day_end = None
+        for activity in sorted(submitter_activities, key=lambda a: a[1]):
+            teams_to_create[submitter_id][latest_day_end].append(
+                (activity[2], activity[1])
+            )
+            if activity[3] == "rest" and not activity[4] and not activity[5]:
+                latest_day_end = activity[1]
+
+    for submitter_id in teams_to_create:
+        for latest_day_end in teams_to_create[submitter_id]:
             sorted_teams = sorted(
-                teams_to_create[submitter][latest_day_end], key=lambda t: t[1]
+                teams_to_create[submitter_id][latest_day_end],
+                key=lambda t: t[1],
             )
             reduced_sorted_teams = sorted_teams[:1]
             for t in sorted_teams[1:]:
@@ -51,27 +67,47 @@ def _migrate_team():
                 new_team_mate_ids = [
                     uid
                     for uid in team[0]
-                    if uid != submitter.id and uid not in previous_team[0]
+                    if uid != submitter_id and uid not in previous_team[0]
                 ]
                 removed_team_mate_ids = [
                     uid
                     for uid in previous_team[0]
-                    if uid != submitter.id and uid not in team[0]
+                    if uid != submitter_id and uid not in team[0]
                 ]
                 event_time = team[1] - timedelta(seconds=1)
 
             for user_id in removed_team_mate_ids + new_team_mate_ids:
-                session.add(
-                    TeamEnrollment(
-                        type=TeamEnrollmentType.REMOVE
+                session.execute(
+                    """
+                    INSERT INTO team_enrollment(
+                        creation_time,
+                        type,
+                        action_time,
+                        event_time,
+                        submitter_id,
+                        user_id,
+                        company_id
+                    )
+                    VALUES(
+                        NOW(),
+                        :type,
+                        :action_time,
+                        :event_time,
+                        :submitter_id,
+                        :user_id,
+                        :company_id
+                    )
+                    """,
+                    dict(
+                        type="remove"
                         if user_id in removed_team_mate_ids
-                        else TeamEnrollmentType.ENROLL,
+                        else "enroll",
                         action_time=event_time,
                         event_time=event_time,
-                        submitter_id=submitter.id,
+                        submitter_id=submitter_id,
                         user_id=user_id,
-                        company_id=submitter.company_id,
-                    )
+                        company_id=submitter_to_company[submitter_id],
+                    ),
                 )
 
     session.flush()

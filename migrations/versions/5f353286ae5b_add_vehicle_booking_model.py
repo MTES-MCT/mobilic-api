@@ -11,8 +11,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm.session import Session
 
-from app.models import Activity, VehicleBooking
-
 # revision identifiers, used by Alembic.
 revision = "5f353286ae5b"
 down_revision = "cc9bc7a3b096"
@@ -23,41 +21,68 @@ depends_on = None
 def _migrate_vehicle_booking():
     session = Session(bind=op.get_bind())
     vehicle_bookings_to_create = defaultdict(list)
-    activities = sorted(
-        session.query(Activity).all(), key=lambda a: a.start_time
+    activities = session.execute(
+        """
+        SELECT a.submitter_id, a.start_time, a.vehicle_registration_number, a.event_time, u.company_id
+        FROM activity a
+        JOIN "user" u
+        ON a.submitter_id = u.id
+        """
     )
+    submitter_to_company = {}
 
-    for activity in activities:
-        submitter = activity.submitter
-        if activity.vehicle_registration_number:
+    for activity in sorted(activities, key=lambda a: a[1]):
+        submitter_id = activity[0]
+        submitter_to_company[submitter_id] = activity[4]
+        if activity[2]:
             if (
-                not vehicle_bookings_to_create[submitter]
-                or vehicle_bookings_to_create[submitter][-1][
+                not vehicle_bookings_to_create[submitter_id]
+                or vehicle_bookings_to_create[submitter_id][-1][
                     "registration_number"
                 ]
-                != activity.vehicle_registration_number
+                != activity[2]
             ):
-                vehicle_bookings_to_create[submitter].append(
+                vehicle_bookings_to_create[submitter_id].append(
                     {
-                        "registration_number": activity.vehicle_registration_number,
-                        "start_time": activity.start_time,
-                        "event_time": activity.event_time,
+                        "registration_number": activity[2],
+                        "start_time": activity[1],
+                        "event_time": activity[3],
                     }
                 )
             else:
-                vehicle_bookings_to_create[submitter][-1]["event_time"] = min(
-                    vehicle_bookings_to_create[submitter][-1]["event_time"],
-                    activity.event_time,
+                vehicle_bookings_to_create[submitter_id][-1][
+                    "event_time"
+                ] = min(
+                    vehicle_bookings_to_create[submitter_id][-1]["event_time"],
+                    activity[3],
                 )
 
-    for submitter, vehicle_bookings in vehicle_bookings_to_create.items():
-        for vehicle_booking in vehicle_bookings:
-            session.add(
-                VehicleBooking(
-                    submitter=submitter,
-                    company_id=submitter.company_id,
-                    **vehicle_booking,
+    for submitter_id, vehicle_bookings in vehicle_bookings_to_create.items():
+        for vehicle_booking in vehicle_bookings_to_create:
+            session.execute(
+                """
+                INSERT INTO vehicle_booking(
+                    creation_time,
+                    registration_number,
+                    start_time,
+                    event_time,
+                    submitter_id,
+                    company_id
                 )
+                VALUES(
+                    NOW(),
+                    :registration_number,
+                    :start_time,
+                    :event_time,
+                    :submitter_id,
+                    :company_id
+                )
+                """,
+                dict(
+                    submitter_id=submitter_id,
+                    company_id=submitter_to_company[submitter_id],
+                    **vehicle_booking,
+                ),
             )
 
     session.flush()
