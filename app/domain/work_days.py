@@ -31,16 +31,31 @@ class WorkDay:
 
     @property
     def activity_timers(self):
+        if not self.activities:
+            return {}
         timers = defaultdict(lambda: 0)
-        timers["total_service"] = to_timestamp(self.end_time) - to_timestamp(
-            self.start_time
+        end_timestamp = (
+            to_timestamp(self.end_time)
+            if self.is_complete
+            else to_timestamp(datetime.now())
         )
+        timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
         for activity, next_activity in zip(
             self.activities[:-1], self.activities[1:]
         ):
             timers[activity.type] += to_timestamp(
                 next_activity.user_time
             ) - to_timestamp(activity.user_time)
+        if not self.is_complete:
+            latest_activity = self.activities[-1]
+            timers[latest_activity.type] += end_timestamp - to_timestamp(
+                activity.user_time
+            )
+        timers["total_work"] = (
+            timers[ActivityType.DRIVE]
+            + timers[ActivityType.WORK]
+            + timers[ActivityType.SUPPORT]
+        )
         return timers
 
     @property
