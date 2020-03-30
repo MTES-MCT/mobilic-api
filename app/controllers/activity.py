@@ -80,7 +80,6 @@ class ActivityLog(graphene.Mutation):
                     driver=User.query.get(group_activity.driver_id)
                     if group_activity.driver_id
                     else None,
-                    vehicle_registration_number=group_activity.vehicle_registration_number,
                     comment=group_activity.comment,
                 )
 

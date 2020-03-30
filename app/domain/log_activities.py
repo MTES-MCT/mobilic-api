@@ -10,14 +10,7 @@ from app.models.team_enrollment import TeamEnrollmentType
 
 
 def log_group_activity(
-    submitter,
-    users,
-    type,
-    event_time,
-    user_time,
-    driver,
-    vehicle_registration_number,
-    comment,
+    submitter, users, type, event_time, user_time, driver, comment,
 ):
     for user in users:
         activity = log_activity(
@@ -26,7 +19,6 @@ def log_group_activity(
             user_time=user_time,
             user=user,
             submitter=submitter,
-            vehicle_registration_number=vehicle_registration_number,
             driver=driver,
             comment=comment,
         )
@@ -141,14 +133,7 @@ def check_and_fix_neighbour_inconsistencies(
 
 
 def log_activity(
-    submitter,
-    user,
-    type,
-    event_time,
-    user_time,
-    vehicle_registration_number,
-    driver,
-    comment=None,
+    submitter, user, type, event_time, user_time, driver, comment=None,
 ):
     if type == ActivityType.DRIVE:
         # Default to marking the submitter as driver if no driver is provided
@@ -190,7 +175,6 @@ def log_activity(
         user=user,
         company_id=submitter.company_id,
         submitter=submitter,
-        vehicle_registration_number=vehicle_registration_number,
         driver=driver,
         creation_comment=comment,
     )

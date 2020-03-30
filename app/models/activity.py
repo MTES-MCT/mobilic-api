@@ -51,13 +51,8 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 
     type = enum_column(ActivityType, nullable=False)
 
-    vehicle_registration_number = db.Column(db.String(255))
-    mission = db.Column(db.String(255))
-
     driver_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=False)
     driver = db.relationship("User", foreign_keys=[driver_id])
-
-    team = db.Column(db.ARRAY(db.Integer), nullable=True)
 
     is_driver_switch = db.Column(db.Boolean, nullable=True, default=None)
 
