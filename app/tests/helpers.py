@@ -125,10 +125,13 @@ EVENT_SUBMIT_OPERATIONS = {
         "query": """
                 mutation ($data: [SingleActivityInput]!) {
                     logActivities (data: $data) {
-                        activities {
-                            id
-                            type
-                            userTime
+                        user
+                         {
+                            activities {
+                                id
+                                type
+                                userTime
+                            }
                         }
                     }
                 }
