@@ -6,6 +6,7 @@ from app import app
 from app.controllers.cancel import CancelEvents, get_all_associated_events
 from app.controllers.event import preload_relevant_resources_for_event_logging
 from app.controllers.utils import atomic_transaction
+from app.data_access.user import UserOutput
 from app.domain.log_activities import (
     log_group_activity,
     check_and_fix_neighbour_inconsistencies,
@@ -18,11 +19,8 @@ from app.helpers.graphene_types import (
     DateTimeWithTimeStampSerialization,
 )
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
-from app.models.mission import MissionOutput
-from app.models.team_enrollment import TeamEnrollmentOutput
 from app.models.user import User
 from app.controllers.event import EventInput
-from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class SingleActivityInput(EventInput):
@@ -39,10 +37,7 @@ class ActivityLog(graphene.Mutation):
     class Arguments:
         data = graphene.List(SingleActivityInput, required=True)
 
-    activities = graphene.List(ActivityOutput)
-    team_enrollments = graphene.List(TeamEnrollmentOutput)
-    vehicle_bookings = graphene.List(VehicleBookingOutput)
-    missions = graphene.List(MissionOutput)
+    user = graphene.Field(UserOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -89,12 +84,7 @@ class ActivityLog(graphene.Mutation):
                     comment=group_activity.comment,
                 )
 
-        return ActivityLog(
-            activities=current_user.acknowledged_activities,
-            missions=current_user.missions,
-            vehicle_bookings=current_user.vehicle_bookings,
-            team_enrollments=current_user.acknowledged_submitted_team_enrollments,
-        )
+        return ActivityLog(user=User.query.get(current_user.id))
 
 
 class CancelActivities(CancelEvents):
