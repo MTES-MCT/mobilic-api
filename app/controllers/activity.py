@@ -30,6 +30,7 @@ class SingleActivityInput(EventInput):
     user_time = DateTimeWithTimeStampSerialization(required=False)
     driver_id = graphene.Int(required=False)
     vehicle_registration_number = graphene.String(required=False)
+    vehicle_id = graphene.Int(required=False)
     mission = graphene.String(required=False)
     comment = graphene.String(required=False)
 
@@ -63,8 +64,12 @@ class ActivityLog(graphene.Mutation):
                         event_time=group_activity.event_time,
                         submitter=current_user,
                     )
-                if group_activity.vehicle_registration_number:
+                if (
+                    group_activity.vehicle_registration_number
+                    or group_activity.vehicle_id
+                ):
                     log_vehicle_booking(
+                        vehicle_id=group_activity.vehicle_id,
                         registration_number=group_activity.vehicle_registration_number,
                         user_time=user_time,
                         event_time=group_activity.event_time,
