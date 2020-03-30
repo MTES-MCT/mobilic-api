@@ -5,4 +5,5 @@ from .expenditure import Expenditure
 from .comment import Comment
 from .team_enrollment import TeamEnrollment
 from .mission import Mission
+from .vehicle import Vehicle
 from .vehicle_booking import VehicleBooking

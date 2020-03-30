@@ -13,7 +13,9 @@ from app import db
 class User(BaseModel):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
-    company_id = db.Column(db.Integer, db.ForeignKey("company.id"), index=True)
+    company_id = db.Column(
+        db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
+    )
     company = db.relationship("Company", backref="users", lazy="selectin")
     company_name_to_resolve = db.Column(db.String(255))
     refresh_token_nonce = db.Column(db.String(255), default=None)
@@ -142,6 +144,11 @@ class User(BaseModel):
                 ):
                     enrollable_coworkers.append(coworker)
         return enrollable_coworkers
+
+    @property
+    def bookable_vehicles(self):
+        # TODO : add logic that hides vehicles currently booked by other people
+        return self.company.vehicles
 
     @property
     def acknowledged_team_enrollment_periods(self):
