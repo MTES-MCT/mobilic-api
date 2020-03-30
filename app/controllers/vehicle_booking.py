@@ -9,11 +9,12 @@ from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 from app.models.user import User
 from app.controllers.event import EventInput
+from app.models.vehicle import VehicleOutput
 from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class VehicleBookingInput(EventInput):
-    vehicle_id = graphene.Field(graphene.Int)
+    vehicle_id = graphene.Field(graphene.Int, required=False)
     registration_number = graphene.Field(graphene.String, required=False)
     user_time = DateTimeWithTimeStampSerialization(required=False)
 
@@ -23,6 +24,7 @@ class VehicleBookingLog(graphene.Mutation):
         data = graphene.List(VehicleBookingInput, required=True)
 
     vehicle_bookings = graphene.List(VehicleBookingOutput)
+    bookable_vehicles = graphene.List(VehicleOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -46,5 +48,6 @@ class VehicleBookingLog(graphene.Mutation):
                 )
 
         return VehicleBookingLog(
-            vehicle_bookings=current_user.vehicle_bookings
+            vehicle_bookings=current_user.vehicle_bookings,
+            bookable_vehicles=current_user.bookable_vehicles,
         )
