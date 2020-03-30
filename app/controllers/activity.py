@@ -11,6 +11,7 @@ from app.domain.log_activities import (
     check_and_fix_neighbour_inconsistencies,
 )
 from app.domain.log_missions import log_mission
+from app.domain.log_vehicle_booking import log_vehicle_booking
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (
     graphene_enum_type,
@@ -58,6 +59,13 @@ class ActivityLog(graphene.Mutation):
                 if group_activity.mission:
                     log_mission(
                         name=group_activity.mission,
+                        user_time=user_time,
+                        event_time=group_activity.event_time,
+                        submitter=current_user,
+                    )
+                if group_activity.vehicle_registration_number:
+                    log_vehicle_booking(
+                        registration_number=group_activity.vehicle_registration_number,
                         user_time=user_time,
                         event_time=group_activity.event_time,
                         submitter=current_user,
