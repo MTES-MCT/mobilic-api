@@ -49,7 +49,7 @@ class WorkDay:
         if not self.is_complete:
             latest_activity = self.activities[-1]
             timers[latest_activity.type] += end_timestamp - to_timestamp(
-                activity.user_time
+                latest_activity.user_time
             )
         timers["total_work"] = (
             timers[ActivityType.DRIVE]
