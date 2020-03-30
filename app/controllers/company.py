@@ -1,5 +1,5 @@
 import graphene
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 
 from app.data_access.company import CompanyOutput
 from app.domain.permissions import belongs_to_company, company_admin
@@ -11,9 +11,13 @@ from app import db, app
 
 
 def _query_company_with_relations(id):
-    return Company.query.options(
-        joinedload(Company.users).joinedload(User.activities)
-    ).get(id)
+    return (
+        Company.query.options(
+            selectinload(Company.users).selectinload(User.activities)
+        )
+        .options(selectinload(Company.vehicles))
+        .get(id)
+    )
 
 
 class CompanySignup(graphene.Mutation):
