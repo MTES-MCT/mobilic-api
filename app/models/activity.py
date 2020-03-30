@@ -113,7 +113,6 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             user_time=self.user_time,
             user=self.user,
             submitter=current_user,
-            vehicle_registration_number=self.vehicle_registration_number,
             driver=self.driver,
         )
         dict_.update(updated_props)
