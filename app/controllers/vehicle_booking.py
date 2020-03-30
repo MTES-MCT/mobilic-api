@@ -13,7 +13,7 @@ from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class VehicleBookingInput(EventInput):
-    registration_number = graphene.Field(graphene.String)
+    vehicle_id = graphene.Field(graphene.Int)
     user_time = DateTimeWithTimeStampSerialization(required=False)
 
 
@@ -40,7 +40,8 @@ class VehicleBookingLog(graphene.Mutation):
                     user_time=vehicle_booking.user_time
                     or vehicle_booking.event_time,
                     event_time=vehicle_booking.event_time,
-                    registration_number=vehicle_booking.registration_number,
+                    vehicle_id=vehicle_booking.vehicle_id,
+                    registration_number=None,
                 )
 
         return VehicleBookingLog(
