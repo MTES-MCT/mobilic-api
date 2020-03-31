@@ -53,5 +53,6 @@ class VehicleEdition(graphene.Mutation):
     def mutate(cls, _, info, alias, id):
         vehicle = Vehicle.query.get(id)
         vehicle.alias = alias
+        db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
         return VehicleEdition(vehicle=vehicle)
