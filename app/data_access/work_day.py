@@ -15,3 +15,4 @@ class WorkDayOutput(graphene.ObjectType):
     vehicle_registration_number = graphene.Field(graphene.String)
     mission = graphene.Field(graphene.String)
     activity_timers = graphene.Field(GenericScalar)
+    was_modified = graphene.Field(graphene.Boolean)

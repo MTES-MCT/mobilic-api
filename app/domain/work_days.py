@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List
 from datetime import datetime
 
+from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
 from app.models import Activity, User, Expenditure, Comment
 from app.models.activity import ActivityType
@@ -14,6 +15,7 @@ class WorkDay:
     activities: List[Activity]
     expenditures: List[Expenditure]
     comments: List[Comment]
+    was_modified: bool = False
 
     @property
     def is_complete(self):
@@ -80,6 +82,13 @@ def group_user_events_by_day(user):
     )
     comments = sorted(user.comments, key=lambda e: e.event_time)
 
+    all_activity_events = sorted(
+        build_activity_modification_list(user), key=lambda a: a.event_time
+    )
+    activity_correction_events = [
+        a for a in all_activity_events if not a.is_automatic_or_real_time
+    ]
+
     work_days = []
     current_work_day = None
     for activity in activities:
@@ -98,6 +107,12 @@ def group_user_events_by_day(user):
         work_days.append(current_work_day)
 
     for idx, day in enumerate(work_days):
+        if idx == 0:
+            last_event_time_of_previous_day = datetime.fromtimestamp(0)
+        else:
+            last_event_time_of_previous_day = (
+                work_days[idx - 1].activities[-1].event_time
+            )
         if idx == len(work_days) - 1:
             next_day_start_time = datetime.now()
         else:
@@ -113,5 +128,17 @@ def group_user_events_by_day(user):
                 for c in comments
                 if day.start_time <= c.event_time < next_day_start_time
             ]
+            last_event_time_of_the_day = day.activities[-1].event_time
+        else:
+            last_event_time_of_the_day = datetime.now()
+
+        correction_events_of_the_day = [
+            e
+            for e in activity_correction_events
+            if last_event_time_of_previous_day
+            < e.activity_start_time
+            <= last_event_time_of_the_day
+        ]
+        day.was_modified = len(correction_events_of_the_day) > 0
 
     return work_days
