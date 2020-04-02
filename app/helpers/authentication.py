@@ -52,7 +52,11 @@ def create_access_tokens_for(user):
     new_refresh_nonce = user.generate_refresh_token_nonce()
     tokens = {
         "access_token": create_access_token(
-            {"id": user.id, "company_admin": user.is_company_admin},
+            {
+                "id": user.id,
+                "company_id": user.company_id,
+                "company_admin": user.is_company_admin,
+            },
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
         ),
         "refresh_token": create_refresh_token(
