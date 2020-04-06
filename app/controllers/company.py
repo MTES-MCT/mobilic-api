@@ -1,5 +1,7 @@
 import graphene
 from sqlalchemy.orm import selectinload
+from flask import request
+from datetime import datetime
 
 from app.data_access.company import CompanyOutput
 from app.domain.permissions import belongs_to_company, company_admin
@@ -54,10 +56,22 @@ class Query(graphene.ObjectType):
     company_admin, get_target_from_args=lambda id, *args, **kwargs: id
 )
 def download_activity_report(id):
+    try:
+        min_date = request.args.get("min_date")
+        min_date = datetime.fromisoformat(min_date)
+    except Exception:
+        min_date = None
+
     company = _query_company_with_relations(id)
     app.logger.info(f"Downloading activity report for {company}")
     all_users_work_days = []
     for user in company.users:
         all_users_work_days += group_user_events_by_day(user)
 
+    if min_date:
+        all_users_work_days = [
+            wd
+            for wd in all_users_work_days
+            if not wd.end_time or wd.end_time >= min_date
+        ]
     return send_work_days_as_excel(all_users_work_days)

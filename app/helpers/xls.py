@@ -22,26 +22,17 @@ EXCEL_MIMETYPE = (
 
 
 columns_in_main_sheet = [
-    ("Employé", lambda wday: wday.user.display_name, None),
-    ("Jour", lambda wday: wday.start_time, "date_format"),
-    (
-        "Véhicule(s)",
-        lambda wday: ", ".join([v.name for v in wday.vehicles]),
-        None,
-    ),
-    (
-        "Mission(s)",
-        lambda wday: ", ".join([m.name for m in wday.missions]),
-        None,
-    ),
-    ("Début", lambda wday: wday.start_time, "time_format"),
-    ("Fin", lambda wday: wday.end_time, "time_format"),
+    ("Employé", lambda wday: wday.user.display_name, None, 30),
+    ("Jour", lambda wday: wday.start_time, "date_format", 20),
+    ("Début", lambda wday: wday.start_time, "time_format", 15),
+    ("Fin", lambda wday: wday.end_time, "time_format", 15),
     (
         "Conduite",
         lambda wday: timedelta(
             milliseconds=wday.activity_timers[ActivityType.DRIVE]
         ),
         "duration_format",
+        10,
     ),
     (
         "Accompagnement",
@@ -49,6 +40,7 @@ columns_in_main_sheet = [
             milliseconds=wday.activity_timers[ActivityType.SUPPORT]
         ),
         "duration_format",
+        10,
     ),
     (
         "Autre tâche",
@@ -56,6 +48,7 @@ columns_in_main_sheet = [
             milliseconds=wday.activity_timers[ActivityType.WORK]
         ),
         "duration_format",
+        10,
     ),
     (
         "Pause",
@@ -63,6 +56,7 @@ columns_in_main_sheet = [
             milliseconds=wday.activity_timers[ActivityType.BREAK]
         ),
         "duration_format",
+        10,
     ),
     (
         "Repas jour",
@@ -74,6 +68,7 @@ columns_in_main_sheet = [
             ]
         ),
         None,
+        10,
     ),
     (
         "Repas nuit",
@@ -85,6 +80,7 @@ columns_in_main_sheet = [
             ]
         ),
         None,
+        10,
     ),
     (
         "Découchage",
@@ -96,19 +92,26 @@ columns_in_main_sheet = [
             ]
         ),
         None,
+        10,
+    ),
+    (
+        "Véhicule(s)",
+        lambda wday: ", ".join([v.name for v in wday.vehicles]),
+        None,
+        30,
+    ),
+    (
+        "Mission(s)",
+        lambda wday: ", ".join([m.name for m in wday.missions]),
+        None,
+        30,
     ),
     (
         "Commentaires",
         lambda wday: "\n".join([" - " + c.content for c in wday.comments]),
         None,
+        50,
     ),
-]
-
-columns_in_user_sheet = [
-    ("Activité", lambda activity: ACTIVITY_TYPE_LABEL[activity.type], None),
-    ("Jour", lambda activity: activity.user_time, "date_format"),
-    ("Heure", lambda activity: activity.user_time, "time_format"),
-    ("Saisi par", lambda activity: activity.submitter.display_name, None),
 ]
 
 
@@ -128,38 +131,19 @@ def send_work_days_as_excel(user_wdays):
     for work_day in complete_work_days:
         wdays_by_user[work_day.user].append(work_day)
 
-    main_sheet = wb.add_worksheet("Global")
+    main_sheet = wb.add_worksheet("Activité")
     main_row_idx = 1
 
     main_col_idx = 0
-    for (main_col_name, resolver, _) in columns_in_main_sheet:
+    for (main_col_name, resolver, _, column_width) in columns_in_main_sheet:
         main_sheet.write(0, main_col_idx, main_col_name, formats["bold"])
+        main_sheet.set_column(main_col_idx, main_col_idx, column_width)
         main_col_idx += 1
 
-    user_idx = 1
     for user, work_days in wdays_by_user.items():
-        activities = [a for wday in work_days for a in wday.activities]
-        activities.sort(key=lambda a: a.user_time)
-        user_sheet = wb.add_worksheet(user.display_name + f" ({user_idx})")
-        col_idx = 0
-        for (col_name, resolver, style) in columns_in_user_sheet:
-            user_sheet.write(0, col_idx, col_name, formats["bold"])
-            row_idx = 1
-            for act in activities:
-                if style in date_formats:
-                    user_sheet.write_datetime(
-                        row_idx, col_idx, resolver(act), formats.get(style)
-                    )
-                else:
-                    user_sheet.write(
-                        row_idx, col_idx, resolver(act), formats.get(style)
-                    )
-                row_idx += 1
-            col_idx += 1
-
         for wday in sorted(work_days, key=lambda wd: wd.start_time):
             main_col_idx = 0
-            for (main_col_name, resolver, style) in columns_in_main_sheet:
+            for (main_col_name, resolver, style, _) in columns_in_main_sheet:
                 if style in date_formats:
                     main_sheet.write_datetime(
                         main_row_idx,
@@ -177,8 +161,6 @@ def send_work_days_as_excel(user_wdays):
                 main_col_idx += 1
             main_row_idx += 1
 
-        user_idx += 1
-
     wb.close()
 
     output.seek(0)
@@ -187,5 +169,5 @@ def send_work_days_as_excel(user_wdays):
         output,
         mimetype=EXCEL_MIMETYPE,
         as_attachment=True,
-        attachment_filename="temps_de_travail.xlsx",
+        attachment_filename="rapport_activité.xlsx",
     )
