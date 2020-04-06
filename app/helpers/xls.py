@@ -24,8 +24,16 @@ EXCEL_MIMETYPE = (
 columns_in_main_sheet = [
     ("Employé", lambda wday: wday.user.display_name, None),
     ("Jour", lambda wday: wday.start_time, "date_format"),
-    ("Véhicule", lambda wday: wday.vehicle_registration_number, None),
-    ("Mission", lambda wday: wday.mission, None),
+    (
+        "Véhicule(s)",
+        lambda wday: ", ".join([v.name for v in wday.vehicles]),
+        None,
+    ),
+    (
+        "Mission(s)",
+        lambda wday: ", ".join([m.name for m in wday.missions]),
+        None,
+    ),
     ("Début", lambda wday: wday.start_time, "time_format"),
     ("Fin", lambda wday: wday.end_time, "time_format"),
     (

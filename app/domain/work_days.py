@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Expenditure, Comment
+from app.models import Activity, User, Expenditure, Comment, Mission, Vehicle
 from app.models.activity import ActivityType
 
 
@@ -15,6 +15,8 @@ class WorkDay:
     activities: List[Activity]
     expenditures: List[Expenditure]
     comments: List[Comment]
+    missions: List[Mission]
+    vehicles: List[Vehicle]
     was_modified: bool = False
 
     @property
@@ -60,18 +62,6 @@ class WorkDay:
         )
         return timers
 
-    @property
-    def vehicle_registration_number(self):
-        return (
-            self.activities[0].vehicle_registration_number
-            if self.activities
-            else None
-        )
-
-    @property
-    def mission(self):
-        return self.activities[0].mission if self.activities else None
-
 
 def group_user_events_by_day(user):
     activities = sorted(
@@ -98,7 +88,12 @@ def group_user_events_by_day(user):
             current_work_day = None
         elif not current_work_day:
             current_work_day = WorkDay(
-                user=user, activities=[activity], expenditures=[], comments=[]
+                user=user,
+                activities=[activity],
+                expenditures=[],
+                comments=[],
+                missions=[],
+                vehicles=[],
             )
         else:
             current_work_day.activities.append(activity)
@@ -128,6 +123,18 @@ def group_user_events_by_day(user):
                 for c in comments
                 if day.start_time <= c.event_time < next_day_start_time
             ]
+            day.missions = [
+                m
+                for m in user.missions
+                if day.start_time <= m.user_time < day.end_time
+            ]
+            day.vehicles = list(
+                {
+                    vb.vehicle
+                    for vb in user.vehicle_bookings
+                    if day.start_time <= vb.user_time < day.end_time
+                }
+            )
             last_event_time_of_the_day = day.activities[-1].event_time
         else:
             last_event_time_of_the_day = datetime.now()
