@@ -58,7 +58,7 @@ def _migrate_vehicle_booking():
                 )
 
     for submitter_id, vehicle_bookings in vehicle_bookings_to_create.items():
-        for vehicle_booking in vehicle_bookings_to_create:
+        for vehicle_booking in vehicle_bookings:
             session.execute(
                 """
                 INSERT INTO vehicle_booking(
