@@ -19,6 +19,8 @@ class Vehicle(BaseModel):
     )
     submitter = db.relationship("User")
 
+    terminated_at = db.Column(db.DateTime, nullable=True)
+
     __table_args__ = (
         db.UniqueConstraint(
             "company_id",
@@ -30,6 +32,10 @@ class Vehicle(BaseModel):
     @property
     def name(self):
         return self.alias or self.registration_number
+
+    @property
+    def is_terminated(self):
+        return self.terminated_at is not None
 
 
 class VehicleOutput(BaseSQLAlchemyObjectType):

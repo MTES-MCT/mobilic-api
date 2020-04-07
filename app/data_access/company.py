@@ -26,4 +26,4 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_vehicles(self, info):
-        return self.vehicles
+        return [v for v in self.vehicles if not v.is_terminated]

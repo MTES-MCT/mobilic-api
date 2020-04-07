@@ -148,7 +148,7 @@ class User(BaseModel):
     @property
     def bookable_vehicles(self):
         # TODO : add logic that hides vehicles currently booked by other people
-        return self.company.vehicles
+        return [v for v in self.company.vehicles if not v.is_terminated]
 
     @property
     def acknowledged_team_enrollment_periods(self):

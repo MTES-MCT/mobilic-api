@@ -1,4 +1,5 @@
 import graphene
+from datetime import datetime
 from flask_jwt_extended import current_user
 
 from app.domain.permissions import company_admin
@@ -56,3 +57,24 @@ class VehicleEdition(graphene.Mutation):
         db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
         return VehicleEdition(vehicle=vehicle)
+
+
+class VehicleTermination(graphene.Mutation):
+    class Arguments:
+        id = graphene.Int(required=True)
+
+    success = graphene.Field(graphene.Boolean)
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Vehicle.query.get(
+            kwargs["id"]
+        ).company_id,
+    )
+    def mutate(cls, _, info, id):
+        vehicle = Vehicle.query.get(id)
+        vehicle.terminated_at = datetime.now()
+        db.session.commit()
+        app.logger.info(f"Updated vehicle {vehicle}")
+        return VehicleTermination(success=True)

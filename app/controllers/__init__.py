@@ -4,7 +4,11 @@ from app.controllers.comment import CommentLog
 from app.controllers.expenditure import ExpenditureLog, CancelExpenditures
 from app.controllers.mission import MissionLog
 from app.controllers.team_enrollment import TeamEnrollmentLog
-from app.controllers.vehicle import VehicleCreation, VehicleEdition
+from app.controllers.vehicle import (
+    VehicleCreation,
+    VehicleEdition,
+    VehicleTermination,
+)
 from app.controllers.vehicle_booking import VehicleBookingLog
 from app.helpers.authentication import AuthMutation
 from app.controllers.activity import (
@@ -33,6 +37,7 @@ class Mutations(graphene.ObjectType):
     revise_activities = ReviseActivities.Field()
     create_vehicle = VehicleCreation.Field()
     edit_vehicle = VehicleEdition.Field()
+    terminate_vehicle = VehicleTermination.Field()
 
 
 class Query(user.Query, company.Query, graphene.ObjectType):
