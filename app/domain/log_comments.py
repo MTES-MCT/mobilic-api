@@ -27,11 +27,7 @@ def log_comment(submitter, user, event_time, content):
         return
 
     comment = Comment(
-        event_time=event_time,
-        user=user,
-        company_id=submitter.company_id,
-        content=content,
-        submitter=submitter,
+        event_time=event_time, user=user, content=content, submitter=submitter,
     )
     if not can_submitter_log_for_user(submitter, user):
         comment.dismiss(DismissType.UNAUTHORIZED_SUBMITTER)

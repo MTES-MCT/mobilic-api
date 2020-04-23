@@ -36,7 +36,6 @@ def enroll(submitter, user_id, first_name, last_name, user_time, event_time):
         event_time=event_time,
         user=user,
         submitter=submitter,
-        company_id=submitter.company_id,
     )
     db.session.add(team_enrollment)
 
@@ -54,7 +53,6 @@ def enroll(submitter, user_id, first_name, last_name, user_time, event_time):
             type=team_activity_at_enrollment_time.type,
             event_time=event_time,
             user_time=user_time,
-            vehicle_registration_number=team_activity_at_enrollment_time.vehicle_registration_number,
             driver=team_activity_at_enrollment_time.driver,
         )
         check_and_fix_inconsistencies_created_by_new_activity(
@@ -80,7 +78,6 @@ def unenroll(submitter, user_id, user_time, event_time):
         event_time=event_time,
         user=user,
         submitter=submitter,
-        company_id=submitter.company_id,
     )
     db.session.add(team_enrollment)
 
@@ -90,6 +87,5 @@ def unenroll(submitter, user_id, user_time, event_time):
         type=ActivityType.REST,
         event_time=event_time,
         user_time=user_time,
-        vehicle_registration_number=None,
         driver=None,
     )

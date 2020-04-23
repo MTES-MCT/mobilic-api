@@ -173,7 +173,6 @@ def log_activity(
         event_time=event_time,
         user_time=user_time,
         user=user,
-        company_id=submitter.company_id,
         submitter=submitter,
         driver=driver,
         creation_comment=comment,
@@ -194,7 +193,6 @@ def log_activity(
                     event_time=user_time,
                     user_time=user_time,
                     user=u,
-                    company_id=submitter.company_id,
                     submitter=submitter,
                 )
             )

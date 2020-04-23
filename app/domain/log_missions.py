@@ -18,6 +18,5 @@ def log_mission(name, user_time, event_time, submitter):
             user_time=user_time,
             event_time=event_time,
             submitter=submitter,
-            company_id=submitter.company_id,
         )
     )
