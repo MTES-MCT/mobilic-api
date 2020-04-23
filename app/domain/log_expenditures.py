@@ -24,11 +24,7 @@ def log_expenditure(submitter, user, type, event_time):
         return
 
     expenditure = Expenditure(
-        type=type,
-        event_time=event_time,
-        user=user,
-        company_id=submitter.company_id,
-        submitter=submitter,
+        type=type, event_time=event_time, user=user, submitter=submitter,
     )
     if not can_submitter_log_for_user(submitter, user):
         expenditure.dismiss(DismissType.UNAUTHORIZED_SUBMITTER)

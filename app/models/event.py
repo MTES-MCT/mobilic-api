@@ -5,7 +5,7 @@ from flask_jwt_extended import current_user
 from sqlalchemy.orm import backref
 
 from app.models.base import BaseModel
-from app.models import User, Company
+from app.models import User
 from app import db
 from app.models.utils import enum_column
 
@@ -35,21 +35,6 @@ class EventBaseModel(BaseModel):
             # primaryjoin=lambda: User.id == cls.submitter_id,
             foreign_keys=[cls.submitter_id],
             backref="submitted_" + cls.backref_base_name,
-        )
-
-    @declared_attr
-    def company_id(cls):
-        return db.Column(
-            db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
-        )
-
-    @declared_attr
-    def company(cls):
-        return db.relationship(
-            Company,
-            # primaryjoin=lambda: Company.id == cls.user_id,
-            foreign_keys=[cls.company_id],
-            backref=cls.backref_base_name,
         )
 
     @property

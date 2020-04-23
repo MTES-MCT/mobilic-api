@@ -38,7 +38,6 @@ class TestLogActivities(BaseTest):
                     event_time=time,
                     submitter_id=self.team_leader.id,
                     user_id=mate.id,
-                    company_id=self.company.id,
                 )
             )
         db.session.commit()

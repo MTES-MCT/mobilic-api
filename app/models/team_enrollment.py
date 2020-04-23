@@ -45,7 +45,6 @@ class TeamEnrollment(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             event_time=revision_time,
             user_time=self.user_time,
             user=self.user,
-            company_id=self.company_id,
             submitter=current_user,
         )
         dict_.update(updated_props)

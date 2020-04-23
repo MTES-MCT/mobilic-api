@@ -29,10 +29,7 @@ def check_whether_event_should_not_be_logged(
         return EventLogError
 
     event_param_dict = dict(
-        event_time=event_time,
-        submitter=submitter,
-        company_id=submitter.company_id,
-        **kwargs,
+        event_time=event_time, submitter=submitter, **kwargs,
     )
 
     already_existing_logs_for_event = [

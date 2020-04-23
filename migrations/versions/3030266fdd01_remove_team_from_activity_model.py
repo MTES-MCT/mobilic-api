@@ -12,8 +12,6 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm.session import Session
 
-from app.models import TeamEnrollment
-
 # revision identifiers, used by Alembic.
 revision = "3030266fdd01"
 down_revision = "a0c708394373"
