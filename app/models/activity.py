@@ -38,6 +38,7 @@ ActivityDismissType = Enum(
     "ActivityDismissType",
     dict(
         NO_ACTIVITY_SWITCH="no_activity_switch",
+        BREAK_OR_REST_AS_STARTING_ACTIVITY="break_or_rest_as_starting_activity",
         **{
             dismiss_type.name: dismiss_type.value
             for dismiss_type in DismissType
@@ -48,6 +49,13 @@ ActivityDismissType = Enum(
 
 class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
     backref_base_name = "activities"
+
+    mission_id = db.Column(
+        db.Integer, db.ForeignKey("mission.id"), index=True, nullable=False
+    )
+    mission = db.relationship(
+        "Mission", backref=backref("activities", lazy="selectin")
+    )
 
     type = enum_column(ActivityType, nullable=False)
 
@@ -110,6 +118,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         dict_ = dict(
             type=self.type,
             event_time=revision_time,
+            mission=self.mission,
             user_time=self.user_time,
             user=self.user,
             submitter=current_user,
