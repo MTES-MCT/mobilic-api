@@ -59,17 +59,6 @@ class User(BaseModel):
     def acknowledged_deduplicated_activities(self):
         return [a for a in self.acknowledged_activities if not a.is_duplicate]
 
-    @property
-    def acknowledged_expenditures(self):
-        return sorted(
-            [
-                expenditure
-                for expenditure in self.expenditures
-                if expenditure.is_acknowledged
-            ],
-            key=lambda e: e.event_time,
-        )
-
     def latest_acknowledged_activity_at(self, date_time):
         acknowledged_activities = [
             a for a in self.acknowledged_activities if a.user_time <= date_time
@@ -79,7 +68,7 @@ class User(BaseModel):
         return acknowledged_activities[-1]
 
     @property
-    def current_acknowledged_activity(self):
+    def current_activity(self):
         acknowledged_activities = self.acknowledged_activities
         if not acknowledged_activities:
             return None

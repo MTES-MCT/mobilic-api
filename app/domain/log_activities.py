@@ -22,7 +22,7 @@ def log_group_activity(
 
 
 def _check_and_delete_corrected_log(user, user_time):
-    latest_activity_log = user.current_acknowledged_activity
+    latest_activity_log = user.current_activity
     if latest_activity_log:
         if latest_activity_log.user_time >= user_time:
             app.logger.warn("Activity event is revising previous history")
