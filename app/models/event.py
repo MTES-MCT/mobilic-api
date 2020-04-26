@@ -1,7 +1,7 @@
 from enum import Enum
 from datetime import datetime
 from sqlalchemy.ext.declarative import declared_attr
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
 from app.models.base import BaseModel

@@ -1,9 +1,11 @@
+from flask import g, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
     jwt_required,
+    jwt_optional,
     jwt_refresh_token_required,
-    current_user,
+    current_user as current_actor,
     JWTManager,
 )
 import graphene
@@ -11,6 +13,9 @@ from graphql import GraphQLError
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
 from functools import wraps
+from werkzeug.local import LocalProxy
+
+current_user = LocalProxy(lambda: g.get("as_user") or current_actor)
 
 from app.models.user import User
 from app import app, db
@@ -18,7 +23,29 @@ from app import app, db
 jwt = JWTManager(app)
 
 
-class AuthError(Exception):
+def user_loader(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if app.config["ALLOW_INSECURE_IMPERSONATION"] and not g.get("as_user"):
+            as_user_id = request.args.get("_as_user")
+            if as_user_id:
+                try:
+                    as_user_id = int(as_user_id)
+                    g.as_user = User.query.get(as_user_id)
+                except:
+                    pass
+        if g.get("as_user"):
+            return jwt_optional(f)(*args, **kwargs)
+        return jwt_required(f)(*args, **kwargs)
+
+    return wrapper
+
+
+class AuthenticationError(Exception):
+    pass
+
+
+class AuthorizationError(Exception):
     pass
 
 
@@ -98,7 +125,7 @@ class CheckMutation(graphene.Mutation):
     @with_auth_error_handling
     @jwt_required
     def mutate(cls, _, info):
-        return CheckMutation(message="success", user_id=current_user.id)
+        return CheckMutation(message="success", user_id=current_actor.id)
 
 
 class LogoutMutation(graphene.Mutation):
@@ -108,7 +135,7 @@ class LogoutMutation(graphene.Mutation):
     @with_auth_error_handling
     @jwt_required
     def mutate(cls, _, info):
-        current_user.refresh_token_nonce = None
+        current_actor.refresh_token_nonce = None
         db.session.commit()
         return LogoutMutation(message="success")
 
@@ -121,7 +148,7 @@ class RefreshMutation(graphene.Mutation):
     @with_auth_error_handling
     @jwt_refresh_token_required
     def mutate(cls, _, info):
-        return RefreshMutation(**create_access_tokens_for(current_user))
+        return RefreshMutation(**create_access_tokens_for(current_actor))
 
 
 class AuthMutation(graphene.ObjectType):

@@ -1,6 +1,6 @@
 import graphene
 from datetime import datetime
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
 
 from app.domain.permissions import company_admin
 from app.helpers.authorization import with_authorization_policy
