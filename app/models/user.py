@@ -1,4 +1,3 @@
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -87,63 +86,13 @@ class User(BaseModel):
         return acknowledged_activities[-1]
 
     @property
-    def acknowledged_submitted_team_enrollments(self):
-        return sorted(
-            [
-                enrollment
-                for enrollment in self.submitted_team_enrollments
-                if enrollment.is_acknowledged
-            ],
-            key=lambda e: e.user_time,
-        )
-
-    @property
-    def acknowledged_team_enrollments(self):
-        return sorted(
-            [
-                enrollment
-                for enrollment in self.team_enrollments
-                if enrollment.is_acknowledged
-            ],
-            key=lambda e: e.user_time,
-        )
-
-    def acknowledged_team_at(self, date_time):
-        from app.models.team_enrollment import TeamEnrollmentType
-
-        relevant_team_enrollments = [
-            e
-            for e in self.acknowledged_submitted_team_enrollments
-            if date_time >= e.user_time
-        ]
-        relevant_team_enrollments_by_user = defaultdict(list)
-        for rte in relevant_team_enrollments:
-            relevant_team_enrollments_by_user[rte.user].append(rte)
+    def enrollable_coworkers(self):
+        now = datetime.now()
         return [
             u
-            for u in relevant_team_enrollments_by_user
-            if relevant_team_enrollments_by_user[u][-1].type
-            == TeamEnrollmentType.ENROLL
+            for u in self.company.users
+            if not u.is_company_admin and u.mission_at(now) is None
         ]
-
-    @property
-    def enrollable_coworkers(self):
-        from app.models.team_enrollment import TeamEnrollmentType
-
-        enrollable_coworkers = []
-        for coworker in self.company.users:
-            if coworker != self and not coworker.is_company_admin:
-                team_enrollments = coworker.acknowledged_team_enrollments
-                latest_team_enrollment = (
-                    team_enrollments[-1] if team_enrollments else None
-                )
-                if (
-                    not latest_team_enrollment
-                    or latest_team_enrollment.type == TeamEnrollmentType.REMOVE
-                    or latest_team_enrollment.submitter == self
-                ):
-                    enrollable_coworkers.append(coworker)
-        return enrollable_coworkers
 
     @property
     def bookable_vehicles(self):
@@ -151,60 +100,27 @@ class User(BaseModel):
         return [v for v in self.company.vehicles if not v.is_terminated]
 
     @property
-    def acknowledged_team_enrollment_periods(self):
-        from app.models.team_enrollment import TeamEnrollmentType
-
-        periods_by_submitter = defaultdict(list)
-        for e in self.acknowledged_team_enrollments:
-            submitter_periods = periods_by_submitter[e.submitter]
-            if (
-                not submitter_periods or submitter_periods[-1].end_time
-            ) and e.type == TeamEnrollmentType.ENROLL:
-                submitter_periods.append(
-                    TeamEnrollmentPeriod(
-                        submitter=e.submitter, start_time=e.user_time
-                    )
-                )
-            elif (
-                submitter_periods
-                and not submitter_periods[-1].end_time
-                and e.type == TeamEnrollmentType.REMOVE
-            ):
-                submitter_periods[-1].end_time = e.user_time
-
-        periods = []
-        for submitter_periods in periods_by_submitter.values():
-            periods.extend(submitter_periods)
-
-        return sorted(periods, key=lambda p: p.start_time)
-
-    def _get_events_from_team_enrollments(self, event_attr):
-        events_submitted_by_self = getattr(self, event_attr)
-        events_submitted_by_others = []
-        for period in self.acknowledged_team_enrollment_periods:
-            events_submitted_by_others.extend(
-                [
-                    e
-                    for e in getattr(period.submitter, event_attr)
-                    if period.start_time
-                    <= e.user_time
-                    < (period.end_time or datetime(2100, 1, 1))
-                ]
-            )
-        return sorted(
-            events_submitted_by_self + events_submitted_by_others,
-            key=lambda e: e.user_time,
-        )
-
-    @property
     def missions(self):
-        return self._get_events_from_team_enrollments("submitted_missions")
+        sorted_missions = []
+        missions = set()
+        for a in self.acknowledged_activities:
+            if a.mission not in missions:
+                sorted_missions.append(a.mission)
+                missions.add(a.mission)
+        return sorted_missions
 
-    @property
-    def vehicle_bookings(self):
-        return self._get_events_from_team_enrollments(
-            "submitted_vehicle_bookings"
+    def mission_at(self, date_time):
+        from app.models.activity import ActivityType
+
+        latest_activity_at_time = self.latest_acknowledged_activity_at(
+            date_time
         )
+        if (
+            not latest_activity_at_time
+            or latest_activity_at_time.type == ActivityType.REST
+        ):
+            return None
+        return latest_activity_at_time.mission
 
     def revoke_refresh_token(self):
         self.refresh_token_nonce = None
