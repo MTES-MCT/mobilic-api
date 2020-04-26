@@ -13,6 +13,11 @@ class VehicleBooking(DeferrableEventBaseModel):
     )
     vehicle = db.relationship("Vehicle", backref="bookings")
 
+    mission_id = db.Column(
+        db.Integer, db.ForeignKey("mission.id"), index=True, nullable=False
+    )
+    mission = db.relationship("Mission", backref="vehicle_bookings")
+
 
 class VehicleBookingOutput(BaseSQLAlchemyObjectType):
     class Meta:
