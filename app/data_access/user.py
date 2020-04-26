@@ -8,11 +8,8 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import User
 from app.models.activity import ActivityOutput
 from app.models.comment import CommentOutput
-from app.models.expenditure import ExpenditureOutput
 from app.models.mission import MissionOutput
-from app.models.team_enrollment import TeamEnrollmentOutput
 from app.models.vehicle import VehicleOutput
-from app.models.vehicle_booking import VehicleBookingOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
