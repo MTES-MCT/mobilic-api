@@ -81,24 +81,6 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         return not self.is_dismissed and not self.is_revised
 
     @property
-    def previous_and_next_acknowledged_activities(self):
-        previous_activity = None
-        for activity in self.user.acknowledged_activities:
-            if activity.user_time > self.user_time:
-                return previous_activity, activity
-            if activity != self:
-                previous_activity = activity
-        return previous_activity, None
-
-    @property
-    def previous_acknowledged_activity(self):
-        return self.previous_and_next_acknowledged_activities[0]
-
-    @property
-    def next_acknowledged_activity(self):
-        return self.previous_and_next_acknowledged_activities[1]
-
-    @property
     def is_duplicate(self):
         return (
             self.is_driver_switch
@@ -125,12 +107,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             driver=self.driver,
         )
         dict_.update(updated_props)
-        revision = log_activity(**dict_)
-        if not revision:
-            app.logger.warning(
-                f"Could not create revision for {self} with arguments {updated_props}"
-            )
-            return None
+        revision = log_activity(**dict_, bypass_check=True)
         self.set_revision(revision, revision_comment)
         db.session.add(revision)
         return revision
