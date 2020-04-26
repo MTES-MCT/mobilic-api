@@ -7,26 +7,23 @@ class EventLogError:
     pass
 
 
-def check_whether_event_should_not_be_logged(
+def check_whether_event_should_be_logged(
     submitter, event_time, event_history, **kwargs,
 ):
     reception_time = datetime.now()
     if not submitter or not event_time:
-        app.logger.warn("Event is missing some core params : will not log")
-        return EventLogError
+        raise ValueError("Event is missing some core params : will not log")
 
     if (
         event_time - reception_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
-        app.logger.warn(
+        raise ValueError(
             f"Event time is in the future by {event_time - reception_time} : will not log"
         )
-        return EventLogError
 
     if "user_time" in kwargs and kwargs["user_time"] > event_time:
-        app.logger.warn(f"Start time is after event time : will not log")
-        return EventLogError
+        raise ValueError(f"Start time is after event time : will not log")
 
     event_param_dict = dict(
         event_time=event_time, submitter=submitter, **kwargs,
@@ -44,7 +41,4 @@ def check_whether_event_should_not_be_logged(
     ]
 
     if len(already_existing_logs_for_event) > 0:
-        app.logger.info("Event already logged, aborting")
-        return already_existing_logs_for_event[0]
-
-    return None
+        raise ValueError("Event already logged, aborting")

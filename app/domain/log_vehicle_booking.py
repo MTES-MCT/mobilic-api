@@ -1,10 +1,11 @@
 from app import app, db
-from app.domain.log_events import check_whether_event_should_not_be_logged
+from app.domain.log_events import check_whether_event_should_be_logged
+from app.helpers.authentication import AuthorizationError
 from app.models import VehicleBooking, Vehicle
 
 
 def log_vehicle_booking(
-    vehicle_id, registration_number, user_time, event_time, submitter
+    vehicle_id, registration_number, mission, user_time, event_time, submitter
 ):
     if not vehicle_id and not registration_number:
         app.logger.warning(
@@ -22,18 +23,22 @@ def log_vehicle_booking(
         db.session.flush()  # To get a DB id for the new vehicle
         vehicle_id = vehicle.id
 
-    if check_whether_event_should_not_be_logged(
+    # Check that user current mission corresponds to the passed mission
+    if not submitter.mission_at(user_time) == mission:
+        raise AuthorizationError(f"Event is submitted from unauthorized user")
+
+    check_whether_event_should_be_logged(
         submitter=submitter,
         event_time=event_time,
         vehicle_id=vehicle_id,
         event_history=submitter.submitted_vehicle_bookings,
-    ):
-        return
+    )
 
     db.session.add(
         VehicleBooking(
             vehicle_id=vehicle_id,
             user_time=user_time,
+            mission=mission,
             event_time=event_time,
             submitter=submitter,
         )
