@@ -2,7 +2,7 @@ from flask_admin import Admin, AdminIndexView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.contrib.sqla.form import AdminModelConverter
 from flask_admin.form import SecureForm
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
 from flask import abort
 
 from app import app, db

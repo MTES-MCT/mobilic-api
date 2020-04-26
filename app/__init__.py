@@ -9,7 +9,7 @@ from app.helpers.db import SQLAlchemyWithStrongRefSession
 
 app = Flask(__name__)
 
-env = os.environ.get("MOBILIC_ENV", "")
+env = os.environ.get("MOBILIC_ENV", "dev")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
 db = SQLAlchemyWithStrongRefSession(

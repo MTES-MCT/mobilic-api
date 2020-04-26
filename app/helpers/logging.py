@@ -1,5 +1,5 @@
 import os
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
 import logging
 from flask.logging import default_handler
 from flask import request, has_request_context

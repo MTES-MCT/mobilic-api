@@ -1,10 +1,13 @@
-from flask_jwt_extended import jwt_required, current_user
-from graphql import GraphQLError
 from inspect import signature
 from functools import wraps
 
 from app import app
-from app.helpers.authentication import with_auth_error_handling
+from app.helpers.authentication import (
+    with_auth_error_handling,
+    AuthorizationError,
+    current_user,
+    user_loader,
+)
 
 
 def allow_all():
@@ -60,6 +63,6 @@ def with_authorization_policy(
                     raise AuthorizationError
             return value
 
-        return with_auth_error_handling(jwt_required(decorated_resolver))
+        return with_auth_error_handling(user_loader(decorated_resolver))
 
     return decorator

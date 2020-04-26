@@ -1,7 +1,8 @@
 from enum import Enum
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
+from sqlalchemy.orm import backref
 
-from app import app, db
+from app import db
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
