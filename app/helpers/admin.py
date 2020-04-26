@@ -7,7 +7,7 @@ from flask import abort
 
 from app import app, db
 from app.helpers.authorization import with_authorization_policy, admin_only
-from app.models import User, Activity, Company, Expenditure
+from app.models import User, Activity, Company
 
 
 class IndexView(AdminIndexView):
@@ -59,4 +59,3 @@ admin = Admin(app, name="mobilic", index_view=IndexView())
 admin.add_view(BaseModelView(User, db.session))
 admin.add_view(BaseModelView(Company, db.session))
 admin.add_view(BaseModelView(Activity, db.session))
-admin.add_view(BaseModelView(Expenditure, db.session))

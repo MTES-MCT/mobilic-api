@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Expenditure, Comment, Mission, Vehicle
+from app.models import Activity, User, Comment, Mission, Vehicle
 from app.models.activity import ActivityType
 
 
@@ -13,7 +13,7 @@ from app.models.activity import ActivityType
 class WorkDay:
     user: User
     activities: List[Activity]
-    expenditures: List[Expenditure]
+    expenditures: dict
     comments: List[Comment]
     missions: List[Mission]
     vehicles: List[Vehicle]
