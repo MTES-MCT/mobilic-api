@@ -1,175 +1,148 @@
-from datetime import datetime
-from flask_jwt_extended import current_user
+from app.helpers.authentication import current_user
+from sqlalchemy.orm import selectinload
 import graphene
 
-from app import app
-from app.controllers.cancel import CancelEvents, get_all_associated_events
-from app.controllers.event import preload_relevant_resources_for_event_logging
+from app import app, db
 from app.controllers.utils import atomic_transaction
-from app.data_access.user import UserOutput
 from app.domain.log_activities import (
     log_group_activity,
-    check_and_fix_neighbour_inconsistencies,
+    check_activity_sequence_in_mission_and_handle_duplicates,
 )
-from app.domain.log_missions import log_mission
-from app.domain.log_vehicle_booking import log_vehicle_booking
+from app.helpers.authentication import AuthorizationError
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
+from app.models import Mission
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
+from app.models.event import DismissType
 from app.models.user import User
 from app.controllers.event import EventInput
 
 
-class SingleActivityInput(EventInput):
-    type = graphene_enum_type(InputableActivityType)(required=True)
-    user_time = DateTimeWithTimeStampSerialization(required=False)
+def _preload_db_resources():
+    User.query.options(
+        selectinload(User.activities)
+        .selectinload(Activity.mission)
+        .selectinload(Mission.activities)
+        .selectinload(Activity.user)
+    ).filter(User.id == current_user.id).one()
+
+
+class ActivityInput(EventInput):
+    type = graphene.Argument(
+        graphene_enum_type(InputableActivityType), required=True
+    )
+    user_time = graphene.Argument(
+        DateTimeWithTimeStampSerialization, required=False
+    )
     driver_id = graphene.Int(required=False)
-    vehicle_registration_number = graphene.String(required=False)
-    vehicle_id = graphene.Int(required=False)
-    mission = graphene.String(required=False)
+    mission_id = graphene.Int(required=True)
     comment = graphene.String(required=False)
 
 
-class ActivityLog(graphene.Mutation):
-    class Arguments:
-        data = graphene.List(SingleActivityInput, required=True)
+class LogActivity(graphene.Mutation):
+    Arguments = ActivityInput
 
-    user = graphene.Field(UserOutput)
+    mission_activities = graphene.List(ActivityOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, data):
+    def mutate(cls, _, info, **activity_input):
         app.logger.info(
-            f"Logging activities submitted by {current_user} of company {current_user.company}"
+            f"Logging activity submitted by {current_user} of company {current_user.company}"
         )
         with atomic_transaction(commit_at_end=True):
-            events = sorted(data, key=lambda e: e.event_time)
-            preload_relevant_resources_for_event_logging(User.activities)
-            for group_activity in events:
-                user_time = (
-                    group_activity.user_time or group_activity.event_time
-                )
-                if group_activity.mission:
-                    log_mission(
-                        name=group_activity.mission,
-                        user_time=user_time,
-                        event_time=group_activity.event_time,
-                        submitter=current_user,
-                    )
-                if (
-                    group_activity.vehicle_registration_number
-                    or group_activity.vehicle_id
-                ):
-                    log_vehicle_booking(
-                        vehicle_id=group_activity.vehicle_id,
-                        registration_number=group_activity.vehicle_registration_number,
-                        user_time=user_time,
-                        event_time=group_activity.event_time,
-                        submitter=current_user,
-                    )
-                log_group_activity(
-                    submitter=current_user,
-                    users=[current_user]
-                    + current_user.acknowledged_team_at(user_time),
-                    type=group_activity.type,
-                    event_time=group_activity.event_time,
-                    user_time=user_time,
-                    driver=User.query.get(group_activity.driver_id)
-                    if group_activity.driver_id
-                    else None,
-                    comment=group_activity.comment,
-                )
+            _preload_db_resources()
+            mission = Mission.query.get(activity_input["mission_id"])
+            user_time = (
+                activity_input.get("user_time") or activity_input["event_time"]
+            )
+            log_group_activity(
+                submitter=current_user,
+                type=activity_input["type"],
+                mission=mission,
+                event_time=activity_input["event_time"],
+                user_time=user_time,
+                driver=User.query.get(activity_input.get("driver_id"))
+                if activity_input.get("driver_id")
+                else None,
+                comment=activity_input.get("comment"),
+            )
 
-        return ActivityLog(user=User.query.get(current_user.id))
-
-
-class CancelActivities(CancelEvents):
-    model = Activity
-
-    activities = graphene.List(ActivityOutput)
-
-    @classmethod
-    def mutate(cls, *args, **kwargs):
-        super().mutate(*args, **kwargs)
-        return CancelActivities(
-            activities=current_user.acknowledged_activities
+        return LogActivity(
+            mission_activities=mission.activities_for(current_user)
         )
 
 
-class ActivityRevisionInput(graphene.InputObjectType):
-    event_id = graphene.Field(graphene.Int, required=True)
-    event_time = graphene.Field(
-        DateTimeWithTimeStampSerialization, required=True
-    )
-    user_time = graphene.Field(
-        DateTimeWithTimeStampSerialization, required=True
-    )
-    comment = graphene.Field(graphene.String, required=False)
+def _get_activities_to_revise_or_cancel(activity_id):
+    activity = Activity.query.get(activity_id)
+
+    if (
+        current_user.id != activity.submitter_id
+        and current_user.id != activity.user_id
+    ):
+        raise AuthorizationError(
+            f"{current_user} cannot cancel {activity} because it is not related to them"
+        )
+
+    relevant_events = [activity]
+    if current_user.id == activity.submitter_id:
+        # Get also events submitted at the same time, which represent the same domain event but for other team mates
+        relevant_events = Activity.query.filter(
+            Activity.submitter_id == current_user.id,
+            Activity.event_time == activity.event_time,
+        ).all()
+
+    return [e for e in relevant_events if e.is_acknowledged]
 
 
-class ReviseActivities(graphene.Mutation):
-    model = Activity
+class ActivityEditInput(EventInput):
+    event_id = graphene.Argument(graphene.Int, required=True)
+    dismiss = graphene.Boolean(required=True)
+    user_time = graphene.Boolean(required=False)
+    comment = graphene.Argument(graphene.String, required=False)
 
-    class Arguments:
-        data = graphene.List(ActivityRevisionInput, required=True)
 
-    activities = graphene.List(ActivityOutput)
+class EditActivity(graphene.Mutation):
+    Arguments = ActivityEditInput
+
+    mission_activities = graphene.List(ActivityOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, data):
+    def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
-            all_relevant_activities = get_all_associated_events(
-                cls.model, [e.event_id for e in data]
+            activities_to_update = _get_activities_to_revise_or_cancel(
+                edit_input["event_id"]
             )
-            for event in sorted(data, key=lambda e: e.event_time):
-                matched_activity = all_relevant_activities.get(event.event_id)
-                if not matched_activity:
-                    app.logger.warn(
-                        f"Could not find {cls.model} events with id {event.event_id} to revise"
+            if not activities_to_update:
+                raise ValueError(
+                    f"Could not find valid Activity events with id {activities_to_update['event_id']}"
+                )
+            mission = None
+            for activity in activities_to_update:
+                mission = activity.mission
+                db.session.add(activity)
+                app.logger.info(
+                    f"{'Cancelling' if edit_input['dismiss'] else 'Revising'} {activity}"
+                )
+                if edit_input["dismiss"]:
+                    activity.dismiss(
+                        DismissType.USER_CANCEL,
+                        edit_input["event_time"],
+                        edit_input.get("comment"),
                     )
                 else:
-                    activities_to_revise = [matched_activity]
-                    if matched_activity.submitter_id == current_user.id:
-                        activities_to_revise = [
-                            a
-                            for a in all_relevant_activities.values()
-                            if a.submitter_id == current_user.id
-                            and a.event_time == matched_activity.event_time
-                        ]
-                    for db_activity in activities_to_revise:
-                        app.logger.info(f"Revising {db_activity}")
-                        new_activity = db_activity.revise(
-                            event.event_time,
-                            revision_comment=event.comment,
-                            user_time=event.user_time,
-                        )
-                        if new_activity:
-                            revised_activity_neighbours = (
-                                new_activity.previous_and_next_acknowledged_activities
-                            )
-                            neighbours_to_check = {
-                                (revised_activity_neighbours[0], new_activity),
-                                (new_activity, revised_activity_neighbours[1]),
-                                db_activity.previous_and_next_acknowledged_activities,
-                            }
-                            neighbours_to_check_in_historical_order = sorted(
-                                list(neighbours_to_check),
-                                key=lambda prev_next: prev_next[0].user_time
-                                if prev_next[0]
-                                else datetime.fromtimestamp(0),
-                            )
-                            for (
-                                prev,
-                                next,
-                            ) in neighbours_to_check_in_historical_order:
-                                check_and_fix_neighbour_inconsistencies(
-                                    prev, next, event.event_time
-                                )
-
-        return ReviseActivities(
-            activities=current_user.acknowledged_activities
-        )
+                    activity.revise(
+                        edit_input["event_time"],
+                        revision_comment=edit_input.get("comment"),
+                        user_time=edit_input.get("user_time"),
+                    )
+                check_activity_sequence_in_mission_and_handle_duplicates(
+                    activity.user, activity.mission, edit_input["event_time"]
+                )
+            return EditActivity(
+                mission_activities=mission.activities_for(current_user)
+            )
