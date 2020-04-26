@@ -1,21 +1,15 @@
 import graphene
 
-from app.controllers.comment import CommentLog
-from app.controllers.expenditure import ExpenditureLog, CancelExpenditures
-from app.controllers.mission import MissionLog
-from app.controllers.team_enrollment import TeamEnrollmentLog
+from app.controllers.comment import LogComment
+from app.controllers.mission import BeginMission, EndMission
 from app.controllers.vehicle import (
-    VehicleCreation,
-    VehicleEdition,
-    VehicleTermination,
+    CreateVehicle,
+    EditVehicle,
+    TerminateVehicle,
 )
-from app.controllers.vehicle_booking import VehicleBookingLog
+from app.controllers.vehicle_booking import LogVehicleBooking
 from app.helpers.authentication import AuthMutation
-from app.controllers.activity import (
-    ActivityLog,
-    CancelActivities,
-    ReviseActivities,
-)
+from app.controllers.activity import LogActivity, EditActivity
 import app.controllers.user
 import app.controllers.company
 
@@ -24,20 +18,17 @@ class Mutations(graphene.ObjectType):
     auth = graphene.Field(
         AuthMutation, resolver=lambda root, info: AuthMutation()
     )
-    log_activities = ActivityLog.Field()
-    log_expenditures = ExpenditureLog.Field()
-    log_comments = CommentLog.Field()
-    log_team_enrollments = TeamEnrollmentLog.Field()
-    log_missions = MissionLog.Field()
-    log_vehicle_bookings = VehicleBookingLog.Field()
+    log_activity = LogActivity.Field()
+    log_comment = LogComment.Field()
+    begin_mission = BeginMission.Field()
+    end_mission = EndMission.Field()
+    log_vehicle_booking = LogVehicleBooking.Field()
     signup_user = user.UserSignup.Field()
     signup_company = company.CompanySignup.Field()
-    cancel_expenditures = CancelExpenditures.Field()
-    cancel_activities = CancelActivities.Field()
-    revise_activities = ReviseActivities.Field()
-    create_vehicle = VehicleCreation.Field()
-    edit_vehicle = VehicleEdition.Field()
-    terminate_vehicle = VehicleTermination.Field()
+    edit_activity = EditActivity.Field()
+    create_vehicle = CreateVehicle.Field()
+    edit_vehicle = EditVehicle.Field()
+    terminate_vehicle = TerminateVehicle.Field()
 
 
 class Query(user.Query, company.Query, graphene.ObjectType):
