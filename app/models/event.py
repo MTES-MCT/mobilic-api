@@ -11,7 +11,6 @@ from app.models.utils import enum_column
 
 
 class DismissType(str, Enum):
-    UNAUTHORIZED_SUBMITTER = "unauthorized_submitter"
     USER_CANCEL = "user_cancel"
 
 
@@ -35,19 +34,6 @@ class EventBaseModel(BaseModel):
             # primaryjoin=lambda: User.id == cls.submitter_id,
             foreign_keys=[cls.submitter_id],
             backref="submitted_" + cls.backref_base_name,
-        )
-
-    @property
-    def authorized_submit(self):
-        return self.dismiss_type != DismissType.UNAUTHORIZED_SUBMITTER
-
-    def to_dict(self):
-        return dict(
-            id=self.id,
-            event_time=self.event_time,
-            user=self.user.to_dict(),
-            company=self.company.to_dict(),
-            submitter=self.submitter.to_dict(),
         )
 
 
@@ -157,7 +143,7 @@ class Revisable(Dismissable):
 
     @property
     def is_revised(self):
-        return len([e for e in self.revised_by if e.authorized_submit]) > 0
+        return len([e for e in self.revised_by]) > 0
 
     def set_revision(self, revision, comment=None):
         revision.revisee = self
