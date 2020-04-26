@@ -2,13 +2,12 @@ import graphene
 from graphene.types.generic import GenericScalar
 
 from app.models.activity import ActivityOutput
-from app.models.expenditure import ExpenditureOutput
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
 
 
 class WorkDayOutput(graphene.ObjectType):
     activities = graphene.List(ActivityOutput)
-    expenditures = graphene.List(ExpenditureOutput)
+    expenditures = graphene.Field(GenericScalar)
 
     start_time = graphene.Field(DateTimeWithTimeStampSerialization)
     end_time = graphene.Field(DateTimeWithTimeStampSerialization)

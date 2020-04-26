@@ -27,7 +27,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         )
 
     activities = graphene.List(ActivityOutput)
-    expenditures = graphene.List(ExpenditureOutput)
     comments = graphene.List(CommentOutput)
     work_days = graphene.List(WorkDayOutput)
     enrollable_coworkers = graphene.List(lambda: UserOutput)
@@ -39,12 +38,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_activities(self, info):
         return self.acknowledged_activities
-
-    @with_authorization_policy(
-        self_or_company_admin, get_target_from_args=lambda self, info: self
-    )
-    def resolve_expenditures(self, info):
-        return self.acknowledged_expenditures
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
