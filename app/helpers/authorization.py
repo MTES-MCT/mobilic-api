@@ -46,18 +46,18 @@ def with_authorization_policy(
             if not rule_requires_target and not authorization_rule(
                 current_user
             ):
-                raise GraphQLError("Unauthorized")
+                raise AuthorizationError()
             elif rule_requires_target and get_target_from_args:
                 target = get_target_from_args(*args, **kwargs)
                 if not authorization_rule(current_user, target):
-                    raise GraphQLError("Unauthorized")
+                    raise AuthorizationError
 
             value = resolver(*args, **kwargs)
 
             if rule_requires_target and get_target_from_return_value:
                 target = get_target_from_return_value(value)
                 if not authorization_rule(current_user, target):
-                    raise GraphQLError("Unauthorized")
+                    raise AuthorizationError
             return value
 
         return with_auth_error_handling(jwt_required(decorated_resolver))

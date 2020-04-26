@@ -1,7 +1,7 @@
 from app import db
 from app.domain.log_activities import (
     log_activity,
-    check_and_fix_inconsistencies_created_by_new_activity,
+    fix_eventual_inconsistencies_created_by_new_activity,
 )
 from app.domain.log_events import check_whether_event_should_not_be_logged
 from app.models import User, TeamEnrollment
@@ -55,7 +55,7 @@ def enroll(submitter, user_id, first_name, last_name, user_time, event_time):
             user_time=user_time,
             driver=team_activity_at_enrollment_time.driver,
         )
-        check_and_fix_inconsistencies_created_by_new_activity(
+        fix_eventual_inconsistencies_created_by_new_activity(
             activity, event_time
         )
 

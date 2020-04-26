@@ -1,29 +1,23 @@
-from datetime import datetime
-
 from app import app, db
-from app.domain.log_events import check_whether_event_should_not_be_logged
+from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
-from app.helpers.time import local_to_utc
-from app.models import TeamEnrollment
+from app.helpers.authentication import AuthorizationError
 from app.models.activity import ActivityType, Activity, ActivityDismissType
-from app.models.team_enrollment import TeamEnrollmentType
 
 
 def log_group_activity(
-    submitter, users, type, event_time, user_time, driver, comment,
+    submitter, type, event_time, user_time, mission, driver=None, comment=None
 ):
-    for user in users:
-        activity = log_activity(
+    for user in mission.team_at(user_time):
+        log_activity(
             type=type,
             event_time=event_time,
+            mission=mission,
             user_time=user_time,
             user=user,
             submitter=submitter,
             driver=driver,
             comment=comment,
-        )
-        check_and_fix_inconsistencies_created_by_new_activity(
-            activity, event_time
         )
 
 
@@ -47,93 +41,113 @@ def _check_and_delete_corrected_log(user, user_time):
             latest_activity_log.dismissed_at = True
 
 
-def check_and_fix_inconsistencies_created_by_new_activity(
-    activity, event_time
+def check_activity_sequence_in_mission_and_handle_duplicates(
+    user, mission, event_time
 ):
-    if activity and not activity.is_dismissed:
-        (
-            prev_activity,
-            next_activity,
-        ) = activity.previous_and_next_acknowledged_activities
-        check_and_fix_neighbour_inconsistencies(
-            prev_activity, activity, event_time
-        )
-        check_and_fix_neighbour_inconsistencies(
-            activity, next_activity, event_time
-        )
+    mission_activities = mission.activities_for(user)
 
-
-def check_and_fix_neighbour_inconsistencies(
-    previous_activity, next_activity, dismiss_or_revision_time=None
-):
-    if not next_activity or not next_activity.is_acknowledged:
-        return
-    if not dismiss_or_revision_time:
-        dismiss_or_revision_time = datetime.now()
-    if not previous_activity and next_activity.type == ActivityType.REST:
-        next_activity.dismiss(
-            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
-        )
-    if not previous_activity or not previous_activity.is_acknowledged:
+    if len(mission_activities) == 0:
         return
 
-    db.session.add(previous_activity)
-    db.session.add(next_activity)
-    if previous_activity.type == next_activity.type:
+    mission_activity_times = [a.user_time for a in mission_activities]
+    mission_time_range = (
+        min(mission_activity_times),
+        max(mission_activity_times),
+    )
+
+    # 1. Check that the mission period is not overlapping with other ones
+    for a in user.acknowledged_activities:
         if (
-            next_activity.type == ActivityType.SUPPORT
-            and next_activity.driver != previous_activity.driver
+            mission_time_range[0] <= a.user_time <= mission_time_range[1]
+            and a.mission != mission
         ):
-            next_activity.is_driver_switch = True
-        else:
+            raise ValueError(
+                f"The missions {mission} and {a.mission} are overlapping for {user}, which can't happen"
+            )
+
+    # 2. Check if the mission contains a REST activity then it is at the last time position
+    rest_activities = [
+        a for a in mission_activities if a.type == ActivityType.REST
+    ]
+    if len(rest_activities) > 1:
+        raise ValueError(
+            f"Cannot end {mission} for {user} because it is already ended"
+        )
+    if (
+        len(rest_activities) == 1
+        and rest_activities[0].user_time != mission_time_range[1]
+    ):
+        raise ValueError(
+            f"{mission} for {user} cannot have a normal activity after the mission end"
+        )
+
+    # 3. Fix eventual duplicates
+    activity_idx = -1
+    next_activity_idx = 0
+    while activity_idx < len(
+        mission_activities
+    ) - 1 and next_activity_idx < len(mission_activities):
+        activity = (
+            mission_activities[activity_idx] if activity_idx >= 0 else None
+        )
+        next_activity = mission_activities[next_activity_idx]
+
+        if activity_idx == next_activity_idx:
+            next_activity_idx += 1
+        elif activity and activity.is_dismissed:
+            activity_idx += 1
+        elif next_activity.is_dismissed:
+            next_activity_idx += 1
+
+        elif not activity and next_activity.type in [
+            ActivityType.BREAK,
+            ActivityType.REST,
+        ]:
             next_activity.dismiss(
-                ActivityDismissType.NO_ACTIVITY_SWITCH,
-                dismiss_or_revision_time,
+                ActivityDismissType.BREAK_OR_REST_AS_STARTING_ACTIVITY,
+                event_time,
             )
-    elif (
-        previous_activity.type == ActivityType.REST
-        and next_activity.type == ActivityType.BREAK
-    ):
-        revised_next_activity = next_activity.revise(
-            dismiss_or_revision_time, type=ActivityType.REST
-        )
-        if revised_next_activity:
-            revised_next_activity.dismiss(
-                ActivityDismissType.NO_ACTIVITY_SWITCH,
-                dismiss_or_revision_time,
+            next_activity_idx += 1
+
+        elif activity and activity.type == next_activity.type:
+            if (
+                next_activity.type == ActivityType.SUPPORT
+                and next_activity.driver != activity.driver
+            ):
+                next_activity.is_driver_switch = True
+                activity_idx += 1
+            else:
+                next_activity.dismiss(
+                    ActivityDismissType.NO_ACTIVITY_SWITCH, event_time,
+                )
+            next_activity_idx += 1
+
+        elif (
+            activity
+            and activity.type == ActivityType.BREAK
+            and next_activity.type == ActivityType.REST
+        ):
+            activity.revise(event_time, type=ActivityType.REST)
+            next_activity.dismiss(
+                ActivityDismissType.NO_ACTIVITY_SWITCH, event_time
             )
-            check_and_fix_neighbour_inconsistencies(
-                previous_activity,
-                previous_activity.next_acknowledged_activity,
-                dismiss_or_revision_time,
-            )
-    elif (
-        previous_activity.type == ActivityType.REST
-        and local_to_utc(previous_activity.user_time).date()
-        == local_to_utc(next_activity.user_time).date()
-    ):
-        previous_activity.revise(
-            dismiss_or_revision_time, type=ActivityType.BREAK
-        )
-    elif (
-        previous_activity.type == ActivityType.BREAK
-        and next_activity.type == ActivityType.REST
-    ):
-        previous_activity.revise(
-            dismiss_or_revision_time, type=ActivityType.REST
-        )
-        next_activity.dismiss(
-            ActivityDismissType.NO_ACTIVITY_SWITCH, dismiss_or_revision_time
-        )
-        check_and_fix_neighbour_inconsistencies(
-            previous_activity,
-            previous_activity.next_acknowledged_activity,
-            dismiss_or_revision_time,
-        )
+            break
+
+        else:
+            activity_idx += 1
+            next_activity_idx += 1
 
 
 def log_activity(
-    submitter, user, type, event_time, user_time, driver, comment=None,
+    submitter,
+    user,
+    mission,
+    type,
+    event_time,
+    user_time,
+    driver=None,
+    comment=None,
+    bypass_check=False,
 ):
     if type == ActivityType.DRIVE:
         # Default to marking the submitter as driver if no driver is provided
@@ -145,32 +159,30 @@ def log_activity(
     # 1. Check that event :
     # - is not ahead in the future
     # - was not already processed
-    response_if_event_should_not_be_logged = check_whether_event_should_not_be_logged(
+    check_whether_event_should_be_logged(
         user=user,
         submitter=submitter,
+        mission=mission,
         event_time=event_time,
         type=type,
         user_time=user_time,
         event_history=user.activities,
     )
-    if response_if_event_should_not_be_logged:
-        return None
 
     # 2. Assess whether the event submitter is authorized to log for the user
-    dismiss_type = None
     if not can_submitter_log_for_user(submitter, user):
-        app.logger.warn("Event is submitted from unauthorized user")
-        dismiss_type = ActivityDismissType.UNAUTHORIZED_SUBMITTER
+        raise AuthorizationError(f"Event is submitted from unauthorized user")
 
     # 3. Quick correction mechanics : if it's two real-time logs in succession, delete the first one
     is_revision = event_time != user_time
-    if not dismiss_type and not is_revision:
+    if not is_revision:
         _check_and_delete_corrected_log(user, user_time)
 
-    # 4. Log the activity
+    # 4. Properly write the activity to the DB
     activity = Activity(
         type=type,
         event_time=event_time,
+        mission=mission,
         user_time=user_time,
         user=user,
         submitter=submitter,
@@ -179,25 +191,13 @@ def log_activity(
     )
     db.session.add(activity)
 
-    # 5. If activity marks the end of the day, release the team
-    if (
-        not dismiss_type
-        and not is_revision
-        and type == ActivityType.REST
-        and user == submitter
-    ):
-        for u in submitter.acknowledged_team_at(user_time):
-            db.session.add(
-                TeamEnrollment(
-                    type=TeamEnrollmentType.REMOVE,
-                    event_time=user_time,
-                    user_time=user_time,
-                    user=u,
-                    submitter=submitter,
-                )
-            )
-
-    if dismiss_type:
-        activity.dismiss(dismiss_type)
+    # 5. Check that the created activity didn't introduce inconsistencies in the timeline :
+    # - the mission period is not overlapping with other mission periods
+    # - the mission activity sequence is consistent (end event must be in last position)
+    # - no successive activities with the same type
+    if not bypass_check:
+        check_activity_sequence_in_mission_and_handle_duplicates(
+            user, mission, event_time
+        )
 
     return activity

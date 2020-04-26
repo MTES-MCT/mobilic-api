@@ -1,5 +1,3 @@
-from graphql import GraphQLError
-
 from app.models import Company, User
 
 

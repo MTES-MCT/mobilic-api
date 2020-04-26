@@ -1,12 +1,12 @@
 from app import db
-from app.domain.log_events import check_whether_event_should_not_be_logged
+from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_submitter_log_for_user
+from app.helpers.authentication import AuthorizationError
 from app.models import Comment
-from app.models.event import DismissType
 
 
-def log_group_comment(submitter, users, content, event_time):
-    for user in users:
+def log_group_comment(submitter, content, event_time):
+    for user in submitter.mission_at(event_time).team_at(event_time):
         log_comment(
             event_time=event_time,
             user=user,
@@ -16,19 +16,17 @@ def log_group_comment(submitter, users, content, event_time):
 
 
 def log_comment(submitter, user, event_time, content):
-    response_if_event_should_not_be_logged = check_whether_event_should_not_be_logged(
+    check_whether_event_should_be_logged(
         user=user,
         submitter=submitter,
         event_time=event_time,
         content=content,
         event_history=user.comments,
     )
-    if response_if_event_should_not_be_logged:
-        return
 
     comment = Comment(
         event_time=event_time, user=user, content=content, submitter=submitter,
     )
     if not can_submitter_log_for_user(submitter, user):
-        comment.dismiss(DismissType.UNAUTHORIZED_SUBMITTER)
+        raise AuthorizationError(f"Event is submitted from unauthorized user")
     db.session.add(comment)
