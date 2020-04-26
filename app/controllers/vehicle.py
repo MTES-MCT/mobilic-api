@@ -8,7 +8,7 @@ from app import db, app
 from app.models.vehicle import VehicleOutput, Vehicle
 
 
-class VehicleCreation(graphene.Mutation):
+class CreateVehicle(graphene.Mutation):
     class Arguments:
         registration_number = graphene.String(required=True)
         alias = graphene.String(required=False)
@@ -34,10 +34,10 @@ class VehicleCreation(graphene.Mutation):
             app.logger.info(f"Created new vehicle {vehicle}")
         except Exception as e:
             app.logger.exception(f"Error vehicle creation for {vehicle}")
-        return VehicleCreation(vehicle=vehicle)
+        return CreateVehicle(vehicle=vehicle)
 
 
-class VehicleEdition(graphene.Mutation):
+class EditVehicle(graphene.Mutation):
     class Arguments:
         alias = graphene.String(required=False)
         id = graphene.Int(required=True)
@@ -56,10 +56,10 @@ class VehicleEdition(graphene.Mutation):
         vehicle.alias = alias
         db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
-        return VehicleEdition(vehicle=vehicle)
+        return EditVehicle(vehicle=vehicle)
 
 
-class VehicleTermination(graphene.Mutation):
+class TerminateVehicle(graphene.Mutation):
     class Arguments:
         id = graphene.Int(required=True)
 
@@ -77,4 +77,4 @@ class VehicleTermination(graphene.Mutation):
         vehicle.terminated_at = datetime.now()
         db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
-        return VehicleTermination(success=True)
+        return TerminateVehicle(success=True)
