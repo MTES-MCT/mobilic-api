@@ -1,4 +1,4 @@
-from app import db
+from app import db, app
 from app.domain.log_activities import log_activity
 from app.helpers.authentication import AuthorizationError
 from app.models import User
@@ -23,8 +23,16 @@ def get_or_create_team_mate(
         return User.query.get(team_mate_id)
 
 
-def enroll(submitter, team_mate, event_time):
+def enroll(submitter, team_mate_data, event_time):
+    team_mate = get_or_create_team_mate(
+        submitter,
+        team_mate_id=team_mate_data.get("id"),
+        team_mate_first_name=team_mate_data.get("first_name"),
+        team_mate_last_name=team_mate_data.get("last_name"),
+    )
     mission = submitter.mission_at(event_time)
+
+    app.logger.info(f"Enrolling {team_mate} on {mission}")
 
     if not mission:
         raise ValueError(
