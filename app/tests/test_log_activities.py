@@ -1,17 +1,20 @@
 from datetime import datetime
 
-from app import db
-from app.helpers.time import to_timestamp
-from app.models import TeamEnrollment
+from app.models import Mission
 from app.models.activity import (
     InputableActivityType,
     ActivityType,
     ActivityDismissType,
+    Activity,
 )
-from app.models.team_enrollment import TeamEnrollmentType
 from app.tests import BaseTest, UserFactory
-
-from app.tests.helpers import SubmitEventsTest, SubmitEventsTestChain
+from app.tests.helpers import (
+    DBEntryUpdate,
+    ForeignKey,
+    test_db_changes,
+    make_authenticated_request,
+    ApiRequests,
+)
 
 
 class TestLogActivities(BaseTest):
@@ -29,581 +32,282 @@ class TestLogActivities(BaseTest):
         ]
         self.team = [self.team_leader] + self.team_mates
 
-    def _enroll(self, mates, time):
-        for mate in mates:
-            db.session.add(
-                TeamEnrollment(
-                    type=TeamEnrollmentType.ENROLL,
-                    user_time=time,
-                    event_time=time,
-                    submitter_id=self.team_leader.id,
-                    user_id=mate.id,
+    def begin_mission(self, time, submit_time=None, should_fail=None):
+        expected_db_changes = dict(
+            mission=DBEntryUpdate(
+                model=Mission,
+                before=None,
+                after=dict(event_time=time, submitter_id=self.team_leader.id),
+            ),
+            **{
+                "activity"
+                + str(i): DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        event_time=time,
+                        submitter_id=self.team_leader.id,
+                        user_id=team_mate.id,
+                        type=ActivityType.WORK,
+                        mission_id=ForeignKey("mission"),
+                    ),
                 )
+                for i, team_mate in enumerate(self.team)
+            },
+        )
+        with test_db_changes(
+            expected_db_changes if not should_fail else {},
+            watch_models=[Activity, Mission],
+        ):
+            response = make_authenticated_request(
+                time=submit_time or time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.begin_mission,
+                variables=dict(
+                    first_activity_type=ActivityType.WORK,
+                    event_time=time,
+                    team=[{"id": mate.id} for mate in self.team_mates],
+                ),
+                request_should_fail_with=should_fail,
             )
-        db.session.commit()
 
-    def test_log_simple_activity(self):
+        if not should_fail:
+            return response["data"]["beginMission"]["mission"]
+
+    def test_log_simple_activity(self, time=datetime(2020, 2, 7, 6)):
         """ Logging one simple activity for everybody
         """
-        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, event_time)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            dict(
-                type=InputableActivityType.WORK,
-                event_time=to_timestamp(event_time),
-            ),
-            submitter=self.team_leader,
-            submit_time=datetime(2020, 2, 7, 23),
-        )
-        for team_member in self.team:
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-        test_case.test(self)
+        self.begin_mission(time)
 
     def test_cannot_log_in_advance(self):
-        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, event_time)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            dict(
-                type=InputableActivityType.WORK,
-                event_time=to_timestamp(event_time),
-            ),
-            submit_time=datetime(2020, 2, 7, 3),
-            submitter=self.team_leader,
+        event_time = datetime(2020, 2, 7, 6)
+        self.begin_mission(
+            event_time, submit_time=datetime(2020, 2, 7, 5), should_fail=True
         )
-        test_case.test(self)
 
     def test_can_only_log_inputable_activities(self):
-        event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, event_time)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            dict(
-                type=ActivityType.SUPPORT, event_time=to_timestamp(event_time),
-            ),
-            submitter=self.team_leader,
-            submit_time=datetime(2020, 2, 7, 23),
-            request_should_fail_with={"status": 400},
-        )
-        test_case.test(self)
+        event_time = datetime(2020, 2, 7, 6)
+        mission = self.begin_mission(event_time)
+        with test_db_changes({}, watch_models=[Activity, Mission]):
+            make_authenticated_request(
+                time=datetime(2020, 2, 7, 8),
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=ActivityType.REST,
+                    event_time=datetime(2020, 2, 7, 8),
+                    mission_id=mission["id"],
+                    driver_id=None,
+                ),
+                request_should_fail_with={"status": 400},
+            )
 
-    def test_log_linear_activity_list(self):
+    def test_log_linear_activity_list(self, day=datetime(2020, 2, 7)):
         """ Logging a list of activities for the team,
 
         with long durations and valid activity switches
         """
-        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, first_event_time)
-        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
-        third_event_time = datetime(2020, 2, 7, 9, 49, 6, 977000)
-        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
-        test_case = (
-            SubmitEventsTest(
-                "log_activities",
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(first_event_time),
-                    driver_id=self.team_leader.id,  # team_leader,
-                ),
-                submit_time=datetime(2020, 2, 9, 23),
-                submitter=self.team_leader,
-            )
-            .add_event(
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(
-                        second_event_time
-                    ),  # 2020-02-07 07:05
-                )
-            )
-            .add_event(
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(
-                        third_event_time
-                    ),  # 2020-02-07 07:05
-                )
-            )
-            .add_event(
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(
-                        fourth_event_time
-                    ),  # 2020-02-07 07:05
-                )
-            )
-        )
-        for team_member in self.team:
-            test_case.should_create(
-                type=ActivityType.DRIVE
-                if team_member == self.team_leader
-                else ActivityType.SUPPORT,
-                event_time=first_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=first_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.BREAK,
-                event_time=second_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=second_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=third_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=third_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.BREAK,
-                event_time=fourth_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=fourth_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-        test_case.test(self)
+        time = datetime(day.year, day.month, day.day, 6)
+        mission = self.begin_mission(time)
 
-    def test_log_activity_list_with_short_durations(self):
-        """ Logging activities for the team,
+        second_event_time = datetime(day.year, day.month, day.day, 7)
+        second_event_type = InputableActivityType.DRIVE
+        third_event_time = datetime(day.year, day.month, day.day, 9, 30)
+        third_event_type = InputableActivityType.WORK
+        fourth_event_time = datetime(day.year, day.month, day.day, 12, 13)
+        fourth_event_type = InputableActivityType.BREAK
+        fifth_event_time = datetime(day.year, day.month, day.day, 12, 53)
+        fifth_event_type = InputableActivityType.WORK
 
-        with several ones having a very short duration (few secs). These should not be logged
-        """
-        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, first_event_time)
-        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
-        second_event_time_plus_dt = datetime(2020, 2, 7, 7, 5, 7, 977000)
-        second_event_time_plus_2_dt = datetime(2020, 2, 7, 7, 5, 8, 977000)
-        third_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            [
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(
-                        first_event_time
-                    ),  # 2020-02-07 04:19
-                    driver_id=self.team_leader.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(
-                        second_event_time
-                    ),  # 2020-02-07 07:05
-                ),
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(
-                        second_event_time_plus_dt
-                    ),  # 2020-02-07 07:05
-                    driver_id=self.team_leader.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(
-                        second_event_time_plus_2_dt
-                    ),  # 2020-02-07 07:05
-                ),
-                dict(
-                    type=InputableActivityType.REST,
-                    event_time=to_timestamp(
-                        third_event_time
-                    ),  # 2020-02-07 12:43
-                ),
-            ],
-            submitter=self.team_leader,
-            submit_time=datetime(2020, 2, 9, 23),
-        )
+        expected_changes = []
         for team_member in self.team:
-            test_case.should_create(
-                type=ActivityType.DRIVE
-                if team_member == self.team_leader
-                else ActivityType.SUPPORT,
-                event_time=first_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=first_event_time,
-                dismissed_at=None,
-                revised_at=None,
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=InputableActivityType.DRIVE
+                        if team_member == self.team_leader
+                        else ActivityType.SUPPORT,
+                        event_time=second_event_time,
+                        user_time=second_event_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                    ),
+                )
             )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=second_event_time_plus_2_dt,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=second_event_time_plus_2_dt,
-                dismissed_at=None,
-                revised_at=None,
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=third_event_type,
+                        event_time=third_event_time,
+                        user_time=third_event_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                    ),
+                )
             )
-            test_case.should_create(
-                type=ActivityType.REST,
-                event_time=third_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=third_event_time,
-                dismissed_at=None,
-                revised_at=None,
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=fourth_event_type,
+                        event_time=fourth_event_time,
+                        user_time=fourth_event_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                    ),
+                )
             )
-        test_case.test(self)
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=fifth_event_type,
+                        event_time=fifth_event_time,
+                        user_time=fifth_event_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                    ),
+                )
+            )
+
+        with test_db_changes(
+            expected_changes, watch_models=[Activity, Mission]
+        ):
+            make_authenticated_request(
+                time=second_event_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=second_event_type,
+                    event_time=second_event_time,
+                    mission_id=mission["id"],
+                    driver_id=self.team_leader.id,
+                ),
+            )
+            make_authenticated_request(
+                time=third_event_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=third_event_type,
+                    event_time=third_event_time,
+                    mission_id=mission["id"],
+                    driver_id=self.team_leader.id,
+                ),
+            )
+            make_authenticated_request(
+                time=fourth_event_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=fourth_event_type,
+                    event_time=fourth_event_time,
+                    mission_id=mission["id"],
+                    driver_id=self.team_leader.id,
+                ),
+            )
+            make_authenticated_request(
+                time=fifth_event_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=fifth_event_type,
+                    event_time=fifth_event_time,
+                    mission_id=mission["id"],
+                    driver_id=self.team_leader.id,
+                ),
+            )
+
+        return mission
 
     def test_log_activity_list_with_activity_duplicates(self):
         """ Logging activities for the team,
 
         with two subsequent activities having the same type (no switch)
         """
-        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, first_event_time)
-        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
-        third_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
-        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            [
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(
-                        first_event_time
-                    ),  # 2020-02-07 04:19
-                    driver_id=self.team_leader.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(
-                        second_event_time
-                    ),  # 2020-02-07 07:05
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(
-                        third_event_time
-                    ),  # 2020-02-07 09:49
-                ),
-                dict(
-                    type=InputableActivityType.REST,
-                    event_time=to_timestamp(
-                        fourth_event_time
-                    ),  # 2020-02-07 12:43
-                ),
-            ],
-            submit_time=datetime(2020, 2, 9, 23),
-            submitter=self.team_leader,
-        )
+        mission = self.test_log_linear_activity_list()
+
+        sixth_event_time = datetime(2020, 2, 7, 14)
+        sixth_event_type = InputableActivityType.WORK
+
+        expected_changes = []
         for team_member in self.team:
-            test_case.should_create(
-                type=ActivityType.DRIVE
-                if team_member == self.team_leader
-                else ActivityType.SUPPORT,
-                event_time=first_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=first_event_time,
-                dismissed_at=None,
-                revised_at=None,
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=sixth_event_type,
+                        event_time=sixth_event_time,
+                        user_time=sixth_event_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                        dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
+                    ),
+                )
             )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=second_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=second_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=third_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=third_event_time,
-                dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.REST,
-                event_time=fourth_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=fourth_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-        test_case.test(self)
 
-    def test_several_logs_of_activity_lists(self):
-        """ Logging several lists of activities for the team,
+        with test_db_changes(
+            expected_changes, watch_models=[Activity, Mission]
+        ):
+            make_authenticated_request(
+                time=sixth_event_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.log_activity,
+                variables=dict(
+                    type=sixth_event_type,
+                    event_time=sixth_event_time,
+                    mission_id=mission["id"],
+                    driver_id=self.team_leader.id,
+                ),
+            )
 
-        with a few edge cases
-        """
+    def test_log_standard_mission(self, day=datetime(2020, 2, 7)):
+        mission = self.test_log_linear_activity_list(day)
 
-        # Log 1 : standard day for the whole team
-        first_event_time = datetime(2020, 2, 7, 4, 19, 6, 977000)
-        self._enroll(self.team_mates, first_event_time)
-        second_event_time = datetime(2020, 2, 7, 7, 5, 6, 977000)
-        third_event_time = datetime(2020, 2, 7, 9, 49, 6, 977000)
-        fourth_event_time = datetime(2020, 2, 7, 12, 43, 6, 977000)
-        fifth_event_time = datetime(2020, 2, 7, 14, 00, 6, 977000)
-        test_case = SubmitEventsTest(
-            "log_activities",
-            [
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(first_event_time),
-                    driver_id=self.team_leader.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(second_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(third_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(fourth_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(fifth_event_time),
-                ),
-            ],
-            submit_time=datetime(2020, 2, 7, 15),
-            submitter=self.team_leader,
-        )
+        mission_end_time = datetime(day.year, day.month, day.day, 16)
+
+        expected_changes = []
         for team_member in self.team:
-            test_case.should_create(
-                type=ActivityType.DRIVE
-                if team_member == self.team_leader
-                else ActivityType.SUPPORT,
-                event_time=first_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=first_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.BREAK,
-                event_time=second_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=second_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=third_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=third_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.BREAK,
-                event_time=fourth_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=fourth_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=fifth_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=fifth_event_time,
-                dismissed_at=None,
-                revised_at=None,
+            expected_changes.append(
+                DBEntryUpdate(
+                    model=Activity,
+                    before=None,
+                    after=dict(
+                        type=ActivityType.REST,
+                        event_time=mission_end_time,
+                        user_time=mission_end_time,
+                        user_id=team_member.id,
+                        submitter_id=self.team_leader.id,
+                        mission_id=mission["id"],
+                    ),
+                )
             )
 
-        # Log 2 : The firs team mate is rewriting the past logged period
-        # for himself only
-        mate = self.team_mates[0]
-        first_event_time = datetime(2020, 2, 7, 8, 30, 6, 977000)
-        second_event_time = datetime(2020, 2, 7, 16, 27, 6, 977000)
-        third_event_time = datetime(2020, 2, 8, 8, 5, 6, 977000)
-        second_test_case = SubmitEventsTest(
-            "log_activities",
-            [
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(first_event_time),
-                    driver_id=mate.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.REST,
-                    event_time=to_timestamp(second_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(third_event_time),
-                    driver_id=mate.id,
-                ),
-            ],
-            submit_time=datetime(2020, 2, 8, 12),
-            submitter=mate,
-        )
-        second_test_case.should_create(
-            type=ActivityType.DRIVE,
-            event_time=first_event_time,
-            user_id=mate.id,
-            submitter_id=mate.id,
-            user_time=first_event_time,
-            dismissed_at=None,
-            revised_at=None,
-        )
-        second_test_case.should_create(
-            type=ActivityType.REST,
-            event_time=second_event_time,
-            user_id=mate.id,
-            submitter_id=mate.id,
-            user_time=second_event_time,
-            dismissed_at=None,
-            revised_at=None,
-        )
-        second_test_case.should_create(
-            type=ActivityType.DRIVE,
-            event_time=third_event_time,
-            user_id=mate.id,
-            submitter_id=mate.id,
-            user_time=third_event_time,
-            dismissed_at=None,
-            revised_at=None,
-        )
-
-        # Log 3 : The team leader is logging again for the whole team,
-        # for a new day whose start is very close to the last team mate's log
-        first_mate_last_activity_event_time = third_event_time
-        first_event_time = datetime(2020, 2, 8, 8, 5, 7, 977000)
-        second_event_time = datetime(2020, 2, 8, 10, 49, 6, 977000)
-        third_event_time = datetime(2020, 2, 8, 13, 33, 6, 977000)
-        fourth_event_time = datetime(2020, 2, 8, 16, 17, 6, 977000)
-        third_test_case = SubmitEventsTest(
-            "log_activities",
-            [
-                dict(
-                    type=InputableActivityType.DRIVE,
-                    event_time=to_timestamp(first_event_time),
-                    driver_id=mate.id,  # team_leader,
-                ),
-                dict(
-                    type=InputableActivityType.BREAK,
-                    event_time=to_timestamp(second_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.WORK,
-                    event_time=to_timestamp(third_event_time),
-                ),
-                dict(
-                    type=InputableActivityType.REST,
-                    event_time=to_timestamp(fourth_event_time),
-                ),
-            ],
-            submit_time=datetime(2020, 2, 8, 23),
-            submitter=self.team_leader,
-        )
-        third_test_case.should_delete(
-            type=ActivityType.DRIVE,
-            event_time=first_mate_last_activity_event_time,
-            user_id=mate.id,
-            submitter_id=mate.id,
-            user_time=first_mate_last_activity_event_time,
-        )
-        for team_member in self.team:
-            third_test_case.should_create(
-                type=ActivityType.DRIVE
-                if team_member == mate
-                else ActivityType.SUPPORT,
-                event_time=first_event_time,
-                user_id=team_member.id,
+        with test_db_changes(
+            expected_changes, watch_models=[Activity, Mission]
+        ):
+            make_authenticated_request(
+                time=mission_end_time,
                 submitter_id=self.team_leader.id,
-                user_time=first_event_time,
-                dismissed_at=None,
-                revised_at=None,
+                query=ApiRequests.end_mission,
+                variables=dict(
+                    event_time=mission_end_time, mission_id=mission["id"]
+                ),
             )
-            third_test_case.should_create(
-                type=ActivityType.BREAK,
-                event_time=second_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=second_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            third_test_case.should_create(
-                type=ActivityType.WORK,
-                event_time=third_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=third_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-            third_test_case.should_create(
-                type=ActivityType.REST,
-                event_time=fourth_event_time,
-                user_id=team_member.id,
-                submitter_id=self.team_leader.id,
-                user_time=fourth_event_time,
-                dismissed_at=None,
-                revised_at=None,
-            )
-
-        test_suite = (
-            SubmitEventsTestChain()
-            + test_case
-            + second_test_case
-            + third_test_case
-        )
-        test_suite.test(self)
+        return mission
 
     def test_should_not_log_activity_twice(self):
-        user = UserFactory.create()
-
-        SubmitEventsTest(
-            "log_activities",
-            dict(
-                event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
-                type=ActivityType.WORK,
-            ),
-            submitter=user,
-            submit_time=datetime(2020, 2, 7, 21, 2),
-        ).should_create(
-            event_time=datetime(2020, 2, 7, 20, 30),
-            user_id=user.id,
-            type=ActivityType.WORK,
-        ).test(
-            self
-        )
-
-        SubmitEventsTest(
-            "log_activities",
-            dict(
-                event_time=to_timestamp(datetime(2020, 2, 7, 20, 30)),
-                type=ActivityType.WORK,
-            ),
-            submitter=user,
-            submit_time=datetime(2020, 2, 7, 21, 2),
-        ).test(self)
+        self.begin_mission(datetime(2020, 2, 7, 6))
+        self.begin_mission(datetime(2020, 2, 7, 6), should_fail=True)
