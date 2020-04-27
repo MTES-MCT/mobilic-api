@@ -65,7 +65,13 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
                 f"The missions {mission} and {a.mission} are overlapping for {user}, which can't happen"
             )
 
-    # 2. Check if the mission contains a REST activity then it is at the last time position
+    # 2. Check that there are no two activities with the same user time
+    if not len(set(mission_activities)) == len(mission_activities):
+        raise ValueError(
+            f"{mission} contains two activities with the same start time"
+        )
+
+    # 3. Check if the mission contains a REST activity then it is at the last time position
     rest_activities = [
         a for a in mission_activities if a.type == ActivityType.REST
     ]
@@ -81,7 +87,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
             f"{mission} for {user} cannot have a normal activity after the mission end"
         )
 
-    # 3. Fix eventual duplicates
+    # 4. Fix eventual duplicates
     activity_idx = -1
     next_activity_idx = 0
     while activity_idx < len(
