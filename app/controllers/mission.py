@@ -52,7 +52,6 @@ class BeginMission(graphene.Mutation):
 class EndMission(graphene.Mutation):
     class Arguments(EventInput):
         mission_id = graphene.Int(required=True)
-        user_time = DateTimeWithTimeStampSerialization(required=False)
         expenditures = GenericScalar(required=False)
 
     mission = graphene.Field(MissionOutput)
@@ -69,7 +68,7 @@ class EndMission(graphene.Mutation):
                 mission=mission,
                 type=ActivityType.REST,
                 event_time=args["event_time"],
-                user_time=args.get("user_time") or args["event_time"],
+                user_time=args["event_time"],
             )
 
         return EndMission(mission=mission)

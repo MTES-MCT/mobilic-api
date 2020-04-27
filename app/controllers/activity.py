@@ -99,9 +99,9 @@ def _get_activities_to_revise_or_cancel(activity_id):
 
 
 class ActivityEditInput(EventInput):
-    event_id = graphene.Argument(graphene.Int, required=True)
+    activity_id = graphene.Argument(graphene.Int, required=True)
     dismiss = graphene.Boolean(required=True)
-    user_time = graphene.Boolean(required=False)
+    user_time = DateTimeWithTimeStampSerialization(required=False)
     comment = graphene.Argument(graphene.String, required=False)
 
 
@@ -115,11 +115,11 @@ class EditActivity(graphene.Mutation):
     def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
             activities_to_update = _get_activities_to_revise_or_cancel(
-                edit_input["event_id"]
+                edit_input["activity_id"]
             )
             if not activities_to_update:
                 raise ValueError(
-                    f"Could not find valid Activity events with id {activities_to_update['event_id']}"
+                    f"Could not find valid Activity events with id {activities_to_update['activity_id']}"
                 )
             mission = None
             for activity in activities_to_update:
@@ -143,6 +143,7 @@ class EditActivity(graphene.Mutation):
                 check_activity_sequence_in_mission_and_handle_duplicates(
                     activity.user, activity.mission, edit_input["event_time"]
                 )
-            return EditActivity(
-                mission_activities=mission.activities_for(current_user)
-            )
+
+        return EditActivity(
+            mission_activities=mission.activities_for(current_user)
+        )
