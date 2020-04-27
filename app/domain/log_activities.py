@@ -51,8 +51,8 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
 
     mission_activity_times = [a.user_time for a in mission_activities]
     mission_time_range = (
-        min(mission_activity_times),
-        max(mission_activity_times),
+        mission_activity_times[0],
+        mission_activity_times[-1],
     )
 
     # 1. Check that the mission period is not overlapping with other ones

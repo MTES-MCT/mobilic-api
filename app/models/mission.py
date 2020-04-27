@@ -13,9 +13,14 @@ class Mission(EventBaseModel):
     expenditures = db.Column(JSONB(none_as_null=True), nullable=True)
 
     def activities_for(self, user):
-        return [
-            a for a in self.activities if a.is_acknowledged and a.user == user
-        ]
+        return sorted(
+            [
+                a
+                for a in self.activities
+                if a.is_acknowledged and a.user == user
+            ],
+            key=lambda a: a.user_time,
+        )
 
     def team_at(self, date_time):
         from app.models.activity import ActivityDismissType, ActivityType
