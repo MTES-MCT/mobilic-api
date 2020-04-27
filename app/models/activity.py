@@ -20,13 +20,13 @@ class InputableActivityType(str, Enum):
     DRIVE = "drive"
     WORK = "work"
     BREAK = "break"
-    REST = "rest"
+    SUPPORT = "support"
 
 
 ActivityType = Enum(
     "ActivityTypes",
     dict(
-        SUPPORT="support",
+        REST="rest",
         **{
             activity.name: activity.value for activity in InputableActivityType
         },
