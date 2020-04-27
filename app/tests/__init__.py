@@ -23,26 +23,6 @@ class BaseTest(TestCase):
         db.engine.execute("TRUNCATE {} CASCADE;".format(", ".join(all_tables)))
 
 
-class MockAuthenticationWithUser:
-    def __init__(self, user):
-        self.mocked_token_verification = patch(
-            "flask_jwt_extended.view_decorators.verify_jwt_in_request",
-            new=MagicMock(return_value=None),
-        )
-        self.mocked_authenticated_user = patch(
-            "flask_jwt_extended.utils.get_current_user",
-            new=MagicMock(return_value=user),
-        )
-
-    def __enter__(self, *args, **kwargs):
-        self.mocked_token_verification.__enter__(*args, **kwargs)
-        self.mocked_authenticated_user.__enter__(*args, **kwargs)
-
-    def __exit__(self, *args, **kwargs):
-        self.mocked_authenticated_user.__exit__(*args, **kwargs)
-        self.mocked_token_verification.__exit__(*args, **kwargs)
-
-
 class GraphQLTestClient(FlaskClient):
     def __init__(self, *args, mock_authentication_with_user=None, **kwargs):
         super().__init__(*args, **kwargs)
