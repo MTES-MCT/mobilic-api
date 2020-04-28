@@ -3,8 +3,9 @@ import graphene
 
 from app import app
 from app.controllers.utils import atomic_transaction
+from app.models import Mission
 from app.models.comment import CommentOutput
-from app.domain.log_comments import log_group_comment
+from app.domain.log_comments import log_comment
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.controllers.event import EventInput
 
@@ -12,6 +13,7 @@ from app.controllers.event import EventInput
 class LogComment(graphene.Mutation):
     class Arguments(EventInput):
         content = graphene.String(required=True)
+        mission_id = graphene.Int(required=True)
 
     comments = graphene.List(CommentOutput)
 
@@ -20,7 +22,8 @@ class LogComment(graphene.Mutation):
     def mutate(cls, _, info, **comment_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(f"Logging comment")
-            log_group_comment(
+            mission = Mission.query.get(comment_input.get("mission_id"))
+            log_comment(
                 submitter=current_user,
                 content=comment_input["content"],
                 event_time=comment_input["event_time"],
