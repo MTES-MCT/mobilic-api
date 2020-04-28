@@ -53,6 +53,8 @@ class DeferrableEventBaseModel(EventBaseModel):
 
 
 class Dismissable:
+    backref_base_name = "events"
+
     dismissed_at = db.Column(db.DateTime, nullable=True)
     dismiss_type = enum_column(DismissType, nullable=True)
     dismiss_received_at = db.Column(db.DateTime, nullable=True)
