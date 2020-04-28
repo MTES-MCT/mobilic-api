@@ -1,6 +1,9 @@
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
-from app.domain.permissions import can_submitter_log_for_user
+from app.domain.permissions import (
+    can_submitter_log_for_user,
+    can_submitter_log_on_mission,
+)
 from app.helpers.authentication import AuthorizationError
 from app.models.activity import ActivityType, Activity, ActivityDismissType
 
@@ -175,7 +178,12 @@ def log_activity(
         event_history=user.activities,
     )
 
-    # 2. Assess whether the event submitter is authorized to log for the user
+    # 2. Assess whether the event submitter is authorized to log for the user and the mission
+    if not can_submitter_log_on_mission(submitter, mission):
+        raise AuthorizationError(
+            f"The user is not authorized to log for this mission"
+        )
+
     if not can_submitter_log_for_user(submitter, user):
         raise AuthorizationError(f"Event is submitted from unauthorized user")
 

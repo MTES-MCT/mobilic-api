@@ -25,3 +25,9 @@ def self_or_company_admin(actor, user_obj_or_id):
 
 def can_submitter_log_for_user(submitter, user):
     return submitter.company_id == user.company_id
+
+
+def can_submitter_log_on_mission(submitter, mission):
+    return submitter.id == mission.submitter_id or submitter.id in [
+        a.user_id for a in mission.activities
+    ]
