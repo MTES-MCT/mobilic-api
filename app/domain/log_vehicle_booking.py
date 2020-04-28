@@ -1,5 +1,6 @@
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
+from app.domain.permissions import can_submitter_log_on_mission
 from app.helpers.authentication import AuthorizationError
 from app.models import VehicleBooking, Vehicle
 
@@ -7,6 +8,11 @@ from app.models import VehicleBooking, Vehicle
 def log_vehicle_booking(
     vehicle_id, registration_number, mission, user_time, event_time, submitter
 ):
+    if not can_submitter_log_on_mission(submitter, mission):
+        raise AuthorizationError(
+            f"The user is not authorized to log for this mission"
+        )
+
     if not vehicle_id and not registration_number:
         app.logger.warning(
             "Unable to log vehicle booking : neither vehicle id nor registration number were provided"
