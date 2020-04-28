@@ -28,6 +28,6 @@ def can_submitter_log_for_user(submitter, user):
 
 
 def can_submitter_log_on_mission(submitter, mission):
-    return submitter.id == mission.submitter_id or submitter.id in [
+    return submitter == mission.submitter or submitter.id in [
         a.user_id for a in mission.activities
     ]

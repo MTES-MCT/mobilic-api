@@ -50,7 +50,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         self_or_company_admin, get_target_from_args=lambda self, info: self
     )
     def resolve_missions(self, info):
-        return self.missions
+        return self.missions()
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self

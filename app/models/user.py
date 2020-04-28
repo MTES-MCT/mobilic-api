@@ -88,11 +88,15 @@ class User(BaseModel):
         # TODO : add logic that hides vehicles currently booked by other people
         return [v for v in self.company.vehicles if not v.is_terminated]
 
-    @property
-    def missions(self):
+    def missions(self, include_dismisses_and_revisions=False):
         sorted_missions = []
         missions = set()
-        for a in self.acknowledged_activities:
+        activities = (
+            self.acknowledged_activities
+            if not include_dismisses_and_revisions
+            else self.activities
+        )
+        for a in activities:
             if a.mission not in missions:
                 sorted_missions.append(a.mission)
                 missions.add(a.mission)

@@ -1,41 +1,76 @@
 from collections import defaultdict
+from cached_property import cached_property
 from dataclasses import dataclass
 from typing import List
 from datetime import datetime
 
 from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Comment, Mission, Vehicle
+from app.models import Activity, User, Mission
 from app.models.activity import ActivityType
 
 
-@dataclass
+@dataclass(init=False)
 class WorkDay:
     user: User
-    activities: List[Activity]
-    expenditures: dict
-    comments: List[Comment]
     missions: List[Mission]
-    vehicles: List[Vehicle]
-    was_modified: bool = False
+    _activities: List[Activity]
+    was_modified: bool
+
+    def __init__(self, user):
+        self.user = user
+        self.missions = []
+        self._activities = []
+        self.was_modified = False
+
+    def add_mission(self, mission):
+        self.missions.append(mission)
+        self._activities.extend(mission.activities_for(self.user))
 
     @property
     def is_complete(self):
         return (
-            self.activities and self.activities[-1].type == ActivityType.REST
+            self._activities and self._activities[-1].type == ActivityType.REST
         )
 
     @property
     def start_time(self):
-        return self.activities[0].user_time if self.activities else None
+        return self._activities[0].user_time if self._activities else None
 
     @property
     def end_time(self):
-        return self.activities[-1].user_time if self.is_complete else None
+        return self._activities[-1].user_time if self.is_complete else None
+
+    @cached_property
+    def expenditures(self):
+        expenditures = defaultdict(lambda: 0)
+        for mission in self.missions:
+            if mission.expenditures:
+                for expenditure_type, count in mission.expenditures.items():
+                    expenditures[expenditure_type] += count
+        return dict(expenditures)
+
+    @cached_property
+    def vehicles(self):
+        vehicles = set()
+        for mission in self.missions:
+            vehicles.update({vb.vehicle for vb in mission.vehicle_bookings})
+        return vehicles
+
+    @cached_property
+    def comments(self):
+        comments = []
+        for mission in self.missions:
+            mission_comments = sorted(
+                [c for c in mission.comments if c.is_acknowledged],
+                key=lambda c: c.event_time,
+            )
+            comments.extend(mission_comments)
+        return comments
 
     @property
     def activity_timers(self):
-        if not self.activities:
+        if not self._activities:
             return {}
         timers = defaultdict(lambda: 0)
         end_timestamp = (
@@ -45,13 +80,13 @@ class WorkDay:
         )
         timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
         for activity, next_activity in zip(
-            self.activities[:-1], self.activities[1:]
+            self._activities[:-1], self._activities[1:]
         ):
             timers[activity.type] += to_timestamp(
                 next_activity.user_time
             ) - to_timestamp(activity.user_time)
         if not self.is_complete:
-            latest_activity = self.activities[-1]
+            latest_activity = self._activities[-1]
             timers[latest_activity.type] += end_timestamp - to_timestamp(
                 latest_activity.user_time
             )
@@ -64,88 +99,41 @@ class WorkDay:
 
 
 def group_user_events_by_day(user):
-    activities = sorted(
-        user.acknowledged_deduplicated_activities, key=lambda e: e.user_time
-    )
-    expenditures = sorted(
-        user.acknowledged_expenditures, key=lambda e: e.event_time
-    )
-    comments = sorted(user.comments, key=lambda e: e.event_time)
-
-    all_activity_events = sorted(
-        build_activity_modification_list(user), key=lambda a: a.event_time
-    )
-    activity_correction_events = [
-        a for a in all_activity_events if not a.is_automatic_or_real_time
-    ]
+    missions = user.missions(include_dismisses_and_revisions=True)
 
     work_days = []
     current_work_day = None
-    for activity in activities:
-        if activity.type == ActivityType.REST and current_work_day:
-            current_work_day.activities.append(activity)
-            work_days.append(current_work_day)
-            current_work_day = None
-        elif not current_work_day:
-            current_work_day = WorkDay(
-                user=user,
-                activities=[activity],
-                expenditures=[],
-                comments=[],
-                missions=[],
-                vehicles=[],
-            )
-        else:
-            current_work_day.activities.append(activity)
-
-    if current_work_day:
-        work_days.append(current_work_day)
-
-    for idx, day in enumerate(work_days):
-        if idx == 0:
-            last_event_time_of_previous_day = datetime.fromtimestamp(0)
-        else:
-            last_event_time_of_previous_day = (
-                work_days[idx - 1].activities[-1].event_time
-            )
-        if idx == len(work_days) - 1:
-            next_day_start_time = datetime.now()
-        else:
-            next_day_start_time = work_days[idx + 1].start_time
-        if day.is_complete:
-            day.expenditures = [
-                e
-                for e in expenditures
-                if day.start_time <= e.event_time <= day.end_time
-            ]
-            day.comments = [
-                c
-                for c in comments
-                if day.start_time <= c.event_time < next_day_start_time
-            ]
-            day.missions = [
-                m
-                for m in user.missions
-                if day.start_time <= m.user_time < day.end_time
-            ]
-            day.vehicles = list(
-                {
-                    vb.vehicle
-                    for vb in user.vehicle_bookings
-                    if day.start_time <= vb.user_time < day.end_time
-                }
-            )
-            last_event_time_of_the_day = day.activities[-1].event_time
-        else:
-            last_event_time_of_the_day = datetime.now()
-
-        correction_events_of_the_day = [
-            e
-            for e in activity_correction_events
-            if last_event_time_of_previous_day
-            < e.activity_start_time
-            <= last_event_time_of_the_day
+    for mission in missions:
+        all_mission_activities = mission.activities_for(
+            user, include_dismisses_and_revisions=True
+        )
+        acknowledged_mission_activities = [
+            a for a in all_mission_activities if a.is_acknowledged
         ]
-        day.was_modified = len(correction_events_of_the_day) > 0
+        mission_start_time = (
+            acknowledged_mission_activities[0].user_time
+            if acknowledged_mission_activities
+            else all_mission_activities[0].user_time
+        )
+        if (
+            not current_work_day
+            or current_work_day.start_time.date() != mission_start_time.date()
+        ):
+            current_work_day = WorkDay(user=user)
+            work_days.append(current_work_day)
+        current_work_day.add_mission(mission)
+
+        # If no after-time modification was yet detected for the current work day, we check whether the newly added mission introduces some
+        if not current_work_day.was_modified:
+            all_mission_activity_modifications = build_activity_modification_list(
+                all_mission_activities
+            )
+            if not all(
+                [
+                    a.is_automatic_or_real_time
+                    for a in all_mission_activity_modifications
+                ]
+            ):
+                current_work_day.was_modified = True
 
     return work_days
