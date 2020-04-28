@@ -7,7 +7,6 @@ from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import User
 from app.models.activity import ActivityOutput
-from app.models.comment import CommentOutput
 from app.models.mission import MissionOutput
 from app.models.vehicle import VehicleOutput
 
@@ -24,7 +23,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         )
 
     activities = graphene.List(ActivityOutput)
-    comments = graphene.List(CommentOutput)
     work_days = graphene.List(WorkDayOutput)
     enrollable_coworkers = graphene.List(lambda: UserOutput)
     missions = graphene.List(MissionOutput)
@@ -35,12 +33,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_activities(self, info):
         return self.acknowledged_activities
-
-    @with_authorization_policy(
-        self_or_company_admin, get_target_from_args=lambda self, info: self
-    )
-    def resolve_comments(self, info):
-        return self.comments
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info: self
