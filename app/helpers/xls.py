@@ -57,42 +57,30 @@ columns_in_main_sheet = [
         "duration_format",
         10,
     ),
-    # (
-    #     "Repas jour",
-    #     lambda wday: len(
-    #         [
-    #             e
-    #             for e in wday.expenditures
-    #             if e.type == ExpenditureType.DAY_MEAL
-    #         ]
-    #     ),
-    #     None,
-    #     10,
-    # ),
-    # (
-    #     "Repas nuit",
-    #     lambda wday: len(
-    #         [
-    #             e
-    #             for e in wday.expenditures
-    #             if e.type == ExpenditureType.NIGHT_MEAL
-    #         ]
-    #     ),
-    #     None,
-    #     10,
-    # ),
-    # (
-    #     "Découchage",
-    #     lambda wday: len(
-    #         [
-    #             e
-    #             for e in wday.expenditures
-    #             if e.type == ExpenditureType.SLEEP_OVER
-    #         ]
-    #     ),
-    #     None,
-    #     10,
-    # ),
+    (
+        "Repas jour",
+        lambda wday: wday.expenditures.get("day_meal", 0),
+        None,
+        10,
+    ),
+    (
+        "Repas nuit",
+        lambda wday: wday.expenditures.get("night_meal", 0),
+        None,
+        10,
+    ),
+    (
+        "Découchage",
+        lambda wday: wday.expenditures.get("sleep_over", 0),
+        None,
+        10,
+    ),
+    (
+        "Casse-croûte",
+        lambda wday: wday.expenditures.get("snack", 0),
+        None,
+        10,
+    ),
     (
         "Véhicule(s)",
         lambda wday: ", ".join([v.name for v in wday.vehicles]),

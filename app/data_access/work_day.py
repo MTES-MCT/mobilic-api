@@ -1,17 +1,17 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
-from app.models.activity import ActivityOutput
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
+from app.models.mission import MissionOutput
+from app.models.vehicle import VehicleOutput
 
 
 class WorkDayOutput(graphene.ObjectType):
-    activities = graphene.List(ActivityOutput)
     expenditures = graphene.Field(GenericScalar)
 
     start_time = graphene.Field(DateTimeWithTimeStampSerialization)
     end_time = graphene.Field(DateTimeWithTimeStampSerialization)
-    vehicle_registration_number = graphene.Field(graphene.String)
-    mission = graphene.Field(graphene.String)
+    vehicles = graphene.List(VehicleOutput)
+    missions = graphene.List(MissionOutput)
     activity_timers = graphene.Field(GenericScalar)
     was_modified = graphene.Field(graphene.Boolean)

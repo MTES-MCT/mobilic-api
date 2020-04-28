@@ -32,12 +32,12 @@ class ActivityModification(NamedTuple):
         ]
 
 
-def build_activity_modification_list(user):
+def build_activity_modification_list(activities):
     all_relevant_activities = [
         a
-        for a in user.activities
-        if a.authorized_submit
-        and a.event_time != a.dismissed_at
+        for a in activities
+        if a.event_time
+        != a.dismissed_at  # We discard instant dismisses/revisions which mean that the actual activity event is elsewhere
         and all([a2.event_time != a.event_time for a2 in a.revised_by])
     ]
     activity_create_or_updates_with_user_action_time = [
