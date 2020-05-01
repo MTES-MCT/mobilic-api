@@ -77,10 +77,13 @@ class User(BaseModel):
     @property
     def enrollable_coworkers(self):
         now = datetime.now()
+        current_mission = self.mission_at(now)
         return [
             u
             for u in self.company.users
-            if not u.is_company_admin and u.mission_at(now) is None
+            if u != self
+            and not u.is_company_admin
+            and u.mission_at(now) in [None, current_mission]
         ]
 
     @property
