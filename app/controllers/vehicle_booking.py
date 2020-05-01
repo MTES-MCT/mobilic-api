@@ -32,8 +32,7 @@ class VehicleBookingInput(EventInput):
 class LogVehicleBooking(graphene.Mutation):
     Arguments = VehicleBookingInput
 
-    vehicle_bookings = graphene.List(VehicleBookingOutput)
-    bookable_vehicles = graphene.List(VehicleOutput)
+    vehicle_booking = graphene.Field(VehicleBookingOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -62,7 +61,4 @@ class LogVehicleBooking(graphene.Mutation):
                 ),
             )
 
-        return LogVehicleBooking(
-            vehicle_bookings=mission.vehicle_bookings,
-            bookable_vehicles=current_user.bookable_vehicles,
-        )
+        return LogVehicleBooking(vehicle_booking=vehicle_booking)

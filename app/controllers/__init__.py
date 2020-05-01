@@ -22,7 +22,7 @@ class Mutations(graphene.ObjectType):
     log_comment = LogComment.Field()
     begin_mission = BeginMission.Field()
     end_mission = EndMission.Field()
-    log_vehicle_booking = LogVehicleBooking.Field()
+    book_vehicle = LogVehicleBooking.Field()
     signup_user = user.UserSignup.Field()
     signup_company = company.CompanySignup.Field()
     edit_activity = EditActivity.Field()
