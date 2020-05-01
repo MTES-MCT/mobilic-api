@@ -29,3 +29,5 @@ def log_comment(submitter, mission, event_time, content):
         mission=mission,
     )
     db.session.add(comment)
+
+    return comment

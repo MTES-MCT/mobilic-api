@@ -40,12 +40,13 @@ def log_vehicle_booking(
         event_history=submitter.submitted_vehicle_bookings,
     )
 
-    db.session.add(
-        VehicleBooking(
-            vehicle_id=vehicle_id,
-            user_time=user_time,
-            mission=mission,
-            event_time=event_time,
-            submitter=submitter,
-        )
+    vehicle_booking = VehicleBooking(
+        vehicle_id=vehicle_id,
+        user_time=user_time,
+        mission=mission,
+        event_time=event_time,
+        submitter=submitter,
     )
+    db.session.add(vehicle_booking)
+
+    return vehicle_booking
