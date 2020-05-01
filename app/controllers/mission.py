@@ -27,6 +27,7 @@ class MissionInput(EventInput):
     first_activity_type = graphene.Argument(
         graphene_enum_type(InputableActivityType), required=True
     )
+    driver = graphene.Argument(TeamMateInput, required=False)
     vehicle_registration_number = graphene.String(required=False)
     vehicle_id = graphene.Int(required=False)
     team = graphene.List(TeamMateInput, required=False)
@@ -51,7 +52,7 @@ class BeginMission(graphene.Mutation):
 
 class EndMission(graphene.Mutation):
     class Arguments(EventInput):
-        mission_id = graphene.Int(required=True)
+        mission_id = graphene.Int(required=False)
         expenditures = GenericScalar(required=False)
 
     mission = graphene.Field(MissionOutput)
@@ -60,7 +61,14 @@ class EndMission(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            mission = Mission.query.get(args["mission_id"])
+            if not args:
+                args = {}
+            mission_id = args.get("mission_id")
+            if not mission_id:
+                mission = current_user.mission_at(args.get("event_time"))
+            else:
+                mission = Mission.query.get(mission_id)
+
             app.logger.info(f"Ending mission {mission}")
             mission.expenditures = args.get("expenditures")
             log_group_activity(

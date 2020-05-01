@@ -6,6 +6,19 @@ from app.domain.permissions import (
 )
 from app.helpers.authentication import AuthorizationError
 from app.models.activity import ActivityType, Activity, ActivityDismissType
+from app.models import User
+
+
+def resolve_driver(submitter, driver):
+    driver_id = driver.get("id")
+    if driver_id:
+        return User.query.get(driver_id)
+    else:
+        return User.query.filter(
+            User.company_id == submitter.company_id,
+            User.first_name == driver.get("first_name"),
+            User.last_name == driver.get("last_name"),
+        ).one_or_none()
 
 
 def log_group_activity(

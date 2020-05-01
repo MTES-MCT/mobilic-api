@@ -7,6 +7,7 @@ from app.controllers.utils import atomic_transaction
 from app.domain.log_activities import (
     log_group_activity,
     check_activity_sequence_in_mission_and_handle_duplicates,
+    resolve_driver,
 )
 from app.helpers.authentication import AuthorizationError
 from app.helpers.authorization import with_authorization_policy, authenticated
@@ -37,8 +38,8 @@ class ActivityInput(EventInput):
     user_time = graphene.Argument(
         DateTimeWithTimeStampSerialization, required=False
     )
-    driver_id = graphene.Int(required=False)
-    mission_id = graphene.Int(required=True)
+    driver = graphene.Argument(TeamMateInput, required=False)
+    mission_id = graphene.Int(required=False)
     comment = graphene.String(required=False)
 
 
@@ -55,18 +56,25 @@ class LogActivity(graphene.Mutation):
         )
         with atomic_transaction(commit_at_end=True):
             _preload_db_resources()
-            mission = Mission.query.get(activity_input["mission_id"])
             user_time = (
                 activity_input.get("user_time") or activity_input["event_time"]
             )
+            mission_id = activity_input.get("mission_id")
+            if not mission_id:
+                mission = current_user.mission_at(user_time)
+            else:
+                mission = Mission.query.get(mission_id)
+
             log_group_activity(
                 submitter=current_user,
                 type=activity_input["type"],
                 mission=mission,
                 event_time=activity_input["event_time"],
                 user_time=user_time,
-                driver=User.query.get(activity_input.get("driver_id"))
-                if activity_input.get("driver_id")
+                driver=resolve_driver(
+                    current_user, activity_input.get("driver")
+                )
+                if activity_input.get("driver")
                 else None,
                 comment=activity_input.get("comment"),
             )

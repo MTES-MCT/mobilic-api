@@ -22,9 +22,17 @@ class LogComment(graphene.Mutation):
     def mutate(cls, _, info, **comment_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(f"Logging comment")
-            mission = Mission.query.get(comment_input.get("mission_id"))
-            log_comment(
+            mission_id = comment_input.get("mission_id")
+            if not mission_id:
+                mission = current_user.mission_at(
+                    comment_input.get("event_time")
+                )
+            else:
+                mission = Mission.query.get(mission_id)
+
+            comment = log_comment(
                 submitter=current_user,
+                mission=mission,
                 content=comment_input["content"],
                 event_time=comment_input["event_time"],
             )

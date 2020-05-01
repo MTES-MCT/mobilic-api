@@ -22,7 +22,7 @@ def _preload_db_resources():
 
 class VehicleBookingInput(EventInput):
     vehicle_id = graphene.Argument(graphene.Int, required=False)
-    mission_id = graphene.Argument(graphene.Int, required=True)
+    mission_id = graphene.Argument(graphene.Int, required=False)
     registration_number = graphene.Argument(graphene.String, required=False)
     user_time = graphene.Argument(
         DateTimeWithTimeStampSerialization, required=False
@@ -42,12 +42,18 @@ class LogVehicleBooking(graphene.Mutation):
             app.logger.info(
                 f"Logging vehicle booking submitted by {current_user} of company {current_user.company}"
             )
-            mission = Mission.query.get(vehicle_booking_input["mission_id"])
+            user_time = vehicle_booking_input.get(
+                "user_time"
+            ) or vehicle_booking_input.get("event_time")
+            mission_id = vehicle_booking_input.get("mission_id")
+            if not mission_id:
+                mission = current_user.mission_at(user_time)
+            else:
+                mission = Mission.query.get(mission_id)
             _preload_db_resources()
-            log_vehicle_booking(
+            vehicle_booking = log_vehicle_booking(
                 submitter=current_user,
-                user_time=vehicle_booking_input.get("user_time")
-                or vehicle_booking_input.get("event_time"),
+                user_time=user_time,
                 mission=mission,
                 event_time=vehicle_booking_input.get("event_time"),
                 vehicle_id=vehicle_booking_input.get("vehicle_id"),
