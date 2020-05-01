@@ -38,7 +38,7 @@ graphql_api_path = "/graphql"
 app.add_url_rule(
     graphql_api_path,
     view_func=GraphQLView.as_view(
-        "graphql", schema=graphql_schema, graphiql=True
+        "graphql", schema=graphql_schema, graphiql=True, batch=True
     ),
 )
 
