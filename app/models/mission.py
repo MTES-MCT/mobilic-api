@@ -1,7 +1,6 @@
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.event import EventBaseModel
 
 
@@ -55,8 +54,3 @@ class Mission(EventBaseModel):
             }
 
         return team_mates_added_before - team_mates_removed_before
-
-
-class MissionOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = Mission

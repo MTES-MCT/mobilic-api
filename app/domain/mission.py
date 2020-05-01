@@ -1,7 +1,7 @@
 from app import db
 from app.domain.log_activities import log_activity, resolve_driver
 from app.domain.log_vehicle_booking import log_vehicle_booking
-from app.domain.team import enroll
+from app.domain.team import enroll_or_release, get_or_create_team_mate
 from app.models import Mission
 
 
@@ -56,9 +56,9 @@ def begin_mission(
         submitter=user,
     )
 
-    # 4. Enroll team mates
-    if team:
-        for team_mate in team:
-            enroll(user, team_mate, event_time)
+    # 5. Enroll team mates
+    if fully_created_team:
+        for team_mate in fully_created_team:
+            enroll_or_release(user, team_mate, event_time, is_enrollment=True)
 
     return mission

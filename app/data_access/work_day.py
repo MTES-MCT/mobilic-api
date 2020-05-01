@@ -1,8 +1,8 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.data_access.mission import MissionOutput
 from app.helpers.graphene_types import DateTimeWithTimeStampSerialization
-from app.models.mission import MissionOutput
 from app.models.vehicle import VehicleOutput
 
 
