@@ -18,8 +18,8 @@ class User(BaseModel):
     company = db.relationship("Company", backref="users", lazy="selectin")
     company_name_to_resolve = db.Column(db.String(255))
     refresh_token_nonce = db.Column(db.String(255), default=None)
-    first_name = db.Column(db.String(255))
-    last_name = db.Column(db.String(255))
+    first_name = db.Column(db.String(255), nullable=False)
+    last_name = db.Column(db.String(255), nullable=False)
     is_company_admin = db.Column(db.Boolean, default=False, nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)
 

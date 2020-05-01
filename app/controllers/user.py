@@ -46,5 +46,7 @@ class Query(graphene.ObjectType):
     )
     def resolve_user(self, info, id):
         matching_user = User.query.get(id)
+        # Set the user in the resolver context so that child resolvers can access it
+        info.context.user_being_queried = matching_user
         app.logger.info(f"Sending user data for {matching_user}")
         return matching_user
