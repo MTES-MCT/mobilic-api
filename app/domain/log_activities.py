@@ -10,6 +10,8 @@ from app.models import User
 
 
 def resolve_driver(submitter, driver):
+    if not driver:
+        return None
     driver_id = driver.get("id")
     if driver_id:
         return User.query.get(driver_id)
