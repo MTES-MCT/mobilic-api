@@ -13,7 +13,7 @@ from app.controllers.event import EventInput
 class LogComment(graphene.Mutation):
     class Arguments(EventInput):
         content = graphene.String(required=True)
-        mission_id = graphene.Int(required=True)
+        mission_id = graphene.Int(required=False)
 
     comment = graphene.Field(CommentOutput)
 
