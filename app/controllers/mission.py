@@ -54,8 +54,6 @@ class EndMission(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            if not args:
-                args = {}
             mission_id = args.get("mission_id")
             if not mission_id:
                 mission = current_user.mission_at(args.get("event_time"))

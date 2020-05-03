@@ -20,13 +20,20 @@ def log_vehicle_booking(
         return
 
     if not vehicle_id:
-        vehicle = Vehicle(
-            registration_number=registration_number,
-            submitter=submitter,
-            company_id=submitter.company_id,
-        )
-        db.session.add(vehicle)
-        db.session.flush()  # To get a DB id for the new vehicle
+        vehicle = Vehicle.query.filter(
+            Vehicle.registration_number == registration_number,
+            Vehicle.company_id == submitter.company_id,
+        ).one_or_none()
+
+        if not vehicle:
+            vehicle = Vehicle(
+                registration_number=registration_number,
+                submitter=submitter,
+                company_id=submitter.company_id,
+            )
+            db.session.add(vehicle)
+            db.session.flush()  # To get a DB id for the new vehicle
+
         vehicle_id = vehicle.id
 
     # Check that user current mission corresponds to the passed mission
