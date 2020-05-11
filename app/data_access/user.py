@@ -72,31 +72,34 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_joined_current_mission_at(self, info):
         if not current_user:
             return None
-        current_mission = current_user.mission_at(datetime.now())
-        if not current_mission:
+        latest_user_activity = current_user.latest_acknowledged_activity_at(
+            datetime.now()
+        )
+        latest_mission = (
+            latest_user_activity.mission if latest_user_activity else None
+        )
+        if not latest_mission:
             return None
         user_activities_in_mission = [
-            a
-            for a in current_mission.acknowledged_activities
-            if a.user == self
+            a for a in latest_mission.acknowledged_activities if a.user == self
         ]
-        if (
-            user_activities_in_mission
-            and user_activities_in_mission[-1].type != ActivityType.REST
-        ):
+        if user_activities_in_mission:
             return user_activities_in_mission[0].user_time
         return None
 
     def resolve_left_current_mission_at(self, info):
         if not current_user:
             return None
-        current_mission = current_user.mission_at(datetime.now())
-        if not current_mission:
+        latest_user_activity = current_user.latest_acknowledged_activity_at(
+            datetime.now()
+        )
+        latest_mission = (
+            latest_user_activity.mission if latest_user_activity else None
+        )
+        if not latest_mission:
             return None
         user_activities_in_mission = [
-            a
-            for a in current_mission.acknowledged_activities
-            if a.user == self
+            a for a in latest_mission.acknowledged_activities if a.user == self
         ]
         if (
             user_activities_in_mission
