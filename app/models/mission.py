@@ -61,3 +61,6 @@ class Mission(EventBaseModel):
             }
 
         return team_mates_added_before - team_mates_removed_before
+
+    def validated_by(self, user):
+        return len([v for v in self.validations if v.submitter == user]) > 0

@@ -85,3 +85,31 @@ class EndMission(graphene.Mutation):
                 )
 
         return EndMission(mission=mission)
+
+
+class ValidateMission(graphene.Mutation):
+    class Arguments:
+        mission_id = graphene.Int(required=True)
+
+    mission = graphene.Field(MissionOutput)
+
+    @classmethod
+    @with_authorization_policy(
+        can_submitter_log_on_mission,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
+            kwargs["mission_id"]
+        ),
+    )
+    def mutate(cls, _, info, mission_id):
+        with atomic_transaction(commit_at_end=True):
+            mission = Mission.query.get(mission_id)
+
+            db.session.add(
+                MissionValidation(
+                    submitter=current_user,
+                    event_time=datetime.now(),
+                    mission=mission,
+                )
+            )
+
+        return ValidateMission(mission=mission)
