@@ -65,8 +65,8 @@ def _equals_on_intersect(d1, d2):
 
 class ApiRequests:
     log_activity = """
-        mutation ($type: InputableActivityTypeEnum!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $missionId: Int!, $driverId: Int) {
-            logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driverId: $driverId, userTime: $userTime) {
+        mutation ($type: InputableActivityTypeEnum!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $missionId: Int, $driver: TeamMateInput) {
+            logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driver: $driver, userTime: $userTime) {
                 missionActivities
                  {
                     id
@@ -87,7 +87,7 @@ class ApiRequests:
         }
     """
     end_mission = """
-        mutation ($missionId: Int!, $eventTime: DateTimeWithTimeStampSerialization!, $expenditures: GenericScalar) {
+        mutation ($missionId: Int, $eventTime: DateTimeWithTimeStampSerialization!, $expenditures: GenericScalar) {
             endMission (missionId: $missionId, eventTime: $eventTime, expenditures: $expenditures) {
                 mission
                  {
