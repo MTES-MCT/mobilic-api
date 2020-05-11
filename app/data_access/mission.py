@@ -15,6 +15,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     activities = graphene.List(ActivityOutput)
     comments = graphene.List(CommentOutput)
     vehicle_bookings = graphene.List(VehicleBookingOutput)
+    validated = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info):
         user = getattr(info.context, "user_being_queried", current_user)
@@ -25,3 +26,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_vehicle_bookings(self, info):
         return self.vehicle_bookings
+
+    def resolve_validated(self, info):
+        user = getattr(info.context, "user_being_queried", current_user)
+        return self.validated_by(user)
