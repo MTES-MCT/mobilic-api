@@ -47,15 +47,21 @@ def _migrate_comments():
     )
     for comment in comments:
         submitter_activities = activities_per_submitter[comment.submitter_id]
-        latest_activity = [
+        related_activities = [
             a
             for a in submitter_activities
             if a.event_time <= comment.event_time
-        ][-1]
-        session.execute(
-            "UPDATE comment SET mission_id = :mission_id WHERE id = :id",
-            dict(id=comment.id, mission_id=latest_activity.mission_id),
-        )
+        ]
+        if not related_activities:
+            session.execute(
+                "DELETE from comment WHERE id = :id", dict(id=comment.id)
+            )
+        else:
+            latest_activity = related_activities[-1]
+            session.execute(
+                "UPDATE comment SET mission_id = :mission_id WHERE id = :id",
+                dict(id=comment.id, mission_id=latest_activity.mission_id),
+            )
 
 
 def upgrade():
