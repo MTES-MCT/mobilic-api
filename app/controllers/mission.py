@@ -1,10 +1,8 @@
-from app.controllers.team import TeamMateInput
-from app.data_access.mission import MissionOutput
-from app.helpers.authentication import current_user
 import graphene
 from graphene.types.generic import GenericScalar
+from datetime import datetime
 
-from app import app
+from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.log_activities import log_group_activity
 from app.domain.mission import begin_mission
@@ -13,6 +11,12 @@ from app.helpers.graphene_types import graphene_enum_type
 from app.models.activity import InputableActivityType, ActivityType
 from app.models.mission import Mission
 from app.controllers.event import EventInput
+from app.models.mission_validation import MissionValidation
+from app.controllers.team import TeamMateInput
+from app.data_access.mission import MissionOutput
+from app.domain.log_comments import log_comment
+from app.domain.permissions import can_submitter_log_on_mission
+from app.helpers.authentication import current_user
 
 
 class MissionInput(EventInput):
@@ -47,6 +51,7 @@ class EndMission(graphene.Mutation):
     class Arguments(EventInput):
         mission_id = graphene.Int(required=False)
         expenditures = GenericScalar(required=False)
+        comment = graphene.String(required=False)
 
     mission = graphene.Field(MissionOutput)
 
@@ -69,5 +74,14 @@ class EndMission(graphene.Mutation):
                 event_time=args["event_time"],
                 user_time=args["event_time"],
             )
+
+            comment = args.get("comment")
+            if comment:
+                log_comment(
+                    submitter=current_user,
+                    mission=mission,
+                    event_time=args["event_time"],
+                    content=comment,
+                )
 
         return EndMission(mission=mission)
