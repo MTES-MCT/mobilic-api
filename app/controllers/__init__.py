@@ -1,7 +1,12 @@
 import graphene
 
 from app.controllers.comment import LogComment
-from app.controllers.mission import BeginMission, EndMission, ValidateMission
+from app.controllers.mission import (
+    BeginMission,
+    EndMission,
+    ValidateMission,
+    EditMissionExpenditures,
+)
 from app.controllers.team import EnrollOrReleaseTeamMate
 from app.controllers.vehicle import (
     CreateVehicle,
@@ -32,6 +37,7 @@ class Mutations(graphene.ObjectType):
     terminate_vehicle = TerminateVehicle.Field()
     enroll_or_release_team_mate = EnrollOrReleaseTeamMate.Field()
     validate_mission = ValidateMission.Field()
+    edit_mission_expenditures = EditMissionExpenditures.Field()
 
 
 class Query(user.Query, company.Query, graphene.ObjectType):
