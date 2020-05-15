@@ -59,6 +59,8 @@ def begin_mission(
     # 5. Enroll team mates
     if fully_created_team:
         for team_mate in fully_created_team:
-            enroll_or_release(user, team_mate, event_time, is_enrollment=True)
+            enroll_or_release(
+                user, mission, team_mate, event_time, is_enrollment=True
+            )
 
     return mission

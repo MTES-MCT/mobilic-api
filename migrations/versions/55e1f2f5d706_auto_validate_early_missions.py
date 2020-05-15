@@ -6,12 +6,8 @@ Create Date: 2020-05-11 16:39:20.550676
 
 """
 from alembic import op
-import sqlalchemy as sa
-from datetime import datetime
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm.session import Session
 from collections import namedtuple, defaultdict
-import json
 
 # revision identifiers, used by Alembic.
 revision = "55e1f2f5d706"

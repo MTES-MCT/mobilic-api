@@ -7,27 +7,32 @@ from app.models.activity import ActivityType
 
 def get_or_create_team_mate(submitter, team_mate_data):
     team_mate_id = team_mate_data.get("id")
+    first_name = team_mate_data.get("first_name")
+    last_name = team_mate_data.get("last_name")
+
     if not team_mate_id:
-        user = User(
-            first_name=team_mate_data.get("first_name"),
-            last_name=team_mate_data.get("last_name"),
-            company_id=submitter.company_id,
-        )
+        user = User.query.filter(
+            User.first_name == first_name,
+            User.last_name == last_name,
+            User.company_id == submitter.company_id,
+        ).one_or_none()
+
+        if not user:
+            user = User(
+                first_name=first_name,
+                last_name=last_name,
+                company_id=submitter.company_id,
+            )
         db.session.add(user)
         return user
     else:
         return User.query.get(team_mate_id)
 
 
-def enroll_or_release(submitter, team_mate, event_time, is_enrollment):
-    mission = submitter.mission_at(event_time)
-
+def enroll_or_release(
+    submitter, mission, team_mate, event_time, is_enrollment
+):
     app.logger.info(f"Enrolling {team_mate} on {mission}")
-
-    if not mission:
-        raise ValueError(
-            f"{submitter} cannot enroll {team_mate} at {event_time} because the former is not engaged in a mission at that time"
-        )
 
     driver = None
     if is_enrollment:
