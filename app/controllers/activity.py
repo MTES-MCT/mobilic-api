@@ -128,7 +128,7 @@ class EditActivity(graphene.Mutation):
             )
             if not activities_to_update:
                 raise ValueError(
-                    f"Could not find valid Activity events with id {activities_to_update['activity_id']}"
+                    f"Could not find valid Activity events with id {edit_input['activity_id']}"
                 )
             mission = None
             for activity in activities_to_update:

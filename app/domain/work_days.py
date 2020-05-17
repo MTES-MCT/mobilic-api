@@ -15,6 +15,7 @@ class WorkDay:
     user: User
     missions: List[Mission]
     _activities: List[Activity]
+    _all_activities: List[Activity]
     was_modified: bool
 
     def __init__(self, user):
@@ -26,6 +27,11 @@ class WorkDay:
     def add_mission(self, mission):
         self.missions.append(mission)
         self._activities.extend(mission.activities_for(self.user))
+        self._activities.extend(
+            mission.activities_for(
+                self.user, include_dismisses_and_revisions=True
+            )
+        )
 
     @property
     def is_complete(self):
@@ -35,7 +41,11 @@ class WorkDay:
 
     @property
     def start_time(self):
-        return self._activities[0].user_time if self._activities else None
+        if self._activities:
+            return self._activities[0].user_time
+        if self._all_activities:
+            return self._all_activities[0].user_time
+        return None
 
     @property
     def end_time(self):
