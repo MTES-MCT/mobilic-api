@@ -173,6 +173,36 @@ def log_activity(
     comment=None,
     bypass_check=False,
 ):
+    try:
+        return _log_activity(
+            submitter,
+            user,
+            mission,
+            type,
+            event_time,
+            user_time,
+            driver,
+            comment,
+            bypass_check,
+        )
+    except Exception as e:
+        # If the activity log fails for a team mate we want it to be non blocking (the main activity should be logged for instance)
+        if submitter != user:
+            return
+        raise e
+
+
+def _log_activity(
+    submitter,
+    user,
+    mission,
+    type,
+    event_time,
+    user_time,
+    driver=None,
+    comment=None,
+    bypass_check=False,
+):
     if type == ActivityType.DRIVE:
         # Default to marking the submitter as driver if no driver is provided
         if (driver is None and user == submitter) or user == driver:

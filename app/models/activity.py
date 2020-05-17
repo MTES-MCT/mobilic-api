@@ -109,8 +109,9 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         )
         dict_.update(updated_props)
         revision = log_activity(**dict_, bypass_check=True)
-        self.set_revision(revision, revision_comment)
-        db.session.add(revision)
+        if revision:
+            self.set_revision(revision, revision_comment)
+            db.session.add(revision)
         return revision
 
 
