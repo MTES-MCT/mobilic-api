@@ -49,7 +49,7 @@ class BeginMission(graphene.Mutation):
 
 class EndMission(graphene.Mutation):
     class Arguments(EventInput):
-        mission_id = graphene.Int(required=False)
+        mission_id = graphene.Int(required=True)
         expenditures = GenericScalar(required=False)
         comment = graphene.String(required=False)
 
@@ -59,11 +59,7 @@ class EndMission(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            mission_id = args.get("mission_id")
-            if not mission_id:
-                mission = current_user.mission_at(args.get("event_time"))
-            else:
-                mission = Mission.query.get(mission_id)
+            mission = Mission.query.get(args.get("mission_id"))
 
             app.logger.info(f"Ending mission {mission}")
             mission.expenditures = args.get("expenditures")
@@ -117,7 +113,7 @@ class ValidateMission(graphene.Mutation):
 
 class EditMissionExpenditures(graphene.Mutation):
     class Arguments:
-        mission_id = graphene.Int(required=False)
+        mission_id = graphene.Int(required=True)
         expenditures = GenericScalar(required=True)
 
     mission = graphene.Field(MissionOutput)
@@ -126,11 +122,7 @@ class EditMissionExpenditures(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            mission_id = args.get("mission_id")
-            if not mission_id:
-                mission = current_user.mission_at(args.get("event_time"))
-            else:
-                mission = Mission.query.get(mission_id)
+            mission = Mission.query.get(args.get("mission_id"))
 
             mission.expenditures = args["expenditures"]
 

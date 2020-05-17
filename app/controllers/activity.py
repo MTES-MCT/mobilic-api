@@ -40,7 +40,7 @@ class ActivityInput(EventInput):
         DateTimeWithTimeStampSerialization, required=False
     )
     driver = graphene.Argument(TeamMateInput, required=False)
-    mission_id = graphene.Int(required=False)
+    mission_id = graphene.Int(required=True)
     comment = graphene.String(required=False)
 
 
@@ -61,10 +61,7 @@ class LogActivity(graphene.Mutation):
                 activity_input.get("user_time") or activity_input["event_time"]
             )
             mission_id = activity_input.get("mission_id")
-            if not mission_id:
-                mission = current_user.mission_at(user_time)
-            else:
-                mission = Mission.query.get(mission_id)
+            mission = Mission.query.get(mission_id)
 
             log_group_activity(
                 submitter=current_user,

@@ -13,7 +13,7 @@ from app.controllers.event import EventInput
 class LogComment(graphene.Mutation):
     class Arguments(EventInput):
         content = graphene.String(required=True)
-        mission_id = graphene.Int(required=False)
+        mission_id = graphene.Int(required=True)
 
     comment = graphene.Field(CommentOutput)
 
@@ -23,12 +23,7 @@ class LogComment(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(f"Logging comment")
             mission_id = comment_input.get("mission_id")
-            if not mission_id:
-                mission = current_user.mission_at(
-                    comment_input.get("event_time")
-                )
-            else:
-                mission = Mission.query.get(mission_id)
+            mission = Mission.query.get(mission_id)
 
             comment = log_comment(
                 submitter=current_user,
