@@ -3,6 +3,8 @@ from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 import config
 from app.helpers.db import SQLAlchemyWithStrongRefSession
@@ -11,6 +13,11 @@ app = Flask(__name__)
 
 env = os.environ.get("MOBILIC_ENV", "dev")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
+
+if app.config["SENTRY_URL"]:
+    sentry_sdk.init(
+        dsn=app.config["SENTRY_URL"], integrations=[FlaskIntegration()]
+    )
 
 db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}
@@ -48,3 +55,8 @@ app.add_url_rule(
         "old_graphql", schema=graphql_schema, graphiql=True
     ),
 )
+
+
+@app.route("/debug-sentry")
+def trigger_error():
+    division_by_zero = 1 / 0

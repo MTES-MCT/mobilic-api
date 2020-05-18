@@ -33,6 +33,8 @@ class WorkDay:
                 self.user, include_dismisses_and_revisions=True
             )
         )
+        self._activities.sort(key=lambda a: a.user_time)
+        self._all_activities.sort(key=lambda a: a.user_time)
 
     @property
     def is_complete(self):

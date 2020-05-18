@@ -14,6 +14,7 @@ class Config:
     SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     ALLOW_INSECURE_IMPERSONATION = False
+    SENTRY_URL = os.environ.get("SENTRY_URL")
 
 
 class DevConfig(Config):
