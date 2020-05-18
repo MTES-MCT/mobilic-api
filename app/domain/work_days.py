@@ -22,12 +22,13 @@ class WorkDay:
         self.user = user
         self.missions = []
         self._activities = []
+        self._all_activities = []
         self.was_modified = False
 
     def add_mission(self, mission):
         self.missions.append(mission)
         self._activities.extend(mission.activities_for(self.user))
-        self._activities.extend(
+        self._all_activities.extend(
             mission.activities_for(
                 self.user, include_dismisses_and_revisions=True
             )
