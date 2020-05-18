@@ -24,7 +24,7 @@ columns_in_main_sheet = [
     ("Employé", lambda wday: wday.user.display_name, None, 30),
     ("Jour", lambda wday: wday.start_time, "date_format", 20),
     ("Début", lambda wday: wday.start_time, "time_format", 15),
-    ("Fin", lambda wday: wday.end_time, "time_format", 15),
+    ("Fin", lambda wday: wday.start_time, "time_format", 15),
     (
         "Conduite",
         lambda wday: timedelta(
@@ -89,7 +89,7 @@ columns_in_main_sheet = [
     ),
     (
         "Mission(s)",
-        lambda wday: ", ".join([m.name for m in wday.missions]),
+        lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
         None,
         30,
     ),
@@ -131,7 +131,7 @@ def send_work_days_as_excel(user_wdays):
         for wday in sorted(work_days, key=lambda wd: wd.start_time):
             main_col_idx = 0
             for (main_col_name, resolver, style, _) in columns_in_main_sheet:
-                if style in date_formats:
+                if style in date_formats and resolver(wday) is not None:
                     main_sheet.write_datetime(
                         main_row_idx,
                         main_col_idx,
