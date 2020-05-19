@@ -146,7 +146,7 @@ class Revisable(Dismissable):
 
     @property
     def is_revised(self):
-        return self.revised_by_id is not None
+        return self.revised_by is not None
 
     def set_revision(self, revision, comment=None):
         self.revised_by = revision

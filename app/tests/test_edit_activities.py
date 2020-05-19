@@ -1,4 +1,5 @@
 from datetime import datetime
+from random import randint
 
 from app.models import Mission
 from app.models.activity import (
@@ -11,6 +12,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     test_db_changes,
     ApiRequests,
+    ForeignKey,
 )
 
 from app.tests.test_log_activities import TestLogActivities
@@ -32,7 +34,11 @@ class TestEditActivities(TestLogActivities):
             Activity.user_id == self.team_leader.id,
         ).one()
 
-        expected_changes = additional_db_changes or []
+        expected_changes = additional_db_changes or {}
+        if type(expected_changes) is list:
+            expected_changes = {
+                str(idx): item for idx, item in enumerate(expected_changes)
+            }
         for team_member in self.team:
             activity_to_edit = Activity.query.filter(
                 Activity.user_time == activity_time,
@@ -48,27 +54,46 @@ class TestEditActivities(TestLogActivities):
                     mission_id=activity_to_edit.mission_id,
                     dismiss_type=None,
                 )
+                random_id = str(randint(1000, 1000000))
                 if new_activity_time:
-                    activity_data["user_time"] = new_activity_time
-                    activity_data["event_time"] = edit_time
-                    activity_data["revisee_id"] = activity_to_edit.id
-                    expected_changes.append(
-                        DBEntryUpdate(
-                            model=Activity, before=None, after=activity_data
-                        )
+                    new_activity_data = {**activity_data}
+                    new_activity_data["user_time"] = new_activity_time
+                    new_activity_data["event_time"] = edit_time
+                    expected_changes.update(
+                        {
+                            random_id: DBEntryUpdate(
+                                model=Activity,
+                                before=None,
+                                after=new_activity_data,
+                            ),
+                            random_id
+                            + "revised": DBEntryUpdate(
+                                model=Activity,
+                                before={
+                                    "id": activity_to_edit.id,
+                                    "revised_by_id": None,
+                                },
+                                after={
+                                    "id": activity_to_edit.id,
+                                    "revised_by_id": ForeignKey(random_id),
+                                },
+                            ),
+                        }
                     )
                 else:
-                    expected_changes.append(
-                        DBEntryUpdate(
-                            model=Activity,
-                            before=activity_data,
-                            after={
-                                **activity_data,
-                                "dismiss_type": ActivityDismissType.USER_CANCEL,
-                                "dismissed_at": edit_time,
-                                "dismiss_author_id": self.team_leader.id,
-                            },
-                        )
+                    expected_changes.update(
+                        {
+                            random_id: DBEntryUpdate(
+                                model=Activity,
+                                before=activity_data,
+                                after={
+                                    **activity_data,
+                                    "dismiss_type": ActivityDismissType.USER_CANCEL,
+                                    "dismissed_at": edit_time,
+                                    "dismiss_author_id": self.team_leader.id,
+                                },
+                            )
+                        }
                     )
 
         with test_db_changes(
@@ -109,27 +134,51 @@ class TestEditActivities(TestLogActivities):
             dismiss_type=None,
         )
 
-        expected_changes = additional_db_changes or []
+        expected_changes = additional_db_changes or {}
+        if type(expected_changes) is list:
+            expected_changes = {
+                str(idx): item for idx, item in enumerate(expected_changes)
+            }
+        random_id = str(randint(1000, 1000000))
+
         if new_activity_time:
-            activity_data["user_time"] = new_activity_time
-            activity_data["event_time"] = edit_time
-            activity_data["revisee_id"] = activity_to_edit.id
-            activity_data["submitter_id"] = team_member.id
-            expected_changes.append(
-                DBEntryUpdate(model=Activity, before=None, after=activity_data)
+            new_activity_data = {**activity_data}
+            new_activity_data["user_time"] = new_activity_time
+            new_activity_data["event_time"] = edit_time
+            new_activity_data["submitter_id"] = team_member.id
+            expected_changes.update(
+                {
+                    random_id: DBEntryUpdate(
+                        model=Activity, before=None, after=new_activity_data
+                    ),
+                    random_id
+                    + "revised": DBEntryUpdate(
+                        model=Activity,
+                        before={
+                            "id": activity_to_edit.id,
+                            "revised_by_id": None,
+                        },
+                        after={
+                            "id": activity_to_edit.id,
+                            "revised_by_id": ForeignKey(random_id),
+                        },
+                    ),
+                }
             )
         else:
-            expected_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=activity_data,
-                    after={
-                        **activity_data,
-                        "dismiss_type": ActivityDismissType.USER_CANCEL,
-                        "dismissed_at": edit_time,
-                        "dismiss_author_id": team_member.id,
-                    },
-                )
+            expected_changes.update(
+                {
+                    random_id: DBEntryUpdate(
+                        model=Activity,
+                        before=activity_data,
+                        after={
+                            **activity_data,
+                            "dismiss_type": ActivityDismissType.USER_CANCEL,
+                            "dismissed_at": edit_time,
+                            "dismiss_author_id": team_member.id,
+                        },
+                    )
+                }
             )
 
         with test_db_changes(
@@ -311,8 +360,9 @@ class TestEditActivities(TestLogActivities):
             Activity.user_id == self.team_leader.id,
         ).one()
 
-        additional_db_changes = []
+        additional_db_changes = {}
         for team_mate in self.team:
+            random_id = str(randint(1000, 1000000))
             activity_data = dict(
                 type=activity_to_mark_as_duplicate.type,
                 submitter_id=self.team_leader.id,
@@ -322,34 +372,51 @@ class TestEditActivities(TestLogActivities):
                 mission_id=activity_to_mark_as_duplicate.mission_id,
                 dismiss_type=None,
             )
-            additional_db_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=activity_data,
-                    after={
-                        **activity_data,
-                        "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH,
-                        "dismissed_at": cancel_time,
-                        "dismiss_author_id": self.team_leader.id,
-                    },
-                )
+            additional_db_changes.update(
+                {
+                    random_id: DBEntryUpdate(
+                        model=Activity,
+                        before=activity_data,
+                        after={
+                            **activity_data,
+                            "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH,
+                            "dismissed_at": cancel_time,
+                            "dismiss_author_id": self.team_leader.id,
+                        },
+                    )
+                }
             )
             activity_to_revise = Activity.query.filter(
                 Activity.user_time == activity_to_revise_time,
                 Activity.user_id == team_mate.id,
             ).one()
-            additional_db_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=None,
-                    after=dict(
-                        type=ActivityType.REST,
-                        user_id=team_mate.id,
-                        submitter_id=self.team_leader.id,
-                        mission_id=mission["id"],
-                        revisee_id=activity_to_revise.id,
+            random_id = str(randint(1000, 1000000))
+
+            additional_db_changes.update(
+                {
+                    random_id: DBEntryUpdate(
+                        model=Activity,
+                        before=None,
+                        after=dict(
+                            type=ActivityType.REST,
+                            user_id=team_mate.id,
+                            submitter_id=self.team_leader.id,
+                            mission_id=mission["id"],
+                        ),
                     ),
-                )
+                    random_id
+                    + "revised": DBEntryUpdate(
+                        model=Activity,
+                        before={
+                            "id": activity_to_revise.id,
+                            "revised_by_id": None,
+                        },
+                        after={
+                            "id": activity_to_revise.id,
+                            "revised_by_id": ForeignKey(random_id),
+                        },
+                    ),
+                }
             )
 
         self._cancel_or_edit_activity_as_team_leader(
