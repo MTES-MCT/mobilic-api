@@ -23,6 +23,9 @@ db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}
 )
 
+if app.config["ECHO_DB_QUERIES"]:
+    db.engine.echo = True
+
 Migrate(app, db)
 
 CORS(app)

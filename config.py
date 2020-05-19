@@ -7,6 +7,7 @@ class Config:
         "DATABASE_URL", "postgresql://localhost:5432/mobilic"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
@@ -19,6 +20,7 @@ class Config:
 
 class DevConfig(Config):
     ALLOW_INSECURE_IMPERSONATION = True
+    ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
 
 
 class StagingConfig(Config):
