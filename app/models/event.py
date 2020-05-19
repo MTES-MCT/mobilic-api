@@ -127,7 +127,7 @@ class Revisable(Dismissable):
     revision_comment = db.Column(db.TEXT, nullable=True)
 
     @declared_attr
-    def revisee_id(cls):
+    def revised_by_id(cls):
         return db.Column(
             db.Integer,
             db.ForeignKey(cls.__tablename__ + ".id"),
@@ -136,17 +136,18 @@ class Revisable(Dismissable):
         )
 
     @declared_attr
-    def revisee(cls):
+    def revised_by(cls):
         return db.relationship(
             cls,
-            backref=backref("revised_by", lazy="selectin"),
+            backref=backref("revisee"),
             remote_side=[cls.id],
+            uselist=False,
         )
 
     @property
     def is_revised(self):
-        return len([e for e in self.revised_by]) > 0
+        return self.revised_by_id is not None
 
     def set_revision(self, revision, comment=None):
-        revision.revisee = self
-        revision.revision_comment = comment
+        self.revised_by = revision
+        self.revision_comment = comment
