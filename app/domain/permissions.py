@@ -20,7 +20,7 @@ def self_or_company_admin(actor, user_obj_or_id):
         user = User.query.get(user_obj_or_id)
     if not user or not type(user) is User:
         return False
-    return actor == user or company_admin(actor, user.company_id)
+    return actor.id == user.id or company_admin(actor, user.company_id)
 
 
 def can_submitter_log_for_user(submitter, user):

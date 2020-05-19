@@ -1,0 +1,30 @@
+from sqlalchemy.orm import selectinload
+
+from app.models import User, Activity, Mission, Company
+
+
+def user_query_with_activities():
+    return User.query.options(selectinload(User.activities))
+
+
+def user_query_with_all_relations():
+    return User.query.options(
+        selectinload(User.activities)
+        .selectinload(Activity.mission)
+        .options(selectinload(Mission.validations))
+        .options(selectinload(Mission.comments))
+        .options(selectinload(Mission.vehicle_bookings))
+        .options(selectinload(Mission.activities).selectinload(Activity.user))
+    ).options(
+        selectinload(User.company)
+        .options(selectinload(Company.users).selectinload(User.activities))
+        .options(selectinload(Company.vehicles))
+    )
+
+
+def mission_query_with_activities_and_users():
+    return Mission.query.options(selectinload(Mission.validations)).options(
+        selectinload(Mission.activities)
+        .selectinload(Activity.user)
+        .selectinload(User.activities)
+    )

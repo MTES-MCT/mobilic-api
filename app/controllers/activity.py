@@ -1,6 +1,5 @@
 from app.controllers.team import TeamMateInput
 from app.helpers.authentication import current_user
-from sqlalchemy.orm import selectinload
 import graphene
 
 from app import app, db
@@ -19,17 +18,8 @@ from app.helpers.graphene_types import (
 from app.models import Mission
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
 from app.models.event import DismissType
-from app.models.user import User
+from app.models.queries import mission_query_with_activities_and_users
 from app.controllers.event import EventInput
-
-
-def _preload_db_resources():
-    User.query.options(
-        selectinload(User.activities)
-        .selectinload(Activity.mission)
-        .selectinload(Mission.activities)
-        .selectinload(Activity.user)
-    ).filter(User.id == current_user.id).one()
 
 
 class ActivityInput(EventInput):
@@ -52,16 +42,15 @@ class LogActivity(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **activity_input):
-        app.logger.info(
-            f"Logging activity submitted by {current_user} of company {current_user.company}"
-        )
         with atomic_transaction(commit_at_end=True):
-            _preload_db_resources()
+            app.logger.info(
+                f"Logging activity submitted by {current_user} of company {current_user.company}"
+            )
             user_time = (
                 activity_input.get("user_time") or activity_input["event_time"]
             )
             mission_id = activity_input.get("mission_id")
-            mission = Mission.query.get(mission_id)
+            mission = mission_query_with_activities_and_users().get(mission_id)
 
             log_group_activity(
                 submitter=current_user,
@@ -127,7 +116,9 @@ class EditActivity(graphene.Mutation):
                 raise ValueError(
                     f"Could not find valid Activity events with id {edit_input['activity_id']}"
                 )
-            mission = None
+            mission = mission_query_with_activities_and_users().get(
+                activities_to_update[0].mission_id
+            )
             for activity in activities_to_update:
                 mission = activity.mission
                 db.session.add(activity)

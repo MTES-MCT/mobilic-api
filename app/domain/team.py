@@ -32,7 +32,9 @@ def get_or_create_team_mate(submitter, team_mate_data):
 def enroll_or_release(
     submitter, mission, team_mate, event_time, is_enrollment
 ):
-    app.logger.info(f"Enrolling {team_mate} on {mission}")
+    app.logger.info(
+        f"{'Enrolling' if is_enrollment else 'Releasing'} {team_mate} on {mission}"
+    )
 
     driver = None
     if is_enrollment:
@@ -44,7 +46,7 @@ def enroll_or_release(
     else:
         type = ActivityType.REST
 
-    log_activity(
+    return log_activity(
         submitter=submitter,
         user=team_mate,
         mission=mission,

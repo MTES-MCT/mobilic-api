@@ -35,6 +35,7 @@ def begin_mission(
     # 3. Create the mission and log the activity
     mission = Mission(name=name, event_time=event_time, submitter=user)
     db.session.add(mission)
+    db.session.flush()
 
     log_activity(
         submitter=user,

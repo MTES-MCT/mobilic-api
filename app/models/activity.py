@@ -54,9 +54,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
     mission_id = db.Column(
         db.Integer, db.ForeignKey("mission.id"), index=True, nullable=False
     )
-    mission = db.relationship(
-        "Mission", backref=backref("activities", lazy="selectin")
-    )
+    mission = db.relationship("Mission", backref=backref("activities"))
 
     type = enum_column(ActivityType, nullable=False)
 

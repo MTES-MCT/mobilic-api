@@ -10,6 +10,7 @@ from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import graphene_enum_type
 from app.models.activity import InputableActivityType, ActivityType
 from app.models.mission import Mission
+from app.models import User
 from app.controllers.event import EventInput
 from app.models.mission_validation import MissionValidation
 from app.controllers.team import TeamMateInput
@@ -17,6 +18,10 @@ from app.data_access.mission import MissionOutput
 from app.domain.log_comments import log_comment
 from app.domain.permissions import can_submitter_log_on_mission
 from app.helpers.authentication import current_user
+from app.models.queries import (
+    user_query_with_activities,
+    mission_query_with_activities_and_users,
+)
 
 
 class MissionInput(EventInput):
@@ -42,6 +47,17 @@ class BeginMission(graphene.Mutation):
             app.logger.info(
                 f"Starting a new mission with name {mission_input.get('name')}"
             )
+            # Preload resources
+            user_ids_to_preload = [current_user.id]
+            team = mission_input.get("team")
+            if team:
+                for tm in team:
+                    if tm.get("id"):
+                        user_ids_to_preload.append(tm.get("id"))
+            user_query_with_activities().filter(
+                User.id.in_(user_ids_to_preload)
+            ).all()
+
             mission = begin_mission(user=current_user, **mission_input)
 
         return BeginMission(mission=mission)
@@ -59,7 +75,9 @@ class EndMission(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            mission = Mission.query.get(args.get("mission_id"))
+            mission = mission_query_with_activities_and_users().get(
+                args.get("mission_id")
+            )
 
             app.logger.info(f"Ending mission {mission}")
             mission.expenditures = args.get("expenditures")

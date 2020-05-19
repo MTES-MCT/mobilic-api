@@ -41,7 +41,7 @@ def log_vehicle_booking(
         raise AuthorizationError(f"Event is submitted from unauthorized user")
 
     check_whether_event_should_be_logged(
-        submitter=submitter,
+        submitter_id=submitter.id,
         event_time=event_time,
         vehicle_id=vehicle_id,
         event_history=submitter.submitted_vehicle_bookings,

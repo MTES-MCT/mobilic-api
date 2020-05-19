@@ -8,10 +8,10 @@ class EventLogError:
 
 
 def check_whether_event_should_be_logged(
-    submitter, event_time, event_history, **kwargs,
+    submitter_id, event_time, event_history, **kwargs,
 ):
     reception_time = datetime.now()
-    if not submitter or not event_time:
+    if not submitter_id or not event_time:
         raise ValueError("Event is missing some core params : will not log")
 
     if (
@@ -26,7 +26,7 @@ def check_whether_event_should_be_logged(
         raise ValueError(f"Start time is after event time : will not log")
 
     event_param_dict = dict(
-        event_time=event_time, submitter=submitter, **kwargs,
+        event_time=event_time, submitter_id=submitter_id, **kwargs,
     )
 
     already_existing_logs_for_event = [

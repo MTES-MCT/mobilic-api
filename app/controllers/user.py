@@ -6,6 +6,7 @@ from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
 from app.models import User
 from app import db, app
+from app.models.queries import user_query_with_all_relations
 
 
 class UserSignup(graphene.Mutation):
@@ -42,10 +43,12 @@ class Query(graphene.ObjectType):
     user = graphene.Field(UserOutput, id=graphene.Int(required=True))
 
     @with_authorization_policy(
-        self_or_company_admin, get_target_from_return_value=lambda user: user
+        self_or_company_admin, get_target_from_args=lambda self, info, id: id
     )
     def resolve_user(self, info, id):
-        matching_user = User.query.get(id)
+        matching_user = (
+            user_query_with_all_relations().filter(User.id == id).one()
+        )
         # Set the user in the resolver context so that child resolvers can access it
         info.context.user_being_queried = matching_user
         app.logger.info(f"Sending user data for {matching_user}")

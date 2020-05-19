@@ -8,6 +8,7 @@ from app.domain.team import get_or_create_team_mate, enroll_or_release
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.authentication import current_user
 from app.models import Mission
+from app.models.activity import ActivityType
 
 
 class TeamMateInput(graphene.InputObjectType):
@@ -22,7 +23,7 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
         is_enrollment = graphene.Argument(graphene.Boolean, required=True)
         mission_id = graphene.Argument(graphene.Int, required=True)
 
-    team_change = graphene.Field(TeamChange)
+    team_changes = graphene.List(TeamChange)
 
     @classmethod
     @with_authorization_policy(
@@ -38,7 +39,7 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
                 submitter=current_user,
                 team_mate_data=enroll_input.get("team_mate"),
             )
-            enroll_or_release(
+            activity = enroll_or_release(
                 current_user,
                 mission,
                 team_mate,
@@ -46,11 +47,15 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
                 is_enrollment=enroll_input["is_enrollment"],
             )
 
-        return EnrollOrReleaseTeamMate(
-            team_change={
-                "is_enrollment": enroll_input["is_enrollment"],
-                "user_time": enroll_input["event_time"],
-                "coworker": team_mate,
+        team_change = None
+        if activity:
+            team_change = {
+                "is_enrollment": activity.type != ActivityType.REST,
+                "user_time": activity.user_time,
+                "coworker": activity.user,
                 "mission_id": mission.id,
             }
+
+        return EnrollOrReleaseTeamMate(
+            team_changes=[team_change] if team_change else []
         )

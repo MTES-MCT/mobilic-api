@@ -15,7 +15,7 @@ class User(BaseModel):
     company_id = db.Column(
         db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
     )
-    company = db.relationship("Company", backref="users", lazy="selectin")
+    company = db.relationship("Company", backref="users")
     company_name_to_resolve = db.Column(db.String(255))
     refresh_token_nonce = db.Column(db.String(255), default=None)
     first_name = db.Column(db.String(255), nullable=False)

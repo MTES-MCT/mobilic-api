@@ -75,12 +75,13 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
 
     # 1. Check that the mission period is not overlapping with other ones
     for a in user.acknowledged_activities:
+        a_mission_id = a.mission_id if a.mission_id else a.mission.id
         if (
             mission_time_range[0] <= a.user_time <= mission_time_range[1]
-            and a.mission != mission
+            and a_mission_id != mission.id
         ):
             raise ValueError(
-                f"The missions {mission} and {a.mission} are overlapping for {user}, which can't happen"
+                f"The missions {mission.id} and {a.mission_id} are overlapping for {user}, which can't happen"
             )
 
     # 2. Check that there are no two activities with the same user time
@@ -187,7 +188,8 @@ def log_activity(
         )
     except Exception as e:
         # If the activity log fails for a team mate we want it to be non blocking (the main activity should be logged for instance)
-        if submitter != user:
+        if submitter.id != user.id:
+            app.logger.exception(e)
             return
         raise e
 
@@ -214,9 +216,9 @@ def _log_activity(
     # - is not ahead in the future
     # - was not already processed
     check_whether_event_should_be_logged(
-        user=user,
-        submitter=submitter,
-        mission=mission,
+        user_id=user.id,
+        submitter_id=submitter.id,
+        mission_id=mission.id,
         event_time=event_time,
         type=type,
         user_time=user_time,
@@ -255,8 +257,12 @@ def _log_activity(
     # - the mission activity sequence is consistent (end event must be in last position)
     # - no successive activities with the same type
     if not bypass_check:
-        check_activity_sequence_in_mission_and_handle_duplicates(
-            user, mission, event_time
-        )
+        try:
+            check_activity_sequence_in_mission_and_handle_duplicates(
+                user, mission, event_time
+            )
+        except Exception as e:
+            db.session.expunge(activity)
+            raise e
 
     return activity

@@ -15,9 +15,9 @@ def log_comment(submitter, mission, event_time, content):
         )
 
     check_whether_event_should_be_logged(
-        submitter=submitter,
+        submitter_id=submitter.id,
         event_time=event_time,
-        mission=mission,
+        mission_id=mission.id,
         content=content,
         event_history=submitter.submitted_comments,
     )
