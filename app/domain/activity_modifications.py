@@ -36,9 +36,10 @@ def build_activity_modification_list(activities):
     all_relevant_activities = [
         a
         for a in activities
-        if a.event_time
-        != a.dismissed_at  # We discard instant dismisses/revisions which mean that the actual activity event is elsewhere
-        and all([a2.event_time != a.event_time for a2 in a.revised_by])
+        if a.event_time != a.dismissed_at
+        and (
+            not a.revised_by or a.revised_by.event_time != a.event_time
+        )  # We discard instant dismisses/revisions which mean that the actual activity event is elsewhere
     ]
     activity_create_or_updates_with_user_action_time = [
         (a.event_time, False, a) for a in all_relevant_activities

@@ -139,7 +139,7 @@ class Revisable(Dismissable):
     def revised_by(cls):
         return db.relationship(
             cls,
-            backref=backref("revisee"),
+            backref=backref("revisee", uselist=False),
             remote_side=[cls.id],
             uselist=False,
         )
