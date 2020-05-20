@@ -8,7 +8,10 @@ from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.xls import send_work_days_as_excel
 from app.models import Company, User
-from app.models.queries import company_query_with_users_and_activities
+from app.models.queries import (
+    company_query_with_users_and_activities,
+    company_queries_with_all_relations,
+)
 from app import db, app
 
 
@@ -57,9 +60,7 @@ def download_activity_report(id):
         min_date = None
 
     company = (
-        company_query_with_users_and_activities()
-        .filter(Company.id == id)
-        .one()
+        company_queries_with_all_relations().filter(Company.id == id).one()
     )
     app.logger.info(f"Downloading activity report for {company}")
     all_users_work_days = []

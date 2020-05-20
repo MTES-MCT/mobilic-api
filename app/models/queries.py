@@ -37,3 +37,16 @@ def company_query_with_users_and_activities():
         .options(selectinload(Activity.mission))
         .options(selectinload(Activity.revisee))
     ).options(selectinload(Company.vehicles))
+
+
+def company_queries_with_all_relations():
+    return Company.query.options(
+        selectinload(Company.users)
+        .selectinload(User.activities)
+        .options(
+            selectinload(Activity.mission)
+            .options(selectinload(Mission.vehicle_bookings))
+            .options(selectinload(Mission.comments))
+        )
+        .options(selectinload(Activity.revisee))
+    ).options(selectinload(Company.vehicles))
