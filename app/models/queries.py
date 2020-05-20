@@ -28,3 +28,12 @@ def mission_query_with_activities_and_users():
         .selectinload(Activity.user)
         .selectinload(User.activities)
     )
+
+
+def company_query_with_users_and_activities():
+    return Company.query.options(
+        selectinload(Company.users)
+        .selectinload(User.activities)
+        .options(selectinload(Activity.mission))
+        .options(selectinload(Activity.revisee))
+    ).options(selectinload(Company.vehicles))

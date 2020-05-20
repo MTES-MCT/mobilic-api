@@ -141,7 +141,6 @@ class Revisable(Dismissable):
             cls,
             backref=backref("revisee", uselist=False),
             remote_side=[cls.id],
-            uselist=False,
         )
 
     @property

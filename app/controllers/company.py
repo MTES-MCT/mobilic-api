@@ -1,5 +1,4 @@
 import graphene
-from sqlalchemy.orm import selectinload
 from flask import request
 from datetime import datetime
 
@@ -9,17 +8,8 @@ from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.xls import send_work_days_as_excel
 from app.models import Company, User
+from app.models.queries import company_query_with_users_and_activities
 from app import db, app
-
-
-def _query_company_with_relations(id):
-    return (
-        Company.query.options(
-            selectinload(Company.users).selectinload(User.activities)
-        )
-        .options(selectinload(Company.vehicles))
-        .get(id)
-    )
 
 
 class CompanySignup(graphene.Mutation):
@@ -47,7 +37,11 @@ class Query(graphene.ObjectType):
         belongs_to_company, get_target_from_args=lambda self, info, id: id
     )
     def resolve_company(self, info, id):
-        matching_company = _query_company_with_relations(id)
+        matching_company = (
+            company_query_with_users_and_activities()
+            .filter(Company.id == id)
+            .one()
+        )
         return matching_company
 
 
@@ -62,7 +56,11 @@ def download_activity_report(id):
     except Exception:
         min_date = None
 
-    company = _query_company_with_relations(id)
+    company = (
+        company_query_with_users_and_activities()
+        .filter(Company.id == id)
+        .one()
+    )
     app.logger.info(f"Downloading activity report for {company}")
     all_users_work_days = []
     for user in company.users:
