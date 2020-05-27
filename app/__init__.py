@@ -16,7 +16,9 @@ app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
 if app.config["SENTRY_URL"]:
     sentry_sdk.init(
-        dsn=app.config["SENTRY_URL"], integrations=[FlaskIntegration()]
+        dsn=app.config["SENTRY_URL"],
+        integrations=[FlaskIntegration()],
+        environment=app.config["SENTRY_ENVIRONMENT"],
     )
 
 db = SQLAlchemyWithStrongRefSession(

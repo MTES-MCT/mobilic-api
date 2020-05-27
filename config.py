@@ -16,6 +16,7 @@ class Config:
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     ALLOW_INSECURE_IMPERSONATION = False
     SENTRY_URL = os.environ.get("SENTRY_URL")
+    SENTRY_ENVIRONMENT = "dev"
 
 
 class DevConfig(Config):
@@ -24,6 +25,7 @@ class DevConfig(Config):
 
 
 class StagingConfig(Config):
+    SENTRY_ENVIRONMENT = "staging"
     pass
 
 
@@ -33,5 +35,6 @@ class TestConfig(Config):
 
 
 class ProdConfig(Config):
+    SENTRY_ENVIRONMENT = "prod"
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
