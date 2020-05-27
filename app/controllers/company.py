@@ -59,6 +59,12 @@ def download_activity_report(id):
     except Exception:
         min_date = None
 
+    try:
+        max_date = request.args.get("max_date")
+        max_date = datetime.fromisoformat(max_date)
+    except Exception:
+        max_date = None
+
     company = (
         company_queries_with_all_relations().filter(Company.id == id).one()
     )
@@ -72,5 +78,11 @@ def download_activity_report(id):
             wd
             for wd in all_users_work_days
             if not wd.end_time or wd.end_time >= min_date
+        ]
+    if max_date:
+        all_users_work_days = [
+            wd
+            for wd in all_users_work_days
+            if wd.start_time and wd.start_time.date() <= max_date.date()
         ]
     return send_work_days_as_excel(all_users_work_days)
