@@ -98,7 +98,7 @@ class ApiRequests:
         }
     """
     edit_activity = """
-        mutation ($activityId: Int!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $dismiss: Boolean!, $comment: String) {
+        mutation ($activityId: Int, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $dismiss: Boolean!, $comment: String) {
             editActivity (activityId: $activityId, eventTime: $eventTime, userTime: $userTime, dismiss: $dismiss, comment: $comment) {
                 missionActivities
                  {

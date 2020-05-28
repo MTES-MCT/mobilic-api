@@ -106,7 +106,11 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             driver=self.driver,
         )
         dict_.update(updated_props)
+        self.revised_by_id = (
+            self.id
+        )  # Hack to temporarily mark the current activity as revised
         revision = log_activity(**dict_, bypass_check=True)
+        self.revised_by_id = None
         if revision:
             self.set_revision(revision, revision_comment)
             db.session.add(revision)

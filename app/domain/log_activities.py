@@ -24,7 +24,14 @@ def resolve_driver(submitter, driver):
 
 
 def log_group_activity(
-    submitter, type, event_time, user_time, mission, driver=None, comment=None
+    submitter,
+    type,
+    event_time,
+    user_time,
+    mission,
+    driver=None,
+    comment=None,
+    user_end_time=None,
 ):
     for user in mission.team_at(user_time):
         log_activity(
@@ -36,6 +43,7 @@ def log_group_activity(
             submitter=submitter,
             driver=driver,
             comment=comment,
+            user_end_time=user_end_time,
         )
 
 
@@ -43,7 +51,9 @@ def _check_and_delete_corrected_log(user, user_time):
     latest_activity_log = user.current_activity
     if latest_activity_log:
         if latest_activity_log.user_time >= user_time:
-            app.logger.warn("Activity event is revising previous history")
+            app.logger.warn(
+                "There are more recent activities in the db : the events might have been sent in disorder by the client"
+            )
         elif (
             user_time - latest_activity_log.user_time
             < app.config["MINIMUM_ACTIVITY_DURATION"]
@@ -172,6 +182,7 @@ def log_activity(
     user_time,
     driver=None,
     comment=None,
+    user_end_time=None,
     bypass_check=False,
 ):
     try:
@@ -184,6 +195,7 @@ def log_activity(
             user_time,
             driver,
             comment,
+            user_end_time,
             bypass_check,
         )
     except Exception as e:
@@ -203,6 +215,7 @@ def _log_activity(
     user_time,
     driver=None,
     comment=None,
+    user_end_time=None,
     bypass_check=False,
 ):
     if type == ActivityType.DRIVE:
@@ -212,18 +225,30 @@ def _log_activity(
         else:
             type = ActivityType.SUPPORT
 
+    is_revision = event_time != user_time
+
     # 1. Check that event :
     # - is not ahead in the future
     # - was not already processed
-    check_whether_event_should_be_logged(
-        user_id=user.id,
-        submitter_id=submitter.id,
-        mission_id=mission.id,
-        event_time=event_time,
-        type=type,
-        user_time=user_time,
-        event_history=user.activities,
-    )
+    if (
+        user_end_time
+        and user_end_time - event_time
+        >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
+    ):
+        raise ValueError(
+            f"End time was set in the future by {user_end_time - event_time} : will not log"
+        )
+
+    if not is_revision or not user_end_time:
+        check_whether_event_should_be_logged(
+            user_id=user.id,
+            submitter_id=submitter.id,
+            mission_id=mission.id,
+            event_time=event_time,
+            type=type,
+            user_time=user_time,
+            event_history=user.activities,
+        )
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
     if not can_submitter_log_on_mission(submitter, mission):
@@ -235,9 +260,55 @@ def _log_activity(
         raise AuthorizationError(f"Event is submitted from unauthorized user")
 
     # 3. Quick correction mechanics : if it's two real-time logs in succession, delete the first one
-    is_revision = event_time != user_time
     if not is_revision:
         _check_and_delete_corrected_log(user, user_time)
+
+    # 3b. If it's a revision and if an end time was specified we need to potentially correct multiple activities
+    if is_revision and user_end_time:
+        activities = mission.activities_for(user)
+        overriden_activities = [
+            a for a in activities if user_time <= a.user_time <= user_end_time
+        ]
+        if overriden_activities:
+            activity_to_shift = overriden_activities[-1]
+            activities_to_cancel = overriden_activities[:-1]
+            for a in activities_to_cancel:
+                a.dismiss(
+                    ActivityDismissType.USER_CANCEL, dismiss_time=event_time
+                )
+            if user_end_time != activity_to_shift.user_time:
+                activity_to_shift.revise(event_time, user_time=user_end_time)
+        else:
+            activities_before = [
+                a for a in activities if a.user_time < user_time
+            ]
+            if activities_before:
+                activity_immediately_before = activities_before[-1]
+                log_activity(
+                    submitter,
+                    user,
+                    mission,
+                    activity_immediately_before.type,
+                    event_time,
+                    user_time=user_end_time,
+                    driver=activity_immediately_before.driver,
+                    comment=None,
+                    user_end_time=None,
+                    bypass_check=True,
+                )
+            else:
+                activities_after = [
+                    a for a in activities if a.user_time > user_end_time
+                ]
+                if activities_after:
+                    activity_to_shift = activities_after[0]
+                    activity_to_shift.revise(
+                        event_time, user_time=user_end_time
+                    )
+                else:
+                    raise ValueError(
+                        "You are trying to set an end time for the current activity, this is not allowed"
+                    )
 
     # 4. Properly write the activity to the DB
     activity = Activity(
