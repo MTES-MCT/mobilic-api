@@ -9,14 +9,29 @@ from app import db, app
 from app.models.queries import user_query_with_all_relations
 
 
-class UserSignup(graphene.Mutation):
+class UserSignUp(graphene.Mutation):
+    """
+    Inscription d'un nouvel utilisateur.
+
+    Retourne l'utilisateur nouvellement créé.
+    """
+
     class Arguments:
-        email = graphene.String(required=True)
-        password = graphene.String(required=True)
-        first_name = graphene.String(required=True)
-        last_name = graphene.String(required=True)
-        company_name_to_resolve = graphene.String(required=True)
-        company_id = graphene.Int(required=False)
+        email = graphene.String(
+            required=True,
+            description="Adresse email, utilisée comme identifiant pour la connexion",
+        )
+        password = graphene.String(required=True, description="Mot de passe")
+        first_name = graphene.String(required=True, description="Prénom")
+        last_name = graphene.String(required=True, description="Nom")
+        company_name_to_resolve = graphene.String(
+            required=True,
+            description="Nom de l'entreprise (pour rattachement manuel)",
+        )
+        company_id = graphene.Int(
+            required=False,
+            description="Identifiant de l'entreprise (pour rattachement automatique)",
+        )
 
     user = graphene.Field(UserOutput)
     access_token = graphene.String()
@@ -36,11 +51,15 @@ class UserSignup(graphene.Mutation):
             )
         except Exception as e:
             app.logger.exception(f"Error during user signup for {user}")
-        return UserSignup(user=user, **create_access_tokens_for(user))
+        return UserSignUp(user=user, **create_access_tokens_for(user))
 
 
 class Query(graphene.ObjectType):
-    user = graphene.Field(UserOutput, id=graphene.Int(required=True))
+    user = graphene.Field(
+        UserOutput,
+        id=graphene.Int(required=True),
+        description="Consultation des informations d'un utilisateur, notamment ses enregistrements",
+    )
 
     @with_authorization_policy(
         self_or_company_admin, get_target_from_args=lambda self, info, id: id

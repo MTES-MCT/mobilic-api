@@ -24,20 +24,42 @@ from app.controllers.event import EventInput
 
 class ActivityInput(EventInput):
     type = graphene.Argument(
-        graphene_enum_type(InputableActivityType), required=True
+        graphene_enum_type(InputableActivityType),
+        required=True,
+        description="Nature de l'activité",
     )
     user_time = graphene.Argument(
-        DateTimeWithTimeStampSerialization, required=False
+        DateTimeWithTimeStampSerialization,
+        required=False,
+        description="Horodatage optionnel du début de l'activité. Ne sert que pour les enregistrements en décalé ; dans le fonctionnement en \"temps réel\" c'est l'horodatage de l'évènement qui est utilisé",
     )
     user_end_time = graphene.Argument(
-        DateTimeWithTimeStampSerialization, required=False
+        DateTimeWithTimeStampSerialization,
+        required=False,
+        description="Horodatage optionnel de la fin de l'activité. Dans le fonctionnement en \"temps réel\" ce champ n'est pas pris en compte",
     )
-    driver = graphene.Argument(TeamMateInput, required=False)
-    mission_id = graphene.Int(required=True)
-    comment = graphene.String(required=False)
+    driver = graphene.Argument(
+        TeamMateInput,
+        required=False,
+        description="Identité du conducteur si déplacement",
+    )
+    mission_id = graphene.Int(
+        required=True,
+        description="Identifiant de la mission pour laquelle la nouvelle activité est réalisée",
+    )
+    comment = graphene.String(
+        required=False,
+        description="Commentaire sur l'enregistrement de la nouvelle activité. Utile pour préciser la cause d'un enregistrement a posteriori",
+    )
 
 
 class LogActivity(graphene.Mutation):
+    """
+    Enregistrement d'une nouvelle activité, d'une manière très similaire à un changement d'activité sur un tachygraphe.
+
+    Retourne la liste des activités de la mission.
+    """
+
     Arguments = ActivityInput
 
     mission_activities = graphene.List(ActivityOutput)
@@ -107,15 +129,41 @@ def _get_activities_to_revise_or_cancel(activity_id, activity_user_time):
 
 
 class ActivityEditInput(EventInput):
-    activity_id = graphene.Argument(graphene.Int, required=False)
-    activity_user_time = DateTimeWithTimeStampSerialization(required=False)
-    dismiss = graphene.Boolean(required=True)
-    user_time = DateTimeWithTimeStampSerialization(required=False)
-    comment = graphene.Argument(graphene.String, required=False)
-    user_end_time = DateTimeWithTimeStampSerialization(required=False)
+    activity_id = graphene.Argument(
+        graphene.Int,
+        required=False,
+        description="Identifiant de l'activité à modifier. Optionnel en mode offline car l'information n'est pas forcément accessible au moment de la correction",
+    )
+    activity_user_time = DateTimeWithTimeStampSerialization(
+        required=False,
+        description="Ancien horodatage de début de l'activité à modifier. Ne sert que dans le mode offline pour retrouver l'activité si son identifiant n'est pas communiqué",
+    )
+    dismiss = graphene.Boolean(
+        required=True,
+        description="Indique si l'activité doit être supprimée ou simplement éditée",
+    )
+    user_time = DateTimeWithTimeStampSerialization(
+        required=False,
+        description="Dans le cas d'une édition, nouvel horodatage de début de l'activité",
+    )
+    comment = graphene.Argument(
+        graphene.String,
+        required=False,
+        description="Commentaire libre sur le contexte de la modification. Utile pour préciser la cause",
+    )
+    user_end_time = DateTimeWithTimeStampSerialization(
+        required=False,
+        description="Dans le cas d'une édition, nouvel horodatage de fin de l'activité",
+    )
 
 
 class EditActivity(graphene.Mutation):
+    """
+    Correction d'une activité précédemment enregistrée.
+
+    Retourne la liste des activités de la mission.
+    """
+
     Arguments = ActivityEditInput
 
     mission_activities = graphene.List(ActivityOutput)

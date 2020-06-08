@@ -149,7 +149,11 @@ class RefreshMutation(graphene.Mutation):
         return RefreshMutation(**create_access_tokens_for(current_actor))
 
 
-class AuthMutation(graphene.ObjectType):
+class Auth(graphene.ObjectType):
+    """
+    Authentification
+    """
+
     login = LoginMutation.Field()
     refresh = RefreshMutation.Field()
     check = CheckMutation.Field()

@@ -25,17 +25,43 @@ from app.models.queries import (
 
 
 class MissionInput(EventInput):
-    name = graphene.Argument(graphene.String, required=False)
-    first_activity_type = graphene.Argument(
-        graphene_enum_type(InputableActivityType), required=True
+    name = graphene.Argument(
+        graphene.String,
+        required=False,
+        description="Nom optionnel de la mission",
     )
-    driver = graphene.Argument(TeamMateInput, required=False)
-    vehicle_registration_number = graphene.String(required=False)
-    vehicle_id = graphene.Int(required=False)
-    team = graphene.List(TeamMateInput, required=False)
+    first_activity_type = graphene.Argument(
+        graphene_enum_type(InputableActivityType),
+        required=True,
+        description="Nature de la première activité",
+    )
+    driver = graphene.Argument(
+        TeamMateInput,
+        required=False,
+        description="Identitié du conducteur si déplacement",
+    )
+    vehicle_registration_number = graphene.String(
+        required=False,
+        description="Numéro d'immatriculation du véhicule utilisé si véhicule non connu (optionnel)",
+    )
+    vehicle_id = graphene.Int(
+        required=False,
+        description="Identifiant du véhicule utilisé, si déjà connu (optionnel)",
+    )
+    team = graphene.List(
+        TeamMateInput,
+        required=False,
+        description="Liste des coéquipiers sur la mission",
+    )
 
 
 class BeginMission(graphene.Mutation):
+    """
+    Démarrage d'une nouvelle mission et enregistrement de la première activité.
+
+    Retourne la mission nouvellement créée
+    """
+
     Arguments = MissionInput
 
     mission = graphene.Field(MissionOutput)
@@ -64,10 +90,22 @@ class BeginMission(graphene.Mutation):
 
 
 class EndMission(graphene.Mutation):
+    """
+    Fin de la mission et enregistrement des frais associés.
+
+    Retourne la mission.
+    """
+
     class Arguments(EventInput):
-        mission_id = graphene.Int(required=True)
-        expenditures = GenericScalar(required=False)
-        comment = graphene.String(required=False)
+        mission_id = graphene.Int(
+            required=True, description="Identifiant de la mission à terminer"
+        )
+        expenditures = GenericScalar(
+            required=False, description="Frais de la mission"
+        )
+        comment = graphene.String(
+            required=False, description="Commentaire libre sur la mission"
+        )
 
     mission = graphene.Field(MissionOutput)
 
@@ -102,8 +140,16 @@ class EndMission(graphene.Mutation):
 
 
 class ValidateMission(graphene.Mutation):
+    """
+    Validation du contenu de la mission.
+
+    Retourne la mission.
+    """
+
     class Arguments:
-        mission_id = graphene.Int(required=True)
+        mission_id = graphene.Int(
+            required=True, description="Identifiant de la mission à valider"
+        )
 
     mission = graphene.Field(MissionOutput)
 
@@ -130,9 +176,19 @@ class ValidateMission(graphene.Mutation):
 
 
 class EditMissionExpenditures(graphene.Mutation):
+    """
+    Correction des frais de la mission.
+
+    Retourne la mission.
+    """
+
     class Arguments:
-        mission_id = graphene.Int(required=True)
-        expenditures = GenericScalar(required=True)
+        mission_id = graphene.Int(
+            required=True, description="Identifiant de la mission considérée"
+        )
+        expenditures = GenericScalar(
+            required=True, description="Les frais corrigés"
+        )
 
     mission = graphene.Field(MissionOutput)
 

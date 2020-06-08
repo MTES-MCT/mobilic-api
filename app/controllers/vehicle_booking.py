@@ -21,15 +21,35 @@ def _preload_db_resources():
 
 
 class VehicleBookingInput(EventInput):
-    vehicle_id = graphene.Argument(graphene.Int, required=False)
-    mission_id = graphene.Argument(graphene.Int, required=True)
-    registration_number = graphene.Argument(graphene.String, required=False)
+    vehicle_id = graphene.Argument(
+        graphene.Int,
+        required=False,
+        description="Identifiant du véhicule utilisé, si déjà connu (optionnel)",
+    )
+    mission_id = graphene.Argument(
+        graphene.Int,
+        required=True,
+        description="Identifiant de la mission à laquelle rattacher le véhicule",
+    )
+    registration_number = graphene.Argument(
+        graphene.String,
+        required=False,
+        description="Numéro d'immatriculation du véhicule utilisé si véhicule non connu (optionnel)",
+    )
     user_time = graphene.Argument(
-        DateTimeWithTimeStampSerialization, required=False
+        DateTimeWithTimeStampSerialization,
+        required=False,
+        description="Horodatage de la prise du véhicule. Ne sert que pour un enregistrement en décalé. En \"temps réel\" c'est l'horodatage de l'évènement qui est utilisé.",
     )
 
 
 class LogVehicleBooking(graphene.Mutation):
+    """
+    Prise d'un nouveau véhicule, avec libération de l'ancien s'il existe.
+
+    Retourne l'enregistrement de la prise du nouveau véhicule.
+    """
+
     Arguments = VehicleBookingInput
 
     vehicle_booking = graphene.Field(VehicleBookingOutput)

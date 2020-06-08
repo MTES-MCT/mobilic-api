@@ -11,9 +11,19 @@ from app.controllers.event import EventInput
 
 
 class LogComment(graphene.Mutation):
+    """
+    Ajout d'un commentaire sur la mission.
+
+    Retourne le commentaire nouvellement ajouté.
+    """
+
     class Arguments(EventInput):
-        content = graphene.String(required=True)
-        mission_id = graphene.Int(required=True)
+        content = graphene.String(
+            required=True, description="Texte du commentaire"
+        )
+        mission_id = graphene.Int(
+            required=True, description="Identifiant de la mission"
+        )
 
     comment = graphene.Field(CommentOutput)
 

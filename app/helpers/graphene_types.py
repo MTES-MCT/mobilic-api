@@ -11,7 +11,7 @@ from app.helpers.time import to_timestamp, from_timestamp
 
 class DateTimeWithTimeStampSerialization(DateTime):
     class Meta:
-        description = "Unix timestamp in ms"
+        description = "Horodatage en nombre de millisecondes écoulées depuis le 1er janvier 1970 minuit UTC"
 
     @staticmethod
     def serialize(dt):
@@ -48,7 +48,9 @@ def graphene_enum_type(enum):
     class GrapheneEnumType(graphene.String):
         class Meta:
             name = enum.__name__ + "Enum"
-            description = f"Values : {', '.join([e.value for e in enum])}"
+            description = (
+                f"Valeurs possibles : {', '.join([e.value for e in enum])}"
+            )
 
         @staticmethod
         def serialize(enum_item):

@@ -12,16 +12,42 @@ from app.models.activity import ActivityType
 
 
 class TeamMateInput(graphene.InputObjectType):
-    id = graphene.Int(required=False)
-    first_name = graphene.String(required=False)
-    last_name = graphene.String(required=False)
+    """
+    Données d'identification d'un coéquipier
+    """
+
+    id = graphene.Int(required=False, description="Identifiant du coéquipier")
+    first_name = graphene.String(
+        required=False, description="Prénom du coéquipier"
+    )
+    last_name = graphene.String(
+        required=False, description="Nom du coéquipier"
+    )
 
 
 class EnrollOrReleaseTeamMate(graphene.Mutation):
+    """
+    Ajoute ou retire un coéquipier sur une mission.
+
+    Retourne la liste des évolutions de l'équipe pour la mission
+    """
+
     class Arguments(EventInput):
-        team_mate = graphene.Argument(TeamMateInput, required=True)
-        is_enrollment = graphene.Argument(graphene.Boolean, required=True)
-        mission_id = graphene.Argument(graphene.Int, required=True)
+        team_mate = graphene.Argument(
+            TeamMateInput,
+            required=True,
+            description="Coéquipier à ajouter ou retirer",
+        )
+        is_enrollment = graphene.Argument(
+            graphene.Boolean,
+            required=True,
+            description="Indique si c'est un ajout ou un retrait",
+        )
+        mission_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de la mission à laquelle ajouter ou retirer le coéquipier",
+        )
 
     team_changes = graphene.List(TeamChange)
 

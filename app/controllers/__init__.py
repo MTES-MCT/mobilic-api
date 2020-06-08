@@ -14,34 +14,64 @@ from app.controllers.vehicle import (
     TerminateVehicle,
 )
 from app.controllers.vehicle_booking import LogVehicleBooking
-from app.helpers.authentication import AuthMutation
+from app.helpers.authentication import Auth
 from app.controllers.activity import LogActivity, EditActivity
 import app.controllers.user
 import app.controllers.company
 
 
-class Mutations(graphene.ObjectType):
-    auth = graphene.Field(
-        AuthMutation, resolver=lambda root, info: AuthMutation()
-    )
-    log_activity = LogActivity.Field()
-    log_comment = LogComment.Field()
+class Activity(graphene.ObjectType):
+    """
+    Enregistrement des activités, temps et autres informations importantes de la journée de travail
+    """
+
     begin_mission = BeginMission.Field()
+    log_activity = LogActivity.Field()
     end_mission = EndMission.Field()
-    book_vehicle = LogVehicleBooking.Field()
-    signup_user = user.UserSignup.Field()
-    signup_company = company.CompanySignup.Field()
-    edit_activity = EditActivity.Field()
-    create_vehicle = CreateVehicle.Field()
-    edit_vehicle = EditVehicle.Field()
-    terminate_vehicle = TerminateVehicle.Field()
-    enroll_or_release_team_mate = EnrollOrReleaseTeamMate.Field()
     validate_mission = ValidateMission.Field()
+    edit_activity = EditActivity.Field()
+    book_vehicle = LogVehicleBooking.Field()
+    enroll_or_release_team_mate = EnrollOrReleaseTeamMate.Field()
+    log_comment = LogComment.Field()
     edit_mission_expenditures = EditMissionExpenditures.Field()
 
 
-class Query(user.Query, company.Query, graphene.ObjectType):
+class SignUp(graphene.ObjectType):
+    """
+    Création de compte
+    """
+
+    user = user.UserSignUp.Field()
+    company = company.CompanySignUp.Field()
+
+
+class Admin(graphene.ObjectType):
+    """
+    Gestion des informations de l'entreprise
+    """
+
+    create_vehicle = CreateVehicle.Field()
+    edit_vehicle = EditVehicle.Field()
+    terminate_vehicle = TerminateVehicle.Field()
+
+
+class Mutations(graphene.ObjectType):
+    """
+    Entrée de nouvelles informations dans le système
+    """
+
+    auth = graphene.Field(Auth, resolver=lambda root, info: Auth())
+    activity = graphene.Field(Activity, resolver=lambda root, info: Activity())
+    sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
+    admin = graphene.Field(Admin, resolver=lambda root, info: Admin())
+
+
+class Queries(user.Query, company.Query, graphene.ObjectType):
+    """
+    Requêtes de consultation qui ne modifient pas l'état du système
+    """
+
     pass
 
 
-graphql_schema = graphene.Schema(query=Query, mutation=Mutations)
+graphql_schema = graphene.Schema(query=Queries, mutation=Mutations)

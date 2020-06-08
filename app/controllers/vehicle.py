@@ -9,10 +9,23 @@ from app.models.vehicle import VehicleOutput, Vehicle
 
 
 class CreateVehicle(graphene.Mutation):
+    """
+    Ajout d'un nouveau véhicule à la liste.
+
+    Renvoie le véhicule nouvellement ajouté.
+    """
+
     class Arguments:
-        registration_number = graphene.String(required=True)
-        alias = graphene.String(required=False)
-        company_id = graphene.Int(required=True)
+        registration_number = graphene.String(
+            required=True, description="Numéro d'immatriculation du véhicule"
+        )
+        alias = graphene.String(
+            required=False, description="Nom usuel optionnel du véhicule"
+        )
+        company_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'entreprise du véhicule",
+        )
 
     vehicle = graphene.Field(VehicleOutput)
 
@@ -38,9 +51,19 @@ class CreateVehicle(graphene.Mutation):
 
 
 class EditVehicle(graphene.Mutation):
+    """
+    Edition du nom usuel d'un véhicule.
+
+    Renvoie le véhicule édité.
+    """
+
     class Arguments:
-        alias = graphene.String(required=False)
-        id = graphene.Int(required=True)
+        alias = graphene.String(
+            required=False, description="Nouveau nom usuel"
+        )
+        id = graphene.Int(
+            required=True, description="Identifiant du véhicule à éditer"
+        )
 
     vehicle = graphene.Field(VehicleOutput)
 
@@ -60,8 +83,14 @@ class EditVehicle(graphene.Mutation):
 
 
 class TerminateVehicle(graphene.Mutation):
+    """
+    Retrait d'un véhicule de la liste.
+    """
+
     class Arguments:
-        id = graphene.Int(required=True)
+        id = graphene.Int(
+            required=True, description="Identifiant du véhicule à retirer"
+        )
 
     success = graphene.Field(graphene.Boolean)
 

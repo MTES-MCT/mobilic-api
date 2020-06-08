@@ -15,9 +15,18 @@ from app.models.queries import (
 from app import db, app
 
 
-class CompanySignup(graphene.Mutation):
+class CompanySignUp(graphene.Mutation):
+    """
+    [NON EXPOSE POUR L'INSTANT]
+    Inscription d'une nouvelle entreprise.
+
+    Retourne l'entreprise nouvellement créée
+    """
+
     class Arguments:
-        name = graphene.String(required=True)
+        name = graphene.String(
+            required=True, description="Nom de l'entreprise"
+        )
 
     company = graphene.Field(CompanyOutput)
 
@@ -30,11 +39,17 @@ class CompanySignup(graphene.Mutation):
             app.logger.info(f"Signed up new company {company}")
         except Exception as e:
             app.logger.exception(f"Error during company signup for {company}")
-        return CompanySignup(company=company)
+        return CompanySignUp(company=company)
 
 
 class Query(graphene.ObjectType):
-    company = graphene.Field(CompanyOutput, id=graphene.Int(required=True))
+    company = graphene.Field(
+        CompanyOutput,
+        id=graphene.Int(
+            required=True, description="Identifiant de l'entreprise"
+        ),
+        description="Consultation des données de l'entreprise, avec notamment la liste de ses membres (et leurs enregistrements)",
+    )
 
     @with_authorization_policy(
         belongs_to_company, get_target_from_args=lambda self, info, id: id
