@@ -54,13 +54,6 @@ app.add_url_rule(
     ),
 )
 
-app.add_url_rule(
-    "/api" + graphql_api_path,
-    view_func=GraphQLView.as_view(
-        "old_graphql", schema=graphql_schema, graphiql=True
-    ),
-)
-
 
 @app.route("/debug-sentry")
 def trigger_error():
