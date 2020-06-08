@@ -24,7 +24,7 @@ columns_in_main_sheet = [
     ("Employé", lambda wday: wday.user.display_name, None, 30),
     ("Jour", lambda wday: wday.start_time, "date_format", 20),
     ("Début", lambda wday: wday.start_time, "time_format", 15),
-    ("Fin", lambda wday: wday.start_time, "time_format", 15),
+    ("Fin", lambda wday: wday.end_time, "time_format", 15),
     (
         "Conduite",
         lambda wday: timedelta(
