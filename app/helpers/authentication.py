@@ -9,7 +9,6 @@ from flask_jwt_extended import (
     JWTManager,
 )
 import graphene
-from graphql import GraphQLError
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
 from functools import wraps
@@ -19,6 +18,7 @@ current_user = LocalProxy(lambda: g.get("as_user") or current_actor)
 
 from app.models.user import User
 from app import app, db
+from app.helpers.errors import AuthenticationError
 
 jwt = JWTManager(app)
 
@@ -41,25 +41,13 @@ def user_loader(f):
     return wrapper
 
 
-class AuthenticationError(Exception):
-    pass
-
-
-class AuthorizationError(Exception):
-    pass
-
-
 def with_auth_error_handling(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (AuthenticationError, JWTExtendedException, PyJWTError) as e:
-            raise GraphQLError(
-                "Authentication error", extensions=dict(details=str(e))
-            )
-        except AuthorizationError:
-            raise GraphQLError("Unauthorized")
+        except (JWTExtendedException, PyJWTError) as e:
+            raise AuthenticationError("Error during token validation")
 
     return wrapper
 

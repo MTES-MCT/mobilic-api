@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 
 from app.controllers.event import EventInput
 from app.controllers.utils import atomic_transaction
@@ -49,7 +50,7 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
             description="Identifiant de la mission à laquelle ajouter ou retirer le coéquipier",
         )
 
-    team_changes = graphene.List(TeamChange)
+    team_change = graphene.Field(TeamChange)
 
     @classmethod
     @with_authorization_policy(
@@ -73,15 +74,14 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
                 is_enrollment=enroll_input["is_enrollment"],
             )
 
-        team_change = None
-        if activity:
-            team_change = {
-                "is_enrollment": activity.type != ActivityType.REST,
-                "user_time": activity.user_time,
-                "coworker": activity.user,
-                "mission_id": mission.id,
-            }
+        if not activity:
+            raise g.non_blocking_errors[-1]
 
-        return EnrollOrReleaseTeamMate(
-            team_changes=[team_change] if team_change else []
-        )
+        team_change = {
+            "is_enrollment": activity.type != ActivityType.REST,
+            "user_time": activity.user_time,
+            "coworker": activity.user,
+            "mission_id": mission.id,
+        }
+
+        return EnrollOrReleaseTeamMate(team_change=team_change)

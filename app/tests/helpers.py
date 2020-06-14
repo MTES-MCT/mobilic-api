@@ -66,44 +66,52 @@ def _equals_on_intersect(d1, d2):
 class ApiRequests:
     log_activity = """
         mutation ($type: InputableActivityTypeEnum!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $missionId: Int!, $driver: TeamMateInput) {
-            logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driver: $driver, userTime: $userTime) {
-                missionActivities
-                 {
-                    id
-                    type
+            activity {
+                logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driver: $driver, userTime: $userTime) {
+                    missionActivities
+                     {
+                        id
+                        type
+                    }
                 }
             }
         }
     """
     begin_mission = """
         mutation ($firstActivityType: InputableActivityTypeEnum!, $name: String, $eventTime: DateTimeWithTimeStampSerialization!, $team: [TeamMateInput], $vehicleId: Int, $vehicleRegistrationNumber: String) {
-            beginMission (firstActivityType: $firstActivityType, name: $name, eventTime: $eventTime, team: $team, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
-                mission
-                 {
-                    id
-                    name
+            activity {
+                beginMission (firstActivityType: $firstActivityType, name: $name, eventTime: $eventTime, team: $team, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
+                    mission
+                     {
+                        id
+                        name
+                    }
                 }
             }
         }
     """
     end_mission = """
         mutation ($missionId: Int!, $eventTime: DateTimeWithTimeStampSerialization!, $expenditures: GenericScalar) {
-            endMission (missionId: $missionId, eventTime: $eventTime, expenditures: $expenditures) {
-                mission
-                 {
-                    id
-                    name
+            activity {
+                endMission (missionId: $missionId, eventTime: $eventTime, expenditures: $expenditures) {
+                    mission
+                     {
+                        id
+                        name
+                    }
                 }
             }
         }
     """
     edit_activity = """
         mutation ($activityId: Int, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $dismiss: Boolean!, $comment: String) {
-            editActivity (activityId: $activityId, eventTime: $eventTime, userTime: $userTime, dismiss: $dismiss, comment: $comment) {
-                missionActivities
-                 {
-                    id
-                    type
+            activity {
+                editActivity (activityId: $activityId, eventTime: $eventTime, userTime: $userTime, dismiss: $dismiss, comment: $comment) {
+                    missionActivities
+                     {
+                        id
+                        type
+                    }
                 }
             }
         }

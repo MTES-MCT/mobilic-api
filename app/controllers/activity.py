@@ -9,13 +9,16 @@ from app.domain.log_activities import (
     check_activity_sequence_in_mission_and_handle_duplicates,
     resolve_driver,
 )
-from app.helpers.authentication import AuthorizationError
+from app.helpers.errors import (
+    AuthorizationError,
+    MutationWithNonBlockingErrors,
+    ActivityAlreadyDismissedError,
+)
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.graphene_types import (
     graphene_enum_type,
     DateTimeWithTimeStampSerialization,
 )
-from app.models import Mission
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
 from app.models.event import DismissType
 from app.models.queries import mission_query_with_activities_and_users
@@ -53,7 +56,7 @@ class ActivityInput(EventInput):
     )
 
 
-class LogActivity(graphene.Mutation):
+class LogActivity(MutationWithNonBlockingErrors):
     """
     Enregistrement d'une nouvelle activité, d'une manière très similaire à un changement d'activité sur un tachygraphe.
 
@@ -66,7 +69,7 @@ class LogActivity(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, **activity_input):
+    def _mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
                 f"Logging activity submitted by {current_user} of company {current_user.company}"
@@ -157,7 +160,7 @@ class ActivityEditInput(EventInput):
     )
 
 
-class EditActivity(graphene.Mutation):
+class EditActivity(MutationWithNonBlockingErrors):
     """
     Correction d'une activité précédemment enregistrée.
 
@@ -170,7 +173,7 @@ class EditActivity(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, **edit_input):
+    def _mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
             activities_to_update = []
             try:
@@ -182,7 +185,7 @@ class EditActivity(graphene.Mutation):
                 pass
 
             if not activities_to_update:
-                raise ValueError(
+                raise ActivityAlreadyDismissedError(
                     f"Could not find valid Activity events with id {edit_input.get('activity_id')}, time {edit_input.get('activity_user_time')}"
                 )
             mission = mission_query_with_activities_and_users().get(

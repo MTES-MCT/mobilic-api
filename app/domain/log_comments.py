@@ -1,10 +1,7 @@
 from app import db
 from app.domain.log_events import check_whether_event_should_be_logged
-from app.domain.permissions import (
-    can_submitter_log_for_user,
-    can_submitter_log_on_mission,
-)
-from app.helpers.authentication import AuthorizationError
+from app.domain.permissions import can_submitter_log_on_mission
+from app.helpers.errors import AuthorizationError
 from app.models import Comment
 
 

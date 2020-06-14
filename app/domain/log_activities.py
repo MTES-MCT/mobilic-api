@@ -1,12 +1,20 @@
+from flask import g
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import (
     can_submitter_log_for_user,
     can_submitter_log_on_mission,
 )
-from app.helpers.authentication import AuthorizationError
+from app.helpers.errors import (
+    AuthorizationError,
+    OverlappingMissionsError,
+    InvalidEventParamsError,
+    MissionAlreadyEndedError,
+    SimultaneousActivitiesError,
+    add_non_blocking_error,
+)
 from app.models.activity import ActivityType, Activity, ActivityDismissType
-from app.models import User
+from app.models import User, Mission
 
 
 def resolve_driver(submitter, driver):
@@ -33,7 +41,8 @@ def log_group_activity(
     comment=None,
     user_end_time=None,
 ):
-    for user in mission.team_at(user_time):
+    team_at_time = mission.team_at(user_time)
+    for user in team_at_time:
         log_activity(
             type=type,
             event_time=event_time,
@@ -45,6 +54,16 @@ def log_group_activity(
             comment=comment,
             user_end_time=user_end_time,
         )
+
+    if not team_at_time:
+        mission_activities = mission.activities_for(submitter)
+        if mission_activities:
+            add_non_blocking_error(
+                MissionAlreadyEndedError(
+                    f"Cannot log activity because mission is already ended",
+                    mission_end=mission_activities[-1],
+                )
+            )
 
 
 def _check_and_delete_corrected_log(user, user_time):
@@ -90,13 +109,15 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
             mission_time_range[0] <= a.user_time <= mission_time_range[1]
             and a_mission_id != mission.id
         ):
-            raise ValueError(
-                f"The missions {mission.id} and {a.mission_id} are overlapping for {user}, which can't happen"
+            raise OverlappingMissionsError(
+                f"The missions {mission.id} and {a.mission_id} are overlapping for {user}, which can't happen",
+                user=user,
+                conflicting_mission=Mission.query.get(a.mission_id),
             )
 
     # 2. Check that there are no two activities with the same user time
     if not len(set(mission_activities)) == len(mission_activities):
-        raise ValueError(
+        raise SimultaneousActivitiesError(
             f"{mission} contains two activities with the same start time"
         )
 
@@ -105,15 +126,17 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         a for a in mission_activities if a.type == ActivityType.REST
     ]
     if len(rest_activities) > 1:
-        raise ValueError(
-            f"Cannot end {mission} for {user} because it is already ended"
+        raise MissionAlreadyEndedError(
+            f"Cannot end {mission} for {user} because it is already ended",
+            mission_end=rest_activities[0],
         )
     if (
         len(rest_activities) == 1
         and rest_activities[0].user_time != mission_time_range[1]
     ):
-        raise ValueError(
-            f"{mission} for {user} cannot have a normal activity after the mission end"
+        raise MissionAlreadyEndedError(
+            f"{mission} for {user} cannot have a normal activity after the mission end",
+            mission_end=rest_activities[0],
         )
 
     # 4. Fix eventual duplicates
@@ -202,6 +225,7 @@ def log_activity(
         # If the activity log fails for a team mate we want it to be non blocking (the main activity should be logged for instance)
         if submitter.id != user.id:
             app.logger.exception(e)
+            add_non_blocking_error(e)
             return
         raise e
 
@@ -235,7 +259,7 @@ def _log_activity(
         and user_end_time - event_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
-        raise ValueError(
+        raise InvalidEventParamsError(
             f"End time was set in the future by {user_end_time - event_time} : will not log"
         )
 
@@ -306,7 +330,7 @@ def _log_activity(
                         event_time, user_time=user_end_time
                     )
                 else:
-                    raise ValueError(
+                    raise InvalidEventParamsError(
                         "You are trying to set an end time for the current activity, this is not allowed"
                     )
 

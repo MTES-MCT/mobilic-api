@@ -1,6 +1,6 @@
 from app import db, app
 from app.domain.log_activities import log_activity
-from app.helpers.authentication import AuthorizationError
+from app.helpers.errors import OverlappingMissionsError
 from app.models import User
 from app.models.activity import ActivityType
 
@@ -38,6 +38,14 @@ def enroll_or_release(
 
     driver = None
     if is_enrollment:
+        team_mate_current_mission = team_mate.mission_at(event_time)
+        if team_mate_current_mission:
+            raise OverlappingMissionsError(
+                f"{team_mate} is already in a mission",
+                user=team_mate,
+                conflicting_mission=team_mate_current_mission,
+            )
+
         submitter_activity = submitter.latest_acknowledged_activity_at(
             event_time
         )

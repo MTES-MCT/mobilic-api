@@ -72,7 +72,7 @@ class TestLogActivities(BaseTest):
             )
 
         if not should_fail:
-            return response["data"]["beginMission"]["mission"]
+            return response["data"]["activity"]["beginMission"]["mission"]
 
     def test_log_simple_activity(self, time=datetime(2020, 2, 7, 6)):
         """ Logging one simple activity for everybody

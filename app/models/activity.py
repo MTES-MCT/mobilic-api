@@ -3,6 +3,7 @@ from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
 from app import db
+from app.helpers.errors import ActivityAlreadyDismissedError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
@@ -90,7 +91,9 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         from app.domain.log_activities import log_activity
 
         if self.is_dismissed:
-            raise ValueError(f"You can't revise the already dismissed {self}")
+            raise ActivityAlreadyDismissedError(
+                f"You can't revise the already dismissed {self}"
+            )
         if not self.id:
             for prop, value in updated_props.items():
                 setattr(self, prop, value)

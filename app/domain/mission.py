@@ -1,7 +1,10 @@
+from flask import g
+
 from app import db
 from app.domain.log_activities import log_activity, resolve_driver
 from app.domain.log_vehicle_booking import log_vehicle_booking
 from app.domain.team import enroll_or_release, get_or_create_team_mate
+from app.helpers.errors import OverlappingMissionsError, add_non_blocking_error
 from app.models import Mission
 
 
@@ -16,9 +19,12 @@ def begin_mission(
     team=None,
 ):
     # 1. Check that user is not currently engaged in another mission
-    if user.mission_at(event_time):
-        raise ValueError(
-            f"{user} is currently in a mission, and therefore cannot start a new one"
+    user_current_mission = user.mission_at(event_time)
+    if user_current_mission:
+        raise OverlappingMissionsError(
+            f"{user} is currently in a mission, and therefore cannot start a new one",
+            user=user,
+            conflicting_mission=user_current_mission,
         )
 
     # 2. Create the team mates if they don't exist
@@ -60,8 +66,11 @@ def begin_mission(
     # 5. Enroll team mates
     if fully_created_team:
         for team_mate in fully_created_team:
-            enroll_or_release(
-                user, mission, team_mate, event_time, is_enrollment=True
-            )
+            try:
+                enroll_or_release(
+                    user, mission, team_mate, event_time, is_enrollment=True
+                )
+            except Exception as e:
+                add_non_blocking_error(e)
 
     return mission

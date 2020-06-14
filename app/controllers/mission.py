@@ -7,6 +7,7 @@ from app.controllers.utils import atomic_transaction
 from app.domain.log_activities import log_group_activity
 from app.domain.mission import begin_mission
 from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.errors import MutationWithNonBlockingErrors
 from app.helpers.graphene_types import graphene_enum_type
 from app.models.activity import InputableActivityType, ActivityType
 from app.models.mission import Mission
@@ -55,7 +56,7 @@ class MissionInput(EventInput):
     )
 
 
-class BeginMission(graphene.Mutation):
+class BeginMission(MutationWithNonBlockingErrors):
     """
     Démarrage d'une nouvelle mission et enregistrement de la première activité.
 
@@ -68,7 +69,7 @@ class BeginMission(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, **mission_input):
+    def _mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
                 f"Starting a new mission with name {mission_input.get('name')}"
