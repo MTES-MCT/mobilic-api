@@ -65,11 +65,11 @@ class BeginMission(MutationWithNonBlockingErrors):
 
     Arguments = MissionInput
 
-    mission = graphene.Field(MissionOutput)
+    Output = graphene.Field(MissionOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def _mutate(cls, _, info, **mission_input):
+    def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
                 f"Starting a new mission with name {mission_input.get('name')}"
@@ -87,7 +87,7 @@ class BeginMission(MutationWithNonBlockingErrors):
 
             mission = begin_mission(user=current_user, **mission_input)
 
-        return BeginMission(mission=mission)
+        return mission
 
 
 class EndMission(graphene.Mutation):
@@ -108,7 +108,7 @@ class EndMission(graphene.Mutation):
             required=False, description="Commentaire libre sur la mission"
         )
 
-    mission = graphene.Field(MissionOutput)
+    Output = MissionOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -137,7 +137,7 @@ class EndMission(graphene.Mutation):
                     content=comment,
                 )
 
-        return EndMission(mission=mission)
+        return mission
 
 
 class ValidateMission(graphene.Mutation):
@@ -152,7 +152,7 @@ class ValidateMission(graphene.Mutation):
             required=True, description="Identifiant de la mission à valider"
         )
 
-    mission = graphene.Field(MissionOutput)
+    Output = MissionOutput
 
     @classmethod
     @with_authorization_policy(
@@ -173,7 +173,7 @@ class ValidateMission(graphene.Mutation):
                 )
             )
 
-        return ValidateMission(mission=mission)
+        return mission
 
 
 class EditMissionExpenditures(graphene.Mutation):
@@ -191,7 +191,7 @@ class EditMissionExpenditures(graphene.Mutation):
             required=True, description="Les frais corrigés"
         )
 
-    mission = graphene.Field(MissionOutput)
+    Output = MissionOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -201,4 +201,4 @@ class EditMissionExpenditures(graphene.Mutation):
 
             mission.expenditures = args["expenditures"]
 
-        return EditMissionExpenditures(mission=mission)
+        return mission

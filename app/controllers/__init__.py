@@ -20,7 +20,7 @@ import app.controllers.user
 import app.controllers.company
 
 
-class Activity(graphene.ObjectType):
+class Activities(graphene.ObjectType):
     """
     Enregistrement des activités, temps et autres informations importantes de la journée de travail
     """
@@ -61,7 +61,9 @@ class Mutations(graphene.ObjectType):
     """
 
     auth = graphene.Field(Auth, resolver=lambda root, info: Auth())
-    activity = graphene.Field(Activity, resolver=lambda root, info: Activity())
+    activities = graphene.Field(
+        Activities, resolver=lambda root, info: Activities()
+    )
     sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
     admin = graphene.Field(Admin, resolver=lambda root, info: Admin())
 

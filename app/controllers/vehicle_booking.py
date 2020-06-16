@@ -52,7 +52,7 @@ class LogVehicleBooking(graphene.Mutation):
 
     Arguments = VehicleBookingInput
 
-    vehicle_booking = graphene.Field(VehicleBookingOutput)
+    Output = VehicleBookingOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -77,4 +77,4 @@ class LogVehicleBooking(graphene.Mutation):
                 ),
             )
 
-        return LogVehicleBooking(vehicle_booking=vehicle_booking)
+        return vehicle_booking

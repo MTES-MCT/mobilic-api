@@ -65,11 +65,11 @@ class LogActivity(MutationWithNonBlockingErrors):
 
     Arguments = ActivityInput
 
-    mission_activities = graphene.List(ActivityOutput)
+    Output = graphene.List(ActivityOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def _mutate(cls, _, info, **activity_input):
+    def mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
                 f"Logging activity submitted by {current_user} of company {current_user.company}"
@@ -95,9 +95,7 @@ class LogActivity(MutationWithNonBlockingErrors):
                 user_end_time=activity_input.get("user_end_time"),
             )
 
-        return LogActivity(
-            mission_activities=mission.activities_for(current_user)
-        )
+        return mission.activities_for(current_user)
 
 
 def _get_activities_to_revise_or_cancel(activity_id, activity_user_time):
@@ -169,11 +167,11 @@ class EditActivity(MutationWithNonBlockingErrors):
 
     Arguments = ActivityEditInput
 
-    mission_activities = graphene.List(ActivityOutput)
+    Output = graphene.List(ActivityOutput)
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def _mutate(cls, _, info, **edit_input):
+    def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
             activities_to_update = []
             try:
@@ -214,6 +212,4 @@ class EditActivity(MutationWithNonBlockingErrors):
                     activity.user, activity.mission, edit_input["event_time"]
                 )
 
-        return EditActivity(
-            mission_activities=mission.activities_for(current_user)
-        )
+        return mission.activities_for(current_user)

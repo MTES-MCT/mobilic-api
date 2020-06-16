@@ -27,7 +27,7 @@ class CreateVehicle(graphene.Mutation):
             description="Identifiant de l'entreprise du véhicule",
         )
 
-    vehicle = graphene.Field(VehicleOutput)
+    Output = VehicleOutput
 
     @classmethod
     @with_authorization_policy(
@@ -47,7 +47,7 @@ class CreateVehicle(graphene.Mutation):
             app.logger.info(f"Created new vehicle {vehicle}")
         except Exception as e:
             app.logger.exception(f"Error vehicle creation for {vehicle}")
-        return CreateVehicle(vehicle=vehicle)
+        return vehicle
 
 
 class EditVehicle(graphene.Mutation):
@@ -65,7 +65,7 @@ class EditVehicle(graphene.Mutation):
             required=True, description="Identifiant du véhicule à éditer"
         )
 
-    vehicle = graphene.Field(VehicleOutput)
+    Output = VehicleOutput
 
     @classmethod
     @with_authorization_policy(
@@ -79,7 +79,7 @@ class EditVehicle(graphene.Mutation):
         vehicle.alias = alias
         db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
-        return EditVehicle(vehicle=vehicle)
+        return vehicle
 
 
 class TerminateVehicle(graphene.Mutation):

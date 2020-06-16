@@ -50,7 +50,7 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
             description="Identifiant de la mission à laquelle ajouter ou retirer le coéquipier",
         )
 
-    team_change = graphene.Field(TeamChange)
+    Output = TeamChange
 
     @classmethod
     @with_authorization_policy(
@@ -77,11 +77,11 @@ class EnrollOrReleaseTeamMate(graphene.Mutation):
         if not activity:
             raise g.non_blocking_errors[-1]
 
-        team_change = {
-            "is_enrollment": activity.type != ActivityType.REST,
-            "user_time": activity.user_time,
-            "coworker": activity.user,
-            "mission_id": mission.id,
-        }
+        team_change = TeamChange(
+            is_enrollment=activity.type != ActivityType.REST,
+            user_time=activity.user_time,
+            coworker=activity.user,
+            mission_id=mission.id,
+        )
 
-        return EnrollOrReleaseTeamMate(team_change=team_change)
+        return team_change

@@ -28,7 +28,7 @@ class CompanySignUp(graphene.Mutation):
             required=True, description="Nom de l'entreprise"
         )
 
-    company = graphene.Field(CompanyOutput)
+    Output = CompanyOutput
 
     @classmethod
     def mutate(cls, _, info, name):
@@ -39,7 +39,7 @@ class CompanySignUp(graphene.Mutation):
             app.logger.info(f"Signed up new company {company}")
         except Exception as e:
             app.logger.exception(f"Error during company signup for {company}")
-        return CompanySignUp(company=company)
+        return company
 
 
 class Query(graphene.ObjectType):

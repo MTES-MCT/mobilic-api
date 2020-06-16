@@ -25,7 +25,7 @@ class LogComment(graphene.Mutation):
             required=True, description="Identifiant de la mission"
         )
 
-    comment = graphene.Field(CommentOutput)
+    Output = CommentOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
@@ -42,4 +42,4 @@ class LogComment(graphene.Mutation):
                 event_time=comment_input["event_time"],
             )
 
-        return LogComment(comment=comment)
+        return comment

@@ -72,4 +72,13 @@ class BaseSQLAlchemyObjectType(SQLAlchemyObjectType):
     class Meta:
         abstract = True
 
+    @classmethod
+    def __init_subclass_with_meta__(cls, **kwargs):
+        try:
+            if "name" not in kwargs:
+                kwargs["name"] = kwargs["model"].__name__
+        except:
+            pass
+        super().__init_subclass_with_meta__(**kwargs)
+
     id = graphene.Field(graphene.Int)

@@ -1,4 +1,5 @@
 from flask import g
+from functools import wraps
 import graphene
 from graphene.types.generic import GenericScalar
 from graphql import GraphQLError
@@ -90,23 +91,50 @@ class MutationWithNonBlockingErrors(graphene.Mutation):
     class Meta:
         abstract = True
 
-    non_blocking_errors = graphene.List(
-        GenericScalar,
-        description="Les erreurs mineures déclenchées par la requête, dont la connaissance peut intéresser l'appelant",
-    )
+    @classmethod
+    def mutate_with_non_blocking_errors(cls, mutate):
+        @wraps(mutate)
+        def mutate_wrapper(*args, **kwargs):
+            g.non_blocking_errors = []
+            output = mutate(*args, **kwargs)
+            output_type = getattr(cls, "Output")
+            non_blocking_errors = [e.to_dict() for e in g.non_blocking_errors]
+            if output_type:
+                return output_type(
+                    output=output, non_blocking_errors=non_blocking_errors
+                )
+            output.non_blocking_errors = non_blocking_errors
+            return output
+
+        return mutate_wrapper
 
     @classmethod
-    def mutate(cls, *args, **kwargs):
-        g.non_blocking_errors = []
-        output = cls._mutate(*args, **kwargs)
-        output.non_blocking_errors = [
-            e.to_dict() for e in g.non_blocking_errors
-        ]
-        return output
+    def __init_subclass_with_meta__(cls, **kwargs):
+        output_type = getattr(cls, "Output")
+        non_blocking_errors_type = graphene.List(
+            GenericScalar,
+            description="Les erreurs mineures déclenchées par la requête, dont la connaissance peut intéresser l'appelant",
+        )
+        if output_type:
 
-    @classmethod
-    def _mutate(cls, *args, **kwargs):
-        raise NotImplementedError
+            class AugmentedOutput(graphene.ObjectType):
+                class Meta:
+                    name = cls.__name__ + "Output"
+
+                output = output_type
+                non_blocking_errors = non_blocking_errors_type
+
+            setattr(cls, "Output", AugmentedOutput)
+        else:
+            try:
+                if "name" not in kwargs:
+                    kwargs["name"] = cls.__name__ + "Output"
+            except:
+                pass
+            setattr(cls, "non_blocking_errors", non_blocking_errors_type)
+
+        setattr(cls, "mutate", cls.mutate_with_non_blocking_errors(cls.mutate))
+        super().__init_subclass_with_meta__(**kwargs)
 
 
 def add_non_blocking_error(error):
