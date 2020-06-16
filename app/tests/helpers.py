@@ -7,7 +7,7 @@ import re
 
 from app import app, db
 from app.helpers.time import to_timestamp
-from app.models import Activity, User
+from app.models import User
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
@@ -66,9 +66,9 @@ def _equals_on_intersect(d1, d2):
 class ApiRequests:
     log_activity = """
         mutation ($type: InputableActivityTypeEnum!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $missionId: Int!, $driver: TeamMateInput) {
-            activity {
+            activities {
                 logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driver: $driver, userTime: $userTime) {
-                    missionActivities
+                    output
                      {
                         id
                         type
@@ -79,9 +79,9 @@ class ApiRequests:
     """
     begin_mission = """
         mutation ($firstActivityType: InputableActivityTypeEnum!, $name: String, $eventTime: DateTimeWithTimeStampSerialization!, $team: [TeamMateInput], $vehicleId: Int, $vehicleRegistrationNumber: String) {
-            activity {
+            activities {
                 beginMission (firstActivityType: $firstActivityType, name: $name, eventTime: $eventTime, team: $team, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
-                    mission
+                    output
                      {
                         id
                         name
@@ -92,22 +92,19 @@ class ApiRequests:
     """
     end_mission = """
         mutation ($missionId: Int!, $eventTime: DateTimeWithTimeStampSerialization!, $expenditures: GenericScalar) {
-            activity {
+            activities {
                 endMission (missionId: $missionId, eventTime: $eventTime, expenditures: $expenditures) {
-                    mission
-                     {
-                        id
-                        name
-                    }
+                    id
+                    name
                 }
             }
         }
     """
     edit_activity = """
         mutation ($activityId: Int, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $dismiss: Boolean!, $comment: String) {
-            activity {
+            activities {
                 editActivity (activityId: $activityId, eventTime: $eventTime, userTime: $userTime, dismiss: $dismiss, comment: $comment) {
-                    missionActivities
+                    output
                      {
                         id
                         type
