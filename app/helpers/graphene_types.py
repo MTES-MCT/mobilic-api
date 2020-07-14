@@ -9,7 +9,7 @@ from sqlalchemy import types
 from app.helpers.time import to_timestamp, from_timestamp
 
 
-class DateTimeWithTimeStampSerialization(DateTime):
+class TimeStamp(DateTime):
     class Meta:
         description = "Horodatage en nombre de millisecondes écoulées depuis le 1er janvier 1970 minuit UTC"
 
@@ -34,7 +34,7 @@ class DateTimeWithTimeStampSerialization(DateTime):
 
 @convert_sqlalchemy_type.register(types.DateTime)
 def convert_column_to_custom_datetime(type, column, registry=None):
-    return DateTimeWithTimeStampSerialization
+    return TimeStamp
 
 
 GRAPHENE_ENUM_TYPES = {}

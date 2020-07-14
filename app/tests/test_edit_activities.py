@@ -24,41 +24,36 @@ class TestEditActivities(TestLogActivities):
         activity_time,
         edit_time,
         new_activity_time=None,
-        exclude_team_mates=None,
+        exclude_team_mate_ids=None,
         additional_db_changes=None,
     ):
-        exclude_team_mates = exclude_team_mates or []
-
-        actual_activity_to_edit = Activity.query.filter(
-            Activity.user_time == activity_time,
-            Activity.user_id == self.team_leader.id,
-        ).one()
+        exclude_team_mate_ids = exclude_team_mate_ids or []
 
         expected_changes = additional_db_changes or {}
         if type(expected_changes) is list:
             expected_changes = {
                 str(idx): item for idx, item in enumerate(expected_changes)
             }
-        for team_member in self.team:
+        for team_mate_id in self.team_ids:
             activity_to_edit = Activity.query.filter(
-                Activity.user_time == activity_time,
-                Activity.user_id == team_member.id,
+                Activity.start_time == activity_time,
+                Activity.user_id == team_mate_id,
             ).one()
-            if team_member not in exclude_team_mates:
+            if team_mate_id not in exclude_team_mate_ids:
                 activity_data = dict(
                     type=activity_to_edit.type,
                     submitter_id=self.team_leader.id,
-                    user_id=team_member.id,
-                    user_time=activity_time,
-                    event_time=activity_time,
+                    user_id=team_mate_id,
+                    start_time=activity_time,
+                    reception_time=activity_time,
                     mission_id=activity_to_edit.mission_id,
                     dismiss_type=None,
                 )
                 random_id = str(randint(1000, 1000000))
                 if new_activity_time:
                     new_activity_data = {**activity_data}
-                    new_activity_data["user_time"] = new_activity_time
-                    new_activity_data["event_time"] = edit_time
+                    new_activity_data["start_time"] = new_activity_time
+                    new_activity_data["reception_time"] = edit_time
                     expected_changes.update(
                         {
                             random_id: DBEntryUpdate(
@@ -99,37 +94,45 @@ class TestEditActivities(TestLogActivities):
         with test_db_changes(
             expected_changes, watch_models=[Activity, Mission]
         ):
-            make_authenticated_request(
-                time=edit_time,
-                submitter_id=self.team_leader.id,
-                query=ApiRequests.edit_activity,
-                variables=dict(
-                    activity_id=actual_activity_to_edit.id,
-                    event_time=edit_time,
-                    dismiss=False if new_activity_time else True,
-                    user_time=new_activity_time,
-                ),
-            )
+            for team_mate_id in self.team_ids:
+                activity_to_edit = Activity.query.filter(
+                    Activity.start_time == activity_time,
+                    Activity.user_id == team_mate_id,
+                ).one()
+                if team_mate_id not in exclude_team_mate_ids:
+                    make_authenticated_request(
+                        time=edit_time,
+                        submitter_id=self.team_leader.id,
+                        query=ApiRequests.edit_activity
+                        if new_activity_time
+                        else ApiRequests.cancel_activity,
+                        variables=dict(
+                            activity_id=activity_to_edit.id,
+                            start_time=new_activity_time,
+                        )
+                        if new_activity_time
+                        else dict(activity_id=activity_to_edit.id),
+                    )
 
     def _cancel_or_edit_activity_as_simple_member(
         self,
-        team_member,
+        team_mate_id,
         activity_time,
         edit_time,
         new_activity_time=None,
         additional_db_changes=None,
     ):
         activity_to_edit = Activity.query.filter(
-            Activity.user_time == activity_time,
-            Activity.user_id == team_member.id,
+            Activity.start_time == activity_time,
+            Activity.user_id == team_mate_id,
         ).one()
 
         activity_data = dict(
             type=activity_to_edit.type,
             submitter_id=self.team_leader.id,
-            user_id=team_member.id,
-            user_time=activity_time,
-            event_time=activity_time,
+            user_id=team_mate_id,
+            start_time=activity_time,
+            reception_time=activity_time,
             mission_id=activity_to_edit.mission_id,
             dismiss_type=None,
         )
@@ -143,9 +146,9 @@ class TestEditActivities(TestLogActivities):
 
         if new_activity_time:
             new_activity_data = {**activity_data}
-            new_activity_data["user_time"] = new_activity_time
-            new_activity_data["event_time"] = edit_time
-            new_activity_data["submitter_id"] = team_member.id
+            new_activity_data["start_time"] = new_activity_time
+            new_activity_data["reception_time"] = edit_time
+            new_activity_data["submitter_id"] = team_mate_id
             expected_changes.update(
                 {
                     random_id: DBEntryUpdate(
@@ -175,7 +178,7 @@ class TestEditActivities(TestLogActivities):
                             **activity_data,
                             "dismiss_type": ActivityDismissType.USER_CANCEL,
                             "dismissed_at": edit_time,
-                            "dismiss_author_id": team_member.id,
+                            "dismiss_author_id": team_mate_id,
                         },
                     )
                 }
@@ -186,14 +189,16 @@ class TestEditActivities(TestLogActivities):
         ):
             make_authenticated_request(
                 time=edit_time,
-                submitter_id=team_member.id,
-                query=ApiRequests.edit_activity,
+                submitter_id=team_mate_id,
+                query=ApiRequests.edit_activity
+                if new_activity_time
+                else ApiRequests.cancel_activity,
                 variables=dict(
                     activity_id=activity_to_edit.id,
-                    event_time=edit_time,
-                    dismiss=False if new_activity_time else True,
-                    user_time=new_activity_time,
-                ),
+                    start_time=new_activity_time,
+                )
+                if new_activity_time
+                else dict(activity_id=activity_to_edit.id),
             )
 
     def test_cancel_activity_as_team_leader(self):
@@ -220,18 +225,20 @@ class TestEditActivities(TestLogActivities):
         )
 
     def test_cancel_activity_as_simple_member(self):
-        team_mate = self.team_mates[0]
+        team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
 
         activity_to_cancel_user_time = datetime(
             2020, 2, 7, 9, 30
         )  # The third activity of the mission : work
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate, activity_to_cancel_user_time, datetime(2020, 2, 7, 17)
+            team_mate_id,
+            activity_to_cancel_user_time,
+            datetime(2020, 2, 7, 17),
         )
 
     def test_edit_activity_as_simple_member(self):
-        team_mate = self.team_mates[0]
+        team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
 
         activity_to_edit_time = datetime(
@@ -239,7 +246,7 @@ class TestEditActivities(TestLogActivities):
         )  # The third activity of the mission : work
         new_activity_time = datetime(2020, 2, 7, 8)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            team_mate_id,
             activity_to_edit_time,
             datetime(2020, 2, 7, 17),
             new_activity_time=new_activity_time,
@@ -256,31 +263,31 @@ class TestEditActivities(TestLogActivities):
         )
 
     def test_cancel_multiple_activities(self):
+        team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
-        team_mate = self.team_mates[0]
 
         first_activity_to_cancel_user_time = datetime(2020, 2, 7, 9, 30)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            team_mate_id,
             first_activity_to_cancel_user_time,
             datetime(2020, 2, 7, 17),
         )
 
         second_activity_to_cancel_user_time = datetime(2020, 2, 7, 6)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            team_mate_id,
             second_activity_to_cancel_user_time,
             datetime(2020, 2, 7, 17, 30),
         )
 
     def test_edit_multiple_activities(self):
+        team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
-        team_mate = self.team_mates[0]
 
         first_activity_to_edit_user_time = datetime(2020, 2, 7, 9, 30)
         first_activity_new_time = datetime(2020, 2, 7, 9)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            team_mate_id,
             first_activity_to_edit_user_time,
             datetime(2020, 2, 7, 17),
             new_activity_time=first_activity_new_time,
@@ -289,7 +296,7 @@ class TestEditActivities(TestLogActivities):
         second_activity_to_edit_user_time = datetime(2020, 2, 7, 6)
         second_activity_new_time = datetime(2020, 2, 7, 6, 30)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            team_mate_id,
             second_activity_to_edit_user_time,
             datetime(2020, 2, 7, 17, 30),
             new_activity_time=second_activity_new_time,
@@ -308,18 +315,18 @@ class TestEditActivities(TestLogActivities):
         cancel_time = datetime(2020, 2, 7, 17)
 
         activity_to_mark_as_duplicate = Activity.query.filter(
-            Activity.user_time == activity_to_mark_as_duplicate_time,
+            Activity.start_time == activity_to_mark_as_duplicate_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
         additional_db_changes = []
-        for team_mate in self.team:
+        for team_mate_id in self.team_ids:
             activity_data = dict(
                 type=activity_to_mark_as_duplicate.type,
                 submitter_id=self.team_leader.id,
-                user_id=team_mate.id,
-                user_time=activity_to_mark_as_duplicate_time,
-                event_time=activity_to_mark_as_duplicate_time,
+                user_id=team_mate_id,
+                start_time=activity_to_mark_as_duplicate_time,
+                reception_time=activity_to_mark_as_duplicate_time,
                 mission_id=activity_to_mark_as_duplicate.mission_id,
                 dismiss_type=None,
             )
@@ -347,7 +354,7 @@ class TestEditActivities(TestLogActivities):
 
         The end of the day should be set to 12:13pm after the cancel
         """
-        mission = self.test_log_standard_mission()
+        mission_id = self.test_log_standard_mission()
 
         activity_to_cancel_user_time = datetime(2020, 2, 7, 12, 53)
         activity_to_revise_time = datetime(2020, 2, 7, 12, 13)
@@ -356,19 +363,19 @@ class TestEditActivities(TestLogActivities):
         cancel_time = datetime(2020, 2, 7, 17)
 
         activity_to_mark_as_duplicate = Activity.query.filter(
-            Activity.user_time == activity_to_mark_as_duplicate_time,
+            Activity.start_time == activity_to_mark_as_duplicate_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
         additional_db_changes = {}
-        for team_mate in self.team:
+        for team_mate_id in self.team_ids:
             random_id = str(randint(1000, 1000000))
             activity_data = dict(
                 type=activity_to_mark_as_duplicate.type,
                 submitter_id=self.team_leader.id,
-                user_id=team_mate.id,
-                user_time=activity_to_mark_as_duplicate_time,
-                event_time=activity_to_mark_as_duplicate_time,
+                user_id=team_mate_id,
+                start_time=activity_to_mark_as_duplicate_time,
+                reception_time=activity_to_mark_as_duplicate_time,
                 mission_id=activity_to_mark_as_duplicate.mission_id,
                 dismiss_type=None,
             )
@@ -387,8 +394,8 @@ class TestEditActivities(TestLogActivities):
                 }
             )
             activity_to_revise = Activity.query.filter(
-                Activity.user_time == activity_to_revise_time,
-                Activity.user_id == team_mate.id,
+                Activity.start_time == activity_to_revise_time,
+                Activity.user_id == team_mate_id,
             ).one()
             random_id = str(randint(1000, 1000000))
 
@@ -399,9 +406,9 @@ class TestEditActivities(TestLogActivities):
                         before=None,
                         after=dict(
                             type=ActivityType.REST,
-                            user_id=team_mate.id,
+                            user_id=team_mate_id,
                             submitter_id=self.team_leader.id,
-                            mission_id=mission["id"],
+                            mission_id=mission_id,
                         ),
                     ),
                     random_id
@@ -430,27 +437,31 @@ class TestEditActivities(TestLogActivities):
 
         The cancel should remove the mission end as well
         """
+        first_team_mate_id = self.team_mates[0].id
+
         lone_activity_time = datetime(2020, 2, 7, 6)
-        mission = self.begin_mission(lone_activity_time)
+        mission_id = self.begin_mission(lone_activity_time)
         mission_end_time = datetime(2020, 2, 7, 8)
 
-        make_authenticated_request(
-            time=mission_end_time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.end_mission,
-            variables=dict(
-                mission_id=mission["id"], event_time=mission_end_time
-            ),
-        )
+        for team_mate_id in self.team_ids:
+            make_authenticated_request(
+                time=mission_end_time,
+                submitter_id=self.team_leader.id,
+                query=ApiRequests.end_mission,
+                variables=dict(
+                    mission_id=mission_id,
+                    end_time=mission_end_time,
+                    user_id=team_mate_id,
+                ),
+            )
 
-        team_mate = self.team_mates[0]
         cancel_time = datetime(2020, 2, 7, 10)
 
         mission_end_data = dict(
-            user_id=team_mate.id,
+            user_id=first_team_mate_id,
             submitter_id=self.team_leader.id,
-            event_time=mission_end_time,
-            user_time=mission_end_time,
+            reception_time=mission_end_time,
+            start_time=mission_end_time,
             type=ActivityType.REST,
         )
         additional_db_changes = [
@@ -461,12 +472,12 @@ class TestEditActivities(TestLogActivities):
                     **mission_end_data,
                     "dismiss_type": ActivityDismissType.BREAK_OR_REST_AS_STARTING_ACTIVITY,
                     "dismissed_at": cancel_time,
-                    "dismiss_author_id": team_mate.id,
+                    "dismiss_author_id": first_team_mate_id,
                 },
             )
         ]
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate,
+            first_team_mate_id,
             lone_activity_time,
             cancel_time,
             additional_db_changes=additional_db_changes,
@@ -485,7 +496,7 @@ class TestEditActivities(TestLogActivities):
         )  # The first activity of the second day
 
         revised_activity = Activity.query.filter(
-            Activity.user_time == revised_activity_time,
+            Activity.start_time == revised_activity_time,
             Activity.user_id == self.team_leader.id,
         ).one()
 
@@ -495,9 +506,9 @@ class TestEditActivities(TestLogActivities):
             query=ApiRequests.edit_activity,
             variables=dict(
                 activity_id=revised_activity.id,
-                event_time=revision_time,
-                dismiss=False,
-                user_time=datetime(2020, 2, 7, 15),  # During the first mission
+                start_time=datetime(
+                    2020, 2, 7, 15
+                ),  # During the first mission
             ),
             request_should_fail_with=True,
         )
@@ -507,16 +518,19 @@ class TestEditActivities(TestLogActivities):
 
         The new cancel should proceed for the other team mates
         """
+        team_mate_id = self.team_mates[0].id
+
         self.test_log_standard_mission()
-        team_mate = self.team_mates[0]
 
         activity_to_cancel_user_time = datetime(2020, 2, 7, 9, 30)
         self._cancel_or_edit_activity_as_simple_member(
-            team_mate, activity_to_cancel_user_time, datetime(2020, 2, 7, 17)
+            team_mate_id,
+            activity_to_cancel_user_time,
+            datetime(2020, 2, 7, 17),
         )
 
         self._cancel_or_edit_activity_as_team_leader(
             activity_to_cancel_user_time,
             datetime(2020, 2, 7, 17, 30),
-            exclude_team_mates=[team_mate],
+            exclude_team_mate_ids=[team_mate_id],
         )

@@ -12,8 +12,6 @@ def user_query_with_all_relations():
         selectinload(User.activities)
         .selectinload(Activity.mission)
         .options(selectinload(Mission.validations))
-        .options(selectinload(Mission.comments))
-        .options(selectinload(Mission.vehicle_bookings))
         .options(selectinload(Mission.activities).selectinload(Activity.user))
     ).options(
         selectinload(User.company)
@@ -22,12 +20,14 @@ def user_query_with_all_relations():
     )
 
 
-def mission_query_with_activities_and_users():
+def mission_query_with_activities():
     return Mission.query.options(selectinload(Mission.validations)).options(
         selectinload(Mission.activities)
-        .selectinload(Activity.user)
-        .selectinload(User.activities)
     )
+
+
+def mission_query_with_expenditures():
+    return Mission.query.options(selectinload(Mission.expenditures))
 
 
 def company_query_with_users_and_activities():
@@ -43,10 +43,6 @@ def company_queries_with_all_relations():
     return Company.query.options(
         selectinload(Company.users)
         .selectinload(User.activities)
-        .options(
-            selectinload(Activity.mission)
-            .options(selectinload(Mission.vehicle_bookings))
-            .options(selectinload(Mission.comments))
-        )
+        .options(selectinload(Activity.mission))
         .options(selectinload(Activity.revisee))
     ).options(selectinload(Company.vehicles))

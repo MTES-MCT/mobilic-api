@@ -65,50 +65,51 @@ def _equals_on_intersect(d1, d2):
 
 class ApiRequests:
     log_activity = """
-        mutation ($type: InputableActivityTypeEnum!, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $missionId: Int!, $driver: TeamMateInput) {
+        mutation ($type: InputableActivityTypeEnum!, $startTime: TimeStamp!, $endTime: TimeStamp, $missionId: Int!, $userId: Int, $context: GenericScalar) {
             activities {
-                logActivity (type: $type, eventTime: $eventTime, missionId: $missionId, driver: $driver, userTime: $userTime) {
-                    output
-                     {
-                        id
-                        type
-                    }
+                logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context) {
+                    id
+                    type
                 }
             }
         }
     """
-    begin_mission = """
-        mutation ($firstActivityType: InputableActivityTypeEnum!, $name: String, $eventTime: DateTimeWithTimeStampSerialization!, $team: [TeamMateInput], $vehicleId: Int, $vehicleRegistrationNumber: String) {
+    create_mission = """
+        mutation ($name: String, $companyId: Int, $context: GenericScalar) {
             activities {
-                beginMission (firstActivityType: $firstActivityType, name: $name, eventTime: $eventTime, team: $team, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
-                    output
-                     {
-                        id
-                        name
-                    }
-                }
-            }
-        }
-    """
-    end_mission = """
-        mutation ($missionId: Int!, $eventTime: DateTimeWithTimeStampSerialization!, $expenditures: GenericScalar) {
-            activities {
-                endMission (missionId: $missionId, eventTime: $eventTime, expenditures: $expenditures) {
+                createMission (name: $name, companyId: $companyId, context: $context) {
                     id
                     name
                 }
             }
         }
     """
-    edit_activity = """
-        mutation ($activityId: Int, $eventTime: DateTimeWithTimeStampSerialization!, $userTime: DateTimeWithTimeStampSerialization, $dismiss: Boolean!, $comment: String) {
+    end_mission = """
+        mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int, $context: GenericScalar) {
             activities {
-                editActivity (activityId: $activityId, eventTime: $eventTime, userTime: $userTime, dismiss: $dismiss, comment: $comment) {
-                    output
-                     {
-                        id
-                        type
-                    }
+                endMission (missionId: $missionId, endTime: $endTime, userId: $userId, context: $context) {
+                    id
+                    name
+                }
+            }
+        }
+    """
+    cancel_activity = """
+        mutation ($activityId: Int!, $context: GenericScalar) {
+            activities {
+                cancelActivity (activityId: $activityId, context: $context) {
+                    id
+                    type
+                }
+            }
+        }
+    """
+    edit_activity = """
+        mutation ($activityId: Int!, $startTime: TimeStamp, $endTime: TimeStamp, $context: GenericScalar) {
+            activities {
+                editActivity (activityId: $activityId, startTime: $startTime, endTime: $endTime, context: $context) {
+                    id
+                    type
                 }
             }
         }

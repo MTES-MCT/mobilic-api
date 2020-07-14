@@ -4,108 +4,125 @@ from datetime import datetime
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
-from app.domain.log_activities import log_group_activity
-from app.domain.mission import begin_mission
+from app.domain.log_activities import log_activity
 from app.helpers.authorization import with_authorization_policy, authenticated
-from app.helpers.errors import MutationWithNonBlockingErrors
-from app.helpers.graphene_types import graphene_enum_type
-from app.models.activity import InputableActivityType, ActivityType
+from app.helpers.graphene_types import TimeStamp
+from app.models.activity import ActivityType
 from app.models.mission import Mission
-from app.models import User
-from app.controllers.event import EventInput
+from app.models import Company, Vehicle
 from app.models.mission_validation import MissionValidation
-from app.controllers.team import TeamMateInput
 from app.data_access.mission import MissionOutput
-from app.domain.log_comments import log_comment
 from app.domain.permissions import can_submitter_log_on_mission
 from app.helpers.authentication import current_user
 from app.models.queries import (
     user_query_with_activities,
-    mission_query_with_activities_and_users,
+    mission_query_with_activities,
 )
 
 
-class MissionInput(EventInput):
+class MissionInput:
     name = graphene.Argument(
         graphene.String,
         required=False,
         description="Nom optionnel de la mission",
     )
-    first_activity_type = graphene.Argument(
-        graphene_enum_type(InputableActivityType),
-        required=True,
-        description="Nature de la première activité",
-    )
-    driver = graphene.Argument(
-        TeamMateInput,
+    company_id = graphene.Argument(
+        graphene.Int,
         required=False,
-        description="Identitié du conducteur si déplacement",
+        description="Optionnel, précise l'entreprise à laquelle se rattache la mission. Par défaut c'est l'entreprise de l'auteur de l'opération.",
     )
-    vehicle_registration_number = graphene.String(
+    context = graphene.Argument(
+        GenericScalar,
         required=False,
-        description="Numéro d'immatriculation du véhicule utilisé si véhicule non connu (optionnel)",
-    )
-    vehicle_id = graphene.Int(
-        required=False,
-        description="Identifiant du véhicule utilisé, si déjà connu (optionnel)",
-    )
-    team = graphene.List(
-        TeamMateInput,
-        required=False,
-        description="Liste des coéquipiers sur la mission",
+        description="Dictionnaire de données libres autour de la mission",
     )
 
 
-class BeginMission(MutationWithNonBlockingErrors):
+class CreateMission(graphene.Mutation):
     """
-    Démarrage d'une nouvelle mission et enregistrement de la première activité.
+    Création d'une nouvelle mission.
 
     Retourne la mission nouvellement créée
     """
 
     Arguments = MissionInput
 
-    Output = graphene.Field(MissionOutput)
+    Output = MissionOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
-                f"Starting a new mission with name {mission_input.get('name')}"
+                f"Creating a new mission with name {mission_input.get('name')}"
             )
             # Preload resources
-            user_ids_to_preload = [current_user.id]
-            team = mission_input.get("team")
-            if team:
-                for tm in team:
-                    if tm.get("id"):
-                        user_ids_to_preload.append(tm.get("id"))
-            user_query_with_activities().filter(
-                User.id.in_(user_ids_to_preload)
-            ).all()
+            company_id = mission_input.get("company_id")
+            if company_id:
+                company = Company.query.get(company_id)
+            else:
+                company = current_user.main_company
 
-            mission = begin_mission(user=current_user, **mission_input)
+            context = mission_input.get("context")
+
+            if (
+                context
+                and context.get("vehicleRegistrationNumber")
+                and not context.get("vehicleId")
+            ):
+                registration_number = context.get("vehicleRegistrationNumber")
+                vehicle = Vehicle.query.filter(
+                    Vehicle.registration_number == registration_number,
+                    Vehicle.company_id == company.id,
+                ).one_or_none()
+
+                if not vehicle:
+                    vehicle = Vehicle(
+                        registration_number=registration_number,
+                        submitter=current_user,
+                        company=company,
+                    )
+                    db.session.add(vehicle)
+                    db.session.flush()  # To get a DB id for the new vehicle
+
+                context.pop("vehicleRegistrationNumber")
+                context["vehicleId"] = vehicle.id
+
+            mission = Mission(
+                name=mission_input.get("name"),
+                company=company,
+                reception_time=datetime.now(),
+                context=context,
+                submitter=current_user,
+            )
+            db.session.add(mission)
 
         return mission
 
 
 class EndMission(graphene.Mutation):
     """
-    Fin de la mission et enregistrement des frais associés.
+    Fin de la mission.
 
     Retourne la mission.
     """
 
-    class Arguments(EventInput):
+    class Arguments:
         mission_id = graphene.Int(
             required=True, description="Identifiant de la mission à terminer"
         )
-        expenditures = GenericScalar(
-            required=False, description="Frais de la mission"
+        end_time = graphene.Argument(
+            TimeStamp,
+            required=True,
+            description="Horodatage de fin de mission.",
         )
-        comment = graphene.String(
-            required=False, description="Commentaire libre sur la mission"
+        context = GenericScalar(
+            required=False,
+            description="Commentaire libre sur la fin de mission",
+        )
+        user_id = graphene.Int(
+            required=False,
+            description="Optionnel, identifiant du travailleur mobile concerné par la fin de la mission. Par défaut c'est l'auteur de l'opération.",
         )
 
     Output = MissionOutput
@@ -114,28 +131,27 @@ class EndMission(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
-            mission = mission_query_with_activities_and_users().get(
+            reception_time = datetime.now()
+            mission = mission_query_with_activities().get(
                 args.get("mission_id")
             )
 
+            user_id = args.get("user_id")
+            if user_id:
+                user = user_query_with_activities().get(user_id)
+            else:
+                user = current_user
+
             app.logger.info(f"Ending mission {mission}")
-            mission.expenditures = args.get("expenditures")
-            log_group_activity(
+            log_activity(
                 submitter=current_user,
+                user=user,
                 mission=mission,
                 type=ActivityType.REST,
-                event_time=args["event_time"],
-                user_time=args["event_time"],
+                reception_time=reception_time,
+                start_time=args["end_time"],
+                context=args.get("context"),
             )
-
-            comment = args.get("comment")
-            if comment:
-                log_comment(
-                    submitter=current_user,
-                    mission=mission,
-                    event_time=args["event_time"],
-                    content=comment,
-                )
 
         return mission
 
@@ -168,37 +184,9 @@ class ValidateMission(graphene.Mutation):
             db.session.add(
                 MissionValidation(
                     submitter=current_user,
-                    event_time=datetime.now(),
+                    reception_time=datetime.now(),
                     mission=mission,
                 )
             )
-
-        return mission
-
-
-class EditMissionExpenditures(graphene.Mutation):
-    """
-    Correction des frais de la mission.
-
-    Retourne la mission.
-    """
-
-    class Arguments:
-        mission_id = graphene.Int(
-            required=True, description="Identifiant de la mission considérée"
-        )
-        expenditures = GenericScalar(
-            required=True, description="Les frais corrigés"
-        )
-
-    Output = MissionOutput
-
-    @classmethod
-    @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, **args):
-        with atomic_transaction(commit_at_end=True):
-            mission = Mission.query.get(args.get("mission_id"))
-
-            mission.expenditures = args["expenditures"]
 
         return mission

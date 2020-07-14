@@ -1,5 +1,4 @@
 import graphene
-from datetime import datetime
 
 from app.data_access.mission import MissionOutput
 from app.data_access.work_day import WorkDayOutput

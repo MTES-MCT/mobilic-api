@@ -33,8 +33,8 @@ class WorkDay:
                 self.user, include_dismisses_and_revisions=True
             )
         )
-        self._activities.sort(key=lambda a: a.user_time)
-        self._all_activities.sort(key=lambda a: a.user_time)
+        self._activities.sort(key=lambda a: a.start_time)
+        self._all_activities.sort(key=lambda a: a.start_time)
 
     @property
     def is_complete(self):
@@ -45,41 +45,22 @@ class WorkDay:
     @property
     def start_time(self):
         if self._activities:
-            return self._activities[0].user_time
+            return self._activities[0].start_time
         if self._all_activities:
-            return self._all_activities[0].user_time
+            return self._all_activities[0].start_time
         return None
 
     @property
     def end_time(self):
-        return self._activities[-1].user_time if self.is_complete else None
+        return self._activities[-1].start_time if self.is_complete else None
 
     @cached_property
     def expenditures(self):
         expenditures = defaultdict(lambda: 0)
         for mission in self.missions:
-            if mission.expenditures:
-                for expenditure_type, count in mission.expenditures.items():
-                    expenditures[expenditure_type] += count
+            for expenditure in mission.expenditures_for(self.user):
+                expenditures[expenditure.type] += 1
         return dict(expenditures)
-
-    @cached_property
-    def vehicles(self):
-        vehicles = set()
-        for mission in self.missions:
-            vehicles.update({vb.vehicle for vb in mission.vehicle_bookings})
-        return vehicles
-
-    @cached_property
-    def comments(self):
-        comments = []
-        for mission in self.missions:
-            mission_comments = sorted(
-                [c for c in mission.comments if c.is_acknowledged],
-                key=lambda c: c.event_time,
-            )
-            comments.extend(mission_comments)
-        return comments
 
     @property
     def activity_timers(self):
@@ -96,12 +77,12 @@ class WorkDay:
             self._activities[:-1], self._activities[1:]
         ):
             timers[activity.type] += to_timestamp(
-                next_activity.user_time
-            ) - to_timestamp(activity.user_time)
+                next_activity.start_time
+            ) - to_timestamp(activity.start_time)
         if not self.is_complete:
             latest_activity = self._activities[-1]
             timers[latest_activity.type] += end_timestamp - to_timestamp(
-                latest_activity.user_time
+                latest_activity.start_time
             )
         timers["total_work"] = (
             timers[ActivityType.DRIVE]
@@ -124,9 +105,9 @@ def group_user_events_by_day(user):
             a for a in all_mission_activities if a.is_acknowledged
         ]
         mission_start_time = (
-            acknowledged_mission_activities[0].user_time
+            acknowledged_mission_activities[0].start_time
             if acknowledged_mission_activities
-            else all_mission_activities[0].user_time
+            else all_mission_activities[0].start_time
         )
         if (
             not current_work_day

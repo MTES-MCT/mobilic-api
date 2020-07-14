@@ -52,16 +52,14 @@ class User(BaseModel):
                 for activity in self.activities
                 if activity.is_acknowledged
             ],
-            key=lambda a: a.user_time,
+            key=lambda a: a.start_time,
         )
-
-    @property
-    def acknowledged_deduplicated_activities(self):
-        return [a for a in self.acknowledged_activities if not a.is_duplicate]
 
     def latest_acknowledged_activity_at(self, date_time):
         acknowledged_activities = [
-            a for a in self.acknowledged_activities if a.user_time <= date_time
+            a
+            for a in self.acknowledged_activities
+            if a.start_time <= date_time
         ]
         if not acknowledged_activities:
             return None
@@ -88,16 +86,16 @@ class User(BaseModel):
 
     @property
     def bookable_vehicles(self):
-        # TODO : add logic that hides vehicles currently booked by other people
         return [v for v in self.company.vehicles if not v.is_terminated]
 
     def missions(self, include_dismisses_and_revisions=False):
         sorted_missions = []
         missions = set()
-        activities = (
+        activities = sorted(
             self.acknowledged_activities
             if not include_dismisses_and_revisions
-            else self.activities
+            else self.activities,
+            key=lambda a: a.start_time,
         )
         for a in activities:
             if a.mission not in missions:
@@ -131,6 +129,10 @@ class User(BaseModel):
 
     def __repr__(self):
         return f"<User [{self.id}] : {self.display_name}>"
+
+    @property
+    def main_company(self):
+        return self.company
 
 
 @dataclass

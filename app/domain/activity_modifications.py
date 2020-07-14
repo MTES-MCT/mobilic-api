@@ -11,7 +11,6 @@ class ActivityModificationType(str, Enum):
     AUTOMATIC_DISMISS = "automatic_dismiss"
     TIME_CHANGE = "time_change"
     TYPE_CHANGE = "type_change"
-    AFTERWARDS_CREATION = "afterwards_creation"
 
 
 class ActivityModification(NamedTuple):
@@ -36,30 +35,30 @@ def build_activity_modification_list(activities):
     all_relevant_activities = [
         a
         for a in activities
-        if a.event_time != a.dismissed_at
+        if a.reception_time != a.dismissed_at
         and (
-            not a.revised_by or a.revised_by.event_time != a.event_time
+            not a.revised_by or a.revised_by.reception_time != a.reception_time
         )  # We discard instant dismisses/revisions which mean that the actual activity event is elsewhere
     ]
-    activity_create_or_updates_with_user_action_time = [
-        (a.event_time, False, a) for a in all_relevant_activities
+    activity_create_or_updates_with_reception_time = [
+        (a.reception_time, False, a) for a in all_relevant_activities
     ]
 
-    activity_dismisses_with_user_action_time = [
+    activity_dismisses_with_reception_time = [
         (a.dismissed_at, True, a)
         for a in all_relevant_activities
         if a.is_dismissed
     ]
 
     all_activity_actions_sorted_by_user_action_time = sorted(
-        activity_create_or_updates_with_user_action_time
-        + activity_dismisses_with_user_action_time,
+        activity_create_or_updates_with_reception_time
+        + activity_dismisses_with_reception_time,
         key=lambda act_tuple: act_tuple[0],
     )
 
     activity_modifications = []
     for (
-        event_time,
+        reception_time,
         is_cancel,
         activity,
     ) in all_activity_actions_sorted_by_user_action_time:
@@ -67,38 +66,36 @@ def build_activity_modification_list(activities):
             if activity.revisee:
                 revision_type = (
                     ActivityModificationType.TIME_CHANGE
-                    if activity.user_time != activity.revisee.user_time
+                    if activity.start_time != activity.revisee.start_time
                     else ActivityModificationType.TYPE_CHANGE
                 )
                 activity_modifications.append(
                     ActivityModification(
-                        event_time=event_time,
+                        event_time=reception_time,
                         type=revision_type,
                         activity_type=activity.revisee.type,
-                        activity_start_time=activity.revisee.user_time,
-                        new_activity_start_time=activity.user_time,
+                        activity_start_time=activity.revisee.start_time,
+                        new_activity_start_time=activity.start_time,
                         new_activity_type=activity.type,
                     )
                 )
             else:
                 activity_modifications.append(
                     ActivityModification(
-                        event_time=event_time,
-                        type=ActivityModificationType.CREATION
-                        if activity.event_time == activity.user_time
-                        else ActivityModificationType.AFTERWARDS_CREATION,
-                        activity_start_time=activity.user_time,
+                        event_time=reception_time,
+                        type=ActivityModificationType.CREATION,
+                        activity_start_time=activity.start_time,
                         activity_type=activity.type,
                     )
                 )
         else:
             activity_modifications.append(
                 ActivityModification(
-                    event_time=event_time,
+                    event_time=reception_time,
                     type=ActivityModificationType.USER_CANCEL
                     if activity.dismiss_type == ActivityDismissType.USER_CANCEL
                     else ActivityModificationType.AUTOMATIC_DISMISS,
-                    activity_start_time=activity.user_time,
+                    activity_start_time=activity.start_time,
                     activity_type=activity.type,
                 )
             )

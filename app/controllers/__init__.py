@@ -1,21 +1,22 @@
 import graphene
 
-from app.controllers.comment import LogComment
+from app.controllers.expenditure import LogExpenditure, CancelExpenditure
 from app.controllers.mission import (
-    BeginMission,
+    CreateMission,
     EndMission,
     ValidateMission,
-    EditMissionExpenditures,
 )
-from app.controllers.team import EnrollOrReleaseTeamMate
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
     TerminateVehicle,
 )
-from app.controllers.vehicle_booking import LogVehicleBooking
 from app.helpers.authentication import Auth
-from app.controllers.activity import LogActivity, EditActivity
+from app.controllers.activity import (
+    LogActivity,
+    EditActivity,
+    CancelActivity,
+)
 import app.controllers.user
 import app.controllers.company
 
@@ -25,15 +26,14 @@ class Activities(graphene.ObjectType):
     Enregistrement des activités, temps et autres informations importantes de la journée de travail
     """
 
-    begin_mission = BeginMission.Field()
+    create_mission = CreateMission.Field()
     log_activity = LogActivity.Field()
+    log_expenditure = LogExpenditure.Field()
+    cancel_expenditure = CancelExpenditure.Field()
     end_mission = EndMission.Field()
     validate_mission = ValidateMission.Field()
+    cancel_activity = CancelActivity.Field()
     edit_activity = EditActivity.Field()
-    book_vehicle = LogVehicleBooking.Field()
-    enroll_or_release_team_mate = EnrollOrReleaseTeamMate.Field()
-    log_comment = LogComment.Field()
-    edit_mission_expenditures = EditMissionExpenditures.Field()
 
 
 class SignUp(graphene.ObjectType):

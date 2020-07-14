@@ -64,7 +64,7 @@ class MissionAlreadyEndedError(MobilicError):
         self.extensions.update(
             dict(
                 missionEnd=dict(
-                    userTime=to_timestamp(mission_end.user_time),
+                    userTime=to_timestamp(mission_end.start_time),
                     submitter=dict(
                         id=mission_end.submitter.id,
                         firstName=mission_end.submitter.first_name,
@@ -85,6 +85,18 @@ class InvalidEventParamsError(MobilicError):
 
 class ActivityAlreadyDismissedError(MobilicError):
     code = 204
+
+
+class NonContiguousActivitySequenceError(MobilicError):
+    code = 205
+
+
+class DuplicateExpenditureError(MobilicError):
+    code = 206
+
+
+class ExpenditureAlreadyDismissedError(MobilicError):
+    code = 207
 
 
 class MutationWithNonBlockingErrors(graphene.Mutation):

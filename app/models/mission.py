@@ -11,7 +11,12 @@ class Mission(EventBaseModel):
 
     name = db.Column(db.TEXT, nullable=True)
 
-    expenditures = db.Column(JSONB(none_as_null=True), nullable=True)
+    company_id = db.Column(
+        db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
+    )
+    company = db.relationship("Company", backref="missions")
+
+    context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     def activities_for(self, user, include_dismisses_and_revisions=False):
         all_activities_for_user = sorted(
@@ -20,17 +25,29 @@ class Mission(EventBaseModel):
                 for a in user.activities
                 if (a.mission_id or a.mission.id) == self.id
             ],
-            key=lambda a: a.user_time,
+            key=lambda a: a.start_time,
         )
         if not include_dismisses_and_revisions:
             return [a for a in all_activities_for_user if a.is_acknowledged]
         return all_activities_for_user
 
+    def expenditures_for(self, user):
+        return [
+            e for e in self.acknowledged_expenditures if e.user_id == user.id
+        ]
+
     @property
     def acknowledged_activities(self):
         return sorted(
             [a for a in self.activities if a.is_acknowledged],
-            key=lambda a: a.user_time,
+            key=lambda a: a.start_time,
+        )
+
+    @property
+    def acknowledged_expenditures(self):
+        return sorted(
+            [e for e in self.expenditures if e.is_acknowledged],
+            key=lambda e: e.reception_time,
         )
 
     def team_mate_status_history(self):
@@ -45,7 +62,7 @@ class Mission(EventBaseModel):
             == ActivityDismissType.BREAK_OR_REST_AS_STARTING_ACTIVITY
         ]
         relevant_activities = sorted(
-            relevant_activities, key=lambda a: a.user_time
+            relevant_activities, key=lambda a: a.start_time
         )
         team_changes_by_user = defaultdict(list)
         for activity in relevant_activities:
@@ -58,7 +75,7 @@ class Mission(EventBaseModel):
                     user_status_history.append(
                         dict(
                             is_enrollment=False,
-                            user_time=activity.user_time,
+                            time=activity.start_time,
                             coworker=activity.user,
                         )
                     )
@@ -70,7 +87,7 @@ class Mission(EventBaseModel):
                     user_status_history.append(
                         dict(
                             is_enrollment=True,
-                            user_time=activity.user_time,
+                            time=activity.start_time,
                             coworker=activity.user,
                         )
                     )
@@ -80,14 +97,14 @@ class Mission(EventBaseModel):
         activities = self.acknowledged_activities
         if not activities:
             return []
-        earliest_activity_time = min([a.user_time for a in activities])
+        earliest_activity_time = min([a.start_time for a in activities])
         time = max(date_time, earliest_activity_time)
 
         all_team_changes = self.team_mate_status_history()
         team_at_time = set()
         for user, user_team_changes in all_team_changes.items():
             user_team_changes_before_time = [
-                tc for tc in user_team_changes if tc["user_time"] <= time
+                tc for tc in user_team_changes if tc["time"] <= time
             ]
             if (
                 user_team_changes_before_time

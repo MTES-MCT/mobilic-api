@@ -1,4 +1,3 @@
-from flask import g
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import (
@@ -11,7 +10,7 @@ from app.helpers.errors import (
     InvalidEventParamsError,
     MissionAlreadyEndedError,
     SimultaneousActivitiesError,
-    add_non_blocking_error,
+    NonContiguousActivitySequenceError,
 )
 from app.models.activity import ActivityType, Activity, ActivityDismissType
 from app.models import User, Mission
@@ -31,63 +30,6 @@ def resolve_driver(submitter, driver):
         ).one_or_none()
 
 
-def log_group_activity(
-    submitter,
-    type,
-    event_time,
-    user_time,
-    mission,
-    driver=None,
-    comment=None,
-    user_end_time=None,
-):
-    team_at_time = mission.team_at(user_time)
-    for user in team_at_time:
-        log_activity(
-            type=type,
-            event_time=event_time,
-            mission=mission,
-            user_time=user_time,
-            user=user,
-            submitter=submitter,
-            driver=driver,
-            comment=comment,
-            user_end_time=user_end_time,
-        )
-
-    if not team_at_time:
-        mission_activities = mission.activities_for(submitter)
-        if mission_activities:
-            add_non_blocking_error(
-                MissionAlreadyEndedError(
-                    f"Cannot log activity because mission is already ended",
-                    mission_end=mission_activities[-1],
-                )
-            )
-
-
-def _check_and_delete_corrected_log(user, user_time):
-    latest_activity_log = user.current_activity
-    if latest_activity_log:
-        if latest_activity_log.user_time >= user_time:
-            app.logger.warn(
-                "There are more recent activities in the db : the events might have been sent in disorder by the client"
-            )
-        elif (
-            user_time - latest_activity_log.user_time
-            < app.config["MINIMUM_ACTIVITY_DURATION"]
-        ):
-            app.logger.info(
-                "Event time is close to previous logs, deleting these"
-            )
-            if latest_activity_log.id is not None:
-                db.session.delete(latest_activity_log)
-            else:
-                db.session.expunge(latest_activity_log)
-            # This is a dirty hack to have SQLAlchemy immediately propagate object deletion to parent relations
-            latest_activity_log.dismissed_at = True
-
-
 def check_activity_sequence_in_mission_and_handle_duplicates(
     user, mission, event_time
 ):
@@ -96,7 +38,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
     if len(mission_activities) == 0:
         return
 
-    mission_activity_times = [a.user_time for a in mission_activities]
+    mission_activity_times = [a.start_time for a in mission_activities]
     mission_time_range = (
         mission_activity_times[0],
         mission_activity_times[-1],
@@ -106,7 +48,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
     for a in user.acknowledged_activities:
         a_mission_id = a.mission_id if a.mission_id else a.mission.id
         if (
-            mission_time_range[0] <= a.user_time <= mission_time_range[1]
+            mission_time_range[0] <= a.start_time <= mission_time_range[1]
             and a_mission_id != mission.id
         ):
             raise OverlappingMissionsError(
@@ -132,7 +74,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         )
     if (
         len(rest_activities) == 1
-        and rest_activities[0].user_time != mission_time_range[1]
+        and rest_activities[0].start_time != mission_time_range[1]
     ):
         raise MissionAlreadyEndedError(
             f"{mission} for {user} cannot have a normal activity after the mission end",
@@ -168,16 +110,9 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
             next_activity_idx += 1
 
         elif activity and activity.type == next_activity.type:
-            if (
-                next_activity.type == ActivityType.SUPPORT
-                and next_activity.driver != activity.driver
-            ):
-                next_activity.is_driver_switch = True
-                activity_idx += 1
-            else:
-                next_activity.dismiss(
-                    ActivityDismissType.NO_ACTIVITY_SWITCH, event_time,
-                )
+            next_activity.dismiss(
+                ActivityDismissType.NO_ACTIVITY_SWITCH, event_time,
+            )
             next_activity_idx += 1
 
         elif (
@@ -201,76 +136,34 @@ def log_activity(
     user,
     mission,
     type,
-    event_time,
-    user_time,
-    driver=None,
-    comment=None,
-    user_end_time=None,
+    reception_time,
+    start_time,
+    end_time=None,
+    context=None,
     bypass_check=False,
 ):
-    try:
-        return _log_activity(
-            submitter,
-            user,
-            mission,
-            type,
-            event_time,
-            user_time,
-            driver,
-            comment,
-            user_end_time,
-            bypass_check,
-        )
-    except Exception as e:
-        # If the activity log fails for a team mate we want it to be non blocking (the main activity should be logged for instance)
-        if submitter.id != user.id:
-            app.logger.exception(e)
-            add_non_blocking_error(e)
-            return
-        raise e
-
-
-def _log_activity(
-    submitter,
-    user,
-    mission,
-    type,
-    event_time,
-    user_time,
-    driver=None,
-    comment=None,
-    user_end_time=None,
-    bypass_check=False,
-):
-    if type == ActivityType.DRIVE:
-        # Default to marking the submitter as driver if no driver is provided
-        if (driver is None and user == submitter) or user == driver:
-            type = ActivityType.DRIVE
-        else:
-            type = ActivityType.SUPPORT
-
-    is_revision = event_time != user_time
 
     # 1. Check that event :
     # - is not ahead in the future
     # - was not already processed
     if (
-        user_end_time
-        and user_end_time - event_time
+        end_time
+        and end_time - reception_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
         raise InvalidEventParamsError(
-            f"End time was set in the future by {user_end_time - event_time} : will not log"
+            f"End time was set in the future by {end_time - reception_time} : will not log"
         )
 
-    if not is_revision or not user_end_time:
+    if not end_time:
         check_whether_event_should_be_logged(
             user_id=user.id,
             submitter_id=submitter.id,
             mission_id=mission.id,
-            event_time=event_time,
+            reception_time=reception_time,
             type=type,
-            user_time=user_time,
+            relevant_time_name="start_time",
+            start_time=start_time,
             event_history=user.activities,
         )
 
@@ -283,28 +176,25 @@ def _log_activity(
     if not can_submitter_log_for_user(submitter, user):
         raise AuthorizationError(f"Event is submitted from unauthorized user")
 
-    # 3. Quick correction mechanics : if it's two real-time logs in succession, delete the first one
-    if not is_revision:
-        _check_and_delete_corrected_log(user, user_time)
-
-    # 3b. If it's a revision and if an end time was specified we need to potentially correct multiple activities
-    if is_revision and user_end_time:
+    # 3. If it's a revision and if an end time was specified we need to potentially correct multiple activities
+    if end_time:
         activities = mission.activities_for(user)
         overriden_activities = [
-            a for a in activities if user_time <= a.user_time <= user_end_time
+            a for a in activities if start_time <= a.start_time <= end_time
         ]
         if overriden_activities:
             activity_to_shift = overriden_activities[-1]
             activities_to_cancel = overriden_activities[:-1]
             for a in activities_to_cancel:
                 a.dismiss(
-                    ActivityDismissType.USER_CANCEL, dismiss_time=event_time
+                    ActivityDismissType.USER_CANCEL,
+                    dismiss_time=reception_time,
                 )
-            if user_end_time != activity_to_shift.user_time:
-                activity_to_shift.revise(event_time, user_time=user_end_time)
+            if end_time != activity_to_shift.start_time:
+                activity_to_shift.revise(reception_time, start_time=end_time)
         else:
             activities_before = [
-                a for a in activities if a.user_time < user_time
+                a for a in activities if a.start_time < start_time
             ]
             if activities_before:
                 activity_immediately_before = activities_before[-1]
@@ -313,21 +203,19 @@ def _log_activity(
                     user,
                     mission,
                     activity_immediately_before.type,
-                    event_time,
-                    user_time=user_end_time,
-                    driver=activity_immediately_before.driver,
-                    comment=None,
-                    user_end_time=None,
+                    reception_time,
+                    start_time=end_time,
+                    end_time=None,
+                    context=activity_immediately_before.context,
                     bypass_check=True,
                 )
             else:
                 activities_after = [
-                    a for a in activities if a.user_time > user_end_time
+                    a for a in activities if a.start_time > end_time
                 ]
                 if activities_after:
-                    activity_to_shift = activities_after[0]
-                    activity_to_shift.revise(
-                        event_time, user_time=user_end_time
+                    raise NonContiguousActivitySequenceError(
+                        "Logging the activity would create a hole in the time series, which is forbidden"
                     )
                 else:
                     raise InvalidEventParamsError(
@@ -337,13 +225,12 @@ def _log_activity(
     # 4. Properly write the activity to the DB
     activity = Activity(
         type=type,
-        event_time=event_time,
+        reception_time=reception_time,
         mission=mission,
-        user_time=user_time,
+        start_time=start_time,
         user=user,
         submitter=submitter,
-        driver=driver,
-        creation_comment=comment,
+        context=context,
     )
     db.session.add(activity)
 
@@ -354,7 +241,7 @@ def _log_activity(
     if not bypass_check:
         try:
             check_activity_sequence_in_mission_and_handle_duplicates(
-                user, mission, event_time
+                user, mission, reception_time
             )
         except Exception as e:
             db.session.expunge(activity)

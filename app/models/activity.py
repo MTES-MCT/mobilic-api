@@ -1,6 +1,7 @@
 from enum import Enum
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
 from app.helpers.errors import ActivityAlreadyDismissedError
@@ -59,14 +60,9 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 
     type = enum_column(ActivityType, nullable=False)
 
-    driver_id = db.Column(db.Integer, db.ForeignKey("user.id"), index=False)
-    driver = db.relationship("User", foreign_keys=[driver_id])
-
-    is_driver_switch = db.Column(db.Boolean, nullable=True, default=None)
-
     dismiss_type = enum_column(ActivityDismissType, nullable=True)
 
-    creation_comment = db.Column(db.TEXT, nullable=True)
+    context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     # TODO : add (maybe)
     # - validator
@@ -82,17 +78,14 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 
     @property
     def is_duplicate(self):
-        return (
-            self.is_driver_switch
-            or self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
-        )
+        return self.dismiss_type == ActivityDismissType.NO_ACTIVITY_SWITCH
 
-    def revise(self, revision_time, revision_comment=None, **updated_props):
+    def revise(self, revision_time, revision_context=None, **updated_props):
         from app.domain.log_activities import log_activity
 
         if self.is_dismissed:
             raise ActivityAlreadyDismissedError(
-                f"You can't revise the already dismissed {self}"
+                f"You can't revise an already dismissed activity"
             )
         if not self.id:
             for prop, value in updated_props.items():
@@ -101,12 +94,11 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
             return self
         dict_ = dict(
             type=self.type,
-            event_time=revision_time,
+            reception_time=revision_time,
             mission=self.mission,
-            user_time=self.user_time,
+            start_time=self.start_time,
             user=self.user,
             submitter=current_user,
-            driver=self.driver,
         )
         dict_.update(updated_props)
         self.revised_by_id = (
@@ -115,7 +107,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         revision = log_activity(**dict_, bypass_check=True)
         self.revised_by_id = None
         if revision:
-            self.set_revision(revision, revision_comment)
+            self.set_revision(revision, revision_context)
             db.session.add(revision)
         return revision
 

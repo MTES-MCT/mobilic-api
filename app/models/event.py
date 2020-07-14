@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.ext.declarative import declared_attr
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.base import BaseModel
 from app.models import User
@@ -19,7 +20,7 @@ class EventBaseModel(BaseModel):
 
     backref_base_name = "events"
 
-    event_time = db.Column(db.DateTime, nullable=False)
+    reception_time = db.Column(db.DateTime, nullable=False)
 
     @declared_attr
     def submitter_id(cls):
@@ -40,14 +41,14 @@ class EventBaseModel(BaseModel):
 class DeferrableEventBaseModel(EventBaseModel):
     __abstract__ = True
 
-    user_time = db.Column(db.DateTime, nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
 
     @declared_attr
     def __table_args__(cls):
         return (
             db.CheckConstraint(
-                "(event_time >= user_time)",
-                name=cls.__tablename__ + "_user_time_before_event_time",
+                "(reception_time >= start_time)",
+                name=cls.__tablename__ + "_start_time_before_reception_time",
             ),
         )
 
@@ -59,7 +60,7 @@ class Dismissable:
     dismiss_type = enum_column(DismissType, nullable=True)
     dismiss_received_at = db.Column(db.DateTime, nullable=True)
 
-    dismiss_comment = db.Column(db.TEXT, nullable=True)
+    dismiss_context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @property
     def is_dismissed(self):
@@ -79,11 +80,11 @@ class Dismissable:
             backref="dismissed_" + cls.backref_base_name,
         )
 
-    def dismiss(self, type, dismiss_time=None, comment=None):
+    def dismiss(self, type, dismiss_time=None, context=None):
         self.dismiss_received_at = datetime.now()
         if not dismiss_time:
             dismiss_time = self.dismiss_received_at
-        self.dismiss_comment = comment
+        self.dismiss_context = context
         self.dismiss_type = type
         self.dismissed_at = dismiss_time
         self.dismiss_author = current_user
@@ -124,7 +125,7 @@ class UserEventBaseModel(EventBaseModel):
 
 
 class Revisable(Dismissable):
-    revision_comment = db.Column(db.TEXT, nullable=True)
+    revision_context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @declared_attr
     def revised_by_id(cls):
@@ -147,6 +148,6 @@ class Revisable(Dismissable):
     def is_revised(self):
         return self.revised_by is not None or self.revised_by_id is not None
 
-    def set_revision(self, revision, comment=None):
+    def set_revision(self, revision, context=None):
         self.revised_by = revision
-        self.revision_comment = comment
+        self.revision_context = context
