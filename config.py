@@ -17,6 +17,7 @@ class Config:
     ALLOW_INSECURE_IMPERSONATION = False
     SENTRY_URL = os.environ.get("SENTRY_URL")
     SENTRY_ENVIRONMENT = "dev"
+    SIREN_API_KEY = "SU8wb2ZfQ3NHWGpYVFAzUUJVVHp2UkpWS1ZRYTpnZFNWbEphcUtmWXZpS0JnZVFURVU0a0V2QjBh"
 
 
 class DevConfig(Config):

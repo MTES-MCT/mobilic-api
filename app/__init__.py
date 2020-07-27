@@ -8,11 +8,14 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 
 import config
 from app.helpers.db import SQLAlchemyWithStrongRefSession
+from app.helpers.siren import SirenAPIClient
 
 app = Flask(__name__)
 
 env = os.environ.get("MOBILIC_ENV", "dev")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
+
+siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 
 if app.config["SENTRY_URL"]:
     sentry_sdk.init(
