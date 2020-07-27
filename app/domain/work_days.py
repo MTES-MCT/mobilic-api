@@ -92,8 +92,15 @@ class WorkDay:
         return timers
 
 
-def group_user_events_by_day(user):
+def group_user_events_by_day(user, consultation_scope):
     missions = user.missions(include_dismisses_and_revisions=True)
+
+    if consultation_scope.company_ids:
+        missions = [
+            m
+            for m in missions
+            if m.company_id in consultation_scope.company_ids
+        ]
 
     work_days = []
     current_work_day = None

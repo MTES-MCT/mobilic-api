@@ -2,7 +2,7 @@ import graphene
 from datetime import datetime
 from app.helpers.authentication import current_user
 
-from app.domain.permissions import company_admin
+from app.domain.permissions import company_admin_at
 from app.helpers.authorization import with_authorization_policy
 from app import db, app
 from app.models.vehicle import VehicleOutput, Vehicle
@@ -31,7 +31,7 @@ class CreateVehicle(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin,
+        company_admin_at,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, registration_number, alias, company_id):
@@ -69,7 +69,7 @@ class EditVehicle(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin,
+        company_admin_at,
         get_target_from_args=lambda *args, **kwargs: Vehicle.query.get(
             kwargs["id"]
         ).company_id,
@@ -96,7 +96,7 @@ class TerminateVehicle(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin,
+        company_admin_at,
         get_target_from_args=lambda *args, **kwargs: Vehicle.query.get(
             kwargs["id"]
         ).company_id,

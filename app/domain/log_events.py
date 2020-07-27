@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app import app
-from app.helpers.errors import InvalidEventParamsError
+from app.helpers.errors import InvalidParamsError, EventAlreadyLoggedError
 
 
 def check_whether_event_should_be_logged(
@@ -12,7 +12,7 @@ def check_whether_event_should_be_logged(
     **kwargs,
 ):
     if not submitter_id:
-        raise InvalidEventParamsError(
+        raise InvalidParamsError(
             "Event is missing some core params : will not log"
         )
 
@@ -25,7 +25,7 @@ def check_whether_event_should_be_logged(
         and relevant_time - reception_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
-        raise InvalidEventParamsError(
+        raise InvalidParamsError(
             f"Event time is in the future by {relevant_time - reception_time} : will not log"
         )
 
@@ -43,4 +43,4 @@ def check_whether_event_should_be_logged(
     ]
 
     if len(already_existing_logs_for_event) > 0:
-        raise InvalidEventParamsError("Event already logged, aborting")
+        raise EventAlreadyLoggedError("Event already logged, aborting")

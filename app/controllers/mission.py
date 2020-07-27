@@ -12,7 +12,7 @@ from app.models.mission import Mission
 from app.models import Company, Vehicle
 from app.models.mission_validation import MissionValidation
 from app.data_access.mission import MissionOutput
-from app.domain.permissions import can_submitter_log_on_mission
+from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.authentication import current_user
 from app.models.queries import (
     user_query_with_activities,
@@ -61,7 +61,7 @@ class CreateMission(graphene.Mutation):
             if company_id:
                 company = Company.query.get(company_id)
             else:
-                company = current_user.main_company
+                company = current_user.primary_company
 
             context = mission_input.get("context")
 
@@ -172,7 +172,7 @@ class ValidateMission(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_submitter_log_on_mission,
+        can_user_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.get(
             kwargs["mission_id"]
         ),

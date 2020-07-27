@@ -1,4 +1,4 @@
-from app.domain.permissions import can_submitter_log_on_mission
+from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -74,7 +74,7 @@ class LogActivity(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             app.logger.info(
-                f"Logging activity submitted by {current_user} of company {current_user.company}"
+                f"Logging activity {activity_input['type']} submitted by {current_user}"
             )
             mission_id = activity_input.get("mission_id")
             mission = mission_query_with_activities().get(mission_id)
@@ -138,7 +138,14 @@ def edit_activity(
             activity_to_update.mission_id
         )
 
-        if not can_submitter_log_on_mission(current_user, mission):
+        if not can_user_log_on_mission_at(
+            current_user, mission, activity_to_update.start_time
+        ) or (
+            start_time
+            and not can_user_log_on_mission_at(
+                current_user, mission, start_time
+            )
+        ):
             raise AuthorizationError(
                 f"The user is not authorized to edit the activity"
             )

@@ -8,6 +8,7 @@ from flask_jwt_extended import (
     current_user as current_actor,
     JWTManager,
 )
+from datetime import date
 import graphene
 from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
@@ -66,12 +67,17 @@ def get_user_from_token_identity(identity):
 
 def create_access_tokens_for(user):
     new_refresh_nonce = user.generate_refresh_token_nonce()
+    current_primary_employment = user.primary_employment_at(date.today())
     tokens = {
         "access_token": create_access_token(
             {
                 "id": user.id,
-                "company_id": user.company_id,
-                "company_admin": user.is_company_admin,
+                "company_id": current_primary_employment.company_id
+                if current_primary_employment
+                else None,
+                "company_admin": current_primary_employment.has_admin_rights
+                if current_primary_employment
+                else None,
             },
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
         ),

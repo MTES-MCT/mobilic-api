@@ -1,8 +1,8 @@
-from datetime import datetime
+import datetime
 
 
 def from_timestamp(ts):
-    return datetime.fromtimestamp(ts / 1000)
+    return datetime.datetime.fromtimestamp(ts / 1000)
 
 
 def to_timestamp(date_time):
@@ -10,4 +10,12 @@ def to_timestamp(date_time):
 
 
 def local_to_utc(date_time):
-    return datetime.utcfromtimestamp(date_time.timestamp())
+    return datetime.datetime.utcfromtimestamp(date_time.timestamp())
+
+
+def get_date_or_today(date=None):
+    if not date:
+        return datetime.date.today()
+    if type(date) is datetime.datetime:
+        return date.date()
+    return date

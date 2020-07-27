@@ -1,5 +1,5 @@
 from app.domain.expenditure import log_expenditure
-from app.domain.permissions import can_submitter_log_on_mission
+from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -58,7 +58,7 @@ class LogExpenditure(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             app.logger.info(
-                f"Logging expenditure submitted by {current_user} of company {current_user.main_company}"
+                f"Logging expenditure submitted by {current_user} of company {current_user.primary_company}"
             )
             mission_id = expenditure_input.get("mission_id")
             mission = mission_query_with_expenditures().get(mission_id)
@@ -112,13 +112,15 @@ class CancelExpenditure(graphene.Mutation):
                 or not expenditure_to_dismiss.is_acknowledged
             ):
                 raise ExpenditureAlreadyDismissedError(
-                    f"Could not find valid Activity event with id {expenditure_id}"
+                    f"Could not find valid Expenditure event with id {expenditure_id}"
                 )
             mission = mission_query_with_activities().get(
                 expenditure_to_dismiss.mission_id
             )
 
-            if not can_submitter_log_on_mission(current_user, mission):
+            if not can_user_log_on_mission_at(
+                current_user, mission, expenditure_to_dismiss.reception_time
+            ):
                 raise AuthorizationError(
                     f"The user is not authorized to dismiss the expenditure"
                 )

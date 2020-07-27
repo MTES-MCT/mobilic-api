@@ -1,33 +1,16 @@
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
-from app.domain.permissions import (
-    can_submitter_log_for_user,
-    can_submitter_log_on_mission,
-)
+from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.errors import (
     AuthorizationError,
     OverlappingMissionsError,
-    InvalidEventParamsError,
+    InvalidParamsError,
     MissionAlreadyEndedError,
     SimultaneousActivitiesError,
     NonContiguousActivitySequenceError,
 )
 from app.models.activity import ActivityType, Activity, ActivityDismissType
 from app.models import User, Mission
-
-
-def resolve_driver(submitter, driver):
-    if not driver:
-        return None
-    driver_id = driver.get("id")
-    if driver_id:
-        return User.query.get(driver_id)
-    else:
-        return User.query.filter(
-            User.company_id == submitter.company_id,
-            User.first_name == driver.get("first_name"),
-            User.last_name == driver.get("last_name"),
-        ).one_or_none()
 
 
 def check_activity_sequence_in_mission_and_handle_duplicates(
@@ -151,7 +134,7 @@ def log_activity(
         and end_time - reception_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
-        raise InvalidEventParamsError(
+        raise InvalidParamsError(
             f"End time was set in the future by {end_time - reception_time} : will not log"
         )
 
@@ -168,13 +151,12 @@ def log_activity(
         )
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
-    if not can_submitter_log_on_mission(submitter, mission):
+    if not can_user_log_on_mission_at(
+        submitter, mission, start_time
+    ) or not can_user_log_on_mission_at(user, mission, start_time):
         raise AuthorizationError(
             f"The user is not authorized to log for this mission"
         )
-
-    if not can_submitter_log_for_user(submitter, user):
-        raise AuthorizationError(f"Event is submitted from unauthorized user")
 
     # 3. If it's a revision and if an end time was specified we need to potentially correct multiple activities
     if end_time:
@@ -218,7 +200,7 @@ def log_activity(
                         "Logging the activity would create a hole in the time series, which is forbidden"
                     )
                 else:
-                    raise InvalidEventParamsError(
+                    raise InvalidParamsError(
                         "You are trying to set an end time for the current activity, this is not allowed"
                     )
 
