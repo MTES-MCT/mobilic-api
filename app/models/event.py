@@ -47,7 +47,7 @@ class DeferrableEventBaseModel(EventBaseModel):
     def __table_args__(cls):
         return (
             db.CheckConstraint(
-                "(reception_time >= start_time)",
+                f"(reception_time + interval '' >= start_time)",
                 name=cls.__tablename__ + "_start_time_before_reception_time",
             ),
         )

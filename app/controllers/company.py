@@ -1,13 +1,30 @@
 import graphene
 from flask import request
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
+from graphene.types.generic import GenericScalar
 
+from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
-from app.domain.permissions import belongs_to_company, company_admin
+from app.domain.permissions import (
+    belongs_to_company_at,
+    company_admin_at,
+    ConsultationScope,
+)
 from app.domain.work_days import group_user_events_by_day
-from app.helpers.authorization import with_authorization_policy
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated,
+    current_user,
+)
+from app import siren_api_client
+from app.helpers.errors import SirenAlreadySignedUpError
 from app.helpers.xls import send_work_days_as_excel
-from app.models import Company, User
+from app.models import Company, Employment
+from app.models.employment import (
+    EmploymentRequestValidationStatus,
+    EmploymentOutput,
+)
 from app.models.queries import (
     company_query_with_users_and_activities,
     company_queries_with_all_relations,
@@ -24,22 +41,62 @@ class CompanySignUp(graphene.Mutation):
     """
 
     class Arguments:
-        name = graphene.String(
-            required=True, description="Nom de l'entreprise"
+        usual_name = graphene.String(
+            required=True, description="Nom usuel de l'entreprise"
+        )
+        siren = graphene.Int(
+            required=True, description="Numéro SIREN de l'entreprise"
+        )
+        sirets = graphene.List(
+            graphene.String,
+            required=False,
+            description="Liste des SIRET des établissements associés à l'entreprise",
         )
 
-    Output = CompanyOutput
+    company = graphene.Field(CompanyOutput)
+    employment = graphene.Field(EmploymentOutput)
 
     @classmethod
-    def mutate(cls, _, info, name):
-        company = Company(name=name)
-        try:
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, usual_name, siren, sirets):
+        with atomic_transaction(commit_at_end=True):
+            now = datetime.now()
+            company = Company(
+                usual_name=usual_name, siren=siren, sirets=sirets
+            )
             db.session.add(company)
-            db.session.commit()
+
+            try:
+                db.session.flush()
+            except IntegrityError as e:
+                if e.orig.pgcode == "23505":  # Unique violation
+                    print("f")
+                    raise SirenAlreadySignedUpError("SIREN already registered")
+                raise e
+
+            try:
+                company.siren_api_info = siren_api_client.get_siren_info(siren)
+            except Exception as e:
+                app.logger.warning(
+                    f"Could not add SIREN API info for company of SIREN {siren} : {e}"
+                )
+
+            admin_employment = Employment(
+                is_primary=False if current_user.primary_company else True,
+                user_id=current_user.id,
+                company=company,
+                start_date=now.date(),
+                validation_time=now,
+                validation_status=EmploymentRequestValidationStatus.APPROVED,
+                has_admin_rights=True,
+                reception_time=now,
+                submitter_id=current_user.id,
+            )
+            db.session.add(admin_employment)
+
             app.logger.info(f"Signed up new company {company}")
-        except Exception as e:
-            app.logger.exception(f"Error during company signup for {company}")
-        return company
+
+        return CompanySignUp(company=company, employment=admin_employment)
 
 
 class Query(graphene.ObjectType):
@@ -51,8 +108,14 @@ class Query(graphene.ObjectType):
         description="Consultation des données de l'entreprise, avec notamment la liste de ses membres (et leurs enregistrements)",
     )
 
+    siren_info = graphene.Field(
+        GenericScalar,
+        siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
+        description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
+    )
+
     @with_authorization_policy(
-        belongs_to_company, get_target_from_args=lambda self, info, id: id
+        belongs_to_company_at, get_target_from_args=lambda self, info, id: id
     )
     def resolve_company(self, info, id):
         matching_company = (
@@ -62,10 +125,13 @@ class Query(graphene.ObjectType):
         )
         return matching_company
 
+    def resolve_siren_info(self, info, siren):
+        return siren_api_client.get_siren_info(siren)
+
 
 @app.route("/download_company_activity_report/<int:id>")
 @with_authorization_policy(
-    company_admin, get_target_from_args=lambda id, *args, **kwargs: id
+    company_admin_at, get_target_from_args=lambda id, *args, **kwargs: id
 )
 def download_activity_report(id):
     try:
@@ -86,7 +152,9 @@ def download_activity_report(id):
     app.logger.info(f"Downloading activity report for {company}")
     all_users_work_days = []
     for user in company.users:
-        all_users_work_days += group_user_events_by_day(user)
+        all_users_work_days += group_user_events_by_day(
+            user, ConsultationScope(company_ids=[company.id])
+        )
 
     if min_date:
         all_users_work_days = [

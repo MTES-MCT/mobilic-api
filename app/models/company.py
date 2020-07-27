@@ -8,7 +8,7 @@ from app import db
 class Company(BaseModel):
     usual_name = db.Column(db.String(255), nullable=False)
 
-    siren = db.Column(db.Integer, unique=True, nullable=False)
+    siren = db.Column(db.Integer, unique=True, nullable=True)
 
     sirets = db.Column(db.ARRAY(db.String(14)), nullable=True)
 

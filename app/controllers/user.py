@@ -1,10 +1,11 @@
 import graphene
 
+from app.controllers.utils import atomic_transaction
 from app.data_access.user import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.helpers.authentication import create_access_tokens_for
 from app.helpers.authorization import with_authorization_policy
-from app.models import User
+from app.models import User, Employment
 from app import db, app
 from app.models.queries import user_query_with_all_relations
 
@@ -24,13 +25,11 @@ class UserSignUp(graphene.Mutation):
         password = graphene.String(required=True, description="Mot de passe")
         first_name = graphene.String(required=True, description="Prénom")
         last_name = graphene.String(required=True, description="Nom")
-        company_name_to_resolve = graphene.String(
-            required=True,
-            description="Nom de l'entreprise (pour rattachement manuel)",
+        invite_token = graphene.String(
+            required=False, description="Lien d'invitation"
         )
-        company_id = graphene.Int(
-            required=False,
-            description="Identifiant de l'entreprise (pour rattachement automatique)",
+        ssn = graphene.String(
+            required=False, description="Numéro de sécurité sociale"
         )
 
     user = graphene.Field(UserOutput)
@@ -39,18 +38,36 @@ class UserSignUp(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info, **data):
-        if not data.get("company_id"):
-            data["company_id"] = 1
-        user = User(**data)
-        try:
+        with atomic_transaction(commit_at_end=True):
+            invite_token = data.pop("invite_token", None)
+            user = User(**data)
             db.session.add(user)
-            db.session.commit()
+            db.session.flush()
+
+            company = None
+            if invite_token:
+                employment_to_validate = Employment.query.filter(
+                    Employment.invite_token == invite_token
+                ).one_or_none()
+
+                if not employment_to_validate:
+                    app.logger.warning(
+                        f"Could not find valid employment matching token {invite_token}"
+                    )
+                else:
+                    employment_to_validate.user_id = user.id
+                    employment_to_validate.invite_token = None
+                    employment_to_validate.validate_by(user)
+                    company = employment_to_validate.company
+
+            message = f"Signed up new user {user}"
+            if company:
+                message += f" of company {company}"
+
             app.logger.info(
-                f"Signed up new user {user} of company {data.get('company_name_to_resolve', None)}",
-                extra={"post_to_slack": True, "emoji": ":tada:"},
+                message, extra={"post_to_slack": True, "emoji": ":tada:"},
             )
-        except Exception as e:
-            app.logger.exception(f"Error during user signup for {user}")
+
         return UserSignUp(user=user, **create_access_tokens_for(user))
 
 
