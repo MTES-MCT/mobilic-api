@@ -23,12 +23,28 @@ class MobilicError(GraphQLError, ABC):
         return dict(message=self.message, extensions=self.extensions)
 
 
+class InvalidParamsError(MobilicError):
+    code = 1
+
+
 class AuthenticationError(MobilicError):
     code = 100
 
 
 class AuthorizationError(MobilicError):
     code = 101
+
+
+class InaccessibleSirenError(MobilicError):
+    code = 102
+
+
+class SirenAlreadySignedUpError(MobilicError):
+    code = 103
+
+
+class UnavailableSirenAPIError(MobilicError):
+    code = 104
 
 
 class OverlappingMissionsError(MobilicError):
@@ -79,7 +95,7 @@ class SimultaneousActivitiesError(MobilicError):
     code = 202
 
 
-class InvalidEventParamsError(MobilicError):
+class EventAlreadyLoggedError(MobilicError):
     code = 203
 
 
@@ -97,6 +113,14 @@ class DuplicateExpenditureError(MobilicError):
 
 class ExpenditureAlreadyDismissedError(MobilicError):
     code = 207
+
+
+class MissingPrimaryEmploymentError(MobilicError):
+    code = 300
+
+
+class EmploymentAlreadyReviewedByUserError(MobilicError):
+    code = 301
 
 
 class MutationWithNonBlockingErrors(graphene.Mutation):

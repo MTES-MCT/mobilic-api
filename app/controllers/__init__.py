@@ -1,5 +1,10 @@
 import graphene
 
+from app.controllers.employment import (
+    CreateEmployment,
+    ValidateEmployment,
+    RejectEmployment,
+)
 from app.controllers.expenditure import LogExpenditure, CancelExpenditure
 from app.controllers.mission import (
     CreateMission,
@@ -50,6 +55,9 @@ class Admin(graphene.ObjectType):
     Gestion des informations de l'entreprise
     """
 
+    create_employment = CreateEmployment.Field()
+    validate_employment = ValidateEmployment.Field()
+    reject_employment = RejectEmployment.Field()
     create_vehicle = CreateVehicle.Field()
     edit_vehicle = EditVehicle.Field()
     terminate_vehicle = TerminateVehicle.Field()
