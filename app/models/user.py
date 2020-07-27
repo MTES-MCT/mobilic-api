@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, date
 
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
+from cached_property import cached_property
 from uuid import uuid4
 
 from app.models.base import BaseModel
@@ -12,16 +12,11 @@ from app import db
 class User(BaseModel):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
-    company_id = db.Column(
-        db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
-    )
-    company = db.relationship("Company", backref="users")
-    company_name_to_resolve = db.Column(db.String(255))
     refresh_token_nonce = db.Column(db.String(255), default=None)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
-    is_company_admin = db.Column(db.Boolean, default=False, nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)
+    ssn = db.Column(db.String(13), nullable=True)
 
     @property
     def password(self):
@@ -74,19 +69,23 @@ class User(BaseModel):
 
     @property
     def enrollable_coworkers(self):
+        primary_company = self.primary_company
+        if not primary_company:
+            return []
         now = datetime.now()
         current_mission = self.mission_at(now)
         return [
             u
-            for u in self.company.users
-            if u != self
-            and not u.is_company_admin
-            and u.mission_at(now) in [None, current_mission]
+            for u in primary_company.workers
+            if u != self and u.mission_at(now) in [None, current_mission]
         ]
 
     @property
     def bookable_vehicles(self):
-        return [v for v in self.company.vehicles if not v.is_terminated]
+        primary_company = self.primary_company
+        if not primary_company:
+            return []
+        return [v for v in primary_company.vehicles if not v.is_terminated]
 
     def missions(self, include_dismisses_and_revisions=False):
         sorted_missions = []
@@ -131,12 +130,39 @@ class User(BaseModel):
         return f"<User [{self.id}] : {self.display_name}>"
 
     @property
-    def main_company(self):
-        return self.company
+    def primary_company(self):
+        current_primary_employment = self.primary_employment_at(date.today())
+        return (
+            current_primary_employment.company
+            if current_primary_employment
+            else None
+        )
 
+    def employments_at(self, date_, with_pending_ones=False):
+        employments = sorted(
+            [
+                e
+                for e in self.employments
+                if e.is_not_rejected
+                and e.start_date <= date_ <= (e.end_date or date(2100, 1, 1))
+            ],
+            key=lambda e: not e.is_primary,
+        )
+        if not with_pending_ones:
+            return [e for e in employments if e.is_acknowledged]
+        return employments
 
-@dataclass
-class TeamEnrollmentPeriod:
-    submitter: User
-    start_time: datetime
-    end_time: datetime = None
+    def primary_employment_at(self, date_):
+        employments = self.employments_at(date_)
+        if employments and employments[0].is_primary:
+            return employments[0]
+        else:
+            return None
+
+    @cached_property
+    def current_company_ids_with_admin_rights(self):
+        return [
+            e.company_id
+            for e in self.employments_at(date.today())
+            if e.has_admin_rights
+        ]

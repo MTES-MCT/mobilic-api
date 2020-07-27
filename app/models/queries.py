@@ -1,6 +1,6 @@
 from sqlalchemy.orm import selectinload
 
-from app.models import User, Activity, Mission, Company
+from app.models import User, Activity, Mission, Company, Employment
 
 
 def user_query_with_activities():
@@ -14,8 +14,13 @@ def user_query_with_all_relations():
         .options(selectinload(Mission.validations))
         .options(selectinload(Mission.activities).selectinload(Activity.user))
     ).options(
-        selectinload(User.company)
-        .options(selectinload(Company.users).selectinload(User.activities))
+        selectinload(User.employments)
+        .selectinload(Employment.company)
+        .options(
+            selectinload(Company.employments)
+            .selectinload(Employment.user)
+            .selectinload(User.activities)
+        )
         .options(selectinload(Company.vehicles))
     )
 
@@ -32,7 +37,8 @@ def mission_query_with_expenditures():
 
 def company_query_with_users_and_activities():
     return Company.query.options(
-        selectinload(Company.users)
+        selectinload(Company.employments)
+        .selectinload(Employment.user)
         .selectinload(User.activities)
         .options(selectinload(Activity.mission))
         .options(selectinload(Activity.revisee))
@@ -41,7 +47,8 @@ def company_query_with_users_and_activities():
 
 def company_queries_with_all_relations():
     return Company.query.options(
-        selectinload(Company.users)
+        selectinload(Company.employments)
+        .selectinload(Employment.user)
         .selectinload(User.activities)
         .options(selectinload(Activity.mission))
         .options(selectinload(Activity.revisee))
