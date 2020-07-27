@@ -16,6 +16,6 @@ def local_to_utc(date_time):
 def get_date_or_today(date=None):
     if not date:
         return datetime.date.today()
-    if type(date) is datetime.datetime:
+    if type(date) is datetime.datetime or isinstance(date, datetime.datetime):
         return date.date()
     return date

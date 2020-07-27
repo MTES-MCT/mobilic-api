@@ -1,20 +1,20 @@
-from app.tests import BaseTest, UserFactory
+from app.tests import BaseTest, UserFactory, CompanyFactory
 from app import app
 
 
 class TestQueries(BaseTest):
     def setUp(self):
         super().setUp()
-        self.user_company1 = UserFactory.create()
-        self.company1 = self.user_company1.company
+        self.company1 = CompanyFactory.create()
+        self.user_company1 = UserFactory.create(post__company=self.company1)
         self.admin_company1 = UserFactory.create(
-            company=self.company1, is_company_admin=True
+            post__company=self.company1, post__has_admin_rights=True
         )
 
-        self.user_company2 = UserFactory.create()
-        self.company2 = self.user_company2.company
+        self.company2 = CompanyFactory.create()
+        self.user_company2 = UserFactory.create(post__company=self.company2)
         self.admin_company2 = UserFactory.create(
-            company=self.company2, is_company_admin=True
+            post__company=self.company2, post__has_admin_rights=True
         )
 
     def test_user_can_access_himself(self):

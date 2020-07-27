@@ -3,9 +3,11 @@ from unittest.mock import patch, MagicMock
 import factory
 from flask.testing import FlaskClient
 from enum import Enum
+from datetime import date, datetime
 
 from app import app, db, graphql_api_path
-from app.models import User, Company
+from app.models import User, Company, Employment
+from app.models.employment import EmploymentRequestValidationStatus
 from config import TestConfig
 
 
@@ -78,7 +80,8 @@ class CompanyFactory(BaseFactory):
     class Meta:
         model = Company
 
-    name = factory.Sequence(lambda n: f"super corp {n}")
+    usual_name = factory.Sequence(lambda n: f"super corp {n}")
+    siren = factory.Sequence(lambda n: n)
 
 
 class UserFactory(BaseFactory):
@@ -89,4 +92,34 @@ class UserFactory(BaseFactory):
     password = "mybirthday"
     first_name = "Moby"
     last_name = "Lick"
+
+    @factory.post_generation
+    def post(obj, create, extracted, **kwargs):
+        if "company" in kwargs:
+            generate_func = (
+                EmploymentFactory.create if create else EmploymentFactory.build
+            )
+            generate_func(
+                company=kwargs["company"],
+                user=obj,
+                submitter=obj,
+                has_admin_rights=kwargs.get("has_admin_rights", False),
+            )
+
+
+class EmploymentFactory(BaseFactory):
+    class Meta:
+        model = Employment
+
+    is_primary = True
+
+    submitter = factory.SubFactory(UserFactory)
+    reception_time = datetime(2000, 1, 1)
+    validation_time = datetime(2000, 1, 1)
+    validation_status = EmploymentRequestValidationStatus.APPROVED
+
+    start_date = date(2000, 1, 1)
     company = factory.SubFactory(CompanyFactory)
+
+    user = factory.SubFactory(UserFactory)
+    has_admin_rights = False

@@ -7,7 +7,7 @@ from app.models.activity import (
     ActivityDismissType,
     Activity,
 )
-from app.tests import BaseTest, UserFactory
+from app.tests import BaseTest, UserFactory, CompanyFactory
 from app.tests.helpers import (
     DBEntryUpdate,
     ForeignKey,
@@ -20,13 +20,13 @@ from app.tests.helpers import (
 class TestLogActivities(BaseTest):
     def setUp(self):
         super().setUp()
+        self.company = CompanyFactory.create()
         self.team_leader = UserFactory.create(
-            first_name="Tim", last_name="Leader"
+            first_name="Tim", last_name="Leader", post__company=self.company
         )
-        self.company = self.team_leader.company
         self.team_mates = [
             UserFactory.create(
-                company=self.company, first_name="Tim", last_name="Mate"
+                post__company=self.company, first_name="Tim", last_name="Mate"
             )
             for i in range(0, 3)
         ]
