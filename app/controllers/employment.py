@@ -77,7 +77,7 @@ class CreateEmployment(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             app.logger.info(
-                f"Creating employment submitted by {current_user} for User {employment_input['user_id']} in Company {employment_input['company_id']}"
+                f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
             )
             company = Company.query.get(employment_input["company_id"])
 
