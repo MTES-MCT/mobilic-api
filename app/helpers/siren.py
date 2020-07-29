@@ -1,7 +1,11 @@
 import requests
 from typing import NamedTuple
 
-from app.helpers.errors import UnavailableSirenAPIError, InaccessibleSirenError
+from app.helpers.errors import (
+    UnavailableSirenAPIError,
+    InaccessibleSirenError,
+    NoSirenAPICredentialsError,
+)
 
 SIREN_API_TOKEN_ENDPOINT = "https://api.insee.fr/token"
 SIREN_API_SIREN_INFO_ENDPOINT = (
@@ -74,10 +78,18 @@ class FacilityInfo(NamedTuple):
 
 class SirenAPIClient:
     def __init__(self, api_key):
-        self.api_key = api_key
+        self._api_key = api_key
         self.access_token = None
 
-    def generate_access_token(self):
+    @property
+    def api_key(self):
+        if self._api_key:
+            return self._api_key
+        raise NoSirenAPICredentialsError(
+            "No API key could be found for SIREN API"
+        )
+
+    def _generate_access_token(self):
         # From https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/application.jag?name=DefaultApplication&#subscription
         token_response = requests.post(
             SIREN_API_TOKEN_ENDPOINT,
@@ -91,24 +103,24 @@ class SirenAPIClient:
         token_response_json = token_response.json()
         self.access_token = token_response_json["access_token"]
 
-    def request_siren_info(self, siren, retry_if_bad_token=True):
+    def _request_siren_info(self, siren, retry_if_bad_token=True):
         # From :
         # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/item-info.jag?name=Sirene&version=V3&provider=insee
         # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Services-V3.9.pdf
         if not self.access_token:
-            self.generate_access_token()
+            self._generate_access_token()
         siren_response = requests.get(
             f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}",
             headers={"Authorization": f"Bearer {self.access_token}"},
         )
         if siren_response.status_code == 401 and retry_if_bad_token:
-            self.generate_access_token()
-            return self.request_siren_info(siren, retry_if_bad_token=False)
+            self._generate_access_token()
+            return self._request_siren_info(siren, retry_if_bad_token=False)
         if siren_response.status_code == 200:
             print(siren_response.json())
             return siren_response
         if siren_response.status_code == 404:
-            return InaccessibleSirenError(
+            raise InaccessibleSirenError(
                 f"SIREN {siren} was not found : {siren_response.json()}"
             )
         raise UnavailableSirenAPIError(
@@ -184,5 +196,5 @@ class SirenAPIClient:
 
     # TODO : cache this using Redis
     def get_siren_info(self, siren):
-        siren_response = self.request_siren_info(siren)
+        siren_response = self._request_siren_info(siren)
         return self._parse_siren_info(siren_response.json())

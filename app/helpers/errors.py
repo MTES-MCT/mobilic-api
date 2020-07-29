@@ -47,6 +47,10 @@ class UnavailableSirenAPIError(MobilicError):
     code = 104
 
 
+class NoSirenAPICredentialsError(MobilicError):
+    code = 105
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 
