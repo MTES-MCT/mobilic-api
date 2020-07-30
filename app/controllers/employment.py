@@ -87,6 +87,7 @@ class CreateEmployment(graphene.Mutation):
                 )
 
             user_id = employment_input.get("user_id")
+            user = None
             invite_token = None
             if user_id:
                 user = User.query.options(selectinload(User.employments)).get(

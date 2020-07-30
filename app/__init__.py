@@ -36,7 +36,7 @@ Migrate(app, db)
 CORS(app)
 
 from app.helpers import cli
-from app.controllers import graphql_schema
+from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers.admin import admin
 from app.helpers import logging
 
@@ -48,12 +48,20 @@ def configure_app():
 
 
 graphql_api_path = "/graphql"
+graphql_private_api_path = "/unexposed"
 
 
 app.add_url_rule(
     graphql_api_path,
     view_func=GraphQLView.as_view(
         "graphql", schema=graphql_schema, graphiql=True, batch=True
+    ),
+)
+
+app.add_url_rule(
+    graphql_private_api_path,
+    view_func=GraphQLView.as_view(
+        "unexposed", schema=private_graphql_schema, graphiql=False
     ),
 )
 

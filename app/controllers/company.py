@@ -34,7 +34,6 @@ from app import db, app
 
 class CompanySignUp(graphene.Mutation):
     """
-    [NON EXPOSE POUR L'INSTANT]
     Inscription d'une nouvelle entreprise.
 
     Retourne l'entreprise nouvellement créée
@@ -99,6 +98,17 @@ class CompanySignUp(graphene.Mutation):
         return CompanySignUp(company=company, employment=admin_employment)
 
 
+class NonPublicQuery(graphene.ObjectType):
+    siren_info = graphene.Field(
+        GenericScalar,
+        siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
+        description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
+    )
+
+    def resolve_siren_info(self, info, siren):
+        return siren_api_client.get_siren_info(siren)
+
+
 class Query(graphene.ObjectType):
     company = graphene.Field(
         CompanyOutput,
@@ -106,12 +116,6 @@ class Query(graphene.ObjectType):
             required=True, description="Identifiant de l'entreprise"
         ),
         description="Consultation des données de l'entreprise, avec notamment la liste de ses membres (et leurs enregistrements)",
-    )
-
-    siren_info = graphene.Field(
-        GenericScalar,
-        siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
-        description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
     )
 
     @with_authorization_policy(
@@ -124,9 +128,6 @@ class Query(graphene.ObjectType):
             .one()
         )
         return matching_company
-
-    def resolve_siren_info(self, info, siren):
-        return siren_api_client.get_siren_info(siren)
 
 
 @app.route("/download_company_activity_report/<int:id>")

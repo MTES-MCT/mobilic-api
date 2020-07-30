@@ -50,14 +50,17 @@ class SignUp(graphene.ObjectType):
     company = company.CompanySignUp.Field()
 
 
-class Admin(graphene.ObjectType):
+class Employments(graphene.ObjectType):
+    create_employment = CreateEmployment.Field()
+    validate_employment = ValidateEmployment.Field()
+    reject_employment = RejectEmployment.Field()
+
+
+class Vehicles(graphene.ObjectType):
     """
     Gestion des informations de l'entreprise
     """
 
-    create_employment = CreateEmployment.Field()
-    validate_employment = ValidateEmployment.Field()
-    reject_employment = RejectEmployment.Field()
     create_vehicle = CreateVehicle.Field()
     edit_vehicle = EditVehicle.Field()
     terminate_vehicle = TerminateVehicle.Field()
@@ -72,8 +75,14 @@ class Mutations(graphene.ObjectType):
     activities = graphene.Field(
         Activities, resolver=lambda root, info: Activities()
     )
+    employments = graphene.Field(
+        Employments, resolver=lambda root, info: Employments()
+    )
+
+
+class PrivateMutations(graphene.ObjectType):
     sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
-    admin = graphene.Field(Admin, resolver=lambda root, info: Admin())
+    vehicles = graphene.Field(Vehicles, resolver=lambda root, info: Vehicles())
 
 
 class Queries(user.Query, company.Query, graphene.ObjectType):
@@ -85,3 +94,7 @@ class Queries(user.Query, company.Query, graphene.ObjectType):
 
 
 graphql_schema = graphene.Schema(query=Queries, mutation=Mutations)
+
+private_graphql_schema = graphene.Schema(
+    query=company.NonPublicQuery, mutation=PrivateMutations
+)
