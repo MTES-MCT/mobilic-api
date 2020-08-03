@@ -5,13 +5,13 @@ from datetime import datetime, date
 from sqlalchemy.orm import selectinload
 from uuid import uuid4
 
-from app import app, db
+from app import app, db, mailer
 from app.controllers.utils import atomic_transaction
 from app.helpers.errors import (
-    AuthorizationError,
     MissingPrimaryEmploymentError,
     EmploymentAlreadyReviewedByUserError,
     InvalidParamsError,
+    EmploymentNotFoundError,
 )
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.models import Company, User
@@ -128,8 +128,12 @@ class CreateEmployment(graphene.Mutation):
             db.session.flush()
 
             if invite_token:
-                pass
-                # TODO : send email
+                try:
+                    mailer.send_employee_invite(
+                        employment, employment_input.get("mail")
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
 
         return employment
 
@@ -194,3 +198,42 @@ class RejectEmployment(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, employment_id):
         return review_employment(employment_id, reject=True)
+
+
+def _get_employment_by_token(token):
+    employment = Employment.query.filter(
+        Employment.invite_token == token
+    ).one_or_none()
+
+    if not employment or employment.user_id:
+        raise EmploymentNotFoundError(
+            f"Could not find a valid employment not bound to a user for token {token}"
+        )
+
+    return employment
+
+
+class GetInvitation(graphene.ObjectType):
+    employment = graphene.Field(
+        EmploymentOutput, invite_token=graphene.String(required=True)
+    )
+
+    def resolve_employment(self, info, invite_token):
+        return _get_employment_by_token(invite_token)
+
+
+class RedeemInvitation(graphene.Mutation):
+    class Arguments:
+        invite_token = graphene.Argument(graphene.String, required=True)
+
+    Output = EmploymentOutput
+
+    @classmethod
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, invite_token):
+        with atomic_transaction(commit_at_end=True):
+            employment = _get_employment_by_token(invite_token)
+            print(current_user)
+            employment.user_id = current_user.id
+
+        return employment

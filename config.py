@@ -18,11 +18,15 @@ class Config:
     SENTRY_URL = os.environ.get("SENTRY_URL")
     SENTRY_ENVIRONMENT = "dev"
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL")
+    MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
+    MAILJET_API_SECRET = os.environ.get("MAILJET_API_SECRET")
 
 
 class DevConfig(Config):
     ALLOW_INSECURE_IMPERSONATION = True
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://192.168.1.38:3000")
 
 
 class StagingConfig(Config):
@@ -37,5 +41,11 @@ class TestConfig(Config):
 
 class ProdConfig(Config):
     SENTRY_ENVIRONMENT = "prod"
+    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
+    MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
+
+
+class SandboxConfig(Config):
+    SENTRY_ENVIRONMENT = "sandbox"
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)

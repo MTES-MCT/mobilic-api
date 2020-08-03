@@ -4,6 +4,8 @@ from app.controllers.employment import (
     CreateEmployment,
     ValidateEmployment,
     RejectEmployment,
+    GetInvitation,
+    RedeemInvitation,
 )
 from app.controllers.expenditure import LogExpenditure, CancelExpenditure
 from app.controllers.mission import (
@@ -48,6 +50,7 @@ class SignUp(graphene.ObjectType):
 
     user = user.UserSignUp.Field()
     company = company.CompanySignUp.Field()
+    redeem_invite = RedeemInvitation.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -93,8 +96,14 @@ class Queries(user.Query, company.Query, graphene.ObjectType):
     pass
 
 
+class PrivateQueries(
+    company.NonPublicQuery, GetInvitation, graphene.ObjectType
+):
+    pass
+
+
 graphql_schema = graphene.Schema(query=Queries, mutation=Mutations)
 
 private_graphql_schema = graphene.Schema(
-    query=company.NonPublicQuery, mutation=PrivateMutations
+    query=PrivateQueries, mutation=PrivateMutations
 )

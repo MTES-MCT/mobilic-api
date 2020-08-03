@@ -43,9 +43,7 @@ def post_to_slack(message, emoji, color, tuples=None):
     return slack.chat.post_message(
         channel="#mobilic-alerts",
         as_user=False,
-        username="Mobilic backend"
-        if os.environ.get("MOBILIC_ENV", "") == "prod"
-        else "Mobilic backend test",
+        username=f"Mobilic backend - {os.environ.get('MOBILIC_ENV', 'test').capitalize()}",
         attachments=[{"blocks": blocks, "color": color}],
         icon_emoji=emoji,
     )

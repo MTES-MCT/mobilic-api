@@ -51,10 +51,6 @@ class Employment(UserEventBaseModel):
     __table_args__ = (
         db.Constraint(name="only_one_current_primary_enrollment_per_user"),
         db.Constraint(name="no_simultaneous_enrollments_for_the_same_company"),
-        db.CheckConstraint(
-            "((user_id is not null)::bool != (invite_token is not null)::bool)",
-            name="either_user_id_or_invite_token_is_set",
-        ),
     )
 
     def __repr__(self):

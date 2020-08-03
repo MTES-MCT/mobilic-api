@@ -51,6 +51,10 @@ class NoSirenAPICredentialsError(MobilicError):
     code = 105
 
 
+class MailjetError(MobilicError):
+    code = 106
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 
@@ -125,6 +129,10 @@ class MissingPrimaryEmploymentError(MobilicError):
 
 class EmploymentAlreadyReviewedByUserError(MobilicError):
     code = 301
+
+
+class EmploymentNotFoundError(MobilicError):
+    code = 302
 
 
 class MutationWithNonBlockingErrors(graphene.Mutation):
