@@ -3,6 +3,7 @@ from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 from graphene.types import DateTime
 from graphql.language import ast
+from werkzeug.local import LocalProxy
 import datetime
 from sqlalchemy import types
 
@@ -84,3 +85,9 @@ class BaseSQLAlchemyObjectType(SQLAlchemyObjectType):
         super().__init_subclass_with_meta__(**kwargs)
 
     id = graphene.Field(graphene.Int)
+
+    @classmethod
+    def is_type_of(cls, root, info):
+        if isinstance(root, LocalProxy):
+            return cls.is_type_of(root._get_current_object(), info)
+        return super().is_type_of(root, info)
