@@ -48,8 +48,10 @@ def graphene_enum_type(enum):
     class GrapheneEnumType(graphene.String):
         class Meta:
             name = enum.__name__ + "Enum"
-            description = (
-                f"Valeurs possibles : {', '.join([e.value for e in enum])}"
+            description = getattr(
+                enum,
+                "__description__",
+                (f"Valeurs possibles : {', '.join([e.value for e in enum])}"),
             )
 
         @staticmethod

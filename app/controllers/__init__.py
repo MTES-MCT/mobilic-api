@@ -30,7 +30,7 @@ import app.controllers.company
 
 class Activities(graphene.ObjectType):
     """
-    Enregistrement des activités, temps et autres informations importantes de la journée de travail
+    Enregistrement des activités et frais de la journée de travail
     """
 
     create_mission = CreateMission.Field()
@@ -54,6 +54,10 @@ class SignUp(graphene.ObjectType):
 
 
 class Employments(graphene.ObjectType):
+    """
+    Rattachement des utilisateurs à des entreprises
+    """
+
     create_employment = CreateEmployment.Field()
     validate_employment = ValidateEmployment.Field()
     reject_employment = RejectEmployment.Field()

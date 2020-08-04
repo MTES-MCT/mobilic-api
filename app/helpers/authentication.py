@@ -90,12 +90,18 @@ def create_access_tokens_for(user):
 
 
 class LoginMutation(graphene.Mutation):
+    """
+    Authentification par email/mot de passe.
+
+    Retourne un jeton d'accès avec une certaine durée de validité et un jeton de rafraichissement
+    """
+
     class Arguments:
         email = graphene.String(required=True)
         password = graphene.String(required=True)
 
-    access_token = graphene.String()
-    refresh_token = graphene.String()
+    access_token = graphene.String(description="Jeton d'accès")
+    refresh_token = graphene.String(description="Jeton de rafraichissement")
 
     @classmethod
     @with_auth_error_handling
@@ -121,6 +127,11 @@ class CheckMutation(graphene.Mutation):
 
 
 class LogoutMutation(graphene.Mutation):
+    """
+    Invalidation de tous les jetons existants pour l'utilisateur.
+
+    """
+
     message = graphene.String()
 
     @classmethod
@@ -133,8 +144,16 @@ class LogoutMutation(graphene.Mutation):
 
 
 class RefreshMutation(graphene.Mutation):
-    access_token = graphene.String()
-    refresh_token = graphene.String()
+    """
+    Rafraichissement du jeton d'accès. La requête doit comporter l'en-tête "Authorization: Bearer <JETON_DE_RAFRAICHISSEMENT>"
+
+    Attention, un jeton de rafraichissement ne peut être utilisé qu'une seule fois
+
+    Retourne un nouveau jeton d'accès et un nouveau jeton de rafraichissement
+    """
+
+    access_token = graphene.String(description="Jeton d'accès")
+    refresh_token = graphene.String(description="Jeton de rafraichissement")
 
     @classmethod
     @with_auth_error_handling
@@ -150,5 +169,4 @@ class Auth(graphene.ObjectType):
 
     login = LoginMutation.Field()
     refresh = RefreshMutation.Field()
-    check = CheckMutation.Field()
     logout = LogoutMutation.Field()

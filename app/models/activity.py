@@ -1,4 +1,7 @@
 from enum import Enum
+import graphene
+from graphene.types.generic import GenericScalar
+
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 from sqlalchemy.dialects.postgresql import JSONB
@@ -8,6 +11,7 @@ from app.helpers.errors import ActivityAlreadyDismissedError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
+    TimeStamp,
 )
 from app.models.event import (
     DismissType,
@@ -23,6 +27,13 @@ class InputableActivityType(str, Enum):
     WORK = "work"
     BREAK = "break"
     SUPPORT = "support"
+    __description__ = """
+Enumération des valeurs suivantes.
+- "drive" : conduite du véhicule
+- "work" : travail sans déplacement du véhicule
+- "break" : pause
+- "support" : accompagnement ou disponibilité
+"""
 
 
 ActivityType = Enum(
@@ -35,6 +46,15 @@ ActivityType = Enum(
     ),
     type=str,
 )
+
+ActivityType.__description__ = """
+Enumération des valeurs suivantes.
+- "drive" : conduite du véhicule
+- "work" : travail sans déplacement du véhicule
+- "break" : pause
+- "support" : accompagnement ou disponibilité
+- "rest" : fin de mission (repos journalier ou hebdomadaire)
+"""
 
 
 ActivityDismissType = Enum(
@@ -115,6 +135,54 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 class ActivityOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Activity
+        only_fields = (
+            "id",
+            "reception_time",
+            "mission_id",
+            "mission",
+            "start_time",
+            "type",
+            "context",
+            "user_id",
+            "user",
+            "submitter_id",
+            "submitter",
+        )
+        description = (
+            "Evènement de changement d'activité dans la journée de travail"
+        )
 
-    type = graphene_enum_type(ActivityType)()
-    dismiss_type = graphene_enum_type(ActivityDismissType)(required=False)
+    id = graphene.Field(
+        graphene.Int, required=True, description="Identifiant de l'activité"
+    )
+    mission_id = graphene.Field(
+        graphene.Int,
+        required=True,
+        description="Identifiant de la mission dans laquelle s'inscrit l'activité",
+    )
+    reception_time = graphene.Field(
+        TimeStamp,
+        required=True,
+        description="Horodatage de création de l'entité",
+    )
+    start_time = graphene.Field(
+        TimeStamp,
+        required=True,
+        description="Horodatage de début de l'activité",
+    )
+    user_id = graphene.Field(
+        graphene.Int,
+        required=True,
+        description="Identifiant du travailleur mobile qui a effectué l'activité",
+    )
+    context = graphene.Field(
+        GenericScalar, description="Données contextuelles libres"
+    )
+    submitter_id = graphene.Field(
+        graphene.Int,
+        required=True,
+        description="Identifiant de la personne qui a enregistré l'activité",
+    )
+    type = graphene_enum_type(ActivityType)(
+        required=True, description="Nature de l'activité"
+    )

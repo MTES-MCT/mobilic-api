@@ -33,20 +33,20 @@ class MissionInput:
     company_id = graphene.Argument(
         graphene.Int,
         required=False,
-        description="Optionnel, précise l'entreprise à laquelle se rattache la mission. Par défaut c'est l'entreprise de l'auteur de l'opération.",
+        description="Optionnel, précise l'entreprise qui effectue la mission. Par défaut c'est l'entreprise de l'auteur de l'opération.",
     )
     context = graphene.Argument(
         GenericScalar,
         required=False,
-        description="Dictionnaire de données libres autour de la mission",
+        description="Informations de contexte de la mission, sous la forme d'un dictionnaire de données libre",
     )
 
 
 class CreateMission(graphene.Mutation):
     """
-    Création d'une nouvelle mission.
+    Création d'une nouvelle mission, dans laquelle pourront être enregistrés des activités et des frais.
 
-    Retourne la mission nouvellement créée
+    Retourne la mission créée.
     """
 
     Arguments = MissionInput
@@ -111,7 +111,7 @@ class CreateMission(graphene.Mutation):
 
 class EndMission(graphene.Mutation):
     """
-    Fin de la mission.
+    Fin de la mission, qui mettra un terme à l'activité la plus récente enregistrée pour la mission.
 
     Retourne la mission.
     """
@@ -167,7 +167,7 @@ class EndMission(graphene.Mutation):
 
 class ValidateMission(graphene.Mutation):
     """
-    Validation du contenu de la mission.
+    Validation du contenu (activités + frais) de la mission.
 
     Retourne la mission.
     """

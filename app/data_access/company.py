@@ -12,12 +12,26 @@ from app.models.vehicle import VehicleOutput
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
-        only_fields = ("id",)
+        only_fields = ("id", "siren")
 
-    name = graphene.Field(graphene.String)
-    users = graphene.List(UserOutput)
-    vehicles = graphene.List(VehicleOutput)
-    employments = graphene.List(EmploymentOutput)
+    id = graphene.Field(
+        graphene.Int, required=True, description="Identifiant de l'entreprise"
+    )
+    siren = graphene.Field(
+        graphene.Int, required=True, description="Numéro SIREN de l'entreprise"
+    )
+    name = graphene.Field(graphene.String, description="Nom de l'entreprise")
+    users = graphene.List(
+        UserOutput,
+        description="Liste des utilisateurs rattachés à l'entreprise",
+    )
+    vehicles = graphene.List(
+        VehicleOutput, description="Liste des véhicules de l'entreprise"
+    )
+    employments = graphene.List(
+        EmploymentOutput,
+        description="Liste des rattachements validés ou en cours de validation de l'entreprise. Inclut également les rattachements qui ne sont plus actifs",
+    )
 
     def resolve_name(self, info):
         return self.name

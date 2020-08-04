@@ -12,13 +12,11 @@ from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
-    current_user,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import User
 from app.models.activity import ActivityOutput
 from app.models.employment import EmploymentOutput
-from app.models.vehicle import VehicleOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -26,12 +24,46 @@ class UserOutput(BaseSQLAlchemyObjectType):
         model = User
         only_fields = ("id", "first_name", "last_name", "email")
 
-    company = graphene.Field(lambda: CompanyOutput)
-    is_company_admin = graphene.Field(graphene.Boolean)
-    activities = graphene.List(ActivityOutput)
-    work_days = graphene.List(WorkDayOutput)
-    missions = graphene.List(MissionOutput)
-    current_employments = graphene.List(EmploymentOutput)
+    id = graphene.Field(
+        graphene.Int,
+        required=True,
+        description="Identifiant Mobilic de l'utilisateur",
+    )
+    first_name = graphene.Field(
+        graphene.String, required=True, description="Prénom"
+    )
+    last_name = graphene.Field(
+        graphene.String, required=True, description="Nom"
+    )
+    email = graphene.Field(
+        graphene.String,
+        required=True,
+        description="Adresse email, qui sert également d'identifiant de connexion",
+    )
+    company = graphene.Field(
+        lambda: CompanyOutput,
+        description="Entreprise de rattachement principale",
+    )
+    is_company_admin = graphene.Field(
+        graphene.Boolean,
+        description="Précise si l'utilisateur est gestionnaire de son entreprise principale",
+    )
+    activities = graphene.List(
+        ActivityOutput,
+        description="Liste complète des activités de l'utilisateur",
+    )
+    work_days = graphene.List(
+        WorkDayOutput,
+        description="Regroupement des missions et activités par journée calendaire",
+    )
+    missions = graphene.List(
+        MissionOutput,
+        description="Liste complète des missions de l'utilisateur",
+    )
+    current_employments = graphene.List(
+        EmploymentOutput,
+        description="Liste des rattachements actifs ou en attente de validation",
+    )
 
     def resolve_company(self, info):
         return self.primary_company

@@ -106,11 +106,11 @@ class ActivityEditInput:
     )
     start_time = TimeStamp(
         required=False,
-        description="Dans le cas d'une édition, nouvel horodatage de début de l'activité",
+        description="Dans le cas d'une modification de l'heure de début, nouvel horodatage de début de l'activité",
     )
     end_time = TimeStamp(
         required=False,
-        description="Dans le cas d'une édition, nouvel horodatage de fin de l'activité",
+        description="Dans le cas d'une modification de l'heure de fin, nouvel horodatage de fin de l'activité",
     )
     context = graphene.Argument(
         GenericScalar,
