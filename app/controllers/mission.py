@@ -12,12 +12,16 @@ from app.models.mission import Mission
 from app.models import Company, Vehicle
 from app.models.mission_validation import MissionValidation
 from app.data_access.mission import MissionOutput
-from app.domain.permissions import can_user_log_on_mission_at
+from app.domain.permissions import (
+    can_user_log_on_mission_at,
+    belongs_to_company_at,
+)
 from app.helpers.authentication import current_user
 from app.models.queries import (
     user_query_with_activities,
     mission_query_with_activities,
 )
+from app.helpers.errors import AuthorizationError
 
 
 class MissionInput:
@@ -60,6 +64,11 @@ class CreateMission(graphene.Mutation):
             company_id = mission_input.get("company_id")
             if company_id:
                 company = Company.query.get(company_id)
+                if not belongs_to_company_at(current_user, company):
+                    raise AuthorizationError(
+                        f"User is not authorized to create a mission for company {company}"
+                    )
+
             else:
                 company = current_user.primary_company
 
