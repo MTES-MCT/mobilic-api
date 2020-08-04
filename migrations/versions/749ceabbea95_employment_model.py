@@ -63,6 +63,7 @@ def upgrade():
         op.f("ix_employment_user_id"), "employment", ["user_id"], unique=False
     )
 
+    op.execute("CREATE EXTENSION btree_gist")
     op.execute(
         """
         ALTER TABLE employment ADD CONSTRAINT only_one_current_primary_employment_per_user
