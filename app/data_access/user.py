@@ -30,9 +30,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     is_company_admin = graphene.Field(graphene.Boolean)
     activities = graphene.List(ActivityOutput)
     work_days = graphene.List(WorkDayOutput)
-    enrollable_coworkers = graphene.List(lambda: UserOutput)
     missions = graphene.List(MissionOutput)
-    bookable_vehicles = graphene.List(VehicleOutput)
     current_employments = graphene.List(EmploymentOutput)
 
     def resolve_company(self, info):
@@ -66,12 +64,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(self, info, consultation_scope):
         return group_user_events_by_day(self, consultation_scope)
 
-    @with_authorization_policy(
-        only_self, get_target_from_args=lambda self, info: self
-    )
-    def resolve_enrollable_coworkers(self, info):
-        return self.enrollable_coworkers
-
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope
     def resolve_missions(self, info, consultation_scope):
@@ -83,12 +75,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
                 if m.company_id in consultation_scope.company_ids
             ]
         return missions
-
-    @with_authorization_policy(
-        only_self, get_target_from_args=lambda self, info: self
-    )
-    def resolve_bookable_vehicles(self, info):
-        return self.bookable_vehicles
 
     @with_authorization_policy(
         only_self, get_target_from_args=lambda self, info: self

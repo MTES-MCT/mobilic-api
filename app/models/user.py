@@ -67,26 +67,6 @@ class User(BaseModel):
             return None
         return acknowledged_activities[-1]
 
-    @property
-    def enrollable_coworkers(self):
-        primary_company = self.primary_company
-        if not primary_company:
-            return []
-        now = datetime.now()
-        current_mission = self.mission_at(now)
-        return [
-            u
-            for u in primary_company.workers
-            if u != self and u.mission_at(now) in [None, current_mission]
-        ]
-
-    @property
-    def bookable_vehicles(self):
-        primary_company = self.primary_company
-        if not primary_company:
-            return []
-        return [v for v in primary_company.vehicles if not v.is_terminated]
-
     def missions(self, include_dismisses_and_revisions=False):
         sorted_missions = []
         missions = set()
