@@ -25,10 +25,7 @@ from app.models.employment import (
     EmploymentRequestValidationStatus,
     EmploymentOutput,
 )
-from app.models.queries import (
-    company_query_with_users_and_activities,
-    company_queries_with_all_relations,
-)
+from app.models.queries import company_queries_with_all_relations
 from app import db, app
 
 
@@ -123,9 +120,7 @@ class Query(graphene.ObjectType):
     )
     def resolve_company(self, info, id):
         matching_company = (
-            company_query_with_users_and_activities()
-            .filter(Company.id == id)
-            .one()
+            company_queries_with_all_relations().filter(Company.id == id).one()
         )
         return matching_company
 

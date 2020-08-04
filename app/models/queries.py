@@ -12,14 +12,13 @@ def user_query_with_all_relations():
         selectinload(User.activities)
         .selectinload(Activity.mission)
         .options(selectinload(Mission.validations))
-        .options(selectinload(Mission.activities).selectinload(Activity.user))
+        .options(selectinload(Mission.expenditures))
+        .options(selectinload(Mission.activities))
     ).options(
         selectinload(User.employments)
         .selectinload(Employment.company)
         .options(
-            selectinload(Company.employments)
-            .selectinload(Employment.user)
-            .selectinload(User.activities)
+            selectinload(Company.employments).selectinload(Employment.user)
         )
         .options(selectinload(Company.vehicles))
     )
@@ -35,21 +34,13 @@ def mission_query_with_expenditures():
     return Mission.query.options(selectinload(Mission.expenditures))
 
 
-def company_query_with_users_and_activities():
-    return Company.query.options(
-        selectinload(Company.employments)
-        .selectinload(Employment.user)
-        .selectinload(User.activities)
-        .options(selectinload(Activity.mission))
-        .options(selectinload(Activity.revisee))
-    ).options(selectinload(Company.vehicles))
-
-
 def company_queries_with_all_relations():
     return Company.query.options(
         selectinload(Company.employments)
         .selectinload(Employment.user)
         .selectinload(User.activities)
-        .options(selectinload(Activity.mission))
+        .options(
+            selectinload(Activity.mission).selectinload(Mission.expenditures)
+        )
         .options(selectinload(Activity.revisee))
     ).options(selectinload(Company.vehicles))
