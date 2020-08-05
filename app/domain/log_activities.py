@@ -41,7 +41,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
             )
 
     # 2. Check that there are no two activities with the same user time
-    if not len(set(mission_activities)) == len(mission_activities):
+    if not len(set(mission_activity_times)) == len(mission_activity_times):
         raise SimultaneousActivitiesError(
             f"{mission} contains two activities with the same start time"
         )
