@@ -138,9 +138,6 @@ class TestQueries(BaseTest):
             self.assertEqual(response.status_code, 200)
             self.assertIsNotNone(response.json.get("errors"))
 
-            company_data = response.json["data"]["company"]
-            self.assertIsNone(company_data["users"])
-
         with app.test_client(
             mock_authentication_with_user=self.admin_company1
         ) as c:

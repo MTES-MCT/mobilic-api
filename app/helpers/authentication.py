@@ -116,6 +116,11 @@ class LoginMutation(graphene.Mutation):
 
 
 class CheckMutation(graphene.Mutation):
+    """
+    Test de validité du jeton d'accès.
+
+    """
+
     message = graphene.String()
     user_id = graphene.Int()
 
@@ -169,4 +174,5 @@ class Auth(graphene.ObjectType):
 
     login = LoginMutation.Field()
     refresh = RefreshMutation.Field()
+    check = CheckMutation.Field()
     logout = LogoutMutation.Field()

@@ -140,14 +140,9 @@ def log_activity(
 
     if not end_time:
         check_whether_event_should_be_logged(
-            user_id=user.id,
             submitter_id=submitter.id,
-            mission_id=mission.id,
             reception_time=reception_time,
-            type=type,
-            relevant_time_name="start_time",
-            start_time=start_time,
-            event_history=user.activities,
+            event_time=start_time,
         )
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
