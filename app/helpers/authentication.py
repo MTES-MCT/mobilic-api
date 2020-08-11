@@ -89,6 +89,11 @@ def create_access_tokens_for(user):
     return tokens
 
 
+class UserTokens(graphene.ObjectType):
+    access_token = graphene.String(description="Jeton d'accès")
+    refresh_token = graphene.String(description="Jeton de rafraichissement")
+
+
 class LoginMutation(graphene.Mutation):
     """
     Authentification par email/mot de passe.
@@ -100,8 +105,7 @@ class LoginMutation(graphene.Mutation):
         email = graphene.String(required=True)
         password = graphene.String(required=True)
 
-    access_token = graphene.String(description="Jeton d'accès")
-    refresh_token = graphene.String(description="Jeton de rafraichissement")
+    Output = UserTokens
 
     @classmethod
     @with_auth_error_handling
@@ -112,7 +116,7 @@ class LoginMutation(graphene.Mutation):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )
-        return LoginMutation(**create_access_tokens_for(user))
+        return UserTokens(**create_access_tokens_for(user))
 
 
 class CheckMutation(graphene.Mutation):
@@ -157,14 +161,13 @@ class RefreshMutation(graphene.Mutation):
     Retourne un nouveau jeton d'accès et un nouveau jeton de rafraichissement
     """
 
-    access_token = graphene.String(description="Jeton d'accès")
-    refresh_token = graphene.String(description="Jeton de rafraichissement")
+    Output = UserTokens
 
     @classmethod
     @with_auth_error_handling
     @jwt_refresh_token_required
     def mutate(cls, _, info):
-        return RefreshMutation(**create_access_tokens_for(current_actor))
+        return UserTokens(**create_access_tokens_for(current_actor))
 
 
 class Auth(graphene.ObjectType):

@@ -21,6 +21,11 @@ class Config:
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
     MAILJET_API_SECRET = os.environ.get("MAILJET_API_SECRET")
+    FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
+    FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
+    FC_URL = os.environ.get(
+        "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
+    )
 
 
 class DevConfig(Config):

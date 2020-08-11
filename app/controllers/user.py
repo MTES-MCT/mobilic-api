@@ -3,10 +3,17 @@ import graphene
 from app.controllers.utils import atomic_transaction
 from app.data_access.user import UserOutput
 from app.domain.permissions import self_or_company_admin
-from app.helpers.authentication import create_access_tokens_for
-from app.helpers.authorization import with_authorization_policy
-from app.models import User, Employment
-from app import db, app
+from app.domain.user import create_user, get_user_from_fc_info
+from app.helpers.authentication import (
+    current_user,
+    create_access_tokens_for,
+    AuthenticationError,
+    UserTokens,
+)
+from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.france_connect import get_fc_user_info
+from app.models import User
+from app import app
 from app.models.queries import user_query_with_all_relations
 
 
@@ -32,43 +39,87 @@ class UserSignUp(graphene.Mutation):
             required=False, description="Numéro de sécurité sociale"
         )
 
-    user = graphene.Field(UserOutput)
-    access_token = graphene.String()
-    refresh_token = graphene.String()
+    Output = UserTokens
 
     @classmethod
     def mutate(cls, _, info, **data):
         with atomic_transaction(commit_at_end=True):
-            invite_token = data.pop("invite_token", None)
-            user = User(**data)
-            db.session.add(user)
-            db.session.flush()
+            user = create_user(**data)
 
-            company = None
-            if invite_token:
-                employment_to_validate = Employment.query.filter(
-                    Employment.invite_token == invite_token
-                ).one_or_none()
+        return UserTokens(**create_access_tokens_for(user))
 
-                if not employment_to_validate:
-                    app.logger.warning(
-                        f"Could not find valid employment matching token {invite_token}"
-                    )
-                else:
-                    employment_to_validate.user_id = user.id
-                    employment_to_validate.invite_token = None
-                    employment_to_validate.validate_by(user)
-                    company = employment_to_validate.company
 
-            message = f"Signed up new user {user}"
-            if company:
-                message += f" of company {company}"
+class CreateUserLogin(graphene.Mutation):
+    class Arguments:
+        email = graphene.String(
+            required=True,
+            description="Adresse email, utilisée comme identifiant pour la connexion",
+        )
+        password = graphene.String(required=True, description="Mot de passe")
 
-            app.logger.info(
-                message, extra={"post_to_slack": True, "emoji": ":tada:"},
+    Output = UserOutput
+
+    @classmethod
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, email, password):
+        with atomic_transaction(commit_at_end=True):
+            if (
+                not current_user.france_connect_id
+                or current_user.email
+                or current_user.password
+            ):
+                # TODO : raise proper error
+                raise ValueError("User has already a login")
+
+            current_user.email = email
+            current_user.password = password
+
+        return current_user
+
+
+class FranceConnectLogin(graphene.Mutation):
+    class Arguments:
+        authorization_code = graphene.String(required=True)
+        invite_token = graphene.String(
+            required=False, description="Lien d'invitation"
+        )
+        original_redirect_uri = graphene.String(required=True)
+        create = graphene.Boolean(required=False)
+
+    Output = UserTokens
+
+    @classmethod
+    def mutate(
+        cls,
+        _,
+        info,
+        authorization_code,
+        original_redirect_uri,
+        invite_token=None,
+        create=False,
+    ):
+        with atomic_transaction(commit_at_end=True):
+            fc_user_info = get_fc_user_info(
+                authorization_code, original_redirect_uri
             )
+            user = get_user_from_fc_info(fc_user_info)
 
-        return UserSignUp(user=user, **create_access_tokens_for(user))
+            if not create and not user:
+                raise AuthenticationError("User does not exist")
+
+            if create and user and user.email:
+                # TODO : raise proper error
+                raise ValueError("User is already registered")
+
+            if not user:
+                user = create_user(
+                    first_name=fc_user_info.get("given_name"),
+                    last_name=fc_user_info.get("family_name"),
+                    invite_token=invite_token,
+                    fc_info=fc_user_info,
+                )
+
+        return UserTokens(**create_access_tokens_for(user))
 
 
 class Query(graphene.ObjectType):

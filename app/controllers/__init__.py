@@ -1,5 +1,6 @@
 import graphene
 
+from app.controllers.company import CompanySignUp, Query as CompanyQuery
 from app.controllers.employment import (
     CreateEmployment,
     ValidateEmployment,
@@ -13,6 +14,12 @@ from app.controllers.mission import (
     EndMission,
     ValidateMission,
 )
+from app.controllers.user import (
+    UserSignUp,
+    FranceConnectLogin,
+    Query as UserQuery,
+    CreateUserLogin,
+)
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -24,8 +31,6 @@ from app.controllers.activity import (
     EditActivity,
     CancelActivity,
 )
-import app.controllers.user
-import app.controllers.company
 
 
 class Activities(graphene.ObjectType):
@@ -48,9 +53,14 @@ class SignUp(graphene.ObjectType):
     Création de compte
     """
 
-    user = user.UserSignUp.Field()
-    company = company.CompanySignUp.Field()
+    user = UserSignUp.Field()
+    create_login = CreateUserLogin.Field()
+    company = CompanySignUp.Field()
     redeem_invite = RedeemInvitation.Field()
+
+
+class PrivateAuth(graphene.ObjectType):
+    france_connect_login = FranceConnectLogin.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -88,11 +98,14 @@ class Mutations(graphene.ObjectType):
 
 
 class PrivateMutations(graphene.ObjectType):
+    auth = graphene.Field(
+        PrivateAuth, resolver=lambda root, info: PrivateAuth()
+    )
     sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
     vehicles = graphene.Field(Vehicles, resolver=lambda root, info: Vehicles())
 
 
-class Queries(user.Query, company.Query, graphene.ObjectType):
+class Queries(UserQuery, CompanyQuery, graphene.ObjectType):
     """
     Requêtes de consultation qui ne modifient pas l'état du système
     """

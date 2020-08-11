@@ -37,7 +37,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     email = graphene.Field(
         graphene.String,
-        required=True,
+        required=False,
         description="Adresse email, qui sert également d'identifiant de connexion",
     )
     company = graphene.Field(

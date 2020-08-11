@@ -1,6 +1,5 @@
 import graphene
 
-from app.data_access.user import UserOutput
 from app.domain.permissions import company_admin_at, belongs_to_company_at
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
@@ -22,7 +21,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     users = graphene.List(
-        UserOutput,
+        lambda: UserOutput,
         description="Liste des utilisateurs rattachés à l'entreprise",
     )
     vehicles = graphene.List(
@@ -54,3 +53,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_employments(self, info):
         return [e for e in self.employments if e.is_not_rejected]
+
+
+from app.data_access.user import UserOutput

@@ -55,6 +55,10 @@ class MailjetError(MobilicError):
     code = 106
 
 
+class FranceConnectAuthenticationError(MobilicError):
+    code = 107
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 

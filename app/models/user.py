@@ -1,9 +1,10 @@
-from datetime import datetime, date
+from datetime import date
 
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
 from uuid import uuid4
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.base import BaseModel
 from app import db
@@ -18,14 +19,18 @@ class User(BaseModel):
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
 
+    france_connect_id = db.Column(db.String(255), unique=True, nullable=True)
+    france_connect_info = db.Column(JSONB(none_as_null=True), nullable=True)
+
     @property
     def password(self):
         return self._password
 
     @password.setter
     def password(self, plain_text):
-        password_hash = generate_password_hash(plain_text.encode("utf8"))
-        self._password = password_hash
+        if plain_text:
+            password_hash = generate_password_hash(plain_text.encode("utf8"))
+            self._password = password_hash
 
     def check_password(self, plain_text):
         return check_password_hash(self.password, plain_text.encode("utf-8"))
