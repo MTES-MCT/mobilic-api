@@ -1,4 +1,5 @@
 import graphene
+from flask import redirect, request
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.user import UserOutput
@@ -75,6 +76,14 @@ class CreateUserLogin(graphene.Mutation):
             current_user.password = password
 
         return current_user
+
+
+@app.route("/fc/authorize")
+def redirect_to_fc_authorize():
+    return redirect(
+        f"{app.config['FC_URL']}/api/v1/authorize?{request.query_string.decode('utf-8')}",
+        code=308,
+    )
 
 
 class FranceConnectLogin(graphene.Mutation):
