@@ -10,13 +10,21 @@ from app.helpers.errors import (
     NonContiguousActivitySequenceError,
 )
 from app.models.activity import ActivityType, Activity, ActivityDismissType
-from app.models import User, Mission
+from app.models import Mission
 
 
 def check_activity_sequence_in_mission_and_handle_duplicates(
     user, mission, event_time
 ):
     mission_activities = mission.activities_for(user)
+
+    try:
+        # Send pending activities to the DB to check simultaneity constraints
+        db.session.flush()
+    except Exception as e:
+        raise SimultaneousActivitiesError(
+            f"{mission} contains two activities with the same start time"
+        )
 
     if len(mission_activities) == 0:
         return

@@ -84,6 +84,10 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
 
     context = db.Column(JSONB(none_as_null=True), nullable=True)
 
+    __table_args__ = (
+        db.Constraint(name="no_simultaneous_acknowledged_activities"),
+    )
+
     # TODO : add (maybe)
     # - validator
     # - version (each version represents a set of changes to the day activities)
@@ -124,11 +128,14 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         self.revised_by_id = (
             self.id
         )  # Hack to temporarily mark the current activity as revised
+        db.session.add(self)
         revision = log_activity(**dict_, bypass_check=True)
-        self.revised_by_id = None
+        db.session.flush()
         if revision:
             self.set_revision(revision, revision_context)
             db.session.add(revision)
+        else:
+            self.revised_by_id = None
         return revision
 
 
