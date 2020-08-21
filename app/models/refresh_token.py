@@ -33,6 +33,7 @@ class RefreshToken(BaseModel):
             oldest_token_index += 1
         refresh_token = RefreshToken(user=user)
         db.session.add(refresh_token)
+        db.session.flush()
         return refresh_token.token
 
     @staticmethod

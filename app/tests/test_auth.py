@@ -272,50 +272,45 @@ class TestAuth(BaseTest):
             )
 
     def test_tokens_fail_on_revoked_user(self):
-        base_time = datetime.now()
         with app.test_client() as c:
             # Step 1 : login
-            with freeze_time(base_time):
-                login_response = c.post_graphql(
-                    self.login_query,
-                    variables=dict(email=self.user.email, password="passwd"),
-                )
-                self.assertEqual(login_response.status_code, 200)
-                login_response_data = login_response.json["data"]["auth"][
-                    "login"
-                ]
-                self.assertIn("accessToken", login_response_data)
-                self.assertIn("refreshToken", login_response_data)
+            login_response = c.post_graphql(
+                self.login_query,
+                variables=dict(email=self.user.email, password="passwd"),
+            )
+            self.assertEqual(login_response.status_code, 200)
+            login_response_data = login_response.json["data"]["auth"]["login"]
+            self.assertIn("accessToken", login_response_data)
+            self.assertIn("refreshToken", login_response_data)
 
             # Revoke user
-            self.user.refresh_token_nonce = None
+            self.user.revoke_all_tokens()
             db.session.commit()
 
-            with freeze_time(base_time + timedelta(seconds=30)):
-                wrong_access_response = c.post_graphql(
-                    self.check_query,
-                    headers=[
-                        (
-                            "Authorization",
-                            f"Bearer {login_response_data['accessToken']}",
-                        )
-                    ],
-                )
-                self.assertIsNotNone(wrong_access_response.json.get("errors"))
-                self.assertIsNone(
-                    wrong_access_response.json["data"]["auth"]["check"]
-                )
+            wrong_access_response = c.post_graphql(
+                self.check_query,
+                headers=[
+                    (
+                        "Authorization",
+                        f"Bearer {login_response_data['accessToken']}",
+                    )
+                ],
+            )
+            self.assertIsNotNone(wrong_access_response.json.get("errors"))
+            self.assertIsNone(
+                wrong_access_response.json["data"]["auth"]["check"]
+            )
 
-                wrong_refresh_response = c.post_graphql(
-                    self.refresh_query,
-                    headers=[
-                        (
-                            "Authorization",
-                            f"Bearer {login_response_data['refreshToken']}",
-                        )
-                    ],
-                )
-                self.assertIsNotNone(wrong_refresh_response.json.get("errors"))
-                self.assertIsNone(
-                    wrong_refresh_response.json["data"]["auth"]["refresh"]
-                )
+            wrong_refresh_response = c.post_graphql(
+                self.refresh_query,
+                headers=[
+                    (
+                        "Authorization",
+                        f"Bearer {login_response_data['refreshToken']}",
+                    )
+                ],
+            )
+            self.assertIsNotNone(wrong_refresh_response.json.get("errors"))
+            self.assertIsNone(
+                wrong_refresh_response.json["data"]["auth"]["refresh"]
+            )
