@@ -67,6 +67,10 @@ app.add_url_rule(
     ),
 )
 
+from app.helpers.oauth import oauth_blueprint
+
+app.register_blueprint(oauth_blueprint, url_prefix="/oauth")
+
 
 @app.route("/debug-sentry")
 def trigger_error():

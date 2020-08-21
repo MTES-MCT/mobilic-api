@@ -10,6 +10,7 @@ from app.helpers.authentication import (
     create_access_tokens_for,
     AuthenticationError,
     UserTokens,
+    UserTokensWithFC,
 )
 from app.helpers.authorization import with_authorization_policy, authenticated
 from app.helpers.france_connect import get_fc_user_info
@@ -86,6 +87,14 @@ def redirect_to_fc_authorize():
     )
 
 
+@app.route("/fc/logout")
+def redirect_to_fc_logout():
+    return redirect(
+        f"{app.config['FC_URL']}/api/v1/logout?{request.query_string.decode('utf-8')}",
+        code=308,
+    )
+
+
 class FranceConnectLogin(graphene.Mutation):
     class Arguments:
         authorization_code = graphene.String(required=True)
@@ -95,7 +104,7 @@ class FranceConnectLogin(graphene.Mutation):
         original_redirect_uri = graphene.String(required=True)
         create = graphene.Boolean(required=False)
 
-    Output = UserTokens
+    Output = UserTokensWithFC
 
     @classmethod
     def mutate(
@@ -108,7 +117,7 @@ class FranceConnectLogin(graphene.Mutation):
         create=False,
     ):
         with atomic_transaction(commit_at_end=True):
-            fc_user_info = get_fc_user_info(
+            fc_user_info, fc_token = get_fc_user_info(
                 authorization_code, original_redirect_uri
             )
             user = get_user_from_fc_info(fc_user_info)
@@ -128,7 +137,9 @@ class FranceConnectLogin(graphene.Mutation):
                     fc_info=fc_user_info,
                 )
 
-        return UserTokens(**create_access_tokens_for(user))
+        return UserTokensWithFC(
+            **create_access_tokens_for(user), fc_token=fc_token
+        )
 
 
 class Query(graphene.ObjectType):

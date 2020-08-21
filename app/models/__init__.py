@@ -6,3 +6,4 @@ from .expenditure import Expenditure
 from .employment import Employment
 from .vehicle import Vehicle
 from .mission_validation import MissionValidation
+from .refresh_token import RefreshToken

@@ -45,4 +45,4 @@ def get_fc_user_info(authorization_code, original_redirect_uri):
         raise FranceConnectAuthenticationError("Unable to parse user info")
 
     user_info["acr"] = jwt.decode(id_token, verify=False).get("acr")
-    return user_info
+    return user_info, id_token

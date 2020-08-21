@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,11 +13,12 @@ from app import db
 class User(BaseModel):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
-    refresh_token_nonce = db.Column(db.String(255), default=None)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
+
+    latest_token_revocation_time = db.Column(db.DateTime, nullable=True)
 
     france_connect_id = db.Column(db.String(255), unique=True, nullable=True)
     france_connect_info = db.Column(JSONB(none_as_null=True), nullable=True)
@@ -100,12 +101,10 @@ class User(BaseModel):
             return None
         return latest_activity_at_time.mission
 
-    def revoke_refresh_token(self):
-        self.refresh_token_nonce = None
-
-    def generate_refresh_token_nonce(self):
-        self.refresh_token_nonce = uuid4().hex
-        return self.refresh_token_nonce
+    def revoke_all_tokens(self):
+        self.latest_token_revocation_time = datetime.now()
+        for token in self.refresh_tokens:
+            db.session.delete(token)
 
     @property
     def display_name(self):
@@ -151,3 +150,6 @@ class User(BaseModel):
             for e in self.employments_at(date.today())
             if e.has_admin_rights
         ]
+
+    def get_user_id(self):
+        return self.id
