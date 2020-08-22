@@ -59,6 +59,10 @@ class FranceConnectAuthenticationError(MobilicError):
     code = 107
 
 
+class UserDoesNotExistError(MobilicError):
+    code = 108
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 

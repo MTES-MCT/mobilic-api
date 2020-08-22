@@ -15,6 +15,7 @@ from app.helpers.authentication import (
     UserTokensWithFC,
 )
 from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.errors import UserDoesNotExistError
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
 from app import app
@@ -136,7 +137,7 @@ class FranceConnectLogin(graphene.Mutation):
             user = get_user_from_fc_info(fc_user_info)
 
             if not create and not user:
-                raise AuthenticationError("User does not exist")
+                raise UserDoesNotExistError("User does not exist")
 
             if create and user and user.email:
                 # TODO : raise proper error
