@@ -10,7 +10,6 @@ from app.domain.user import create_user, get_user_from_fc_info
 from app.helpers.authentication import (
     current_user,
     create_access_tokens_for,
-    AuthenticationError,
     UserTokens,
     UserTokensWithFC,
 )
@@ -94,7 +93,7 @@ def redirect_to_fc_authorize():
     }
     return redirect(
         f"{app.config['FC_URL']}/api/v1/authorize?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
-        code=308,
+        code=302,
     )
 
 
@@ -103,7 +102,7 @@ def redirect_to_fc_logout():
     query_params = {"state": uuid4().hex}
     return redirect(
         f"{app.config['FC_URL']}/api/v1/logout?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
-        code=308,
+        code=302,
     )
 
 
