@@ -1,6 +1,7 @@
 import requests
 import json
 import jwt
+from urllib.parse import unquote
 
 from app import app
 from app.helpers.errors import FranceConnectAuthenticationError
@@ -12,7 +13,10 @@ def get_fc_user_info(authorization_code, original_redirect_uri):
         "grant_type": "authorization_code",
         "client_id": app.config["FC_CLIENT_ID"],
         "client_secret": app.config["FC_CLIENT_SECRET"],
-        "redirect_uri": original_redirect_uri,
+        # What follows is the hack : FranceConnect seems to check the equality of the redirect_uri in a weird way. Sometimes they require unquoted URLs and sometimes not
+        "redirect_uri": original_redirect_uri
+        if "oauth" in original_redirect_uri
+        else unquote(original_redirect_uri),
     }
 
     token_response = requests.post(
