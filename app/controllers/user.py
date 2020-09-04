@@ -89,7 +89,7 @@ def redirect_to_fc_authorize():
         "response_type": "code",
         "scope": "openid given_name family_name preferred_username birthdate",
         "client_id": app.config["FC_CLIENT_ID"],
-        "acr_values": "eidas3",
+        "acr_values": "eidas1",
     }
     return redirect(
         f"{app.config['FC_URL']}/api/v1/authorize?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
