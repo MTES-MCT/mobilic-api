@@ -22,7 +22,13 @@ from app.models.employment import EmploymentOutput
 class UserOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = User
-        only_fields = ("id", "first_name", "last_name", "email")
+        only_fields = (
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "has_confirmed_email",
+        )
 
     id = graphene.Field(
         graphene.Int,

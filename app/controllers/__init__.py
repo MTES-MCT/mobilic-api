@@ -18,7 +18,7 @@ from app.controllers.user import (
     UserSignUp,
     FranceConnectLogin,
     Query as UserQuery,
-    CreateUserLogin,
+    ConfirmFranceConnectEmail,
 )
 from app.controllers.vehicle import (
     CreateVehicle,
@@ -54,7 +54,7 @@ class SignUp(graphene.ObjectType):
     """
 
     user = UserSignUp.Field()
-    create_login = CreateUserLogin.Field()
+    confirm_fc_email = ConfirmFranceConnectEmail.Field()
     company = CompanySignUp.Field()
     redeem_invite = RedeemInvitation.Field()
 

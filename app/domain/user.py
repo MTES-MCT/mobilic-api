@@ -17,6 +17,7 @@ def create_user(
         email=email,
         password=password,
         ssn=ssn,
+        has_confirmed_email=True if not fc_info else False,
         france_connect_info=fc_info,
         france_connect_id=fc_info.get("sub") if fc_info else None,
     )

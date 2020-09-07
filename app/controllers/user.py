@@ -53,30 +53,28 @@ class UserSignUp(graphene.Mutation):
         return UserTokens(**create_access_tokens_for(user))
 
 
-class CreateUserLogin(graphene.Mutation):
+class ConfirmFranceConnectEmail(graphene.Mutation):
     class Arguments:
         email = graphene.String(
             required=True,
-            description="Adresse email, utilisée comme identifiant pour la connexion",
+            description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
-        password = graphene.String(required=True, description="Mot de passe")
+        password = graphene.String(required=False, description="Mot de passe")
 
     Output = UserOutput
 
     @classmethod
     @with_authorization_policy(authenticated)
-    def mutate(cls, _, info, email, password):
+    def mutate(cls, _, info, email, password=None):
         with atomic_transaction(commit_at_end=True):
-            if (
-                not current_user.france_connect_id
-                or current_user.email
-                or current_user.password
-            ):
+            if not current_user.france_connect_id or current_user.password:
                 # TODO : raise proper error
                 raise ValueError("User has already a login")
 
             current_user.email = email
-            current_user.password = password
+            current_user.has_confirmed_email = True
+            if password:
+                current_user.password = password
 
         return current_user
 
@@ -146,6 +144,7 @@ class FranceConnectLogin(graphene.Mutation):
                 user = create_user(
                     first_name=fc_user_info.get("given_name"),
                     last_name=fc_user_info.get("family_name"),
+                    email=fc_user_info.get("email"),
                     invite_token=invite_token,
                     fc_info=fc_user_info,
                 )
