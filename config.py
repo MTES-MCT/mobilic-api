@@ -26,12 +26,13 @@ class Config:
     FC_URL = os.environ.get(
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
+    EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
 
 
 class DevConfig(Config):
     ALLOW_INSECURE_IMPERSONATION = True
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://192.168.1.38:3000")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 
 class StagingConfig(Config):

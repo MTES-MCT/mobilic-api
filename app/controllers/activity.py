@@ -14,7 +14,10 @@ from app.helpers.errors import (
     AuthorizationError,
     ActivityAlreadyDismissedError,
 )
-from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated_and_active,
+)
 from app.helpers.graphene_types import (
     graphene_enum_type,
     TimeStamp,
@@ -69,7 +72,7 @@ class LogActivity(graphene.Mutation):
     Output = graphene.List(ActivityOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
@@ -194,7 +197,7 @@ class CancelActivity(graphene.Mutation):
     Output = graphene.List(ActivityOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **edit_input):
         return edit_activity(
             edit_input["activity_id"],
@@ -215,7 +218,7 @@ class EditActivity(graphene.Mutation):
     Output = graphene.List(ActivityOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **edit_input):
         return edit_activity(
             edit_input["activity_id"],

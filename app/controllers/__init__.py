@@ -19,6 +19,8 @@ from app.controllers.user import (
     FranceConnectLogin,
     Query as UserQuery,
     ConfirmFranceConnectEmail,
+    ChangeEmail,
+    ActivateEmail,
 )
 from app.controllers.vehicle import (
     CreateVehicle,
@@ -55,12 +57,17 @@ class SignUp(graphene.ObjectType):
 
     user = UserSignUp.Field()
     confirm_fc_email = ConfirmFranceConnectEmail.Field()
+    activate_email = ActivateEmail.Field()
     company = CompanySignUp.Field()
     redeem_invite = RedeemInvitation.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
     france_connect_login = FranceConnectLogin.Field()
+
+
+class Account(graphene.ObjectType):
+    change_email = ChangeEmail.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -101,6 +108,7 @@ class PrivateMutations(graphene.ObjectType):
     auth = graphene.Field(
         PrivateAuth, resolver=lambda root, info: PrivateAuth()
     )
+    account = graphene.Field(Account, resolver=lambda root, info: Account())
     sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
     vehicles = graphene.Field(Vehicles, resolver=lambda root, info: Vehicles())
 

@@ -22,7 +22,9 @@ class User(BaseModel):
 
     france_connect_id = db.Column(db.String(255), unique=True, nullable=True)
     france_connect_info = db.Column(JSONB(none_as_null=True), nullable=True)
+
     has_confirmed_email = db.Column(db.Boolean, default=False, nullable=False)
+    has_activated_email = db.Column(db.Boolean, default=False, nullable=False)
 
     @property
     def password(self):

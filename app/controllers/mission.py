@@ -5,7 +5,10 @@ from datetime import datetime
 from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.log_activities import log_activity
-from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated_and_active,
+)
 from app.helpers.graphene_types import TimeStamp
 from app.models.activity import ActivityType
 from app.models.mission import Mission
@@ -54,7 +57,7 @@ class CreateMission(graphene.Mutation):
     Output = MissionOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             app.logger.info(
@@ -137,7 +140,7 @@ class EndMission(graphene.Mutation):
     Output = MissionOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()

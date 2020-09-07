@@ -28,6 +28,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "last_name",
             "email",
             "has_confirmed_email",
+            "has_activated_email",
         )
 
     id = graphene.Field(

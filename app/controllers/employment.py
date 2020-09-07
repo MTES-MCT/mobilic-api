@@ -13,7 +13,10 @@ from app.helpers.errors import (
     InvalidParamsError,
     EmploymentNotFoundError,
 )
-from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated_and_active,
+)
 from app.models import Company, User
 from app.models.employment import (
     EmploymentOutput,
@@ -173,7 +176,7 @@ class ValidateEmployment(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, employment_id):
         return review_employment(employment_id, reject=False)
 
@@ -195,7 +198,7 @@ class RejectEmployment(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, employment_id):
         return review_employment(employment_id, reject=True)
 
@@ -229,11 +232,10 @@ class RedeemInvitation(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, invite_token):
         with atomic_transaction(commit_at_end=True):
             employment = _get_employment_by_token(invite_token)
-            print(current_user)
             employment.user_id = current_user.id
 
         return employment

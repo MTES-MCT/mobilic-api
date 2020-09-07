@@ -18,6 +18,10 @@ def authenticated(user):
     return user is not None
 
 
+def authenticated_and_active(user):
+    return user is not None and user.has_activated_email
+
+
 def admin_only(user):
     return user.admin
 

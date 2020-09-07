@@ -1,5 +1,7 @@
 from mailjet_rest import Client
+import jwt
 from flask import render_template
+from datetime import datetime, date
 
 from app.helpers.errors import MailjetError
 
@@ -54,4 +56,44 @@ class Mailer:
             custom_id=employment.invite_token,
             invitation_link=invitation_link,
             company_name=company_name,
+        )
+
+    def send_activation_email(self, user):
+        if not user.email:
+            raise ValueError(
+                f"Cannot send activation email because user has no email address"
+            )
+
+        id = user.id
+
+        token = jwt.encode(
+            {
+                "email": user.email,
+                "expires_at": (
+                    datetime.now()
+                    + self.app_config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
+                ).timestamp(),
+            },
+            self.app_config["JWT_SECRET_KEY"],
+            algorithm="HS256",
+        ).decode("utf-8")
+        activation_link = (
+            f"{self.app_config['FRONTEND_URL']}/activate_email?token={token}"
+        )
+
+        company = None
+        has_admin_rights = None
+        primary_employment = user.primary_employment_at(date.today())
+        if primary_employment:
+            company = primary_employment.company
+            has_admin_rights = primary_employment.has_admin_rights
+
+        self._send_email_from_template(
+            "account_activation_email.html",
+            "Activez votre compte Mobilic",
+            user.email,
+            user_id=id,
+            activation_link=activation_link,
+            company_name=company.name if company else None,
+            has_admin_rights=has_admin_rights,
         )

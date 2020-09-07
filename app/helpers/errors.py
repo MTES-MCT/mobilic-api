@@ -63,6 +63,14 @@ class UserDoesNotExistError(MobilicError):
     code = 108
 
 
+class InvalidTokenError(MobilicError):
+    code = 109
+
+
+class TokenExpiredError(MobilicError):
+    code = 110
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 

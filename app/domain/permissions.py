@@ -1,3 +1,4 @@
+from app.helpers.authorization import authenticated_and_active
 from app.helpers.errors import AuthorizationError
 from app.helpers.time import get_date_or_today
 from app.helpers.authentication import current_user
@@ -8,6 +9,8 @@ from functools import wraps
 
 
 def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
+    if not authenticated_and_active(actor):
+        return False
     date = get_date_or_today(date_or_datetime)
     actor_employments_at_date = actor.employments_at(date)
     company_id = company_obj_or_id

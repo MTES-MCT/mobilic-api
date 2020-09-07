@@ -10,7 +10,10 @@ from app.helpers.errors import (
     AuthorizationError,
     ExpenditureAlreadyDismissedError,
 )
-from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated_and_active,
+)
 from app.helpers.graphene_types import graphene_enum_type
 from app.models.event import DismissType
 from app.models.expenditure import (
@@ -53,7 +56,7 @@ class LogExpenditure(graphene.Mutation):
     Output = graphene.List(ExpenditureOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **expenditure_input):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
@@ -97,7 +100,7 @@ class CancelExpenditure(graphene.Mutation):
     Output = graphene.List(ExpenditureOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
+    @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, expenditure_id):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()

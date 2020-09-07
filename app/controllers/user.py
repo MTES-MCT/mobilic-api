@@ -1,6 +1,8 @@
 import graphene
+import jwt
 from flask import redirect, request
 from uuid import uuid4
+from datetime import datetime
 from urllib.parse import quote, urlencode
 
 from app.controllers.utils import atomic_transaction
@@ -14,10 +16,14 @@ from app.helpers.authentication import (
     UserTokensWithFC,
 )
 from app.helpers.authorization import with_authorization_policy, authenticated
-from app.helpers.errors import UserDoesNotExistError
+from app.helpers.errors import (
+    UserDoesNotExistError,
+    InvalidTokenError,
+    TokenExpiredError,
+)
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
-from app import app
+from app import app, mailer
 from app.models.queries import user_query_with_all_relations
 
 
@@ -49,6 +55,7 @@ class UserSignUp(graphene.Mutation):
     def mutate(cls, _, info, **data):
         with atomic_transaction(commit_at_end=True):
             user = create_user(**data)
+            mailer.send_activation_email(user)
 
         return UserTokens(**create_access_tokens_for(user))
 
@@ -75,6 +82,62 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
             current_user.has_confirmed_email = True
             if password:
                 current_user.password = password
+
+            mailer.send_activation_email(current_user)
+
+        return current_user
+
+
+class ChangeEmail(graphene.Mutation):
+    class Arguments:
+        email = graphene.String(
+            required=True,
+            description="Adresse email de contact, utilisée comme identifiant pour la connexion",
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, email):
+        with atomic_transaction(commit_at_end=True):
+            if current_user.email != email:
+                current_user.email = email
+                current_user.has_confirmed_email = True
+                current_user.has_activated_email = False
+                mailer.send_activation_email(current_user)
+
+        return current_user
+
+
+class ActivateEmail(graphene.Mutation):
+    class Arguments:
+        token = graphene.String(required=True)
+
+    Output = UserOutput
+
+    @classmethod
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, token):
+        with atomic_transaction(commit_at_end=True):
+            try:
+                decoded_token = jwt.decode(
+                    token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
+                )
+                email = decoded_token["email"]
+                expires_at = decoded_token["expires_at"]
+            except Exception as e:
+                raise InvalidTokenError(f"Token is invalid : {e}")
+
+            if expires_at < datetime.now().timestamp():
+                raise TokenExpiredError("Token has expired")
+
+            if email != current_user.email:
+                raise InvalidTokenError(
+                    "Email in token does not match user email"
+                )
+
+            current_user.has_activated_email = True
 
         return current_user
 
