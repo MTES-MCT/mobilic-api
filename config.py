@@ -27,6 +27,7 @@ class Config:
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
+    SLACK_LOG_CHANNEL = os.environ.get("SLACK_LOG_CHANNEL", "#mobilic-alerts")
 
 
 class DevConfig(Config):
@@ -53,5 +54,5 @@ class ProdConfig(Config):
 
 class SandboxConfig(Config):
     SENTRY_ENVIRONMENT = "sandbox"
-    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
+    ACCESS_TOKEN_EXPIRATION = timedelta(days=1)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
