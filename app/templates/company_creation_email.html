@@ -1,0 +1,17 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+L'entreprise {{ company_name }} est créée sur Mobilic
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>L'entreprise <strong>{{company_name}}</strong> associée au numéro SIREN <strong>{{company_siren}}</strong> a bien été créée sur Mobilic 🎉.</p>
+    <p>Vous pouvez dès à présent gérer depuis <a href={{website_link}}>la plateforme Mobilic</a> : </p>
+    <ul>
+        <li>l’inscription des salariés de l’entreprise</li>
+        <li>la flotte de véhicules</li>
+    </ul>
+    <p>Bien à vous,</p>
+    <strong>L'équipe Mobilic</strong>
+{% endblock %}

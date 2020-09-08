@@ -55,7 +55,10 @@ class UserSignUp(graphene.Mutation):
     def mutate(cls, _, info, **data):
         with atomic_transaction(commit_at_end=True):
             user = create_user(**data)
-            mailer.send_activation_email(user)
+            try:
+                mailer.send_activation_email(user)
+            except Exception as e:
+                app.logger.exception(e)
 
         return UserTokens(**create_access_tokens_for(user))
 
@@ -83,7 +86,10 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
             if password:
                 current_user.password = password
 
-            mailer.send_activation_email(current_user)
+            try:
+                mailer.send_activation_email(current_user)
+            except Exception as e:
+                app.logger.exception(e)
 
         return current_user
 
@@ -105,7 +111,10 @@ class ChangeEmail(graphene.Mutation):
                 current_user.email = email
                 current_user.has_confirmed_email = True
                 current_user.has_activated_email = False
-                mailer.send_activation_email(current_user)
+                try:
+                    mailer.send_activation_email(current_user)
+                except Exception as e:
+                    app.logger.exception(e)
 
         return current_user
 

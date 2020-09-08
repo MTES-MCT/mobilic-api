@@ -97,3 +97,12 @@ class Mailer:
             company_name=company.name if company else None,
             has_admin_rights=has_admin_rights,
         )
+
+    def send_company_creation_email(self, company, user):
+        self._send_email_from_template(
+            "company_creation_email.html",
+            f"L'entreprise {company.name} est créée sur Mobilic !",
+            user.email,
+            company_name=company.name,
+            company_siren=company.siren,
+        )

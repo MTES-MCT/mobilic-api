@@ -17,7 +17,7 @@ from app.helpers.authorization import (
     authenticated,
     current_user,
 )
-from app import siren_api_client
+from app import siren_api_client, mailer
 from app.helpers.errors import SirenAlreadySignedUpError
 from app.helpers.xls import send_work_days_as_excel
 from app.models import Company, Employment
@@ -91,6 +91,11 @@ class CompanySignUp(graphene.Mutation):
             db.session.add(admin_employment)
 
             app.logger.info(f"Signed up new company {company}")
+
+            try:
+                mailer.send_company_creation_email(company, current_user)
+            except Exception as e:
+                app.logger.exception(e)
 
         return CompanySignUp(company=company, employment=admin_employment)
 
