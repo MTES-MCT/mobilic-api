@@ -106,3 +106,11 @@ class Mailer:
             company_name=company.name,
             company_siren=company.siren,
         )
+
+    def send_employment_validation_email(self, employment):
+        self._send_email_from_template(
+            "employment_validation_email.html",
+            f"Vous êtes à présent membre de l'entreprise {employment.company.name}",
+            employment.user.email,
+            company_name=employment.company.name,
+        )

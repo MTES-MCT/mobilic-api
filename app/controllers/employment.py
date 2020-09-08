@@ -178,7 +178,14 @@ class ValidateEmployment(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, employment_id):
-        return review_employment(employment_id, reject=False)
+        employment = review_employment(employment_id, reject=False)
+
+        try:
+            mailer.send_employment_validation_email(employment)
+        except Exception as e:
+            app.logger.exception(e)
+
+        return employment
 
 
 class RejectEmployment(graphene.Mutation):
