@@ -157,7 +157,7 @@ def redirect_to_fc_authorize():
         "state": uuid4().hex,
         "nonce": uuid4().hex,
         "response_type": "code",
-        "scope": "openid given_name family_name preferred_username birthdate",
+        "scope": "openid email given_name family_name preferred_username birthdate",
         "client_id": app.config["FC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
