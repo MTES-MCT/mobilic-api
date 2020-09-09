@@ -112,7 +112,9 @@ class ChangeEmail(graphene.Mutation):
                 current_user.has_confirmed_email = True
                 current_user.has_activated_email = False
                 try:
-                    mailer.send_activation_email(current_user)
+                    mailer.send_activation_email(
+                        current_user, create_account=False
+                    )
                 except Exception as e:
                     app.logger.exception(e)
 

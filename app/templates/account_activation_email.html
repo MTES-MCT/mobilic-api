@@ -1,32 +1,36 @@
 {% extends "transactional_base.html" %}
 
 {% block subject %}
-Activez votre compte Mobilic
+{% if create_account %}Activez votre compte Mobilic{% else %}Confirmez l'adresse email de votre compte Mobilic{% endif %}
 {% endblock %}
 
 {% block body %}
-    <p>Bonjour,</p>
-    <p>Vous venez de créer un compte {% if company_name %}rattaché à l'entreprise <strong>{{company_name}}</strong> {% endif %}sur <span style="font-weight: bold;">Mobilic</span>, la plateforme gouvernementale qui permet de simplifier le suivi du temps de travail des travailleurs mobiles du transport routier léger 🎉 !</p>
-    <p>Pour finaliser votre inscription veuillez cliquer sur le <a href={{activation_link}} target="_blank">lien suivant</a></p>
-    {% if not company_name %}
-        <p>
-            Vous êtes <strong>travailleur mobile</strong> ? Transmettez également votre identifiant Mobilic (<strong>{{user_id}}</strong>) à la personne responsable de votre entreprise pour finaliser votre rattachement avant de commencer à saisir votre temps de travail.
-        </p>
-    {% else %}
-        {% if has_admin_rights %}
+    <p>Bonjour{% if first_name %} {{first_name}}{% endif %},</p>
+    {% if create_account %}
+        <p>Vous venez de créer un compte {% if company_name %}rattaché à l'entreprise <strong>{{company_name}}</strong> {% endif %}sur <span style="font-weight: bold;">Mobilic</span>, la plateforme gouvernementale qui permet de simplifier le suivi du temps de travail des travailleurs mobiles du transport routier léger 🎉 !</p>
+        <p>Pour finaliser votre inscription veuillez cliquer sur le <a href={{activation_link}} target="_blank">lien suivant</a></p>
+        {% if not company_name %}
             <p>
-                Une fois votre compte activé, vous aurez les droits d’administration sur l’entreprise <strong>{{company_name}}</strong> et pourrez alors :
+                Vous êtes <strong>travailleur mobile</strong> ? Transmettez également votre identifiant Mobilic (<strong>{{user_id}}</strong>) à la personne responsable de votre entreprise pour finaliser votre rattachement avant de commencer à saisir votre temps de travail.
             </p>
-            <ul>
-                <li>consulter le temps de travail des salariés</li>
-                <li>gérer les invitations des nouveaux salariés</li>
-                <li>gérer la flotte de véhicules</li>
-            </ul>
         {% else %}
-            <p>
-                Une fois le compte activé vous pourrez commencer à enregistrer votre temps de travail pour l’entreprise <strong>{{company_name}}</strong>.
-            </p>
+            {% if has_admin_rights %}
+                <p>
+                    Une fois votre compte activé, vous aurez les droits d’administration sur l’entreprise <strong>{{company_name}}</strong> et pourrez alors :
+                </p>
+                <ul>
+                    <li>consulter le temps de travail des salariés</li>
+                    <li>gérer les invitations des nouveaux salariés</li>
+                    <li>gérer la flotte de véhicules</li>
+                </ul>
+            {% else %}
+                <p>
+                    Une fois le compte activé vous pourrez commencer à enregistrer votre temps de travail pour l’entreprise <strong>{{company_name}}</strong>.
+                </p>
+            {% endif %}
         {% endif %}
+    {% else %}
+        <p>Pour confirmer votre changement d'adresse email veuillez cliquer le <a href={{activation_link}} target="_blank">lien suivant</a></p>
     {% endif %}
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>

@@ -39,7 +39,7 @@ class Mailer:
         html = render_template(template, **kwargs)
         self._send(html, subject, recipient, kwargs.get("custom_id"))
 
-    def send_employee_invite(self, employment, recipient):
+    def send_employee_invite(self, employment, recipient, first_name=None):
         if employment.user_id or not employment.invite_token:
             raise ValueError(
                 f"Cannot send invite for employment {employment} : it is already bound to a user"
@@ -53,12 +53,13 @@ class Mailer:
             "invitation_email.html",
             subject,
             recipient,
+            first_name=first_name,
             custom_id=employment.invite_token,
             invitation_link=invitation_link,
             company_name=company_name,
         )
 
-    def send_activation_email(self, user):
+    def send_activation_email(self, user, create_account=True):
         if not user.email:
             raise ValueError(
                 f"Cannot send activation email because user has no email address"
@@ -90,9 +91,13 @@ class Mailer:
 
         self._send_email_from_template(
             "account_activation_email.html",
-            "Activez votre compte Mobilic",
+            "Activez votre compte Mobilic"
+            if create_account
+            else "Confirmez l'adresse email de votre compte Mobilic",
             user.email,
             user_id=id,
+            first_name=user.first_name,
+            create_account=create_account,
             activation_link=activation_link,
             company_name=company.name if company else None,
             has_admin_rights=has_admin_rights,
@@ -103,6 +108,7 @@ class Mailer:
             "company_creation_email.html",
             f"L'entreprise {company.name} est créée sur Mobilic !",
             user.email,
+            first_name=user.first_name,
             company_name=company.name,
             company_siren=company.siren,
         )
@@ -112,5 +118,6 @@ class Mailer:
             "employment_validation_email.html",
             f"Vous êtes à présent membre de l'entreprise {employment.company.name}",
             employment.user.email,
+            first_name=employment.user.first_name,
             company_name=employment.company.name,
         )

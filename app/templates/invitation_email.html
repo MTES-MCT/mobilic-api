@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block body %}
-    <p>Bonjour,</p>
+    <p>Bonjour{% if first_name %} {{first_name}}{% endif %},</p>
     <p>Vous avez été invité(e) par l’entreprise <strong>{{company_name}}</strong> à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
     <p>Mobilic est la plateforme gouvernementale permettant d’enregistrer et de suivre le temps de travail dans le transport.</p>
     <p>Pour créer votre compte cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
