@@ -15,7 +15,11 @@ from app.helpers.authentication import (
     UserTokens,
     UserTokensWithFC,
 )
-from app.helpers.authorization import with_authorization_policy, authenticated
+from app.helpers.authorization import (
+    with_authorization_policy,
+    authenticated,
+    AuthorizationError,
+)
 from app.helpers.errors import (
     UserDoesNotExistError,
     InvalidTokenError,
@@ -235,14 +239,31 @@ class Query(graphene.ObjectType):
         description="Consultation des informations d'un utilisateur, notamment ses enregistrements",
     )
 
-    @with_authorization_policy(
-        self_or_company_admin, get_target_from_args=lambda self, info, id: id
+    me = graphene.Field(
+        UserOutput,
+        description="Consultation des informations de l'utilisateur authentifié",
     )
+
     def resolve_user(self, info, id):
-        matching_user = (
-            user_query_with_all_relations().filter(User.id == id).one()
+        return query_user(info, id=id)
+
+    def resolve_me(self, info):
+        return query_user(info)
+
+
+@with_authorization_policy(authenticated)
+def query_user(info, id=None):
+    if id:
+        user = user_query_with_all_relations().filter(User.id == id).one()
+        if not self_or_company_admin(current_user, user):
+            raise AuthorizationError("Unauthorized access")
+    else:
+        user = (
+            user_query_with_all_relations()
+            .filter(User.id == current_user.id)
+            .one()
         )
-        # Set the user in the resolver context so that child resolvers can access it
-        info.context.user_being_queried = matching_user
-        app.logger.info(f"Sending user data for {matching_user}")
-        return matching_user
+
+    info.context.user_being_queried = user
+    app.logger.info(f"Sending user data for {user}")
+    return user
