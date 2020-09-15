@@ -80,7 +80,9 @@ class Dismissable:
             backref="dismissed_" + cls.backref_base_name,
         )
 
-    def dismiss(self, type, dismiss_time=None, context=None):
+    def dismiss(
+        self, type=DismissType.USER_CANCEL, dismiss_time=None, context=None
+    ):
         self.dismiss_received_at = datetime.now()
         if not dismiss_time:
             dismiss_time = self.dismiss_received_at

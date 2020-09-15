@@ -7,6 +7,8 @@ from app.controllers.employment import (
     RejectEmployment,
     GetInvitation,
     RedeemInvitation,
+    TerminateEmployment,
+    CancelEmployment,
 )
 from app.controllers.expenditure import LogExpenditure, CancelExpenditure
 from app.controllers.mission import (
@@ -78,6 +80,8 @@ class Employments(graphene.ObjectType):
     create_employment = CreateEmployment.Field()
     validate_employment = ValidateEmployment.Field()
     reject_employment = RejectEmployment.Field()
+    terminate_employment = TerminateEmployment.Field()
+    cancel_employment = CancelEmployment.Field()
 
 
 class Vehicles(graphene.ObjectType):

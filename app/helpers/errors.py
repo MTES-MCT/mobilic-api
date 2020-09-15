@@ -151,6 +151,10 @@ class EmploymentNotFoundError(MobilicError):
     code = 302
 
 
+class EmploymentNotStartedError(MobilicError):
+    code = 303
+
+
 class MutationWithNonBlockingErrors(graphene.Mutation):
     class Meta:
         abstract = True

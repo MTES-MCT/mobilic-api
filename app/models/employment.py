@@ -9,10 +9,9 @@ from app.helpers.errors import (
 )
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
-    graphene_enum_type,
     TimeStamp,
 )
-from app.models.event import UserEventBaseModel
+from app.models.event import UserEventBaseModel, Dismissable
 from app.models.utils import enum_column
 
 
@@ -22,7 +21,7 @@ class EmploymentRequestValidationStatus(str, Enum):
     REJECTED = "rejected"
 
 
-class Employment(UserEventBaseModel):
+class Employment(UserEventBaseModel, Dismissable):
     backref_base_name = "employments"
 
     is_primary = db.Column(db.Boolean, nullable=False, default=True)
@@ -69,15 +68,17 @@ class Employment(UserEventBaseModel):
         return (
             self.validation_status
             == EmploymentRequestValidationStatus.APPROVED
+            and not self.is_dismissed
         )
 
     def validate_by(self, user, time=None, reject=False):
         if (
             not self.validation_status
             == EmploymentRequestValidationStatus.PENDING
+            or self.is_dismissed
         ):
             raise EmploymentAlreadyReviewedByUserError(
-                f"Employment is already {'validated' if self.is_acknowledged else 'rejected'}"
+                f"Employment is already {'validated' if self.is_acknowledged else 'dismissed' if self.is_dismissed else 'rejected'}"
             )
 
         if not self.user_id == user.id:

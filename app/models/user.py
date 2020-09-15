@@ -131,6 +131,7 @@ class User(BaseModel):
                 e
                 for e in self.employments
                 if e.is_not_rejected
+                and not e.is_dismissed
                 and e.start_date <= date_ <= (e.end_date or date(2100, 1, 1))
             ],
             key=lambda e: not e.is_primary,

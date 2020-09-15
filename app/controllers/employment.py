@@ -12,10 +12,12 @@ from app.helpers.errors import (
     EmploymentAlreadyReviewedByUserError,
     InvalidParamsError,
     EmploymentNotFoundError,
+    EmploymentNotStartedError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
+    AuthorizationError,
 )
 from app.models import Company, User
 from app.models.employment import (
@@ -130,13 +132,13 @@ class CreateEmployment(graphene.Mutation):
             db.session.add(employment)
             db.session.flush()
 
-            if invite_token:
-                try:
-                    mailer.send_employee_invite(
-                        employment, employment_input.get("mail")
-                    )
-                except Exception as e:
-                    app.logger.exception(e)
+            try:
+                mailer.send_employee_invite(
+                    employment,
+                    user.email if user else employment_input.get("mail"),
+                )
+            except Exception as e:
+                app.logger.exception(e)
 
         return employment
 
@@ -215,7 +217,7 @@ def _get_employment_by_token(token):
         Employment.invite_token == token
     ).one_or_none()
 
-    if not employment or employment.user_id:
+    if not employment or employment.user_id or employment.is_dismissed:
         raise EmploymentNotFoundError(
             f"Could not find a valid employment not bound to a user for token {token}"
         )
@@ -246,3 +248,95 @@ class RedeemInvitation(graphene.Mutation):
             employment.user_id = current_user.id
 
         return employment
+
+
+class TerminateEmployment(graphene.Mutation):
+    """
+    Fin du rattachement d'un salarié.
+
+    Retourne le rattachement.
+    """
+
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement à terminer",
+        )
+        end_date = graphene.Argument(
+            graphene.Date,
+            required=False,
+            description="Date de fin du rattachement. Si non précisée, la date du jour sera utilisée.",
+        )
+
+    Output = EmploymentOutput
+
+    @classmethod
+    @with_authorization_policy(authenticated_and_active)
+    def mutate(cls, _, info, employment_id, end_date=None):
+        with atomic_transaction(commit_at_end=True):
+            employment_end_date = end_date or date.today()
+            try:
+                employment = Employment.query.get(employment_id)
+                if not employment.is_acknowledged or employment.end_date:
+                    raise Exception
+            except Exception as e:
+                raise EmploymentNotFoundError(
+                    f"Could not find acknowledged employment with id {employment_id}"
+                )
+
+            if not company_admin_at(current_user, employment.company):
+                raise AuthorizationError("Unauthorized access")
+
+            if employment.start_date > employment_end_date:
+                raise EmploymentNotStartedError(
+                    "Cannot terminate employment at this date because it hasn't started yet"
+                )
+
+            app.logger.info(
+                f"Terminating employment for User {employment.user_id} in Company {employment.company_id}"
+            )
+            employment.end_date = employment_end_date
+
+            db.session.add(employment)
+
+        return employment
+
+
+class CancelEmployment(graphene.Mutation):
+    """
+    Annulation du rattachement d'un salarié. Supprime le rattachement qu'il soit actif ou non.
+
+    Retourne le rattachement
+    """
+
+    message = graphene.String()
+
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement à terminer",
+        )
+
+    @classmethod
+    @with_authorization_policy(authenticated_and_active)
+    def mutate(self, _, info, employment_id):
+        with atomic_transaction(commit_at_end=True):
+            try:
+                employment = Employment.query.get(employment_id)
+                if employment.is_dismissed:
+                    raise Exception
+            except Exception as e:
+                raise EmploymentNotFoundError(
+                    f"Could not find valid employment with id {employment_id}"
+                )
+
+            if not company_admin_at(current_user, employment.company):
+                raise AuthorizationError("Unauthorized access")
+
+            app.logger.info(f"Cancelling Employment {employment_id}")
+
+            employment.dismiss()
+
+        return CancelEmployment(message="success")

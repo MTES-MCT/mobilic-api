@@ -52,7 +52,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         company_admin_at, get_target_from_args=lambda self, info: self
     )
     def resolve_employments(self, info):
-        return [e for e in self.employments if e.is_not_rejected]
+        return [
+            e
+            for e in self.employments
+            if e.is_not_rejected and not e.is_dismissed
+        ]
 
 
 from app.data_access.user import UserOutput

@@ -39,13 +39,19 @@ class Mailer:
         html = render_template(template, **kwargs)
         self._send(html, subject, recipient, kwargs.get("custom_id"))
 
-    def send_employee_invite(self, employment, recipient, first_name=None):
-        if employment.user_id or not employment.invite_token:
+    def send_employee_invite(self, employment, recipient):
+        if employment.user_id:
+            invitation_link = (
+                f"{self.app_config['FRONTEND_URL']}/login?next=/home"
+            )
+
+        elif not employment.invite_token:
             raise ValueError(
                 f"Cannot send invite for employment {employment} : it is already bound to a user"
             )
+        else:
+            invitation_link = f"{self.app_config['FRONTEND_URL']}/invite?token={employment.invite_token}"
 
-        invitation_link = f"{self.app_config['FRONTEND_URL']}/invite?token={employment.invite_token}"
         company_name = employment.company.name
         subject = f"{company_name} vous invite à rejoindre Mobilic."
 
@@ -53,7 +59,7 @@ class Mailer:
             "invitation_email.html",
             subject,
             recipient,
-            first_name=first_name,
+            first_name=employment.user.first_name if employment.user else None,
             custom_id=employment.invite_token,
             invitation_link=invitation_link,
             company_name=company_name,
