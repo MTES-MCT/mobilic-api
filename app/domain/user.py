@@ -1,4 +1,7 @@
+from sqlalchemy.exc import IntegrityError
+
 from app import app, db
+from app.helpers.errors import EmailAlreadyRegisteredError
 from app.models import User, Employment
 
 
@@ -22,7 +25,15 @@ def create_user(
         france_connect_id=fc_info.get("sub") if fc_info else None,
     )
     db.session.add(user)
-    db.session.flush()
+
+    try:
+        db.session.flush()
+    except IntegrityError as e:
+        if e.orig.pgcode == "23505":  # Unique violation
+            raise EmailAlreadyRegisteredError(
+                "An user is already registered for this email"
+            )
+        raise e
 
     company = None
     if invite_token:

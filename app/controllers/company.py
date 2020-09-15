@@ -66,7 +66,6 @@ class CompanySignUp(graphene.Mutation):
                 db.session.flush()
             except IntegrityError as e:
                 if e.orig.pgcode == "23505":  # Unique violation
-                    print("f")
                     raise SirenAlreadySignedUpError("SIREN already registered")
                 raise e
 

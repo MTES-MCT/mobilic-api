@@ -71,6 +71,10 @@ class TokenExpiredError(MobilicError):
     code = 110
 
 
+class EmailAlreadyRegisteredError(MobilicError):
+    code = 111
+
+
 class OverlappingMissionsError(MobilicError):
     code = 200
 
