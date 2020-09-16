@@ -44,7 +44,7 @@ class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
 authorization = AuthorizationServer(
     app=app,
     query_client=lambda id: OAuth2Client.query.get(id),
-    save_token=lambda: None,
+    save_token=lambda *args, **kwargs: None,
 )
 
 
