@@ -86,9 +86,9 @@ def authorize():
 @oauth_blueprint.route("/parse_authorization_request")
 def parse_authorization_request():
     try:
-        client_id = int(request.args["client_id"])
-        redirect_uri = request.args["redirect_uri"]
-        client = OAuth2Client.query.filter(OAuth2Client.id == client_id).one()
+        grant = authorization.validate_consent_request()
+        client = grant.request.client
+        redirect_uri = grant.request.redirect_uri
 
     except Exception as e:
         app.logger.exception(e)
