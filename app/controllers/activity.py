@@ -22,12 +22,10 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     TimeStamp,
 )
+from app.models import User
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
 from app.models.event import DismissType
-from app.models.queries import (
-    mission_query_with_activities,
-    user_query_with_activities,
-)
+from app.models.queries import mission_query_with_activities
 
 
 class ActivityLogInput:
@@ -85,7 +83,9 @@ class LogActivity(graphene.Mutation):
             user = current_user
             user_id = activity_input.get("user_id")
             if user_id:
-                user = user_query_with_activities().get(user_id)
+                user = User.query.get(user_id)
+                if not user:
+                    raise AuthorizationError("Unauthorized access")
 
             log_activity(
                 submitter=current_user,
