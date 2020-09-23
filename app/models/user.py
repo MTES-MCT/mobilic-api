@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy.orm import synonym, selectinload
+from sqlalchemy import desc
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
 from uuid import uuid4
@@ -93,14 +94,30 @@ class User(BaseModel):
         return base_query
 
     def latest_acknowledged_activity_at(self, date_time):
-        acknowledged_activities = [
-            a
-            for a in self.acknowledged_activities
-            if a.start_time <= date_time
-        ]
-        if not acknowledged_activities:
-            return None
-        return acknowledged_activities[-1]
+        from app.models import Activity
+
+        return (
+            Activity.query.filter(
+                Activity.user_id == self.id,
+                Activity.is_acknowledged,
+                Activity.start_time <= date_time,
+            )
+            .order_by(desc(Activity.start_time))
+            .first()
+        )
+
+    def latest_acknowledged_activity_before(self, date_time):
+        from app.models import Activity
+
+        return (
+            Activity.query.filter(
+                Activity.user_id == self.id,
+                Activity.is_acknowledged,
+                Activity.start_time < date_time,
+            )
+            .order_by(desc(Activity.start_time))
+            .first()
+        )
 
     @property
     def current_activity(self):

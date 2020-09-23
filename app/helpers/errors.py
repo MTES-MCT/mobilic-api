@@ -89,7 +89,7 @@ class OverlappingMissionsError(MobilicError):
                 ),
                 conflictingMission=dict(
                     id=conflicting_mission.id,
-                    eventTime=to_timestamp(conflicting_mission.event_time),
+                    eventTime=to_timestamp(conflicting_mission.reception_time),
                     submitter=dict(
                         id=conflicting_mission.submitter.id,
                         firstName=conflicting_mission.submitter.first_name,

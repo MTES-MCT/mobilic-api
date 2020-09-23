@@ -92,6 +92,8 @@ class UserFactory(BaseFactory):
     password = "mybirthday"
     first_name = "Moby"
     last_name = "Lick"
+    has_activated_email = True
+    has_confirmed_email = True
 
     @factory.post_generation
     def post(obj, create, extracted, **kwargs):

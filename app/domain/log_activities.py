@@ -16,8 +16,6 @@ from app.models import Mission
 def check_activity_sequence_in_mission_and_handle_duplicates(
     user, mission, event_time
 ):
-    mission_activities = mission.activities_for(user)
-
     try:
         # Send pending activities to the DB to check simultaneity constraints
         db.session.flush()
@@ -25,6 +23,8 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         raise SimultaneousActivitiesError(
             f"{mission} contains two activities with the same start time"
         )
+
+    mission_activities = mission.activities_for(user)
 
     if len(mission_activities) == 0:
         return
@@ -36,7 +36,11 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
     )
 
     # 1. Check that the mission period is not overlapping with other ones
-    for a in user.acknowledged_activities:
+
+    ## 1a. No activity from another mission should be located within the mission period
+    for a in user.query_activities_with_relations(
+        start_time=mission_time_range[0], end_time=mission_time_range[1]
+    ):
         a_mission_id = a.mission_id if a.mission_id else a.mission.id
         if (
             mission_time_range[0] <= a.start_time <= mission_time_range[1]
@@ -47,6 +51,23 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
                 user=user,
                 conflicting_mission=Mission.query.get(a.mission_id),
             )
+
+    ## 1b. Conversely the mission period should not be contained within another mission period
+    latest_activity_before_mission_start = user.latest_acknowledged_activity_before(
+        mission_time_range[0]
+    )
+    if (
+        latest_activity_before_mission_start
+        and latest_activity_before_mission_start.type != ActivityType.REST
+        and latest_activity_before_mission_start.mission_id != mission.id
+    ):
+        raise OverlappingMissionsError(
+            f"The missions {mission.id} and {latest_activity_before_mission_start.mission_id} are overlapping for {user}, which can't happen",
+            user=user,
+            conflicting_mission=Mission.query.get(
+                latest_activity_before_mission_start.mission_id
+            ),
+        )
 
     # 2. Check that there are no two activities with the same user time
     if not len(set(mission_activity_times)) == len(mission_activity_times):
