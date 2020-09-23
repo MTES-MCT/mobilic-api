@@ -12,7 +12,7 @@ from app.helpers.authorization import (
 from app.helpers.graphene_types import TimeStamp
 from app.models.activity import ActivityType
 from app.models.mission import Mission
-from app.models import Company, Vehicle
+from app.models import Company, Vehicle, User
 from app.models.mission_validation import MissionValidation
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
@@ -150,7 +150,9 @@ class EndMission(graphene.Mutation):
 
             user_id = args.get("user_id")
             if user_id:
-                user = user_query_with_activities().get(user_id)
+                user = User.query.get(user_id)
+                if not user:
+                    raise AuthorizationError("Unauthorized access")
             else:
                 user = current_user
 

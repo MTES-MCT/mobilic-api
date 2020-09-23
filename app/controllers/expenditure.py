@@ -15,6 +15,7 @@ from app.helpers.authorization import (
     authenticated_and_active,
 )
 from app.helpers.graphene_types import graphene_enum_type
+from app.models import User
 from app.models.event import DismissType
 from app.models.expenditure import (
     ExpenditureType,
@@ -68,7 +69,9 @@ class LogExpenditure(graphene.Mutation):
 
             user_id = expenditure_input.get("user_id")
             if user_id:
-                user = user_query_with_activities().get(user_id)
+                user = User.query.get(user_id)
+                if not user:
+                    raise AuthorizationError("Unauthorized access")
             else:
                 user = current_user
 
