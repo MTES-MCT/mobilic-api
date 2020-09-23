@@ -1,6 +1,7 @@
 from flask_migrate import upgrade
 from unittest import TestLoader, TextTestRunner
 import os
+import sys
 
 from app import app, db
 from config import TestConfig
@@ -18,4 +19,7 @@ def test():
             pattern="test_*.py",
             top_level_dir=root_project_path,
         )
-        TextTestRunner(verbosity=3).run(test_suite)
+        result = TextTestRunner(verbosity=3).run(test_suite)
+        if result.wasSuccessful():
+            sys.exit(0)
+        sys.exit(1)
