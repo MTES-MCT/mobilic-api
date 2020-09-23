@@ -23,8 +23,11 @@ class Company(BaseModel):
 
     @property
     def users(self):
+        return [e.user for e in self._active_employments()]
+
+    def _active_employments(self):
         return [
-            e.user
+            e
             for e in self.employments
             if e.is_acknowledged
             and e.start_date
@@ -32,14 +35,8 @@ class Company(BaseModel):
             <= (e.end_date or date(2100, 1, 1))
         ]
 
-    @property
-    def workers(self):
-        return [
-            e.user
-            for e in self.employments
-            if e.is_acknowledged
-            and e.start_date
-            <= date.today()
-            <= (e.end_date or date(2100, 1, 1))
-            and not e.has_admin_rights
-        ]
+    def query_users(self):
+        from app.models import User
+
+        user_ids = [e.user_id for e in self._active_employments()]
+        return User.query.filter(User.id.in_(user_ids))

@@ -16,6 +16,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
     current_user,
+    AuthorizationError,
 )
 from app import siren_api_client, mailer
 from app.helpers.errors import SirenAlreadySignedUpError
@@ -123,9 +124,9 @@ class Query(graphene.ObjectType):
         belongs_to_company_at, get_target_from_args=lambda self, info, id: id
     )
     def resolve_company(self, info, id):
-        matching_company = (
-            company_queries_with_all_relations().filter(Company.id == id).one()
-        )
+        matching_company = Company.query.get(id)
+        if not matching_company:
+            raise AuthorizationError("Unauthorized access")
         return matching_company
 
 

@@ -37,7 +37,7 @@ def self_or_company_admin(actor, user_obj_or_id):
     user = user_obj_or_id
     if type(user_obj_or_id) is int:
         user = User.query.get(user_obj_or_id)
-    if not user or not type(user) is User:
+    if not user:
         return False
     return actor.id == user.id or company_admin_at(actor, user.primary_company)
 
@@ -46,7 +46,7 @@ def only_self(actor, user_obj_or_id):
     user = user_obj_or_id
     if type(user_obj_or_id) is int:
         user = User.query.get(user_obj_or_id)
-    if not user or not type(user) is User:
+    if not user:
         return False
     return actor.id == user.id
 

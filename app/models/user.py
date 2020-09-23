@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy.orm import synonym
+from sqlalchemy.orm import synonym, selectinload
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
 from uuid import uuid4
@@ -59,6 +59,39 @@ class User(BaseModel):
             key=lambda a: a.start_time,
         )
 
+    def query_activities_with_relations(
+        self,
+        include_dismisses_and_revisions=False,
+        include_mission_relations=False,
+        start_time=None,
+        end_time=None,
+    ):
+        from app.models import Activity, Mission
+        from app.models.queries import query_activities
+
+        base_query = query_activities(
+            include_dismisses_and_revisions=include_dismisses_and_revisions,
+            start_time=start_time,
+            end_time=end_time,
+            user_id=self.id,
+        )
+
+        if include_mission_relations:
+            base_query = base_query.options(
+                selectinload(Activity.mission)
+                .options(selectinload(Mission.validations))
+                .options(selectinload(Mission.expenditures))
+                .options(
+                    selectinload(Mission.activities).selectinload(
+                        Activity.revisee
+                    )
+                )
+            )
+        else:
+            base_query = base_query.options(selectinload(Activity.revisee))
+
+        return base_query
+
     def latest_acknowledged_activity_at(self, date_time):
         acknowledged_activities = [
             a
@@ -76,13 +109,21 @@ class User(BaseModel):
             return None
         return acknowledged_activities[-1]
 
-    def missions(self, include_dismisses_and_revisions=False):
+    def query_missions(
+        self,
+        include_dismisses_and_revisions=False,
+        start_time=None,
+        end_time=None,
+    ):
         sorted_missions = []
         missions = set()
         activities = sorted(
-            self.acknowledged_activities
-            if not include_dismisses_and_revisions
-            else self.activities,
+            self.query_activities_with_relations(
+                include_dismisses_and_revisions=include_dismisses_and_revisions,
+                include_mission_relations=True,
+                start_time=start_time,
+                end_time=end_time,
+            ),
             key=lambda a: a.start_time,
         )
         for a in activities:

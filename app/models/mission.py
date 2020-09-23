@@ -20,11 +20,7 @@ class Mission(EventBaseModel):
 
     def activities_for(self, user, include_dismisses_and_revisions=False):
         all_activities_for_user = sorted(
-            [
-                a
-                for a in user.activities
-                if (a.mission_id or a.mission.id) == self.id
-            ],
+            [a for a in self.activities if a.user_id == user.id],
             key=lambda a: a.start_time,
         )
         if not include_dismisses_and_revisions:

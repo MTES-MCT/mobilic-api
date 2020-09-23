@@ -28,7 +28,6 @@ from app.helpers.errors import (
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
 from app import app, mailer
-from app.models.queries import user_query_with_all_relations
 
 
 class UserSignUp(graphene.Mutation):
@@ -254,15 +253,11 @@ class Query(graphene.ObjectType):
 @with_authorization_policy(authenticated)
 def query_user(info, id=None):
     if id:
-        user = user_query_with_all_relations().filter(User.id == id).one()
-        if not self_or_company_admin(current_user, user):
+        user = User.query.get(id)
+        if not user or not self_or_company_admin(current_user, user):
             raise AuthorizationError("Unauthorized access")
     else:
-        user = (
-            user_query_with_all_relations()
-            .filter(User.id == current_user.id)
-            .one()
-        )
+        user = current_user
 
     info.context.user_being_queried = user
     app.logger.info(f"Sending user data for {user}")

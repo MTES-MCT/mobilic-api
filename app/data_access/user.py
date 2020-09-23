@@ -2,7 +2,6 @@ import graphene
 from datetime import date
 
 from app.data_access.mission import MissionOutput
-from app.data_access.work_day import WorkDayOutput
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
@@ -13,7 +12,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
 )
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import User
 from app.models.activity import ActivityOutput
 from app.models.employment import EmploymentOutput
@@ -55,17 +54,37 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.Boolean,
         description="Précise si l'utilisateur est gestionnaire de son entreprise principale",
     )
-    activities = graphene.List(
-        ActivityOutput,
-        description="Liste complète des activités de l'utilisateur",
+    activities = graphene.Field(
+        graphene.List(
+            ActivityOutput,
+            description="Liste complète des activités de l'utilisateur",
+        ),
+        from_time=TimeStamp(
+            required=False, description="Horodatage de début de l'historique"
+        ),
+        until_time=TimeStamp(
+            required=False, description="Horodatage de fin de l'historique"
+        ),
     )
     work_days = graphene.List(
-        WorkDayOutput,
+        lambda: WorkDayOutput,
         description="Regroupement des missions et activités par journée calendaire",
+        from_date=graphene.Date(
+            required=False, description="Date de début de l'historique"
+        ),
+        until_date=graphene.Date(
+            required=False, description="Date de fin de l'historique"
+        ),
     )
     missions = graphene.List(
         MissionOutput,
         description="Liste complète des missions de l'utilisateur",
+        from_time=TimeStamp(
+            required=False, description="Horodatage de début de l'historique"
+        ),
+        until_time=TimeStamp(
+            required=False, description="Horodatage de fin de l'historique"
+        ),
     )
     current_employments = graphene.List(
         EmploymentOutput,
@@ -88,8 +107,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope
-    def resolve_activities(self, info, consultation_scope):
-        acknowledged_activities = self.acknowledged_activities
+    def resolve_activities(
+        self, info, consultation_scope, from_time=None, until_time=None
+    ):
+        acknowledged_activities = self.query_activities_with_relations(
+            start_time=from_time, end_time=until_time
+        )
         if consultation_scope.company_ids:
             acknowledged_activities = [
                 a
@@ -100,13 +123,24 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope
-    def resolve_work_days(self, info, consultation_scope):
-        return group_user_events_by_day(self, consultation_scope)
+    def resolve_work_days(
+        self, info, consultation_scope, from_date=None, until_date=None
+    ):
+        return group_user_events_by_day(
+            self,
+            consultation_scope,
+            from_date=from_date,
+            until_date=until_date,
+        )
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope
-    def resolve_missions(self, info, consultation_scope):
-        missions = self.missions()
+    def resolve_missions(
+        self, info, consultation_scope, from_time=None, until_time=None
+    ):
+        missions = self.query_missions(
+            start_time=from_time, end_time=until_time
+        )
         if consultation_scope.company_ids:
             missions = [
                 m
@@ -123,3 +157,4 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
 
 from app.data_access.company import CompanyOutput
+from app.data_access.work_day import WorkDayOutput

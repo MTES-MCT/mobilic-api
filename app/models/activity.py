@@ -4,6 +4,7 @@ from graphene.types.generic import GenericScalar
 
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
@@ -96,9 +97,13 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 
-    @property
+    @hybrid_property
     def is_acknowledged(self):
         return not self.is_dismissed and not self.is_revised
+
+    @is_acknowledged.expression
+    def is_acknowledged(cls):
+        return cls.dismiss_type.is_(None) & cls.revised_by_id.is_(None)
 
     @property
     def is_duplicate(self):

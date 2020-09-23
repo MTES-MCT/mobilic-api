@@ -14,45 +14,45 @@ from app.models.activity import ActivityType
 class WorkDay:
     user: User
     missions: List[Mission]
-    _activities: List[Activity]
+    activities: List[Activity]
     _all_activities: List[Activity]
     was_modified: bool
 
     def __init__(self, user):
         self.user = user
         self.missions = []
-        self._activities = []
+        self.activities = []
         self._all_activities = []
         self.was_modified = False
 
     def add_mission(self, mission):
         self.missions.append(mission)
-        self._activities.extend(mission.activities_for(self.user))
+        self.activities.extend(mission.activities_for(self.user))
         self._all_activities.extend(
             mission.activities_for(
                 self.user, include_dismisses_and_revisions=True
             )
         )
-        self._activities.sort(key=lambda a: a.start_time)
+        self.activities.sort(key=lambda a: a.start_time)
         self._all_activities.sort(key=lambda a: a.start_time)
 
     @property
     def is_complete(self):
         return (
-            self._activities and self._activities[-1].type == ActivityType.REST
+            self.activities and self.activities[-1].type == ActivityType.REST
         )
 
     @property
     def start_time(self):
-        if self._activities:
-            return self._activities[0].start_time
+        if self.activities:
+            return self.activities[0].start_time
         if self._all_activities:
             return self._all_activities[0].start_time
         return None
 
     @property
     def end_time(self):
-        return self._activities[-1].start_time if self.is_complete else None
+        return self.activities[-1].start_time if self.is_complete else None
 
     @cached_property
     def expenditures(self):
@@ -64,7 +64,7 @@ class WorkDay:
 
     @property
     def activity_timers(self):
-        if not self._activities:
+        if not self.activities:
             return {}
         timers = defaultdict(lambda: 0)
         end_timestamp = (
@@ -74,13 +74,13 @@ class WorkDay:
         )
         timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
         for activity, next_activity in zip(
-            self._activities[:-1], self._activities[1:]
+            self.activities[:-1], self.activities[1:]
         ):
             timers[activity.type] += to_timestamp(
                 next_activity.start_time
             ) - to_timestamp(activity.start_time)
         if not self.is_complete:
-            latest_activity = self._activities[-1]
+            latest_activity = self.activities[-1]
             timers[latest_activity.type] += end_timestamp - to_timestamp(
                 latest_activity.start_time
             )
@@ -92,8 +92,14 @@ class WorkDay:
         return timers
 
 
-def group_user_events_by_day(user, consultation_scope):
-    missions = user.missions(include_dismisses_and_revisions=True)
+def group_user_events_by_day(
+    user, consultation_scope, from_date=None, until_date=None
+):
+    missions = user.query_missions(
+        include_dismisses_and_revisions=True,
+        start_time=from_date,
+        end_time=until_date,
+    )
 
     if consultation_scope.company_ids:
         missions = [
@@ -102,6 +108,10 @@ def group_user_events_by_day(user, consultation_scope):
             if m.company_id in consultation_scope.company_ids
         ]
 
+    return group_user_missions_by_day(user, missions)
+
+
+def group_user_missions_by_day(user, missions):
     work_days = []
     current_work_day = None
     for mission in missions:
