@@ -95,6 +95,7 @@ class SirenAPIClient:
             SIREN_API_TOKEN_ENDPOINT,
             data={"grant_type": "client_credentials"},
             headers={"Authorization": f"Basic {self.api_key}"},
+            timeout=5,
         )
         if not token_response.status_code == 200:
             raise UnavailableSirenAPIError(
@@ -112,6 +113,7 @@ class SirenAPIClient:
         siren_response = requests.get(
             f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}",
             headers={"Authorization": f"Bearer {self.access_token}"},
+            timeout=10,
         )
         if siren_response.status_code == 401 and retry_if_bad_token:
             self._generate_access_token()
