@@ -1,5 +1,6 @@
 from uuid import uuid4
-from authlib.oauth2.rfc6749 import ClientMixin
+import time
+from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
 from app import db
@@ -49,6 +50,44 @@ class OAuth2Client(BaseModel, ClientMixin):
 
     def check_grant_type(self, grant_type):
         return grant_type == "authorization_code"
+
+
+class OAuth2Token(BaseModel, TokenMixin):
+    __tablename__ = "oauth2_token"
+
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    token = db.Column(db.String(255), unique=True, nullable=False)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), index=True, nullable=False
+    )
+    user = db.relationship("User", backref="oauth_tokens")
+
+    revoked_at = db.Column(db.DateTime)
+
+    __table_args__ = (
+        db.Constraint(name="only_one_active_token_per_user_and_client"),
+    )
+
+    def get_client_id(self):
+        return self.client_id
+
+    def get_scope(self):
+        return ""
+
+    def get_expires_in(self):
+        return 86400
+
+    def expires_at(self):
+        return time.time() + 86400
+
+    @property
+    def revoked(self):
+        return self.revoked_at is not None
 
 
 class OAuth2AuthorizationCode(BaseModel, OAuth2AuthorizationCodeMixin):

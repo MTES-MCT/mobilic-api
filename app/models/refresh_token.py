@@ -11,7 +11,7 @@ class RefreshToken(BaseModel):
         db.String(128),
         nullable=False,
         unique=True,
-        default=lambda: uuid4().hex,
+        default=lambda: str(uuid4()),
     )
 
     user_id = db.Column(

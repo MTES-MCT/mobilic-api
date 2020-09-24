@@ -2,11 +2,7 @@ from inspect import signature
 from functools import wraps
 
 from app import app
-from app.helpers.authentication import (
-    with_auth_error_handling,
-    current_user,
-    user_loader,
-)
+from app.helpers.authentication import current_user, require_auth
 from app.helpers.errors import AuthorizationError
 
 
@@ -67,6 +63,6 @@ def with_authorization_policy(
                     raise AuthorizationError("Unauthorized access")
             return value
 
-        return with_auth_error_handling(user_loader(decorated_resolver))
+        return require_auth(decorated_resolver)
 
     return decorator

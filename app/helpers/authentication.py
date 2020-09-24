@@ -2,8 +2,7 @@ from flask import g, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
-    jwt_required,
-    jwt_optional,
+    verify_jwt_in_request,
     jwt_refresh_token_required,
     current_user as current_actor,
     get_raw_jwt,
@@ -13,12 +12,18 @@ from flask_jwt_extended import (
 )
 from datetime import date
 import graphene
-from flask_jwt_extended.exceptions import JWTExtendedException
+from flask_jwt_extended.exceptions import (
+    JWTExtendedException,
+    NoAuthorizationError,
+    InvalidHeaderError,
+)
+from flask_jwt_extended.view_decorators import _decode_jwt_from_headers
 from jwt import PyJWTError
 from functools import wraps
 from werkzeug.local import LocalProxy
 
-current_user = LocalProxy(lambda: g.get("as_user") or current_actor)
+current_user = LocalProxy(lambda: g.get("oauth_user") or current_actor)
+
 
 from app.models.user import User
 from app import app, db
@@ -27,31 +32,45 @@ from app.helpers.errors import AuthenticationError
 jwt = JWTManager(app)
 
 
-def user_loader(f):
+def verify_oauth_token_in_request():
+    from app.helpers.oauth import OAuth2Token
+
+    # We use the internal function from flask-jwt-extended to extract the token part in the authorization header
+    # rather than reimplementing our own
+    oauth_token_string, _ = _decode_jwt_from_headers()
+    matching_token = OAuth2Token.query.filter(
+        OAuth2Token.token == oauth_token_string
+    ).one_or_none()
+
+    if not matching_token or matching_token.revoked:
+        raise AuthenticationError("Invalid token")
+
+    g.oauth_user = matching_token.user
+
+
+def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if app.config["ALLOW_INSECURE_IMPERSONATION"] and not g.get("as_user"):
-            as_user_id = request.args.get("_as_user")
-            if as_user_id:
-                try:
-                    as_user_id = int(as_user_id)
-                    g.as_user = User.query.get(as_user_id)
-                except:
-                    pass
-        if g.get("as_user"):
-            return jwt_optional(f)(*args, **kwargs)
-        return jwt_required(f)(*args, **kwargs)
+        try:
+            verify_jwt_in_request()
+        except (NoAuthorizationError, InvalidHeaderError) as e:
+            raise AuthenticationError(
+                "Invalid or missing authorization header"
+            )
+        except (JWTExtendedException, PyJWTError):
+            verify_oauth_token_in_request()
+        return f(*args, **kwargs)
 
     return wrapper
 
 
-def with_auth_error_handling(f):
+def with_jwt_auth_error_handling(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (JWTExtendedException, PyJWTError) as e:
-            raise AuthenticationError("Error during token validation")
+        except (JWTExtendedException, PyJWTError):
+            raise AuthenticationError("Invalid token")
 
     return wrapper
 
@@ -73,10 +92,7 @@ def get_user_from_token_identity(identity):
 
 
 def create_access_tokens_for(
-    user,
-    client_id=None,
-    include_refresh_token=True,
-    include_additional_info=False,
+    user, client_id=None,
 ):
     from app.models.refresh_token import RefreshToken
 
@@ -94,26 +110,16 @@ def create_access_tokens_for(
                 "client_id": client_id,
             },
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
-        )
-    }
-    if include_additional_info:
-        tokens.update(
-            {
-                "token_type": "Bearer",
-                "expires_in": round(
-                    app.config["ACCESS_TOKEN_EXPIRATION"].total_seconds()
-                ),
-            }
-        )
-    if include_refresh_token:
-        tokens["refresh_token"] = create_refresh_token(
+        ),
+        "refresh_token": create_refresh_token(
             {
                 "id": user.id,
                 "token": RefreshToken.create_refresh_token(user),
                 "client_id": client_id,
             },
             expires_delta=False,
-        )
+        ),
+    }
     db.session.commit()
     return tokens
 
@@ -141,7 +147,6 @@ class LoginMutation(graphene.Mutation):
     Output = UserTokens
 
     @classmethod
-    @with_auth_error_handling
     def mutate(cls, _, info, email, password):
         app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
@@ -162,10 +167,9 @@ class CheckMutation(graphene.Mutation):
     user_id = graphene.Int()
 
     @classmethod
-    @with_auth_error_handling
-    @jwt_required
+    @require_auth
     def mutate(cls, _, info):
-        return CheckMutation(message="success", user_id=current_actor.id)
+        return CheckMutation(message="success", user_id=current_user.id)
 
 
 class LogoutMutation(graphene.Mutation):
@@ -184,8 +188,7 @@ class LogoutMutation(graphene.Mutation):
     message = graphene.String()
 
     @classmethod
-    @with_auth_error_handling
-    @jwt_required
+    @require_auth
     def mutate(cls, _, info, refresh_token):
         from app.models.refresh_token import RefreshToken
 
@@ -214,7 +217,7 @@ class RefreshMutation(graphene.Mutation):
     Output = UserTokens
 
     @classmethod
-    @with_auth_error_handling
+    @with_jwt_auth_error_handling
     @jwt_refresh_token_required
     def mutate(cls, _, info):
         from app.models.refresh_token import RefreshToken

@@ -1,12 +1,21 @@
+from uuid import uuid4
+from sqlalchemy.exc import IntegrityError
 from authlib.oauth2.rfc6749 import grants
 from authlib.integrations.flask_oauth2 import AuthorizationServer
 from flask import Blueprint, request, make_response, jsonify
 from flask_jwt_extended import jwt_required
 
 from app import db, app
-from app.helpers.authentication import create_access_tokens_for, current_user
+from app.helpers.authentication import (
+    current_user,
+    with_jwt_auth_error_handling,
+)
 from app.models import User
-from app.helpers.oauth.models import OAuth2AuthorizationCode, OAuth2Client
+from app.helpers.oauth.models import (
+    OAuth2AuthorizationCode,
+    OAuth2Client,
+    OAuth2Token,
+)
 
 
 class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
@@ -48,29 +57,35 @@ authorization = AuthorizationServer(
 )
 
 
-def generate_token(
-    client,
-    grant_type,
-    user=None,
-    scope=None,
-    expires_in=None,
-    include_refresh_token=True,
-):
-    return create_access_tokens_for(
-        user,
-        client_id=client.id,
-        include_refresh_token=include_refresh_token,
-        include_additional_info=True,
-    )
+def get_or_create_token(client, grant_type, user=None, **kwargs):
+    valid_token = OAuth2Token.query.filter(
+        OAuth2Token.client_id == client.id,
+        OAuth2Token.user_id == user.id,
+        OAuth2Token.revoked_at.is_(None),
+    ).one_or_none()
+
+    if not valid_token:
+        try:
+            valid_token = OAuth2Token(
+                client_id=client.id, user_id=user.id, token=str(uuid4())
+            )
+            db.session.add(valid_token)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return get_or_create_token(client, grant_type, user=user, **kwargs)
+
+    return {"token_type": "Bearer", "access_token": valid_token.token}
 
 
-authorization.generate_token = generate_token
+authorization.generate_token = get_or_create_token
 authorization.register_grant(AuthorizationCodeGrant)
 
 oauth_blueprint = Blueprint(__name__, "app.helpers.oauth")
 
 
 @oauth_blueprint.route("/authorize", methods=["GET"])
+@with_jwt_auth_error_handling
 @jwt_required
 def authorize():
     response = authorization.create_authorization_response(

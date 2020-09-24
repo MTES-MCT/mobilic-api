@@ -14,7 +14,6 @@ class Config:
     DISABLE_AUTH_FOR_TESTING = False
     SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
-    ALLOW_INSECURE_IMPERSONATION = False
     SENTRY_URL = os.environ.get("SENTRY_URL")
     SENTRY_ENVIRONMENT = "dev"
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
@@ -31,7 +30,6 @@ class Config:
 
 
 class DevConfig(Config):
-    ALLOW_INSECURE_IMPERSONATION = True
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
