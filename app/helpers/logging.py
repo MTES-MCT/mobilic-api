@@ -1,11 +1,16 @@
 import os
-from app.helpers.authentication import current_user
+
 import logging
+from marshmallow import fields
 from flask.logging import default_handler
 from flask import request, has_request_context
 from slacker import Slacker
+from logging_ldp.formatters import LDPGELFFormatter
+from logging_ldp.handlers import LDPGELFTCPSocketHandler
+from logging_ldp.schemas import LDPSchema
 
 from app import app
+from app.helpers.authentication import current_user
 
 
 slack = Slacker(app.config["SLACK_TOKEN"])
@@ -83,6 +88,7 @@ class SlackFormatter(logging.Formatter):
 
 app.logger.setLevel(logging.INFO)
 app.logger.addFilter(add_request_and_user_context)
+default_handler.addFilter(lambda r: not getattr(r, "graphql_request", False))
 default_handler.setFormatter(
     logging.Formatter(
         "[%(asctime)s] user=%(current_user)s %(levelname)s in %(name)s: %(message)s"
@@ -99,3 +105,18 @@ if app.config["SLACK_TOKEN"]:
     )
     slack_handler.setFormatter(SlackFormatter("%(message)s"))
     logging.getLogger().addHandler(slack_handler)
+
+
+class FreeSchema(LDPSchema):
+    graphql_request = fields.Dict()
+    status_code = fields.Int()
+    current_user = fields.String()
+    device = fields.String()
+
+
+if app.config["OVH_LDP_TOKEN"]:
+    ovh_handler = LDPGELFTCPSocketHandler("gra2.logs.ovh.com")
+    ovh_handler.setFormatter(
+        LDPGELFFormatter(app.config["OVH_LDP_TOKEN"], schema=FreeSchema)
+    )
+    logging.getLogger().addHandler(ovh_handler)

@@ -1,4 +1,4 @@
-from flask import g, request
+from flask import g
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,

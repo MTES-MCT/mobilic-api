@@ -13,6 +13,7 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
     SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
+    OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SENTRY_URL = os.environ.get("SENTRY_URL")
     SENTRY_ENVIRONMENT = "dev"

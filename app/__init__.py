@@ -1,5 +1,4 @@
 from flask import Flask
-from flask_graphql import GraphQLView
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
@@ -38,6 +37,7 @@ Migrate(app, db)
 CORS(app)
 
 from app.helpers import cli
+from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers.admin import admin
 from app.helpers import logging
@@ -55,14 +55,14 @@ graphql_private_api_path = "/unexposed"
 
 app.add_url_rule(
     graphql_api_path,
-    view_func=GraphQLView.as_view(
+    view_func=CustomGraphQLView.as_view(
         "graphql", schema=graphql_schema, graphiql=True, batch=True
     ),
 )
 
 app.add_url_rule(
     graphql_private_api_path,
-    view_func=GraphQLView.as_view(
+    view_func=CustomGraphQLView.as_view(
         "unexposed", schema=private_graphql_schema, graphiql=False
     ),
 )
