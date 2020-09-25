@@ -32,7 +32,7 @@ class GraphQLTestClient(FlaskClient):
         self.mocked_token_verification = None
         if mock_authentication_with_user:
             self.mocked_token_verification = patch(
-                "flask_jwt_extended.view_decorators.verify_jwt_in_request",
+                "app.helpers.authentication.verify_jwt_in_request",
                 new=MagicMock(return_value=None),
             )
             self.mocked_authenticated_user = patch(
