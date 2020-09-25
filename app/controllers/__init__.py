@@ -15,6 +15,7 @@ from app.controllers.mission import (
     CreateMission,
     EndMission,
     ValidateMission,
+    Query as MissionQuery,
 )
 from app.controllers.user import (
     UserSignUp,
@@ -117,7 +118,7 @@ class PrivateMutations(graphene.ObjectType):
     vehicles = graphene.Field(Vehicles, resolver=lambda root, info: Vehicles())
 
 
-class Queries(UserQuery, CompanyQuery, graphene.ObjectType):
+class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
     """
     Requêtes de consultation qui ne modifient pas l'état du système
     """

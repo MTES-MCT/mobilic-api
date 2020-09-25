@@ -20,10 +20,7 @@ from app.domain.permissions import (
     belongs_to_company_at,
 )
 from app.helpers.authentication import current_user
-from app.models.queries import (
-    user_query_with_activities,
-    mission_query_with_activities,
-)
+from app.models.queries import mission_query_with_activities
 from app.helpers.errors import AuthorizationError
 
 
@@ -202,5 +199,24 @@ class ValidateMission(graphene.Mutation):
                     mission=mission,
                 )
             )
+
+        return mission
+
+
+class Query(graphene.ObjectType):
+    mission = graphene.Field(
+        MissionOutput,
+        id=graphene.Int(required=True),
+        description="Consultation des informations d'une mission",
+    )
+
+    @classmethod
+    @with_authorization_policy(
+        can_user_log_on_mission_at,
+        get_target_from_args=lambda self, info, id: Mission.query.get(id),
+    )
+    def resolve_mission(self, info, id):
+        mission = Mission.query.get(id)
+        app.logger.info(f"Sending mission data for {mission}")
 
         return mission

@@ -2,10 +2,10 @@ import graphene
 from graphene.types.generic import GenericScalar
 
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.helpers.authentication import current_user
 from app.models import Mission
 from app.models.activity import ActivityOutput
 from app.models.expenditure import ExpenditureOutput
+from app.models.mission_validation import MissionValidationOutput
 
 
 class MissionOutput(BaseSQLAlchemyObjectType):
@@ -50,9 +50,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     expenditures = graphene.List(
         ExpenditureOutput, description="Frais associés la mission"
     )
-    validated = graphene.Field(
-        graphene.Boolean,
-        description="Précise si la mission a été validée par l'utilisateur (requêté)",
+    validations = graphene.Field(
+        MissionValidationOutput,
+        description="Liste des validations de la mission",
     )
 
     def resolve_activities(self, info):
@@ -60,7 +60,3 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_expenditures(self, info):
         return self.acknowledged_expenditures
-
-    def resolve_validated(self, info):
-        user = getattr(info.context, "user_being_queried", current_user)
-        return self.validated_by(user)

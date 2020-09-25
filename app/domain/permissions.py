@@ -55,6 +55,10 @@ def can_user_log_on_mission_at(user, mission, date=None):
     return belongs_to_company_at(user, mission.company_id, date)
 
 
+def can_user_access_mission(user, mission):
+    return belongs_to_company_at(user, mission.company_id)
+
+
 @dataclass
 class ConsultationScope:
     all_access: bool = False
