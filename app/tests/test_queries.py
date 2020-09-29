@@ -84,7 +84,7 @@ class TestQueries(BaseTest):
                         id
                         users {
                             id
-                            isCompanyAdmin
+                            isAdminOfPrimaryCompany
                         }
                     }
                 }
@@ -110,7 +110,12 @@ class TestQueries(BaseTest):
             )
             self.assertSetEqual(
                 {True, False},
-                set([u["isCompanyAdmin"] for u in company_data["users"]]),
+                set(
+                    [
+                        u["isAdminOfPrimaryCompany"]
+                        for u in company_data["users"]
+                    ]
+                ),
             )
 
     def test_admin_restricted_data(self):
