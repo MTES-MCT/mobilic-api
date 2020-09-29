@@ -52,10 +52,14 @@ def only_self(actor, user_obj_or_id):
 
 
 def can_user_log_on_mission_at(user, mission, date=None):
+    if not mission:
+        return False
     return belongs_to_company_at(user, mission.company_id, date)
 
 
 def can_user_access_mission(user, mission):
+    if not mission:
+        return False
     return belongs_to_company_at(user, mission.company_id)
 
 
@@ -73,31 +77,34 @@ def get_activity_consultation_scope(actor, user=None) -> ConsultationScope:
     )
 
 
-def user_resolver_with_consultation_scope(resolver):
-    @wraps(resolver)
-    def wrapper(user, info, *args, **kwargs):
-        consultation_scope = get_activity_consultation_scope(
-            current_user, user
-        )
+def user_resolver_with_consultation_scope(error_message="Unauthorized access"):
+    def decorator(resolver):
+        @wraps(resolver)
+        def wrapper(user, info, *args, **kwargs):
+            consultation_scope = get_activity_consultation_scope(
+                current_user, user
+            )
 
-        company_further_scoping = getattr(
-            info.context, "company_ids_scope", None
-        )
-        if company_further_scoping:
-            consultation_scope.company_ids = [
-                cid
-                for cid in consultation_scope.company_ids
-                if cid in company_further_scoping
-            ]
+            company_further_scoping = getattr(
+                info.context, "company_ids_scope", None
+            )
+            if company_further_scoping:
+                consultation_scope.company_ids = [
+                    cid
+                    for cid in consultation_scope.company_ids
+                    if cid in company_further_scoping
+                ]
 
-        if (
-            not consultation_scope.all_access
-            and not consultation_scope.company_ids
-        ):
-            raise AuthorizationError("Unauthorized access to field")
+            if (
+                not consultation_scope.all_access
+                and not consultation_scope.company_ids
+            ):
+                raise AuthorizationError(error_message)
 
-        kwargs["consultation_scope"] = consultation_scope
+            kwargs["consultation_scope"] = consultation_scope
 
-        return resolver(user, info, *args, **kwargs)
+            return resolver(user, info, *args, **kwargs)
 
-    return wrapper
+        return wrapper
+
+    return decorator

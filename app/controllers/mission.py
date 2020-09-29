@@ -20,7 +20,7 @@ from app.domain.permissions import (
     belongs_to_company_at,
 )
 from app.helpers.authentication import current_user
-from app.models.queries import mission_query_with_activities
+from app.models.queries import mission_query_with_relations
 from app.helpers.errors import AuthorizationError
 
 
@@ -141,7 +141,7 @@ class EndMission(graphene.Mutation):
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
-            mission = mission_query_with_activities().get(
+            mission = mission_query_with_relations().get(
                 args.get("mission_id")
             )
 
@@ -187,6 +187,7 @@ class ValidateMission(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: Mission.query.get(
             kwargs["mission_id"]
         ),
+        error_message="Actor is not authorized to validate the mission",
     )
     def mutate(cls, _, info, mission_id):
         with atomic_transaction(commit_at_end=True):
@@ -210,13 +211,12 @@ class Query(graphene.ObjectType):
         description="Consultation des informations d'une mission",
     )
 
-    @classmethod
     @with_authorization_policy(
         can_user_log_on_mission_at,
         get_target_from_args=lambda self, info, id: Mission.query.get(id),
+        error_message="Unauthorized access",
     )
     def resolve_mission(self, info, id):
         mission = Mission.query.get(id)
         app.logger.info(f"Sending mission data for {mission}")
-
         return mission

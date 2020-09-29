@@ -50,7 +50,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     expenditures = graphene.List(
         ExpenditureOutput, description="Frais associés la mission"
     )
-    validations = graphene.Field(
+    validations = graphene.List(
         MissionValidationOutput,
         description="Liste des validations de la mission",
     )
@@ -60,3 +60,20 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_expenditures(self, info):
         return self.acknowledged_expenditures
+
+    def resolve_validations(self, info):
+        latest_validations_by_user = {}
+        for validation in self.validations:
+            current_latest_val_for_user = latest_validations_by_user.get(
+                validation.submitter_id
+            )
+            if (
+                not current_latest_val_for_user
+                or current_latest_val_for_user.reception_time
+                < validation.reception_time
+            ):
+                latest_validations_by_user[
+                    validation.submitter_id
+                ] = validation
+
+        return list(latest_validations_by_user.values())

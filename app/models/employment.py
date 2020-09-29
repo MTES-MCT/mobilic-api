@@ -3,10 +3,7 @@ from datetime import datetime
 import graphene
 
 from app import db
-from app.helpers.errors import (
-    EmploymentAlreadyReviewedByUserError,
-    AuthorizationError,
-)
+from app.helpers.errors import AuthorizationError, InvalidResourceError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -72,18 +69,18 @@ class Employment(UserEventBaseModel, Dismissable):
         )
 
     def validate_by(self, user, time=None, reject=False):
+        if not self.user_id == user.id:
+            raise AuthorizationError(
+                "Actor is not authorized to review the employment"
+            )
+
         if (
             not self.validation_status
             == EmploymentRequestValidationStatus.PENDING
             or self.is_dismissed
         ):
-            raise EmploymentAlreadyReviewedByUserError(
+            raise InvalidResourceError(
                 f"Employment is already {'validated' if self.is_acknowledged else 'dismissed' if self.is_dismissed else 'rejected'}"
-            )
-
-        if not self.user_id == user.id:
-            raise AuthorizationError(
-                f"The user is not authorized to review the employment"
             )
 
         self.validation_status = (

@@ -8,7 +8,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
-from app.helpers.errors import ActivityAlreadyDismissedError
+from app.helpers.errors import ResourceAlreadyDismissedError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
@@ -113,9 +113,7 @@ class Activity(UserEventBaseModel, DeferrableEventBaseModel, Revisable):
         from app.domain.log_activities import log_activity
 
         if self.is_dismissed:
-            raise ActivityAlreadyDismissedError(
-                f"You can't revise an already dismissed activity"
-            )
+            raise ResourceAlreadyDismissedError("Activity already dismissed")
         if not self.id:
             for prop, value in updated_props.items():
                 setattr(self, prop, value)

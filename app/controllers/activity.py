@@ -1,18 +1,22 @@
-from app.domain.permissions import can_user_log_on_mission_at
-from app.helpers.authentication import current_user
 import graphene
+from sqlalchemy.exc import IntegrityError, DatabaseError
 from datetime import datetime
 from graphene.types.generic import GenericScalar
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
+from app.domain.permissions import can_user_log_on_mission_at
+from app.helpers.authentication import current_user
 from app.domain.log_activities import (
     log_activity,
     check_activity_sequence_in_mission_and_handle_duplicates,
 )
 from app.helpers.errors import (
     AuthorizationError,
-    ActivityAlreadyDismissedError,
+    ResourceAlreadyDismissedError,
+    SimultaneousActivitiesError,
+    InternalError,
+    InvalidParamsError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -25,7 +29,7 @@ from app.helpers.graphene_types import (
 from app.models import User
 from app.models.activity import InputableActivityType, Activity, ActivityOutput
 from app.models.event import DismissType
-from app.models.queries import mission_query_with_activities
+from app.models.queries import mission_query_with_relations
 
 
 class ActivityLogInput:
@@ -72,33 +76,40 @@ class LogActivity(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **activity_input):
-        with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
-            app.logger.info(
-                f"Logging activity {activity_input['type']} submitted by {current_user}"
-            )
-            mission_id = activity_input.get("mission_id")
-            mission = mission_query_with_activities().get(mission_id)
+        try:
+            with atomic_transaction(commit_at_end=True):
+                reception_time = datetime.now()
+                app.logger.info(
+                    f"Logging activity {activity_input['type']} submitted by {current_user}"
+                )
+                mission_id = activity_input.get("mission_id")
+                mission = mission_query_with_relations().get(mission_id)
 
-            user = current_user
-            user_id = activity_input.get("user_id")
-            if user_id:
-                user = User.query.get(user_id)
-                if not user:
-                    raise AuthorizationError("Unauthorized access")
+                user = current_user
+                user_id = activity_input.get("user_id")
+                if user_id:
+                    user = User.query.get(user_id)
 
-            log_activity(
-                submitter=current_user,
-                user=user,
-                mission=mission,
-                type=activity_input["type"],
-                reception_time=reception_time,
-                start_time=activity_input["start_time"],
-                end_time=activity_input.get("end_time"),
-                context=activity_input.get("context"),
-            )
+                log_activity(
+                    submitter=current_user,
+                    user=user,
+                    mission=mission,
+                    type=activity_input["type"],
+                    reception_time=reception_time,
+                    start_time=activity_input["start_time"],
+                    end_time=activity_input.get("end_time"),
+                    context=activity_input.get("context"),
+                )
 
-        return mission.acknowledged_activities
+            return mission.acknowledged_activities
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise SimultaneousActivitiesError()
+
+        except DatabaseError as e:
+            app.logger.exception(e)
+            raise InternalError("An internal error occurred")
 
 
 class ActivityEditInput:
@@ -125,52 +136,67 @@ class ActivityEditInput:
 def edit_activity(
     activity_id, cancel, start_time=None, end_time=None, context=None
 ):
-    with atomic_transaction(commit_at_end=True):
-        reception_time = datetime.now()
-        activity_to_update = None
-        try:
+    try:
+        with atomic_transaction(commit_at_end=True):
+            reception_time = datetime.now()
             activity_to_update = Activity.query.get(activity_id)
-        except Exception as e:
-            pass
 
-        if not activity_to_update or not activity_to_update.is_acknowledged:
-            raise ActivityAlreadyDismissedError(
-                f"Could not find valid Activity event with id {activity_id}"
-            )
-        mission = mission_query_with_activities().get(
-            activity_to_update.mission_id
-        )
+            if not activity_to_update:
+                raise AuthorizationError(
+                    f"Actor is not authorized to edit the activity"
+                )
 
-        if not can_user_log_on_mission_at(
-            current_user, mission, activity_to_update.start_time
-        ) or (
-            start_time
-            and not can_user_log_on_mission_at(
-                current_user, mission, start_time
-            )
-        ):
-            raise AuthorizationError(
-                f"The user is not authorized to edit the activity"
+            mission = mission_query_with_relations().get(
+                activity_to_update.mission_id
             )
 
-        db.session.add(activity_to_update)
-        app.logger.info(
-            f"{'Cancelling' if cancel else 'Revising'} {activity_to_update}"
-        )
-        if cancel:
-            activity_to_update.dismiss(
-                DismissType.USER_CANCEL, reception_time, context
+            if not can_user_log_on_mission_at(
+                current_user, mission, activity_to_update.start_time
+            ) or (
+                start_time
+                and not can_user_log_on_mission_at(
+                    current_user, mission, start_time
+                )
+            ):
+                raise AuthorizationError(
+                    f"Actor is not authorized to edit the activity"
+                )
+
+            if not activity_to_update.is_acknowledged:
+                raise ResourceAlreadyDismissedError(
+                    f"Activity already dismissed."
+                )
+
+            db.session.add(activity_to_update)
+            app.logger.info(
+                f"{'Cancelling' if cancel else 'Revising'} {activity_to_update}"
             )
-        else:
-            activity_to_update.revise(
+            if cancel:
+                activity_to_update.dismiss(
+                    DismissType.USER_CANCEL, reception_time, context
+                )
+            else:
+                updates = {}
+                if start_time:
+                    updates["start_time"] = start_time
+                if end_time:
+                    updates["end_time"] = end_time
+                activity_to_update.revise(
+                    reception_time, revision_context=context, **updates
+                )
+            check_activity_sequence_in_mission_and_handle_duplicates(
+                activity_to_update.user,
+                activity_to_update.mission,
                 reception_time,
-                revision_context=context,
-                start_time=start_time,
-                end_time=end_time,
             )
-        check_activity_sequence_in_mission_and_handle_duplicates(
-            activity_to_update.user, activity_to_update.mission, reception_time
-        )
+
+    except IntegrityError as e:
+        app.logger.exception(e)
+        raise SimultaneousActivitiesError()
+
+    except DatabaseError as e:
+        app.logger.exception(e)
+        raise InternalError("An internal error occurred")
 
     return mission.acknowledged_activities
 
@@ -220,6 +246,11 @@ class EditActivity(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **edit_input):
+        if not edit_input.get("start_time") and not edit_input.get("end_time"):
+            raise InvalidParamsError(
+                "At least one of startTime or endTime should be set"
+            )
+
         return edit_activity(
             edit_input["activity_id"],
             cancel=False,

@@ -29,8 +29,12 @@ class TimeStamp(DateTime):
 
     @classmethod
     def parse_literal(cls, node):
-        if isinstance(node, ast.IntValue):
-            return cls.parse_value(node.value)
+        if isinstance(node, ast.IntValue) or isinstance(node, ast.StringValue):
+            try:
+                value = int(node.value)
+            except ValueError:
+                return None
+            return cls.parse_value(value)
 
 
 @convert_sqlalchemy_type.register(types.DateTime)
@@ -65,6 +69,11 @@ def graphene_enum_type(enum):
                 if enum_item == value:
                     return enum_item
             return None
+
+        @staticmethod
+        def parse_literal(node):
+            if isinstance(node, ast.StringValue):
+                return GrapheneEnumType.parse_value(node.value)
 
     GRAPHENE_ENUM_TYPES[name] = GrapheneEnumType
 

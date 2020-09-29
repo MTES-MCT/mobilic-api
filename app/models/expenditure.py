@@ -36,6 +36,10 @@ class Expenditure(UserEventBaseModel, Dismissable):
 
     type = enum_column(ExpenditureType, nullable=False)
 
+    __table_args__ = (
+        db.Constraint("no_duplicate_expenditures_per_user_and_mission"),
+    )
+
     def __repr__(self):
         return f"<Expenditure [{self.id}] : {self.type.value}>"
 

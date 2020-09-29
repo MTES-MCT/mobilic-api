@@ -3,16 +3,18 @@ from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime, date
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError, DatabaseError
 from uuid import uuid4
 
 from app import app, db, mailer
 from app.controllers.utils import atomic_transaction
 from app.helpers.errors import (
     MissingPrimaryEmploymentError,
-    EmploymentAlreadyReviewedByUserError,
     InvalidParamsError,
-    EmploymentNotFoundError,
-    EmploymentNotStartedError,
+    OverlappingEmploymentsError,
+    InternalError,
+    InvalidTokenError,
+    InvalidResourceError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -79,81 +81,91 @@ class CreateEmployment(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, **employment_input):
-        with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
-            app.logger.info(
-                f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
-            )
-            company = Company.query.get(employment_input["company_id"])
-
-            if employment_input.get("user_id") == employment_input.get("mail"):
-                raise InvalidParamsError(
-                    "Exactly one of user_id or mail should be provided."
+        try:
+            with atomic_transaction(commit_at_end=True):
+                reception_time = datetime.now()
+                app.logger.info(
+                    f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
                 )
+                company = Company.query.get(employment_input["company_id"])
 
-            user_id = employment_input.get("user_id")
-            user = None
-            invite_token = None
-            if user_id:
-                user = User.query.options(selectinload(User.employments)).get(
-                    employment_input["user_id"]
-                )
-
-            if employment_input.get("mail"):
-                invite_token = uuid4().hex
-
-            start_date = employment_input.get("start_date", date.today())
-
-            if user:
-                user_current_primary_employment = (
-                    user.primary_employment_at(start_date) if user else None
-                )
-                if (
-                    not user_current_primary_employment
-                    and not employment_input.get("is_primary", True)
+                if (employment_input.get("user_id") is None) == (
+                    employment_input.get("mail") is None
                 ):
-                    raise MissingPrimaryEmploymentError(
-                        f"Cannot create a secondary employment for {user} because there is no primary employment in the same period"
+                    raise InvalidParamsError(
+                        "Exactly one of userId or mail should be provided."
                     )
 
-            employment = Employment(
-                reception_time=reception_time,
-                submitter=current_user,
-                is_primary=employment_input.get("is_primary", True),
-                validation_status=EmploymentRequestValidationStatus.PENDING,
-                start_date=start_date,
-                end_date=employment_input.get("end_date"),
-                company=company,
-                has_admin_rights=employment_input.get("has_admin_rights"),
-                user_id=user_id,
-                invite_token=invite_token,
-                email=employment_input.get("mail"),
-            )
-            db.session.add(employment)
-            db.session.flush()
+                user_id = employment_input.get("user_id")
+                user = None
+                invite_token = None
+                if user_id:
+                    user = User.query.options(
+                        selectinload(User.employments)
+                    ).get(employment_input["user_id"])
+                    if not user:
+                        raise InvalidResourceError("Invalid user id")
 
-            try:
-                mailer.send_employee_invite(
-                    employment,
-                    user.email if user else employment_input.get("mail"),
+                if employment_input.get("mail"):
+                    invite_token = uuid4().hex
+
+                start_date = employment_input.get("start_date", date.today())
+
+                if user:
+                    user_current_primary_employment = (
+                        user.primary_employment_at(start_date)
+                        if user
+                        else None
+                    )
+                    if (
+                        not user_current_primary_employment
+                        and not employment_input.get("is_primary", True)
+                    ):
+                        raise MissingPrimaryEmploymentError(
+                            "Cannot create a secondary employment for user because there is no primary employment in the same period"
+                        )
+
+                employment = Employment(
+                    reception_time=reception_time,
+                    submitter=current_user,
+                    is_primary=employment_input.get("is_primary", True),
+                    validation_status=EmploymentRequestValidationStatus.PENDING,
+                    start_date=start_date,
+                    end_date=employment_input.get("end_date"),
+                    company=company,
+                    has_admin_rights=employment_input.get("has_admin_rights"),
+                    user_id=user_id,
+                    invite_token=invite_token,
+                    email=employment_input.get("mail"),
                 )
-            except Exception as e:
-                app.logger.exception(e)
+                db.session.add(employment)
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise OverlappingEmploymentsError(e)
+
+        except DatabaseError as e:
+            app.logger.exception(e)
+            raise InternalError("An internal error occurred")
+
+        try:
+            mailer.send_employee_invite(
+                employment,
+                user.email if user else employment_input.get("mail"),
+            )
+        except Exception as e:
+            app.logger.exception(e)
 
         return employment
 
 
 def review_employment(employment_id, reject):
     with atomic_transaction(commit_at_end=True):
-        employment = None
-        try:
-            employment = Employment.query.get(employment_id)
-        except Exception as e:
-            pass
+        employment = Employment.query.get(employment_id)
 
         if not employment:
-            raise EmploymentAlreadyReviewedByUserError(
-                f"Could not find pending Employment event with id {employment_id}"
+            raise AuthorizationError(
+                "Actor is not authorized to review the employment"
             )
 
         employment.validate_by(current_user, reject=reject)
@@ -218,9 +230,7 @@ def _get_employment_by_token(token):
     ).one_or_none()
 
     if not employment or employment.user_id or employment.is_dismissed:
-        raise EmploymentNotFoundError(
-            f"Could not find a valid employment not bound to a user for token {token}"
-        )
+        raise InvalidTokenError("Token does not match a valid employment")
 
     return employment
 
@@ -243,9 +253,14 @@ class RedeemInvitation(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, invite_token):
-        with atomic_transaction(commit_at_end=True):
-            employment = _get_employment_by_token(invite_token)
-            employment.user_id = current_user.id
+        try:
+            with atomic_transaction(commit_at_end=True):
+                employment = _get_employment_by_token(invite_token)
+                employment.user_id = current_user.id
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise OverlappingEmploymentsError(e)
 
         return employment
 
@@ -276,21 +291,23 @@ class TerminateEmployment(graphene.Mutation):
     def mutate(cls, _, info, employment_id, end_date=None):
         with atomic_transaction(commit_at_end=True):
             employment_end_date = end_date or date.today()
-            try:
-                employment = Employment.query.get(employment_id)
-                if not employment.is_acknowledged or employment.end_date:
-                    raise Exception
-            except Exception as e:
-                raise EmploymentNotFoundError(
-                    f"Could not find acknowledged employment with id {employment_id}"
+
+            employment = Employment.query.get(employment_id)
+            if not employment or not company_admin_at(
+                current_user, employment.company
+            ):
+                raise AuthorizationError(
+                    "Actor is not authorized to terminate the employment"
                 )
 
-            if not company_admin_at(current_user, employment.company):
-                raise AuthorizationError("Unauthorized access")
+            if not employment.is_acknowledged or employment.end_date:
+                raise InvalidResourceError(
+                    f"Employment is inactive or has already an end date"
+                )
 
             if employment.start_date > employment_end_date:
-                raise EmploymentNotStartedError(
-                    "Cannot terminate employment at this date because it hasn't started yet"
+                raise InvalidParamsError(
+                    "End date is before the employment start date"
                 )
 
             app.logger.info(
@@ -323,18 +340,19 @@ class CancelEmployment(graphene.Mutation):
     @with_authorization_policy(authenticated_and_active)
     def mutate(self, _, info, employment_id):
         with atomic_transaction(commit_at_end=True):
-            try:
-                employment = Employment.query.get(employment_id)
-                if employment.is_dismissed:
-                    raise Exception
-            except Exception as e:
-                raise EmploymentNotFoundError(
-                    f"Could not find valid employment with id {employment_id}"
+            employment = Employment.query.get(employment_id)
+
+            if not employment or not company_admin_at(
+                current_user, employment.company
+            ):
+                raise AuthorizationError(
+                    "Actor is not authorized to cancel the employment"
                 )
 
-            if not company_admin_at(current_user, employment.company):
-                raise AuthorizationError("Unauthorized access")
-
+            if employment.is_dismissed:
+                raise InvalidResourceError(
+                    f"Could not find valid employment with id {employment_id}"
+                )
             app.logger.info(f"Cancelling Employment {employment_id}")
 
             employment.dismiss()

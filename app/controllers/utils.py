@@ -22,5 +22,6 @@ def atomic_transaction(commit_at_end=False):
             db.session.rollback()
             event.remove(db.session(), "before_commit", _raise_commit_error)
     except Exception as e:
-        event.remove(db.session(), "before_commit", _raise_commit_error)
+        if event.contains(db.session(), "before_commit", _raise_commit_error):
+            event.remove(db.session(), "before_commit", _raise_commit_error)
         raise e

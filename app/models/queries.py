@@ -27,14 +27,12 @@ def user_query_with_all_relations():
     )
 
 
-def mission_query_with_activities():
-    return Mission.query.options(selectinload(Mission.validations)).options(
-        selectinload(Mission.activities)
+def mission_query_with_relations():
+    return (
+        Mission.query.options(selectinload(Mission.validations))
+        .options(selectinload(Mission.activities))
+        .options(selectinload(Mission.expenditures))
     )
-
-
-def mission_query_with_expenditures():
-    return Mission.query.options(selectinload(Mission.expenditures))
 
 
 def company_queries_with_all_relations():

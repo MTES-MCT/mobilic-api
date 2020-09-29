@@ -4,6 +4,7 @@ import graphene
 from graphene.types.generic import GenericScalar
 from graphql import GraphQLError
 from abc import ABC, abstractmethod
+from sqlalchemy.exc import IntegrityError
 
 from app.helpers.time import to_timestamp
 
@@ -24,72 +25,74 @@ class MobilicError(GraphQLError, ABC):
 
 
 class InvalidParamsError(MobilicError):
-    code = 1
+    code = "INVALID_INPUTS"
+
+
+class InternalError(MobilicError):
+    code = "INTERNAL_ERROR"
 
 
 class AuthenticationError(MobilicError):
-    code = 100
+    code = "AUTHENTICATION_ERROR"
 
 
 class AuthorizationError(MobilicError):
-    code = 101
+    code = "AUTHORIZATION_ERROR"
 
 
 class InaccessibleSirenError(MobilicError):
-    code = 102
+    code = "INACCESSIBLE_SIREN"
 
 
 class SirenAlreadySignedUpError(MobilicError):
-    code = 103
+    code = "SIREN_ALREADY_SIGNED_UP"
 
 
 class UnavailableSirenAPIError(MobilicError):
-    code = 104
+    code = "UNAVAILABLE_SIREN_API"
 
 
 class NoSirenAPICredentialsError(MobilicError):
-    code = 105
+    code = "NO_SIREN_API_CREDENTIALS"
 
 
 class MailjetError(MobilicError):
-    code = 106
+    code = "MAILJET_ERROR"
 
 
 class FranceConnectAuthenticationError(MobilicError):
-    code = 107
-
-
-class UserDoesNotExistError(MobilicError):
-    code = 108
+    code = "FRANCE_CONNECT_ERROR"
 
 
 class InvalidTokenError(MobilicError):
-    code = 109
+    code = "INVALID_TOKEN"
 
 
 class TokenExpiredError(MobilicError):
-    code = 110
+    code = "EXPIRED_TOKEN"
 
 
 class EmailAlreadyRegisteredError(MobilicError):
-    code = 111
+    code = "EMAIL_ALREADY_REGISTERED"
+
+    def __init__(
+        self, message="A user is already registered for this email", **kwargs
+    ):
+        super().__init__(message, **kwargs)
 
 
 class OverlappingMissionsError(MobilicError):
-    code = 200
+    code = "OVERLAPPING_MISSIONS"
 
-    def __init__(self, message, user, conflicting_mission, **kwargs):
+    def __init__(self, message, conflicting_mission, **kwargs):
         super().__init__(message, **kwargs)
         self.extensions.update(
             dict(
-                user=dict(
-                    id=user.id,
-                    firstName=user.first_name,
-                    lastName=user.last_name,
-                ),
                 conflictingMission=dict(
                     id=conflicting_mission.id,
-                    eventTime=to_timestamp(conflicting_mission.reception_time),
+                    receptionTime=to_timestamp(
+                        conflicting_mission.reception_time
+                    ),
                     submitter=dict(
                         id=conflicting_mission.submitter.id,
                         firstName=conflicting_mission.submitter.first_name,
@@ -100,15 +103,17 @@ class OverlappingMissionsError(MobilicError):
         )
 
 
-class MissionAlreadyEndedError(MobilicError):
-    code = 201
+class ActivitySequenceError(MobilicError):
+    code = "ACTIVITY_SEQUENCE_ERROR"
 
+
+class MissionAlreadyEndedError(ActivitySequenceError):
     def __init__(self, message, mission_end, **kwargs):
         super().__init__(message, **kwargs)
         self.extensions.update(
             dict(
                 missionEnd=dict(
-                    userTime=to_timestamp(mission_end.start_time),
+                    startTime=to_timestamp(mission_end.start_time),
                     submitter=dict(
                         id=mission_end.submitter.id,
                         firstName=mission_end.submitter.first_name,
@@ -119,44 +124,63 @@ class MissionAlreadyEndedError(MobilicError):
         )
 
 
-class SimultaneousActivitiesError(MobilicError):
-    code = 202
+class SimultaneousActivitiesError(ActivitySequenceError):
+    def __init__(
+        self,
+        message="Mission already contains an activity with the same start time for the user",
+        **kwargs,
+    ):
+        super().__init__(message, **kwargs)
 
 
-class EventAlreadyLoggedError(MobilicError):
-    code = 203
+class InvalidResourceError(MobilicError):
+    code = "INVALID_RESOURCE"
 
 
-class ActivityAlreadyDismissedError(MobilicError):
-    code = 204
+class ResourceAlreadyDismissedError(InvalidResourceError):
+    pass
 
 
-class NonContiguousActivitySequenceError(MobilicError):
-    code = 205
+class NonContiguousActivitySequenceError(ActivitySequenceError):
+    pass
 
 
-class DuplicateExpenditureError(MobilicError):
-    code = 206
-
-
-class ExpenditureAlreadyDismissedError(MobilicError):
-    code = 207
+class DuplicateExpendituresError(MobilicError):
+    code = "DUPLICATE_EXPENDITURES"
 
 
 class MissingPrimaryEmploymentError(MobilicError):
-    code = 300
+    code = "NO_PRIMARY_EMPLOYMENT"
 
 
-class EmploymentAlreadyReviewedByUserError(MobilicError):
-    code = 301
+class OverlappingEmploymentsError(MobilicError):
+    code = "OVERLAPPING_EMPLOYMENTS"
 
+    def __init__(self, underlying_error, **kwargs):
+        message = "User cannot have two overlapping primary employments or two overlapping employments for the same company"
 
-class EmploymentNotFoundError(MobilicError):
-    code = 302
+        overlap_type = None
+        if isinstance(underlying_error, IntegrityError):
+            pg_error_diag = underlying_error.orig.diag
+            violated_constraint_name = pg_error_diag.constraint_name
+            if (
+                violated_constraint_name
+                == "only_one_current_primary_employment_per_user"
+            ):
+                overlap_type = "primary"
+                message = (
+                    "User cannot have two overlapping primary employments"
+                )
+            elif (
+                violated_constraint_name
+                == "no_simultaneous_employments_for_the_same_company"
+            ):
+                overlap_type = "company"
+                message = "User cannot have two overlapping employments on the same company"
 
-
-class EmploymentNotStartedError(MobilicError):
-    code = 303
+        super().__init__(message, **kwargs)
+        if overlap_type:
+            self.extensions.update(dict(overlapType=overlap_type))
 
 
 class MutationWithNonBlockingErrors(graphene.Mutation):

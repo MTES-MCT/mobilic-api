@@ -15,7 +15,13 @@ def authenticated(user):
 
 
 def authenticated_and_active(user):
-    return user is not None and user.has_activated_email
+    if not user:
+        return False
+    if not user.has_activated_email:
+        raise AuthorizationError(
+            "Actor is not active. The email activation is required to perform mutations."
+        )
+    return True
 
 
 def admin_only(user):
@@ -26,6 +32,7 @@ def with_authorization_policy(
     authorization_rule,
     get_target_from_args=None,
     get_target_from_return_value=None,
+    error_message="Forbidden operation",
 ):
     rule_requires_target = len(signature(authorization_rule).parameters) > 1
     if rule_requires_target and (
@@ -49,18 +56,18 @@ def with_authorization_policy(
             if not rule_requires_target and not authorization_rule(
                 current_user
             ):
-                raise AuthorizationError("Unauthorized access")
+                raise AuthorizationError(error_message)
             elif rule_requires_target and get_target_from_args:
                 target = get_target_from_args(*args, **kwargs)
                 if not authorization_rule(current_user, target):
-                    raise AuthorizationError("Unauthorized access")
+                    raise AuthorizationError(error_message)
 
             value = resolver(*args, **kwargs)
 
             if rule_requires_target and get_target_from_return_value:
                 target = get_target_from_return_value(value)
                 if not authorization_rule(current_user, target):
-                    raise AuthorizationError("Unauthorized access")
+                    raise AuthorizationError(error_message)
             return value
 
         return require_auth(decorated_resolver)

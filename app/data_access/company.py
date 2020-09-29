@@ -55,20 +55,26 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return self.name
 
     @with_authorization_policy(
-        belongs_to_company_at, get_target_from_args=lambda self, info: self
+        belongs_to_company_at,
+        get_target_from_args=lambda self, info: self,
+        error_message="Unauthorized access to field 'users' of company object.",
     )
     def resolve_users(self, info):
         info.context.company_ids_scope = [self.id]
         return self.query_users()
 
     @with_authorization_policy(
-        belongs_to_company_at, get_target_from_args=lambda self, info: self
+        belongs_to_company_at,
+        get_target_from_args=lambda self, info: self,
+        error_message="Unauthorized access to field 'vehicles' of company object.",
     )
     def resolve_vehicles(self, info):
         return [v for v in self.vehicles if not v.is_terminated]
 
     @with_authorization_policy(
-        company_admin_at, get_target_from_args=lambda self, info: self
+        company_admin_at,
+        get_target_from_args=lambda self, info: self,
+        error_message="Unauthorized access to field 'employments' of company object. Actor must be company admin.",
     )
     def resolve_employments(self, info):
         return [
@@ -78,7 +84,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         ]
 
     @with_authorization_policy(
-        company_admin_at, get_target_from_args=lambda self, info: self
+        company_admin_at,
+        get_target_from_args=lambda self, info: self,
+        error_message="Unauthorized access to field 'missions' of company object. Actor must be company admin.",
     )
     def resolve_missions(self, info):
         return (
@@ -93,6 +101,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         company_admin_at,
         get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Unauthorized access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(self, info, from_date=None, until_date=None):
         missions = query_company_missions(

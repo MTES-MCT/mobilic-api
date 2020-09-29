@@ -1,3 +1,5 @@
+from sqlalchemy.exc import InvalidRequestError
+
 from app import app, db
 from app.domain.log_events import check_whether_event_should_be_logged
 from app.domain.permissions import can_user_log_on_mission_at
@@ -20,9 +22,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         # Send pending activities to the DB to check simultaneity constraints
         db.session.flush()
     except Exception as e:
-        raise SimultaneousActivitiesError(
-            f"{mission} contains two activities with the same start time"
-        )
+        raise SimultaneousActivitiesError()
 
     mission_activities = mission.activities_for(user)
 
@@ -47,8 +47,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
             and a_mission_id != mission.id
         ):
             raise OverlappingMissionsError(
-                f"The missions {mission.id} and {a.mission_id} are overlapping for {user}, which can't happen",
-                user=user,
+                f"Mission cannot overlap with mission {a.mission_id} for the user.",
                 conflicting_mission=Mission.query.get(a.mission_id),
             )
 
@@ -62,8 +61,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         and latest_activity_before_mission_start.mission_id != mission.id
     ):
         raise OverlappingMissionsError(
-            f"The missions {mission.id} and {latest_activity_before_mission_start.mission_id} are overlapping for {user}, which can't happen",
-            user=user,
+            f"Mission cannot overlap with mission {latest_activity_before_mission_start.mission_id} for the user.",
             conflicting_mission=Mission.query.get(
                 latest_activity_before_mission_start.mission_id
             ),
@@ -71,9 +69,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
 
     # 2. Check that there are no two activities with the same user time
     if not len(set(mission_activity_times)) == len(mission_activity_times):
-        raise SimultaneousActivitiesError(
-            f"{mission} contains two activities with the same start time"
-        )
+        raise SimultaneousActivitiesError()
 
     # 3. Check if the mission contains a REST activity then it is at the last time position
     rest_activities = [
@@ -81,7 +77,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
     ]
     if len(rest_activities) > 1:
         raise MissionAlreadyEndedError(
-            f"Cannot end {mission} for {user} because it is already ended",
+            f"Mission is already ended for user",
             mission_end=rest_activities[0],
         )
     if (
@@ -89,7 +85,7 @@ def check_activity_sequence_in_mission_and_handle_duplicates(
         and rest_activities[0].start_time != mission_time_range[1]
     ):
         raise MissionAlreadyEndedError(
-            f"{mission} for {user} cannot have a normal activity after the mission end",
+            f"User cannot have a new activity after the mission end",
             mission_end=rest_activities[0],
         )
 
@@ -164,7 +160,7 @@ def log_activity(
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
         raise InvalidParamsError(
-            f"End time was set in the future by {end_time - reception_time} : will not log"
+            f"End time was set in the future by {end_time - reception_time} : activity will not be logged"
         )
 
     if not end_time:
@@ -175,11 +171,16 @@ def log_activity(
         )
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
-    if not can_user_log_on_mission_at(
+    if not mission or not can_user_log_on_mission_at(
         submitter, mission, start_time
-    ) or not can_user_log_on_mission_at(user, mission, start_time):
+    ):
         raise AuthorizationError(
-            f"The user is not authorized to log for this mission"
+            "Actor is not authorized to log on this mission."
+        )
+
+    if not user or not can_user_log_on_mission_at(user, mission, start_time):
+        raise AuthorizationError(
+            f"Actor is not authorized to log for this user."
         )
 
     # 3. If it's a revision and if an end time was specified we need to potentially correct multiple activities
@@ -221,11 +222,11 @@ def log_activity(
                 ]
                 if activities_after:
                     raise NonContiguousActivitySequenceError(
-                        "Logging the activity would create a hole in the time series, which is forbidden"
+                        "Logging the activity would create a hole in the time series."
                     )
                 else:
                     raise InvalidParamsError(
-                        "You are trying to set an end time for the current activity, this is not allowed"
+                        "You are trying to set an end time for the current activity."
                     )
 
     # 4. Properly write the activity to the DB
@@ -250,7 +251,10 @@ def log_activity(
                 user, mission, reception_time
             )
         except Exception as e:
-            db.session.expunge(activity)
+            try:
+                db.session.expunge(activity)
+            except InvalidRequestError:
+                pass
             raise e
 
     return activity

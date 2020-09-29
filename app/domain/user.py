@@ -30,15 +30,14 @@ def create_user(
         db.session.flush()
     except IntegrityError as e:
         if e.orig.pgcode == "23505":  # Unique violation
-            raise EmailAlreadyRegisteredError(
-                "An user is already registered for this email"
-            )
+            raise EmailAlreadyRegisteredError()
         raise e
 
     company = None
     if invite_token:
         employment_to_validate = Employment.query.filter(
-            Employment.invite_token == invite_token
+            Employment.invite_token == invite_token,
+            Employment.user_id.is_(None),
         ).one_or_none()
 
         if not employment_to_validate:

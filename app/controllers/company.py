@@ -1,7 +1,7 @@
 import graphene
 from flask import request
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DatabaseError
 from graphene.types.generic import GenericScalar
 
 from app.controllers.utils import atomic_transaction
@@ -11,12 +11,12 @@ from app.domain.permissions import (
     company_admin_at,
     ConsultationScope,
 )
+from app.helpers.errors import InternalError, OverlappingEmploymentsError
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
     current_user,
-    AuthorizationError,
 )
 from app import siren_api_client, mailer
 from app.helpers.errors import SirenAlreadySignedUpError
@@ -56,46 +56,59 @@ class CompanySignUp(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, usual_name, siren, sirets):
-        with atomic_transaction(commit_at_end=True):
-            now = datetime.now()
-            company = Company(
-                usual_name=usual_name, siren=siren, sirets=sirets
-            )
-            db.session.add(company)
-
-            try:
-                db.session.flush()
-            except IntegrityError as e:
-                if e.orig.pgcode == "23505":  # Unique violation
-                    raise SirenAlreadySignedUpError("SIREN already registered")
-                raise e
-
-            try:
-                company.siren_api_info = siren_api_client.get_siren_info(siren)
-            except Exception as e:
-                app.logger.warning(
-                    f"Could not add SIREN API info for company of SIREN {siren} : {e}"
+        try:
+            with atomic_transaction(commit_at_end=True):
+                now = datetime.now()
+                company = Company(
+                    usual_name=usual_name, siren=siren, sirets=sirets
                 )
+                db.session.add(company)
 
-            admin_employment = Employment(
-                is_primary=False if current_user.primary_company else True,
-                user_id=current_user.id,
-                company=company,
-                start_date=now.date(),
-                validation_time=now,
-                validation_status=EmploymentRequestValidationStatus.APPROVED,
-                has_admin_rights=True,
-                reception_time=now,
-                submitter_id=current_user.id,
-            )
-            db.session.add(admin_employment)
+                try:
+                    db.session.flush()
+                except IntegrityError as e:
+                    if e.orig.pgcode == "23505":  # Unique violation
+                        raise SirenAlreadySignedUpError(
+                            "SIREN already registered"
+                        )
+                    raise InternalError("An internal error occurred")
 
-            app.logger.info(f"Signed up new company {company}")
+                try:
+                    company.siren_api_info = siren_api_client.get_siren_info(
+                        siren
+                    )
+                except Exception as e:
+                    app.logger.warning(
+                        f"Could not add SIREN API info for company of SIREN {siren} : {e}"
+                    )
 
-            try:
-                mailer.send_company_creation_email(company, current_user)
-            except Exception as e:
-                app.logger.exception(e)
+                admin_employment = Employment(
+                    is_primary=False if current_user.primary_company else True,
+                    user_id=current_user.id,
+                    company=company,
+                    start_date=now.date(),
+                    validation_time=now,
+                    validation_status=EmploymentRequestValidationStatus.APPROVED,
+                    has_admin_rights=True,
+                    reception_time=now,
+                    submitter_id=current_user.id,
+                )
+                db.session.add(admin_employment)
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise OverlappingEmploymentsError(e)
+
+        except DatabaseError as e:
+            app.logger.exception(e)
+            raise InternalError("An internal error occurred")
+
+        app.logger.info(f"Signed up new company {company}")
+
+        try:
+            mailer.send_company_creation_email(company, current_user)
+        except Exception as e:
+            app.logger.exception(e)
 
         return CompanySignUp(company=company, employment=admin_employment)
 
@@ -121,12 +134,12 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(
-        belongs_to_company_at, get_target_from_args=lambda self, info, id: id
+        belongs_to_company_at,
+        get_target_from_args=lambda self, info, id: id,
+        error_message="Unauthorized access",
     )
     def resolve_company(self, info, id):
         matching_company = Company.query.get(id)
-        if not matching_company:
-            raise AuthorizationError("Unauthorized access")
         return matching_company
 
 

@@ -3,6 +3,7 @@ import jwt
 from flask import redirect, request
 from uuid import uuid4
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError, DatabaseError
 from urllib.parse import quote, urlencode
 
 from app.controllers.utils import atomic_transaction
@@ -14,6 +15,7 @@ from app.helpers.authentication import (
     create_access_tokens_for,
     UserTokens,
     UserTokensWithFC,
+    AuthenticationError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -21,9 +23,10 @@ from app.helpers.authorization import (
     AuthorizationError,
 )
 from app.helpers.errors import (
-    UserDoesNotExistError,
     InvalidTokenError,
     TokenExpiredError,
+    EmailAlreadyRegisteredError,
+    InternalError,
 )
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
@@ -56,12 +59,22 @@ class UserSignUp(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info, **data):
-        with atomic_transaction(commit_at_end=True):
-            user = create_user(**data)
-            try:
-                mailer.send_activation_email(user)
-            except Exception as e:
-                app.logger.exception(e)
+        try:
+            with atomic_transaction(commit_at_end=True):
+                user = create_user(**data)
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise EmailAlreadyRegisteredError()
+
+        except DatabaseError as e:
+            app.logger.exception(e)
+            raise InternalError("An internal error occurred")
+
+        try:
+            mailer.send_activation_email(user)
+        except Exception as e:
+            app.logger.exception(e)
 
         return UserTokens(**create_access_tokens_for(user))
 
@@ -81,8 +94,7 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
     def mutate(cls, _, info, email, password=None):
         with atomic_transaction(commit_at_end=True):
             if not current_user.france_connect_id or current_user.password:
-                # TODO : raise proper error
-                raise ValueError("User has already a login")
+                raise AuthorizationError("Actor has already a login")
 
             current_user.email = email
             current_user.has_confirmed_email = True
@@ -211,7 +223,7 @@ class FranceConnectLogin(graphene.Mutation):
             user = get_user_from_fc_info(fc_user_info)
 
             if not create and not user:
-                raise UserDoesNotExistError("User does not exist")
+                raise AuthenticationError("User does not exist")
 
             if create and user and user.email:
                 # TODO : raise proper error

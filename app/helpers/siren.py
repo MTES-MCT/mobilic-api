@@ -119,7 +119,6 @@ class SirenAPIClient:
             self._generate_access_token()
             return self._request_siren_info(siren, retry_if_bad_token=False)
         if siren_response.status_code == 200:
-            print(siren_response.json())
             return siren_response
         if siren_response.status_code == 404:
             raise InaccessibleSirenError(
