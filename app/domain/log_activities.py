@@ -175,7 +175,7 @@ def log_activity(
         submitter, mission, start_time
     ):
         raise AuthorizationError(
-            "Actor is not authorized to log on this mission."
+            "Actor is not authorized to log on this mission at this time."
         )
 
     if not user or not can_user_log_on_mission_at(user, mission, start_time):

@@ -140,7 +140,7 @@ class User(BaseModel):
                 include_mission_relations=True,
                 start_time=start_time,
                 end_time=end_time,
-            ),
+            ).all(),
             key=lambda a: a.start_time,
         )
         for a in activities:

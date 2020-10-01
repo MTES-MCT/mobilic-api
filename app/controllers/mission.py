@@ -13,7 +13,10 @@ from app.helpers.graphene_types import TimeStamp
 from app.models.activity import ActivityType
 from app.models.mission import Mission
 from app.models import Company, Vehicle, User
-from app.models.mission_validation import MissionValidation
+from app.models.mission_validation import (
+    MissionValidation,
+    MissionValidationOutput,
+)
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
     can_user_log_on_mission_at,
@@ -66,7 +69,7 @@ class CreateMission(graphene.Mutation):
                 company = Company.query.get(company_id)
                 if not belongs_to_company_at(current_user, company):
                     raise AuthorizationError(
-                        f"User is not authorized to create a mission for company {company}"
+                        "Actor is not authorized to create a mission for the company"
                     )
 
             else:
@@ -148,8 +151,7 @@ class EndMission(graphene.Mutation):
             user_id = args.get("user_id")
             if user_id:
                 user = User.query.get(user_id)
-                if not user:
-                    raise AuthorizationError("Unauthorized access")
+
             else:
                 user = current_user
 
@@ -179,7 +181,7 @@ class ValidateMission(graphene.Mutation):
             required=True, description="Identifiant de la mission à valider"
         )
 
-    Output = MissionOutput
+    Output = MissionValidationOutput
 
     @classmethod
     @with_authorization_policy(
@@ -193,15 +195,14 @@ class ValidateMission(graphene.Mutation):
         with atomic_transaction(commit_at_end=True):
             mission = Mission.query.get(mission_id)
 
-            db.session.add(
-                MissionValidation(
-                    submitter=current_user,
-                    reception_time=datetime.now(),
-                    mission=mission,
-                )
+            mission_validation = MissionValidation(
+                submitter=current_user,
+                reception_time=datetime.now(),
+                mission=mission,
             )
+            db.session.add(mission_validation)
 
-        return mission
+        return mission_validation
 
 
 class Query(graphene.ObjectType):
