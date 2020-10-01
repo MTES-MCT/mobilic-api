@@ -103,7 +103,10 @@ class CompanySignUp(graphene.Mutation):
             app.logger.exception(e)
             raise InternalError("An internal error occurred")
 
-        app.logger.info(f"Signed up new company {company}")
+        app.logger.info(
+            f"Signed up new company {company}",
+            extra={"post_to_slack": True, "emoji": ":tada:"},
+        )
 
         try:
             mailer.send_company_creation_email(company, current_user)

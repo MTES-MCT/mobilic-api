@@ -17,7 +17,10 @@ slack = Slacker(app.config["SLACK_TOKEN"])
 
 
 def add_request_and_user_context(record):
-    record.current_user = current_user
+    try:
+        record.current_user = str(current_user)
+    except:
+        record.current_user = None
     if has_request_context():
         record.device = "{} ({} {})".format(
             request.user_agent.platform,
