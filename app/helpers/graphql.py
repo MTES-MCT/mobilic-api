@@ -6,7 +6,10 @@ from flask import request
 
 class CustomGraphQLView(GraphQLView):
     def dispatch_request(self):
-        request_data = self.parse_body()
+        try:
+            request_data = self.parse_body()
+        except:
+            request_data = "Invalid body"
         response = super().dispatch_request()
         if request.method == "POST":
             # Do not log introspection queries
