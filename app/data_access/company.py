@@ -8,7 +8,11 @@ from app.domain.work_days import group_user_missions_by_day
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Company, Mission, Activity
-from app.models.employment import EmploymentOutput
+from app.models.employment import (
+    EmploymentOutput,
+    Employment,
+    EmploymentRequestValidationStatus,
+)
 from app.models.queries import query_company_missions
 from app.models.vehicle import VehicleOutput
 
@@ -77,11 +81,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Unauthorized access to field 'employments' of company object. Actor must be company admin.",
     )
     def resolve_employments(self, info):
-        return [
-            e
-            for e in self.employments
-            if e.is_not_rejected and not e.is_dismissed
-        ]
+        return (
+            Employment.query.options(selectinload(Employment.user))
+            .filter(
+                Employment.company_id == self.id,
+                ~Employment.is_dismissed,
+                Employment.validation_status
+                != EmploymentRequestValidationStatus.REJECTED,
+            )
+            .all()
+        )
 
     @with_authorization_policy(
         company_admin_at,

@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.ext.declarative import declared_attr
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.base import BaseModel
@@ -62,9 +63,13 @@ class Dismissable:
 
     dismiss_context = db.Column(JSONB(none_as_null=True), nullable=True)
 
-    @property
+    @hybrid_property
     def is_dismissed(self):
         return self.dismissed_at is not None
+
+    @is_dismissed.expression
+    def is_dismissed(cls):
+        return cls.dismissed_at.isnot(None)
 
     @declared_attr
     def dismiss_author_id(cls):
