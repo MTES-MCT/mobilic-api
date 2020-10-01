@@ -106,7 +106,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(self, info, from_date=None, until_date=None):
         missions = query_company_missions(
             self.id, start_time=from_date, end_time=until_date
-        )
+        ).all()
         user_to_missions = defaultdict(set)
         for mission in missions:
             for activity in mission.activities:
