@@ -96,7 +96,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 selectinload(Mission.activities).selectinload(Activity.revisee)
             )
             .filter(Mission.company_id == self.id)
-        )
+        ).all()
 
     @with_authorization_policy(
         company_admin_at,
