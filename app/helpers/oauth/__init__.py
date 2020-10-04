@@ -98,7 +98,7 @@ def authorize():
     return make_response(jsonify({"uri": redirect_uri}), status)
 
 
-@oauth_blueprint.route("/parse_authorization_request")
+@oauth_blueprint.route("/parse_authorization_request", methods=["POST"])
 def parse_authorization_request():
     try:
         grant = authorization.validate_consent_request()

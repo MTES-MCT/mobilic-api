@@ -9,7 +9,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
-    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
+    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=2)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
     SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
@@ -28,11 +28,20 @@ class Config:
     )
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
     SLACK_LOG_CHANNEL = os.environ.get("SLACK_LOG_CHANNEL", "#mobilic-alerts")
+    JWT_TOKEN_LOCATION = ["headers", "cookies"]
+    JWT_COOKIE_CSRF_PROTECT = False
+    JWT_ACCESS_COOKIE_NAME = "at"
+    JWT_ACCESS_COOKIE_PATH = "/api"
+    JWT_REFRESH_COOKIE_NAME = "rt"
+    JWT_REFRESH_COOKIE_PATH = "/api/token"
+    JWT_COOKIE_SECURE = True
+    SESSION_COOKIE_LIFETIME = timedelta(days=365)
 
 
 class DevConfig(Config):
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    JWT_COOKIE_SECURE = False
 
 
 class StagingConfig(Config):

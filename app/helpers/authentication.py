@@ -1,4 +1,6 @@
-from flask import g
+from calendar import timegm
+
+from flask import g, request, after_this_request, jsonify
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -7,10 +9,10 @@ from flask_jwt_extended import (
     current_user as current_actor,
     get_raw_jwt,
     get_jwt_identity,
-    decode_token,
     JWTManager,
 )
-from datetime import date
+from sqlalchemy.exc import DatabaseError
+from datetime import date, datetime
 import graphene
 from flask_jwt_extended.exceptions import (
     JWTExtendedException,
@@ -55,7 +57,7 @@ def require_auth(f):
             verify_jwt_in_request()
         except (NoAuthorizationError, InvalidHeaderError) as e:
             raise AuthenticationError(
-                "Invalid or missing authorization header"
+                "Unable to find a valid cookie or authorization header"
             )
         except (JWTExtendedException, PyJWTError):
             verify_oauth_token_in_request()
@@ -69,10 +71,19 @@ def with_jwt_auth_error_handling(f):
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
+        except (NoAuthorizationError, InvalidHeaderError) as e:
+            raise AuthenticationError(
+                "Unable to find a valid cookie or authorization header"
+            )
         except (JWTExtendedException, PyJWTError):
             raise AuthenticationError("Invalid token")
 
     return wrapper
+
+
+@jwt.expired_token_loader
+def raise_expired_token_error(token_data):
+    raise AuthenticationError(f"Expired {token_data['type']} token")
 
 
 @jwt.user_loader_callback_loader
@@ -124,6 +135,84 @@ def create_access_tokens_for(
     return tokens
 
 
+def set_auth_cookies(
+    response, access_token, refresh_token, user_id, fc_token=None
+):
+    response.set_cookie(
+        app.config["JWT_ACCESS_COOKIE_NAME"],
+        value=access_token,
+        expires=datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=True,
+        path=app.config["JWT_ACCESS_COOKIE_PATH"],
+        samesite="Strict",
+    )
+    response.set_cookie(
+        app.config["JWT_REFRESH_COOKIE_NAME"],
+        value=refresh_token,
+        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=True,
+        path=app.config["JWT_REFRESH_COOKIE_PATH"],
+        samesite="Strict",
+    )
+    response.set_cookie(
+        "userId",
+        value=str(user_id),
+        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=False,
+    )
+    response.set_cookie(
+        "atEat",
+        value=str(
+            timegm(
+                (
+                    datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"]
+                ).utctimetuple()
+            )
+        ),
+        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=False,
+    )
+    if fc_token:
+        response.set_cookie(
+            "fct",
+            value=fc_token,
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=True,
+            path="/api/fc/logout",
+            samesite="Strict",
+        )
+        response.set_cookie(
+            "hasFc",
+            value="true",
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=False,
+        )
+
+
+def unset_auth_cookies(response):
+    response.delete_cookie(
+        app.config["JWT_ACCESS_COOKIE_NAME"],
+        path=app.config["JWT_ACCESS_COOKIE_PATH"],
+    )
+    response.delete_cookie(
+        app.config["JWT_REFRESH_COOKIE_NAME"],
+        path=app.config["JWT_REFRESH_COOKIE_PATH"],
+    )
+    response.delete_cookie("userId", path="/")
+    response.delete_cookie("atEat", path="/")
+
+
+def unset_fc_auth_cookies(response):
+    response.delete_cookie("fct", path="/api/fc/logout")
+    response.delete_cookie("hasFc", path="/")
+
+
 class UserTokens(graphene.ObjectType):
     access_token = graphene.String(description="Jeton d'accès")
     refresh_token = graphene.String(description="Jeton de rafraichissement")
@@ -154,7 +243,15 @@ class LoginMutation(graphene.Mutation):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )
-        return UserTokens(**create_access_tokens_for(user))
+
+        tokens = create_access_tokens_for(user)
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(response, user_id=user.id, **tokens)
+            return response
+
+        return UserTokens(**tokens)
 
 
 class CheckMutation(graphene.Mutation):
@@ -178,30 +275,11 @@ class LogoutMutation(graphene.Mutation):
 
     """
 
-    class Arguments:
-        refresh_token = graphene.Argument(
-            graphene.String,
-            required=True,
-            description="Le jeton de rafraichissement à invalider",
-        )
-
     message = graphene.String()
 
     @classmethod
-    @require_auth
-    def mutate(cls, _, info, refresh_token):
-        from app.models.refresh_token import RefreshToken
-
-        try:
-            decoded_refresh_token = decode_token(refresh_token)
-            identity = decoded_refresh_token["identity"]
-            matching_refresh_token = RefreshToken.get_token(
-                token=identity["token"], user_id=identity["id"]
-            )
-            db.session.delete(matching_refresh_token)
-        except Exception as e:
-            pass
-        db.session.commit()
+    def mutate(cls, _, info):
+        logout()
         return LogoutMutation(message="success")
 
 
@@ -217,24 +295,8 @@ class RefreshMutation(graphene.Mutation):
     Output = UserTokens
 
     @classmethod
-    @with_jwt_auth_error_handling
-    @jwt_refresh_token_required
     def mutate(cls, _, info):
-        from app.models.refresh_token import RefreshToken
-
-        identity = get_jwt_identity()
-        matching_refresh_token = RefreshToken.get_token(
-            token=identity["token"], user_id=identity["id"]
-        )
-        if not matching_refresh_token:
-            raise AuthenticationError("Refresh token is invalid")
-        db.session.delete(matching_refresh_token)
-
-        return UserTokens(
-            **create_access_tokens_for(
-                current_actor, client_id=g.get("client_id")
-            )
-        )
+        return UserTokens(**refresh_token())
 
 
 class Auth(graphene.ObjectType):
@@ -246,3 +308,68 @@ class Auth(graphene.ObjectType):
     refresh = RefreshMutation.Field()
     check = CheckMutation.Field()
     logout = LogoutMutation.Field()
+
+
+@with_jwt_auth_error_handling
+def refresh_token():
+    delete_refresh_token()
+    tokens = create_access_tokens_for(
+        current_actor, client_id=g.get("client_id")
+    )
+
+    @after_this_request
+    def set_cookies(response):
+        set_auth_cookies(response, user_id=current_actor.id, **tokens)
+        return response
+
+    return tokens
+
+
+@app.route("/token/refresh", methods=["POST"])
+def rest_refresh_token():
+    try:
+        tokens = refresh_token()
+        return jsonify(tokens), 200
+    except AuthenticationError as e:
+        app.logger.exception(e)
+
+        @after_this_request
+        def unset_cookies(response):
+            unset_auth_cookies(response)
+            return response
+
+        return jsonify({"error": e.message}), 401
+
+
+@with_jwt_auth_error_handling
+def logout():
+    delete_refresh_token()
+    db.session.commit()
+
+
+@app.route("/token/logout", methods=["POST"])
+def rest_logout():
+    @after_this_request
+    def unset_cookies(response):
+        unset_auth_cookies(response)
+        return response
+
+    try:
+        logout()
+        return jsonify({"message": "success"}), 200
+    except AuthenticationError as e:
+        app.logger.exception(e)
+        return jsonify({"error": e.message}), 401
+
+
+@jwt_refresh_token_required
+def delete_refresh_token():
+    from app.models.refresh_token import RefreshToken
+
+    identity = get_jwt_identity()
+    matching_refresh_token = RefreshToken.get_token(
+        token=identity["token"], user_id=identity["id"]
+    )
+    if not matching_refresh_token:
+        raise AuthenticationError("Refresh token is invalid")
+    db.session.delete(matching_refresh_token)

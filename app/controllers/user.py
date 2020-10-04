@@ -1,10 +1,10 @@
 import graphene
 import jwt
-from flask import redirect, request
+from flask import redirect, request, after_this_request
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError, DatabaseError
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, unquote
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.user import UserOutput
@@ -16,6 +16,8 @@ from app.helpers.authentication import (
     UserTokens,
     UserTokensWithFC,
     AuthenticationError,
+    unset_fc_auth_cookies,
+    set_auth_cookies,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -76,7 +78,14 @@ class UserSignUp(graphene.Mutation):
         except Exception as e:
             app.logger.exception(e)
 
-        return UserTokens(**create_access_tokens_for(user))
+        tokens = create_access_tokens_for(user)
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(response, user_id=user.id, **tokens)
+            return response
+
+        return UserTokens(**tokens)
 
 
 class ConfirmFranceConnectEmail(graphene.Mutation):
@@ -92,19 +101,24 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email, password=None):
-        with atomic_transaction(commit_at_end=True):
-            if not current_user.france_connect_id or current_user.password:
-                raise AuthorizationError("Actor has already a login")
+        try:
+            with atomic_transaction(commit_at_end=True):
+                if not current_user.france_connect_id or current_user.password:
+                    raise AuthorizationError("Actor has already a login")
 
-            current_user.email = email
-            current_user.has_confirmed_email = True
-            if password:
-                current_user.password = password
+                current_user.email = email
+                current_user.has_confirmed_email = True
+                if password:
+                    current_user.password = password
 
-            try:
-                mailer.send_activation_email(current_user)
-            except Exception as e:
-                app.logger.exception(e)
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise EmailAlreadyRegisteredError()
+
+        try:
+            mailer.send_activation_email(current_user)
+        except Exception as e:
+            app.logger.exception(e)
 
         return current_user
 
@@ -121,17 +135,21 @@ class ChangeEmail(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email):
-        with atomic_transaction(commit_at_end=True):
-            if current_user.email != email:
-                current_user.email = email
-                current_user.has_confirmed_email = True
-                current_user.has_activated_email = False
-                try:
-                    mailer.send_activation_email(
-                        current_user, create_account=False
-                    )
-                except Exception as e:
-                    app.logger.exception(e)
+        try:
+            with atomic_transaction(commit_at_end=True):
+                if current_user.email != email:
+                    current_user.email = email
+                    current_user.has_confirmed_email = True
+                    current_user.has_activated_email = False
+
+        except IntegrityError as e:
+            app.logger.exception(e)
+            raise EmailAlreadyRegisteredError()
+
+        try:
+            mailer.send_activation_email(current_user, create_account=False)
+        except Exception as e:
+            app.logger.exception(e)
 
         return current_user
 
@@ -186,7 +204,23 @@ def redirect_to_fc_authorize():
 
 @app.route("/fc/logout")
 def redirect_to_fc_logout():
-    query_params = {"state": uuid4().hex}
+    fc_token_hint = request.cookies.get("fct")
+
+    @after_this_request
+    def unset_fc_cookies(response):
+        unset_fc_auth_cookies(response)
+        return response
+
+    if not fc_token_hint:
+        app.logger.warning(
+            "Attempt do disconnect from FranceConnect a user who is not logged in"
+        )
+
+        redirect_uri = request.args.get("post_logout_redirect_uri")
+        return redirect(unquote(redirect_uri), code=302)
+
+    query_params = {"state": uuid4().hex, "id_token_hint": fc_token_hint}
+
     return redirect(
         f"{app.config['FC_URL']}/api/v1/logout?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
@@ -238,9 +272,16 @@ class FranceConnectLogin(graphene.Mutation):
                     fc_info=fc_user_info,
                 )
 
-        return UserTokensWithFC(
-            **create_access_tokens_for(user), fc_token=fc_token
-        )
+        tokens = create_access_tokens_for(user)
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(
+                response, user_id=user.id, **tokens, fc_token=fc_token
+            )
+            return response
+
+        return UserTokensWithFC(**tokens, fc_token=fc_token)
 
 
 class Query(graphene.ObjectType):
