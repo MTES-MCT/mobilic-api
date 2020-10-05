@@ -368,7 +368,7 @@ def delete_refresh_token():
 
     identity = get_jwt_identity()
     matching_refresh_token = RefreshToken.get_token(
-        token=identity["token"], user_id=identity["id"]
+        token=identity.get("token"), user_id=identity.get("id")
     )
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")

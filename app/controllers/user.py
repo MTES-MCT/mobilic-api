@@ -64,6 +64,7 @@ class UserSignUp(graphene.Mutation):
         try:
             with atomic_transaction(commit_at_end=True):
                 user = create_user(**data)
+                user.create_activation_link()
 
         except IntegrityError as e:
             app.logger.exception(e)
@@ -108,6 +109,7 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
 
                 current_user.email = email
                 current_user.has_confirmed_email = True
+                current_user.create_activation_link()
                 if password:
                     current_user.password = password
 
@@ -140,7 +142,7 @@ class ChangeEmail(graphene.Mutation):
                 if current_user.email != email:
                     current_user.email = email
                     current_user.has_confirmed_email = True
-                    current_user.has_activated_email = False
+                    current_user.create_activation_link()
 
         except IntegrityError as e:
             app.logger.exception(e)
@@ -161,13 +163,15 @@ class ActivateEmail(graphene.Mutation):
     Output = UserOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
     def mutate(cls, _, info, token):
         with atomic_transaction(commit_at_end=True):
             try:
                 decoded_token = jwt.decode(
                     token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
                 )
+
+                user_id = decoded_token["user_id"]
+                activation_token = decoded_token["token"]
                 email = decoded_token["email"]
                 expires_at = decoded_token["expires_at"]
             except Exception as e:
@@ -176,14 +180,32 @@ class ActivateEmail(graphene.Mutation):
             if expires_at < datetime.now().timestamp():
                 raise TokenExpiredError("Token has expired")
 
-            if email != current_user.email:
+            try:
+                user = User.query.get(user_id)
+                current_activation_token = user.activation_email_token
+            except Exception as e:
+                raise InvalidTokenError("Invalid user in token")
+
+            if (
+                email != user.email
+                or not current_activation_token
+                or activation_token != current_activation_token
+            ):
                 raise InvalidTokenError(
-                    "Email in token does not match user email"
+                    "Token is no more valid because it has been redeemed a new token exists"
                 )
 
-            current_user.has_activated_email = True
+            user.has_activated_email = True
+            user.activation_email_token = None
 
-        return current_user
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(
+                response, **create_access_tokens_for(user), user_id=user.id
+            )
+            return response
+
+        return user
 
 
 @app.route("/fc/authorize")

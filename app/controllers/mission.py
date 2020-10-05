@@ -75,6 +75,9 @@ class CreateMission(graphene.Mutation):
             else:
                 company = current_user.primary_company
 
+            if not company:
+                raise AuthorizationError("Actor has no primary company")
+
             context = mission_input.get("context")
 
             if (

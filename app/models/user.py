@@ -27,6 +27,10 @@ class User(BaseModel):
     has_confirmed_email = db.Column(db.Boolean, default=False, nullable=False)
     has_activated_email = db.Column(db.Boolean, default=False, nullable=False)
 
+    activation_email_token = db.Column(
+        db.String(128), nullable=True, default=None
+    )
+
     @property
     def password(self):
         return self._password
@@ -215,3 +219,7 @@ class User(BaseModel):
 
     def get_user_id(self):
         return self.id
+
+    def create_activation_link(self):
+        self.has_activated_email = False
+        self.activation_email_token = str(uuid4())

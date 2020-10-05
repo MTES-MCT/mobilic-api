@@ -80,6 +80,8 @@ class Mailer:
                     datetime.now()
                     + self.app_config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
                 ).timestamp(),
+                "user_id": id,
+                "token": user.activation_email_token,
             },
             self.app_config["JWT_SECRET_KEY"],
             algorithm="HS256",
