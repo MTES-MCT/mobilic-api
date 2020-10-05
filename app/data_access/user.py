@@ -41,6 +41,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
     last_name = graphene.Field(
         graphene.String, required=True, description="Nom"
     )
+    birth_date = graphene.Field(
+        graphene.String,
+        description="Date de naissance de l'utilisateur. Uniquement disponible pour les utilisateurs qui se sont inscrits via FranceConnect.",
+    )
     email = graphene.Field(
         graphene.String,
         required=False,
@@ -161,6 +165,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_current_employments(self, info):
         return self.employments_at(date.today(), with_pending_ones=True)
+
+    def resolve_birth_date(self, info):
+        return (
+            self.france_connect_info.get("birthdate")
+            if self.france_connect_info
+            else None
+        )
 
 
 from app.data_access.company import CompanyOutput
