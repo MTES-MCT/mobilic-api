@@ -81,6 +81,10 @@ class EmailAlreadyRegisteredError(MobilicError):
         super().__init__(message, **kwargs)
 
 
+class FCUserAlreadyRegisteredError(MobilicError):
+    code = "FC_USER_ALREADY_REGISTERED"
+
+
 class OverlappingMissionsError(MobilicError):
     code = "OVERLAPPING_MISSIONS"
 

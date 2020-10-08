@@ -1,5 +1,11 @@
+from flask import after_this_request
+
 from app.domain.permissions import company_admin_at
-from app.helpers.authentication import current_user
+from app.helpers.authentication import (
+    current_user,
+    set_auth_cookies,
+    create_access_tokens_for,
+)
 import graphene
 from datetime import datetime, date
 from sqlalchemy.orm import selectinload
@@ -16,6 +22,7 @@ from app.helpers.errors import (
     InvalidTokenError,
     InvalidResourceError,
 )
+from app.helpers.authentication import AuthenticationError
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
@@ -98,16 +105,13 @@ class CreateEmployment(graphene.Mutation):
 
                 user_id = employment_input.get("user_id")
                 user = None
-                invite_token = None
+                invite_token = uuid4().hex
                 if user_id:
                     user = User.query.options(
                         selectinload(User.employments)
                     ).get(employment_input["user_id"])
                     if not user:
                         raise InvalidResourceError("Invalid user id")
-
-                if employment_input.get("mail"):
-                    invite_token = uuid4().hex
 
                 start_date = employment_input.get("start_date", date.today())
 
@@ -229,7 +233,12 @@ def _get_employment_by_token(token):
         Employment.invite_token == token
     ).one_or_none()
 
-    if not employment or employment.user_id or employment.is_dismissed:
+    if (
+        not employment
+        or employment.validation_status
+        != EmploymentRequestValidationStatus.PENDING
+        or employment.is_dismissed
+    ):
         raise InvalidTokenError("Token does not match a valid employment")
 
     return employment
@@ -237,30 +246,53 @@ def _get_employment_by_token(token):
 
 class GetInvitation(graphene.ObjectType):
     employment = graphene.Field(
-        EmploymentOutput, invite_token=graphene.String(required=True)
+        EmploymentOutput, token=graphene.String(required=True)
     )
 
-    def resolve_employment(self, info, invite_token):
-        return _get_employment_by_token(invite_token)
+    def resolve_employment(self, info, token):
+        return _get_employment_by_token(token)
 
 
 class RedeemInvitation(graphene.Mutation):
     class Arguments:
-        invite_token = graphene.Argument(graphene.String, required=True)
+        token = graphene.Argument(graphene.String, required=True)
 
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
-    def mutate(cls, _, info, invite_token):
+    def mutate(cls, _, info, token):
+        user_to_auth = None
         try:
             with atomic_transaction(commit_at_end=True):
-                employment = _get_employment_by_token(invite_token)
-                employment.user_id = current_user.id
+                employment = _get_employment_by_token(token)
+
+                if employment.user:
+                    user_to_auth = employment.user
+                    employment.validate_by(user=user_to_auth)
+
+                else:
+
+                    @with_authorization_policy(authenticated_and_active)
+                    def bind_and_redeem():
+                        employment.user_id = current_user.id
+                        employment.validate_by(user=current_user)
+
+                    bind_and_redeem()
 
         except IntegrityError as e:
             app.logger.exception(e)
             raise OverlappingEmploymentsError(e)
+
+        if user_to_auth:
+
+            @after_this_request
+            def set_cookies(response):
+                set_auth_cookies(
+                    response,
+                    **create_access_tokens_for(user_to_auth),
+                    user_id=user_to_auth.id,
+                )
+                return response
 
         return employment
 

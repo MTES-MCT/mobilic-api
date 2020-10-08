@@ -29,6 +29,7 @@ from app.helpers.errors import (
     TokenExpiredError,
     EmailAlreadyRegisteredError,
     InternalError,
+    FCUserAlreadyRegisteredError,
 )
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
@@ -283,7 +284,9 @@ class FranceConnectLogin(graphene.Mutation):
 
             if create and user and user.email:
                 # TODO : raise proper error
-                raise ValueError("User is already registered")
+                raise FCUserAlreadyRegisteredError(
+                    "User is already registered"
+                )
 
             if not user:
                 user = create_user(

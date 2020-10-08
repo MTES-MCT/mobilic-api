@@ -108,7 +108,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "company",
             "has_admin_rights",
             "email",
-            "invite_token",
         )
 
     id = graphene.Field(
