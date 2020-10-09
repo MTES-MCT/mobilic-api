@@ -6,3 +6,5 @@ venv
 
 # python cache
 **/__pycache__
+
+data
