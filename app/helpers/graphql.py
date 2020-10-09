@@ -23,11 +23,16 @@ class CustomGraphQLView(GraphQLView):
                 elif "__schema" in request_data.get("query", ""):
                     is_introspection = True
             if not is_introspection:
+                log_data = {
+                    "status_code": response.status_code,
+                    "graphql_request": request_data,
+                }
+                try:
+                    log_data["response"] = response.json()
+                except:
+                    pass
+
                 app.logger.info(
-                    "Graphql op",
-                    extra={
-                        "status_code": response.status_code,
-                        "graphql_request": request_data,
-                    },
+                    "Graphql op", extra=log_data,
                 )
         return response

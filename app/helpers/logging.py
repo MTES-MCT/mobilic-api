@@ -113,6 +113,7 @@ if app.config["SLACK_TOKEN"]:
 class FreeSchema(LDPSchema):
     graphql_request = fields.Dict()
     status_code = fields.Int()
+    response = fields.Dict()
     current_user = fields.String()
     device = fields.String()
 
