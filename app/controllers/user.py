@@ -30,6 +30,7 @@ from app.helpers.errors import (
     EmailAlreadyRegisteredError,
     InternalError,
     FCUserAlreadyRegisteredError,
+    MailjetError,
 )
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
@@ -193,11 +194,75 @@ class ActivateEmail(graphene.Mutation):
                 or activation_token != current_activation_token
             ):
                 raise InvalidTokenError(
-                    "Token is no more valid because it has been redeemed a new token exists"
+                    "Token is no more valid because it has been redeemed or a new token exists"
                 )
 
             user.has_activated_email = True
             user.activation_email_token = None
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(
+                response, **create_access_tokens_for(user), user_id=user.id
+            )
+            return response
+
+        return user
+
+
+class RequestPasswordReset(graphene.Mutation):
+    class Arguments:
+        mail = graphene.String(required=True)
+
+    message = graphene.String()
+
+    @classmethod
+    def mutate(cls, _, info, mail):
+        user = User.query.filter(User.email == mail).one_or_none()
+        if user:
+            try:
+                mailer.send_reset_password_email(user)
+            except MailjetError as e:
+                app.logger.exception(e)
+                return RequestPasswordReset(message="failure")
+        return RequestPasswordReset(message="success")
+
+
+class ResetPassword(graphene.Mutation):
+    class Arguments:
+        token = graphene.String(required=True)
+        password = graphene.String(required=True)
+
+    Output = UserOutput
+
+    @classmethod
+    def mutate(cls, _, info, token, password):
+        with atomic_transaction(commit_at_end=True):
+            try:
+                decoded_token = jwt.decode(
+                    token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
+                )
+
+                user_id = decoded_token["user_id"]
+                current_password = decoded_token["hash"]
+                expires_at = decoded_token["expires_at"]
+            except Exception as e:
+                raise InvalidTokenError(f"Token is invalid : {e}")
+
+            if expires_at < datetime.now().timestamp():
+                raise TokenExpiredError("Token has expired")
+
+            user = User.query.get(user_id)
+            if not user:
+                raise InvalidTokenError("Invalid user in token")
+
+            if current_password != user.password:
+                raise InvalidTokenError(
+                    "Token is no more valid because it has been redeemed or a new token exists"
+                )
+
+            user.revoke_all_tokens()
+            user.password = password
 
         @after_this_request
         def set_cookies(response):

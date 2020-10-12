@@ -116,6 +116,7 @@ class Mailer:
             f"L'entreprise {company.name} est créée sur Mobilic !",
             user.email,
             first_name=user.first_name,
+            website_link=self.app_config["FRONTEND_URL"],
             company_name=company.name,
             company_siren=company.siren,
         )
@@ -127,4 +128,28 @@ class Mailer:
             employment.user.email,
             first_name=employment.user.first_name,
             company_name=employment.company.name,
+        )
+
+    def send_reset_password_email(self, user):
+        token = jwt.encode(
+            {
+                "user_id": user.id,
+                "hash": user.password,
+                "expires_at": (
+                    datetime.now()
+                    + self.app_config["RESET_PASSWORD_TOKEN_EXPIRATION"]
+                ).timestamp(),
+            },
+            self.app_config["JWT_SECRET_KEY"],
+            algorithm="HS256",
+        ).decode("utf-8")
+        reset_link = (
+            f"{self.app_config['FRONTEND_URL']}/reset_password?token={token}"
+        )
+        self._send_email_from_template(
+            "reset_password_email.html",
+            "Réinitialisation de votre mot de passe Mobilic",
+            user.email,
+            first_name=user.first_name,
+            reset_link=reset_link,
         )

@@ -95,7 +95,8 @@ def get_user_from_token_identity(identity):
     token_issued_at = get_raw_jwt()["iat"]
     if (
         user.latest_token_revocation_time
-        and token_issued_at <= user.latest_token_revocation_time.timestamp()
+        and token_issued_at
+        <= user.latest_token_revocation_time.timestamp() - 5
     ):
         return None
     g.client_id = identity.get("client_id")
