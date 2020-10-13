@@ -11,7 +11,6 @@ from flask_jwt_extended import (
     get_jwt_identity,
     JWTManager,
 )
-from sqlalchemy.exc import DatabaseError
 from datetime import date, datetime
 import graphene
 from flask_jwt_extended.exceptions import (
@@ -93,10 +92,8 @@ def get_user_from_token_identity(identity):
         return None
     # Check that token is not revoked
     token_issued_at = get_raw_jwt()["iat"]
-    if (
-        user.latest_token_revocation_time
-        and token_issued_at
-        <= user.latest_token_revocation_time.timestamp() - 5
+    if user.latest_token_revocation_time and token_issued_at < int(
+        user.latest_token_revocation_time.timestamp()
     ):
         return None
     g.client_id = identity.get("client_id")

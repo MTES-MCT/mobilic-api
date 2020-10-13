@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from freezegun import freeze_time
+from time import sleep
 
 from app.tests import BaseTest, UserFactory
 from app import app, db
@@ -284,6 +285,7 @@ class TestAuth(BaseTest):
             self.assertIn("refreshToken", login_response_data)
 
             # Revoke user
+            sleep(1)
             self.user.revoke_all_tokens()
             db.session.commit()
 
