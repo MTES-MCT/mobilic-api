@@ -77,7 +77,7 @@ class CreateEmployment(graphene.Mutation):
         is_primary = graphene.Argument(
             graphene.Boolean,
             required=False,
-            description="Précise si l'entreprise de rattachement est l'entreprise principale du travailleur. Un salarié ne peut pas être rattaché à deux entreprises principales en même temps mais il peut avoir plusieurs rattachements secondaires, qui lui permettront d'associer du temps de travail à ces entreprises. Par défaut le rattachement est considéré comme principal",
+            description="Précise si l'entreprise de rattachement est l'entreprise principale du travailleur. Un salarié ne peut pas être rattaché à deux entreprises principales en même temps mais il peut avoir plusieurs rattachements secondaires, qui lui permettront d'associer du temps de travail à ces entreprises. Par défaut le rattachement sera principal s'il n'existe pas de rattachement principal existant pour l'utilisateur, sinon il sera secondaire.",
         )
 
     Output = EmploymentOutput
@@ -88,6 +88,8 @@ class CreateEmployment(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, **employment_input):
+        employment_is_primary = employment_input.get("is_primary")
+        force_employment_type = employment_is_primary is not None
         try:
             with atomic_transaction(commit_at_end=True):
                 reception_time = datetime.now()
@@ -116,23 +118,30 @@ class CreateEmployment(graphene.Mutation):
                 start_date = employment_input.get("start_date", date.today())
 
                 if user:
-                    user_current_primary_employment = (
-                        user.primary_employment_at(start_date)
-                        if user
-                        else None
+                    user_current_primary_employment = user.primary_employment_at(
+                        start_date
                     )
                     if (
                         not user_current_primary_employment
-                        and not employment_input.get("is_primary", True)
+                        and force_employment_type
+                        and not employment_is_primary
                     ):
                         raise MissingPrimaryEmploymentError(
                             "Cannot create a secondary employment for user because there is no primary employment in the same period"
                         )
 
+                if (
+                    not force_employment_type
+                    and user_current_primary_employment
+                ):
+                    employment_is_primary = (
+                        user_current_primary_employment is None
+                    )
+
                 employment = Employment(
                     reception_time=reception_time,
                     submitter=current_user,
-                    is_primary=employment_input.get("is_primary", True),
+                    is_primary=employment_is_primary,
                     validation_status=EmploymentRequestValidationStatus.PENDING,
                     start_date=start_date,
                     end_date=employment_input.get("end_date"),
@@ -275,6 +284,13 @@ class RedeemInvitation(graphene.Mutation):
                     @with_authorization_policy(authenticated_and_active)
                     def bind_and_redeem():
                         employment.user_id = current_user.id
+                        if employment.is_primary is None:
+                            employment.is_primary = (
+                                current_user.primary_employment_at(
+                                    employment.start_date
+                                )
+                                is None
+                            )
                         employment.validate_by(user=current_user)
 
                     bind_and_redeem()

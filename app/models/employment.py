@@ -21,7 +21,7 @@ class EmploymentRequestValidationStatus(str, Enum):
 class Employment(UserEventBaseModel, Dismissable):
     backref_base_name = "employments"
 
-    is_primary = db.Column(db.Boolean, nullable=False, default=True)
+    is_primary = db.Column(db.Boolean, nullable=True, default=True)
 
     validation_time = db.Column(db.DateTime, nullable=True)
 
@@ -48,6 +48,7 @@ class Employment(UserEventBaseModel, Dismissable):
     __table_args__ = (
         db.Constraint(name="only_one_current_primary_enrollment_per_user"),
         db.Constraint(name="no_simultaneous_enrollments_for_the_same_company"),
+        db.Constraint(name="no_undefined_employment_type_for_user"),
     )
 
     def __repr__(self):
