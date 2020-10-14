@@ -117,6 +117,7 @@ class CreateEmployment(graphene.Mutation):
 
                 start_date = employment_input.get("start_date", date.today())
 
+                user_current_primary_employment = None
                 if user:
                     user_current_primary_employment = user.primary_employment_at(
                         start_date
@@ -130,10 +131,7 @@ class CreateEmployment(graphene.Mutation):
                             "Cannot create a secondary employment for user because there is no primary employment in the same period"
                         )
 
-                if (
-                    not force_employment_type
-                    and user_current_primary_employment
-                ):
+                if not force_employment_type and user:
                     employment_is_primary = (
                         user_current_primary_employment is None
                     )
@@ -283,7 +281,6 @@ class RedeemInvitation(graphene.Mutation):
 
                     @with_authorization_policy(authenticated_and_active)
                     def bind_and_redeem():
-                        employment.user_id = current_user.id
                         if employment.is_primary is None:
                             employment.is_primary = (
                                 current_user.primary_employment_at(
@@ -291,6 +288,7 @@ class RedeemInvitation(graphene.Mutation):
                                 )
                                 is None
                             )
+                        employment.user_id = current_user.id
                         employment.validate_by(user=current_user)
 
                     bind_and_redeem()

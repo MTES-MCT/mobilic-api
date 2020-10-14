@@ -21,7 +21,7 @@ class EmploymentRequestValidationStatus(str, Enum):
 class Employment(UserEventBaseModel, Dismissable):
     backref_base_name = "employments"
 
-    is_primary = db.Column(db.Boolean, nullable=True, default=True)
+    is_primary = db.Column(db.Boolean, nullable=True)
 
     validation_time = db.Column(db.DateTime, nullable=True)
 
@@ -129,7 +129,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     )
     is_primary = graphene.Field(
         graphene.Boolean,
-        required=True,
         description="Précise si le rattachement est un rattachement principal ou secondaire. Un utilisateur ne peut pas avoir deux rattachements principaux simultanés",
     )
     start_date = graphene.Field(
