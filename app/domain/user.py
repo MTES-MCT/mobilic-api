@@ -45,6 +45,8 @@ def create_user(
                 f"Could not find valid employment matching token {invite_token}"
             )
         else:
+            if employment_to_validate.is_primary is None:
+                employment_to_validate.is_primary = True
             employment_to_validate.user_id = user.id
             employment_to_validate.validate_by(user)
             company = employment_to_validate.company
