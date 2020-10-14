@@ -1,5 +1,5 @@
 import graphene
-from flask import request
+from flask import request, jsonify
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError, DatabaseError
 from graphene.types.generic import GenericScalar
@@ -11,7 +11,12 @@ from app.domain.permissions import (
     company_admin_at,
     ConsultationScope,
 )
-from app.helpers.errors import InternalError, OverlappingEmploymentsError
+from app.helpers.authentication import require_auth, AuthenticationError
+from app.helpers.errors import (
+    InternalError,
+    OverlappingEmploymentsError,
+    InvalidParamsError,
+)
 from app.domain.work_days import group_user_events_by_day
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -146,11 +151,16 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
-@app.route("/download_company_activity_report/<int:id>")
-@with_authorization_policy(
-    company_admin_at, get_target_from_args=lambda id, *args, **kwargs: id
-)
-def download_activity_report(id):
+@app.route("/download_company_activity_report")
+def download_activity_report():
+    try:
+        company_ids = request.args.get("company_ids")
+        company_ids = [int(cid) for cid in company_ids.split(",")]
+        if not company_ids:
+            raise Exception
+    except:
+        return jsonify({"error": "invalid company ids"}), 400
+
     try:
         min_date = request.args.get("min_date")
         min_date = datetime.fromisoformat(min_date)
@@ -163,26 +173,31 @@ def download_activity_report(id):
     except Exception:
         max_date = None
 
-    company = (
-        company_queries_with_all_relations().filter(Company.id == id).one()
+    try:
+        require_auth()()
+    except AuthenticationError as e:
+        return jsonify({"error": e.message}), 401
+
+    if not set(company_ids) <= set(
+        current_user.current_company_ids_with_admin_rights
+    ):
+        return jsonify({"error": "Forbidden access"}), 403
+
+    companies = (
+        company_queries_with_all_relations()
+        .filter(Company.id.in_(company_ids))
+        .all()
     )
-    app.logger.info(f"Downloading activity report for {company}")
+
+    app.logger.info(f"Downloading activity report for {companies}")
     all_users_work_days = []
-    for user in company.users:
+    all_users = set([user for company in companies for user in company.users])
+    for user in all_users:
         all_users_work_days += group_user_events_by_day(
-            user, ConsultationScope(company_ids=[company.id])
+            user,
+            ConsultationScope(company_ids=company_ids),
+            from_date=min_date,
+            until_date=max_date,
         )
 
-    if min_date:
-        all_users_work_days = [
-            wd
-            for wd in all_users_work_days
-            if not wd.end_time or wd.end_time >= min_date
-        ]
-    if max_date:
-        all_users_work_days = [
-            wd
-            for wd in all_users_work_days
-            if wd.start_time and wd.start_time.date() <= max_date.date()
-        ]
     return send_work_days_as_excel(all_users_work_days)

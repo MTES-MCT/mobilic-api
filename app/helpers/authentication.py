@@ -49,7 +49,7 @@ def verify_oauth_token_in_request():
     g.oauth_user = matching_token.user
 
 
-def require_auth(f):
+def require_auth(f=lambda *args, **kwargs: None):
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:

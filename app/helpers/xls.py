@@ -82,20 +82,22 @@ columns_in_main_sheet = [
         10,
     ),
     (
-        "Véhicule(s)",
-        lambda wday: ", ".join([v.name for v in wday.vehicles]),
-        None,
-        30,
-    ),
-    (
         "Mission(s)",
         lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
         None,
         30,
     ),
     (
+        "Entreprise(s)",
+        lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
+        None,
+        30,
+    ),
+    (
         "Commentaires",
-        lambda wday: "\n".join([" - " + c.content for c in wday.comments]),
+        lambda wday: "\n".join(
+            [" - " + c.content for c in wday.activity_comments]
+        ),
         None,
         50,
     ),

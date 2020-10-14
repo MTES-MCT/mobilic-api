@@ -1,12 +1,12 @@
 from collections import defaultdict
 from cached_property import cached_property
 from dataclasses import dataclass
-from typing import List
+from typing import List, Set
 from datetime import datetime
 
 from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Mission
+from app.models import Activity, User, Mission, Company
 from app.models.activity import ActivityType
 
 
@@ -14,6 +14,7 @@ from app.models.activity import ActivityType
 class WorkDay:
     user: User
     missions: List[Mission]
+    companies: Set[Company]
     activities: List[Activity]
     _all_activities: List[Activity]
     was_modified: bool
@@ -21,6 +22,7 @@ class WorkDay:
     def __init__(self, user):
         self.user = user
         self.missions = []
+        self.companies = set()
         self.activities = []
         self._all_activities = []
         self.was_modified = False
@@ -28,6 +30,7 @@ class WorkDay:
     def add_mission(self, mission):
         self.missions.append(mission)
         self.activities.extend(mission.activities_for(self.user))
+        self.companies.add(mission.company)
         self._all_activities.extend(
             mission.activities_for(
                 self.user, include_dismisses_and_revisions=True
@@ -90,6 +93,22 @@ class WorkDay:
             + timers[ActivityType.SUPPORT]
         )
         return timers
+
+    @property
+    def activity_comments(self):
+        all_activity_contexts = [
+            a.context for a in self._all_activities if a.context is not None
+        ]
+        all_comments = [
+            context.get("comment")
+            for context in all_activity_contexts
+            if context.get("comment")
+        ]
+        unique_comments = []
+        for comment in all_comments:
+            if comment not in unique_comments:
+                unique_comments.append(comment)
+        return unique_comments
 
 
 def group_user_events_by_day(
