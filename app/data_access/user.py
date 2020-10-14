@@ -13,7 +13,7 @@ from app.helpers.authorization import (
     authenticated,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.models import User
+from app.models import User, Company
 from app.models.activity import ActivityOutput
 from app.models.employment import EmploymentOutput
 
@@ -94,6 +94,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
         EmploymentOutput,
         description="Liste des rattachements actifs ou en attente de validation",
     )
+    admined_companies = graphene.List(
+        lambda: CompanyOutput,
+        description="Liste des entreprises sur lesquelles l'utilisateur a les droits de gestion",
+    )
 
     @with_authorization_policy(
         self_or_company_admin,
@@ -165,6 +169,16 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_current_employments(self, info):
         return self.employments_at(date.today(), with_pending_ones=True)
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info: self,
+        error_message="Unauthorized access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
+    )
+    def resolve_admined_companies(self, info):
+        return Company.query.filter(
+            Company.id.in_(self.current_company_ids_with_admin_rights)
+        ).all()
 
     def resolve_birth_date(self, info):
         return (
