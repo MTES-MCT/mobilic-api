@@ -31,31 +31,35 @@ def check_mission_overlaps(user, mission):
     if len(mission_activities) == 0:
         return
 
-    mission_start = (mission_activities[0].start_time,)
-    mission_end = (mission_activities[-1].end_time,)
-
+    mission_start = mission_activities[0].start_time
+    mission_end = mission_activities[-1].end_time
     # 1. Check that the mission period is not overlapping with other ones
 
     ## 1a. No activity from another mission should be located within the mission period
-    for activity in user.query_activities_with_relations(
-        start_time=mission_start,
-        end_time=mission_end,
-        include_mission_relations=False,
-    ):
-        activity_mission_id = (
-            activity.mission_id if activity.mission_id else activity.mission.id
+    existing_conflicting_mission_activity = (
+        user.query_activities_with_relations(
+            start_time=mission_start,
+            end_time=mission_end,
+            include_mission_relations=False,
         )
-        if activity_mission_id != mission.id:
-            raise OverlappingMissionsError(
-                f"Mission cannot overlap with mission {activity.mission_id} for the user.",
-                conflicting_mission=Mission.query.get(activity.mission_id),
-            )
+        .filter(Activity.mission_id != mission.id)
+        .first()
+    )
+    if existing_conflicting_mission_activity:
+        raise OverlappingMissionsError(
+            f"Mission cannot overlap with mission {existing_conflicting_mission_activity.mission_id} for the user.",
+            conflicting_mission=Mission.query.get(
+                existing_conflicting_mission_activity.mission_id
+            ),
+        )
 
     ## 1b. Conversely the mission period should not be contained within another mission period
     latest_activity_before_mission_start = user.latest_activity_before(
         mission_start
     )
-    first_activity_after_mission_end = user.first_activity_after(mission_end)
+    first_activity_after_mission_end = (
+        user.first_activity_after(mission_end) if mission_end else None
+    )
     if (
         latest_activity_before_mission_start
         and first_activity_after_mission_end

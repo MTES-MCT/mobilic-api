@@ -1,5 +1,7 @@
 from sqlalchemy.orm import selectinload
 from datetime import datetime, date
+from psycopg2.extras import DateTimeRange
+from sqlalchemy.sql import func
 
 from app.models import User, Activity, Mission, Company, Employment
 
@@ -59,10 +61,12 @@ def query_activities(
         end_time = datetime(
             end_time.year, end_time.month, end_time.day, 23, 59, 59
         )
-    if start_time:
-        base_query = base_query.filter(Activity.start_time >= start_time)
-    if end_time:
-        base_query = base_query.filter(Activity.start_time <= end_time)
+    if start_time or end_time:
+        base_query = base_query.filter(
+            func.tsrange(Activity.start_time, Activity.end_time, "[)").op(
+                "&&"
+            )(DateTimeRange(start_time, end_time, "[)"))
+        )
 
     return base_query
 
