@@ -5,7 +5,6 @@ from app.models import Mission
 from app.models.activity import (
     ActivityType,
     Activity,
-    ActivityDismissType,
 )
 from app.tests.helpers import (
     DBEntryUpdate,
@@ -24,6 +23,7 @@ class TestEditActivities(TestLogActivities):
         activity_time,
         edit_time,
         new_activity_time=None,
+        new_activity_end_time=None,
         exclude_team_mate_ids=None,
         additional_db_changes=None,
     ):
@@ -45,34 +45,26 @@ class TestEditActivities(TestLogActivities):
                     submitter_id=self.team_leader.id,
                     user_id=team_mate_id,
                     start_time=activity_time,
+                    end_time=activity_to_edit.end_time,
                     reception_time=activity_time,
                     mission_id=activity_to_edit.mission_id,
                     dismiss_type=None,
                 )
                 random_id = str(randint(1000, 1000000))
-                if new_activity_time:
+                if new_activity_time or new_activity_end_time:
                     new_activity_data = {**activity_data}
-                    new_activity_data["start_time"] = new_activity_time
-                    new_activity_data["reception_time"] = edit_time
+                    if new_activity_time:
+                        new_activity_data["start_time"] = new_activity_time
+                    if new_activity_end_time:
+                        new_activity_data["end_time"] = new_activity_end_time
+                    new_activity_data["last_update_time"] = edit_time
                     expected_changes.update(
                         {
                             random_id: DBEntryUpdate(
                                 model=Activity,
-                                before=None,
+                                before=activity_data,
                                 after=new_activity_data,
-                            ),
-                            random_id
-                            + "revised": DBEntryUpdate(
-                                model=Activity,
-                                before={
-                                    "id": activity_to_edit.id,
-                                    "revised_by_id": None,
-                                },
-                                after={
-                                    "id": activity_to_edit.id,
-                                    "revised_by_id": ForeignKey(random_id),
-                                },
-                            ),
+                            )
                         }
                     )
                 else:
@@ -83,7 +75,6 @@ class TestEditActivities(TestLogActivities):
                                 before=activity_data,
                                 after={
                                     **activity_data,
-                                    "dismiss_type": ActivityDismissType.USER_CANCEL,
                                     "dismissed_at": edit_time,
                                     "dismiss_author_id": self.team_leader.id,
                                 },
@@ -104,13 +95,14 @@ class TestEditActivities(TestLogActivities):
                         time=edit_time,
                         submitter_id=self.team_leader.id,
                         query=ApiRequests.edit_activity
-                        if new_activity_time
+                        if (new_activity_time or new_activity_end_time)
                         else ApiRequests.cancel_activity,
                         variables=dict(
                             activity_id=activity_to_edit.id,
                             start_time=new_activity_time,
+                            end_time=new_activity_end_time,
                         )
-                        if new_activity_time
+                        if (new_activity_time or new_activity_end_time)
                         else dict(activity_id=activity_to_edit.id),
                     )
 
@@ -120,6 +112,7 @@ class TestEditActivities(TestLogActivities):
         activity_time,
         edit_time,
         new_activity_time=None,
+        new_activity_end_time=None,
         additional_db_changes=None,
     ):
         activity_to_edit = Activity.query.filter(
@@ -132,6 +125,7 @@ class TestEditActivities(TestLogActivities):
             submitter_id=self.team_leader.id,
             user_id=team_mate_id,
             start_time=activity_time,
+            end_time=activity_to_edit.end_time,
             reception_time=activity_time,
             mission_id=activity_to_edit.mission_id,
             dismiss_type=None,
@@ -144,28 +138,20 @@ class TestEditActivities(TestLogActivities):
             }
         random_id = str(randint(1000, 1000000))
 
-        if new_activity_time:
+        if new_activity_time or new_activity_end_time:
             new_activity_data = {**activity_data}
-            new_activity_data["start_time"] = new_activity_time
-            new_activity_data["reception_time"] = edit_time
-            new_activity_data["submitter_id"] = team_mate_id
+            if new_activity_time:
+                new_activity_data["start_time"] = new_activity_time
+            if new_activity_end_time:
+                new_activity_data["end_time"] = new_activity_end_time
+            new_activity_data["last_update_time"] = edit_time
             expected_changes.update(
                 {
                     random_id: DBEntryUpdate(
-                        model=Activity, before=None, after=new_activity_data
-                    ),
-                    random_id
-                    + "revised": DBEntryUpdate(
                         model=Activity,
-                        before={
-                            "id": activity_to_edit.id,
-                            "revised_by_id": None,
-                        },
-                        after={
-                            "id": activity_to_edit.id,
-                            "revised_by_id": ForeignKey(random_id),
-                        },
-                    ),
+                        before=activity_data,
+                        after=new_activity_data,
+                    )
                 }
             )
         else:
@@ -176,7 +162,6 @@ class TestEditActivities(TestLogActivities):
                         before=activity_data,
                         after={
                             **activity_data,
-                            "dismiss_type": ActivityDismissType.USER_CANCEL,
                             "dismissed_at": edit_time,
                             "dismiss_author_id": team_mate_id,
                         },
@@ -191,13 +176,14 @@ class TestEditActivities(TestLogActivities):
                 time=edit_time,
                 submitter_id=team_mate_id,
                 query=ApiRequests.edit_activity
-                if new_activity_time
+                if (new_activity_time or new_activity_end_time)
                 else ApiRequests.cancel_activity,
                 variables=dict(
                     activity_id=activity_to_edit.id,
                     start_time=new_activity_time,
+                    end_time=new_activity_end_time,
                 )
-                if new_activity_time
+                if (new_activity_time or new_activity_end_time)
                 else dict(activity_id=activity_to_edit.id),
             )
 
@@ -213,6 +199,16 @@ class TestEditActivities(TestLogActivities):
 
     def test_edit_activity_as_team_leader(self):
         self.test_log_standard_mission()
+
+        activity_to_edit_time = datetime(
+            2020, 2, 7, 7
+        )  # The second activity of the mission : work
+        new_activity_end_time = datetime(2020, 2, 7, 8)
+        self._cancel_or_edit_activity_as_team_leader(
+            activity_to_edit_time,
+            datetime(2020, 2, 7, 17),
+            new_activity_end_time=new_activity_end_time,
+        )
 
         activity_to_edit_time = datetime(
             2020, 2, 7, 9, 30
@@ -240,6 +236,17 @@ class TestEditActivities(TestLogActivities):
     def test_edit_activity_as_simple_member(self):
         team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
+
+        activity_to_edit_time = datetime(
+            2020, 2, 7, 7
+        )  # The second activity of the mission : work
+        new_activity_end_time = datetime(2020, 2, 7, 8)
+        self._cancel_or_edit_activity_as_simple_member(
+            team_mate_id,
+            activity_to_edit_time,
+            datetime(2020, 2, 7, 17),
+            new_activity_end_time=new_activity_end_time,
+        )
 
         activity_to_edit_time = datetime(
             2020, 2, 7, 9, 30
@@ -284,6 +291,15 @@ class TestEditActivities(TestLogActivities):
         team_mate_id = self.team_mates[0].id
         self.test_log_standard_mission()
 
+        first_activity_to_edit_user_time = datetime(2020, 2, 7, 7)
+        first_activity_new_end_time = datetime(2020, 2, 7, 9)
+        self._cancel_or_edit_activity_as_simple_member(
+            team_mate_id,
+            first_activity_to_edit_user_time,
+            datetime(2020, 2, 7, 17),
+            new_activity_end_time=first_activity_new_end_time,
+        )
+
         first_activity_to_edit_user_time = datetime(2020, 2, 7, 9, 30)
         first_activity_new_time = datetime(2020, 2, 7, 9)
         self._cancel_or_edit_activity_as_simple_member(
@@ -302,53 +318,6 @@ class TestEditActivities(TestLogActivities):
             new_activity_time=second_activity_new_time,
         )
 
-    def test_cancel_activity_handle_neighbour_inconsistencies(self):
-        """ We are cancelling a BREAK activity located between two WORK activities
-
-        The second work activity should be marked as duplicate after the cancel
-        """
-        self.test_log_standard_mission()
-
-        activity_to_cancel_user_time = datetime(2020, 2, 7, 12, 13)
-        activity_to_mark_as_duplicate_time = datetime(2020, 2, 7, 12, 53)
-
-        cancel_time = datetime(2020, 2, 7, 17)
-
-        activity_to_mark_as_duplicate = Activity.query.filter(
-            Activity.start_time == activity_to_mark_as_duplicate_time,
-            Activity.user_id == self.team_leader.id,
-        ).one()
-
-        additional_db_changes = []
-        for team_mate_id in self.team_ids:
-            activity_data = dict(
-                type=activity_to_mark_as_duplicate.type,
-                submitter_id=self.team_leader.id,
-                user_id=team_mate_id,
-                start_time=activity_to_mark_as_duplicate_time,
-                reception_time=activity_to_mark_as_duplicate_time,
-                mission_id=activity_to_mark_as_duplicate.mission_id,
-                dismiss_type=None,
-            )
-            additional_db_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=activity_data,
-                    after={
-                        **activity_data,
-                        "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH,
-                        "dismissed_at": cancel_time,
-                        "dismiss_author_id": self.team_leader.id,
-                    },
-                )
-            )
-
-        self._cancel_or_edit_activity_as_team_leader(
-            activity_to_cancel_user_time,
-            cancel_time,
-            additional_db_changes=additional_db_changes,
-        )
-
     def test_cancel_activity_handle_complex_neighbour_inconsistencies(self):
         """ We are cancelling all the activities of the day following the 12:13pm break
 
@@ -357,79 +326,10 @@ class TestEditActivities(TestLogActivities):
         mission_id = self.test_log_standard_mission()
 
         activity_to_cancel_user_time = datetime(2020, 2, 7, 12, 53)
-        activity_to_revise_time = datetime(2020, 2, 7, 12, 13)
-        activity_to_mark_as_duplicate_time = datetime(2020, 2, 7, 16)
-
         cancel_time = datetime(2020, 2, 7, 17)
 
-        activity_to_mark_as_duplicate = Activity.query.filter(
-            Activity.start_time == activity_to_mark_as_duplicate_time,
-            Activity.user_id == self.team_leader.id,
-        ).one()
-
-        additional_db_changes = {}
-        for team_mate_id in self.team_ids:
-            random_id = str(randint(1000, 1000000))
-            activity_data = dict(
-                type=activity_to_mark_as_duplicate.type,
-                submitter_id=self.team_leader.id,
-                user_id=team_mate_id,
-                start_time=activity_to_mark_as_duplicate_time,
-                reception_time=activity_to_mark_as_duplicate_time,
-                mission_id=activity_to_mark_as_duplicate.mission_id,
-                dismiss_type=None,
-            )
-            additional_db_changes.update(
-                {
-                    random_id: DBEntryUpdate(
-                        model=Activity,
-                        before=activity_data,
-                        after={
-                            **activity_data,
-                            "dismiss_type": ActivityDismissType.NO_ACTIVITY_SWITCH,
-                            "dismissed_at": cancel_time,
-                            "dismiss_author_id": self.team_leader.id,
-                        },
-                    )
-                }
-            )
-            activity_to_revise = Activity.query.filter(
-                Activity.start_time == activity_to_revise_time,
-                Activity.user_id == team_mate_id,
-            ).one()
-            random_id = str(randint(1000, 1000000))
-
-            additional_db_changes.update(
-                {
-                    random_id: DBEntryUpdate(
-                        model=Activity,
-                        before=None,
-                        after=dict(
-                            type=ActivityType.REST,
-                            user_id=team_mate_id,
-                            submitter_id=self.team_leader.id,
-                            mission_id=mission_id,
-                        ),
-                    ),
-                    random_id
-                    + "revised": DBEntryUpdate(
-                        model=Activity,
-                        before={
-                            "id": activity_to_revise.id,
-                            "revised_by_id": None,
-                        },
-                        after={
-                            "id": activity_to_revise.id,
-                            "revised_by_id": ForeignKey(random_id),
-                        },
-                    ),
-                }
-            )
-
         self._cancel_or_edit_activity_as_team_leader(
-            activity_to_cancel_user_time,
-            cancel_time,
-            additional_db_changes=additional_db_changes,
+            activity_to_cancel_user_time, cancel_time,
         )
 
     def test_cancel_lone_activity(self):
@@ -457,30 +357,8 @@ class TestEditActivities(TestLogActivities):
 
         cancel_time = datetime(2020, 2, 7, 10)
 
-        mission_end_data = dict(
-            user_id=first_team_mate_id,
-            submitter_id=self.team_leader.id,
-            reception_time=mission_end_time,
-            start_time=mission_end_time,
-            type=ActivityType.REST,
-        )
-        additional_db_changes = [
-            DBEntryUpdate(
-                model=Activity,
-                before=mission_end_data,
-                after={
-                    **mission_end_data,
-                    "dismiss_type": ActivityDismissType.BREAK_OR_REST_AS_STARTING_ACTIVITY,
-                    "dismissed_at": cancel_time,
-                    "dismiss_author_id": first_team_mate_id,
-                },
-            )
-        ]
         self._cancel_or_edit_activity_as_simple_member(
-            first_team_mate_id,
-            lone_activity_time,
-            cancel_time,
-            additional_db_changes=additional_db_changes,
+            first_team_mate_id, lone_activity_time, cancel_time,
         )
 
     def test_edit_activity_cannot_exceed_mission_bounds(self):

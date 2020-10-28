@@ -3,7 +3,6 @@ import jwt
 from flask import redirect, request, after_this_request
 from uuid import uuid4
 from datetime import datetime
-from sqlalchemy.exc import IntegrityError, DatabaseError
 from urllib.parse import quote, urlencode, unquote
 
 from app.controllers.utils import atomic_transaction
@@ -27,8 +26,6 @@ from app.helpers.authorization import (
 from app.helpers.errors import (
     InvalidTokenError,
     TokenExpiredError,
-    EmailAlreadyRegisteredError,
-    InternalError,
     FCUserAlreadyRegisteredError,
     MailjetError,
 )
@@ -63,18 +60,9 @@ class UserSignUp(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info, **data):
-        try:
-            with atomic_transaction(commit_at_end=True):
-                user = create_user(**data)
-                user.create_activation_link()
-
-        except IntegrityError as e:
-            app.logger.exception(e)
-            raise EmailAlreadyRegisteredError()
-
-        except DatabaseError as e:
-            app.logger.exception(e)
-            raise InternalError("An internal error occurred")
+        with atomic_transaction(commit_at_end=True):
+            user = create_user(**data)
+            user.create_activation_link()
 
         try:
             mailer.send_activation_email(user)
@@ -104,20 +92,15 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email, password=None):
-        try:
-            with atomic_transaction(commit_at_end=True):
-                if not current_user.france_connect_id or current_user.password:
-                    raise AuthorizationError("Actor has already a login")
+        with atomic_transaction(commit_at_end=True):
+            if not current_user.france_connect_id or current_user.password:
+                raise AuthorizationError("Actor has already a login")
 
-                current_user.email = email
-                current_user.has_confirmed_email = True
-                current_user.create_activation_link()
-                if password:
-                    current_user.password = password
-
-        except IntegrityError as e:
-            app.logger.exception(e)
-            raise EmailAlreadyRegisteredError()
+            current_user.email = email
+            current_user.has_confirmed_email = True
+            current_user.create_activation_link()
+            if password:
+                current_user.password = password
 
         try:
             mailer.send_activation_email(current_user)
@@ -139,16 +122,11 @@ class ChangeEmail(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email):
-        try:
-            with atomic_transaction(commit_at_end=True):
-                if current_user.email != email:
-                    current_user.email = email
-                    current_user.has_confirmed_email = True
-                    current_user.create_activation_link()
-
-        except IntegrityError as e:
-            app.logger.exception(e)
-            raise EmailAlreadyRegisteredError()
+        with atomic_transaction(commit_at_end=True):
+            if current_user.email != email:
+                current_user.email = email
+                current_user.has_confirmed_email = True
+                current_user.create_activation_link()
 
         try:
             mailer.send_activation_email(current_user, create_account=False)
@@ -398,7 +376,7 @@ def query_user(info, id=None):
     if id:
         user = User.query.get(id)
         if not user or not self_or_company_admin(current_user, user):
-            raise AuthorizationError("Unauthorized access")
+            raise AuthorizationError("Forbidden access")
     else:
         user = current_user
 

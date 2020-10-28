@@ -1,7 +1,3 @@
-from flask import g
-from functools import wraps
-import graphene
-from graphene.types.generic import GenericScalar
 from graphql import GraphQLError
 from abc import ABC, abstractmethod
 from sqlalchemy.exc import IntegrityError
@@ -107,34 +103,37 @@ class OverlappingMissionsError(MobilicError):
         )
 
 
-class ActivitySequenceError(MobilicError):
-    code = "ACTIVITY_SEQUENCE_ERROR"
+class OverlappingActivitiesError(MobilicError):
+    code = "OVERLAPPING_ACTIVITIES"
 
-
-class MissionAlreadyEndedError(ActivitySequenceError):
-    def __init__(self, message, mission_end, **kwargs):
-        super().__init__(message, **kwargs)
-        self.extensions.update(
-            dict(
-                missionEnd=dict(
-                    startTime=to_timestamp(mission_end.start_time),
-                    submitter=dict(
-                        id=mission_end.submitter.id,
-                        firstName=mission_end.submitter.first_name,
-                        lastName=mission_end.submitter.last_name,
-                    ),
-                )
-            )
-        )
-
-
-class SimultaneousActivitiesError(ActivitySequenceError):
     def __init__(
         self,
-        message="Mission already contains an activity with the same start time for the user",
+        message="Activity is overlapping with existing ones for the user",
         **kwargs,
     ):
         super().__init__(message, **kwargs)
+
+
+class MissionAlreadyEndedError(MobilicError):
+    code = "MISSION_ALREADY_ENDED"
+
+    def __init__(
+        self, mission_end=None, message="Mission already ended", **kwargs
+    ):
+        super().__init__(message, **kwargs)
+        if mission_end:
+            self.extensions.update(
+                dict(
+                    missionEnd=dict(
+                        endTime=to_timestamp(mission_end.reception_time),
+                        submitter=dict(
+                            id=mission_end.submitter.id,
+                            firstName=mission_end.submitter.first_name,
+                            lastName=mission_end.submitter.last_name,
+                        ),
+                    )
+                )
+            )
 
 
 class InvalidResourceError(MobilicError):
@@ -142,10 +141,6 @@ class InvalidResourceError(MobilicError):
 
 
 class ResourceAlreadyDismissedError(InvalidResourceError):
-    pass
-
-
-class NonContiguousActivitySequenceError(ActivitySequenceError):
     pass
 
 
@@ -160,84 +155,57 @@ class MissingPrimaryEmploymentError(MobilicError):
 class OverlappingEmploymentsError(MobilicError):
     code = "OVERLAPPING_EMPLOYMENTS"
 
-    def __init__(self, underlying_error, **kwargs):
-        message = "User cannot have two overlapping primary employments or two overlapping employments for the same company"
-
-        overlap_type = None
-        if isinstance(underlying_error, IntegrityError):
-            pg_error_diag = underlying_error.orig.diag
-            violated_constraint_name = pg_error_diag.constraint_name
-            if (
-                violated_constraint_name
-                == "only_one_current_primary_employment_per_user"
-            ):
-                overlap_type = "primary"
-                message = (
-                    "User cannot have two overlapping primary employments"
-                )
-            elif (
-                violated_constraint_name
-                == "no_simultaneous_employments_for_the_same_company"
-            ):
-                overlap_type = "company"
-                message = "User cannot have two overlapping employments on the same company"
-
+    def __init__(self, message, overlap_type, **kwargs):
         super().__init__(message, **kwargs)
         if overlap_type:
             self.extensions.update(dict(overlapType=overlap_type))
 
 
-class MutationWithNonBlockingErrors(graphene.Mutation):
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def mutate_with_non_blocking_errors(cls, mutate):
-        @wraps(mutate)
-        def mutate_wrapper(*args, **kwargs):
-            g.non_blocking_errors = []
-            output = mutate(*args, **kwargs)
-            output_type = getattr(cls, "Output")
-            non_blocking_errors = [e.to_dict() for e in g.non_blocking_errors]
-            if output_type:
-                return output_type(
-                    output=output, non_blocking_errors=non_blocking_errors
-                )
-            output.non_blocking_errors = non_blocking_errors
-            return output
-
-        return mutate_wrapper
-
-    @classmethod
-    def __init_subclass_with_meta__(cls, **kwargs):
-        output_type = getattr(cls, "Output")
-        non_blocking_errors_type = graphene.List(
-            GenericScalar,
-            description="Les erreurs mineures déclenchées par la requête, dont la connaissance peut intéresser l'appelant",
-        )
-        if output_type:
-
-            class AugmentedOutput(graphene.ObjectType):
-                class Meta:
-                    name = cls.__name__ + "Output"
-
-                output = output_type
-                non_blocking_errors = non_blocking_errors_type
-
-            setattr(cls, "Output", AugmentedOutput)
-        else:
-            try:
-                if "name" not in kwargs:
-                    kwargs["name"] = cls.__name__ + "Output"
-            except:
-                pass
-            setattr(cls, "non_blocking_errors", non_blocking_errors_type)
-
-        setattr(cls, "mutate", cls.mutate_with_non_blocking_errors(cls.mutate))
-        super().__init_subclass_with_meta__(**kwargs)
+CONSTRAINTS_TO_ERRORS_MAP = {
+    "no_overlapping_acknowledged_activities": OverlappingActivitiesError(),
+    "activity_start_time_before_end_time": InvalidParamsError(
+        "End time of activity cannot be before the start time"
+    ),
+    "activity_version_start_time_before_end_time": InvalidParamsError(
+        "End time of activity cannot be before the start time"
+    ),
+    "activity_version_start_time_before_reception_time": InvalidParamsError(
+        "Start time of activity cannot be in the future"
+    ),
+    "activity_version_end_time_before_reception_time": InvalidParamsError(
+        "End time of activity cannot be in the future"
+    ),
+    "activity_start_time_before_reception_time": InvalidParamsError(
+        "Start time of activity cannot be in the future"
+    ),
+    "activity_end_time_before_update_time": InvalidParamsError(
+        "End time of activity cannot be in the future"
+    ),
+    "only_one_current_primary_enrollment_per_user": OverlappingEmploymentsError(
+        "User cannot have two overlapping primary employments",
+        overlap_type="primary",
+    ),
+    "no_simultaneous_enrollments_for_the_same_company": OverlappingEmploymentsError(
+        "User cannot have two overlapping employments on the same company",
+        overlap_type="company",
+    ),
+    "no_duplicate_expenditures_per_user_and_mission": DuplicateExpendituresError(
+        "An expenditure of that type is already logged for the user on the mission"
+    ),
+    "company_siren_key": SirenAlreadySignedUpError("SIREN already registered"),
+    "user_email_key": EmailAlreadyRegisteredError(),
+    "user_can_only_end_mission_once": MissionAlreadyEndedError(),
+}
 
 
-def add_non_blocking_error(error):
-    if not g.get("non_blocking_errors"):
-        g.non_blocking_errors = []
-    g.non_blocking_errors.append(error)
+def handle_database_error(db_error):
+    from app import app
+
+    app.logger.exception(db_error)
+    if isinstance(db_error, IntegrityError):
+        if db_error.orig.diag.constraint_name:
+            raise CONSTRAINTS_TO_ERRORS_MAP.get(
+                db_error.orig.diag.constraint_name,
+                InternalError("An internal error occurred"),
+            )
+    raise InternalError("An internal error occurred")

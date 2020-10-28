@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy.orm import synonym, selectinload
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
 from uuid import uuid4
@@ -28,7 +28,7 @@ class User(BaseModel):
     has_activated_email = db.Column(db.Boolean, default=False, nullable=False)
 
     activation_email_token = db.Column(
-        db.String(128), nullable=True, default=None
+        db.String(128), unique=True, nullable=True, default=None
     )
 
     @property
@@ -59,15 +59,16 @@ class User(BaseModel):
             [
                 activity
                 for activity in self.activities
-                if activity.is_acknowledged
+                if not activity.is_dismissed
             ],
             key=lambda a: a.start_time,
         )
 
     def query_activities_with_relations(
         self,
-        include_dismisses_and_revisions=False,
+        include_dismissed_activities=False,
         include_mission_relations=False,
+        include_revisions=False,
         start_time=None,
         end_time=None,
     ):
@@ -75,64 +76,72 @@ class User(BaseModel):
         from app.models.queries import query_activities
 
         base_query = query_activities(
-            include_dismisses_and_revisions=include_dismisses_and_revisions,
+            include_dismissed_activities=include_dismissed_activities,
             start_time=start_time,
             end_time=end_time,
             user_id=self.id,
         )
 
         if include_mission_relations:
+            mission_activities_subq = selectinload(Mission.activities)
+            if include_revisions:
+                mission_activities_subq = mission_activities_subq.selectinload(
+                    Activity.revisions
+                )
             base_query = base_query.options(
                 selectinload(Activity.mission)
                 .options(selectinload(Mission.validations))
                 .options(selectinload(Mission.expenditures))
-                .options(
-                    selectinload(Mission.activities).selectinload(
-                        Activity.revisee
-                    )
-                )
+                .options(mission_activities_subq)
             )
-        else:
-            base_query = base_query.options(selectinload(Activity.revisee))
+        elif include_revisions:
+            base_query = base_query.options(selectinload(Activity.revisions))
 
         return base_query
 
-    def latest_acknowledged_activity_at(self, date_time):
+    def activity_at(self, date_time):
+        from app.models import Activity
+
+        return Activity.query.filter(
+            Activity.user_id == self.id,
+            ~Activity.is_dismissed,
+            Activity.start_time <= date_time,
+            or_(Activity.end_time.is_(None), Activity.end_time >= date_time),
+        ).one_or_none()
+
+    def latest_activity_before(self, date_time):
         from app.models import Activity
 
         return (
             Activity.query.filter(
                 Activity.user_id == self.id,
-                Activity.is_acknowledged,
-                Activity.start_time <= date_time,
-            )
-            .order_by(desc(Activity.start_time))
-            .first()
-        )
-
-    def latest_acknowledged_activity_before(self, date_time):
-        from app.models import Activity
-
-        return (
-            Activity.query.filter(
-                Activity.user_id == self.id,
-                Activity.is_acknowledged,
+                ~Activity.is_dismissed,
                 Activity.start_time < date_time,
+                or_(
+                    Activity.end_time.is_(None), Activity.end_time < date_time
+                ),
             )
             .order_by(desc(Activity.start_time))
             .first()
         )
 
-    @property
-    def current_activity(self):
-        acknowledged_activities = self.acknowledged_activities
-        if not acknowledged_activities:
-            return None
-        return acknowledged_activities[-1]
+    def first_activity_after(self, date_time):
+        from app.models import Activity
+
+        return (
+            Activity.query.filter(
+                Activity.user_id == self.id,
+                ~Activity.is_dismissed,
+                Activity.start_time > date_time,
+            )
+            .order_by(Activity.start_time)
+            .first()
+        )
 
     def query_missions(
         self,
-        include_dismisses_and_revisions=False,
+        include_dismissed_activities=False,
+        include_revisions=False,
         start_time=None,
         end_time=None,
     ):
@@ -140,8 +149,9 @@ class User(BaseModel):
         missions = set()
         activities = sorted(
             self.query_activities_with_relations(
-                include_dismisses_and_revisions=include_dismisses_and_revisions,
+                include_dismissed_activities=include_dismissed_activities,
                 include_mission_relations=True,
+                include_revisions=include_revisions,
                 start_time=start_time,
                 end_time=end_time,
             ).all(),
@@ -152,19 +162,6 @@ class User(BaseModel):
                 sorted_missions.append(a.mission)
                 missions.add(a.mission)
         return sorted_missions
-
-    def mission_at(self, date_time):
-        from app.models.activity import ActivityType
-
-        latest_activity_at_time = self.latest_acknowledged_activity_at(
-            date_time
-        )
-        if (
-            not latest_activity_at_time
-            or latest_activity_at_time.type == ActivityType.REST
-        ):
-            return None
-        return latest_activity_at_time.mission
 
     def revoke_all_tokens(self):
         self.latest_token_revocation_time = datetime.now()

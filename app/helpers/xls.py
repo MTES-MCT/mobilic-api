@@ -10,9 +10,7 @@ from app.models.activity import ActivityType
 ACTIVITY_TYPE_LABEL = {
     ActivityType.DRIVE: "conduite",
     ActivityType.WORK: "autre tâche",
-    ActivityType.BREAK: "pause",
     ActivityType.SUPPORT: "accompagnement",
-    ActivityType.REST: "repos",
 }
 
 EXCEL_MIMETYPE = (
@@ -51,9 +49,7 @@ columns_in_main_sheet = [
     ),
     (
         "Pause",
-        lambda wday: timedelta(
-            milliseconds=wday.activity_timers[ActivityType.BREAK]
-        ),
+        lambda wday: timedelta(milliseconds=wday.activity_timers["break"]),
         "duration_format",
         10,
     ),
@@ -95,9 +91,7 @@ columns_in_main_sheet = [
     ),
     (
         "Commentaires",
-        lambda wday: "\n".join(
-            [" - " + c.content for c in wday.activity_comments]
-        ),
+        lambda wday: "\n".join([" - " + c for c in wday.activity_comments]),
         None,
         50,
     ),

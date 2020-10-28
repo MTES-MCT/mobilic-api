@@ -2,7 +2,7 @@ from enum import Enum
 from datetime import datetime
 from typing import NamedTuple, Optional
 
-from app.models.activity import ActivityType, ActivityDismissType
+from app.models.activity import ActivityType
 
 
 class ActivityModificationType(str, Enum):
@@ -92,9 +92,7 @@ def build_activity_modification_list(activities):
             activity_modifications.append(
                 ActivityModification(
                     event_time=reception_time,
-                    type=ActivityModificationType.USER_CANCEL
-                    if activity.dismiss_type == ActivityDismissType.USER_CANCEL
-                    else ActivityModificationType.AUTOMATIC_DISMISS,
+                    type=ActivityModificationType.USER_CANCEL,
                     activity_start_time=activity.start_time,
                     activity_type=activity.type,
                 )

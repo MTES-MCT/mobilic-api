@@ -16,6 +16,7 @@ from app.controllers.mission import (
     EndMission,
     ValidateMission,
     Query as MissionQuery,
+    PrivateQuery as PrivateMissionQuery,
 )
 from app.controllers.user import (
     UserSignUp,
@@ -131,7 +132,10 @@ class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
 
 
 class PrivateQueries(
-    company.NonPublicQuery, GetInvitation, graphene.ObjectType
+    company.NonPublicQuery,
+    GetInvitation,
+    PrivateMissionQuery,
+    graphene.ObjectType,
 ):
     pass
 

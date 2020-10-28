@@ -1,18 +1,18 @@
 import graphene
 from graphene.types.generic import GenericScalar
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
-from app.domain.log_activities import log_activity
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
 )
 from app.helpers.graphene_types import TimeStamp
-from app.models.activity import ActivityType
 from app.models.mission import Mission
 from app.models import Company, Vehicle, User
+from app.models.mission_end import MissionEnd
 from app.models.mission_validation import (
     MissionValidation,
     MissionValidationOutput,
@@ -21,10 +21,10 @@ from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
     can_user_log_on_mission_at,
     belongs_to_company_at,
+    can_user_access_mission,
 )
 from app.helpers.authentication import current_user
-from app.models.queries import mission_query_with_relations
-from app.helpers.errors import AuthorizationError
+from app.helpers.errors import AuthorizationError, MissionAlreadyEndedError
 
 
 class MissionInput:
@@ -147,26 +147,55 @@ class EndMission(graphene.Mutation):
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
-            mission = mission_query_with_relations().get(
-                args.get("mission_id")
-            )
+            mission = Mission.query.options(
+                selectinload(Mission.activities)
+            ).get(args.get("mission_id"))
 
             user_id = args.get("user_id")
             if user_id:
                 user = User.query.get(user_id)
-
             else:
                 user = current_user
 
+            if not mission:
+                raise AuthorizationError(
+                    "Actor is not authorized to log on this mission at this time."
+                )
+
+            if not user:
+                raise AuthorizationError(
+                    f"Actor is not authorized to log for this user."
+                )
+
+            existing_mission_end = MissionEnd.query.filter(
+                MissionEnd.user_id == user.id,
+                MissionEnd.mission_id == mission.id,
+            ).one_or_none()
+
+            if existing_mission_end:
+                raise MissionAlreadyEndedError(
+                    mission_end=existing_mission_end
+                )
+
             app.logger.info(f"Ending mission {mission}")
-            log_activity(
-                submitter=current_user,
-                user=user,
-                mission=mission,
-                type=ActivityType.REST,
-                reception_time=reception_time,
-                start_time=args["end_time"],
-                context=args.get("context"),
+            current_user_activity = mission.current_activity_for_at(
+                user, reception_time
+            )
+
+            if current_user_activity and not current_user_activity.end_time:
+                current_user_activity.revise(
+                    reception_time,
+                    revision_context=args.get("context"),
+                    end_time=args["end_time"],
+                )
+
+            db.session.add(
+                MissionEnd(
+                    submitter=current_user,
+                    reception_time=reception_time,
+                    user=user,
+                    mission=mission,
+                )
             )
 
         return mission
@@ -218,9 +247,31 @@ class Query(graphene.ObjectType):
     @with_authorization_policy(
         can_user_log_on_mission_at,
         get_target_from_args=lambda self, info, id: Mission.query.get(id),
-        error_message="Unauthorized access",
+        error_message="Forbidden access",
     )
     def resolve_mission(self, info, id):
         mission = Mission.query.get(id)
         app.logger.info(f"Sending mission data for {mission}")
         return mission
+
+
+class PrivateQuery(graphene.ObjectType):
+    is_mission_ended_for_self = graphene.Field(
+        graphene.Boolean, mission_id=graphene.Int(required=True)
+    )
+
+    @with_authorization_policy(
+        can_user_access_mission,
+        get_target_from_args=lambda self, info, mission_id: Mission.query.get(
+            mission_id
+        ),
+        error_message="Forbidden access",
+    )
+    def resolve_is_mission_ended_for_self(self, info, mission_id):
+        return (
+            MissionEnd.query.filter(
+                MissionEnd.user_id == current_user.id,
+                MissionEnd.mission_id == mission_id,
+            ).count()
+            > 0
+        )

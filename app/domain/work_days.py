@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import List, Set
 from datetime import datetime
 
-from app.domain.activity_modifications import build_activity_modification_list
 from app.helpers.time import to_timestamp
 from app.models import Activity, User, Mission, Company
 from app.models.activity import ActivityType
@@ -20,6 +19,7 @@ class WorkDay:
     was_modified: bool
 
     def __init__(self, user):
+        self._are_activities_sorted = True
         self.user = user
         self.missions = []
         self.companies = set()
@@ -28,25 +28,29 @@ class WorkDay:
         self.was_modified = False
 
     def add_mission(self, mission):
+        self._are_activities_sorted = False
         self.missions.append(mission)
         self.activities.extend(mission.activities_for(self.user))
         self.companies.add(mission.company)
         self._all_activities.extend(
             mission.activities_for(
-                self.user, include_dismisses_and_revisions=True
+                self.user, include_dismissed_activities=True
             )
         )
-        self.activities.sort(key=lambda a: a.start_time)
-        self._all_activities.sort(key=lambda a: a.start_time)
+
+    def _sort_activities(self):
+        if not self._are_activities_sorted:
+            self.activities.sort(key=lambda a: a.start_time)
+            self._all_activities.sort(key=lambda a: a.start_time)
+            self._are_activities_sorted = True
 
     @property
     def is_complete(self):
-        return (
-            self.activities and self.activities[-1].type == ActivityType.REST
-        )
+        return self.end_time is not None
 
     @property
     def start_time(self):
+        self._sort_activities()
         if self.activities:
             return self.activities[0].start_time
         if self._all_activities:
@@ -55,7 +59,8 @@ class WorkDay:
 
     @property
     def end_time(self):
-        return self.activities[-1].start_time if self.is_complete else None
+        self._sort_activities()
+        return self.activities[-1].end_time if self.activities else None
 
     @cached_property
     def expenditures(self):
@@ -67,6 +72,7 @@ class WorkDay:
 
     @property
     def activity_timers(self):
+        self._sort_activities()
         if not self.activities:
             return {}
         timers = defaultdict(lambda: 0)
@@ -76,28 +82,28 @@ class WorkDay:
             else to_timestamp(datetime.now())
         )
         timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
-        for activity, next_activity in zip(
-            self.activities[:-1], self.activities[1:]
-        ):
-            timers[activity.type] += to_timestamp(
-                next_activity.start_time
-            ) - to_timestamp(activity.start_time)
-        if not self.is_complete:
-            latest_activity = self.activities[-1]
-            timers[latest_activity.type] += end_timestamp - to_timestamp(
-                latest_activity.start_time
+        for activity in self.activities:
+            timers[activity.type] += (
+                int(activity.duration.total_seconds()) * 1000
             )
+
         timers["total_work"] = (
             timers[ActivityType.DRIVE]
             + timers[ActivityType.WORK]
             + timers[ActivityType.SUPPORT]
         )
+
+        timers["break"] = timers["total_service"] - timers["total_work"]
+
         return timers
 
     @property
     def activity_comments(self):
         all_activity_contexts = [
-            a.context for a in self._all_activities if a.context is not None
+            ar.context
+            for a in self._all_activities
+            for ar in a.revisions
+            if ar.context is not None
         ]
         all_comments = [
             context.get("comment")
@@ -115,7 +121,8 @@ def group_user_events_by_day(
     user, consultation_scope, from_date=None, until_date=None
 ):
     missions = user.query_missions(
-        include_dismisses_and_revisions=True,
+        include_dismissed_activities=True,
+        include_revisions=True,
         start_time=from_date,
         end_time=until_date,
     )
@@ -135,10 +142,10 @@ def group_user_missions_by_day(user, missions):
     current_work_day = None
     for mission in missions:
         all_mission_activities = mission.activities_for(
-            user, include_dismisses_and_revisions=True
+            user, include_dismissed_activities=True
         )
         acknowledged_mission_activities = [
-            a for a in all_mission_activities if a.is_acknowledged
+            a for a in all_mission_activities if not a.is_dismissed
         ]
         mission_start_time = (
             acknowledged_mission_activities[0].start_time
@@ -155,15 +162,26 @@ def group_user_missions_by_day(user, missions):
 
         # If no after-time modification was yet detected for the current work day, we check whether the newly added mission introduces some
         if not current_work_day.was_modified:
-            all_mission_activity_modifications = build_activity_modification_list(
-                all_mission_activities
-            )
-            if not all(
+            current_work_day.was_modified = any(
                 [
-                    a.is_automatic_or_real_time
-                    for a in all_mission_activity_modifications
+                    a.is_dismissed
+                    or len(
+                        {
+                            r.end_time
+                            for r in a.revisions
+                            if r.end_time is not None
+                        }
+                    )
+                    > 1
+                    or len(
+                        {
+                            r.start_time
+                            for r in a.revisions
+                            if r.start_time is not None
+                        }
+                    )
+                    for a in all_mission_activities
                 ]
-            ):
-                current_work_day.was_modified = True
+            )
 
     return work_days

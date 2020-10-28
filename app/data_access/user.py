@@ -102,7 +102,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         self_or_company_admin,
         get_target_from_args=lambda self, info: self,
-        error_message="Unauthorized access to 'isAdminOfPrimaryCompany' field of user object.",
+        error_message="Forbidden access to 'isAdminOfPrimaryCompany' field of user object.",
     )
     def resolve_is_admin_of_primary_company(self, info):
         current_primary_employment = self.primary_employment_at(date.today())
@@ -114,7 +114,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
-        error_message="Unauthorized access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
+        error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_activities(
         self, info, consultation_scope, from_time=None, until_time=None
@@ -132,7 +132,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
-        error_message="Unauthorized access to field 'workDays' of user object. The field is only accessible to the user himself of company admins."
+        error_message="Forbidden access to field 'workDays' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_work_days(
         self, info, consultation_scope, from_date=None, until_date=None
@@ -146,7 +146,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
-        error_message="Unauthorized access to field 'missions' of user object. The field is only accessible to the user himself of company admins."
+        error_message="Forbidden access to field 'missions' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_missions(
         self, info, consultation_scope, from_time=None, until_time=None
@@ -165,7 +165,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         only_self,
         get_target_from_args=lambda self, info: self,
-        error_message="Unauthorized access to field 'currentEmployments' of user object. The field is only accessible to the user himself.",
+        error_message="Forbidden access to field 'currentEmployments' of user object. The field is only accessible to the user himself.",
     )
     def resolve_current_employments(self, info):
         return self.employments_at(date.today(), with_pending_ones=True)
@@ -173,7 +173,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         only_self,
         get_target_from_args=lambda self, info: self,
-        error_message="Unauthorized access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
+        error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
     def resolve_admined_companies(self, info):
         return Company.query.filter(

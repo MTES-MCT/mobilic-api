@@ -65,9 +65,9 @@ def _equals_on_intersect(d1, d2):
 
 class ApiRequests:
     log_activity = """
-        mutation ($type: InputableActivityTypeEnum!, $startTime: TimeStamp!, $endTime: TimeStamp, $missionId: Int!, $userId: Int, $context: GenericScalar) {
+        mutation ($type: ActivityTypeEnum!, $startTime: TimeStamp!, $endTime: TimeStamp, $missionId: Int!, $userId: Int, $context: GenericScalar, $switch: Boolean) {
             activities {
-                logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context) {
+                logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context, switch: $switch) {
                     id
                     type
                 }
@@ -98,8 +98,7 @@ class ApiRequests:
         mutation ($activityId: Int!, $context: GenericScalar) {
             activities {
                 cancelActivity (activityId: $activityId, context: $context) {
-                    id
-                    type
+                    success
                 }
             }
         }
@@ -246,6 +245,7 @@ def make_authenticated_request(
             response = c.post_graphql(
                 query=query, variables=formatted_variables,
             )
+    # print(response.json)
     db.session.rollback()
 
     if request_should_fail_with:

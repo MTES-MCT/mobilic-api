@@ -12,10 +12,6 @@ from app import db
 from app.models.utils import enum_column
 
 
-class DismissType(str, Enum):
-    USER_CANCEL = "user_cancel"
-
-
 class EventBaseModel(BaseModel):
     __abstract__ = True
 
@@ -58,8 +54,6 @@ class Dismissable:
     backref_base_name = "events"
 
     dismissed_at = db.Column(db.DateTime, nullable=True)
-    dismiss_type = enum_column(DismissType, nullable=True)
-    dismiss_received_at = db.Column(db.DateTime, nullable=True)
 
     dismiss_context = db.Column(JSONB(none_as_null=True), nullable=True)
 
@@ -85,31 +79,19 @@ class Dismissable:
             backref="dismissed_" + cls.backref_base_name,
         )
 
-    def dismiss(
-        self, type=DismissType.USER_CANCEL, dismiss_time=None, context=None
-    ):
-        self.dismiss_received_at = datetime.now()
+    def dismiss(self, dismiss_time=None, context=None):
         if not dismiss_time:
-            dismiss_time = self.dismiss_received_at
+            dismiss_time = datetime.now()
         self.dismiss_context = context
-        self.dismiss_type = type
         self.dismissed_at = dismiss_time
         self.dismiss_author = current_user
 
     __table_args__ = (
         db.CheckConstraint(
-            "((dismissed_at is not null)::bool = (dismiss_type is not null)::bool AND (dismiss_type is not null)::bool = (dismiss_received_at is not null)::bool)",
-            "non_nullable_dismiss_type",
-        ),
-        db.CheckConstraint(
-            "(dismiss_type != 'user_cancel' OR dismiss_author_id is not null)",
-            "non_nullable_dismiss_author_id",
+            "((dismissed_at is not null)::bool = (dismiss_received_at is not null)::bool) AND ((dismissed_at is not null)::bool = (dismiss_author_id is not null)::bool)",
+            "non_nullable_dismiss_info",
         ),
     )
-
-    @property
-    def is_acknowledged(self):
-        return not self.is_dismissed
 
 
 class UserEventBaseModel(EventBaseModel):
@@ -129,32 +111,3 @@ class UserEventBaseModel(EventBaseModel):
             foreign_keys=[cls.user_id],
             backref=cls.backref_base_name,
         )
-
-
-class Revisable(Dismissable):
-    revision_context = db.Column(JSONB(none_as_null=True), nullable=True)
-
-    @declared_attr
-    def revised_by_id(cls):
-        return db.Column(
-            db.Integer,
-            db.ForeignKey(cls.__tablename__ + ".id"),
-            index=True,
-            nullable=True,
-        )
-
-    @declared_attr
-    def revised_by(cls):
-        return db.relationship(
-            cls,
-            backref=backref("revisee", uselist=False),
-            remote_side=[cls.id],
-        )
-
-    @property
-    def is_revised(self):
-        return self.revised_by is not None or self.revised_by_id is not None
-
-    def set_revision(self, revision, context=None):
-        self.revised_by = revision
-        self.revision_context = context

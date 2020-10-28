@@ -77,7 +77,7 @@ def get_activity_consultation_scope(actor, user=None) -> ConsultationScope:
     )
 
 
-def user_resolver_with_consultation_scope(error_message="Unauthorized access"):
+def user_resolver_with_consultation_scope(error_message="Forbidden access"):
     def decorator(resolver):
         @wraps(resolver)
         def wrapper(user, info, *args, **kwargs):

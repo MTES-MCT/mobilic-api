@@ -9,7 +9,6 @@ from app.helpers.authentication import (
 import graphene
 from datetime import datetime, date
 from sqlalchemy.orm import selectinload
-from sqlalchemy.exc import IntegrityError, DatabaseError
 from uuid import uuid4
 
 from app import app, db, mailer
@@ -17,8 +16,6 @@ from app.controllers.utils import atomic_transaction
 from app.helpers.errors import (
     MissingPrimaryEmploymentError,
     InvalidParamsError,
-    OverlappingEmploymentsError,
-    InternalError,
     InvalidTokenError,
     InvalidResourceError,
 )
@@ -90,74 +87,63 @@ class CreateEmployment(graphene.Mutation):
     def mutate(cls, _, info, **employment_input):
         employment_is_primary = employment_input.get("is_primary")
         force_employment_type = employment_is_primary is not None
-        try:
-            with atomic_transaction(commit_at_end=True):
-                reception_time = datetime.now()
-                app.logger.info(
-                    f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
-                )
-                company = Company.query.get(employment_input["company_id"])
+        with atomic_transaction(commit_at_end=True):
+            reception_time = datetime.now()
+            app.logger.info(
+                f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
+            )
+            company = Company.query.get(employment_input["company_id"])
 
-                if (employment_input.get("user_id") is None) == (
-                    employment_input.get("mail") is None
+            if (employment_input.get("user_id") is None) == (
+                employment_input.get("mail") is None
+            ):
+                raise InvalidParamsError(
+                    "Exactly one of userId or mail should be provided."
+                )
+
+            user_id = employment_input.get("user_id")
+            user = None
+            invite_token = uuid4().hex
+            if user_id:
+                user = User.query.options(selectinload(User.employments)).get(
+                    employment_input["user_id"]
+                )
+                if not user:
+                    raise InvalidResourceError("Invalid user id")
+
+            start_date = employment_input.get("start_date", date.today())
+
+            user_current_primary_employment = None
+            if user:
+                user_current_primary_employment = user.primary_employment_at(
+                    start_date
+                )
+                if (
+                    not user_current_primary_employment
+                    and force_employment_type
+                    and not employment_is_primary
                 ):
-                    raise InvalidParamsError(
-                        "Exactly one of userId or mail should be provided."
+                    raise MissingPrimaryEmploymentError(
+                        "Cannot create a secondary employment for user because there is no primary employment in the same period"
                     )
 
-                user_id = employment_input.get("user_id")
-                user = None
-                invite_token = uuid4().hex
-                if user_id:
-                    user = User.query.options(
-                        selectinload(User.employments)
-                    ).get(employment_input["user_id"])
-                    if not user:
-                        raise InvalidResourceError("Invalid user id")
+            if not force_employment_type and user:
+                employment_is_primary = user_current_primary_employment is None
 
-                start_date = employment_input.get("start_date", date.today())
-
-                user_current_primary_employment = None
-                if user:
-                    user_current_primary_employment = user.primary_employment_at(
-                        start_date
-                    )
-                    if (
-                        not user_current_primary_employment
-                        and force_employment_type
-                        and not employment_is_primary
-                    ):
-                        raise MissingPrimaryEmploymentError(
-                            "Cannot create a secondary employment for user because there is no primary employment in the same period"
-                        )
-
-                if not force_employment_type and user:
-                    employment_is_primary = (
-                        user_current_primary_employment is None
-                    )
-
-                employment = Employment(
-                    reception_time=reception_time,
-                    submitter=current_user,
-                    is_primary=employment_is_primary,
-                    validation_status=EmploymentRequestValidationStatus.PENDING,
-                    start_date=start_date,
-                    end_date=employment_input.get("end_date"),
-                    company=company,
-                    has_admin_rights=employment_input.get("has_admin_rights"),
-                    user_id=user_id,
-                    invite_token=invite_token,
-                    email=employment_input.get("mail"),
-                )
-                db.session.add(employment)
-
-        except IntegrityError as e:
-            app.logger.exception(e)
-            raise OverlappingEmploymentsError(e)
-
-        except DatabaseError as e:
-            app.logger.exception(e)
-            raise InternalError("An internal error occurred")
+            employment = Employment(
+                reception_time=reception_time,
+                submitter=current_user,
+                is_primary=employment_is_primary,
+                validation_status=EmploymentRequestValidationStatus.PENDING,
+                start_date=start_date,
+                end_date=employment_input.get("end_date"),
+                company=company,
+                has_admin_rights=employment_input.get("has_admin_rights"),
+                user_id=user_id,
+                invite_token=invite_token,
+                email=employment_input.get("mail"),
+            )
+            db.session.add(employment)
 
         try:
             mailer.send_employee_invite(
@@ -269,33 +255,28 @@ class RedeemInvitation(graphene.Mutation):
     @classmethod
     def mutate(cls, _, info, token):
         user_to_auth = None
-        try:
-            with atomic_transaction(commit_at_end=True):
-                employment = _get_employment_by_token(token)
+        with atomic_transaction(commit_at_end=True):
+            employment = _get_employment_by_token(token)
 
-                if employment.user:
-                    user_to_auth = employment.user
-                    employment.validate_by(user=user_to_auth)
+            if employment.user:
+                user_to_auth = employment.user
+                employment.validate_by(user=user_to_auth)
 
-                else:
+            else:
 
-                    @with_authorization_policy(authenticated_and_active)
-                    def bind_and_redeem():
-                        if employment.is_primary is None:
-                            employment.is_primary = (
-                                current_user.primary_employment_at(
-                                    employment.start_date
-                                )
-                                is None
+                @with_authorization_policy(authenticated_and_active)
+                def bind_and_redeem():
+                    if employment.is_primary is None:
+                        employment.is_primary = (
+                            current_user.primary_employment_at(
+                                employment.start_date
                             )
-                        employment.user_id = current_user.id
-                        employment.validate_by(user=current_user)
+                            is None
+                        )
+                    employment.user_id = current_user.id
+                    employment.validate_by(user=current_user)
 
-                    bind_and_redeem()
-
-        except IntegrityError as e:
-            app.logger.exception(e)
-            raise OverlappingEmploymentsError(e)
+                bind_and_redeem()
 
         if user_to_auth:
 

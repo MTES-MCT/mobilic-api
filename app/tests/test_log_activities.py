@@ -2,9 +2,7 @@ from datetime import datetime
 
 from app.models import Mission
 from app.models.activity import (
-    InputableActivityType,
     ActivityType,
-    ActivityDismissType,
     Activity,
 )
 from app.tests import BaseTest, UserFactory, CompanyFactory
@@ -85,6 +83,7 @@ class TestLogActivities(BaseTest):
                         mission_id=mission_id,
                         type=ActivityType.WORK,
                         user_id=team_mate_id,
+                        switch=True,
                     ),
                     request_should_fail_with=should_fail,
                 )
@@ -105,7 +104,7 @@ class TestLogActivities(BaseTest):
             should_fail=True,
         )
 
-    def test_can_only_log_inputable_activities(self):
+    def test_can_only_log_valid_activity_types(self):
         time = datetime(2020, 2, 7, 6)
         mission_id = self.begin_mission(time)
         with test_db_changes({}, watch_models=[Activity, Mission]):
@@ -114,7 +113,7 @@ class TestLogActivities(BaseTest):
                 submitter_id=self.team_leader.id,
                 query=ApiRequests.log_activity,
                 variables=dict(
-                    type=ActivityType.REST,
+                    type="invalid_value",
                     start_time=datetime(2020, 2, 7, 8),
                     mission_id=mission_id,
                 ),
@@ -131,29 +130,46 @@ class TestLogActivities(BaseTest):
 
         second_event_time = datetime(day.year, day.month, day.day, 7)
         third_event_time = datetime(day.year, day.month, day.day, 9, 30)
-        third_event_type = InputableActivityType.WORK
-        fourth_event_time = datetime(day.year, day.month, day.day, 12, 13)
-        fourth_event_type = InputableActivityType.BREAK
+        third_event_type = ActivityType.WORK
+        break_event_time = datetime(day.year, day.month, day.day, 12, 13)
         fifth_event_time = datetime(day.year, day.month, day.day, 12, 53)
-        fifth_event_type = InputableActivityType.WORK
+        fifth_event_type = ActivityType.WORK
 
         expected_changes = []
         for team_mate_id in self.team_ids:
-            expected_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=None,
-                    after=dict(
-                        type=InputableActivityType.DRIVE
-                        if team_mate_id == self.team_leader.id
-                        else ActivityType.SUPPORT,
-                        reception_time=second_event_time,
-                        start_time=second_event_time,
-                        user_id=team_mate_id,
-                        submitter_id=self.team_leader.id,
-                        mission_id=mission_id,
+            expected_changes.extend(
+                [
+                    DBEntryUpdate(
+                        model=Activity,
+                        before=None,
+                        after=dict(
+                            type=ActivityType.DRIVE
+                            if team_mate_id == self.team_leader.id
+                            else ActivityType.SUPPORT,
+                            reception_time=second_event_time,
+                            start_time=second_event_time,
+                            end_time=third_event_time,
+                            user_id=team_mate_id,
+                            submitter_id=self.team_leader.id,
+                            mission_id=mission_id,
+                        ),
                     ),
-                )
+                    DBEntryUpdate(
+                        model=Activity,
+                        before=dict(
+                            user_id=team_mate_id,
+                            mission_id=mission_id,
+                            start_time=time,
+                            end_time=None,
+                        ),
+                        after=dict(
+                            user_id=team_mate_id,
+                            mission_id=mission_id,
+                            start_time=time,
+                            end_time=second_event_time,
+                        ),
+                    ),
+                ]
             )
             expected_changes.append(
                 DBEntryUpdate(
@@ -163,20 +179,7 @@ class TestLogActivities(BaseTest):
                         type=third_event_type,
                         reception_time=third_event_time,
                         start_time=third_event_time,
-                        user_id=team_mate_id,
-                        submitter_id=self.team_leader.id,
-                        mission_id=mission_id,
-                    ),
-                )
-            )
-            expected_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=None,
-                    after=dict(
-                        type=fourth_event_type,
-                        reception_time=fourth_event_time,
-                        start_time=fourth_event_time,
+                        end_time=break_event_time,
                         user_id=team_mate_id,
                         submitter_id=self.team_leader.id,
                         mission_id=mission_id,
@@ -191,6 +194,7 @@ class TestLogActivities(BaseTest):
                         type=fifth_event_type,
                         reception_time=fifth_event_time,
                         start_time=fifth_event_time,
+                        end_time=None,
                         user_id=team_mate_id,
                         submitter_id=self.team_leader.id,
                         mission_id=mission_id,
@@ -207,7 +211,7 @@ class TestLogActivities(BaseTest):
                     submitter_id=self.team_leader.id,
                     query=ApiRequests.log_activity,
                     variables=dict(
-                        type=InputableActivityType.DRIVE
+                        type=ActivityType.DRIVE
                         if team_mate_id == self.team_leader.id
                         else ActivityType.SUPPORT,
                         start_time=second_event_time,
@@ -215,7 +219,7 @@ class TestLogActivities(BaseTest):
                         user_id=team_mate_id,
                     ),
                 )
-                make_authenticated_request(
+                response = make_authenticated_request(
                     time=third_event_time,
                     submitter_id=self.team_leader.id,
                     query=ApiRequests.log_activity,
@@ -226,15 +230,16 @@ class TestLogActivities(BaseTest):
                         user_id=team_mate_id,
                     ),
                 )
+                activity_to_stop_id = response["data"]["activities"][
+                    "logActivity"
+                ]["id"]
                 make_authenticated_request(
-                    time=fourth_event_time,
+                    time=break_event_time,
                     submitter_id=self.team_leader.id,
-                    query=ApiRequests.log_activity,
+                    query=ApiRequests.edit_activity,
                     variables=dict(
-                        type=fourth_event_type,
-                        start_time=fourth_event_time,
-                        mission_id=mission_id,
-                        user_id=team_mate_id,
+                        activity_id=activity_to_stop_id,
+                        end_time=break_event_time,
                     ),
                 )
                 make_authenticated_request(
@@ -259,29 +264,10 @@ class TestLogActivities(BaseTest):
         mission_id = self.test_log_linear_activity_list()
 
         sixth_event_time = datetime(2020, 2, 7, 14)
-        sixth_event_type = InputableActivityType.WORK
 
-        expected_changes = []
-        for team_mate_id in self.team_ids:
-            expected_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=None,
-                    after=dict(
-                        type=sixth_event_type,
-                        reception_time=sixth_event_time,
-                        start_time=sixth_event_time,
-                        user_id=team_mate_id,
-                        submitter_id=self.team_leader.id,
-                        mission_id=mission_id,
-                        dismiss_type=ActivityDismissType.NO_ACTIVITY_SWITCH,
-                    ),
-                )
-            )
+        sixth_event_type = ActivityType.WORK
 
-        with test_db_changes(
-            expected_changes, watch_models=[Activity, Mission]
-        ):
+        with test_db_changes([], watch_models=[Activity, Mission]):
             for team_mate_id in self.team_ids:
                 make_authenticated_request(
                     time=sixth_event_time,
@@ -298,6 +284,7 @@ class TestLogActivities(BaseTest):
     def test_log_standard_mission(self, day=datetime(2020, 2, 7)):
         mission_id = self.test_log_linear_activity_list(day)
 
+        fifth_event_time = datetime(day.year, day.month, day.day, 12, 53)
         mission_end_time = datetime(day.year, day.month, day.day, 16)
 
         expected_changes = []
@@ -305,14 +292,17 @@ class TestLogActivities(BaseTest):
             expected_changes.append(
                 DBEntryUpdate(
                     model=Activity,
-                    before=None,
-                    after=dict(
-                        type=ActivityType.REST,
-                        reception_time=mission_end_time,
-                        start_time=mission_end_time,
+                    before=dict(
                         user_id=team_mate_id,
-                        submitter_id=self.team_leader.id,
                         mission_id=mission_id,
+                        start_time=fifth_event_time,
+                        end_time=None,
+                    ),
+                    after=dict(
+                        user_id=team_mate_id,
+                        mission_id=mission_id,
+                        start_time=fifth_event_time,
+                        end_time=mission_end_time,
                     ),
                 )
             )
