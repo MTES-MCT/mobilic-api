@@ -103,6 +103,17 @@ class OverlappingMissionsError(MobilicError):
         )
 
 
+class UnavailableSwitchModeError(MobilicError):
+    code = "INVALID_SWITCH"
+
+    def __init__(
+        self,
+        message="Cannot use switch mode because there is a current activity with an end time",
+        **kwargs,
+    ):
+        super().__init__(message, **kwargs)
+
+
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
 

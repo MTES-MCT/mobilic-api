@@ -30,7 +30,7 @@ class Mission(EventBaseModel):
     def current_activity_for_at(self, user, date_time):
         for activity in self.activities_for(user):
             if activity.start_time <= date_time and (
-                not activity.end_time or activity.end_time >= date_time
+                not activity.end_time or activity.end_time > date_time
             ):
                 return activity
         return None

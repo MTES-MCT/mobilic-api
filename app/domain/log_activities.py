@@ -21,7 +21,7 @@ def check_event_time_is_not_in_the_future(
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
         raise InvalidParamsError(
-            f"{event_time_name} was set in the future by {event_time - reception_time}"
+            f"{event_time_name} is in the future by {event_time - reception_time}"
         )
 
 

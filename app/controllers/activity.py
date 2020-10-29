@@ -12,6 +12,7 @@ from app.helpers.errors import (
     AuthorizationError,
     ResourceAlreadyDismissedError,
     InvalidParamsError,
+    UnavailableSwitchModeError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -78,7 +79,7 @@ class LogActivity(graphene.Mutation):
             switch_mode = activity_input.get("switch", True)
             if switch_mode and activity_input.get("end_time"):
                 raise InvalidParamsError(
-                    "Préciser une date de fin n'est pas autorisé en mode tachygraphe"
+                    "Specifying an end time is not authorized in switch mode"
                 )
 
             reception_time = datetime.now()
@@ -101,6 +102,8 @@ class LogActivity(graphene.Mutation):
                     user, start_time
                 )
                 if current_activity:
+                    if current_activity.end_time:
+                        raise UnavailableSwitchModeError()
                     if current_activity.type == activity_input.get("type"):
                         return current_activity
                     if not current_activity.end_time:
