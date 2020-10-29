@@ -2,11 +2,11 @@ import datetime
 
 
 def from_timestamp(ts):
-    return datetime.datetime.fromtimestamp(ts / 1000)
+    return datetime.datetime.fromtimestamp(ts)
 
 
 def to_timestamp(date_time):
-    return int(date_time.timestamp() * 1000)
+    return int(date_time.timestamp())
 
 
 def local_to_utc(date_time):

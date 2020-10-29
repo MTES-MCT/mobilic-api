@@ -12,7 +12,7 @@ from app.helpers.time import to_timestamp, from_timestamp
 
 class TimeStamp(DateTime):
     class Meta:
-        description = "Horodatage en nombre de millisecondes écoulées depuis le 1er janvier 1970 minuit UTC"
+        description = "Horodatage en nombre de secondes écoulées depuis le 1er janvier 1970 minuit UTC"
 
     @staticmethod
     def serialize(dt):

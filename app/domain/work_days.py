@@ -83,9 +83,7 @@ class WorkDay:
         )
         timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
         for activity in self.activities:
-            timers[activity.type] += (
-                int(activity.duration.total_seconds()) * 1000
-            )
+            timers[activity.type] += int(activity.duration.total_seconds())
 
         timers["total_work"] = (
             timers[ActivityType.DRIVE]
