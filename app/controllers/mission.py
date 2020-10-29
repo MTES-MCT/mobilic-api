@@ -24,7 +24,11 @@ from app.domain.permissions import (
     can_user_access_mission,
 )
 from app.helpers.authentication import current_user
-from app.helpers.errors import AuthorizationError, MissionAlreadyEndedError
+from app.helpers.errors import (
+    AuthorizationError,
+    MissionAlreadyEndedError,
+    UnavailableSwitchModeError,
+)
 
 
 class MissionInput:
@@ -178,16 +182,24 @@ class EndMission(graphene.Mutation):
                 )
 
             app.logger.info(f"Ending mission {mission}")
-            current_user_activity = mission.current_activity_for_at(
-                user, reception_time
-            )
+            user_activities = mission.activities_for(user)
+            last_activity = user_activities[-1] if user_activities else None
 
-            if current_user_activity and not current_user_activity.end_time:
-                current_user_activity.revise(
-                    reception_time,
-                    revision_context=args.get("context"),
-                    end_time=args["end_time"],
-                )
+            end_time = args["end_time"]
+            if last_activity:
+                if last_activity.start_time > end_time or (
+                    last_activity.end_time
+                    and last_activity.end_time > end_time
+                ):
+                    raise UnavailableSwitchModeError(
+                        "Invalid time for mission end because there are activities starting or ending after"
+                    )
+                if not last_activity.end_time:
+                    last_activity.revise(
+                        reception_time,
+                        revision_context=args.get("context"),
+                        end_time=args["end_time"],
+                    )
 
             db.session.add(
                 MissionEnd(
