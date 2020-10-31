@@ -11,6 +11,10 @@ class WorkDayOutput(graphene.ObjectType):
         lambda: UserOutput,
         description="Travailleur mobile qui a réalisé la journée de travail",
     )
+    user_id = graphene.Field(
+        graphene.Int,
+        description="Travailleur mobile qui a réalisé la journée de travail",
+    )
     expenditures = graphene.Field(
         GenericScalar,
         description="Liste des frais de la journée pour l'utilisateur concerné",
@@ -35,6 +39,9 @@ class WorkDayOutput(graphene.ObjectType):
         description="Décomposition de la durée de la journée par nature d'activité. La durée cumulée de chaque activité est indiquée en millisecondes.",
     )
     was_modified = graphene.Field(graphene.Boolean)
+
+    def resolve_user_id(self, info):
+        return self.user.id
 
 
 from app.data_access.user import UserOutput

@@ -21,7 +21,11 @@ class Mission(EventBaseModel):
     def activities_for(self, user, include_dismissed_activities=False):
         all_activities_for_user = sorted(
             [a for a in self.activities if a.user_id == user.id],
-            key=lambda a: a.start_time,
+            key=lambda a: (
+                a.start_time,
+                a.end_time is not None,
+                a.reception_time,
+            ),
         )
         if not include_dismissed_activities:
             return [a for a in all_activities_for_user if not a.is_dismissed]

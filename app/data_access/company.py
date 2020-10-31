@@ -102,7 +102,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             Mission.query.options(selectinload(Mission.validations))
             .options(selectinload(Mission.expenditures))
             .options(
-                selectinload(Mission.activities).selectinload(Activity.revisee)
+                selectinload(Mission.activities).selectinload(
+                    Activity.revisions
+                )
             )
             .filter(Mission.company_id == self.id)
         ).all()

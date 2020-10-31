@@ -151,6 +151,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
             "mission",
             "start_time",
             "end_time",
+            "last_update_time",
             "type",
             "context",
             "user_id",
@@ -184,6 +185,11 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         TimeStamp,
         required=False,
         description="Horodatage de fin de l'activité",
+    )
+    last_update_time = graphene.Field(
+        TimeStamp,
+        required=True,
+        description="Horodatage de la dernière mise à jour de l'activité",
     )
     user_id = graphene.Field(
         graphene.Int,
