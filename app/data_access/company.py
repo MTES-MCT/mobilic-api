@@ -42,10 +42,24 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         until_date=graphene.Date(
             required=False, description="Date de fin de l'historique"
         ),
+        limit=graphene.Int(
+            required=False,
+            description="Nombre maximal de missions retournées, par ordre de récence.",
+        ),
     )
     missions = graphene.List(
         MissionOutput,
-        description="Liste complète des missions de l'entreprise",
+        description="Liste des missions de l'entreprise",
+        from_time=graphene.Date(
+            required=False, description="Horodatage de début de l'historique"
+        ),
+        until_time=graphene.Date(
+            required=False, description="Horodatage de fin de l'historique"
+        ),
+        limit=graphene.Int(
+            required=False,
+            description="Nombre maximal de missions retournées, par ordre de récence.",
+        ),
     )
     vehicles = graphene.List(
         VehicleOutput, description="Liste des véhicules de l'entreprise"
@@ -97,16 +111,15 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be company admin.",
     )
-    def resolve_missions(self, info):
-        return (
-            Mission.query.options(selectinload(Mission.validations))
-            .options(selectinload(Mission.expenditures))
-            .options(
-                selectinload(Mission.activities).selectinload(
-                    Activity.revisions
-                )
-            )
-            .filter(Mission.company_id == self.id)
+    def resolve_missions(
+        self, info, from_time=None, until_time=None, limit=None
+    ):
+        return query_company_missions(
+            self.id,
+            start_time=from_time,
+            end_time=until_time,
+            limit=limit,
+            include_empty_missions=True,
         ).all()
 
     @with_authorization_policy(
@@ -114,10 +127,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
-    def resolve_work_days(self, info, from_date=None, until_date=None):
+    def resolve_work_days(
+        self, info, from_date=None, until_date=None, limit=None
+    ):
         missions = query_company_missions(
-            self.id, start_time=from_date, end_time=until_date
+            self.id, start_time=from_date, end_time=until_date, limit=limit
         ).all()
+
         user_to_missions = defaultdict(set)
         for mission in missions:
             for activity in mission.activities:

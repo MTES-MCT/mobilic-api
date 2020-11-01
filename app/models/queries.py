@@ -71,19 +71,52 @@ def query_activities(
     return base_query
 
 
-def query_company_missions(company_id, start_time=None, end_time=None):
-    activities_in_period = query_activities(
-        start_time=start_time, end_time=end_time
-    ).subquery()
+def query_company_missions(
+    company_id,
+    start_time=None,
+    end_time=None,
+    limit=None,
+    include_empty_missions=False,
+):
+    activities_in_period = (
+        query_activities(start_time=start_time, end_time=end_time)
+        .with_entities(Activity.mission_id)
+        .distinct()
+        .group_by(Activity.mission_id)
+        .with_entities(
+            Activity.mission_id,
+            func.min(Activity.start_time).label("mission_start_time"),
+        )
+        .subquery()
+    )
 
-    return (
+    mission_query = (
         Mission.query.options(selectinload(Mission.validations))
         .options(selectinload(Mission.expenditures))
         .options(
-            selectinload(Mission.activities)
-            .options(selectinload(Activity.user))
-            .options(selectinload(Activity.revisions))
+            selectinload(Mission.activities).selectinload(Activity.revisions)
         )
         .filter(Mission.company_id == company_id)
-        .join(activities_in_period)
+        .from_self()
+    )
+
+    if not include_empty_missions:
+        return (
+            mission_query.join(activities_in_period)
+            .order_by(activities_in_period.c.mission_start_time.desc())
+            .limit(limit)
+        )
+
+    if not start_time and not end_time and not limit:
+        return mission_query
+
+    return (
+        mission_query.join(activities_in_period, isouter=True)
+        .order_by(
+            func.coalesce(
+                activities_in_period.c.mission_start_time,
+                Mission.reception_time,
+            ).desc()
+        )
+        .limit(limit)
     )
