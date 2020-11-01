@@ -178,6 +178,7 @@ def group_user_missions_by_day(user, missions):
                             if r.start_time is not None
                         }
                     )
+                    > 1
                     for a in all_mission_activities
                 ]
             )
