@@ -22,3 +22,4 @@ def log_expenditure(submitter, user, mission, type, reception_time):
         submitter=submitter,
     )
     db.session.add(expenditure)
+    return expenditure

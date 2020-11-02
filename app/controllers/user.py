@@ -5,7 +5,7 @@ from uuid import uuid4
 from datetime import datetime
 from urllib.parse import quote, urlencode, unquote
 
-from app.controllers.utils import atomic_transaction
+from app.controllers.utils import atomic_transaction, Void
 from app.data_access.user import UserOutput
 from app.domain.permissions import self_or_company_admin
 from app.domain.user import create_user, get_user_from_fc_info
@@ -192,7 +192,7 @@ class RequestPasswordReset(graphene.Mutation):
     class Arguments:
         mail = graphene.String(required=True)
 
-    message = graphene.String()
+    Output = Void
 
     @classmethod
     def mutate(cls, _, info, mail):
@@ -203,7 +203,7 @@ class RequestPasswordReset(graphene.Mutation):
             except MailjetError as e:
                 app.logger.exception(e)
                 return RequestPasswordReset(message="failure")
-        return RequestPasswordReset(message="success")
+        return Void(success=True)
 
 
 class ResetPassword(graphene.Mutation):

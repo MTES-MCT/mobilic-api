@@ -1,5 +1,7 @@
 import graphene
 from datetime import datetime
+
+from app.controllers.utils import Void
 from app.helpers.authentication import current_user
 
 from app.domain.permissions import company_admin_at
@@ -92,7 +94,7 @@ class TerminateVehicle(graphene.Mutation):
             required=True, description="Identifiant du véhicule à retirer"
         )
 
-    success = graphene.Field(graphene.Boolean)
+    Output = Void
 
     @classmethod
     @with_authorization_policy(
@@ -106,4 +108,4 @@ class TerminateVehicle(graphene.Mutation):
         vehicle.terminated_at = datetime.now()
         db.session.commit()
         app.logger.info(f"Updated vehicle {vehicle}")
-        return TerminateVehicle(success=True)
+        return Void(success=True)

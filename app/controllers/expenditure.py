@@ -5,7 +5,7 @@ import graphene
 from datetime import datetime
 
 from app import app, db
-from app.controllers.utils import atomic_transaction
+from app.controllers.utils import atomic_transaction, Void
 from app.helpers.errors import (
     AuthorizationError,
     ResourceAlreadyDismissedError,
@@ -48,7 +48,7 @@ class LogExpenditure(graphene.Mutation):
 
     Arguments = ExpenditureInput
 
-    Output = graphene.List(ExpenditureOutput)
+    Output = ExpenditureOutput
 
     @classmethod
     @with_authorization_policy(authenticated_and_active)
@@ -69,7 +69,7 @@ class LogExpenditure(graphene.Mutation):
             else:
                 user = current_user
 
-            log_expenditure(
+            expenditure = log_expenditure(
                 submitter=current_user,
                 user=user,
                 mission=mission,
@@ -77,7 +77,7 @@ class LogExpenditure(graphene.Mutation):
                 reception_time=reception_time,
             )
 
-        return mission.acknowledged_expenditures
+        return expenditure
 
 
 class CancelExpenditure(graphene.Mutation):
@@ -94,7 +94,7 @@ class CancelExpenditure(graphene.Mutation):
             description="Identifiant du frais à annuler",
         )
 
-    Output = graphene.List(ExpenditureOutput)
+    Output = Void
 
     @classmethod
     @with_authorization_policy(authenticated_and_active)
@@ -126,4 +126,4 @@ class CancelExpenditure(graphene.Mutation):
             app.logger.info(f"Cancelling {expenditure_to_dismiss}")
             expenditure_to_dismiss.dismiss(reception_time)
 
-        return mission.acknowledged_expenditures
+        return Void(success=True)

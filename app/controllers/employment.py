@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from uuid import uuid4
 
 from app import app, db, mailer
-from app.controllers.utils import atomic_transaction
+from app.controllers.utils import atomic_transaction, Void
 from app.helpers.errors import (
     MissingPrimaryEmploymentError,
     InvalidParamsError,
@@ -354,7 +354,7 @@ class CancelEmployment(graphene.Mutation):
     Retourne le rattachement
     """
 
-    message = graphene.String()
+    Output = Void
 
     class Arguments:
         employment_id = graphene.Argument(
@@ -384,4 +384,4 @@ class CancelEmployment(graphene.Mutation):
 
             employment.dismiss()
 
-        return CancelEmployment(message="success")
+        return Void(success=True)

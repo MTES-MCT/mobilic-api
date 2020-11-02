@@ -23,6 +23,8 @@ from jwt import PyJWTError
 from functools import wraps
 from werkzeug.local import LocalProxy
 
+from app.controllers.utils import Void
+
 current_user = LocalProxy(lambda: g.get("oauth_user") or current_actor)
 
 
@@ -258,13 +260,13 @@ class CheckMutation(graphene.Mutation):
 
     """
 
-    message = graphene.String()
+    success = graphene.Boolean()
     user_id = graphene.Int()
 
     @classmethod
     @require_auth
     def mutate(cls, _, info):
-        return CheckMutation(message="success", user_id=current_user.id)
+        return CheckMutation(success=True, user_id=current_user.id)
 
 
 class LogoutMutation(graphene.Mutation):
@@ -273,12 +275,12 @@ class LogoutMutation(graphene.Mutation):
 
     """
 
-    message = graphene.String()
+    Output = Void
 
     @classmethod
     def mutate(cls, _, info):
         logout()
-        return LogoutMutation(message="success")
+        return Void(success=True)
 
 
 class RefreshMutation(graphene.Mutation):
@@ -354,7 +356,7 @@ def rest_logout():
 
     try:
         logout()
-        return jsonify({"message": "success"}), 200
+        return jsonify({"success": True}), 200
     except AuthenticationError as e:
         app.logger.exception(e)
         return jsonify({"error": e.message}), 401
