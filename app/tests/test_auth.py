@@ -36,7 +36,7 @@ class TestAuth(BaseTest):
             mutation {
                     auth {
                         check {
-                            message
+                            success
                             userId
                         }
                     }
