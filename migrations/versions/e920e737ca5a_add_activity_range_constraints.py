@@ -659,12 +659,7 @@ def upgrade():
     op.execute(
         """
         ALTER TABLE activity ADD CONSTRAINT no_sucessive_activities_with_same_type
-        EXCLUDE USING GIST (
-            user_id WITH =,
-            type WITH =,
-            tsrange(start_time, end_time, '[]') WITH &&
-        )
-        WHERE (dismissed_at is null)
+        CHECK (1 = 1)
         """
     )
     op.create_check_constraint(
