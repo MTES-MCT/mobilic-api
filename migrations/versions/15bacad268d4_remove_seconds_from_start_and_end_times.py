@@ -36,7 +36,12 @@ def upgrade():
     op.execute(
         """
         ALTER TABLE activity ADD CONSTRAINT no_sucessive_activities_with_same_type
-        CHECK (1 = 1)
+        EXCLUDE USING GIST (
+            user_id WITH =,
+            type WITH =,
+            tsrange(start_time, end_time, '[]') WITH &&
+        )
+        WHERE (dismissed_at is null and (end_time is null or start_time < end_time))
         """
     )
     op.drop_constraint("no_overlapping_acknowledged_activities", "activity")
