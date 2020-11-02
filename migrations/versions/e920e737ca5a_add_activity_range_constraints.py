@@ -11,6 +11,7 @@ from sqlalchemy.dialects import postgresql
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from types import SimpleNamespace
+import json
 
 # revision identifiers, used by Alembic.
 revision = "e920e737ca5a"
@@ -470,7 +471,7 @@ def _migrate_activities():
                             :version,
                             :start_time,
                             :end_time,
-                            :context,
+                            cast(:context as JSONB),
                             :submitter_id
                         )
                         """,
@@ -480,7 +481,9 @@ def _migrate_activities():
                             version=index + 1,
                             start_time=r.start_time,
                             end_time=r.end_time,
-                            context=r.context,
+                            context=json.dumps(r.context)
+                            if r.context
+                            else None,
                             submitter_id=r.submitter_id,
                         ),
                     )
@@ -578,6 +581,7 @@ def upgrade():
 
     # Migrate activities
     op.drop_constraint("no_simultaneous_acknowledged_activities", "activity")
+    op.drop_constraint("non_nullable_dismiss_type", "activity")
     _migrate_activities()
 
     op.drop_index("ix_activity_revised_by_id", table_name="activity")
