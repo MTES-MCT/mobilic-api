@@ -577,13 +577,13 @@ def upgrade():
     )
 
     # Migrate activities
+    op.drop_constraint("no_simultaneous_acknowledged_activities", "activity")
     _migrate_activities()
 
     op.drop_index("ix_activity_revised_by_id", table_name="activity")
     op.drop_constraint(
         "activity_revised_by_id_fkey", "activity", type_="foreignkey"
     )
-    op.drop_constraint("no_simultaneous_acknowledged_activities", "activity")
     op.drop_column("activity", "revision_context")
     op.drop_column("activity", "context")
     op.drop_column("activity", "revised_by_id")
