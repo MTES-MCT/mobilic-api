@@ -23,7 +23,7 @@ class Mission(EventBaseModel):
             [a for a in self.activities if a.user_id == user.id],
             key=lambda a: (
                 a.start_time,
-                a.end_time is not None,
+                a.end_time is None,
                 a.reception_time,
             ),
         )
