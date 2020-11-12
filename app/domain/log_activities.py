@@ -6,6 +6,7 @@ from app.helpers.errors import (
     AuthorizationError,
     OverlappingMissionsError,
     InvalidParamsError,
+    MissionAlreadyValidatedError,
 )
 from app.models.activity import Activity
 from app.models import Mission, ActivityVersion
@@ -86,6 +87,16 @@ def check_logging_permissions_at(submitter, user, mission, time):
         )
 
 
+def check_mission_still_open_for_activities_edition(mission, user):
+    if any(
+        [
+            v.is_admin and (not v.user_id or v.user_id == user.id)
+            for v in mission.validations
+        ]
+    ):
+        raise MissionAlreadyValidatedError()
+
+
 @contextmanager
 def handle_activities_update(
     submitter,
@@ -106,6 +117,9 @@ def handle_activities_update(
     check_logging_permissions_at(submitter, user, mission, start_time)
     if end_time:
         check_logging_permissions_at(submitter, user, mission, end_time)
+
+    # 2b. Check that the mission is still open for edition, at least for the user
+    check_mission_still_open_for_activities_edition(mission, user)
 
     # 3. Do the stuff
     yield

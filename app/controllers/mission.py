@@ -28,6 +28,7 @@ from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
+    NoActivitiesToValidateError,
 )
 
 
@@ -224,25 +225,53 @@ class ValidateMission(graphene.Mutation):
         mission_id = graphene.Int(
             required=True, description="Identifiant de la mission à valider"
         )
+        user_id = graphene.Int(
+            required=False,
+            description="Optionnel, dans le cas d'une validation gestionnaire il est possible de restreindre les informations validées à un travailleur spécifique.",
+        )
 
     Output = MissionValidationOutput
 
     @classmethod
     @with_authorization_policy(
         can_user_log_on_mission_at,
-        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
-            kwargs["mission_id"]
-        ),
+        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
+            selectinload(Mission.activities)
+        ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )
-    def mutate(cls, _, info, mission_id):
+    def mutate(cls, _, info, mission_id, user_id=None):
         with atomic_transaction(commit_at_end=True):
             mission = Mission.query.get(mission_id)
+
+            is_admin_validation = (
+                mission.company_id
+                in current_user.current_company_ids_with_admin_rights
+            )
+            user = None
+            if user_id:
+                if not is_admin_validation and user_id != current_user.id:
+                    raise AuthorizationError(
+                        "Actor is not authorized to validate the mission for the user"
+                    )
+                user = User.query.get(user_id)
+
+            if user:
+                activities_to_validate = mission.activities_for(user)
+            else:
+                activities_to_validate = mission.acknowledged_activities
+
+            if not activities_to_validate:
+                raise NoActivitiesToValidateError(
+                    "There are no activities in the validation scope."
+                )
 
             mission_validation = MissionValidation(
                 submitter=current_user,
                 reception_time=datetime.now(),
                 mission=mission,
+                user=user if is_admin_validation else current_user,
+                is_admin=is_admin_validation,
             )
             db.session.add(mission_validation)
 

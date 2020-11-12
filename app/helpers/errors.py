@@ -11,7 +11,11 @@ class MobilicError(GraphQLError, ABC):
     def code(self):
         pass
 
-    def __init__(self, message, **kwargs):
+    default_message = "Error"
+
+    def __init__(self, message=None, **kwargs):
+        if message is None:
+            message = self.default_message
         base_extensions = dict(code=self.code)
         base_extensions.update(kwargs.pop("extensions", {}))
         super().__init__(message, extensions=base_extensions, **kwargs)
@@ -70,11 +74,7 @@ class TokenExpiredError(MobilicError):
 
 class EmailAlreadyRegisteredError(MobilicError):
     code = "EMAIL_ALREADY_REGISTERED"
-
-    def __init__(
-        self, message="A user is already registered for this email", **kwargs
-    ):
-        super().__init__(message, **kwargs)
+    default_message = "A user is already registered for this email"
 
 
 class FCUserAlreadyRegisteredError(MobilicError):
@@ -105,24 +105,12 @@ class OverlappingMissionsError(MobilicError):
 
 class UnavailableSwitchModeError(MobilicError):
     code = "INVALID_ACTIVITY_SWITCH"
-
-    def __init__(
-        self,
-        message="Invalid time for switch mode because there is a current activity with an end time",
-        **kwargs,
-    ):
-        super().__init__(message, **kwargs)
+    default_message = "Invalid time for switch mode because there is a current activity with an end time"
 
 
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
-
-    def __init__(
-        self,
-        message="Activity is overlapping with existing ones for the user",
-        **kwargs,
-    ):
-        super().__init__(message, **kwargs)
+    default_message = "Activity is overlapping with existing ones for the user"
 
 
 class MissionAlreadyEndedError(MobilicError):
@@ -145,6 +133,15 @@ class MissionAlreadyEndedError(MobilicError):
                     )
                 )
             )
+
+
+class MissionAlreadyValidatedError(MobilicError):
+    code = "MISSION_ALREADY_VALIDATED_BY_ADMIN"
+    default_message = "A company admin validated the mission activities for the user, no further changes can be made."
+
+
+class NoActivitiesToValidateError(MobilicError):
+    code = "NO_ACTIVITIES_TO_VALIDATE"
 
 
 class InvalidResourceError(MobilicError):

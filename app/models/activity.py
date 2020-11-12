@@ -137,6 +137,13 @@ class Activity(UserEventBaseModel, Dismissable):
             return revision
 
     def dismiss(self, dismiss_time=None, context=None):
+        from app.domain.log_activities import (
+            check_mission_still_open_for_activities_edition,
+        )
+
+        check_mission_still_open_for_activities_edition(
+            self.mission, self.user
+        )
         super().dismiss(dismiss_time, context)
         self.last_update_time = self.dismissed_at
 
