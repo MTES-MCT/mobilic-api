@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/python:3.8.1
+      - image: circleci/python:3.8.2
       - image: circleci/postgres:12.0-alpine-ram
         environment:
           POSTGRES_USER: circleci
@@ -33,7 +33,7 @@ jobs:
 
   format:
     docker:
-      - image: circleci/python:3.8.1
+      - image: circleci/python:3.8.2
     steps:
       - checkout
       - restore_cache:
@@ -54,12 +54,20 @@ jobs:
 
   deploy:
     docker:
-      - image: circleci/python:3.8.1
+      - image: circleci/python:3.8.2
     steps:
       - checkout
       - run:
           name: Deploy to Heroku
           command: git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git master
+      - run:
+          name: Add Scalingo to known_hosts
+          command: ssh-keyscan -H ssh.osc-fr1.scalingo.com >> ~/.ssh/known_hosts
+      - run:
+          name: Deploy to Scalingo
+          command: |
+            git push git@ssh.osc-fr1.scalingo.com:$SCALINGO_APP_NAME.git master
+
 
 workflows:
   version: 2
