@@ -224,7 +224,7 @@ def query_work_day_stats(
     )
 
     query = db.session.query(query).with_entities(
-        "*",
+        *query.c,
         extract("epoch", query.c.end_time - query.c.start_time).label(
             "service_duration"
         ),
