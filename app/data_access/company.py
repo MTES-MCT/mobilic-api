@@ -4,16 +4,19 @@ from collections import defaultdict
 
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import company_admin_at, belongs_to_company_at
-from app.domain.work_days import group_user_missions_by_day
-from app.helpers.authorization import with_authorization_policy
+from app.domain.work_days import group_user_missions_by_day, WorkDayStatsOnly
+from app.helpers.authorization import with_authorization_policy, current_user
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.models import Company, Mission, Activity
+from app.helpers.graphql import get_children_field_names
+from app.models import Company, User
+from app.models.activity import ActivityType
 from app.models.employment import (
     EmploymentOutput,
     Employment,
     EmploymentRequestValidationStatus,
 )
-from app.models.queries import query_company_missions
+from app.models.expenditure import ExpenditureType
+from app.models.queries import query_company_missions, query_work_day_stats
 from app.models.vehicle import VehicleOutput
 
 
@@ -120,7 +123,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             end_time=until_time,
             limit=limit,
             include_empty_missions=True,
-        ).all()
+        )
 
     @with_authorization_policy(
         company_admin_at,
@@ -130,23 +133,56 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(
         self, info, from_date=None, until_date=None, limit=None
     ):
-        missions = query_company_missions(
-            self.id, start_time=from_date, end_time=until_date, limit=limit
-        ).all()
+        # There are two ways to build the work days :
+        ## - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
+        ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
+        if set(get_children_field_names(info)) & {"activities", "missions"}:
+            missions = query_company_missions(
+                self.id, start_time=from_date, end_time=until_date, limit=limit
+            )
 
-        user_to_missions = defaultdict(set)
-        for mission in missions:
-            for activity in mission.activities:
-                user_to_missions[activity.user].add(mission)
+            user_to_missions = defaultdict(set)
+            for mission in missions:
+                for activity in mission.activities:
+                    user_to_missions[activity.user].add(mission)
 
-        return sorted(
-            [
-                work_day
-                for user, missions in user_to_missions.items()
-                for work_day in group_user_missions_by_day(user, missions)
-            ],
-            key=lambda wd: wd.start_time,
-        )
+            work_days = sorted(
+                [
+                    work_day
+                    for user, missions in user_to_missions.items()
+                    for work_day in group_user_missions_by_day(user, missions)
+                ],
+                key=lambda wd: wd.start_time,
+            )
+            return work_days[-limit:]
+
+        ## Efficient approach
+        else:
+            work_day_stats = query_work_day_stats(
+                self.id, start_time=from_date, end_time=until_date, limit=limit
+            )
+            user_ids = set([row.user_id for row in work_day_stats])
+            users = {user_id: User.query.get(user_id) for user_id in user_ids}
+            wds = [
+                WorkDayStatsOnly(
+                    user=users[row.user_id],
+                    start_time=row.start_time,
+                    end_time=row.end_time,
+                    is_running=row.is_running,
+                    service_duration=row.service_duration,
+                    total_work_duration=row.total_work_duration,
+                    activity_timers={
+                        a_type: getattr(row, f"{a_type.value}_duration")
+                        for a_type in ActivityType
+                    },
+                    expenditures={
+                        e_type: getattr(row, f"n_{e_type.value}_expenditures")
+                        for e_type in ExpenditureType
+                    },
+                )
+                for index, row in enumerate(work_day_stats)
+            ]
+            return wds
 
 
 from app.data_access.user import UserOutput

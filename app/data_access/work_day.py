@@ -26,19 +26,26 @@ class WorkDayOutput(graphene.ObjectType):
     )
     end_time = graphene.Field(
         TimeStamp,
-        description="Horodatage de fin de l'activité. Correspond à l'heure de fin de la dernière mission",
+        description="Horodatage de fin de la journée. Correspond à l'heure de fin de la dernière mission",
+    )
+    service_duration = graphene.Field(
+        graphene.Int,
+        description="Amplitude de la journée de travail, en secondes.",
+    )
+    total_work_duration = graphene.Field(
+        graphene.Int,
+        description="Temps de travail cumulé sur la journée, en secondes.",
     )
     activities = graphene.List(
         ActivityOutput, description="Liste des activités de la journée"
     )
     missions = graphene.List(
-        MissionOutput, description="Liste des missions de la journée"
+        MissionOutput, description="Liste des missions de la journée."
     )
-    activity_timers = graphene.Field(
+    activity_durations = graphene.Field(
         GenericScalar,
-        description="Décomposition de la durée de la journée par nature d'activité. La durée cumulée de chaque activité est indiquée en millisecondes.",
+        description="Temps de travail cumulés par activité, exprimés en secondes.",
     )
-    was_modified = graphene.Field(graphene.Boolean)
 
     def resolve_user_id(self, info):
         return self.user.id

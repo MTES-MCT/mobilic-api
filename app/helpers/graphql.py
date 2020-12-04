@@ -4,6 +4,11 @@ from flask_graphql import GraphQLView
 from flask import request
 
 
+def get_children_field_names(info):
+    field_asts = info.field_asts[0].selection_set.selections
+    return [field_ast.name.value for field_ast in field_asts]
+
+
 class CustomGraphQLView(GraphQLView):
     def dispatch_request(self):
         try:

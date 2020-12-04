@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy.orm import synonym, selectinload
+from sqlalchemy.orm import synonym, joinedload, subqueryload
 from sqlalchemy import desc, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
@@ -83,19 +83,55 @@ class User(BaseModel):
         )
 
         if include_mission_relations:
-            mission_activities_subq = selectinload(Mission.activities)
+            mission_activities_subq = subqueryload(Mission.activities)
             if include_revisions:
-                mission_activities_subq = mission_activities_subq.selectinload(
-                    Activity.revisions
+                mission_activities_subq = mission_activities_subq.joinedload(
+                    Activity.revisions, innerjoin=True
                 )
             base_query = base_query.options(
-                selectinload(Activity.mission)
-                .options(selectinload(Mission.validations))
-                .options(selectinload(Mission.expenditures))
+                subqueryload(Activity.mission)
+                .options(subqueryload(Mission.validations))
+                .options(subqueryload(Mission.expenditures))
                 .options(mission_activities_subq)
             )
         elif include_revisions:
-            base_query = base_query.options(selectinload(Activity.revisions))
+            base_query = base_query.options(joinedload(Activity.revisions))
+
+        return base_query
+
+    def query_missions_with_relations(
+        self,
+        include_dismissed_activities=False,
+        include_revisions=False,
+        start_time=None,
+        end_time=None,
+    ):
+        from app.models import Activity, Mission
+        from app.models.queries import query_activities
+
+        mission_ids = (
+            query_activities(
+                include_dismissed_activities=include_dismissed_activities,
+                start_time=start_time,
+                end_time=end_time,
+                user_id=self.id,
+            )
+            .with_entities(Activity.mission_id)
+            .distinct()
+            .all()
+        )
+
+        mission_activities_subq = subqueryload(Mission.activities)
+        if include_revisions:
+            mission_activities_subq = mission_activities_subq.joinedload(
+                Activity.revisions
+            )
+        base_query = (
+            Mission.query.options(subqueryload(Mission.validations))
+            .options(subqueryload(Mission.expenditures))
+            .options(mission_activities_subq)
+            .filter(Mission.id.in_(mission_ids))
+        )
 
         return base_query
 

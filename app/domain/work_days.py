@@ -3,6 +3,7 @@ from cached_property import cached_property
 from dataclasses import dataclass
 from typing import List, Set
 from datetime import datetime
+from functools import reduce
 
 from app.helpers.time import to_timestamp
 from app.models import Activity, User, Mission, Company
@@ -16,7 +17,6 @@ class WorkDay:
     companies: Set[Company]
     activities: List[Activity]
     _all_activities: List[Activity]
-    was_modified: bool
 
     def __init__(self, user):
         self._are_activities_sorted = True
@@ -25,7 +25,6 @@ class WorkDay:
         self.companies = set()
         self.activities = []
         self._all_activities = []
-        self.was_modified = False
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
@@ -71,7 +70,21 @@ class WorkDay:
         return dict(expenditures)
 
     @property
-    def activity_timers(self):
+    def service_duration(self):
+        return self._activity_timers["total_service"]
+
+    @property
+    def total_work_duration(self):
+        return self._activity_timers["total_work"]
+
+    @property
+    def activity_durations(self):
+        return {
+            a_type: self._activity_timers[a_type] for a_type in ActivityType
+        }
+
+    @cached_property
+    def _activity_timers(self):
         self._sort_activities()
         if not self.activities:
             return {}
@@ -85,13 +98,9 @@ class WorkDay:
         for activity in self.activities:
             timers[activity.type] += int(activity.duration.total_seconds())
 
-        timers["total_work"] = (
-            timers[ActivityType.DRIVE]
-            + timers[ActivityType.WORK]
-            + timers[ActivityType.SUPPORT]
+        timers["total_work"] = reduce(
+            lambda a, b: a + b, [timers[a_type] for a_type in ActivityType]
         )
-
-        timers["break"] = timers["total_service"] - timers["total_work"]
 
         return timers
 
@@ -113,6 +122,35 @@ class WorkDay:
             if comment not in unique_comments:
                 unique_comments.append(comment)
         return unique_comments
+
+
+class WorkDayStatsOnly:
+    user: User
+    start_time: datetime
+    end_time: datetime
+    service_duration: int
+    total_work_duration: int
+    activity_durations: dict
+    expenditures: dict
+
+    def __init__(
+        self,
+        user,
+        start_time,
+        end_time,
+        activity_timers,
+        expenditures,
+        is_running,
+        service_duration,
+        total_work_duration,
+    ):
+        self.user = user
+        self.start_time = start_time
+        self.end_time = end_time if not is_running else None
+        self.service_duration = service_duration
+        self.total_work_duration = total_work_duration
+        self.activity_durations = activity_timers
+        self.expenditures = expenditures
 
 
 def group_user_events_by_day(
@@ -157,30 +195,5 @@ def group_user_missions_by_day(user, missions):
             current_work_day = WorkDay(user=user)
             work_days.append(current_work_day)
         current_work_day.add_mission(mission)
-
-        # If no after-time modification was yet detected for the current work day, we check whether the newly added mission introduces some
-        if not current_work_day.was_modified:
-            current_work_day.was_modified = any(
-                [
-                    a.is_dismissed
-                    or len(
-                        {
-                            r.end_time
-                            for r in a.revisions
-                            if r.end_time is not None
-                        }
-                    )
-                    > 1
-                    or len(
-                        {
-                            r.start_time
-                            for r in a.revisions
-                            if r.start_time is not None
-                        }
-                    )
-                    > 1
-                    for a in all_mission_activities
-                ]
-            )
 
     return work_days

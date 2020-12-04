@@ -1,5 +1,26 @@
 from flask_sqlalchemy import SQLAlchemy
+
+
 from sqlalchemy import event
+
+# from sqlalchemy.engine import Engine
+# from datetime import datetime
+# import time
+#
+#
+# @event.listens_for(Engine, "before_cursor_execute")
+# def before_cursor_execute(conn, cursor, statement,
+#                         parameters, context, executemany):
+#     conn.info.setdefault('query_start_time', []).append(time.time())
+#
+#
+# @event.listens_for(Engine, "after_cursor_execute")
+# def after_cursor_execute(conn, cursor, statement,
+#                         parameters, context, executemany):
+#     total = time.time() - conn.info['query_start_time'].pop(-1)
+#     if total > 0.2:
+#         print(f"   ----     Total Time: {round(total * 1000, 3)} ms for statement {statement}")
+#         print(datetime.now())
 
 
 # We want to avoid garbage collection on the sqlalchemy session, which would force new DB queries
