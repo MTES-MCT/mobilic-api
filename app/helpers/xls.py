@@ -26,7 +26,7 @@ columns_in_main_sheet = [
     (
         "Conduite",
         lambda wday: timedelta(
-            seconds=wday.activity_timers[ActivityType.DRIVE]
+            seconds=wday.activity_durations[ActivityType.DRIVE]
         ),
         "duration_format",
         10,
@@ -34,7 +34,7 @@ columns_in_main_sheet = [
     (
         "Accompagnement",
         lambda wday: timedelta(
-            seconds=wday.activity_timers[ActivityType.SUPPORT]
+            seconds=wday.activity_durations[ActivityType.SUPPORT]
         ),
         "duration_format",
         10,
@@ -42,14 +42,16 @@ columns_in_main_sheet = [
     (
         "Autre tâche",
         lambda wday: timedelta(
-            seconds=wday.activity_timers[ActivityType.WORK]
+            seconds=wday.activity_durations[ActivityType.WORK]
         ),
         "duration_format",
         10,
     ),
     (
         "Pause",
-        lambda wday: timedelta(seconds=wday.activity_timers["break"]),
+        lambda wday: timedelta(
+            seconds=wday.service_duration - wday.total_work_duration
+        ),
         "duration_format",
         10,
     ),
