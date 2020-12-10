@@ -9,7 +9,6 @@ from app.domain.work_days import group_user_missions_by_day
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
 from app.models.queries import user_query_with_all_relations
-import pandas as pd
 
 
 def load_users(limit=None):
