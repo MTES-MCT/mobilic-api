@@ -1,6 +1,6 @@
 import graphene
 from flask import request, jsonify
-from datetime import datetime
+from datetime import datetime, date
 from graphene.types.generic import GenericScalar
 
 from app.controllers.utils import atomic_transaction
@@ -136,13 +136,13 @@ def download_activity_report():
 
     try:
         min_date = request.args.get("min_date")
-        min_date = datetime.fromisoformat(min_date)
+        min_date = date.fromisoformat(min_date)
     except Exception:
         min_date = None
 
     try:
         max_date = request.args.get("max_date")
-        max_date = datetime.fromisoformat(max_date)
+        max_date = date.fromisoformat(max_date)
     except Exception:
         max_date = None
 
