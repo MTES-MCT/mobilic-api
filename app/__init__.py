@@ -1,4 +1,5 @@
-from flask import Flask
+from flask import Flask, g, request
+from flask_httpauth import HTTPBasicAuth
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
@@ -75,3 +76,38 @@ app.register_blueprint(oauth_blueprint, url_prefix="/oauth")
 @app.route("/debug-sentry")
 def trigger_error():
     division_by_zero = 1 / 0
+
+
+if env == "prod":
+    auth = HTTPBasicAuth()
+
+    @auth.verify_password
+    def verify_password(username, password):
+        if (
+            username
+            and username == os.environ.get("MOBILIC_ADMIN_USER")
+            and password
+            and password == os.environ.get("MOBILIC_ADMIN_PASSWORD")
+        ):
+            return True
+
+    @app.route("/services/update-stat-spreadsheet", methods=["POST"])
+    @auth.login_required()
+    def compute_usage_stats():
+        from app.services.compute_usage_stats import (
+            compute_and_add_usage_stats_snapshot,
+        )
+
+        success = False
+        try:
+            compute_and_add_usage_stats_snapshot()
+            success = True
+        except Exception as e:
+            app.logger.exception(e)
+
+        return (
+            "La spreadsheet a été mise à jour"
+            if success
+            else "La spreadsheet n'a pas pu être mise à jour à cause d'erreurs.",
+            200 if success else 500,
+        )
