@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -332,7 +333,16 @@ def compute_and_add_usage_stats_snapshot():
     return add_new_sheet(sheets, today, work_day_stats)
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--only_sundays",
+    help="Only run if current day is Sunday",
+    action="store_true",
+)
+
+
 if __name__ == "__main__":
+    args = parser.parse_args()
     today = datetime.now().date()
-    if today.weekday() == 6:
+    if not args.only_sundays or today.weekday() == 6:
         compute_and_add_usage_stats_snapshot()
