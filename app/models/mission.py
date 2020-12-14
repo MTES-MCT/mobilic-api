@@ -48,7 +48,7 @@ class Mission(EventBaseModel):
     def acknowledged_activities(self):
         return sorted(
             [a for a in self.activities if not a.is_dismissed],
-            key=lambda a: a.start_time,
+            key=lambda a: (a.start_time, a.id),
         )
 
     @property

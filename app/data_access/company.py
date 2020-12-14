@@ -63,6 +63,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
+        only_non_validated_missions=graphene.Boolean(
+            required=False,
+            description="Ne retourne que les missions qui n'ont pas encore été validées par le gestionnaire. Par défaut l'option n'est pas activée.",
+        ),
     )
     vehicles = graphene.List(
         VehicleOutput, description="Liste des véhicules de l'entreprise"
@@ -111,18 +115,23 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(
         company_admin_at,
-        get_target_from_args=lambda self, info: self,
+        get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be company admin.",
     )
     def resolve_missions(
-        self, info, from_time=None, until_time=None, limit=None
+        self,
+        info,
+        from_time=None,
+        until_time=None,
+        limit=None,
+        only_non_validated_missions=False,
     ):
         return query_company_missions(
             self.id,
             start_time=from_time,
             end_time=until_time,
             limit=limit,
-            include_empty_missions=True,
+            only_non_validated_missions=only_non_validated_missions,
         )
 
     @with_authorization_policy(

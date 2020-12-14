@@ -1,9 +1,10 @@
 from sqlalchemy.orm import selectinload, subqueryload
-from sqlalchemy import and_, desc, Integer
+from sqlalchemy import and_, or_, desc, Integer
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
-from functools import lru_cache, reduce
+from functools import reduce
+from cachetools import cached, TTLCache
 
 from app import db
 from app.models import (
@@ -13,6 +14,7 @@ from app.models import (
     Company,
     Employment,
     Expenditure,
+    MissionValidation,
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
@@ -21,10 +23,13 @@ from app.models.expenditure import ExpenditureType
 def user_query_with_all_relations():
     return User.query.options(
         selectinload(User.activities)
-        .selectinload(Activity.mission)
-        .options(selectinload(Mission.validations))
-        .options(selectinload(Mission.expenditures))
-        .options(selectinload(Mission.activities))
+        .options(selectinload(Activity.revisions))
+        .options(
+            selectinload(Activity.mission)
+            .options(selectinload(Mission.validations))
+            .options(selectinload(Mission.expenditures))
+            .options(selectinload(Mission.activities))
+        )
     ).options(
         selectinload(User.employments)
         .selectinload(Employment.company)
@@ -83,19 +88,32 @@ def query_activities(
     return _apply_time_range_filters(base_query, start_time, end_time)
 
 
-@lru_cache(maxsize=10)
 def query_company_missions(
     company_id,
     start_time=None,
     end_time=None,
     limit=None,
-    include_empty_missions=False,
+    only_non_validated_missions=False,
 ):
-    company_mission_subq = (
-        Mission.query.with_entities(Mission.id)
-        .filter(Mission.company_id == company_id)
-        .subquery()
+    company_mission_subq = Mission.query.with_entities(Mission.id).filter(
+        Mission.company_id == company_id
     )
+    if only_non_validated_missions:
+        company_mission_subq = (
+            company_mission_subq.join(Mission.validations, isouter=True)
+            .group_by(Mission.id)
+            .having(
+                func.bool_and(
+                    or_(
+                        MissionValidation.is_admin.is_(None),
+                        ~MissionValidation.is_admin,
+                    )
+                )
+            )
+        )
+
+    company_mission_subq = company_mission_subq.subquery()
+
     mission_id_query = (
         query_activities(start_time=start_time, end_time=end_time)
         .join(company_mission_subq, Activity.mission)
@@ -126,7 +144,6 @@ def query_company_missions(
     return missions
 
 
-@lru_cache(maxsize=10)
 def query_work_day_stats(
     company_id, start_time=None, end_time=None, limit=None
 ):
@@ -141,10 +158,7 @@ def query_work_day_stats(
             isouter=True,
         )
         .with_entities(Activity.id)
-        .filter(
-            Mission.company_id == company_id,
-            Activity.user_id == Expenditure.user_id,
-        )
+        .filter(Mission.company_id == company_id)
     )
 
     query = _apply_time_range_filters(query, start_time, end_time)
@@ -167,7 +181,10 @@ def query_work_day_stats(
                                 Activity.type == a_type.value,
                                 extract(
                                     "epoch",
-                                    Activity.end_time - Activity.start_time,
+                                    func.coalesce(
+                                        Activity.end_time, func.now()
+                                    )
+                                    - Activity.start_time,
                                 ),
                             )
                         ],
