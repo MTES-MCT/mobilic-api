@@ -105,8 +105,14 @@ def query_company_missions(
             .having(
                 func.bool_and(
                     or_(
-                        MissionValidation.is_admin.is_(None),
-                        ~MissionValidation.is_admin,
+                        and_(
+                            MissionValidation.is_admin.is_(None),
+                            MissionValidation.user_id.isnot(None),
+                        ),
+                        and_(
+                            ~MissionValidation.is_admin,
+                            MissionValidation.user_id.isnot(None),
+                        ),
                     )
                 )
             )

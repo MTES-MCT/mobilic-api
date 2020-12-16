@@ -29,6 +29,7 @@ from app.helpers.errors import (
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
     NoActivitiesToValidateError,
+    MissionStillRunningError,
 )
 
 
@@ -265,6 +266,9 @@ class ValidateMission(graphene.Mutation):
                 raise NoActivitiesToValidateError(
                     "There are no activities in the validation scope."
                 )
+
+            if any([not a.end_time for a in activities_to_validate]):
+                raise MissionStillRunningError()
 
             mission_validation = MissionValidation(
                 submitter=current_user,

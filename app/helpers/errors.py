@@ -140,6 +140,11 @@ class MissionAlreadyValidatedError(MobilicError):
     default_message = "A company admin validated the mission activities for the user, no further changes can be made."
 
 
+class MissionStillRunningError(MobilicError):
+    code = "MISSION_STILL_RUNNING"
+    default_message = "The mission has activities currently running, it cannot be validated yet."
+
+
 class NoActivitiesToValidateError(MobilicError):
     code = "NO_ACTIVITIES_TO_VALIDATE"
 

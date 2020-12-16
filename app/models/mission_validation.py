@@ -65,7 +65,6 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType):
     )
     user_id = graphene.Field(
         graphene.Int,
-        required=True,
         description="Identifiant de la personne concernée par la validation, si il s'agit d'une validation restreinte aux enregistrements pour cette personne.",
     )
     is_admin = graphene.Field(
