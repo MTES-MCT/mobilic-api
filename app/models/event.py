@@ -88,7 +88,7 @@ class Dismissable:
 
     __table_args__ = (
         db.CheckConstraint(
-            "((dismissed_at is not null)::bool = (dismiss_received_at is not null)::bool) AND ((dismissed_at is not null)::bool = (dismiss_author_id is not null)::bool)",
+            "((dismissed_at is not null)::bool = (dismiss_author_id is not null)::bool)",
             "non_nullable_dismiss_info",
         ),
     )

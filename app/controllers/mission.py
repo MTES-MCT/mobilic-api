@@ -11,7 +11,7 @@ from app.helpers.authorization import (
 )
 from app.helpers.graphene_types import TimeStamp
 from app.models.mission import Mission
-from app.models import Company, Vehicle, User
+from app.models import Company, Vehicle, User, Comment
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import (
     MissionValidation,
@@ -138,8 +138,7 @@ class EndMission(graphene.Mutation):
             description="Horodatage de fin de mission.",
         )
         context = GenericScalar(
-            required=False,
-            description="Commentaire libre sur la fin de mission",
+            required=False, description="Commentaire libre sur la mission",
         )
         user_id = graphene.Int(
             required=False,
@@ -198,10 +197,19 @@ class EndMission(graphene.Mutation):
                     )
                 if not last_activity.end_time:
                     last_activity.revise(
-                        reception_time,
-                        revision_context=args.get("context"),
-                        end_time=args["end_time"],
+                        reception_time, end_time=args["end_time"],
                     )
+
+            context = args.get("context")
+            if context:
+                db.session.add(
+                    Comment(
+                        submitter=current_user,
+                        text=context,
+                        reception_time=reception_time,
+                        mission=mission,
+                    )
+                )
 
             db.session.add(
                 MissionEnd(

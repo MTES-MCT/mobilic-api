@@ -43,7 +43,7 @@ class LogExpenditure(graphene.Mutation):
     """
     Enregistrement d'un frais.
 
-    Retourne la liste des frais de la mission.
+    Retourne le frais nouvellement créé.
     """
 
     Arguments = ExpenditureInput
@@ -82,9 +82,9 @@ class LogExpenditure(graphene.Mutation):
 
 class CancelExpenditure(graphene.Mutation):
     """
-        Annulation d'un frais.
+    Annulation d'un frais.
 
-        Retourne la liste des frais de la mission.
+    Retourne un message de succès.
     """
 
     class Arguments:

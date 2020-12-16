@@ -4,6 +4,7 @@ from graphene.types.generic import GenericScalar
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission
 from app.models.activity import ActivityOutput
+from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
 from app.models.mission_validation import MissionValidationOutput
 
@@ -54,6 +55,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         MissionValidationOutput,
         description="Liste des validations de la mission",
     )
+    comments = graphene.List(
+        CommentOutput, description="Liste des commentaires de la mission"
+    )
 
     def resolve_activities(self, info):
         return self.acknowledged_activities
@@ -77,3 +81,6 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 ] = validation
 
         return list(latest_validations_by_user.values())
+
+    def resolve_comments(self, info):
+        return self.acknowledged_comments

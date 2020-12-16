@@ -57,3 +57,10 @@ class Mission(EventBaseModel):
             [e for e in self.expenditures if not e.is_dismissed],
             key=lambda e: e.reception_time,
         )
+
+    @property
+    def acknowledged_comments(self):
+        return sorted(
+            [c for c in self.comments if not c.is_dismissed],
+            key=lambda c: c.reception_time,
+        )
