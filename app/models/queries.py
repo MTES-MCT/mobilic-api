@@ -63,7 +63,7 @@ def _apply_time_range_filters(query, start_time, end_time):
         )
     if start_time or end_time:
         return query.filter(
-            func.tsrange(Activity.start_time, Activity.end_time, "[)").op(
+            func.tsrange(Activity.start_time, Activity.end_time, "[]").op(
                 "&&"
             )(DateTimeRange(start_time, end_time, "[)"))
         )
