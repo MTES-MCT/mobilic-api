@@ -137,9 +137,6 @@ class EndMission(graphene.Mutation):
             required=True,
             description="Horodatage de fin de mission.",
         )
-        context = GenericScalar(
-            required=False, description="Commentaire libre sur la mission",
-        )
         user_id = graphene.Int(
             required=False,
             description="Optionnel, identifiant du travailleur mobile concerné par la fin de la mission. Par défaut c'est l'auteur de l'opération.",
@@ -199,17 +196,6 @@ class EndMission(graphene.Mutation):
                     last_activity.revise(
                         reception_time, end_time=args["end_time"],
                     )
-
-            context = args.get("context")
-            if context:
-                db.session.add(
-                    Comment(
-                        submitter=current_user,
-                        text=context,
-                        reception_time=reception_time,
-                        mission=mission,
-                    )
-                )
 
             db.session.add(
                 MissionEnd(

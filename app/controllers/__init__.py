@@ -1,5 +1,6 @@
 import graphene
 
+from app.controllers.comment import LogComment, CancelComment
 from app.controllers.company import CompanySignUp, Query as CompanyQuery
 from app.controllers.employment import (
     CreateEmployment,
@@ -52,6 +53,8 @@ class Activities(graphene.ObjectType):
     cancel_expenditure = CancelExpenditure.Field()
     end_mission = EndMission.Field()
     validate_mission = ValidateMission.Field()
+    log_comment = LogComment.Field()
+    cancel_comment = CancelComment.Field()
     cancel_activity = CancelActivity.Field()
     edit_activity = EditActivity.Field()
 
