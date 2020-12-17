@@ -85,9 +85,9 @@ class ApiRequests:
         }
     """
     end_mission = """
-        mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int, $context: GenericScalar) {
+        mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int) {
             activities {
-                endMission (missionId: $missionId, endTime: $endTime, userId: $userId, context: $context) {
+                endMission (missionId: $missionId, endTime: $endTime, userId: $userId) {
                     id
                     name
                 }
