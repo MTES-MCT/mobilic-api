@@ -176,7 +176,6 @@ class ActivateEmail(graphene.Mutation):
                 )
 
             user.has_activated_email = True
-            user.activation_email_token = None
 
         @after_this_request
         def set_cookies(response):
