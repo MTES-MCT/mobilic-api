@@ -60,7 +60,9 @@ def can_user_log_on_mission_at(user, mission, date=None):
 def can_user_access_mission(user, mission):
     if not mission:
         return False
-    return belongs_to_company_at(user, mission.company_id)
+    return belongs_to_company_at(
+        user, mission.company_id, mission.reception_time
+    )
 
 
 @dataclass
