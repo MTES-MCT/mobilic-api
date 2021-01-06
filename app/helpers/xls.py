@@ -1,5 +1,5 @@
 from collections import defaultdict
-from flask import send_file
+from flask import send_file, after_this_request
 from xlsxwriter import Workbook
 from pytz import timezone
 from datetime import timedelta
@@ -173,9 +173,15 @@ def send_work_days_as_excel(user_wdays):
 
     output.seek(0)
 
+    @after_this_request
+    def change_cache_control_header(response):
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
     return send_file(
         output,
         mimetype=EXCEL_MIMETYPE,
         as_attachment=True,
+        cache_timeout=0,
         attachment_filename="rapport_activité.xlsx",
     )

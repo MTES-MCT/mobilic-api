@@ -124,7 +124,7 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
-@app.route("/download_company_activity_report")
+@app.route("/download_company_activity_report", methods=["POST"])
 def download_activity_report():
     try:
         company_ids = request.args.get("company_ids")
