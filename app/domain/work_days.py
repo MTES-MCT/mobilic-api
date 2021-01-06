@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import reduce
 
 from app.helpers.time import to_timestamp
-from app.models import Activity, User, Mission, Company
+from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
 
@@ -17,6 +17,7 @@ class WorkDay:
     companies: Set[Company]
     activities: List[Activity]
     _all_activities: List[Activity]
+    comments: List[Comment]
 
     def __init__(self, user):
         self._are_activities_sorted = True
@@ -25,6 +26,7 @@ class WorkDay:
         self.companies = set()
         self.activities = []
         self._all_activities = []
+        self.comments = []
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
@@ -36,6 +38,7 @@ class WorkDay:
                 self.user, include_dismissed_activities=True
             )
         )
+        self.comments.extend(mission.acknowledged_comments)
 
     def _sort_activities(self):
         if not self._are_activities_sorted:
