@@ -65,9 +65,14 @@ jobs:
           command: ssh-keyscan -H ssh.osc-fr1.scalingo.com >> ~/.ssh/known_hosts
       - run:
           name: Deploy to Scalingo
-          command: |
-            git push git@ssh.osc-fr1.scalingo.com:$SCALINGO_APP_NAME.git master
-
+          command:
+            if [ $CIRCLE_BRANCH = "prod" ]
+            then
+              git push git@ssh.osc-fr1.scalingo.com:$SCALINGO_PROD_APP_NAME.git master
+              git push git@ssh.osc-fr1.scalingo.com:$SCALINGO_SANDBOX_APP_NAME.git master
+            else
+              git push git@ssh.osc-fr1.scalingo.com:$SCALINGO_STAGING_APP_NAME.git master
+            fi
 
 workflows:
   version: 2

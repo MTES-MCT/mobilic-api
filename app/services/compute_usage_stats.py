@@ -4,6 +4,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 import os
+from base64 import b64decode
 
 from app.domain.work_days import group_user_missions_by_day
 from app.models.activity import ActivityType
@@ -220,7 +221,9 @@ def auth_to_google_sheets():
                     "type": "service_account",
                     "project_id": os.environ.get("GOOGLE_PROJECT_NAME"),
                     "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-                    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY"),
+                    "private_key": b64decode(
+                        os.environ.get("GOOGLE_PRIVATE_KEY")
+                    ).decode("utf-8"),
                     "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
                 }
             )

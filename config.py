@@ -16,7 +16,6 @@ class Config:
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SENTRY_URL = os.environ.get("SENTRY_URL")
-    SENTRY_ENVIRONMENT = "dev"
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
@@ -46,7 +45,6 @@ class DevConfig(Config):
 
 
 class StagingConfig(Config):
-    SENTRY_ENVIRONMENT = "staging"
     pass
 
 
@@ -56,12 +54,10 @@ class TestConfig(Config):
 
 
 class ProdConfig(Config):
-    SENTRY_ENVIRONMENT = "prod"
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
 
 
 class SandboxConfig(Config):
-    SENTRY_ENVIRONMENT = "sandbox"
     ACCESS_TOKEN_EXPIRATION = timedelta(days=1)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
