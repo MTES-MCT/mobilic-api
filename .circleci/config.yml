@@ -86,4 +86,6 @@ workflows:
             - format
           filters:
             branches:
-              only: master
+              only:
+                - master
+                - prod
