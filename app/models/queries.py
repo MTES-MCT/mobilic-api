@@ -164,7 +164,7 @@ def query_work_day_stats(
             isouter=True,
         )
         .with_entities(Activity.id)
-        .filter(Mission.company_id == company_id)
+        .filter(Mission.company_id == company_id, ~Activity.is_dismissed)
     )
 
     query = _apply_time_range_filters(query, start_time, end_time)
