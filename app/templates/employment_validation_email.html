@@ -5,8 +5,8 @@ Vous êtes à présent membre de l'entreprise {{ company_name }}.
 {% endblock %}
 
 {% block body %}
-    <p>Bonjour{% if first_name %} {{first_name}}{% endif %},</p>
-    <p>Vous êtes à présent membre de l'entreprise <strong>{{ company_name }}</strong>.</p>
+    <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
+    <p>Vous êtes à présent membre de l'entreprise <strong>{{ company_name | upper}}</strong>.</p>
     <p>Vous pouvez dès maintenant enregistrer votre temps de travail pour cette entreprise.</p>
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>

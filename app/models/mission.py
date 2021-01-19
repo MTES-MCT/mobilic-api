@@ -64,3 +64,21 @@ class Mission(EventBaseModel):
             [c for c in self.comments if not c.is_dismissed],
             key=lambda c: c.reception_time,
         )
+
+    @property
+    def latest_validations_per_user(self):
+        latest_validations_by_user = {}
+        for validation in self.validations:
+            current_latest_val_for_user = latest_validations_by_user.get(
+                validation.submitter_id
+            )
+            if (
+                not current_latest_val_for_user
+                or current_latest_val_for_user.reception_time
+                < validation.reception_time
+            ):
+                latest_validations_by_user[
+                    validation.submitter_id
+                ] = validation
+
+        return list(latest_validations_by_user.values())

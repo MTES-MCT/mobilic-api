@@ -9,8 +9,16 @@ SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
 
+def format_seconds_duration(seconds):
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    return f"{hours}h{minutes if minutes >= 10 else '0' + str(minutes)}"
+
+
 class Mailer:
-    def __init__(self, config, dry_run=False):
+    def __init__(self, app, dry_run=False):
+        config = app.config
+        app.template_filter("format_duration")(format_seconds_duration)
         self.mailjet = Client(
             auth=(config["MAILJET_API_KEY"], config["MAILJET_API_SECRET"]),
             version="v3.1",
@@ -152,4 +160,40 @@ class Mailer:
             user.email,
             first_name=user.first_name,
             reset_link=reset_link,
+        )
+
+    def send_warning_email_about_mission_changes(
+        self,
+        user,
+        admin,
+        mission,
+        old_start_time,
+        new_start_time,
+        old_end_time,
+        new_end_time,
+        old_timers,
+        new_timers,
+    ):
+        self._send_email_from_template(
+            "mission_changes_warning_email.html",
+            f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
+            "rayann.hamdan@hotmail.fr",
+            first_name=user.first_name,
+            mission_name=mission.name,
+            company_name=mission.company.name,
+            admin_full_name=admin.display_name,
+            mission_day=old_start_time.strftime("%d/%m"),
+            mission_link=f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}",
+            old_start_time=old_start_time,
+            new_start_time=new_start_time
+            if new_start_time != old_start_time
+            else None,
+            old_end_time=old_end_time,
+            new_end_time=new_end_time
+            if new_end_time != old_end_time
+            else None,
+            old_work_duration=old_timers["total_work"],
+            new_work_duration=new_timers["total_work"]
+            if new_timers["total_work"] != old_timers["total_work"]
+            else None,
         )

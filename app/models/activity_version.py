@@ -1,23 +1,14 @@
 from sqlalchemy.orm import backref
 from sqlalchemy.dialects.postgresql import JSONB
+from datetime import datetime
 
 from app import db
 from app.models.event import EventBaseModel
 
 
-class ActivityVersion(EventBaseModel):
-    backref_base_name = "activity_revisions"
-
-    activity_id = db.Column(
-        db.Integer, db.ForeignKey("activity.id"), index=True, nullable=False
-    )
-    activity = db.relationship("Activity", backref=backref("revisions"))
-
+class Period:
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=True)
-
-    version = db.Column(db.Integer, nullable=False)
-    context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @db.validates("start_time", "end_time")
     def validates_start_time(self, key, start_time):
@@ -25,6 +16,30 @@ class ActivityVersion(EventBaseModel):
             return start_time.replace(second=0, microsecond=0)
         except:
             return None
+
+    @property
+    def duration(self):
+        return (self.end_time or datetime.now()) - self.start_time
+
+    @property
+    def type(self):
+        raise NotImplementedError()
+
+
+class ActivityVersion(EventBaseModel, Period):
+    backref_base_name = "activity_revisions"
+
+    activity_id = db.Column(
+        db.Integer, db.ForeignKey("activity.id"), index=True, nullable=False
+    )
+    activity = db.relationship("Activity", backref=backref("revisions"))
+
+    version = db.Column(db.Integer, nullable=False)
+    context = db.Column(JSONB(none_as_null=True), nullable=True)
+
+    @property
+    def type(self):
+        return self.activity.type
 
     __table_args__ = (
         db.UniqueConstraint(

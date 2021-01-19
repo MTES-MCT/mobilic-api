@@ -36,6 +36,10 @@ def compute_usage_stats(users):
             wd.logged_partially_by_user = any(
                 [a.submitter_id == wd.user.id for a in wd._all_activities]
             )
+            activity_switch_times = [a.start_time for a in wd.activities]
+            for a in wd.activities:
+                if a.end_time and a.end_time not in activity_switch_times:
+                    activity_switch_times.append(a.end_time)
             revision_times = {
                 av.reception_time
                 for a in wd._all_activities
@@ -47,6 +51,7 @@ def compute_usage_stats(users):
                 if a.dismissed_at is not None
             }
             all_times = revision_times | dismiss_times
+            wd.n_activities = len(activity_switch_times) - 1
             wd.n_activity_events = len(all_times)
 
         user_work_days[user] = work_days
@@ -118,8 +123,7 @@ def _compute_work_days_stats(wds):
         if complete_wds
         else None,
         "Nombre moyen d'activités par jour": round(
-            sum([len(w.activities) for w in complete_wds]) / len(complete_wds),
-            1,
+            sum([w.n_activities for w in complete_wds]) / len(complete_wds), 1,
         )
         if complete_wds
         else None,
@@ -173,11 +177,16 @@ COLUMNS = {
     },
     "Durée moyenne du service": {"type": "DATE_TIME", "pattern": "[hh]:mm"},
     "Durée moyenne du travail": {"type": "DATE_TIME", "pattern": "[hh]:mm"},
-    "Nombre moyen d'activités par jour": {"type": "NUMBER", "pattern": "#.0"},
+    "Nombre moyen d'activités par jour": {
+        "type": "NUMBER",
+        "pattern": "#.0",
+        "note": "Nombre d'activités qui composent la journée, en incluant les temps de pause.\nExemples :\n - conduite, travail, pause, travail, conduite -> 5\n - travail, pause, travail -> 3",
+    },
     "Nombre moyen d'actions d'enregistrement dans l'outil par jour": {
         "type": "NUMBER",
         "pattern": "#.0",
         "background": light_green_color,
+        "note": "Nombre d'actions effectuées dans l'application qui concernent le temps de travail :\n - changement d'activité en temps réel\n - ajout d'une activité a posteriori\n - correction d'une activité\n - suppression d'une activité\n - fin de journée\n. Dans le cas d'une saisie uniquement en temps réel, ce devrait être égal au nombre d'activités de la journée + 1 (action de fin de journée).",
     },
 }
 
@@ -231,6 +240,7 @@ def auth_to_google_sheets():
 
 
 def add_new_sheet(sheets, date, work_days):
+
     timestamp = datetime(date.year, date.month, date.day).timestamp()
     return sheets.batchUpdate(
         spreadsheetId=SPREADSHEET_ID,
@@ -265,6 +275,7 @@ def add_new_sheet(sheets, date, work_days):
                                                 "background"
                                             ),
                                         },
+                                        "note": props.get("note"),
                                     }
                                     for column, props in COLUMNS.items()
                                 ]

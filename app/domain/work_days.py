@@ -10,6 +10,26 @@ from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
 
+def compute_aggregate_durations(periods):
+    if not periods:
+        return {}
+    timers = defaultdict(lambda: 0)
+    end_time = periods[-1].end_time
+    start_time = periods[0].start_time
+    end_timestamp = (
+        to_timestamp(end_time) if end_time else to_timestamp(datetime.now())
+    )
+    timers["total_service"] = end_timestamp - to_timestamp(start_time)
+    for period in periods:
+        timers[period.type] += int(period.duration.total_seconds())
+
+    timers["total_work"] = reduce(
+        lambda a, b: a + b, [timers[a_type] for a_type in ActivityType]
+    )
+
+    return start_time, end_time, timers
+
+
 @dataclass(init=False)
 class WorkDay:
     user: User
@@ -42,8 +62,20 @@ class WorkDay:
 
     def _sort_activities(self):
         if not self._are_activities_sorted:
-            self.activities.sort(key=lambda a: a.start_time)
-            self._all_activities.sort(key=lambda a: a.start_time)
+            self.activities.sort(
+                key=lambda a: (
+                    a.start_time,
+                    a.end_time is None,
+                    a.reception_time,
+                )
+            )
+            self._all_activities.sort(
+                key=lambda a: (
+                    a.start_time,
+                    a.end_time is None,
+                    a.reception_time,
+                )
+            )
             self._are_activities_sorted = True
 
     @property
@@ -89,23 +121,7 @@ class WorkDay:
     @cached_property
     def _activity_timers(self):
         self._sort_activities()
-        if not self.activities:
-            return {}
-        timers = defaultdict(lambda: 0)
-        end_timestamp = (
-            to_timestamp(self.end_time)
-            if self.is_complete
-            else to_timestamp(datetime.now())
-        )
-        timers["total_service"] = end_timestamp - to_timestamp(self.start_time)
-        for activity in self.activities:
-            timers[activity.type] += int(activity.duration.total_seconds())
-
-        timers["total_work"] = reduce(
-            lambda a, b: a + b, [timers[a_type] for a_type in ActivityType]
-        )
-
-        return timers
+        return compute_aggregate_durations(self.activities)[2]
 
     @property
     def activity_comments(self):

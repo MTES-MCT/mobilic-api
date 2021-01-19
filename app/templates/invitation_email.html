@@ -5,14 +5,14 @@
 {% endblock %}
 
 {% block body %}
-    <p>Bonjour{% if first_name %} {{first_name}}{% endif %},</p>
+    <p>Bonjour{% if first_name %} {{first_name | capitalize}}{% endif %},</p>
     {% if not first_name %}
-        <p>Vous avez été invité(e) par l’entreprise <strong>{{company_name}}</strong> à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
+        <p>Vous avez été invité(e) par l’entreprise <strong>{{company_name | upper}}</strong> à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
         <p>Mobilic est la plateforme gouvernementale permettant d’enregistrer et de suivre le temps de travail dans le transport.</p>
-        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
+        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
     {% else %}
-        <p>Vous avez été invité(e) à rejoindre l'entreprise <strong>{{company_name}}</strong> sur Mobilic.</p>
-        <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
+        <p>Vous avez été invité(e) à rejoindre l'entreprise <strong>{{company_name | upper}}</strong> sur Mobilic.</p>
+        <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
     {% endif %}
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>

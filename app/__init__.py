@@ -17,7 +17,7 @@ env = os.environ.get("MOBILIC_ENV", "dev")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
 siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
-mailer = Mailer(app.config)
+mailer = Mailer(app)
 
 if app.config["SENTRY_URL"]:
     sentry_sdk.init(

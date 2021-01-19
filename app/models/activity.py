@@ -14,8 +14,16 @@ from app.helpers.graphene_types import (
     TimeStamp,
 )
 from app.models.event import UserEventBaseModel, Dismissable
-from app.models.activity_version import ActivityVersion
+from app.models.activity_version import ActivityVersion, Period
 from app.models.utils import enum_column
+
+
+def activity_versions_at(activities, at_time):
+    versions = [a.version_at(at_time) for a in activities]
+    return sorted(
+        [v for v in versions if v],
+        key=lambda v: (v.start_time, v.end_time is None, v.reception_time,),
+    )
 
 
 class ActivityType(str, Enum):
@@ -30,7 +38,7 @@ Enumération des valeurs suivantes.
 """
 
 
-class Activity(UserEventBaseModel, Dismissable):
+class Activity(UserEventBaseModel, Dismissable, Period):
     backref_base_name = "activities"
 
     mission_id = db.Column(
@@ -42,9 +50,6 @@ class Activity(UserEventBaseModel, Dismissable):
 
     last_update_time = db.Column(db.DateTime, nullable=False)
 
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=True)
-
     editable_fields = {"start_time", "end_time"}
 
     __table_args__ = (
@@ -52,7 +57,7 @@ class Activity(UserEventBaseModel, Dismissable):
         db.Constraint(name="activity_start_time_before_end_time"),
         db.Constraint(name="activity_start_time_before_update_time"),
         db.Constraint(name="activity_end_time_before_update_time"),
-        db.Constraint(name="no_sucessive_activities_with_same_type"),
+        db.Constraint(name="no_successive_activities_with_same_type"),
     )
 
     # TODO : add (maybe)
@@ -60,26 +65,23 @@ class Activity(UserEventBaseModel, Dismissable):
     # - version (each version represents a set of changes to the day activities)
     # OR revises (indicates which prior activity the current one revises)
 
-    @db.validates("start_time", "end_time")
-    def validates_start_time(self, key, time):
-        try:
-            return time.replace(second=0, microsecond=0)
-        except:
-            return None
-
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 
-    def latest_revision_version(self):
+    def latest_version_number(self):
         return (
             max([r.version for r in self.revisions])
             if self.revisions
             else None
         )
 
-    @property
-    def duration(self):
-        return (self.end_time or datetime.now()) - self.start_time
+    def version_at(self, at_time):
+        if self.reception_time > at_time:
+            return None
+        return max(
+            [r for r in self.revisions if r.reception_time <= at_time],
+            key=lambda r: r.version,
+        )
 
     def revise(
         self,
@@ -123,7 +125,7 @@ class Activity(UserEventBaseModel, Dismissable):
                 start_time=new["start_time"],
                 end_time=new["end_time"],
                 context=revision_context,
-                version=(self.latest_revision_version() or 0) + 1,
+                version=(self.latest_version_number() or 0) + 1,
                 submitter=current_user,
             )
             db.session.add(revision)
@@ -137,15 +139,23 @@ class Activity(UserEventBaseModel, Dismissable):
             return revision
 
     def dismiss(self, dismiss_time=None, context=None):
-        from app.domain.log_activities import (
-            check_mission_still_open_for_activities_edition,
-        )
+        from app.domain.log_activities import handle_activities_update
 
-        check_mission_still_open_for_activities_edition(
-            self.mission, self.user
-        )
-        super().dismiss(dismiss_time, context)
-        self.last_update_time = self.dismissed_at
+        if not dismiss_time:
+            dismiss_time = datetime.now()
+
+        with handle_activities_update(
+            submitter=current_user,
+            user=self.user,
+            mission=self.mission,
+            reception_time=dismiss_time,
+            start_time=self.start_time,
+            end_time=None,
+            bypass_check=True,
+            reopen_mission_if_needed=False,
+        ):
+            super().dismiss(dismiss_time, context)
+            self.last_update_time = self.dismissed_at
 
 
 class ActivityOutput(BaseSQLAlchemyObjectType):

@@ -3,15 +3,17 @@ from graphene.types.generic import GenericScalar
 from datetime import datetime
 from sqlalchemy.orm import selectinload
 
-from app import app, db
+from app import app, db, mailer
 from app.controllers.utils import atomic_transaction
+from app.domain.work_days import compute_aggregate_durations
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
 )
 from app.helpers.graphene_types import TimeStamp
+from app.models.activity import activity_versions_at
 from app.models.mission import Mission
-from app.models import Company, Vehicle, User, Comment
+from app.models import Company, Vehicle, User, Comment, Activity
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import (
     MissionValidation,
@@ -231,7 +233,7 @@ class ValidateMission(graphene.Mutation):
     @with_authorization_policy(
         can_user_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.options(
-            selectinload(Mission.activities)
+            selectinload(Mission.activities).selectinload(Activity.revisions)
         ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )
@@ -272,6 +274,71 @@ class ValidateMission(graphene.Mutation):
                 is_admin=is_admin_validation,
             )
             db.session.add(mission_validation)
+
+        if is_admin_validation:
+            latest_non_admin_validations = [
+                v
+                for v in mission.latest_validations_per_user
+                if not v.is_admin
+            ]
+            if user:
+                latest_user_validation = [
+                    v
+                    for v in latest_non_admin_validations
+                    if v.submitter_id == user.id
+                ]
+                users_in_alerting_scope = (
+                    {user: latest_user_validation[0]}
+                    if latest_user_validation
+                    else []
+                )
+            else:
+                users_in_alerting_scope = {
+                    v.user: v for v in latest_non_admin_validations
+                }
+            for u, validation in users_in_alerting_scope.items():
+                validation_time = validation.reception_time
+                all_user_activities = mission.activities_for(
+                    u, include_dismissed_activities=True
+                )
+                if any(
+                    [
+                        activity.last_update_time > validation_time
+                        for activity in all_user_activities
+                    ]
+                ):
+                    (
+                        old_start_time,
+                        old_end_time,
+                        old_timers,
+                    ) = compute_aggregate_durations(
+                        activity_versions_at(
+                            all_user_activities, validation_time
+                        )
+                    )
+                    (
+                        new_start_time,
+                        new_end_time,
+                        new_timers,
+                    ) = compute_aggregate_durations(
+                        [a for a in all_user_activities if not a.is_dismissed]
+                    )
+                    if (
+                        old_start_time != new_start_time
+                        or old_end_time != new_end_time
+                        or old_timers["total_work"] != new_timers["total_work"]
+                    ):
+                        mailer.send_warning_email_about_mission_changes(
+                            user=u,
+                            mission=mission,
+                            admin=current_user,
+                            old_start_time=old_start_time,
+                            new_start_time=new_start_time,
+                            old_end_time=old_end_time,
+                            new_end_time=new_end_time,
+                            old_timers=old_timers,
+                            new_timers=new_timers,
+                        )
 
         return mission_validation
 

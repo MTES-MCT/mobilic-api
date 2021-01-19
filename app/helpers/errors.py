@@ -135,9 +135,14 @@ class MissionAlreadyEndedError(MobilicError):
             )
 
 
-class MissionAlreadyValidatedError(MobilicError):
+class MissionAlreadyValidatedByAdminError(MobilicError):
     code = "MISSION_ALREADY_VALIDATED_BY_ADMIN"
     default_message = "A company admin validated the mission activities for the user, no further changes can be made."
+
+
+class MissionAlreadyValidatedByUserError(MobilicError):
+    code = "MISSION_ALREADY_VALIDATED_BY_USER"
+    default_message = "The user validated his activities on the mission, only himself or a company admin can edit them."
 
 
 class MissionStillRunningError(MobilicError):

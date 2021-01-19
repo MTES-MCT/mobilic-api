@@ -1,12 +1,13 @@
 from contextlib import contextmanager
 
 from app import app, db
-from app.domain.permissions import can_user_log_on_mission_at
+from app.domain.permissions import can_user_log_on_mission_at, company_admin_at
 from app.helpers.errors import (
     AuthorizationError,
     OverlappingMissionsError,
     InvalidParamsError,
-    MissionAlreadyValidatedError,
+    MissionAlreadyValidatedByAdminError,
+    MissionAlreadyValidatedByUserError,
 )
 from app.models.activity import Activity
 from app.models import Mission, ActivityVersion
@@ -87,14 +88,25 @@ def check_logging_permissions_at(submitter, user, mission, time):
         )
 
 
-def check_mission_still_open_for_activities_edition(mission, user):
+def check_mission_still_open_for_activities_edition(
+    submitter, mission, user, reception_time
+):
+    # If a company admin validated the mission, it becomes read-only for everyone
     if any(
         [
             v.is_admin and (not v.user_id or v.user_id == user.id)
             for v in mission.validations
         ]
     ):
-        raise MissionAlreadyValidatedError()
+        raise MissionAlreadyValidatedByAdminError()
+
+    # If the user validated the mission, only himself or a company admin can edit his data
+    if (
+        any([v.submitter_id == user.id for v in mission.validations])
+        and submitter.id != user.id
+        and not company_admin_at(submitter, mission.company_id, reception_time)
+    ):
+        raise MissionAlreadyValidatedByUserError()
 
 
 @contextmanager
@@ -106,6 +118,7 @@ def handle_activities_update(
     start_time,
     end_time,
     bypass_check=False,
+    reopen_mission_if_needed=True,
 ):
     # 1. Check that start time and end time are not ahead in the future
     check_event_time_is_not_in_the_future(
@@ -119,12 +132,14 @@ def handle_activities_update(
         check_logging_permissions_at(submitter, user, mission, end_time)
 
     # 2b. Check that the mission is still open for edition, at least for the user
-    check_mission_still_open_for_activities_edition(mission, user)
+    check_mission_still_open_for_activities_edition(
+        submitter, mission, user, reception_time
+    )
 
     # 3. Do the stuff
     yield
 
-    if not end_time:
+    if reopen_mission_if_needed and not end_time:
         existing_mission_end = MissionEnd.query.filter(
             MissionEnd.user_id == user.id, MissionEnd.mission_id == mission.id
         ).one_or_none()
