@@ -177,7 +177,7 @@ class Mailer:
         self._send_email_from_template(
             "mission_changes_warning_email.html",
             f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
-            "rayann.hamdan@hotmail.fr",
+            user.email,
             first_name=user.first_name,
             mission_name=mission.name,
             company_name=mission.company.name,
