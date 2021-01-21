@@ -36,7 +36,7 @@ class CreateVehicle(graphene.Mutation):
         company_admin_at,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
-    def mutate(cls, _, info, registration_number, alias, company_id):
+    def mutate(cls, _, info, registration_number, company_id, alias=None):
         vehicle = Vehicle(
             registration_number=registration_number,
             alias=alias,
