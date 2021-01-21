@@ -32,6 +32,7 @@ from app.helpers.errors import (
     UnavailableSwitchModeError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
+    MailjetError,
 )
 
 
@@ -275,70 +276,81 @@ class ValidateMission(graphene.Mutation):
             )
             db.session.add(mission_validation)
 
-        if is_admin_validation:
-            latest_non_admin_validations = [
-                v
-                for v in mission.latest_validations_per_user
-                if not v.is_admin
-            ]
-            if user:
-                latest_user_validation = [
+        try:
+            if is_admin_validation:
+                latest_non_admin_validations = [
                     v
-                    for v in latest_non_admin_validations
-                    if v.submitter_id == user.id
+                    for v in mission.latest_validations_per_user
+                    if not v.is_admin
                 ]
-                users_in_alerting_scope = (
-                    {user: latest_user_validation[0]}
-                    if latest_user_validation
-                    else []
-                )
-            else:
-                users_in_alerting_scope = {
-                    v.user: v for v in latest_non_admin_validations
-                }
-            for u, validation in users_in_alerting_scope.items():
-                validation_time = validation.reception_time
-                all_user_activities = mission.activities_for(
-                    u, include_dismissed_activities=True
-                )
-                if any(
-                    [
-                        activity.last_update_time > validation_time
-                        for activity in all_user_activities
+                if user:
+                    latest_user_validation = [
+                        v
+                        for v in latest_non_admin_validations
+                        if v.submitter_id == user.id
                     ]
-                ):
-                    (
-                        old_start_time,
-                        old_end_time,
-                        old_timers,
-                    ) = compute_aggregate_durations(
-                        activity_versions_at(
-                            all_user_activities, validation_time
-                        )
+                    users_in_alerting_scope = (
+                        {user: latest_user_validation[0]}
+                        if latest_user_validation
+                        else []
                     )
-                    (
-                        new_start_time,
-                        new_end_time,
-                        new_timers,
-                    ) = compute_aggregate_durations(
-                        [a for a in all_user_activities if not a.is_dismissed]
+                else:
+                    users_in_alerting_scope = {
+                        v.user: v for v in latest_non_admin_validations
+                    }
+                for u, validation in users_in_alerting_scope.items():
+                    validation_time = validation.reception_time
+                    all_user_activities = mission.activities_for(
+                        u, include_dismissed_activities=True
                     )
-                    if (
-                        old_start_time != new_start_time
-                        or old_end_time != new_end_time
-                        or old_timers["total_work"] != new_timers["total_work"]
+                    if any(
+                        [
+                            activity.last_update_time > validation_time
+                            for activity in all_user_activities
+                        ]
                     ):
-                        mailer.send_warning_email_about_mission_changes(
-                            user=u,
-                            mission=mission,
-                            admin=current_user,
-                            old_start_time=old_start_time,
-                            new_start_time=new_start_time,
-                            old_end_time=old_end_time,
-                            new_end_time=new_end_time,
-                            old_timers=old_timers,
-                            new_timers=new_timers,
+                        (
+                            old_start_time,
+                            old_end_time,
+                            old_timers,
+                        ) = compute_aggregate_durations(
+                            activity_versions_at(
+                                all_user_activities, validation_time
+                            )
                         )
+                        (
+                            new_start_time,
+                            new_end_time,
+                            new_timers,
+                        ) = compute_aggregate_durations(
+                            [
+                                a
+                                for a in all_user_activities
+                                if not a.is_dismissed
+                            ]
+                        )
+                        if (
+                            old_start_time != new_start_time
+                            or old_end_time != new_end_time
+                            or old_timers["total_work"]
+                            != new_timers["total_work"]
+                        ):
+                            try:
+                                mailer.send_warning_email_about_mission_changes(
+                                    user=u,
+                                    mission=mission,
+                                    admin=current_user,
+                                    old_start_time=old_start_time,
+                                    new_start_time=new_start_time,
+                                    old_end_time=old_end_time,
+                                    new_end_time=new_end_time,
+                                    old_timers=old_timers,
+                                    new_timers=new_timers,
+                                )
+                            except MailjetError as e:
+                                app.logger.exception(e)
+        except Exception as e:
+            app.logger.exception(e)
 
         return mission_validation
 
