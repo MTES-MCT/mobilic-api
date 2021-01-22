@@ -9,6 +9,10 @@ SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
 
+class InvalidEmailAddressError(MailjetError):
+    code = "INVALID_EMAIL_ADDRESS"
+
+
 def format_seconds_duration(seconds):
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
@@ -37,6 +41,23 @@ class Mailer:
             }
             response = self.mailjet.send.create(data={"Messages": [message]})
             if not response.status_code == 200:
+                try:
+                    response_payload = response.json()["Messages"][0]
+
+                    if response_payload["Status"] == "error":
+                        if any(
+                            [
+                                e["ErrorCode"] == "mj-0013"
+                                for e in response_payload["Errors"]
+                            ]
+                        ):
+                            raise InvalidEmailAddressError(
+                                f"Mailjet could not send email to invalid address : {recipient}"
+                            )
+                except MailjetError as e:
+                    raise e
+                except Exception as e:
+                    pass
                 raise MailjetError(
                     f"Attempt to send mail via Mailjet failed with error : {response.json()}"
                 )

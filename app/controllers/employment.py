@@ -18,6 +18,7 @@ from app.helpers.errors import (
     InvalidParamsError,
     InvalidTokenError,
     InvalidResourceError,
+    MailjetError,
 )
 from app.helpers.authentication import AuthenticationError
 from app.helpers.authorization import (
@@ -145,13 +146,14 @@ class CreateEmployment(graphene.Mutation):
             )
             db.session.add(employment)
 
-        try:
-            mailer.send_employee_invite(
-                employment,
-                user.email if user else employment_input.get("mail"),
-            )
-        except Exception as e:
-            app.logger.exception(e)
+            try:
+                mailer.send_employee_invite(
+                    employment,
+                    user.email if user else employment_input.get("mail"),
+                )
+            except MailjetError as e:
+                if not user:
+                    raise e
 
         return employment
 
