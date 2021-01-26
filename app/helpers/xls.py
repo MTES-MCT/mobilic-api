@@ -115,6 +115,20 @@ columns_in_main_sheet = [
         30,
     ),
     (
+        "Véhicule(s)",
+        lambda wday: ", ".join(
+            set(
+                [
+                    m.vehicle_name
+                    for m in wday.missions
+                    if m.vehicle_name is not None
+                ]
+            )
+        ),
+        None,
+        30,
+    ),
+    (
         "Observations",
         lambda wday: "\n".join([" - " + c.text for c in wday.comments]),
         None,

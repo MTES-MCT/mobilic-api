@@ -82,3 +82,14 @@ class Mission(EventBaseModel):
                 ] = validation
 
         return list(latest_validations_by_user.values())
+
+    @property
+    def vehicle_name(self):
+        from app.models import Vehicle
+
+        if not self.context:
+            return None
+        if self.context.get("vehicleId"):
+            vehicle = Vehicle.query.get(self.context["vehicleId"])
+            return vehicle.name if vehicle else None
+        return self.context.get("vehicleRegistrationNumber")
