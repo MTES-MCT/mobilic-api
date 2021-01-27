@@ -7,7 +7,10 @@ from app import app, db
 from app.controllers.utils import atomic_transaction, Void
 from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.authentication import current_user
-from app.domain.log_activities import log_activity
+from app.domain.log_activities import (
+    log_activity,
+    check_logging_permissions_at,
+)
 from app.helpers.errors import (
     AuthorizationError,
     ResourceAlreadyDismissedError,
@@ -102,6 +105,9 @@ class LogActivity(graphene.Mutation):
                     user, start_time
                 )
                 if current_activity:
+                    check_logging_permissions_at(
+                        current_user, user, mission, start_time
+                    )
                     if current_activity.end_time:
                         raise UnavailableSwitchModeError()
                     if current_activity.type == activity_input.get("type"):
