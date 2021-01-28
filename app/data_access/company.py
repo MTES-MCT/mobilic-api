@@ -29,7 +29,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.Int, required=True, description="Identifiant de l'entreprise"
     )
     siren = graphene.Field(
-        graphene.Int, required=True, description="Numéro SIREN de l'entreprise"
+        graphene.Int,
+        required=False,
+        description="Numéro SIREN de l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     users = graphene.List(
