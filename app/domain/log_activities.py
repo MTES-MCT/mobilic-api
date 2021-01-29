@@ -47,7 +47,10 @@ def check_mission_overlaps(user, mission):
         .filter(Activity.mission_id != mission.id)
         .first()
     )
-    if existing_conflicting_mission_activity:
+    if (
+        existing_conflicting_mission_activity
+        and existing_conflicting_mission_activity.end_time != mission_start
+    ):
         raise OverlappingMissionsError(
             f"Mission cannot overlap with mission {existing_conflicting_mission_activity.mission_id} for the user.",
             conflicting_mission=Mission.query.get(
