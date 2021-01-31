@@ -292,7 +292,7 @@ class ValidateMission(graphene.Mutation):
                     users_in_alerting_scope = (
                         {user: latest_user_validation[0]}
                         if latest_user_validation
-                        else []
+                        else dict()
                     )
                 else:
                     users_in_alerting_scope = {
