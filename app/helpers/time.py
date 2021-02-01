@@ -1,4 +1,7 @@
 import datetime
+from pytz import timezone
+
+FR_TIMEZONE = timezone("Europe/Paris")
 
 
 def from_timestamp(ts):
@@ -9,8 +12,8 @@ def to_timestamp(date_time):
     return int(date_time.timestamp())
 
 
-def local_to_utc(date_time):
-    return datetime.datetime.utcfromtimestamp(date_time.timestamp())
+def utc_to_fr(date_time):
+    return date_time.astimezone(FR_TIMEZONE).replace(tzinfo=None)
 
 
 def get_date_or_today(date=None):

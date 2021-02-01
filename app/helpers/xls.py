@@ -1,13 +1,11 @@
 from collections import defaultdict
 from flask import send_file, after_this_request
 from xlsxwriter import Workbook
-from pytz import timezone
 from datetime import timedelta
 from io import BytesIO
 
 from app.models.activity import ActivityType
-
-FR_TIMEZONE = timezone("Europe/Paris")
+from app.helpers.time import utc_to_fr
 
 ACTIVITY_TYPE_LABEL = {
     ActivityType.DRIVE: "conduite",
@@ -22,30 +20,9 @@ EXCEL_MIMETYPE = (
 
 columns_in_main_sheet = [
     ("Employé", lambda wday: wday.user.display_name, None, 30),
-    (
-        "Jour",
-        lambda wday: wday.start_time.astimezone(FR_TIMEZONE).replace(
-            tzinfo=None
-        ),
-        "date_format",
-        20,
-    ),
-    (
-        "Début",
-        lambda wday: wday.start_time.astimezone(FR_TIMEZONE).replace(
-            tzinfo=None
-        ),
-        "time_format",
-        15,
-    ),
-    (
-        "Fin",
-        lambda wday: wday.end_time.astimezone(FR_TIMEZONE).replace(
-            tzinfo=None
-        ),
-        "time_format",
-        15,
-    ),
+    ("Jour", lambda wday: utc_to_fr(wday.start_time), "date_format", 20,),
+    ("Début", lambda wday: utc_to_fr(wday.start_time), "time_format", 15,),
+    ("Fin", lambda wday: utc_to_fr(wday.end_time), "time_format", 15,),
     (
         "Conduite",
         lambda wday: timedelta(
