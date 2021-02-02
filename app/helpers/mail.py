@@ -149,6 +149,8 @@ class Mailer:
             website_link=self.app_config["FRONTEND_URL"],
             company_name=company.name,
             company_siren=company.siren,
+            contact_email=SENDER_ADDRESS,
+            contact_phone="+33 6 99 32 32 57",
         )
 
     def send_employment_validation_email(self, employment):
