@@ -10,6 +10,7 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.graphql import get_children_field_names
 from app.models import Company, User
 from app.models.activity import ActivityType
+from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
     EmploymentOutput,
     Employment,
@@ -76,6 +77,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     employments = graphene.List(
         EmploymentOutput,
         description="Liste des rattachements validés ou en cours de validation de l'entreprise. Inclut également les rattachements qui ne sont plus actifs",
+    )
+    known_addresses = graphene.List(
+        CompanyKnownAddressOutput,
+        description="Liste des lieux enregistrés de l'entreprise",
     )
 
     def resolve_name(self, info):
@@ -194,6 +199,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 for index, row in enumerate(work_day_stats)
             ]
             return wds
+
+    def resolve_known_addresses(self, info):
+        return self.known_addresses
 
 
 from app.data_access.user import UserOutput

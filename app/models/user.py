@@ -72,8 +72,8 @@ class User(BaseModel):
         start_time=None,
         end_time=None,
     ):
-        from app.models import Activity, Mission
-        from app.models.queries import query_activities
+        from app.models import Activity
+        from app.models.queries import query_activities, add_mission_relations
 
         base_query = query_activities(
             include_dismissed_activities=include_dismissed_activities,
@@ -83,16 +83,11 @@ class User(BaseModel):
         )
 
         if include_mission_relations:
-            mission_activities_subq = subqueryload(Mission.activities)
-            if include_revisions:
-                mission_activities_subq = mission_activities_subq.joinedload(
-                    Activity.revisions, innerjoin=True
-                )
             base_query = base_query.options(
-                subqueryload(Activity.mission)
-                .options(subqueryload(Mission.validations))
-                .options(subqueryload(Mission.expenditures))
-                .options(mission_activities_subq)
+                add_mission_relations(
+                    subqueryload(Activity.mission),
+                    include_revisions=include_revisions,
+                )
             )
         elif include_revisions:
             base_query = base_query.options(joinedload(Activity.revisions))
@@ -107,7 +102,7 @@ class User(BaseModel):
         end_time=None,
     ):
         from app.models import Activity, Mission
-        from app.models.queries import query_activities
+        from app.models.queries import query_activities, add_mission_relations
 
         mission_ids = (
             query_activities(
@@ -121,17 +116,9 @@ class User(BaseModel):
             .all()
         )
 
-        mission_activities_subq = subqueryload(Mission.activities)
-        if include_revisions:
-            mission_activities_subq = mission_activities_subq.joinedload(
-                Activity.revisions
-            )
-        base_query = (
-            Mission.query.options(subqueryload(Mission.validations))
-            .options(subqueryload(Mission.expenditures))
-            .options(mission_activities_subq)
-            .filter(Mission.id.in_(mission_ids))
-        )
+        base_query = add_mission_relations(
+            Mission.query, include_revisions=include_revisions
+        ).filter(Mission.id.in_(mission_ids))
 
         return base_query
 

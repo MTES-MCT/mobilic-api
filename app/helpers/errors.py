@@ -208,6 +208,13 @@ class OverlappingEmploymentsError(MobilicError):
             self.extensions.update(dict(overlapType=overlap_type))
 
 
+class MissionLocationAlreadySetError(MobilicError):
+    code = "LOCATION_ALREADY_SET"
+    default_message = (
+        "A location of this type has already been set for the mission"
+    )
+
+
 CONFLICTING_ROW_ID_RE = re.compile(r", (\d+)\)\.$")
 
 

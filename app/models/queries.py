@@ -1,10 +1,9 @@
-from sqlalchemy.orm import selectinload, subqueryload
+from sqlalchemy.orm import selectinload, subqueryload, joinedload
 from sqlalchemy import and_, or_, desc, Integer
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
-from cachetools import cached, TTLCache
 
 from app import db
 from app.models import (
@@ -18,6 +17,7 @@ from app.models import (
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
+from app.models.location_entry import LocationEntry
 
 
 def user_query_with_all_relations():
@@ -88,6 +88,25 @@ def query_activities(
     return _apply_time_range_filters(base_query, start_time, end_time)
 
 
+def add_mission_relations(query, include_revisions=False):
+    mission_activities_subq = subqueryload(Mission.activities)
+    if include_revisions:
+        mission_activities_subq = mission_activities_subq.joinedload(
+            Activity.revisions, innerjoin=True
+        )
+
+    return query.options(
+        subqueryload(Mission.validations),
+        subqueryload(Mission.expenditures),
+        subqueryload(Mission.comments),
+        mission_activities_subq,
+        subqueryload(Mission.location_entries).options(
+            joinedload(LocationEntry._address),
+            joinedload(LocationEntry._company_known_address),
+        ),
+    )
+
+
 def query_company_missions(
     company_id,
     start_time=None,
@@ -134,11 +153,7 @@ def query_company_missions(
         .limit(limit)
     )
 
-    mission_query = (
-        Mission.query.options(subqueryload(Mission.validations))
-        .options(subqueryload(Mission.expenditures))
-        .options(subqueryload(Mission.activities))
-    )
+    mission_query = add_mission_relations(Mission.query)
 
     if start_time or end_time or limit:
         mission_ids = mission_id_query.all()

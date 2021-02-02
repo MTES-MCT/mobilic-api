@@ -12,6 +12,12 @@ from app.controllers.employment import (
     CancelEmployment,
 )
 from app.controllers.expenditure import LogExpenditure, CancelExpenditure
+from app.controllers.location_entry import (
+    CreateCompanyKnownAddress,
+    EditCompanyKnownAddress,
+    TerminateCompanyKnownAddress,
+    LogMissionLocation,
+)
 from app.controllers.mission import (
     CreateMission,
     EndMission,
@@ -57,6 +63,7 @@ class Activities(graphene.ObjectType):
     cancel_comment = CancelComment.Field()
     cancel_activity = CancelActivity.Field()
     edit_activity = EditActivity.Field()
+    log_location = LogMissionLocation.Field()
 
 
 class SignUp(graphene.ObjectType):
@@ -103,6 +110,12 @@ class Vehicles(graphene.ObjectType):
     terminate_vehicle = TerminateVehicle.Field()
 
 
+class Locations(graphene.ObjectType):
+    create_known_address = CreateCompanyKnownAddress.Field()
+    edit_known_address = EditCompanyKnownAddress.Field()
+    terminate_known_address = TerminateCompanyKnownAddress.Field()
+
+
 class Mutations(graphene.ObjectType):
     """
     Entrée de nouvelles informations dans le système
@@ -124,6 +137,9 @@ class PrivateMutations(graphene.ObjectType):
     account = graphene.Field(Account, resolver=lambda root, info: Account())
     sign_up = graphene.Field(SignUp, resolver=lambda root, info: SignUp())
     vehicles = graphene.Field(Vehicles, resolver=lambda root, info: Vehicles())
+    locations = graphene.Field(
+        Locations, resolver=lambda root, info: Locations()
+    )
 
 
 class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):

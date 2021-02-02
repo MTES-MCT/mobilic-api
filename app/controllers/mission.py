@@ -13,7 +13,7 @@ from app.helpers.authorization import (
 from app.helpers.graphene_types import TimeStamp
 from app.models.activity import activity_versions_at
 from app.models.mission import Mission
-from app.models import Company, Vehicle, User, Comment, Activity
+from app.models import Company, Vehicle, User, Activity
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import (
     MissionValidation,
