@@ -2,6 +2,7 @@ from mailjet_rest import Client
 import jwt
 from flask import render_template
 from datetime import datetime, date
+from markupsafe import Markup
 
 from app.helpers.errors import MailjetError
 from app.helpers.time import utc_to_fr
@@ -90,7 +91,7 @@ class Mailer:
             recipient,
             first_name=employment.user.first_name if employment.user else None,
             custom_id=employment.invite_token,
-            invitation_link=invitation_link,
+            invitation_link=Markup(invitation_link),
             company_name=company_name,
         )
 
@@ -132,12 +133,12 @@ class Mailer:
             if create_account
             else "Confirmez l'adresse email de votre compte Mobilic",
             user.email,
-            user_id=id,
+            user_id=Markup(id),
             first_name=user.first_name,
-            create_account=create_account,
-            activation_link=activation_link,
+            create_account=Markup(create_account),
+            activation_link=Markup(activation_link),
             company_name=company.name if company else None,
-            has_admin_rights=has_admin_rights,
+            has_admin_rights=Markup(has_admin_rights),
         )
 
     def send_company_creation_email(self, company, user):
@@ -146,11 +147,11 @@ class Mailer:
             f"L'entreprise {company.name} est créée sur Mobilic !",
             user.email,
             first_name=user.first_name,
-            website_link=self.app_config["FRONTEND_URL"],
+            website_link=Markup(self.app_config["FRONTEND_URL"]),
             company_name=company.name,
-            company_siren=company.siren,
-            contact_email=SENDER_ADDRESS,
-            contact_phone="+33 6 99 32 32 57",
+            company_siren=Markup(company.siren),
+            contact_email=Markup(SENDER_ADDRESS),
+            contact_phone=Markup("+33 6 99 32 32 57"),
         )
 
     def send_employment_validation_email(self, employment):
@@ -183,7 +184,7 @@ class Mailer:
             "Réinitialisation de votre mot de passe Mobilic",
             user.email,
             first_name=user.first_name,
-            reset_link=reset_link,
+            reset_link=Markup(reset_link),
         )
 
     def send_warning_email_about_mission_changes(
@@ -210,8 +211,10 @@ class Mailer:
             mission_name=mission.name,
             company_name=mission.company.name,
             admin_full_name=admin.display_name,
-            mission_day=old_start_time.strftime("%d/%m"),
-            mission_link=f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}",
+            mission_day=Markup(old_start_time.strftime("%d/%m")),
+            mission_link=Markup(
+                f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}"
+            ),
             old_start_time=old_start_time,
             new_start_time=new_start_time
             if new_start_time != old_start_time
