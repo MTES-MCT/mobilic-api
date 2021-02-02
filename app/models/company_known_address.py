@@ -1,6 +1,8 @@
 from sqlalchemy.orm import backref
+import graphene
 
-from app.models.address import AddressOutput
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType
+from app.models.address import BaseAddressOutput
 from app.models.base import BaseModel
 from app import db
 from app.models.event import Dismissable
@@ -28,10 +30,13 @@ class CompanyKnownAddress(BaseModel, Dismissable):
     )
 
 
-class CompanyKnownAddressOutput(AddressOutput):
+class CompanyKnownAddressOutput(BaseSQLAlchemyObjectType):
     class Meta:
+        interfaces = (BaseAddressOutput,)
         model = CompanyKnownAddress
         only_fields = ("alias", "id")
+
+    id = graphene.Field(graphene.Int, required=True)
 
     def resolve_name(self, info):
         return self.address.name

@@ -4,7 +4,7 @@ from graphene.types.generic import GenericScalar
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission
 from app.models.activity import ActivityOutput
-from app.models.address import AddressOutput
+from app.models.address import BaseAddressOutput
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
 from app.models.location_entry import LocationEntryType
@@ -61,10 +61,10 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         CommentOutput, description="Liste des commentaires de la mission"
     )
     start_location = graphene.Field(
-        AddressOutput, description="Lieu de début de la mission"
+        BaseAddressOutput, description="Lieu de début de la mission"
     )
     end_location = graphene.Field(
-        AddressOutput, description="Lieu de fin de la mission"
+        BaseAddressOutput, description="Lieu de fin de la mission"
     )
 
     def resolve_activities(self, info):

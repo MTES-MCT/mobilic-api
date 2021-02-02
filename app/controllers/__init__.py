@@ -46,6 +46,7 @@ from app.controllers.activity import (
     EditActivity,
     CancelActivity,
 )
+from app.models.address import AddressOutput, Address
 
 
 class Activities(graphene.ObjectType):
@@ -159,8 +160,10 @@ class PrivateQueries(
     pass
 
 
-graphql_schema = graphene.Schema(query=Queries, mutation=Mutations)
+graphql_schema = graphene.Schema(
+    query=Queries, mutation=Mutations, types=[AddressOutput]
+)
 
 private_graphql_schema = graphene.Schema(
-    query=PrivateQueries, mutation=PrivateMutations
+    query=PrivateQueries, mutation=PrivateMutations, types=[AddressOutput]
 )

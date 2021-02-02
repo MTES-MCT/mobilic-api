@@ -47,11 +47,7 @@ class Address(BaseModel):
         return address
 
 
-class AddressOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = Address
-        only_fields = ("name", "postal_code", "city")
-
+class BaseAddressOutput(graphene.Interface):
     name = graphene.Field(
         graphene.String,
         required=True,
@@ -72,6 +68,21 @@ class AddressOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Alias de l'adresse ou du lieu",
     )
+
+    @classmethod
+    def resolve_type(cls, instance, info):
+        from app.models.company_known_address import CompanyKnownAddressOutput
+
+        if hasattr(instance, "type"):
+            return AddressOutput
+        return CompanyKnownAddressOutput
+
+
+class AddressOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = Address
+        interfaces = (BaseAddressOutput,)
+        only_fields = ("name", "postal_code", "city")
 
     def resolve_alias(self, info):
         return None

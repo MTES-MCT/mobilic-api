@@ -16,7 +16,7 @@ from app.models.company_known_address import (
     CompanyKnownAddressOutput,
     CompanyKnownAddress,
 )
-from app.models.address import Address, AddressOutput
+from app.models.address import Address, BaseAddressOutput
 from app.models.location_entry import LocationEntryType, LocationEntry
 from app.models import Mission
 
@@ -140,7 +140,7 @@ class LogMissionLocation(graphene.Mutation):
             description="Type d'enregistrement (début ou fin de mission)",
         )
 
-    Output = AddressOutput
+    Output = BaseAddressOutput
 
     @classmethod
     @with_authorization_policy(
