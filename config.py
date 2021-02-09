@@ -9,7 +9,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
-    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=2)
+    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=1)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
     SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
@@ -39,6 +39,7 @@ class Config:
 
 
 class DevConfig(Config):
+    EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(minutes=10)
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
     JWT_COOKIE_SECURE = False

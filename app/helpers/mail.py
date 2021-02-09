@@ -135,10 +135,10 @@ class Mailer:
             user.email,
             user_id=Markup(id),
             first_name=user.first_name,
-            create_account=Markup(create_account),
+            create_account=create_account,
             activation_link=Markup(activation_link),
             company_name=company.name if company else None,
-            has_admin_rights=Markup(has_admin_rights),
+            has_admin_rights=has_admin_rights,
         )
 
     def send_company_creation_email(self, company, user):

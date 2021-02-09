@@ -18,26 +18,33 @@ class CustomGraphQLView(GraphQLView):
         response = super().dispatch_request()
         if request.method == "POST":
             # Do not log introspection queries
-            is_introspection = False
-            if type(request_data) is dict:
-                if (
-                    request_data.get("operationName", "")
-                    == "IntrospectionQuery"
-                ):
-                    is_introspection = True
-                elif "__schema" in request_data.get("query", ""):
-                    is_introspection = True
-            if not is_introspection:
-                log_data = {
-                    "status_code": response.status_code,
-                    "graphql_request": request_data,
-                }
-                try:
-                    log_data["response"] = response.json()
-                except:
-                    pass
+            try:
+                is_introspection = False
+                if type(request_data) is dict:
+                    if (
+                        request_data.get("operationName", "")
+                        == "IntrospectionQuery"
+                    ):
+                        is_introspection = True
+                    else:
+                        query = request_data.get("query", "")
+                        if hasattr(query, "__iter__") and "__schema" in query:
+                            is_introspection = True
+                if not is_introspection:
+                    log_data = {
+                        "status_code": response.status_code,
+                        "graphql_request": request_data,
+                    }
+                    try:
+                        log_data["response"] = response.json()
+                    except:
+                        pass
 
-                app.logger.info(
-                    "Graphql op", extra=log_data,
+                    app.logger.info(
+                        "Graphql op", extra=log_data,
+                    )
+            except Exception as e:
+                app.logger.warning(
+                    f"Could not log graphql op because of following error {e}"
                 )
         return response
