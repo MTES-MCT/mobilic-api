@@ -36,7 +36,7 @@ class CustomGraphQLView(GraphQLView):
                         "graphql_request": request_data,
                     }
                     try:
-                        log_data["response"] = response.json()
+                        log_data["response"] = response.json
                     except:
                         pass
 
