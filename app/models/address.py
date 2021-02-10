@@ -8,13 +8,14 @@ from app import db
 
 
 class Address(BaseModel):
-    geo_api_id = db.Column(db.String(255), nullable=False, index=True)
-    type = db.Column(db.String(20), nullable=False)
-    coords = db.Column(db.ARRAY(db.Numeric), nullable=False)
-    postal_code = db.Column(db.String(20), nullable=False)
-    city = db.Column(db.String(255), nullable=False)
+    geo_api_id = db.Column(db.String(255), nullable=True, index=True)
+    type = db.Column(db.String(20), nullable=True)
+    coords = db.Column(db.ARRAY(db.Numeric), nullable=True)
+    postal_code = db.Column(db.String(20), nullable=True)
+    city = db.Column(db.String(255), nullable=True)
     name = db.Column(db.String(255), nullable=False)
-    geo_api_raw_data = db.Column(JSONB(none_as_null=True), nullable=False)
+    geo_api_raw_data = db.Column(JSONB(none_as_null=True), nullable=True)
+    manual = db.Column(db.Boolean, nullable=False)
 
     @classmethod
     def get_or_create(cls, data):
@@ -41,7 +42,10 @@ class Address(BaseModel):
             if are_addresses_equal:
                 return addr
         address = cls(
-            **properties, geo_api_id=geo_api_id, geo_api_raw_data=data
+            **properties,
+            geo_api_id=geo_api_id,
+            geo_api_raw_data=data,
+            manual=False,
         )
         db.session.add(address)
         return address
@@ -55,12 +59,12 @@ class BaseAddressOutput(graphene.Interface):
     )
     city = graphene.Field(
         graphene.String,
-        required=True,
+        required=False,
         description="Commune de l'adresse ou du lieu",
     )
     postal_code = graphene.Field(
         graphene.String,
-        required=True,
+        required=False,
         description="Code postal de l'adresse ou du lieu",
     )
     alias = graphene.Field(

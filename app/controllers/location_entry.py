@@ -127,6 +127,11 @@ class LogMissionLocation(graphene.Mutation):
             required=False,
             description="Informations sur le lieu au format GeoJSON",
         )
+        manual_address = graphene.Argument(
+            graphene.String,
+            required=False,
+            description="Addresse donnée manuellement",
+        )
         company_known_address_id = graphene.Int(
             required=False,
             description="Identifiant du lieu enregistré préalablement par l'entreprise",
@@ -157,11 +162,17 @@ class LogMissionLocation(graphene.Mutation):
         type,
         company_known_address_id=None,
         geo_api_data=None,
+        manual_address=None,
     ):
         with atomic_transaction(commit_at_end=True):
-            if (company_known_address_id is None) == (geo_api_data is None):
+            if (
+                int(company_known_address_id is not None)
+                + int(geo_api_data is not None)
+                + int(manual_address is not None)
+                != 1
+            ):
                 raise InvalidParamsError(
-                    "Exactly one of companyKnownAddressId or geoApiData should be set"
+                    "Exactly one of companyKnownAddressId or geoApiData or manualAddress should be set"
                 )
 
             mission = Mission.query.get(mission_id)
@@ -177,8 +188,11 @@ class LogMissionLocation(graphene.Mutation):
                 ):
                     raise InvalidParamsError("Invalid companyKnownAddressId")
                 address = company_known_address.address
-            else:
+            elif geo_api_data:
                 address = Address.get_or_create(geo_api_data)
+            else:
+                address = Address(manual=True, name=manual_address)
+                db.session.add(address)
 
             existing_location_entry = [
                 l for l in mission.location_entries if l.type == type
@@ -188,7 +202,13 @@ class LogMissionLocation(graphene.Mutation):
             )
 
             if existing_location_entry:
-                if existing_location_entry.address == address:
+                are_addresses_equal = (
+                    address.name == existing_location_entry.address.name
+                    if address.manual
+                    and existing_location_entry.address.manual
+                    else address == existing_location_entry.address
+                )
+                if are_addresses_equal:
                     return existing_location_entry.address
                 raise MissionLocationAlreadySetError()
 
