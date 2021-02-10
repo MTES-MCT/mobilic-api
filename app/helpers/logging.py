@@ -19,8 +19,12 @@ slack = Slacker(app.config["SLACK_TOKEN"])
 def add_request_and_user_context(record):
     try:
         record.current_user = str(current_user)
+        record.email = str(current_user.email)
+        record.metabase = f"https://metabase.mobilic.beta.gouv.fr/dashboard/6?id={current_user.id}"
     except:
         record.current_user = None
+        record.email = None
+        record.metabase = None
     if has_request_context():
         record.device = "{} ({} {})".format(
             request.user_agent.platform,
@@ -75,7 +79,12 @@ class SlackHandler(logging.Handler):
             self.format(record),
             emoji,
             color,
-            [("User", record.current_user), ("Device", record.device)],
+            [
+                ("User", record.current_user),
+                ("Device", record.device),
+                ("Email", record.email),
+                ("Metabase", record.metabase),
+            ],
         )
 
 
