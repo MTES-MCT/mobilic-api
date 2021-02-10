@@ -68,7 +68,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType):
         description="Identifiant de la personne concernée par la validation, si il s'agit d'une validation restreinte aux enregistrements pour cette personne.",
     )
     is_admin = graphene.Field(
-        graphene.Int,
+        graphene.Boolean,
         required=True,
         description="Indique si la validation provient d'un travailleur mobile ou d'un gestionnaire.",
     )
