@@ -1,6 +1,6 @@
 from calendar import timegm
 
-from flask import g, request, after_this_request, jsonify
+from flask import g, after_this_request, jsonify
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -56,7 +56,7 @@ def require_auth(f=lambda *args, **kwargs: None):
     def wrapper(*args, **kwargs):
         try:
             verify_jwt_in_request()
-        except (NoAuthorizationError, InvalidHeaderError) as e:
+        except (NoAuthorizationError, InvalidHeaderError):
             raise AuthenticationError(
                 "Unable to find a valid cookie or authorization header"
             )
@@ -72,7 +72,7 @@ def with_jwt_auth_error_handling(f):
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (NoAuthorizationError, InvalidHeaderError) as e:
+        except (NoAuthorizationError, InvalidHeaderError):
             raise AuthenticationError(
                 "Unable to find a valid cookie or authorization header"
             )
@@ -136,7 +136,11 @@ def create_access_tokens_for(
 
 
 def set_auth_cookies(
-    response, access_token, refresh_token, user_id, fc_token=None
+    response,
+    access_token=None,
+    refresh_token=None,
+    user_id=None,
+    fc_token=None,
 ):
     response.set_cookie(
         app.config["JWT_ACCESS_COOKIE_NAME"],
@@ -296,7 +300,7 @@ class RefreshMutation(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info):
-        return UserTokens(**refresh_token())
+        return UserTokens(**_refresh_token())
 
 
 class Auth(graphene.ObjectType):
@@ -311,7 +315,7 @@ class Auth(graphene.ObjectType):
 
 
 @with_jwt_auth_error_handling
-def refresh_token():
+def _refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
         current_actor, client_id=g.get("client_id")
@@ -328,7 +332,7 @@ def refresh_token():
 @app.route("/token/refresh", methods=["POST"])
 def rest_refresh_token():
     try:
-        tokens = refresh_token()
+        tokens = _refresh_token()
         return jsonify(tokens), 200
     except AuthenticationError as e:
         app.logger.exception(e)
