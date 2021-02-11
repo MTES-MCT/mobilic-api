@@ -36,7 +36,11 @@ class CustomGraphQLView(GraphQLView):
                         "graphql_request": request_data,
                     }
                     try:
-                        log_data["response"] = response.json
+                        if request_data.get("operationName", "") not in [
+                            "user",
+                            "adminCompanies",
+                        ]:
+                            log_data["response"] = response.json
                     except:
                         pass
 
