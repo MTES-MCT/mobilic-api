@@ -78,6 +78,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     def version_at(self, at_time):
         if self.reception_time > at_time:
             return None
+        if self.dismissed_at and self.dismissed_at <= at_time:
+            return None
         return max(
             [r for r in self.revisions if r.reception_time <= at_time],
             key=lambda r: r.version,
