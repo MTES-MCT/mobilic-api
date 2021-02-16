@@ -2,6 +2,7 @@ import graphene
 from flask import request, jsonify
 from datetime import datetime, date
 from graphene.types.generic import GenericScalar
+import requests
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
@@ -90,6 +91,38 @@ class CompanySignUp(graphene.Mutation):
             mailer.send_company_creation_email(company, current_user)
         except Exception as e:
             app.logger.exception(e)
+
+        if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
+            # Call Integromat for Trello card creation
+            try:
+                first_establishment_info = (
+                    company.siren_api_info[0]
+                    if company.siren_api_info
+                    and len(company.siren_api_info) > 0
+                    else None
+                )
+                response = requests.post(
+                    app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"],
+                    data=dict(
+                        creation_time=company.creation_time,
+                        submitter_name=current_user.display_name,
+                        submitter_email=current_user.email,
+                        siren=company.siren,
+                        metabase_link=f"{app.config['METABASE_COMPANY_DASHBOARD_BASE_URL']}{company.id}",
+                        location=f"{first_establishment_info.get('address', '')} {first_establishment_info.get('postal_code', '')}"
+                        if first_establishment_info
+                        else None,
+                    ),
+                    timeout=3,
+                )
+                if not response.status_code == 200:
+                    app.logger.warning(
+                        f"Creation of Trello card for {company} failed with error : {response.text}"
+                    )
+            except Exception as e:
+                app.logger.warning(
+                    f"Creation of Trello card for {company} failed with error : {e}"
+                )
 
         return CompanySignUp(company=company, employment=admin_employment)
 
