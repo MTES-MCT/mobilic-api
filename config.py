@@ -43,6 +43,9 @@ class Config:
         "METABASE_COMPANY_DASHBOARD_BASE_URL",
         "https://metabase.mobilic.beta.gouv.fr/dashboard/3?id=",
     )
+    USER_READ_TOKEN_EXPIRATION = os.environ.get(
+        "USER_READ_TOKEN_EXPIRATION", timedelta(days=1)
+    )
 
 
 class DevConfig(Config):

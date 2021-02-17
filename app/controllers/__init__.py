@@ -2,6 +2,10 @@ import graphene
 
 from app.controllers.comment import LogComment, CancelComment
 from app.controllers.company import CompanySignUp, Query as CompanyQuery
+from app.controllers.user_read import (
+    Query as UserReadQuery,
+    GenerateReadTokenMutation,
+)
 from app.controllers.employment import (
     CreateEmployment,
     ValidateEmployment,
@@ -87,6 +91,7 @@ class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     reset_password = ResetPassword.Field()
     request_reset_password = RequestPasswordReset.Field()
+    generate_read_token = GenerateReadTokenMutation.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -155,6 +160,7 @@ class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     PrivateMissionQuery,
+    UserReadQuery,
     graphene.ObjectType,
 ):
     pass

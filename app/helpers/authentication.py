@@ -25,7 +25,7 @@ from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
 
-current_user = LocalProxy(lambda: g.get("oauth_user") or current_actor)
+current_user = LocalProxy(lambda: g.get("user") or current_actor)
 
 
 from app.models.user import User
@@ -48,20 +48,21 @@ def verify_oauth_token_in_request():
     if not matching_token or matching_token.revoked:
         raise AuthenticationError("Invalid token")
 
-    g.oauth_user = matching_token.user
+    g.user = matching_token.user
 
 
 def require_auth(f=lambda *args, **kwargs: None):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        try:
-            verify_jwt_in_request()
-        except (NoAuthorizationError, InvalidHeaderError):
-            raise AuthenticationError(
-                "Unable to find a valid cookie or authorization header"
-            )
-        except (JWTExtendedException, PyJWTError):
-            verify_oauth_token_in_request()
+        if not g.get("user"):
+            try:
+                verify_jwt_in_request()
+            except (NoAuthorizationError, InvalidHeaderError):
+                raise AuthenticationError(
+                    "Unable to find a valid cookie or authorization header"
+                )
+            except (JWTExtendedException, PyJWTError):
+                verify_oauth_token_in_request()
         return f(*args, **kwargs)
 
     return wrapper
