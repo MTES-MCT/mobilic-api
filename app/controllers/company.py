@@ -104,6 +104,7 @@ class CompanySignUp(graphene.Mutation):
                 response = requests.post(
                     app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"],
                     data=dict(
+                        name=company.name,
                         creation_time=company.creation_time,
                         submitter_name=current_user.display_name,
                         submitter_email=current_user.email,
