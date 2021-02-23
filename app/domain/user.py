@@ -1,3 +1,5 @@
+from flask import g
+
 from app import app, db
 from app.models import User, Employment
 
@@ -46,6 +48,7 @@ def create_user(
     if company:
         message += f" of company {company}"
 
+    g.user = user
     app.logger.info(
         message, extra={"post_to_slack": True, "emoji": ":tada:"},
     )
