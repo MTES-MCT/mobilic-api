@@ -142,6 +142,10 @@ class WorkDay:
                 unique_comments.append(comment)
         return unique_comments
 
+    @property
+    def mission_names(self):
+        return [m.name for m in self.missions]
+
 
 class WorkDayStatsOnly:
     user: User
@@ -151,6 +155,7 @@ class WorkDayStatsOnly:
     total_work_duration: int
     activity_durations: dict
     expenditures: dict
+    missions_names: list
 
     def __init__(
         self,
@@ -162,6 +167,7 @@ class WorkDayStatsOnly:
         is_running,
         service_duration,
         total_work_duration,
+        mission_names,
     ):
         self.user = user
         self.start_time = start_time
@@ -170,6 +176,7 @@ class WorkDayStatsOnly:
         self.total_work_duration = total_work_duration
         self.activity_durations = activity_timers
         self.expenditures = expenditures
+        self.mission_names = mission_names
 
 
 def group_user_events_by_day(

@@ -185,10 +185,11 @@ def query_work_day_stats(
     query = _apply_time_range_filters(query, start_time, end_time)
 
     query = (
-        query.group_by(Activity.user_id, Activity.mission_id)
+        query.group_by(Activity.user_id, Activity.mission_id, Mission.name)
         .with_entities(
             Activity.user_id.label("user_id"),
             Activity.mission_id.label("mission_id"),
+            Mission.name.label("mission_name"),
             func.min(Activity.start_time).label("start_time"),
             func.max(func.coalesce(Activity.end_time, func.now())).label(
                 "end_time"
@@ -233,6 +234,9 @@ def query_work_day_stats(
         .group_by(query.c.user_id, "day")
         .with_entities(
             query.c.user_id.label("user_id"),
+            func.array_agg(distinct(query.c.mission_name)).label(
+                "mission_names"
+            ),
             func.date_trunc("day", query.c.start_time).label("day"),
             func.min(query.c.start_time).label("start_time"),
             func.max(query.c.end_time).label("end_time"),
