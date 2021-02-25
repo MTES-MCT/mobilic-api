@@ -169,6 +169,12 @@ def download_activity_report():
         return jsonify({"error": "invalid company ids"}), 400
 
     try:
+        user_ids = request.args.get("user_ids")
+        user_ids = [int(uid) for uid in user_ids.split(",")]
+    except Exception:
+        user_ids = []
+
+    try:
         min_date = request.args.get("min_date")
         min_date = date.fromisoformat(min_date)
     except Exception:
@@ -199,6 +205,8 @@ def download_activity_report():
     app.logger.info(f"Downloading activity report for {companies}")
     all_users_work_days = []
     all_users = set([user for company in companies for user in company.users])
+    if user_ids:
+        all_users = [u for u in all_users if u.id in user_ids]
     for user in all_users:
         all_users_work_days += group_user_events_by_day(
             user,
