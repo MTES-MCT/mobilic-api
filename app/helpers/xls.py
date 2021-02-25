@@ -152,7 +152,7 @@ def send_work_days_as_excel(user_wdays):
     complete_work_days = [wd for wd in user_wdays if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
-    wb.set_custom_property(HMAC_PROP_NAME, 1)
+    wb.set_custom_property(HMAC_PROP_NAME, "a")
 
     date_formats = dict(
         date_format=wb.add_format({"num_format": "dd/mm/yyyy"}),
