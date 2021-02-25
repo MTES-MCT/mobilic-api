@@ -15,7 +15,11 @@ from app.helpers.time import utc_to_fr
 WORKSHEETS_TO_INCLUDE_IN_HMAC = ["xl/worksheets/sheet1.xml"]
 HMAC_BLOCK_SIZE = 1024
 HMAC_PROP_NAME = "Mobilic HMAC"
-HMAC_KEY = app.config["HMAC_SIGNING_KEY"].encode()
+HMAC_KEY = (
+    app.config["HMAC_SIGNING_KEY"].encode()
+    if app.config["HMAC_SIGNING_KEY"]
+    else None
+)
 
 ACTIVITY_TYPE_LABEL = {
     ActivityType.DRIVE: "conduite",
