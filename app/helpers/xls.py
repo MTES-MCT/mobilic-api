@@ -3,9 +3,19 @@ from flask import send_file, after_this_request
 from xlsxwriter import Workbook
 from datetime import timedelta
 from io import BytesIO
+import hmac
+import hashlib
+from zipfile import ZipFile
+from defusedxml.ElementTree import parse
 
+from app import app
 from app.models.activity import ActivityType
 from app.helpers.time import utc_to_fr
+
+WORKSHEETS_TO_INCLUDE_IN_HMAC = ["xl/worksheets/sheet1.xml"]
+HMAC_BLOCK_SIZE = 1024
+HMAC_PROP_NAME = "Mobilic HMAC"
+HMAC_KEY = app.config["HMAC_SIGNING_KEY"].encode()
 
 ACTIVITY_TYPE_LABEL = {
     ActivityType.DRIVE: "conduite",
@@ -16,6 +26,26 @@ ACTIVITY_TYPE_LABEL = {
 EXCEL_MIMETYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
+
+class IntegrityVerificationError(Exception):
+    code = None
+
+
+class InvalidXlsxFormat(IntegrityVerificationError):
+    code = "INVALID_FORMAT"
+
+
+class MissingSignature(IntegrityVerificationError):
+    code = "MISSING_SIGNATURE"
+
+
+class SignatureDoesNotMatch(IntegrityVerificationError):
+    code = "SIGNATURE_DOES_NOT_MATCH"
+
+
+class UnavailableService(IntegrityVerificationError):
+    code = "UNAVAILABLE"
 
 
 columns_in_main_sheet = [
@@ -118,6 +148,7 @@ def send_work_days_as_excel(user_wdays):
     complete_work_days = [wd for wd in user_wdays if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
+    wb.set_custom_property(HMAC_PROP_NAME, 1)
 
     date_formats = dict(
         date_format=wb.add_format({"num_format": "dd/mm/yyyy"}),
@@ -131,6 +162,7 @@ def send_work_days_as_excel(user_wdays):
         wdays_by_user[work_day.user].append(work_day)
 
     main_sheet = wb.add_worksheet("Activité")
+    main_sheet.protect()
     main_row_idx = 1
 
     main_col_idx = 0
@@ -163,6 +195,8 @@ def send_work_days_as_excel(user_wdays):
     wb.close()
 
     output.seek(0)
+    output = add_signature(output)
+    output.seek(0)
 
     @after_this_request
     def change_cache_control_header(response):
@@ -176,3 +210,78 @@ def send_work_days_as_excel(user_wdays):
         cache_timeout=0,
         attachment_filename="rapport_activité.xlsx",
     )
+
+
+def compute_hmac(archive, key):
+    signature = hmac.new(key, digestmod=hashlib.sha256)
+    for file_name in WORKSHEETS_TO_INCLUDE_IN_HMAC:
+        with archive.open(file_name, "r") as f:
+            while True:
+                block = f.read(HMAC_BLOCK_SIZE)
+                if not block:
+                    break
+                signature.update(block)
+    return signature.hexdigest()
+
+
+def extract_signature_node_from_xml(xml):
+    root = xml.getroot()
+    hmac_prop_value = None
+    for child in root:
+        if child.attrib.get("name") == HMAC_PROP_NAME:
+            hmac_prop_value = child[0]
+            break
+    return hmac_prop_value
+
+
+def add_signature(fp):
+    if not HMAC_KEY:
+        return fp
+    new_archive_fp = BytesIO()
+    with ZipFile(new_archive_fp, "w") as new_archive:
+        with ZipFile(fp, "r") as archive:
+            for file_name in archive.namelist():
+                if file_name != "docProps/custom.xml":
+                    with archive.open(file_name, "r") as f:
+                        new_archive.writestr(file_name, f.read())
+
+            signature = compute_hmac(archive, HMAC_KEY)
+
+            with archive.open("docProps/custom.xml", "r") as f:
+                xml = parse(f)
+                hmac_prop_value = extract_signature_node_from_xml(xml)
+                if hmac_prop_value is not None:
+                    hmac_prop_value.text = signature
+
+        custom_props_fp = BytesIO()
+        xml.write(custom_props_fp, xml_declaration=True, encoding="UTF-8")
+        custom_props_fp.seek(0)
+        new_archive.writestr("docProps/custom.xml", custom_props_fp.read())
+
+    return new_archive_fp
+
+
+def retrieve_and_verify_signature(fp):
+    if not HMAC_KEY:
+        raise UnavailableService()
+    try:
+        with ZipFile(fp, "r") as archive:
+            if "docProps/custom.xml" not in archive.namelist():
+                raise MissingSignature()
+            with archive.open("docProps/custom.xml", "r") as f:
+                xml = parse(f)
+                existing_signature_node = extract_signature_node_from_xml(xml)
+                if existing_signature_node is None:
+                    raise MissingSignature()
+                existing_signature = existing_signature_node.text
+            if not existing_signature or len(existing_signature) <= 1:
+                raise MissingSignature()
+            actual_signature = compute_hmac(archive, HMAC_KEY)
+        if not hmac.compare_digest(existing_signature, actual_signature):
+            raise SignatureDoesNotMatch()
+
+    except IntegrityVerificationError as e:
+        raise e
+    except Exception as e:
+        app.logger.exception(e)
+        raise InvalidXlsxFormat()

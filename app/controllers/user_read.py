@@ -2,27 +2,7 @@ import graphene
 from flask import g
 
 from app.data_access.user import UserOutput
-from app.helpers.authorization import (
-    with_authorization_policy,
-    authenticated_and_active,
-    current_user,
-)
 from app.models import UserReadToken
-
-
-class GenerateReadTokenMutation(graphene.Mutation):
-    """
-    Génération d'un jeton d'accès en lecture seule pour contrôle.
-
-    """
-
-    token = graphene.String(required=True)
-
-    @classmethod
-    @with_authorization_policy(authenticated_and_active)
-    def mutate(cls, _, info):
-        token = UserReadToken.get_or_create(current_user)
-        return GenerateReadTokenMutation(token=token.token)
 
 
 class Query(graphene.ObjectType):

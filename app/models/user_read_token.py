@@ -32,7 +32,6 @@ class UserReadToken(BaseModel):
         ).all()
         valid_until = datetime.now() + app.config["USER_READ_TOKEN_EXPIRATION"]
         if user_valid_tokens:
-            print(user_valid_tokens)
             token = user_valid_tokens[0]
             token.valid_until = valid_until
         else:

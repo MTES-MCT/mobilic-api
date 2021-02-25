@@ -46,6 +46,7 @@ class Config:
     USER_READ_TOKEN_EXPIRATION = os.environ.get(
         "USER_READ_TOKEN_EXPIRATION", timedelta(days=1)
     )
+    HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
 
 
 class DevConfig(Config):
