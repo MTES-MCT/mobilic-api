@@ -31,6 +31,12 @@ EXCEL_MIMETYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
+light_yellow_hex = "#fdffbc"
+light_blue_hex = "#b4e1fa"
+light_green_hex = "#daf5e7"
+light_orange_hex = "#fff0e4"
+light_red_hex = "#efaca6"
+
 
 class IntegrityVerificationError(Exception):
     code = None
@@ -53,77 +59,26 @@ class UnavailableService(IntegrityVerificationError):
 
 
 columns_in_main_sheet = [
-    ("Employé", lambda wday: wday.user.display_name, None, 30),
-    ("Jour", lambda wday: utc_to_fr(wday.start_time), "date_format", 20,),
-    ("Début", lambda wday: utc_to_fr(wday.start_time), "time_format", 15,),
-    ("Fin", lambda wday: utc_to_fr(wday.end_time), "time_format", 15,),
     (
-        "Conduite",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.DRIVE]
-        ),
-        "duration_format",
-        10,
-    ),
-    (
-        "Accompagnement",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.SUPPORT]
-        ),
-        "duration_format",
-        10,
-    ),
-    (
-        "Autre tâche",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.WORK]
-        ),
-        "duration_format",
-        10,
-    ),
-    (
-        "Pause",
-        lambda wday: timedelta(
-            seconds=wday.service_duration - wday.total_work_duration
-        ),
-        "duration_format",
-        10,
-    ),
-    (
-        "Repas jour",
-        lambda wday: wday.expenditures.get("day_meal", 0),
+        "Employé",
+        lambda wday: wday.user.display_name,
         None,
-        10,
+        30,
+        light_yellow_hex,
     ),
     (
-        "Repas nuit",
-        lambda wday: wday.expenditures.get("night_meal", 0),
-        None,
-        10,
-    ),
-    (
-        "Découchage",
-        lambda wday: wday.expenditures.get("sleep_over", 0),
-        None,
-        10,
-    ),
-    (
-        "Casse-croûte",
-        lambda wday: wday.expenditures.get("snack", 0),
-        None,
-        10,
+        "Jour",
+        lambda wday: utc_to_fr(wday.start_time),
+        "date_format",
+        20,
+        light_yellow_hex,
     ),
     (
         "Mission(s)",
         lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
         None,
         30,
-    ),
-    (
-        "Entreprise(s)",
-        lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
-        None,
-        30,
+        light_blue_hex,
     ),
     (
         "Véhicule(s)",
@@ -138,12 +93,99 @@ columns_in_main_sheet = [
         ),
         None,
         30,
+        light_blue_hex,
+    ),
+    (
+        "Début",
+        lambda wday: utc_to_fr(wday.start_time),
+        "time_format",
+        15,
+        light_green_hex,
+    ),
+    (
+        "Fin",
+        lambda wday: utc_to_fr(wday.end_time),
+        "time_format",
+        15,
+        light_green_hex,
+    ),
+    (
+        "Conduite",
+        lambda wday: timedelta(
+            seconds=wday.activity_durations[ActivityType.DRIVE]
+        ),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
+        "Accompagnement",
+        lambda wday: timedelta(
+            seconds=wday.activity_durations[ActivityType.SUPPORT]
+        ),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
+        "Autre tâche",
+        lambda wday: timedelta(
+            seconds=wday.activity_durations[ActivityType.WORK]
+        ),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
+        "Pause",
+        lambda wday: timedelta(
+            seconds=wday.service_duration - wday.total_work_duration
+        ),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
+        "Repas jour",
+        lambda wday: wday.expenditures.get("day_meal", 0),
+        None,
+        10,
+        light_orange_hex,
+    ),
+    (
+        "Repas nuit",
+        lambda wday: wday.expenditures.get("night_meal", 0),
+        None,
+        10,
+        light_orange_hex,
+    ),
+    (
+        "Découchage",
+        lambda wday: wday.expenditures.get("sleep_over", 0),
+        None,
+        10,
+        light_orange_hex,
+    ),
+    (
+        "Casse-croûte",
+        lambda wday: wday.expenditures.get("snack", 0),
+        None,
+        10,
+        light_orange_hex,
     ),
     (
         "Observations",
         lambda wday: "\n".join([" - " + c.text for c in wday.comments]),
         None,
         50,
+        light_red_hex,
+    ),
+    (
+        "Entreprise(s)",
+        lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
+        None,
+        30,
+        light_blue_hex,
     ),
 ]
 
@@ -155,11 +197,11 @@ def send_work_days_as_excel(user_wdays):
     wb.set_custom_property(HMAC_PROP_NAME, "a")
 
     date_formats = dict(
-        date_format=wb.add_format({"num_format": "dd/mm/yyyy"}),
-        time_format=wb.add_format({"num_format": "h:mm"}),
-        duration_format=wb.add_format({"num_format": "[h]:mm"}),
+        date_format={"num_format": "dd/mm/yyyy"},
+        time_format={"num_format": "h:mm"},
+        duration_format={"num_format": "[h]:mm"},
     )
-    formats = dict(bold=wb.add_format({"bold": True}), **date_formats)
+    formats = dict(bold={"bold": True}, **date_formats)
 
     wdays_by_user = defaultdict(list)
     for work_day in complete_work_days:
@@ -167,31 +209,73 @@ def send_work_days_as_excel(user_wdays):
 
     main_sheet = wb.add_worksheet("Activité")
     main_sheet.protect()
+    main_sheet.freeze_panes(1, 2)
     main_row_idx = 1
 
     main_col_idx = 0
-    for (main_col_name, resolver, _, column_width) in columns_in_main_sheet:
-        main_sheet.write(0, main_col_idx, main_col_name, formats["bold"])
+    column_base_formats = []
+    for (
+        main_col_name,
+        resolver,
+        _,
+        column_width,
+        color,
+    ) in columns_in_main_sheet:
+        right_border = 0
+        if main_col_idx == 1:
+            right_border = 2
+        elif (
+            main_col_idx < len(columns_in_main_sheet) - 1
+            and columns_in_main_sheet[main_col_idx + 1][4] != color
+        ):
+            right_border = 1
+        main_sheet.write(
+            0,
+            main_col_idx,
+            main_col_name,
+            wb.add_format(
+                {
+                    "bold": True,
+                    "bg_color": color,
+                    "right": right_border,
+                    "align": "center",
+                    "valign": "center",
+                }
+            ),
+        )
         main_sheet.set_column(main_col_idx, main_col_idx, column_width)
+        column_base_formats.append({"right": right_border})
         main_col_idx += 1
+
+    main_sheet.set_row(0, 40)
 
     for user, work_days in wdays_by_user.items():
         for wday in sorted(work_days, key=lambda wd: wd.start_time):
             main_col_idx = 0
-            for (main_col_name, resolver, style, _) in columns_in_main_sheet:
+            for (main_col_name, resolver, style, *_) in columns_in_main_sheet:
                 if style in date_formats and resolver(wday) is not None:
                     main_sheet.write_datetime(
                         main_row_idx,
                         main_col_idx,
                         resolver(wday),
-                        formats.get(style),
+                        wb.add_format(
+                            {
+                                **column_base_formats[main_col_idx],
+                                **(formats.get(style) or {}),
+                            }
+                        ),
                     )
                 else:
                     main_sheet.write(
                         main_row_idx,
                         main_col_idx,
                         resolver(wday),
-                        formats.get(style),
+                        wb.add_format(
+                            {
+                                **column_base_formats[main_col_idx],
+                                **(formats.get(style) or {}),
+                            }
+                        ),
                     )
                 main_col_idx += 1
             main_row_idx += 1
