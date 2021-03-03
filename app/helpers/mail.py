@@ -151,7 +151,7 @@ class Mailer:
             company_name=company.name,
             company_siren=Markup(company.siren),
             contact_email=Markup(SENDER_ADDRESS),
-            contact_phone=Markup("+33 6 99 32 32 57"),
+            contact_phone=Markup("+33 6 89 56 58 97"),
         )
 
     def send_employment_validation_email(self, employment):
