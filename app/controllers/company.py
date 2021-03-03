@@ -3,6 +3,7 @@ from flask import request, jsonify
 from datetime import datetime, date
 from graphene.types.generic import GenericScalar
 import requests
+from sqlalchemy.orm import selectinload
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
@@ -197,7 +198,9 @@ def download_activity_report():
         return jsonify({"error": "Forbidden access"}), 403
 
     companies = (
-        company_queries_with_all_relations()
+        Company.query.options(
+            selectinload(Company.employments).selectinload(Employment.user)
+        )
         .filter(Company.id.in_(company_ids))
         .all()
     )
