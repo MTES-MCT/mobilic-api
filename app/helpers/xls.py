@@ -5,7 +5,7 @@ from datetime import timedelta
 from io import BytesIO
 import hmac
 import hashlib
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 from defusedxml.ElementTree import parse
 
 from app import app
@@ -569,7 +569,7 @@ def add_signature(fp):
     if not HMAC_KEY:
         return fp
     new_archive_fp = BytesIO()
-    with ZipFile(new_archive_fp, "w") as new_archive:
+    with ZipFile(new_archive_fp, "w", compression=ZIP_DEFLATED) as new_archive:
         with ZipFile(fp, "r") as archive:
             for file_name in archive.namelist():
                 if file_name != "docProps/custom.xml":
