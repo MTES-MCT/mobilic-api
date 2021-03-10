@@ -155,7 +155,7 @@ class User(BaseModel):
             Activity.query.filter(
                 Activity.user_id == self.id,
                 ~Activity.is_dismissed,
-                Activity.start_time > date_time,
+                Activity.start_time > (date_time or datetime(2000, 1, 1)),
             )
             .order_by(Activity.start_time)
             .first()
