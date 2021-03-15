@@ -21,6 +21,7 @@ def format_seconds_duration(seconds):
     return f"{hours}h{minutes if minutes >= 10 else '0' + str(minutes)}"
 
 
+# Mailjet is used as the email solution : what follows is the wrapper of their API, whose doc is here : https://github.com/mailjet/mailjet-apiv3-python
 class Mailer:
     def __init__(self, app, dry_run=False):
         config = app.config

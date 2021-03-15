@@ -10,6 +10,14 @@ def get_children_field_names(info):
 
 
 class CustomGraphQLView(GraphQLView):
+    """
+    Log all graphql requests (to OVH log solution). For each request we want :
+    - the graphql query text
+    - graphql variables if they exist
+    - status code
+    - (json) response except when it's too big (we exclude specific queries)
+    """
+
     def dispatch_request(self):
         try:
             request_data = self.parse_body()

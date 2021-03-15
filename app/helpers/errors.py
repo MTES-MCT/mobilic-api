@@ -245,6 +245,7 @@ def _get_conflicting_mission_end(error):
     return _get_conflicting_entity(error, MissionEnd)
 
 
+# Map violations of db-level constraints to app-level exceptions
 CONSTRAINTS_TO_ERRORS_MAP = {
     "no_overlapping_acknowledged_activities": lambda error: OverlappingActivitiesError(
         conflicting_activity=_get_conflicting_activity(error)

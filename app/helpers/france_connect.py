@@ -1,12 +1,13 @@
 import requests
 import json
 import jwt
-from urllib.parse import unquote
 
 from app import app
 from app.helpers.errors import FranceConnectAuthenticationError
 
 
+# This is the second part of the OAuth protocol for FranceConnect, after the user logged in and we get an authorization code from FranceConnect.
+# Whole flow is detailed here : https://partenaires.franceconnect.gouv.fr/fcp/fournisseur-service
 def get_fc_user_info(authorization_code, original_redirect_uri):
     data = {
         "code": authorization_code,

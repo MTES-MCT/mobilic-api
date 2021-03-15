@@ -11,6 +11,10 @@ from app.helpers.time import to_timestamp, from_timestamp
 
 
 class TimeStamp(DateTime):
+    """
+    Custom graphql type to represent datetimes as unix timestamps
+    """
+
     class Meta:
         description = "Horodatage en nombre de secondes écoulées depuis le 1er janvier 1970 minuit UTC"
 
@@ -46,6 +50,11 @@ GRAPHENE_ENUM_TYPES = {}
 
 
 def graphene_enum_type(enum):
+    """
+    Generates a custom graphql type from an enum class.
+
+    We keep track of all created types to avoid duplicate creations of the same type, which lead to runtime errors
+    """
     name = enum.__name__ + "Enum"
     if name in GRAPHENE_ENUM_TYPES:
         return GRAPHENE_ENUM_TYPES[name]
