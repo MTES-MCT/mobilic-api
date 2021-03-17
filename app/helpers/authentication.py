@@ -325,6 +325,10 @@ def _refresh_token():
     @after_this_request
     def set_cookies(response):
         set_auth_cookies(response, user_id=current_actor.id, **tokens)
+        log_data = {"response_headers": str(response.headers)}
+        app.logger.info(
+            "Refresh token", extra=log_data,
+        )
         return response
 
     return tokens

@@ -100,7 +100,10 @@ class SlackFormatter(logging.Formatter):
 
 app.logger.setLevel(logging.INFO)
 app.logger.addFilter(add_request_and_user_context)
-default_handler.addFilter(lambda r: not getattr(r, "graphql_request", False))
+default_handler.addFilter(
+    lambda r: not getattr(r, "graphql_request", False)
+    and not getattr(r, "response_headers", False)
+)
 default_handler.setFormatter(
     logging.Formatter(
         "[%(asctime)s] user=%(current_user)s %(levelname)s in %(name)s: %(message)s"
@@ -123,6 +126,7 @@ class FreeSchema(LDPSchema):
     graphql_request = fields.Dict()
     status_code = fields.Int()
     response = fields.Dict()
+    response_headers = fields.String()
     current_user = fields.String()
     device = fields.String()
 
