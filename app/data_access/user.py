@@ -137,12 +137,16 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(
         self, info, consultation_scope, from_date=None, until_date=None
     ):
-        return group_user_events_by_day(
-            self,
-            consultation_scope,
-            from_date=from_date,
-            until_date=until_date,
-        )
+        return [
+            wd
+            for wd in group_user_events_by_day(
+                self,
+                consultation_scope,
+                from_date=from_date,
+                until_date=until_date,
+            )
+            if wd.activities
+        ]
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(

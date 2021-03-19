@@ -166,9 +166,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 [
                     work_day
                     for user, missions in user_to_missions.items()
-                    for work_day in group_user_missions_by_day(user, missions)
+                    for work_day in group_user_missions_by_day(
+                        user, missions, from_date, until_date
+                    )
+                    if work_day.activities
                 ],
-                key=lambda wd: wd.start_time,
+                key=lambda wd: wd.day,
             )
             return work_days[-limit:]
 
@@ -181,6 +184,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             users = {user_id: User.query.get(user_id) for user_id in user_ids}
             wds = [
                 WorkDayStatsOnly(
+                    day=row.day,
                     user=users[row.user_id],
                     start_time=row.start_time,
                     end_time=row.end_time,

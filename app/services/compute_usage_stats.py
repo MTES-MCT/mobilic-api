@@ -90,12 +90,12 @@ def _compute_work_days_stats(wds):
             [w for w in complete_wds if w.logged_partially_by_user]
         ),
         "Date de la première journée enregistrée": _datetime_to_gsheet_format(
-            min([w.start_time for w in complete_wds])
+            min([w.start_time for w in complete_wds if w.start_time])
         )
         if complete_wds
         else None,
         "Date de la dernière journée enregistrée": _datetime_to_gsheet_format(
-            max([w.start_time for w in complete_wds])
+            max([w.start_time for w in complete_wds if w.start_time])
         )
         if complete_wds
         else None,

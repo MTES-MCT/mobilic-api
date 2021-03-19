@@ -25,7 +25,6 @@ from app.models.employment import (
     EmploymentRequestValidationStatus,
     EmploymentOutput,
 )
-from app.models.queries import company_queries_with_all_relations
 from app import db, app
 
 

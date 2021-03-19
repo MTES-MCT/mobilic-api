@@ -101,13 +101,7 @@ columns_in_main_sheet = [
         30,
         light_yellow_hex,
     ),
-    (
-        "Jour",
-        lambda wday: utc_to_fr(wday.start_time),
-        "date_format",
-        20,
-        light_yellow_hex,
-    ),
+    ("Jour", lambda wday: wday.day, "date_format", 20, light_yellow_hex,),
     (
         "Mission(s)",
         lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
@@ -132,14 +126,14 @@ columns_in_main_sheet = [
     ),
     (
         "Début",
-        lambda wday: utc_to_fr(wday.start_time),
+        lambda wday: utc_to_fr(wday.start_time) if wday.start_time else None,
         "time_format",
         15,
         light_green_hex,
     ),
     (
         "Fin",
-        lambda wday: utc_to_fr(wday.end_time),
+        lambda wday: utc_to_fr(wday.end_time) if wday.end_time else None,
         "time_format",
         15,
         light_green_hex,
@@ -337,35 +331,36 @@ def write_work_days_sheet(wb, wdays_by_user):
     sheet.set_row(0, 40)
 
     for user, work_days in wdays_by_user.items():
-        for wday in sorted(work_days, key=lambda wd: wd.start_time):
-            col_idx = 0
-            for (col_name, resolver, style, *_) in columns_in_main_sheet:
-                if style in date_formats and resolver(wday) is not None:
-                    sheet.write_datetime(
-                        row_idx,
-                        col_idx,
-                        resolver(wday),
-                        wb.add_format(
-                            {
-                                **column_base_formats[col_idx],
-                                **(formats.get(style) or {}),
-                            }
-                        ),
-                    )
-                else:
-                    sheet.write(
-                        row_idx,
-                        col_idx,
-                        resolver(wday),
-                        wb.add_format(
-                            {
-                                **column_base_formats[col_idx],
-                                **(formats.get(style) or {}),
-                            }
-                        ),
-                    )
-                col_idx += 1
-            row_idx += 1
+        for wday in sorted(work_days, key=lambda wd: wd.day):
+            if wday.activities:
+                col_idx = 0
+                for (col_name, resolver, style, *_) in columns_in_main_sheet:
+                    if style in date_formats and resolver(wday) is not None:
+                        sheet.write_datetime(
+                            row_idx,
+                            col_idx,
+                            resolver(wday),
+                            wb.add_format(
+                                {
+                                    **column_base_formats[col_idx],
+                                    **(formats.get(style) or {}),
+                                }
+                            ),
+                        )
+                    else:
+                        sheet.write(
+                            row_idx,
+                            col_idx,
+                            resolver(wday),
+                            wb.add_format(
+                                {
+                                    **column_base_formats[col_idx],
+                                    **(formats.get(style) or {}),
+                                }
+                            ),
+                        )
+                    col_idx += 1
+                row_idx += 1
 
 
 def write_day_details_sheet(wb, wdays_by_user):
@@ -408,106 +403,105 @@ def write_day_details_sheet(wb, wdays_by_user):
     sheet.set_row(0, 40)
 
     for user, work_days in wdays_by_user.items():
-        for wday in sorted(work_days, key=lambda wd: wd.start_time):
-            for activity in wday._all_activities:
-                starting_row_idx = row_idx
-                activity_versions = sorted(
-                    activity.revisions, key=lambda r: r.version
+        acts = set()
+        for wday in work_days:
+            acts = acts | set(wday._all_activities)
+        for activity in sorted(acts, key=lambda a: a.start_time):
+            starting_row_idx = row_idx
+            activity_versions = sorted(
+                activity.revisions, key=lambda r: r.version
+            )
+            events = [
+                (version, previous_version, False)
+                for (version, previous_version) in zip(
+                    activity_versions, [None, *activity_versions[:-1]]
                 )
-                events = [
-                    (version, previous_version, False)
-                    for (version, previous_version) in zip(
-                        activity_versions, [None, *activity_versions[:-1]]
-                    )
-                    if not previous_version
-                    or version.start_time != previous_version.start_time
-                    or version.end_time != previous_version.end_time
-                ]
-                if activity.is_dismissed:
-                    events.append((activity, None, True))
-                for (av_or_a, previous_version, is_delete) in events:
-                    col_idx = len(activity_columns_in_details_sheet)
-                    for (
-                        col_name,
-                        resolver,
-                        style,
-                        *_,
-                    ) in activity_version_columns_in_details_sheet:
-                        if (
-                            style in date_formats
-                            and resolver(av_or_a, previous_version, is_delete)
-                            is not None
-                        ):
-                            sheet.write_datetime(
-                                row_idx,
-                                col_idx,
-                                resolver(av_or_a, previous_version, is_delete),
-                                wb.add_format(
-                                    {
-                                        **column_base_formats[col_idx],
-                                        **(formats.get(style) or {}),
-                                    }
-                                ),
-                            )
-                        else:
-                            sheet.write(
-                                row_idx,
-                                col_idx,
-                                resolver(av_or_a, previous_version, is_delete),
-                                wb.add_format(
-                                    {
-                                        **column_base_formats[col_idx],
-                                        **(formats.get(style) or {}),
-                                    }
-                                ),
-                            )
-                        col_idx += 1
-
-                    row_idx += 1
-                col_idx = 0
+                if not previous_version
+                or version.start_time != previous_version.start_time
+                or version.end_time != previous_version.end_time
+            ]
+            if activity.is_dismissed:
+                events.append((activity, None, True))
+            for (av_or_a, previous_version, is_delete) in events:
+                col_idx = len(activity_columns_in_details_sheet)
                 for (
                     col_name,
                     resolver,
                     style,
                     *_,
-                ) in activity_columns_in_details_sheet:
-                    cell_format = wb.add_format(
-                        {
-                            **column_base_formats[col_idx],
-                            **(formats.get(style) or {}),
-                            **(
-                                {"bg_color": very_light_red_hex}
-                                if activity.is_dismissed
-                                else {}
-                            ),
-                        }
-                    )
-                    sheet.merge_range(
-                        starting_row_idx,
-                        col_idx,
-                        row_idx - 1,
-                        col_idx,
-                        "",
-                        cell_format,
-                    )
+                ) in activity_version_columns_in_details_sheet:
                     if (
                         style in date_formats
-                        and resolver(activity) is not None
+                        and resolver(av_or_a, previous_version, is_delete)
+                        is not None
                     ):
                         sheet.write_datetime(
-                            starting_row_idx,
+                            row_idx,
                             col_idx,
-                            resolver(activity),
-                            cell_format,
+                            resolver(av_or_a, previous_version, is_delete),
+                            wb.add_format(
+                                {
+                                    **column_base_formats[col_idx],
+                                    **(formats.get(style) or {}),
+                                }
+                            ),
                         )
                     else:
                         sheet.write(
-                            starting_row_idx,
+                            row_idx,
                             col_idx,
-                            resolver(activity),
-                            cell_format,
+                            resolver(av_or_a, previous_version, is_delete),
+                            wb.add_format(
+                                {
+                                    **column_base_formats[col_idx],
+                                    **(formats.get(style) or {}),
+                                }
+                            ),
                         )
                     col_idx += 1
+
+                row_idx += 1
+            col_idx = 0
+            for (
+                col_name,
+                resolver,
+                style,
+                *_,
+            ) in activity_columns_in_details_sheet:
+                cell_format = wb.add_format(
+                    {
+                        **column_base_formats[col_idx],
+                        **(formats.get(style) or {}),
+                        **(
+                            {"bg_color": very_light_red_hex}
+                            if activity.is_dismissed
+                            else {}
+                        ),
+                    }
+                )
+                sheet.merge_range(
+                    starting_row_idx,
+                    col_idx,
+                    row_idx - 1,
+                    col_idx,
+                    "",
+                    cell_format,
+                )
+                if style in date_formats and resolver(activity) is not None:
+                    sheet.write_datetime(
+                        starting_row_idx,
+                        col_idx,
+                        resolver(activity),
+                        cell_format,
+                    )
+                else:
+                    sheet.write(
+                        starting_row_idx,
+                        col_idx,
+                        resolver(activity),
+                        cell_format,
+                    )
+                col_idx += 1
 
 
 def send_work_days_as_excel(user_wdays):

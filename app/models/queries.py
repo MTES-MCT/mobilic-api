@@ -1,5 +1,5 @@
 from sqlalchemy.orm import selectinload, subqueryload, joinedload
-from sqlalchemy import and_, or_, desc, Integer
+from sqlalchemy import and_, or_, desc, Integer, Interval
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
@@ -178,35 +178,72 @@ def query_work_day_stats(
             ),
             isouter=True,
         )
-        .with_entities(Activity.id)
+        .with_entities(
+            Activity.id,
+            Activity.user_id,
+            Activity.mission_id,
+            Mission.name,
+            Activity.start_time,
+            Activity.end_time,
+            Activity.type,
+            Expenditure.id.label("expenditure_id"),
+            Expenditure.type.label("expenditure_type"),
+            func.generate_series(
+                func.date_trunc("day", Activity.start_time),
+                func.coalesce(
+                    func.date_trunc("day", Activity.end_time), func.now()
+                ),
+                "1 day",
+            ).label("day"),
+        )
         .filter(Mission.company_id == company_id, ~Activity.is_dismissed)
     )
 
-    query = _apply_time_range_filters(query, start_time, end_time)
+    query = _apply_time_range_filters(query, start_time, end_time).subquery()
 
     query = (
-        query.group_by(Activity.user_id, Activity.mission_id, Mission.name)
+        db.session.query(query)
+        .group_by(
+            query.c.user_id, query.c.day, query.c.mission_id, query.c.name
+        )
         .with_entities(
-            Activity.user_id.label("user_id"),
-            Activity.mission_id.label("mission_id"),
-            Mission.name.label("mission_name"),
-            func.min(Activity.start_time).label("start_time"),
-            func.max(func.coalesce(Activity.end_time, func.now())).label(
-                "end_time"
+            query.c.user_id.label("user_id"),
+            query.c.day,
+            query.c.mission_id.label("mission_id"),
+            query.c.name.label("mission_name"),
+            func.min(func.greatest(query.c.start_time, query.c.day)).label(
+                "start_time"
             ),
-            func.bool_or(Activity.end_time.is_(None)).label("is_running"),
+            func.max(
+                func.least(
+                    query.c.day + func.cast("1 day", Interval),
+                    func.coalesce(query.c.end_time, func.now()),
+                )
+            ).label("end_time"),
+            func.bool_or(
+                and_(
+                    query.c.end_time.is_(None),
+                    query.c.day == func.current_date(),
+                )
+            ).label("is_running"),
             *[
                 func.sum(
                     case(
                         [
                             (
-                                Activity.type == a_type.value,
+                                query.c.type == a_type.value,
                                 extract(
                                     "epoch",
-                                    func.coalesce(
-                                        Activity.end_time, func.now()
+                                    func.least(
+                                        query.c.day
+                                        + func.cast("1 day", Interval),
+                                        func.coalesce(
+                                            query.c.end_time, func.now()
+                                        ),
                                     )
-                                    - Activity.start_time,
+                                    - func.greatest(
+                                        query.c.start_time, query.c.day
+                                    ),
                                 ),
                             )
                         ],
@@ -215,13 +252,16 @@ def query_work_day_stats(
                 ).label(f"{a_type.value}_duration")
                 for a_type in ActivityType
             ],
-            func.greatest(func.count(distinct(Expenditure.id)), 1).label(
-                "n_exp_dups"
-            ),
-            func.count(distinct(Activity.id)).label("n_act_dups"),
+            func.greatest(
+                func.count(distinct(query.c.expenditure_id)), 1
+            ).label("n_exp_dups"),
+            func.count(distinct(query.c.id)).label("n_act_dups"),
             *[
                 func.sum(
-                    case([(Expenditure.type == e_type.value, 1)], else_=0)
+                    case(
+                        [(query.c.expenditure_type == e_type.value, 1)],
+                        else_=0,
+                    )
                 ).label(f"n_{e_type.value}_expenditures")
                 for e_type in ExpenditureType
             ],
@@ -231,13 +271,13 @@ def query_work_day_stats(
 
     query = (
         db.session.query(query)
-        .group_by(query.c.user_id, "day")
+        .group_by(query.c.user_id, query.c.day)
         .with_entities(
             query.c.user_id.label("user_id"),
+            query.c.day,
             func.array_agg(distinct(query.c.mission_name)).label(
                 "mission_names"
             ),
-            func.date_trunc("day", query.c.start_time).label("day"),
             func.min(query.c.start_time).label("start_time"),
             func.max(query.c.end_time).label("end_time"),
             func.bool_or(query.c.is_running).label("is_running"),

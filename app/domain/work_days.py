@@ -2,7 +2,7 @@ from collections import defaultdict
 from cached_property import cached_property
 from dataclasses import dataclass
 from typing import List, Set
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from functools import reduce
 
 from app.helpers.time import to_timestamp
@@ -10,18 +10,24 @@ from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
 
-def compute_aggregate_durations(periods):
+def compute_aggregate_durations(periods, min_time=None, max_time=None):
     if not periods:
         return {}
     timers = defaultdict(lambda: 0)
-    end_time = periods[-1].end_time
+    end_time = periods[-1].end_time if periods[-1].end_time else datetime.now()
     start_time = periods[0].start_time
-    end_timestamp = (
-        to_timestamp(end_time) if end_time else to_timestamp(datetime.now())
-    )
+    if min_time and min_time > start_time:
+        start_time = min_time
+    if max_time and max_time < end_time:
+        end_time = max_time
+
+    end_timestamp = to_timestamp(end_time)
+
     timers["total_service"] = end_timestamp - to_timestamp(start_time)
     for period in periods:
-        timers[period.type] += int(period.duration.total_seconds())
+        timers[period.type] += int(
+            period.duration_over(min_time, max_time).total_seconds()
+        )
 
     timers["total_work"] = reduce(
         lambda a, b: a + b, [timers[a_type] for a_type in ActivityType]
@@ -32,6 +38,7 @@ def compute_aggregate_durations(periods):
 
 @dataclass(init=False)
 class WorkDay:
+    day: date
     user: User
     missions: List[Mission]
     companies: Set[Company]
@@ -39,7 +46,8 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user):
+    def __init__(self, user, day):
+        self.day = day
         self._are_activities_sorted = True
         self.user = user
         self.missions = []
@@ -47,11 +55,19 @@ class WorkDay:
         self.activities = []
         self._all_activities = []
         self.comments = []
+        self._is_complete = True
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
         self.missions.append(mission)
-        self.activities.extend(mission.activities_for(self.user))
+        self.activities.extend(
+            [
+                a
+                for a in mission.activities_for(self.user)
+                if a.start_time <= self._end_of_day
+                and (not a.end_time or a.end_time >= self._start_of_day)
+            ]
+        )
         self.companies.add(mission.company)
         self._all_activities.extend(
             mission.activities_for(
@@ -80,21 +96,36 @@ class WorkDay:
 
     @property
     def is_complete(self):
-        return self.end_time is not None
+        return self._is_complete
+
+    @property
+    def _start_of_day(self):
+        return datetime(self.day.year, self.day.month, self.day.day)
+
+    @property
+    def _end_of_day(self):
+        return self._start_of_day + timedelta(days=1)
 
     @property
     def start_time(self):
         self._sort_activities()
+        start_of_day = self._start_of_day
         if self.activities:
-            return self.activities[0].start_time
-        if self._all_activities:
-            return self._all_activities[0].start_time
+            return max(self.activities[0].start_time, start_of_day)
         return None
 
     @property
     def end_time(self):
         self._sort_activities()
-        return self.activities[-1].end_time if self.activities else None
+        end_of_day = self._end_of_day
+        if self.activities:
+            acts_end_time = self.activities[-1].end_time
+            if acts_end_time:
+                return min(acts_end_time, end_of_day)
+            if end_of_day >= datetime.now():
+                self._is_complete = False
+                return None
+        return None
 
     @cached_property
     def expenditures(self):
@@ -121,7 +152,9 @@ class WorkDay:
     @cached_property
     def _activity_timers(self):
         self._sort_activities()
-        return compute_aggregate_durations(self.activities)[2]
+        return compute_aggregate_durations(
+            self.activities, self._start_of_day, self._end_of_day
+        )[2]
 
     @property
     def activity_comments(self):
@@ -148,6 +181,7 @@ class WorkDay:
 
 
 class WorkDayStatsOnly:
+    day: date
     user: User
     start_time: datetime
     end_time: datetime
@@ -159,6 +193,7 @@ class WorkDayStatsOnly:
 
     def __init__(
         self,
+        day,
         user,
         start_time,
         end_time,
@@ -169,6 +204,7 @@ class WorkDayStatsOnly:
         total_work_duration,
         mission_names,
     ):
+        self.day = day
         self.user = user
         self.start_time = start_time
         self.end_time = end_time if not is_running else None
@@ -196,12 +232,17 @@ def group_user_events_by_day(
             if m.company_id in consultation_scope.company_ids
         ]
 
-    return group_user_missions_by_day(user, missions)
+    return group_user_missions_by_day(
+        user, missions, from_date=from_date, until_date=until_date
+    )
 
 
-def group_user_missions_by_day(user, missions):
+def group_user_missions_by_day(
+    user, missions, from_date=None, until_date=None
+):
     work_days = []
     current_work_day = None
+    current_date = None
     for mission in missions:
         all_mission_activities = mission.activities_for(
             user, include_dismissed_activities=True
@@ -214,12 +255,30 @@ def group_user_missions_by_day(user, missions):
             if acknowledged_mission_activities
             else all_mission_activities[0].start_time
         )
-        if (
-            not current_work_day
-            or current_work_day.start_time.date() != mission_start_time.date()
-        ):
-            current_work_day = WorkDay(user=user)
-            work_days.append(current_work_day)
-        current_work_day.add_mission(mission)
+        mission_start_day = mission_start_time.date()
 
+        mission_end_time = (
+            acknowledged_mission_activities[-1].end_time
+            if acknowledged_mission_activities
+            else None
+        ) or datetime.now()
+
+        if not current_date:
+            current_date = mission_start_day
+
+        mission_running_day = mission_start_day
+        while mission_running_day <= mission_end_time.date():
+            if (
+                not current_work_day
+                or current_work_day.day != mission_running_day
+            ):
+                current_work_day = WorkDay(user=user, day=mission_running_day)
+                work_days.append(current_work_day)
+            current_work_day.add_mission(mission)
+            mission_running_day += timedelta(days=1)
+
+    if from_date:
+        work_days = [w for w in work_days if w.day >= from_date]
+    if until_date:
+        work_days = [w for w in work_days if w.day <= until_date]
     return work_days

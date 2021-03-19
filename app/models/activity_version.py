@@ -1,6 +1,6 @@
 from sqlalchemy.orm import backref
 from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app import db
 from app.models.event import EventBaseModel
@@ -20,6 +20,23 @@ class Period:
     @property
     def duration(self):
         return (self.end_time or datetime.now()) - self.start_time
+
+    def duration_over(self, start_time, end_time):
+        if start_time and self.end_time and self.end_time <= start_time:
+            return timedelta(0)
+
+        if end_time and self.start_time >= end_time:
+            return timedelta(0)
+
+        self_end_time_or_now = self.end_time or datetime.now()
+
+        return (
+            min(self_end_time_or_now, end_time)
+            if end_time
+            else self_end_time_or_now
+        ) - (
+            max(self.start_time, start_time) if start_time else self.start_time
+        )
 
     @property
     def type(self):

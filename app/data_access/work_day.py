@@ -20,6 +20,8 @@ class WorkDayOutput(graphene.ObjectType):
         description="Liste des frais de la journée pour l'utilisateur concerné",
     )
 
+    day = graphene.Field(graphene.Date, description="Date du jour de travail")
+
     start_time = graphene.Field(
         TimeStamp,
         description="Horodatage de début de la journée de travail. Correspond à l'heure de début de la toute première activité",
