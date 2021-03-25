@@ -44,7 +44,7 @@ class Config:
         "https://metabase.mobilic.beta.gouv.fr/dashboard/3?id=",
     )
     USER_READ_TOKEN_EXPIRATION = os.environ.get(
-        "USER_READ_TOKEN_EXPIRATION", timedelta(days=1)
+        "USER_READ_TOKEN_EXPIRATION", timedelta(days=7)
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
 
