@@ -61,7 +61,7 @@ class FileSpecs:
     APPLICATION_IDENTIFICATION = FileSpec(
         b"\x05\x01",
         10,
-        default_content=b"\x01\x00\x00\x06\x0c\x35\xd0\x00\xc8\x70",
+        default_content=b"\x01\x00\x00\x0c\x18\x35\xd0\x00\xc8\x70",
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
@@ -95,14 +95,14 @@ class FileSpecs:
     # Latest "events" that occurred (events and faults refer to any error/oddity (technical issue, drive over speed limit, ...)
     # These are auto filled with empty event records (of length 24)
     EVENTS_DATA = FileSpec(
-        b"\x05\x02", 864, right_fill_with=bytes(11) + bytes([32] * 13)
+        b"\x05\x02", 1728, right_fill_with=bytes(11) + bytes([32] * 13)
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     # Latest "faults" that occurred (events and faults refer to any error/oddity (technical issue, drive over speed limit, ...)
     # These are auto filled with empty fault records (of length 24)
     FAULTS_DATA = FileSpec(
-        b"\x05\x03", 576, right_fill_with=bytes(11) + bytes([32] * 13)
+        b"\x05\x03", 1152, right_fill_with=bytes(11) + bytes([32] * 13)
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
@@ -156,9 +156,16 @@ class FileSpecs:
     )
 
 
-class File(NamedTuple):
-    spec: FileSpec
-    content: bytes = b""
+class File:
+    def __init__(
+        self,
+        spec: FileSpec,
+        content: bytes = b"",
+        signature: Optional[bytes] = None,
+    ):
+        self.spec = spec
+        self.content = content
+        self.signature = signature
 
 
 def check_length_and_right_pad(bytes_, pad_with, total_length):
@@ -206,6 +213,12 @@ def dump_file(file):
             file.spec.length,
         )
     )
+    if file.signature is not None and len(file.signature) > 0:
+        signature_header = (
+            file.spec.id + b"\x01" + len(file.signature).to_bytes(2, "big")
+        )
+        file_dump.extend(signature_header)
+        file_dump.extend(file.signature)
     return file_dump
 
 
@@ -480,17 +493,56 @@ def export_user_data_in_tachograph_format(
         File(spec=FileSpecs.CARD_ICC_IDENTIFICATION),
         File(spec=FileSpecs.CARD_CHIP_IDENTIFICATION),
         File(spec=FileSpecs.APPLICATION_IDENTIFICATION),
+        File(spec=FileSpecs.CARD_CERTIFICATE),
+        File(spec=FileSpecs.CA_CERTIFICATE),
         build_identification_file(user),
         File(spec=FileSpecs.CARD_DOWNLOAD),
+        File(spec=FileSpecs.EVENTS_DATA),
+        File(spec=FileSpecs.FAULTS_DATA),
         build_activity_file(
             complete_activities,
             first_user_activity_date,
             start_date=start_date,
             end_date=end_date,
         ),
+        File(spec=FileSpecs.VEHICLES_USED),
+        File(spec=FileSpecs.PLACES),
+        File(spec=FileSpecs.CURRENT_USAGE),
+        File(spec=FileSpecs.CONTROL_ACTIVITY_DATA),
+        File(spec=FileSpecs.SPECIFIC_CONDITIONS),
     ]
 
     output = BytesIO()
     output.write(write_archive(files))
     output.seek(0)
     return output
+
+
+_file_specs = [v for v in vars(FileSpecs).values() if type(v) is FileSpec]
+
+
+def parse_tachograph_file(fp):
+    files = []
+    while True:
+        file_info = fp.read(5)
+        print(file_info)
+        if not file_info:
+            break
+        file_id = file_info[:2]
+        is_signature = file_info[2:3] == b"\x01"
+        print(is_signature)
+        file_length = int.from_bytes(file_info[-2:], "big")
+        content = fp.read(file_length)
+
+        matching_file_spec = [f for f in _file_specs if f.id == file_id]
+        if not matching_file_spec:
+            print(f"Could not find spec for file id {file_id}")
+            continue
+        matching_file_spec = matching_file_spec[0]
+        if not is_signature:
+            files.append(File(spec=matching_file_spec, content=content))
+        else:
+            file = [f for f in files if f.spec == matching_file_spec][0]
+            file.signature = content
+
+    return files
