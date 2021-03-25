@@ -33,6 +33,30 @@ class Mailer:
         self.app_config = config
         self.dry_run = dry_run
 
+    @staticmethod
+    def _handle_mailjet_response(response, recipient):
+        if not response.status_code == 200:
+            try:
+                response_payload = response.json()["Messages"][0]
+
+                if response_payload["Status"] == "error":
+                    if any(
+                        [
+                            e["ErrorCode"] == "mj-0013"
+                            for e in response_payload["Errors"]
+                        ]
+                    ):
+                        raise InvalidEmailAddressError(
+                            f"Mailjet could not send email to invalid address : {recipient}"
+                        )
+            except MailjetError as e:
+                raise e
+            except Exception:
+                pass
+            raise MailjetError(
+                f"Attempt to send mail via Mailjet failed with error : {response.json()}"
+            )
+
     def _send(self, html, subject, recipient, custom_id=None):
         if not self.dry_run:
             message = {
@@ -43,29 +67,25 @@ class Mailer:
                 "CustomId": custom_id or "",
             }
             response = self.mailjet.send.create(data={"Messages": [message]})
-            if not response.status_code == 200:
-                try:
-                    response_payload = response.json()["Messages"][0]
+            self._handle_mailjet_response(response, recipient)
 
-                    if response_payload["Status"] == "error":
-                        if any(
-                            [
-                                e["ErrorCode"] == "mj-0013"
-                                for e in response_payload["Errors"]
-                            ]
-                        ):
-                            raise InvalidEmailAddressError(
-                                f"Mailjet could not send email to invalid address : {recipient}"
-                            )
-                except MailjetError as e:
-                    raise e
-                except Exception as e:
-                    pass
-                raise MailjetError(
-                    f"Attempt to send mail via Mailjet failed with error : {response.json()}"
-                )
+    def _send_email_from_mailjet_template(
+        self, template_id, recipient, custom_id=None, subject=None, **kwargs
+    ):
+        if not self.dry_run:
+            message = {
+                "To": [{"Email": recipient}],
+                "TemplateID": template_id,
+                "TemplateLanguage": True,
+                "Variables": kwargs,
+                "CustomId": custom_id or "",
+            }
+            if subject:
+                message["Subject"] = subject
+            response = self.mailjet.send.create(data={"Messages": [message]})
+            self._handle_mailjet_response(response, recipient)
 
-    def _send_email_from_template(
+    def _send_email_from_flask_template(
         self, template, subject, recipient, **kwargs
     ):
         html = render_template(template, **kwargs)
@@ -86,7 +106,7 @@ class Mailer:
         company_name = employment.company.name
         subject = f"{company_name} vous invite à rejoindre Mobilic."
 
-        self._send_email_from_template(
+        self._send_email_from_flask_template(
             "invitation_email.html",
             subject,
             recipient,
@@ -128,7 +148,7 @@ class Mailer:
             company = primary_employment.company
             has_admin_rights = primary_employment.has_admin_rights
 
-        self._send_email_from_template(
+        self._send_email_from_flask_template(
             "account_activation_email.html",
             "Activez votre compte Mobilic"
             if create_account
@@ -143,7 +163,7 @@ class Mailer:
         )
 
     def send_company_creation_email(self, company, user):
-        self._send_email_from_template(
+        self._send_email_from_flask_template(
             "company_creation_email.html",
             f"L'entreprise {company.name} est créée sur Mobilic !",
             user.email,
@@ -156,7 +176,7 @@ class Mailer:
         )
 
     def send_employment_validation_email(self, employment):
-        self._send_email_from_template(
+        self._send_email_from_flask_template(
             "employment_validation_email.html",
             f"Vous êtes à présent membre de l'entreprise {employment.company.name}",
             employment.user.email,
@@ -180,7 +200,7 @@ class Mailer:
         reset_link = (
             f"{self.app_config['FRONTEND_URL']}/reset_password?token={token}"
         )
-        self._send_email_from_template(
+        self._send_email_from_flask_template(
             "reset_password_email.html",
             "Réinitialisation de votre mot de passe Mobilic",
             user.email,
