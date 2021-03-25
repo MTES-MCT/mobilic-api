@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
-
+from datetime import timezone
+from sqlalchemy.types import TypeDecorator, DateTime
 
 from sqlalchemy import event
 
@@ -50,3 +51,21 @@ class SQLAlchemyWithStrongRefSession(SQLAlchemy):
         sess = super().create_session(options)
         strong_reference_session(sess)
         return sess
+
+
+class DateTimeStoredAsUTC(TypeDecorator):
+    impl = DateTime
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = (
+                value.replace(tzinfo=timezone.utc)
+                .astimezone()
+                .replace(tzinfo=None)
+            )
+        return value

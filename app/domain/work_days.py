@@ -2,10 +2,10 @@ from collections import defaultdict
 from cached_property import cached_property
 from dataclasses import dataclass
 from typing import List, Set
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from functools import reduce
 
-from app.helpers.time import to_timestamp
+from app.helpers.time import to_timestamp, FR_TIMEZONE, to_tz
 from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
@@ -39,6 +39,7 @@ def compute_aggregate_durations(periods, min_time=None, max_time=None):
 @dataclass(init=False)
 class WorkDay:
     day: date
+    tz: timezone
     user: User
     missions: List[Mission]
     companies: Set[Company]
@@ -46,8 +47,9 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user, day):
+    def __init__(self, user, day, tz=FR_TIMEZONE):
         self.day = day
+        self.tz = tz
         self._are_activities_sorted = True
         self.user = user
         self.missions = []
@@ -100,7 +102,13 @@ class WorkDay:
 
     @property
     def _start_of_day(self):
-        return datetime(self.day.year, self.day.month, self.day.day)
+        return (
+            datetime(
+                self.day.year, self.day.month, self.day.day, tzinfo=self.tz
+            )
+            .astimezone()
+            .replace(tzinfo=None)
+        )
 
     @property
     def _end_of_day(self):
@@ -206,8 +214,18 @@ class WorkDayStatsOnly:
     ):
         self.day = day
         self.user = user
-        self.start_time = start_time
-        self.end_time = end_time if not is_running else None
+        self.start_time = (
+            start_time.replace(tzinfo=timezone.utc)
+            .astimezone()
+            .replace(tzinfo=None)
+        )
+        self.end_time = (
+            end_time.replace(tzinfo=timezone.utc)
+            .astimezone()
+            .replace(tzinfo=None)
+            if not is_running and end_time
+            else None
+        )
         self.service_duration = service_duration
         self.total_work_duration = total_work_duration
         self.activity_durations = activity_timers
@@ -216,7 +234,7 @@ class WorkDayStatsOnly:
 
 
 def group_user_events_by_day(
-    user, consultation_scope, from_date=None, until_date=None
+    user, consultation_scope, from_date=None, until_date=None, tz=FR_TIMEZONE
 ):
     missions = user.query_missions(
         include_dismissed_activities=True,
@@ -233,12 +251,12 @@ def group_user_events_by_day(
         ]
 
     return group_user_missions_by_day(
-        user, missions, from_date=from_date, until_date=until_date
+        user, missions, from_date=from_date, until_date=until_date, tz=tz
     )
 
 
 def group_user_missions_by_day(
-    user, missions, from_date=None, until_date=None
+    user, missions, from_date=None, until_date=None, tz=FR_TIMEZONE
 ):
     work_days = []
     current_work_day = None
@@ -255,7 +273,7 @@ def group_user_missions_by_day(
             if acknowledged_mission_activities
             else all_mission_activities[0].start_time
         )
-        mission_start_day = mission_start_time.date()
+        mission_start_day = to_tz(mission_start_time, tz).date()
 
         mission_end_time = (
             acknowledged_mission_activities[-1].end_time
@@ -267,7 +285,7 @@ def group_user_missions_by_day(
             current_date = mission_start_day
 
         mission_running_day = mission_start_day
-        while mission_running_day <= mission_end_time.date():
+        while mission_running_day <= to_tz(mission_end_time, tz).date():
             if (
                 not current_work_day
                 or current_work_day.day != mission_running_day

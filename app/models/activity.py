@@ -7,6 +7,7 @@ from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
 from app import db, app
+from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import ResourceAlreadyDismissedError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
@@ -48,7 +49,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 
     type = enum_column(ActivityType, nullable=False)
 
-    last_update_time = db.Column(db.DateTime, nullable=False)
+    last_update_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     editable_fields = {"start_time", "end_time"}
 

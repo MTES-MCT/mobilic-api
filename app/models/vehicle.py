@@ -1,6 +1,7 @@
 import graphene
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.base import BaseModel
 
@@ -19,7 +20,7 @@ class Vehicle(BaseModel):
     )
     submitter = db.relationship("User")
 
-    terminated_at = db.Column(db.DateTime, nullable=True)
+    terminated_at = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint(

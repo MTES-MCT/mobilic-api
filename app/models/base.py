@@ -3,12 +3,14 @@ from sqlalchemy.ext.declarative import declared_attr
 from app import db
 from datetime import datetime
 
+from app.helpers.db import DateTimeStoredAsUTC
+
 
 class BaseModel(db.Model):
     __abstract__ = True
 
     creation_time = db.Column(
-        db.DateTime, nullable=False, default=datetime.now
+        DateTimeStoredAsUTC, nullable=False, default=datetime.now
     )
 
     @declared_attr

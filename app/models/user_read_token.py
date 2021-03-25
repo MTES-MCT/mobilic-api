@@ -2,6 +2,7 @@ import secrets
 from datetime import datetime
 
 from app import db, app
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 from app.helpers.errors import InvalidTokenError, TokenExpiredError
 
@@ -17,7 +18,7 @@ class UserReadToken(BaseModel):
         default=lambda: secrets.token_urlsafe(TOKEN_BYTES_LENGTH),
     )
 
-    valid_until = db.Column(db.DateTime, nullable=False)
+    valid_until = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True

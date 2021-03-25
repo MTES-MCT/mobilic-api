@@ -7,6 +7,7 @@ from cached_property import cached_property
 from uuid import uuid4
 from sqlalchemy.dialects.postgresql import JSONB
 
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 from app import db
 
@@ -19,7 +20,9 @@ class User(BaseModel):
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
 
-    latest_token_revocation_time = db.Column(db.DateTime, nullable=True)
+    latest_token_revocation_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
 
     france_connect_id = db.Column(db.String(255), unique=True, nullable=True)
     france_connect_info = db.Column(JSONB(none_as_null=True), nullable=True)

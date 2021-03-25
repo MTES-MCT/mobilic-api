@@ -3,6 +3,7 @@ from datetime import datetime
 import graphene
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import AuthorizationError, InvalidResourceError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
@@ -23,7 +24,7 @@ class Employment(UserEventBaseModel, Dismissable):
 
     is_primary = db.Column(db.Boolean, nullable=True)
 
-    validation_time = db.Column(db.DateTime, nullable=True)
+    validation_time = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     validation_status = enum_column(
         EmploymentRequestValidationStatus, nullable=False

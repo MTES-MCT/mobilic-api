@@ -4,6 +4,7 @@ from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 
 
@@ -67,7 +68,7 @@ class OAuth2Token(BaseModel, TokenMixin):
     )
     user = db.relationship("User", backref="oauth_tokens")
 
-    revoked_at = db.Column(db.DateTime)
+    revoked_at = db.Column(DateTimeStoredAsUTC)
 
     __table_args__ = (
         db.Constraint(name="only_one_active_token_per_user_and_client"),

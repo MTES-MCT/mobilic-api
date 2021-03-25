@@ -5,7 +5,7 @@ from datetime import datetime, date
 from markupsafe import Markup
 
 from app.helpers.errors import MailjetError
-from app.helpers.time import utc_to_fr
+from app.helpers.time import to_fr_tz
 
 SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
@@ -200,11 +200,11 @@ class Mailer:
         old_timers,
         new_timers,
     ):
-        old_start_time = utc_to_fr(old_start_time)
-        old_end_time = utc_to_fr(old_end_time)
-        new_start_time = utc_to_fr(new_start_time)
-        new_end_time = utc_to_fr(new_end_time)
-        self._send_email_from_template(
+        old_start_time = to_fr_tz(old_start_time)
+        old_end_time = to_fr_tz(old_end_time)
+        new_start_time = to_fr_tz(new_start_time)
+        new_end_time = to_fr_tz(new_end_time)
+        self._send_email_from_flask_template(
             "mission_changes_warning_email.html",
             f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
             user.email,

@@ -10,7 +10,7 @@ from defusedxml.ElementTree import parse
 
 from app import app
 from app.models.activity import ActivityType
-from app.helpers.time import utc_to_fr
+from app.helpers.time import to_fr_tz
 
 WORKSHEETS_TO_INCLUDE_IN_HMAC = [
     "xl/worksheets/sheet1.xml",
@@ -76,21 +76,21 @@ def format_activity_version_description(version, previous_version, is_delete):
         return f"Suppression de l'activité"
     if not previous_version:
         if not version.end_time:
-            return f"Début de l'activité à {utc_to_fr(version.start_time).strftime('%H:%M')}"
+            return f"Début de l'activité à {to_fr_tz(version.start_time).strftime('%H:%M')}"
         else:
-            return f"Création a posteriori de l'activité sur la période {utc_to_fr(version.start_time).strftime('%H:%M')} - {utc_to_fr(version.end_time).strftime('%H:%M')}"
+            return f"Création a posteriori de l'activité sur la période {to_fr_tz(version.start_time).strftime('%H:%M')} - {to_fr_tz(version.end_time).strftime('%H:%M')}"
     else:
         if (
             not previous_version.end_time
             and version.end_time
             and version.start_time == previous_version.start_time
         ):
-            return f"Fin de l'activité à {utc_to_fr(version.end_time).strftime('%H:%M')}"
+            return f"Fin de l'activité à {to_fr_tz(version.end_time).strftime('%H:%M')}"
         if not previous_version.end_time and not version.end_time:
-            return f"Correction du début de l'activité de {utc_to_fr(previous_version.start_time).strftime('%H:%M')} à {utc_to_fr(version.start_time).strftime('%H:%M')}"
+            return f"Correction du début de l'activité de {to_fr_tz(previous_version.start_time).strftime('%H:%M')} à {to_fr_tz(version.start_time).strftime('%H:%M')}"
         if previous_version.start_time == version.start_time:
-            return f"Correction de la fin de l'activité de {utc_to_fr(previous_version.end_time).strftime('%H:%M') if previous_version.end_time else ''} à {utc_to_fr(version.end_time).strftime('%H:%M') if version.end_time else ''}"
-        return f"Correction de la période d'activité de {utc_to_fr(previous_version.start_time).strftime('%H:%M')} - {utc_to_fr(previous_version.end_time).strftime('%H:%M') if previous_version.end_time else ''} à {utc_to_fr(version.start_time).strftime('%H:%M')} - {utc_to_fr(version.end_time).strftime('%H:%M') if version.end_time else ''}"
+            return f"Correction de la fin de l'activité de {to_fr_tz(previous_version.end_time).strftime('%H:%M') if previous_version.end_time else ''} à {to_fr_tz(version.end_time).strftime('%H:%M') if version.end_time else ''}"
+        return f"Correction de la période d'activité de {to_fr_tz(previous_version.start_time).strftime('%H:%M')} - {to_fr_tz(previous_version.end_time).strftime('%H:%M') if previous_version.end_time else ''} à {to_fr_tz(version.start_time).strftime('%H:%M')} - {to_fr_tz(version.end_time).strftime('%H:%M') if version.end_time else ''}"
 
 
 columns_in_main_sheet = [
@@ -126,14 +126,14 @@ columns_in_main_sheet = [
     ),
     (
         "Début",
-        lambda wday: utc_to_fr(wday.start_time) if wday.start_time else None,
+        lambda wday: to_fr_tz(wday.start_time) if wday.start_time else None,
         "time_format",
         15,
         light_green_hex,
     ),
     (
         "Fin",
-        lambda wday: utc_to_fr(wday.end_time) if wday.end_time else None,
+        lambda wday: to_fr_tz(wday.end_time) if wday.end_time else None,
         "time_format",
         15,
         light_green_hex,
@@ -223,7 +223,7 @@ activity_columns_in_details_sheet = [
     ("Employé", lambda a: a.user.display_name, None, 30, light_yellow_hex,),
     (
         "Jour",
-        lambda a: utc_to_fr(a.start_time),
+        lambda a: to_fr_tz(a.start_time),
         "date_format",
         20,
         light_yellow_hex,
@@ -238,14 +238,14 @@ activity_columns_in_details_sheet = [
     ),
     (
         "Début",
-        lambda a: utc_to_fr(a.start_time),
+        lambda a: to_fr_tz(a.start_time),
         "time_format",
         10,
         light_blue_hex,
     ),
     (
         "Fin",
-        lambda a: utc_to_fr(a.end_time) if a.end_time else None,
+        lambda a: to_fr_tz(a.end_time) if a.end_time else None,
         "time_format",
         10,
         light_blue_hex,
@@ -264,7 +264,7 @@ activity_version_columns_in_details_sheet = [
     ),
     (
         "Heure de l'enregistrement",
-        lambda av_or_a, pav, is_delete: utc_to_fr(
+        lambda av_or_a, pav, is_delete: to_fr_tz(
             av_or_a.reception_time if not is_delete else av_or_a.dismissed_at
         ),
         "date_and_time_format",

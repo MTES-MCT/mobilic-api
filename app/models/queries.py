@@ -6,6 +6,7 @@ from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
 
 from app import db
+from app.helpers.time import FR_TIMEZONE
 from app.models import (
     User,
     Activity,
@@ -166,8 +167,9 @@ def query_company_missions(
 
 
 def query_work_day_stats(
-    company_id, start_time=None, end_time=None, limit=None
+    company_id, start_time=None, end_time=None, limit=None, tz=FR_TIMEZONE
 ):
+    tzname = tz.tzname(datetime.now())
     query = (
         Activity.query.join(Mission)
         .join(
@@ -189,9 +191,34 @@ def query_work_day_stats(
             Expenditure.id.label("expenditure_id"),
             Expenditure.type.label("expenditure_type"),
             func.generate_series(
-                func.date_trunc("day", Activity.start_time),
-                func.coalesce(
-                    func.date_trunc("day", Activity.end_time), func.now()
+                func.timezone(
+                    "UTC",
+                    func.timezone(
+                        tzname,
+                        func.date_trunc(
+                            "day",
+                            func.timezone(
+                                tzname,
+                                func.timezone("UTC", Activity.start_time),
+                            ),
+                        ),
+                    ),
+                ),
+                func.timezone(
+                    "UTC",
+                    func.timezone(
+                        tzname,
+                        func.date_trunc(
+                            "day",
+                            func.timezone(
+                                tzname,
+                                func.coalesce(
+                                    func.timezone("UTC", Activity.end_time),
+                                    func.now(),
+                                ),
+                            ),
+                        ),
+                    ),
                 ),
                 "1 day",
             ).label("day"),
@@ -306,7 +333,8 @@ def query_work_day_stats(
     )
 
     query = db.session.query(query).with_entities(
-        *query.c,
+        *[c for c in query.c if c != "day"],
+        func.timezone(tzname, func.timezone("UTC", query.c.day)).label("day"),
         extract("epoch", query.c.end_time - query.c.start_time).label(
             "service_duration"
         ),

@@ -6,6 +6,7 @@ from sqlalchemy.orm import backref
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.dialects.postgresql import JSONB
 
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 from app.models import User
 from app import db
@@ -17,7 +18,7 @@ class EventBaseModel(BaseModel):
 
     backref_base_name = "events"
 
-    reception_time = db.Column(db.DateTime, nullable=False)
+    reception_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @declared_attr
     def submitter_id(cls):
@@ -38,7 +39,7 @@ class EventBaseModel(BaseModel):
 class DeferrableEventBaseModel(EventBaseModel):
     __abstract__ = True
 
-    start_time = db.Column(db.DateTime, nullable=False)
+    start_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @declared_attr
     def __table_args__(cls):
@@ -53,7 +54,7 @@ class DeferrableEventBaseModel(EventBaseModel):
 class Dismissable:
     backref_base_name = "events"
 
-    dismissed_at = db.Column(db.DateTime, nullable=True)
+    dismissed_at = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     dismiss_context = db.Column(JSONB(none_as_null=True), nullable=True)
 

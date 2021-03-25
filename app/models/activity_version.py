@@ -3,12 +3,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime, timedelta
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.event import EventBaseModel
 
 
 class Period:
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=True)
+    start_time = db.Column(DateTimeStoredAsUTC, nullable=False)
+    end_time = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     @db.validates("start_time", "end_time")
     def validates_start_time(self, key, start_time):

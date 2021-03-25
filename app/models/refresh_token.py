@@ -2,6 +2,7 @@ from uuid import uuid4
 from datetime import datetime
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 
 MAX_TOKENS_PER_USER = 5
@@ -15,8 +16,8 @@ class RefreshToken(BaseModel):
         default=lambda: str(uuid4()),
     )
 
-    consumed_at = db.Column(db.DateTime, nullable=True)
-    deleted_at = db.Column(db.DateTime, nullable=True)
+    consumed_at = db.Column(DateTimeStoredAsUTC, nullable=True)
+    deleted_at = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
