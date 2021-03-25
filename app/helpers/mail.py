@@ -1,14 +1,19 @@
 from mailjet_rest import Client
 import jwt
+import os
+from uuid import uuid4
 from flask import render_template
 from datetime import datetime, date
 from markupsafe import Markup
 
 from app.helpers.errors import MailjetError
 from app.helpers.time import to_fr_tz
+from app.helpers.mail_type import EmailType
 
 SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
+
+env = os.environ.get("MOBILIC_ENV", "dev")
 
 
 class InvalidEmailAddressError(MailjetError):
@@ -23,7 +28,7 @@ def format_seconds_duration(seconds):
 
 # Mailjet is used as the email solution : what follows is the wrapper of their API, whose doc is here : https://github.com/mailjet/mailjet-apiv3-python
 class Mailer:
-    def __init__(self, app, dry_run=False):
+    def __init__(self, app):
         config = app.config
         app.template_filter("format_duration")(format_seconds_duration)
         self.mailjet = Client(
@@ -31,7 +36,6 @@ class Mailer:
             version="v3.1",
         )
         self.app_config = config
-        self.dry_run = dry_run
 
     @staticmethod
     def _handle_mailjet_response(response, recipient):
@@ -57,39 +61,93 @@ class Mailer:
                 f"Attempt to send mail via Mailjet failed with error : {response.json()}"
             )
 
-    def _send(self, html, subject, recipient, custom_id=None):
-        if not self.dry_run:
-            message = {
-                "From": {"Email": SENDER_ADDRESS, "Name": SENDER_NAME},
-                "To": [{"Email": recipient}],
-                "Subject": subject,
-                "HTMLPart": html,
-                "CustomId": custom_id or "",
-            }
-            response = self.mailjet.send.create(data={"Messages": [message]})
-            self._handle_mailjet_response(response, recipient)
+    def _send(
+        self,
+        message,
+        subject,
+        type_,
+        user=None,
+        recipient=None,
+        add_sender=True,
+        _disable_commit=False,
+        **kwargs,
+    ):
+        from app.models import Email
+        from app import db
+
+        actual_recipient = user.email if user else recipient
+
+        custom_id = f"{env}-{str(uuid4())}"
+        message = {
+            **message,
+            "To": [{"Email": actual_recipient}],
+            "CustomId": custom_id,
+        }
+        if add_sender:
+            message["From"] = {"Email": SENDER_ADDRESS, "Name": SENDER_NAME}
+        if subject:
+            message["Subject"] = subject
+
+        response = self.mailjet.send.create(data={"Messages": [message]})
+        self._handle_mailjet_response(response, actual_recipient)
+        db.session.add(
+            Email(
+                mailjet_id=custom_id,
+                address=actual_recipient,
+                user=user,
+                type=type_,
+                employment=kwargs.get("employment"),
+            )
+        )
+        db.session.commit() if not _disable_commit else db.session.flush()
 
     def _send_email_from_mailjet_template(
-        self, template_id, recipient, custom_id=None, subject=None, **kwargs
+        self,
+        template_id,
+        type_,
+        subject=None,
+        recipient=None,
+        user=None,
+        _disable_commit=False,
+        **kwargs,
     ):
-        if not self.dry_run:
-            message = {
-                "To": [{"Email": recipient}],
-                "TemplateID": template_id,
-                "TemplateLanguage": True,
-                "Variables": kwargs,
-                "CustomId": custom_id or "",
-            }
-            if subject:
-                message["Subject"] = subject
-            response = self.mailjet.send.create(data={"Messages": [message]})
-            self._handle_mailjet_response(response, recipient)
+        message = {
+            "TemplateID": template_id,
+            "TemplateLanguage": True,
+            "Variables": kwargs,
+        }
+        self._send(
+            message,
+            subject=subject,
+            recipient=recipient,
+            user=user,
+            type_=type_,
+            add_sender=False,
+            _disable_commit=_disable_commit,
+            employment=kwargs.get("employment"),
+        )
 
     def _send_email_from_flask_template(
-        self, template, subject, recipient, **kwargs
+        self,
+        template,
+        type_,
+        subject,
+        recipient=None,
+        user=None,
+        _disable_commit=False,
+        **kwargs,
     ):
         html = render_template(template, **kwargs)
-        self._send(html, subject, recipient, kwargs.get("custom_id"))
+        self._send(
+            {"HTMLPart": html},
+            subject=subject,
+            recipient=recipient,
+            user=user,
+            type_=type_,
+            add_sender=True,
+            _disable_commit=_disable_commit,
+            employment=kwargs.get("employment"),
+        )
 
     def send_employee_invite(self, employment, recipient):
         if not employment.invite_token:
@@ -108,12 +166,16 @@ class Mailer:
 
         self._send_email_from_flask_template(
             "invitation_email.html",
-            subject,
-            recipient,
+            subject=subject,
+            type_=EmailType.INVITATION,
+            recipient=recipient,
+            user=employment.user,
+            employment=employment,
             first_name=employment.user.first_name if employment.user else None,
             custom_id=employment.invite_token,
             invitation_link=Markup(invitation_link),
             company_name=company_name,
+            _disable_commit=True,
         )
 
     def send_activation_email(self, user, create_account=True):
@@ -150,10 +212,11 @@ class Mailer:
 
         self._send_email_from_flask_template(
             "account_activation_email.html",
-            "Activez votre compte Mobilic"
+            subject="Activez votre compte Mobilic"
             if create_account
             else "Confirmez l'adresse email de votre compte Mobilic",
-            user.email,
+            type_=EmailType.ACCOUNT_ACTIVATION,
+            user=user,
             user_id=Markup(id),
             first_name=user.first_name,
             create_account=create_account,
@@ -165,8 +228,9 @@ class Mailer:
     def send_company_creation_email(self, company, user):
         self._send_email_from_flask_template(
             "company_creation_email.html",
-            f"L'entreprise {company.name} est créée sur Mobilic !",
-            user.email,
+            subject=f"L'entreprise {company.name} est créée sur Mobilic !",
+            user=user.email,
+            type_=EmailType.COMPANY_CREATION,
             first_name=user.first_name,
             website_link=Markup(self.app_config["FRONTEND_URL"]),
             company_name=company.name,
@@ -178,8 +242,9 @@ class Mailer:
     def send_employment_validation_email(self, employment):
         self._send_email_from_flask_template(
             "employment_validation_email.html",
-            f"Vous êtes à présent membre de l'entreprise {employment.company.name}",
-            employment.user.email,
+            subject=f"Vous êtes à présent membre de l'entreprise {employment.company.name}",
+            type_=EmailType.EMPLOYMENT_VALIDATION,
+            user=employment.user,
             first_name=employment.user.first_name,
             company_name=employment.company.name,
         )
@@ -202,8 +267,9 @@ class Mailer:
         )
         self._send_email_from_flask_template(
             "reset_password_email.html",
-            "Réinitialisation de votre mot de passe Mobilic",
-            user.email,
+            subject="Réinitialisation de votre mot de passe Mobilic",
+            user=user,
+            type_=EmailType.RESET_PASSWORD,
             first_name=user.first_name,
             reset_link=Markup(reset_link),
         )
@@ -226,8 +292,9 @@ class Mailer:
         new_end_time = to_fr_tz(new_end_time)
         self._send_email_from_flask_template(
             "mission_changes_warning_email.html",
-            f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
-            user.email,
+            subject=f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
+            user=user,
+            type_=EmailType.MISSION_CHANGES_WARNING,
             first_name=user.first_name,
             mission_name=mission.name,
             company_name=mission.company.name,
@@ -248,4 +315,41 @@ class Mailer:
             new_work_duration=new_timers["total_work"]
             if new_timers["total_work"] != old_timers["total_work"]
             else None,
+        )
+
+    def send_worker_onboarding_first_email(self, user):
+        self._send_email_from_mailjet_template(
+            2690636,
+            type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
+            user=user,
+            first_name=user.first_name,
+            cta=f"{self.app_config['FRONTEND_URL']}/login?next=/app",
+        )
+
+    def send_worker_onboarding_second_email(self, user):
+        self._send_email_from_mailjet_template(
+            2690445,
+            type_=EmailType.WORKER_ONBOARDING_SECOND_INFO,
+            user=user,
+            first_name=user.first_name,
+            cta=f"{self.app_config['FRONTEND_URL']}/login?next=/app/history",
+        )
+
+    def send_manager_onboarding_first_email(self, user, company):
+        self._send_email_from_mailjet_template(
+            2690876,
+            type_=EmailType.MANAGER_ONBOARDING_FIRST_INFO,
+            user=user,
+            first_name=user.first_name,
+            company=company.name,
+            cta=f"{self.app_config['FRONTEND_URL']}/login?next=/admin/company",
+        )
+
+    def send_manager_onboarding_second_email(self, user):
+        self._send_email_from_mailjet_template(
+            2690590,
+            type_=EmailType.MANAGER_ONBOARDING_SECOND_INFO,
+            user=user,
+            first_name=user.first_name,
+            cta=f"{self.app_config['FRONTEND_URL']}/login?next=/admin/company",
         )

@@ -14,3 +14,4 @@ from .mission_validation import MissionValidation
 from .refresh_token import RefreshToken
 from .comment import Comment
 from .user_read_token import UserReadToken
+from .email import Email

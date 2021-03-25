@@ -275,7 +275,7 @@ class RedeemInvitation(graphene.Mutation):
                             )
                             is None
                         )
-                    employment.user_id = current_user.id
+                    employment.bind(current_user)
                     employment.validate_by(user=current_user)
 
                 bind_and_redeem()

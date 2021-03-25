@@ -31,7 +31,7 @@ from app.helpers.errors import (
 )
 from app.helpers.france_connect import get_fc_user_info
 from app.models import User
-from app import app, mailer
+from app import app, db, mailer
 
 
 class UserSignUp(graphene.Mutation):

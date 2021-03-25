@@ -70,6 +70,11 @@ class Employment(UserEventBaseModel, Dismissable):
             and not self.is_dismissed
         )
 
+    def bind(self, user):
+        self.user_id = user.id
+        for email in self.invite_emails:
+            email.user_id = user.id
+
     def validate_by(self, user, time=None, reject=False):
         if not self.user_id == user.id:
             raise AuthorizationError(

@@ -98,7 +98,7 @@ if env == "prod":
     @app.route("/services/update-stat-spreadsheet", methods=["POST"])
     @auth.login_required()
     def compute_usage_stats():
-        from app.services.compute_usage_stats import (
+        from app.jobs.compute_usage_stats import (
             compute_and_add_usage_stats_snapshot,
         )
 
