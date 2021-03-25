@@ -47,6 +47,7 @@ class Config:
         "USER_READ_TOKEN_EXPIRATION", timedelta(days=7)
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
+    MOBILIC_SERVICE_ACTOR_TOKEN = os.environ.get("MOBILIC_SERVICE_ACTOR_TOKEN")
 
 
 class DevConfig(Config):

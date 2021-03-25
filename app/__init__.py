@@ -82,36 +82,37 @@ def trigger_error():
     division_by_zero = 1 / 0
 
 
-if env == "prod":
-    auth = HTTPBasicAuth()
+from app.services import service_decorator
 
-    @auth.verify_password
-    def verify_password(username, password):
-        if (
-            username
-            and username == os.environ.get("MOBILIC_ADMIN_USER")
-            and password
-            and password == os.environ.get("MOBILIC_ADMIN_PASSWORD")
-        ):
-            return True
 
-    @app.route("/services/update-stat-spreadsheet", methods=["POST"])
-    @auth.login_required()
-    def compute_usage_stats():
-        from app.jobs.compute_usage_stats import (
-            compute_and_add_usage_stats_snapshot,
-        )
+@app.route("/services/update-stat-spreadsheet", methods=["POST"])
+@service_decorator
+def compute_usage_stats():
+    from app.services.compute_usage_stats import (
+        compute_and_add_usage_stats_snapshot,
+    )
 
-        success = False
-        try:
-            compute_and_add_usage_stats_snapshot()
-            success = True
-        except Exception as e:
-            app.logger.exception(e)
+    success = False
+    try:
+        compute_and_add_usage_stats_snapshot()
+        success = True
+    except Exception as e:
+        app.logger.exception(e)
 
-        return (
-            "La spreadsheet a été mise à jour"
-            if success
-            else "La spreadsheet n'a pas pu être mise à jour à cause d'erreurs.",
-            200 if success else 500,
-        )
+    return (
+        "La spreadsheet a été mise à jour"
+        if success
+        else "La spreadsheet n'a pas pu être mise à jour à cause d'erreurs.",
+        200 if success else 500,
+    )
+
+
+@app.route("/services/send-onboarding-emails", methods=["POST"])
+@service_decorator
+def send_onboarding_emails():
+    from app.services.send_onboarding_emails import send_onboarding_emails
+    from datetime import date
+
+    send_onboarding_emails(date.today())
+
+    return "C'est fait", 200
