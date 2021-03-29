@@ -229,7 +229,7 @@ class Mailer:
         self._send_email_from_flask_template(
             "company_creation_email.html",
             subject=f"L'entreprise {company.name} est créée sur Mobilic !",
-            user=user.email,
+            user=user,
             type_=EmailType.COMPANY_CREATION,
             first_name=user.first_name,
             website_link=Markup(self.app_config["FRONTEND_URL"]),
