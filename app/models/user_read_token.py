@@ -1,8 +1,12 @@
 import secrets
-from datetime import datetime
+import graphene
+from datetime import datetime, date, timezone
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import func, Date
 
 from app import db, app
 from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.graphene_types import TimeStamp, BaseSQLAlchemyObjectType
 from app.models.base import BaseModel
 from app.helpers.errors import InvalidTokenError, TokenExpiredError
 
@@ -25,11 +29,29 @@ class UserReadToken(BaseModel):
     )
     user = db.relationship("User", backref="read_tokens")
 
+    @property
+    def history_start_day(self):
+        return self.creation_day - app.config["USER_CONTROL_HISTORY_DEPTH"]
+
+    @hybrid_property
+    def creation_day(self):
+        utc_creation_time = self.creation_time.astimezone(timezone.utc)
+        return date(
+            utc_creation_time.year,
+            utc_creation_time.month,
+            utc_creation_time.day,
+        )
+
+    @creation_day.expression
+    def creation_day(cls):
+        return func.cast(cls.creation_time, Date)
+
     @staticmethod
     def get_or_create(user):
         user_valid_tokens = UserReadToken.query.filter(
             UserReadToken.user_id == user.id,
             UserReadToken.valid_until >= datetime.now(),
+            UserReadToken.creation_day == func.current_date(),
         ).all()
         valid_until = datetime.now() + app.config["USER_READ_TOKEN_EXPIRATION"]
         if user_valid_tokens:
@@ -51,3 +73,15 @@ class UserReadToken(BaseModel):
         if token.valid_until < datetime.now():
             raise TokenExpiredError("Expired token")
         return token
+
+
+class UserReadTokenOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = UserReadToken
+        only_fields = ("creation_time", "creation_day", "valid_until")
+
+    creation_time = graphene.Field(TimeStamp, required=True)
+    creation_day = graphene.Field(graphene.Date, required=True)
+    valid_until = graphene.Field(TimeStamp, required=True)
+
+    history_start_day = graphene.Field(graphene.Date, required=True)

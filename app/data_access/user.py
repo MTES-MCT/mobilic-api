@@ -13,6 +13,7 @@ from app.helpers.authorization import (
     authenticated,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.time import get_max_datetime, get_min_datetime
 from app.models import User, Company
 from app.models.activity import ActivityOutput
 from app.models.employment import EmploymentOutput
@@ -119,6 +120,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_activities(
         self, info, consultation_scope, from_time=None, until_time=None
     ):
+        from_time = get_max_datetime(
+            from_time, consultation_scope.min_activity_date
+        )
+        until_time = get_min_datetime(
+            until_time, consultation_scope.max_activity_date
+        )
+
         acknowledged_activities = self.query_activities_with_relations(
             start_time=from_time, end_time=until_time
         )
@@ -137,13 +145,20 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(
         self, info, consultation_scope, from_date=None, until_date=None
     ):
+        from_time = get_max_datetime(
+            from_date, consultation_scope.min_activity_date
+        )
+        until_time = get_min_datetime(
+            until_date, consultation_scope.max_activity_date
+        )
+
         return [
             wd
             for wd in group_user_events_by_day(
                 self,
                 consultation_scope,
-                from_date=from_date,
-                until_date=until_date,
+                from_date=from_time.date() if from_time else None,
+                until_date=until_time.date() if until_time else None,
             )
             if wd.activities
         ]
@@ -155,6 +170,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_missions(
         self, info, consultation_scope, from_time=None, until_time=None
     ):
+        from_time = get_max_datetime(
+            from_time, consultation_scope.min_activity_date
+        )
+        until_time = get_min_datetime(
+            until_time, consultation_scope.max_activity_date
+        )
+
         missions = self.query_missions(
             start_time=from_time, end_time=until_time
         )

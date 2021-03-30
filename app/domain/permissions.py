@@ -3,16 +3,17 @@ from app.helpers.errors import AuthorizationError
 from app.helpers.time import get_date_or_today
 from app.helpers.authentication import current_user
 from app.models import Company, User
-from typing import List
+from typing import List, Optional
 from dataclasses import dataclass, field
 from functools import wraps
+from datetime import date
 
 
 def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
     if not authenticated_and_active(actor):
         return False
-    date = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.employments_at(date)
+    date_ = get_date_or_today(date_or_datetime)
+    actor_employments_at_date = actor.employments_at(date_)
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
@@ -25,8 +26,8 @@ def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
 
 
 def belongs_to_company_at(actor, company_obj_or_id, date_or_datetime=None):
-    date = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.employments_at(date)
+    date_ = get_date_or_today(date_or_datetime)
+    actor_employments_at_date = actor.employments_at(date_)
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
@@ -69,6 +70,8 @@ def can_user_access_mission(user, mission):
 class ConsultationScope:
     all_access: bool = False
     company_ids: List = field(default_factory=list)
+    max_activity_date: Optional[date] = None
+    min_activity_date: Optional[date] = None
 
 
 def get_activity_consultation_scope(actor, user=None) -> ConsultationScope:
@@ -102,6 +105,13 @@ def user_resolver_with_consultation_scope(error_message="Forbidden access"):
                 and not consultation_scope.company_ids
             ):
                 raise AuthorizationError(error_message)
+
+            consultation_scope.max_activity_date = getattr(
+                info.context, "max_activity_date", None
+            )
+            consultation_scope.min_activity_date = getattr(
+                info.context, "min_activity_date", None
+            )
 
             kwargs["consultation_scope"] = consultation_scope
 

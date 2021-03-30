@@ -48,6 +48,7 @@ class Config:
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
     MOBILIC_SERVICE_ACTOR_TOKEN = os.environ.get("MOBILIC_SERVICE_ACTOR_TOKEN")
+    USER_CONTROL_HISTORY_DEPTH = timedelta(days=60)
 
 
 class DevConfig(Config):
