@@ -167,9 +167,12 @@ def query_company_missions(
 
 
 def query_work_day_stats(
-    company_id, start_time=None, end_time=None, limit=None, tz=FR_TIMEZONE
+    company_id,
+    start_time=None,
+    end_time=None,
+    limit=None,
+    tzname="Europe/Paris",
 ):
-    tzname = tz.tzname(datetime.now())
     query = (
         Activity.query.join(Mission)
         .join(
@@ -191,33 +194,16 @@ def query_work_day_stats(
             Expenditure.id.label("expenditure_id"),
             Expenditure.type.label("expenditure_type"),
             func.generate_series(
-                func.timezone(
-                    "UTC",
+                func.date_trunc(
+                    "day",
                     func.timezone(
-                        tzname,
-                        func.date_trunc(
-                            "day",
-                            func.timezone(
-                                tzname,
-                                func.timezone("UTC", Activity.start_time),
-                            ),
-                        ),
+                        tzname, func.timezone("UTC", Activity.start_time),
                     ),
                 ),
                 func.timezone(
-                    "UTC",
-                    func.timezone(
-                        tzname,
-                        func.date_trunc(
-                            "day",
-                            func.timezone(
-                                tzname,
-                                func.coalesce(
-                                    func.timezone("UTC", Activity.end_time),
-                                    func.now(),
-                                ),
-                            ),
-                        ),
+                    tzname,
+                    func.coalesce(
+                        func.timezone("UTC", Activity.end_time), func.now(),
                     ),
                 ),
                 "1 day",
@@ -236,14 +222,25 @@ def query_work_day_stats(
         .with_entities(
             query.c.user_id.label("user_id"),
             query.c.day,
+            func.timezone("UTC", func.timezone(tzname, query.c.day)).label(
+                "utc_day_start"
+            ),
             query.c.mission_id.label("mission_id"),
             query.c.name.label("mission_name"),
-            func.min(func.greatest(query.c.start_time, query.c.day)).label(
-                "start_time"
-            ),
+            func.min(
+                func.greatest(
+                    query.c.start_time,
+                    func.timezone("UTC", func.timezone(tzname, query.c.day)),
+                )
+            ).label("start_time"),
             func.max(
                 func.least(
-                    query.c.day + func.cast("1 day", Interval),
+                    func.timezone(
+                        "UTC",
+                        func.timezone(
+                            tzname, query.c.day + func.cast("1 day", Interval)
+                        ),
+                    ),
                     func.coalesce(query.c.end_time, func.now()),
                 )
             ).label("end_time"),
@@ -262,14 +259,24 @@ def query_work_day_stats(
                                 extract(
                                     "epoch",
                                     func.least(
-                                        query.c.day
-                                        + func.cast("1 day", Interval),
+                                        func.timezone(
+                                            "UTC",
+                                            func.timezone(
+                                                tzname,
+                                                query.c.day
+                                                + func.cast("1 day", Interval),
+                                            ),
+                                        ),
                                         func.coalesce(
                                             query.c.end_time, func.now()
                                         ),
                                     )
                                     - func.greatest(
-                                        query.c.start_time, query.c.day
+                                        query.c.start_time,
+                                        func.timezone(
+                                            "UTC",
+                                            func.timezone(tzname, query.c.day),
+                                        ),
                                     ),
                                 ),
                             )
@@ -333,8 +340,7 @@ def query_work_day_stats(
     )
 
     query = db.session.query(query).with_entities(
-        *[c for c in query.c if c != "day"],
-        func.timezone(tzname, func.timezone("UTC", query.c.day)).label("day"),
+        *query.c,
         extract("epoch", query.c.end_time - query.c.start_time).label(
             "service_duration"
         ),
