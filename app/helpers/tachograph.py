@@ -1,7 +1,7 @@
 from io import BytesIO
 from typing import NamedTuple, Optional, List
 from datetime import datetime, timezone, date, timedelta
-from dataclasses import dataclass
+import os
 
 from app.models.activity import Activity, ActivityType
 
@@ -259,6 +259,10 @@ def _int_string_to_bcd(i):
     return bytes_
 
 
+def _card_like_id(user):
+    return f"MBLIC{user.id}"
+
+
 def build_identification_file(user):
     # 143 bytes ("EF Identification" at https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235), divided in two parts
     # - card identification (65 bytes)
@@ -268,8 +272,15 @@ def build_identification_file(user):
     # 1. Card identification
     # - first byte is the code of the country member (\x11 for France)
     content.extend(b"\x11")
-    # - we can't really fill the rest of the data as it concerns the authority that delivered the card, so we write empty data
-    content.extend(bytes([32] * 52) + bytes(12))
+    # - 16 next bytes are the card number, which is required to be a unique ID by reading softwares (SOLID). We use "MBLIC{mobilic_id}".
+    card_like_id = f"{_card_like_id(user)}00"  # len 16
+    content.extend(card_like_id.encode())
+    # - 36 next bytes give the name of the authority that delivered the card. We use "MOBILIC".
+    content.extend(_serialize_name("MOBILIC", 36))
+    # - 4 next bytes identify the issue date of the card. We use the creation time for the user.
+    content.extend(int(user.creation_time.timestamp()).to_bytes(4, "big"))
+    # - 8 next bytes give the validity period of the card (4 bytes for the start time and 4 for the end time). We don't fill these.
+    content.extend(bytes(8))
 
     # 2. Card holder identification
     # - name (36 bytes)
@@ -473,7 +484,7 @@ def build_activity_file(
     return File(spec=FileSpecs.DRIVER_ACTIVITY_DATA, content=content)
 
 
-def export_user_data_in_tachograph_format(
+def output_user_data_in_tachograph_format(
     user, start_date=None, end_date=None
 ):
     first_user_activity = user.first_activity_after(None)
@@ -516,6 +527,18 @@ def export_user_data_in_tachograph_format(
     output.write(write_archive(files))
     output.seek(0)
     return output
+
+
+def export_user_data_in_tachograph_format(
+    user, output_dir, start_date=None, end_date=None
+):
+    output = output_user_data_in_tachograph_format(
+        user, start_date=start_date, end_date=end_date
+    )
+    now = datetime.utcnow()
+    file_name = f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
+    with open(f"{os.path.join(output_dir, file_name)}", "wb") as f:
+        f.write(output.read())
 
 
 _file_specs = [v for v in vars(FileSpecs).values() if type(v) is FileSpec]
