@@ -21,9 +21,7 @@ def compute_aggregate_durations(periods, min_time=None, max_time=None):
     if max_time and max_time < end_time:
         end_time = max_time
 
-    end_timestamp = to_timestamp(end_time)
-
-    timers["total_service"] = end_timestamp - to_timestamp(start_time)
+    timers["total_service"] = to_timestamp(end_time) - to_timestamp(start_time)
     for period in periods:
         timers[period.type] += int(
             period.duration_over(min_time, max_time).total_seconds()

@@ -139,6 +139,20 @@ columns_in_main_sheet = [
         light_green_hex,
     ),
     (
+        "Amplitude",
+        lambda wday: timedelta(seconds=wday.service_duration),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
+        "Total travail",
+        lambda wday: timedelta(seconds=wday.total_work_duration),
+        "duration_format",
+        10,
+        light_green_hex,
+    ),
+    (
         "Conduite",
         lambda wday: timedelta(
             seconds=wday.activity_durations[ActivityType.DRIVE]
