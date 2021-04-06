@@ -1,8 +1,6 @@
 from uuid import uuid4
-from datetime import datetime
 
 from app import db
-from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 
 MAX_TOKENS_PER_USER = 5
@@ -16,31 +14,22 @@ class RefreshToken(BaseModel):
         default=lambda: str(uuid4()),
     )
 
-    consumed_at = db.Column(DateTimeStoredAsUTC, nullable=True)
-    deleted_at = db.Column(DateTimeStoredAsUTC, nullable=True)
-
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
     )
     user = db.relationship("User", backref="refresh_tokens")
 
-    @property
-    def is_active(self):
-        return self.consumed_at is None and self.deleted_at is None
-
     @staticmethod
     def create_refresh_token(user):
-        now = datetime.now()
         current_refresh_tokens = sorted(
-            [r for r in user.refresh_tokens if r.is_active],
-            key=lambda rt: rt.creation_time,
+            user.refresh_tokens, key=lambda rt: rt.creation_time
         )
         oldest_token_index = 0
         while (
             oldest_token_index
             <= len(current_refresh_tokens) - MAX_TOKENS_PER_USER
         ):
-            current_refresh_tokens[oldest_token_index].deleted_at = now
+            db.session.delete(current_refresh_tokens[oldest_token_index])
             oldest_token_index += 1
         refresh_token = RefreshToken(user=user)
         db.session.add(refresh_token)
@@ -50,8 +39,5 @@ class RefreshToken(BaseModel):
     @staticmethod
     def get_token(token, user_id):
         return RefreshToken.query.filter(
-            RefreshToken.token == token,
-            RefreshToken.user_id == user_id,
-            RefreshToken.consumed_at.is_(None),
-            RefreshToken.deleted_at.is_(None),
+            RefreshToken.token == token, RefreshToken.user_id == user_id
         ).one_or_none()

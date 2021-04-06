@@ -377,4 +377,4 @@ def delete_refresh_token():
     )
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")
-    matching_refresh_token.consumed_at = datetime.now()
+    db.session.delete(matching_refresh_token)
