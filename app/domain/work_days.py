@@ -98,7 +98,7 @@ class WorkDay:
     def is_complete(self):
         return self._is_complete
 
-    @property
+    @cached_property
     def _start_of_day(self):
         return (
             datetime(
@@ -108,7 +108,7 @@ class WorkDay:
             .replace(tzinfo=None)
         )
 
-    @property
+    @cached_property
     def _end_of_day(self):
         return self._start_of_day + timedelta(days=1)
 
@@ -184,6 +184,30 @@ class WorkDay:
     @property
     def mission_names(self):
         return [m.name for m in self.missions]
+
+    @cached_property
+    def start_location(self):
+        self._sort_activities()
+        if not self.activities:
+            return None
+        first_mission = self.activities[0].mission
+        first_mission_start = first_mission.activities_for(self.user)[
+            0
+        ].start_time
+        if first_mission_start < self._start_of_day:
+            return None
+        return first_mission.start_location
+
+    @cached_property
+    def end_location(self):
+        self._sort_activities()
+        if not self.activities:
+            return None
+        last_mission = self.activities[-1].mission
+        last_mission_end = last_mission.activities_for(self.user)[-1].end_time
+        if not last_mission_end or last_mission_end > self._end_of_day:
+            return None
+        return last_mission.end_location
 
 
 class WorkDayStatsOnly:

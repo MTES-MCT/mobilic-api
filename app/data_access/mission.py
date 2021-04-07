@@ -80,19 +80,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return self.acknowledged_comments
 
     def resolve_start_location(self, info):
-        start_location_entry = [
-            l
-            for l in self.location_entries
-            if l.type == LocationEntryType.MISSION_START_LOCATION
-        ]
-        return (
-            start_location_entry[0].address if start_location_entry else None
-        )
+        return self.start_location
 
     def resolve_end_location(self, info):
-        end_location_entry = [
-            l
-            for l in self.location_entries
-            if l.type == LocationEntryType.MISSION_END_LOCATION
-        ]
-        return end_location_entry[0].address if end_location_entry else None
+        return self.end_location

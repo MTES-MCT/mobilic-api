@@ -50,6 +50,11 @@ class Address(BaseModel):
         db.session.add(address)
         return address
 
+    def format(self):
+        if self.manual:
+            return self.name
+        return f"{self.name} {self.postal_code} {self.city}"
+
 
 class BaseAddressOutput(graphene.Interface):
     name = graphene.Field(

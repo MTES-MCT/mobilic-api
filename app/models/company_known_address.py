@@ -29,6 +29,9 @@ class CompanyKnownAddress(BaseModel, Dismissable):
         ),
     )
 
+    def format(self):
+        return self.address.format()
+
 
 class CompanyKnownAddressOutput(BaseSQLAlchemyObjectType):
     class Meta:

@@ -93,3 +93,27 @@ class Mission(EventBaseModel):
             vehicle = Vehicle.query.get(self.context["vehicleId"])
             return vehicle.name if vehicle else None
         return self.context.get("vehicleRegistrationNumber")
+
+    @property
+    def start_location(self):
+        from app.models.location_entry import LocationEntryType
+
+        start_location_entry = [
+            l
+            for l in self.location_entries
+            if l.type == LocationEntryType.MISSION_START_LOCATION
+        ]
+        return (
+            start_location_entry[0].address if start_location_entry else None
+        )
+
+    @property
+    def end_location(self):
+        from app.models.location_entry import LocationEntryType
+
+        end_location_entry = [
+            l
+            for l in self.location_entries
+            if l.type == LocationEntryType.MISSION_END_LOCATION
+        ]
+        return end_location_entry[0].address if end_location_entry else None

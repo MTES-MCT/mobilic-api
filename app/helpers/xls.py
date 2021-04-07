@@ -224,6 +224,22 @@ columns_in_main_sheet = [
         light_red_hex,
     ),
     (
+        "Lieu de début de service",
+        lambda wday: wday.start_location.format()
+        if wday.start_location
+        else "",
+        None,
+        30,
+        light_blue_hex,
+    ),
+    (
+        "Lieu de fin de service",
+        lambda wday: wday.end_location.format() if wday.end_location else "",
+        None,
+        30,
+        light_blue_hex,
+    ),
+    (
         "Entreprise(s)",
         lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
         None,
