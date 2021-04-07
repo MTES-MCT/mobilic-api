@@ -206,7 +206,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             return wds
 
     def resolve_known_addresses(self, info):
-        return self.known_addresses
+        return [a for a in self.known_addresses if not a.is_dismissed]
 
 
 from app.data_access.user import UserOutput
