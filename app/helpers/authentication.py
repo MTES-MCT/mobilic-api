@@ -375,6 +375,7 @@ def delete_refresh_token():
     matching_refresh_token = RefreshToken.get_token(
         token=identity.get("token"), user_id=identity.get("id")
     )
+    print(identity.get("token"))
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")
     db.session.delete(matching_refresh_token)
