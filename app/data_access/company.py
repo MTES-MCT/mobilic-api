@@ -205,6 +205,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             ]
             return wds
 
+    @with_authorization_policy(
+        belongs_to_company_at,
+        get_target_from_args=lambda self, info: self,
+        error_message="Forbidden access to field 'knownAddresses' of company object.",
+    )
     def resolve_known_addresses(self, info):
         return [a for a in self.known_addresses if not a.is_dismissed]
 

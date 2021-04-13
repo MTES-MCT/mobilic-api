@@ -25,9 +25,16 @@ def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
     )
 
 
-def belongs_to_company_at(actor, company_obj_or_id, date_or_datetime=None):
+def belongs_to_company_at(
+    actor,
+    company_obj_or_id,
+    date_or_datetime=None,
+    include_pending_invite=True,
+):
     date_ = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.employments_at(date_)
+    actor_employments_at_date = actor.employments_at(
+        date_, with_pending_ones=include_pending_invite
+    )
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
@@ -55,14 +62,19 @@ def only_self(actor, user_obj_or_id):
 def can_user_log_on_mission_at(user, mission, date=None):
     if not mission:
         return False
-    return belongs_to_company_at(user, mission.company_id, date)
+    return belongs_to_company_at(
+        user, mission.company_id, date, include_pending_invite=False
+    )
 
 
 def can_user_access_mission(user, mission):
     if not mission:
         return False
     return belongs_to_company_at(
-        user, mission.company_id, mission.reception_time
+        user,
+        mission.company_id,
+        mission.reception_time,
+        include_pending_invite=False,
     )
 
 

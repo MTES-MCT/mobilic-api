@@ -76,7 +76,9 @@ class CreateMission(graphene.Mutation):
             company_id = mission_input.get("company_id")
             if company_id:
                 company = Company.query.get(company_id)
-                if not belongs_to_company_at(current_user, company):
+                if not belongs_to_company_at(
+                    current_user, company, include_pending_invite=False
+                ):
                     raise AuthorizationError(
                         "Actor is not authorized to create a mission for the company"
                     )
