@@ -110,7 +110,9 @@ class CreateEmployment(graphene.Mutation):
                     employment_input["user_id"]
                 )
                 if not user:
-                    raise InvalidResourceError("Invalid user id")
+                    raise InvalidResourceError(
+                        "Invalid user id", should_alert_team=False
+                    )
 
             start_date = employment_input.get("start_date", date.today())
 

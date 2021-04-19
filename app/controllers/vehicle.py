@@ -1,12 +1,13 @@
 import graphene
 from datetime import datetime
 
-from app.controllers.utils import Void
+from app.controllers.utils import Void, atomic_transaction
 from app.helpers.authentication import current_user
 
 from app.domain.permissions import company_admin_at
 from app.helpers.authorization import with_authorization_policy
 from app import db, app
+from app.helpers.errors import VehicleAlreadyRegisteredError
 from app.models.vehicle import VehicleOutput, Vehicle
 
 
@@ -37,18 +38,15 @@ class CreateVehicle(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, registration_number, company_id, alias=None):
-        vehicle = Vehicle(
-            registration_number=registration_number,
-            alias=alias,
-            submitter=current_user,
-            company_id=company_id,
-        )
-        try:
+        with atomic_transaction(commit_at_end=True):
+            vehicle = Vehicle(
+                registration_number=registration_number,
+                alias=alias,
+                submitter=current_user,
+                company_id=company_id,
+            )
             db.session.add(vehicle)
-            db.session.commit()
-            app.logger.info(f"Created new vehicle {vehicle}")
-        except Exception as e:
-            app.logger.exception(f"Error vehicle creation for {vehicle}")
+        app.logger.info(f"Created new vehicle {vehicle}")
         return vehicle
 
 

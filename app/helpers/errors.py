@@ -12,11 +12,17 @@ class MobilicError(GraphQLError, ABC):
     def code(self):
         pass
 
+    default_should_alert_team = True
     default_message = "Error"
 
-    def __init__(self, message=None, **kwargs):
+    def __init__(self, message=None, should_alert_team=None, **kwargs):
         if message is None:
             message = self.default_message
+        self.should_alert_team = (
+            should_alert_team
+            if should_alert_team is not None
+            else self.default_should_alert_team
+        )
         base_extensions = dict(code=self.code)
         base_extensions.update(kwargs.pop("extensions", {}))
         super().__init__(message, extensions=base_extensions, **kwargs)
@@ -35,6 +41,7 @@ class InternalError(MobilicError):
 
 class AuthenticationError(MobilicError):
     code = "AUTHENTICATION_ERROR"
+    default_should_alert_team = False
 
 
 class AuthorizationError(MobilicError):
@@ -43,10 +50,12 @@ class AuthorizationError(MobilicError):
 
 class InaccessibleSirenError(MobilicError):
     code = "INACCESSIBLE_SIREN"
+    default_should_alert_team = False
 
 
 class SirenAlreadySignedUpError(MobilicError):
     code = "SIREN_ALREADY_SIGNED_UP"
+    default_should_alert_team = False
 
 
 class UnavailableSirenAPIError(MobilicError):
@@ -67,19 +76,23 @@ class FranceConnectAuthenticationError(MobilicError):
 
 class InvalidTokenError(MobilicError):
     code = "INVALID_TOKEN"
+    default_should_alert_team = False
 
 
 class TokenExpiredError(MobilicError):
     code = "EXPIRED_TOKEN"
+    default_should_alert_team = False
 
 
 class EmailAlreadyRegisteredError(MobilicError):
     code = "EMAIL_ALREADY_REGISTERED"
     default_message = "A user is already registered for this email"
+    default_should_alert_team = False
 
 
 class FCUserAlreadyRegisteredError(MobilicError):
     code = "FC_USER_ALREADY_REGISTERED"
+    default_should_alert_team = False
 
 
 class OverlappingMissionsError(MobilicError):
@@ -111,6 +124,7 @@ class UnavailableSwitchModeError(MobilicError):
 
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
+    default_should_alert_team = False
 
     def __init__(
         self,
@@ -193,6 +207,7 @@ class ResourceAlreadyDismissedError(InvalidResourceError):
 
 class DuplicateExpendituresError(MobilicError):
     code = "DUPLICATE_EXPENDITURES"
+    default_should_alert_team = False
 
 
 class MissingPrimaryEmploymentError(MobilicError):
@@ -208,11 +223,18 @@ class OverlappingEmploymentsError(MobilicError):
             self.extensions.update(dict(overlapType=overlap_type))
 
 
+class VehicleAlreadyRegisteredError(MobilicError):
+    code = "VEHICLE_ALREADY_REGISTERED"
+    default_message = "Vehicle registration number already exists"
+    default_should_alert_team = False
+
+
 class MissionLocationAlreadySetError(MobilicError):
     code = "LOCATION_ALREADY_SET"
     default_message = (
         "A location of this type has already been set for the mission"
     )
+    default_should_alert_team = False
 
 
 CONFLICTING_ROW_ID_RE = re.compile(r", (\d+)\)\.$")
@@ -271,10 +293,12 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "only_one_current_primary_enrollment_per_user": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping primary employments",
         overlap_type="primary",
+        should_alert_team=True,
     ),
     "no_simultaneous_enrollments_for_the_same_company": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping employments on the same company",
         overlap_type="company",
+        should_alert_team=False,
     ),
     "no_duplicate_expenditures_per_user_and_mission": lambda _: DuplicateExpendituresError(
         "An expenditure of that type is already logged for the user on the mission"
@@ -286,19 +310,26 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "user_can_only_end_mission_once": lambda error: MissionAlreadyEndedError(
         mission_end=_get_conflicting_mission_end(error)
     ),
+    "unique_registration_numbers_among_company": lambda _: VehicleAlreadyRegisteredError(),
 }
 
 
 def handle_database_error(db_error):
     from app import app
 
-    app.logger.exception(db_error)
+    caught_error = None
     if isinstance(db_error, IntegrityError):
         if db_error.orig.diag.constraint_name:
             error_generator = CONSTRAINTS_TO_ERRORS_MAP.get(
                 db_error.orig.diag.constraint_name
             )
             if error_generator:
-                raise error_generator(db_error.orig)
+                caught_error = error_generator(db_error.orig)
+
+    app.logger.exception(
+        db_error, extra={"post_to_slack": caught_error is None}
+    )
+    if caught_error:
+        raise caught_error
 
     raise InternalError("An internal error occurred")

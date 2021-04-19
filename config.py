@@ -26,7 +26,12 @@ class Config:
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
-    SLACK_LOG_CHANNEL = os.environ.get("SLACK_LOG_CHANNEL", "#mobilic-alerts")
+    SLACK_PRIMARY_LOG_CHANNEL = os.environ.get(
+        "SLACK_PRIMARY_LOG_CHANNEL", "#mobilic-alerts"
+    )
+    SLACK_SECONDARY_LOG_CHANNEL = os.environ.get(
+        "SLACK_SECONDARY_LOG_CHANNEL", "#mobilic-secondary-alerts"
+    )
     JWT_TOKEN_LOCATION = ["headers", "cookies"]
     JWT_COOKIE_CSRF_PROTECT = False
     JWT_ACCESS_COOKIE_NAME = "at"

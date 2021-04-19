@@ -110,7 +110,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         }
 
         if new == old:
-            app.logger.warning("No changes detected for the activity")
+            app.logger.warning(
+                "No changes detected for the activity",
+                extra={"to_secondary_slack_channel": True},
+            )
             return None
 
         with handle_activities_update(

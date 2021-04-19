@@ -4,6 +4,12 @@ from datetime import datetime, timezone, date, timedelta
 import os
 
 from app.models.activity import Activity, ActivityType
+from app.helpers.tachograph.signature import (
+    verify_signature,
+    verify_signatures,
+    sign_file,
+)
+from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
 
 
 # Comprehensive documentation : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN
@@ -30,6 +36,17 @@ class FileSpec(NamedTuple):
     length: int
     right_fill_with: Optional[bytes] = None
     default_content: bytes = b""
+    signable: bool = False
+
+    def __repr__(self):
+        matching_file_spec = [
+            name
+            for (name, spec) in FileSpecs.__dict__.items()
+            if type(spec) is FileSpec and spec.id == self.id
+        ]
+        if matching_file_spec:
+            return f"FileSpec<{matching_file_spec[0]}>"
+        return f"FileSpec<{self.id}>"
 
 
 class FileSpecs:
@@ -62,6 +79,7 @@ class FileSpecs:
         b"\x05\x01",
         10,
         default_content=b"\x01\x00\x00\x0c\x18\x35\xd0\x00\xc8\x70",
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
@@ -75,11 +93,13 @@ class FileSpecs:
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     # Domain information about the card (registraton number, issuing authority, ...) and its holder (name, birth date, ...)
     # cf dedicated content generation function for more info about structure
-    IDENTIFICATION = FileSpec(b"\x05\x20", 143)
+    IDENTIFICATION = FileSpec(b"\x05\x20", 143, signable=True)
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     # Timestamp of the latest download of card data
-    CARD_DOWNLOAD = FileSpec(b"\x05\x0e", 4, default_content=bytes(4))
+    CARD_DOWNLOAD = FileSpec(
+        b"\x05\x0e", 4, default_content=bytes(4), signable=True
+    )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     DRIVING_LICENCE_INFO = FileSpec(
@@ -89,27 +109,34 @@ class FileSpecs:
         + bytes([32] * 35)
         + bytes(1)
         + bytes([32] * 16),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     # Latest "events" that occurred (events and faults refer to any error/oddity (technical issue, drive over speed limit, ...)
     # These are auto filled with empty event records (of length 24)
     EVENTS_DATA = FileSpec(
-        b"\x05\x02", 1728, right_fill_with=bytes(11) + bytes([32] * 13)
+        b"\x05\x02",
+        1728,
+        right_fill_with=bytes(11) + bytes([32] * 13),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235
     # Latest "faults" that occurred (events and faults refer to any error/oddity (technical issue, drive over speed limit, ...)
     # These are auto filled with empty fault records (of length 24)
     FAULTS_DATA = FileSpec(
-        b"\x05\x03", 1152, right_fill_with=bytes(11) + bytes([32] * 13)
+        b"\x05\x03",
+        1152,
+        right_fill_with=bytes(11) + bytes([32] * 13),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
     # These are the main data : records of activity changes for the card holder
     # cf dedicated content generation function for more info about structure
     DRIVER_ACTIVITY_DATA = FileSpec(
-        b"\x05\x04", 13780, right_fill_with=b"\x00"
+        b"\x05\x04", 13780, right_fill_with=b"\x00", signable=True
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
@@ -121,6 +148,7 @@ class FileSpecs:
         6202,
         right_fill_with=bytes(16) + bytes([32] * 13) + bytes(2),
         default_content=bytes(2),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
@@ -128,13 +156,20 @@ class FileSpecs:
     # cf dedicated content generation function for more info about structure
     # If the whole space (6202) is not filled by vehicle usage records we add empty records (of length 10)
     PLACES = FileSpec(
-        b"\x05\x06", 1121, right_fill_with=bytes(10), default_content=bytes(1)
+        b"\x05\x06",
+        1121,
+        right_fill_with=bytes(10),
+        default_content=bytes(1),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
     # Information about the vehicle (tachograph) that the card is currently inserted in
     CURRENT_USAGE = FileSpec(
-        b"\x05\x07", 19, default_content=bytes(6) + bytes([32] * 13)
+        b"\x05\x07",
+        19,
+        default_content=bytes(6) + bytes([32] * 13),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
@@ -147,12 +182,13 @@ class FileSpecs:
         + bytes(2)
         + bytes([32] * 13)
         + bytes(8),
+        signable=True,
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
     # Records of specific situations like "ferrying"
     SPECIFIC_CONDITIONS = FileSpec(
-        b"\x05\x22", 280, default_content=bytes(280)
+        b"\x05\x22", 280, default_content=bytes(280), signable=True
     )
 
 
@@ -166,6 +202,26 @@ class File:
         self.spec = spec
         self.content = content
         self.signature = signature
+
+    def adjust_content(self):
+        self.content = check_length_and_right_pad(
+            self.content
+            if len(self.content) > 0
+            else self.spec.default_content or b"",
+            self.spec.right_fill_with,
+            self.spec.length,
+        )
+
+    def sign(self, sk):
+        self.adjust_content()
+        sign_file(self, sk)
+
+    # Explained here : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=378
+    def verify_signature(self, pk):
+        if not self.signature:
+            print(f"No signature to verify for file {self.spec}")
+            return
+        return verify_signature(self.content, self.signature, pk)
 
 
 def check_length_and_right_pad(bytes_, pad_with, total_length):
@@ -204,15 +260,7 @@ def dump_file(file):
     # - 2 bytes for the file length
     header = file.spec.id + b"\x00" + file.spec.length.to_bytes(2, "big")
     file_dump.extend(header)
-    file_dump.extend(
-        check_length_and_right_pad(
-            file.content
-            if len(file.content) > 0
-            else file.spec.default_content or b"",
-            file.spec.right_fill_with,
-            file.spec.length,
-        )
-    )
+    file_dump.extend(file.content)
     if file.signature is not None and len(file.signature) > 0:
         signature_header = (
             file.spec.id + b"\x01" + len(file.signature).to_bytes(2, "big")
@@ -485,7 +533,7 @@ def build_activity_file(
 
 
 def output_user_data_in_tachograph_format(
-    user, start_date=None, end_date=None
+    user, start_date=None, end_date=None, with_signatures=True
 ):
     first_user_activity = user.first_activity_after(None)
     if not first_user_activity:
@@ -500,6 +548,7 @@ def output_user_data_in_tachograph_format(
         )
         if a.end_time and a.start_time != a.end_time
     ]
+
     files = [
         File(spec=FileSpecs.CARD_ICC_IDENTIFICATION),
         File(spec=FileSpecs.CARD_CHIP_IDENTIFICATION),
@@ -523,6 +572,32 @@ def output_user_data_in_tachograph_format(
         File(spec=FileSpecs.SPECIFIC_CONDITIONS),
     ]
 
+    current_card_key = None
+    if with_signatures:
+        current_card_key = C1BSigningKey.get_or_create_current_card_key()
+        current_ms_key = C1BSigningKey.get_or_create_current_member_state_key()
+
+        if not current_card_key or not current_ms_key:
+            print("No signing key available for signature")
+        else:
+            ms_certificate_file = [
+                f for f in files if f.spec == FileSpecs.CA_CERTIFICATE
+            ][0]
+            card_certificate_file = [
+                f for f in files if f.spec == FileSpecs.CARD_CERTIFICATE
+            ][0]
+            ms_certificate_file.content = current_ms_key.certificate(
+                MOBILIC_ROOT_KEY
+            )
+            card_certificate_file.content = current_card_key.certificate(
+                current_ms_key
+            )
+
+    for file in files:
+        file.adjust_content()
+        if with_signatures and file.spec.signable:
+            file.sign(current_card_key)
+
     output = BytesIO()
     output.write(write_archive(files))
     output.seek(0)
@@ -544,16 +619,14 @@ def export_user_data_in_tachograph_format(
 _file_specs = [v for v in vars(FileSpecs).values() if type(v) is FileSpec]
 
 
-def parse_tachograph_file(fp):
+def parse_tachograph_file(fp, check_signatures=True):
     files = []
     while True:
         file_info = fp.read(5)
-        print(file_info)
         if not file_info:
             break
         file_id = file_info[:2]
         is_signature = file_info[2:3] == b"\x01"
-        print(is_signature)
         file_length = int.from_bytes(file_info[-2:], "big")
         content = fp.read(file_length)
 
@@ -567,5 +640,13 @@ def parse_tachograph_file(fp):
         else:
             file = [f for f in files if f.spec == matching_file_spec][0]
             file.signature = content
+
+    if check_signatures:
+        errors = verify_signatures(files)
+        if errors:
+            print("Detected some signature errors !")
+            print(errors)
+        else:
+            print("Signatures are correct.")
 
     return files

@@ -155,7 +155,9 @@ class ActivateEmail(graphene.Mutation):
                 email = decoded_token["email"]
                 expires_at = decoded_token["expires_at"]
             except Exception as e:
-                raise InvalidTokenError(f"Token is invalid : {e}")
+                raise InvalidTokenError(
+                    f"Token is invalid : {e}", should_alert_team=True
+                )
 
             if expires_at < datetime.now().timestamp():
                 raise TokenExpiredError("Token has expired")
@@ -164,7 +166,9 @@ class ActivateEmail(graphene.Mutation):
                 user = User.query.get(user_id)
                 current_activation_token = user.activation_email_token
             except Exception as e:
-                raise InvalidTokenError("Invalid user in token")
+                raise InvalidTokenError(
+                    "Invalid user in token", should_alert_team=True
+                )
 
             if (
                 email != user.email
