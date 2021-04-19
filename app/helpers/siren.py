@@ -1,5 +1,6 @@
 import requests
 from typing import NamedTuple
+from datetime import date
 
 from app.helpers.errors import (
     UnavailableSirenAPIError,
@@ -111,7 +112,7 @@ class SirenAPIClient:
         if not self.access_token:
             self._generate_access_token()
         siren_response = requests.get(
-            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}",
+            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&date={date.today()}",
             headers={"Authorization": f"Bearer {self.access_token}"},
             timeout=10,
         )
@@ -150,31 +151,77 @@ class SirenAPIClient:
         return ADDRESS_STREET_TYPE_TO_LABEL[address_street_type]
 
     @staticmethod
+    def _parse_address_to_simpler_format(address_info, is_secondary=False):
+        secondary_flag = "2" if is_secondary else ""
+        address = (
+            f"{address_info[f'numeroVoie{secondary_flag}Etablissement'] or ''}{SirenAPIClient._format_address_number_repetition(address_info[f'indiceRepetition{secondary_flag}Etablissement'])}"
+            f" {SirenAPIClient._format_address_street_type(address_info[f'typeVoie{secondary_flag}Etablissement'])} {address_info[f'libelleVoie{secondary_flag}Etablissement'] or ''}"
+        )
+
+        if address_info[f"codePostal{secondary_flag}Etablissement"]:
+            postal_code = f"{address_info[f'codePostal{secondary_flag}Etablissement'] or ''} {address_info[f'libelleCommune{secondary_flag}Etablissement'] or ''}"
+        else:
+            postal_code = f"{address_info[f'libelleCommuneEtranger{secondary_flag}Etablissement'] or ''} {address_info[f'codePaysEtranger{secondary_flag}Etablissement'] or ''}"
+
+        return {
+            f"adresse{secondary_flag}": address
+            if len(address.replace(" ", "")) > 0
+            else None,
+            f"codePostal{secondary_flag}": postal_code
+            if len(postal_code.replace(" ", "")) > 0
+            else None,
+        }
+
+    @staticmethod
     def _parse_siren_info(info):
+        facilities = info["etablissements"]
+        company = {
+            **facilities[0]["uniteLegale"],
+            "siren": facilities[0]["siren"],
+        }
+        facilities_with_simplified_address = [
+            dict(
+                **{
+                    k: v
+                    for k, v in f.items()
+                    if k
+                    not in [
+                        "siren",
+                        "adresseEtablissement",
+                        "adresse2Etablissement",
+                        "uniteLegale",
+                        "periodesEtablissement",
+                    ]
+                },
+                **{
+                    k: v
+                    for k, v in f["periodesEtablissement"][0].items()
+                    if not k.startswith("changement")
+                },
+                **SirenAPIClient._parse_address_to_simpler_format(
+                    f["adresseEtablissement"], is_secondary=False
+                ),
+                **SirenAPIClient._parse_address_to_simpler_format(
+                    f["adresse2Etablissement"], is_secondary=True
+                ),
+            )
+            for f in facilities
+        ]
+
+        return dict(
+            uniteLegale=company,
+            etablissements=facilities_with_simplified_address,
+        )
+
+    @staticmethod
+    def extract_current_facilities_short_info(parsed_siren_info):
         # Spec of the data returned by the SIREN API : https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Variables-V3.9.pdf
-        facilities = []
-        for facility in info["etablissements"]:
-            periods = facility["periodesEtablissement"]
-            latest_period = [p for p in periods if not p["dateFin"]]
-            latest_period = latest_period[0] if latest_period else None
-            if (
-                not latest_period
-                or latest_period["etatAdministratifEtablissement"] == "F"
-            ):
+        open_facilities = []
+        for facility in parsed_siren_info["etablissements"]:
+            if facility["etatAdministratifEtablissement"] == "F":
                 continue
 
-            address_info = facility["adresseEtablissement"]
-            address = (
-                f"{address_info['numeroVoieEtablissement'] or ''}{SirenAPIClient._format_address_number_repetition(address_info['indiceRepetitionEtablissement'])}"
-                f" {SirenAPIClient._format_address_street_type(address_info['typeVoieEtablissement'])} {address_info['libelleVoieEtablissement']}"
-            )
-
-            if address_info["codePostalEtablissement"]:
-                postal_code = f"{address_info['codePostalEtablissement']} {address_info['libelleCommuneEtablissement']}"
-            else:
-                postal_code = f"{address_info['libelleCommuneEtrangerEtablissement']} {address_info['codePaysEtrangerEtablissement']}"
-
-            company = facility["uniteLegale"]
+            company = parsed_siren_info["uniteLegale"]
             company_name = company["denominationUniteLegale"]
             if not company_name:
                 if not company["nomUniteLegale"]:
@@ -182,20 +229,18 @@ class SirenAPIClient:
                 else:
                     company_name = f"{company['prenom1UniteLegale']} {company['nomUsageUniteLegale'] or company['nomUniteLegale']}"
 
-            facilities.append(
+            open_facilities.append(
                 FacilityInfo(
-                    siren=facility["siren"],
+                    siren=company["siren"],
                     siret=facility["siret"],
                     company_name=company_name,
-                    name=latest_period["denominationUsuelleEtablissement"]
-                    or "",
-                    address=address,
-                    postal_code=postal_code,
+                    name=facility["denominationUsuelleEtablissement"] or "",
+                    address=facility["adresse"],
+                    postal_code=facility["codePostal"],
                 )._asdict()
             )
-        return facilities
+        return open_facilities
 
-    # TODO : cache this using Redis
     def get_siren_info(self, siren):
         siren_response = self._request_siren_info(siren)
         return self._parse_siren_info(siren_response.json())

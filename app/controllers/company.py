@@ -136,7 +136,10 @@ class NonPublicQuery(graphene.ObjectType):
     )
 
     def resolve_siren_info(self, info, siren):
-        return siren_api_client.get_siren_info(siren)
+        all_siren_info = siren_api_client.get_siren_info(siren)
+        return siren_api_client.extract_current_facilities_short_info(
+            all_siren_info
+        )
 
 
 class Query(graphene.ObjectType):
