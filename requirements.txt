@@ -15,7 +15,7 @@ cffi==1.14.2
 cfgv==2.0.1
 chardet==3.0.4
 Click==7.0
-cryptography==3.2
+cryptography==3.3.2
 decorator==4.4.1
 defusedxml==0.6.0
 et-xmlfile==1.0.1
