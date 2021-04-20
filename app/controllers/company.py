@@ -10,6 +10,7 @@ from app.data_access.company import CompanyOutput
 from app.domain.permissions import (
     belongs_to_company_at,
     ConsultationScope,
+    company_admin_at,
 )
 from app.helpers.authentication import require_auth, AuthenticationError
 from app.domain.work_days import group_user_events_by_day
@@ -19,8 +20,9 @@ from app.helpers.authorization import (
     current_user,
 )
 from app import siren_api_client, mailer
+from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 from app.helpers.xls import send_work_days_as_excel
-from app.models import Company, Employment
+from app.models import Company, Employment, NafCode
 from app.models.employment import (
     EmploymentRequestValidationStatus,
     EmploymentOutput,
@@ -55,19 +57,50 @@ class CompanySignUp(graphene.Mutation):
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, usual_name, siren, sirets):
         with atomic_transaction(commit_at_end=True):
-            now = datetime.now()
-            company = Company(
-                usual_name=usual_name, siren=siren, sirets=sirets
-            )
-            db.session.add(company)
-            db.session.flush()  # Early check for SIREN duplication
-
+            siren_api_info = None
             try:
-                company.siren_api_info = siren_api_client.get_siren_info(siren)
+                siren_api_info = siren_api_client.get_siren_info(siren)
             except Exception as e:
                 app.logger.warning(
                     f"Could not add SIREN API info for company of SIREN {siren} : {e}"
                 )
+
+            require_kilometer_data = True
+            main_activity_code = ""
+            if siren_api_info:
+                main_activity_code = siren_api_info["uniteLegale"][
+                    "activitePrincipaleUniteLegale"
+                ]
+                main_activity = (
+                    NafCode.get_code(main_activity_code)
+                    if main_activity_code
+                    else None
+                )
+                if main_activity:
+                    main_activity_code = (
+                        f"{main_activity.code} {main_activity.label}"
+                    )
+                # For déménagement companies disable kilometer data by default
+                if (
+                    siren_api_info["uniteLegale"][
+                        "nomenclatureActivitePrincipaleUniteLegale"
+                    ]
+                    == "NAFRev2"
+                    and main_activity_code == "49.42Z"
+                ):
+                    require_kilometer_data = False
+
+            now = datetime.now()
+            company = Company(
+                usual_name=usual_name,
+                siren=siren,
+                sirets=sirets,
+                siren_api_info=siren_api_info,
+                allow_team_mode=True,
+                require_kilometer_data=require_kilometer_data,
+            )
+            db.session.add(company)
+            db.session.flush()  # Early check for SIREN duplication
 
             admin_employment = Employment(
                 is_primary=False if current_user.primary_company else True,
@@ -96,9 +129,8 @@ class CompanySignUp(graphene.Mutation):
             # Call Integromat for Trello card creation
             try:
                 first_establishment_info = (
-                    company.siren_api_info[0]
-                    if company.siren_api_info
-                    and len(company.siren_api_info) > 0
+                    siren_api_info["etablissements"][0]
+                    if siren_api_info
                     else None
                 )
                 response = requests.post(
@@ -110,9 +142,18 @@ class CompanySignUp(graphene.Mutation):
                         submitter_email=current_user.email,
                         siren=company.siren,
                         metabase_link=f"{app.config['METABASE_COMPANY_DASHBOARD_BASE_URL']}{company.id}",
-                        location=f"{first_establishment_info.get('address', '')} {first_establishment_info.get('postal_code', '')}"
+                        location=f"{first_establishment_info.get('adresse', '')} {first_establishment_info.get('codePostal', '')}"
                         if first_establishment_info
                         else None,
+                        activity_code=main_activity_code,
+                        n_employees=format_tranche_effectif(
+                            siren_api_info["uniteLegale"][
+                                "trancheEffectifsUniteLegale"
+                            ]
+                        ),
+                        n_employees_year=siren_api_info["uniteLegale"][
+                            "anneeEffectifsUniteLegale"
+                        ],
                     ),
                     timeout=3,
                 )
@@ -140,6 +181,48 @@ class NonPublicQuery(graphene.ObjectType):
         return siren_api_client.extract_current_facilities_short_info(
             all_siren_info
         )
+
+
+class EditCompanySettings(graphene.Mutation):
+    class Arguments:
+        company_id = graphene.Int(
+            required=True, description="Identifiant de l'entreprise"
+        )
+        allow_team_mode = graphene.Boolean(
+            required=False,
+            description="Permet ou interdit la saisie en mode équipe",
+        )
+        require_kilometer_data = graphene.Boolean(
+            required=False,
+            description="Active ou désactive la saisie du kilométrage en début et fin de mission",
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin_at,
+        get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
+            kwargs["company_id"]
+        ),
+        error_message="You need to be a company admin to be able to edit company settings",
+    )
+    def mutate(cls, _, info, company_id, **kwargs):
+        with atomic_transaction(commit_at_end=True):
+            company = Company.query.get(company_id)
+            is_there_something_updated = False
+            for field, value in kwargs.items():
+                if value is not None:
+                    current_field_value = getattr(company, field)
+                    if current_field_value != value:
+                        is_there_something_updated = True
+                        setattr(company, field, value)
+
+            if not is_there_something_updated:
+                app.logger.warning("No setting was actually modified")
+            db.session.add(company)
+
+        return company
 
 
 class Query(graphene.ObjectType):

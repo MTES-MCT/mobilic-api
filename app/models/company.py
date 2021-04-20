@@ -14,6 +14,11 @@ class Company(BaseModel):
 
     siren_api_info = db.Column(JSONB(none_as_null=True), nullable=True)
 
+    allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)
+    require_kilometer_data = db.Column(
+        db.Boolean, nullable=False, default=True
+    )
+
     @property
     def name(self):
         return self.usual_name

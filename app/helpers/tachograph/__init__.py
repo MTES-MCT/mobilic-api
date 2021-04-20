@@ -69,7 +69,8 @@ class FileSpecs:
     # Technical information about the card/tachograph software and the file structure
     # 10 bytes length
     # - type of tachograph card (1 byte) : \x01 (driver card)
-    # - application version (2 bytes) : \x00\x00 (1st generation)
+    # - application major version (1 byte) : \x00 (1st generation)
+    # - application minor version (1 byte) : should be \x00 as per the spec but we arbitrarily set it to \x4D ("M") to help identify a Mobilic file.
     # - number of events per type (1 byte) : \x06 (6, but irrelevant for Mobilic)
     # - number of faults per type (1 byte) : \x0c (12, but irrelevant for Mobilic)
     # - space (bytes) dedicated to driver activity records (2 bytes) : \x35\xd0 (13 776, the maximum allowed)
@@ -78,7 +79,7 @@ class FileSpecs:
     APPLICATION_IDENTIFICATION = FileSpec(
         b"\x05\x01",
         10,
-        default_content=b"\x01\x00\x00\x0c\x18\x35\xd0\x00\xc8\x70",
+        default_content=b"\x01\x00\x4D\x0c\x18\x35\xd0\x00\xc8\x70",
         signable=True,
     )
 

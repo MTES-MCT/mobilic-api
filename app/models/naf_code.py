@@ -26,3 +26,6 @@ class NafCode(BaseModel):
     @classmethod
     def get_code(cls, code):
         return cls.query.filter(cls.code == code).one_or_none()
+
+
+x

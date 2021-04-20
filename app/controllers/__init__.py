@@ -1,7 +1,11 @@
 import graphene
 
 from app.controllers.comment import LogComment, CancelComment
-from app.controllers.company import CompanySignUp, Query as CompanyQuery
+from app.controllers.company import (
+    CompanySignUp,
+    Query as CompanyQuery,
+    EditCompanySettings,
+)
 from app.controllers.user_read import Query as UserReadQuery
 from app.controllers.employment import (
     CreateEmployment,
@@ -142,6 +146,7 @@ class PrivateMutations(graphene.ObjectType):
     locations = graphene.Field(
         Locations, resolver=lambda root, info: Locations()
     )
+    edit_company_settings = EditCompanySettings.Field()
 
 
 class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):

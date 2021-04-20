@@ -24,7 +24,12 @@ from app.models.vehicle import VehicleOutput
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
-        only_fields = ("id", "siren")
+        only_fields = (
+            "id",
+            "siren",
+            "allow_team_mode",
+            "require_kilometer_data",
+        )
 
     id = graphene.Field(
         graphene.Int, required=True, description="Identifiant de l'entreprise"
@@ -81,6 +86,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     known_addresses = graphene.List(
         CompanyKnownAddressOutput,
         description="Liste des lieux enregistrés de l'entreprise",
+    )
+    allow_team_mode = graphene.Boolean(
+        description="Indique si l'entreprise permet les saisies en mode équipe pour ses missions"
+    )
+    require_kilometer_data = graphene.Boolean(
+        description="Indique si l'entreprise exige les données kilométriques en début et fin de mission"
     )
 
     def resolve_name(self, info):

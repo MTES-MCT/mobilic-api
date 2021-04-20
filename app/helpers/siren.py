@@ -71,6 +71,7 @@ ADDRESS_NUMBER_REPETITION_TO_LABEL = {
 class FacilityInfo(NamedTuple):
     siret: str
     siren: str
+    activity: str
     company_name: str
     name: str
     address: str
@@ -215,6 +216,8 @@ class SirenAPIClient:
 
     @staticmethod
     def extract_current_facilities_short_info(parsed_siren_info):
+        from app.models import NafCode
+
         # Spec of the data returned by the SIREN API : https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Variables-V3.9.pdf
         open_facilities = []
         for facility in parsed_siren_info["etablissements"]:
@@ -229,11 +232,19 @@ class SirenAPIClient:
                 else:
                     company_name = f"{company['prenom1UniteLegale']} {company['nomUsageUniteLegale'] or company['nomUniteLegale']}"
 
+            activity_code = facility["activitePrincipaleEtablissement"]
+            activity = (
+                NafCode.get_code(activity_code) if activity_code else None
+            )
+            if activity:
+                activity_code = f"{activity.code} {activity.label}"
+
             open_facilities.append(
                 FacilityInfo(
                     siren=company["siren"],
                     siret=facility["siret"],
                     company_name=company_name,
+                    activity=activity_code,
                     name=facility["denominationUsuelleEtablissement"] or "",
                     address=facility["adresse"],
                     postal_code=facility["codePostal"],
