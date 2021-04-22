@@ -68,16 +68,16 @@ class CompanySignUp(graphene.Mutation):
             require_kilometer_data = True
             main_activity_code = ""
             if siren_api_info:
-                main_activity_code = siren_api_info["uniteLegale"][
-                    "activitePrincipaleUniteLegale"
-                ]
+                formatted_main_activity = main_activity_code = siren_api_info[
+                    "uniteLegale"
+                ]["activitePrincipaleUniteLegale"]
                 main_activity = (
                     NafCode.get_code(main_activity_code)
                     if main_activity_code
                     else None
                 )
                 if main_activity:
-                    main_activity_code = (
+                    formatted_main_activity = (
                         f"{main_activity.code} {main_activity.label}"
                     )
                 # For déménagement companies disable kilometer data by default
@@ -145,7 +145,7 @@ class CompanySignUp(graphene.Mutation):
                         location=f"{first_establishment_info.get('adresse', '')} {first_establishment_info.get('codePostal', '')}"
                         if first_establishment_info
                         else None,
-                        activity_code=main_activity_code,
+                        activity_code=formatted_main_activity,
                         n_employees=format_tranche_effectif(
                             siren_api_info["uniteLegale"][
                                 "trancheEffectifsUniteLegale"
