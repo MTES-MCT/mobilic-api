@@ -5,11 +5,10 @@ from sqlalchemy.orm import selectinload
 
 from app import app, db
 from app.controllers.utils import atomic_transaction, Void
-from app.domain.permissions import can_user_log_on_mission_at
 from app.helpers.authentication import current_user
 from app.domain.log_activities import (
     log_activity,
-    check_logging_permissions_at,
+    check_actor_can_log_on_mission_for_user_at,
 )
 from app.helpers.errors import (
     AuthorizationError,
@@ -105,7 +104,7 @@ class LogActivity(graphene.Mutation):
                     user, start_time
                 )
                 if current_activity:
-                    check_logging_permissions_at(
+                    check_actor_can_log_on_mission_for_user_at(
                         current_user, user, mission, start_time
                     )
                     if current_activity.end_time:
@@ -179,17 +178,12 @@ def edit_activity(
             activity_to_update.mission_id
         )
 
-        if not can_user_log_on_mission_at(
-            current_user, mission, activity_to_update.start_time
-        ) or (
-            start_time
-            and not can_user_log_on_mission_at(
-                current_user, mission, start_time
-            )
-        ):
-            raise AuthorizationError(
-                f"Actor is not authorized to edit the activity"
-            )
+        check_actor_can_log_on_mission_for_user_at(
+            current_user,
+            activity_to_update.user,
+            mission,
+            activity_to_update.start_time,
+        )
 
         if activity_to_update.is_dismissed:
             raise ResourceAlreadyDismissedError(f"Activity already dismissed.")

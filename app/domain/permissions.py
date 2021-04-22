@@ -59,22 +59,39 @@ def only_self(actor, user_obj_or_id):
     return actor.id == user.id
 
 
-def can_user_log_on_mission_at(user, mission, date=None):
+def can_actor_log_on_mission_at(actor, mission, date=None):
     if not mission:
         return False
     return belongs_to_company_at(
-        user, mission.company_id, date, include_pending_invite=False
+        actor, mission.company_id, date, include_pending_invite=False
     )
 
 
-def can_user_access_mission(user, mission):
+def can_actor_log_on_mission_for_user_at(actor, user, mission, date=None):
+    base_permission = can_actor_log_on_mission_at(
+        actor, mission, date
+    ) and can_actor_log_on_mission_at(user, mission, date)
+    if not base_permission:
+        return False
+    if actor == user or mission.company.allow_team_mode:
+        return True
+    return company_admin_at(actor, mission.company_id, date)
+
+
+def check_actor_can_log_on_mission_for_user_at(
+    actor, user, mission, date=None
+):
+    if not can_actor_log_on_mission_for_user_at(actor, user, mission, date):
+        raise AuthorizationError(
+            "Actor is not authorized to perform this operation"
+        )
+
+
+def can_actor_access_mission_at(actor, mission, date=None):
     if not mission:
         return False
     return belongs_to_company_at(
-        user,
-        mission.company_id,
-        mission.reception_time,
-        include_pending_invite=False,
+        actor, mission.company_id, date, include_pending_invite=False,
     )
 
 

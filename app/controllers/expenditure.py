@@ -1,5 +1,5 @@
 from app.domain.expenditure import log_expenditure
-from app.domain.permissions import can_user_log_on_mission_at
+from app.domain.permissions import check_actor_can_log_on_mission_for_user_at
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -110,12 +110,12 @@ class CancelExpenditure(graphene.Mutation):
 
             mission = Mission.query.get(expenditure_to_dismiss.mission_id)
 
-            if not can_user_log_on_mission_at(
-                current_user, mission, expenditure_to_dismiss.reception_time
-            ):
-                raise AuthorizationError(
-                    "Actor is not authorized to dismiss the expenditure"
-                )
+            check_actor_can_log_on_mission_for_user_at(
+                current_user,
+                expenditure_to_dismiss.user,
+                mission,
+                expenditure_to_dismiss.reception_time,
+            )
 
             if expenditure_to_dismiss.is_dismissed:
                 raise ResourceAlreadyDismissedError(

@@ -1,7 +1,10 @@
 from contextlib import contextmanager
 
 from app import app, db
-from app.domain.permissions import can_user_log_on_mission_at, company_admin_at
+from app.domain.permissions import (
+    check_actor_can_log_on_mission_for_user_at,
+    company_admin_at,
+)
 from app.helpers.errors import (
     AuthorizationError,
     OverlappingMissionsError,
@@ -79,18 +82,6 @@ def check_mission_overlaps(user, mission):
         )
 
 
-def check_logging_permissions_at(submitter, user, mission, time):
-    if not mission or not can_user_log_on_mission_at(submitter, mission, time):
-        raise AuthorizationError(
-            "Actor is not authorized to log on this mission at this time."
-        )
-
-    if not user or not can_user_log_on_mission_at(user, mission, time):
-        raise AuthorizationError(
-            f"Actor is not authorized to log for this user."
-        )
-
-
 def check_mission_still_open_for_activities_edition(
     submitter, mission, user, reception_time
 ):
@@ -130,9 +121,13 @@ def handle_activities_update(
     check_event_time_is_not_in_the_future(end_time, reception_time, "End time")
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
-    check_logging_permissions_at(submitter, user, mission, start_time)
+    check_actor_can_log_on_mission_for_user_at(
+        submitter, user, mission, start_time
+    )
     if end_time:
-        check_logging_permissions_at(submitter, user, mission, end_time)
+        check_actor_can_log_on_mission_for_user_at(
+            submitter, user, mission, end_time
+        )
 
     # 2b. Check that the mission is still open for edition, at least for the user
     check_mission_still_open_for_activities_edition(

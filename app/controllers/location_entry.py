@@ -4,7 +4,10 @@ from graphene.types.generic import GenericScalar
 
 from app.controllers.utils import Void, atomic_transaction
 
-from app.domain.permissions import company_admin_at, can_user_log_on_mission_at
+from app.domain.permissions import (
+    company_admin_at,
+    can_actor_log_on_mission_at,
+)
 from app.helpers.authorization import with_authorization_policy, current_user
 from app import db
 from app.helpers.errors import (
@@ -149,7 +152,7 @@ class LogMissionLocation(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_user_log_on_mission_at,
+        can_actor_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.get(
             kwargs["mission_id"]
         ),

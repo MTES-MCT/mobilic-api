@@ -1,4 +1,4 @@
-from app.domain.permissions import can_user_log_on_mission_at
+from app.domain.permissions import can_actor_log_on_mission_at
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -37,7 +37,7 @@ class LogComment(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_user_log_on_mission_at,
+        can_actor_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.get(
             kwargs["mission_id"]
         ),

@@ -21,9 +21,9 @@ from app.models.mission_validation import (
 )
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
-    can_user_log_on_mission_at,
+    can_actor_log_on_mission_at,
     belongs_to_company_at,
-    can_user_access_mission,
+    can_actor_access_mission_at,
 )
 from app.helpers.authentication import current_user
 from app.helpers.errors import (
@@ -234,7 +234,7 @@ class ValidateMission(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_user_log_on_mission_at,
+        can_actor_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.options(
             selectinload(Mission.activities).selectinload(Activity.revisions)
         ).get(kwargs["mission_id"]),
@@ -365,7 +365,7 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(
-        can_user_log_on_mission_at,
+        can_actor_access_mission_at,
         get_target_from_args=lambda self, info, id: Mission.query.get(id),
         error_message="Forbidden access",
     )
@@ -381,7 +381,7 @@ class PrivateQuery(graphene.ObjectType):
     )
 
     @with_authorization_policy(
-        can_user_access_mission,
+        can_actor_access_mission_at,
         get_target_from_args=lambda self, info, mission_id: Mission.query.get(
             mission_id
         ),
