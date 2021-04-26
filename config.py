@@ -27,7 +27,7 @@ class Config:
     )
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
     SLACK_PRIMARY_LOG_CHANNEL = os.environ.get(
-        "SLACK_PRIMARY_LOG_CHANNEL", "#mobilic-alerts"
+        "SLACK_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
     )
     SLACK_SECONDARY_LOG_CHANNEL = os.environ.get(
         "SLACK_SECONDARY_LOG_CHANNEL", "#mobilic-secondary-alerts"
