@@ -18,6 +18,11 @@ class Mission(EventBaseModel):
 
     context = db.Column(JSONB(none_as_null=True), nullable=True)
 
+    vehicle_id = db.Column(
+        db.Integer, db.ForeignKey("vehicle.id"), nullable=True
+    )
+    vehicle = db.relationship("Vehicle", backref="missions")
+
     def activities_for(self, user, include_dismissed_activities=False):
         all_activities_for_user = sorted(
             [a for a in self.activities if a.user_id == user.id],
@@ -82,17 +87,6 @@ class Mission(EventBaseModel):
                 ] = validation
 
         return list(latest_validations_by_user.values())
-
-    @property
-    def vehicle_name(self):
-        from app.models import Vehicle
-
-        if not self.context:
-            return None
-        if self.context.get("vehicleId"):
-            vehicle = Vehicle.query.get(self.context["vehicleId"])
-            return vehicle.name if vehicle else None
-        return self.context.get("vehicleRegistrationNumber")
 
     @property
     def start_location(self):

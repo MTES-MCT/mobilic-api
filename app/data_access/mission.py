@@ -23,6 +23,8 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             "submitter_id",
             "submitter",
             "context",
+            "vehicle",
+            "vehicle_id",
         )
 
     id = graphene.Field(

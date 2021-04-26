@@ -114,9 +114,9 @@ columns_in_main_sheet = [
         lambda wday: ", ".join(
             set(
                 [
-                    m.vehicle_name
+                    m.vehicle.name
                     for m in wday.missions
-                    if m.vehicle_name is not None
+                    if m.vehicle is not None
                 ]
             )
         ),

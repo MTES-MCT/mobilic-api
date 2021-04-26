@@ -100,6 +100,7 @@ def add_mission_relations(query, include_revisions=False):
         subqueryload(Mission.validations),
         subqueryload(Mission.expenditures),
         subqueryload(Mission.comments),
+        subqueryload(Mission.vehicle),
         mission_activities_subq,
         subqueryload(Mission.location_entries).options(
             joinedload(LocationEntry._address),
