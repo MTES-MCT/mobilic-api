@@ -29,6 +29,7 @@ from app.controllers.mission import (
     ValidateMission,
     Query as MissionQuery,
     PrivateQuery as PrivateMissionQuery,
+    UpdateMissionVehicle,
 )
 from app.controllers.user import (
     UserSignUp,
@@ -70,6 +71,7 @@ class Activities(graphene.ObjectType):
     cancel_activity = CancelActivity.Field()
     edit_activity = EditActivity.Field()
     log_location = LogMissionLocation.Field()
+    update_mission_vehicle = UpdateMissionVehicle.Field()
 
 
 class SignUp(graphene.ObjectType):

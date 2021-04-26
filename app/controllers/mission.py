@@ -34,6 +34,31 @@ from app.helpers.errors import (
     MissionStillRunningError,
     MailjetError,
 )
+from app.models.vehicle import VehicleOutput
+
+
+def find_or_create_vehicle(vehicle_id, vehicle_registration_number, company):
+    if not vehicle_id:
+        vehicle = Vehicle.query.filter(
+            Vehicle.registration_number == vehicle_registration_number,
+            Vehicle.company_id == company.id,
+        ).one_or_none()
+
+        if not vehicle:
+            vehicle = Vehicle(
+                registration_number=vehicle_registration_number,
+                submitter=current_user,
+                company=company,
+            )
+            db.session.add(vehicle)
+            db.session.flush()  # To get a DB id for the new vehicle
+
+    else:
+        vehicle = Vehicle.query.filter(
+            Vehicle.id == vehicle_id, Vehicle.company_id == company.id,
+        ).one_or_none()
+
+    return vehicle
 
 
 class MissionInput:
@@ -105,29 +130,15 @@ class CreateMission(graphene.Mutation):
                 "vehicle_registration_number"
             )
 
-            vehicle = None
-            if received_vehicle_id or received_vehicle_registration_number:
-                if not received_vehicle_id:
-                    vehicle = Vehicle.query.filter(
-                        Vehicle.registration_number
-                        == received_vehicle_registration_number,
-                        Vehicle.company_id == company.id,
-                    ).one_or_none()
-
-                    if not vehicle:
-                        vehicle = Vehicle(
-                            registration_number=received_vehicle_registration_number,
-                            submitter=current_user,
-                            company=company,
-                        )
-                        db.session.add(vehicle)
-                        db.session.flush()  # To get a DB id for the new vehicle
-
-                else:
-                    vehicle = Vehicle.query.filter(
-                        Vehicle.id == received_vehicle_id,
-                        Vehicle.company_id == company.id,
-                    ).one_or_none()
+            vehicle = (
+                find_or_create_vehicle(
+                    received_vehicle_id,
+                    received_vehicle_registration_number,
+                    company,
+                )
+                if received_vehicle_id or received_vehicle_registration_number
+                else None
+            )
 
             mission = Mission(
                 name=mission_input.get("name"),
@@ -371,6 +382,55 @@ class ValidateMission(graphene.Mutation):
             app.logger.exception(e)
 
         return mission_validation
+
+
+class UpdateMissionVehicle(graphene.Mutation):
+    class Arguments:
+        mission_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de la mission",
+        )
+        vehicle_id = graphene.Argument(
+            graphene.Int,
+            required=False,
+            description="Identifiant du véhicule utilisé",
+        )
+        vehicle_registration_number = graphene.Argument(
+            graphene.String,
+            required=False,
+            description="Numéro d'immatriculation du véhicule utilisé, s'il n'est pas déjà enregistré. Un nouveau véhicule sera ajouté.",
+        )
+
+    Output = VehicleOutput
+
+    @classmethod
+    @with_authorization_policy(
+        can_actor_log_on_mission_at,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
+            kwargs["mission_id"]
+        ),
+        error_message="Actor is not authorized to set the vehicle for the mission",
+    )
+    def mutate(
+        cls,
+        _,
+        info,
+        mission_id,
+        vehicle_id=None,
+        vehicle_registration_number=None,
+    ):
+        with atomic_transaction(commit_at_end=True):
+            mission = Mission.query.get(mission_id)
+            if not vehicle_id and not vehicle_registration_number:
+                app.logger.warning("No vehicle was associated to the mission")
+            else:
+                vehicle = find_or_create_vehicle(
+                    vehicle_id, vehicle_registration_number, mission.company
+                )
+                mission.vehicle_id = vehicle.id
+
+        return mission.vehicle
 
 
 class Query(graphene.ObjectType):
