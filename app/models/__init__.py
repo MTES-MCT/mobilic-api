@@ -2,14 +2,14 @@ from .user import User
 from .company import Company
 from .address import Address
 from .company_known_address import CompanyKnownAddress
-from .location_entry import LocationEntry
+from .vehicle import Vehicle
 from .mission import Mission
+from .location_entry import LocationEntry
 from .mission_end import MissionEnd
 from .activity import Activity
 from .activity_version import ActivityVersion
 from .expenditure import Expenditure
 from .employment import Employment
-from .vehicle import Vehicle
 from .mission_validation import MissionValidation
 from .refresh_token import RefreshToken
 from .comment import Comment

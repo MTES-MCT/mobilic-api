@@ -52,6 +52,16 @@ class MissionInput:
         required=False,
         description="Informations de contexte de la mission, sous la forme d'un dictionnaire de données libre",
     )
+    vehicle_id = graphene.Argument(
+        graphene.Int,
+        required=False,
+        description="Identifiant du véhicule utilisé",
+    )
+    vehicle_registration_number = graphene.Argument(
+        graphene.String,
+        required=False,
+        description="Numéro d'immatriculation du véhicule utilisé, s'il n'est pas déjà enregistré. Un nouveau véhicule sera ajouté.",
+    )
 
 
 class CreateMission(graphene.Mutation):
@@ -90,29 +100,34 @@ class CreateMission(graphene.Mutation):
                 raise AuthorizationError("Actor has no primary company")
 
             context = mission_input.get("context")
+            received_vehicle_id = mission_input.get("vehicle_id")
+            received_vehicle_registration_number = mission_input.get(
+                "vehicle_registration_number"
+            )
 
-            if (
-                context
-                and context.get("vehicleRegistrationNumber")
-                and not context.get("vehicleId")
-            ):
-                registration_number = context.get("vehicleRegistrationNumber")
-                vehicle = Vehicle.query.filter(
-                    Vehicle.registration_number == registration_number,
-                    Vehicle.company_id == company.id,
-                ).one_or_none()
+            vehicle = None
+            if received_vehicle_id or received_vehicle_registration_number:
+                if not received_vehicle_id:
+                    vehicle = Vehicle.query.filter(
+                        Vehicle.registration_number
+                        == received_vehicle_registration_number,
+                        Vehicle.company_id == company.id,
+                    ).one_or_none()
 
-                if not vehicle:
-                    vehicle = Vehicle(
-                        registration_number=registration_number,
-                        submitter=current_user,
-                        company=company,
-                    )
-                    db.session.add(vehicle)
-                    db.session.flush()  # To get a DB id for the new vehicle
+                    if not vehicle:
+                        vehicle = Vehicle(
+                            registration_number=received_vehicle_registration_number,
+                            submitter=current_user,
+                            company=company,
+                        )
+                        db.session.add(vehicle)
+                        db.session.flush()  # To get a DB id for the new vehicle
 
-                context.pop("vehicleRegistrationNumber")
-                context["vehicleId"] = vehicle.id
+                else:
+                    vehicle = Vehicle.query.filter(
+                        Vehicle.id == received_vehicle_id,
+                        Vehicle.company_id == company.id,
+                    ).one_or_none()
 
             mission = Mission(
                 name=mission_input.get("name"),
@@ -120,6 +135,7 @@ class CreateMission(graphene.Mutation):
                 reception_time=datetime.now(),
                 context=context,
                 submitter=current_user,
+                vehicle=vehicle,
             )
             db.session.add(mission)
 
