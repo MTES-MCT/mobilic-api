@@ -19,8 +19,12 @@ from app.models.company_known_address import (
     CompanyKnownAddressOutput,
     CompanyKnownAddress,
 )
-from app.models.address import Address, BaseAddressOutput
-from app.models.location_entry import LocationEntryType, LocationEntry
+from app.models.address import Address
+from app.models.location_entry import (
+    LocationEntryType,
+    LocationEntry,
+    LocationEntryOutput,
+)
 from app.models import Mission
 
 
@@ -147,8 +151,13 @@ class LogMissionLocation(graphene.Mutation):
             required=True,
             description="Type d'enregistrement (début ou fin de mission)",
         )
+        kilometer_reading = graphene.Argument(
+            graphene.Int,
+            required=False,
+            description="Valeur du compteur kilométrique du véhicule.",
+        )
 
-    Output = BaseAddressOutput
+    Output = LocationEntryOutput
 
     @classmethod
     @with_authorization_policy(
@@ -166,6 +175,7 @@ class LogMissionLocation(graphene.Mutation):
         company_known_address_id=None,
         geo_api_data=None,
         manual_address=None,
+        kilometer_reading=None,
     ):
         with atomic_transaction(commit_at_end=True):
             if (
@@ -212,17 +222,60 @@ class LogMissionLocation(graphene.Mutation):
                     else address == existing_location_entry.address
                 )
                 if are_addresses_equal:
-                    return existing_location_entry.address
+                    if kilometer_reading:
+                        existing_location_entry.kilometer_reading = (
+                            kilometer_reading
+                        )
+                        existing_location_entry.kilometer_reading_received_at = (
+                            datetime.now()
+                        )
+                    return existing_location_entry
                 raise MissionLocationAlreadySetError()
+
+            now = datetime.now()
 
             location_entry = LocationEntry(
                 _address=address,
                 mission=mission,
-                reception_time=datetime.now(),
+                reception_time=now,
                 submitter=current_user,
                 _company_known_address=company_known_address,
                 type=type,
+                kilometer_reading=kilometer_reading,
+                kilometer_reading_received_at=now,
             )
             db.session.add(location_entry)
 
-        return location_entry.address
+        return location_entry
+
+
+class RegisterKilometerAtLocation(graphene.Mutation):
+    class Arguments:
+        mission_location_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du relevé géographique",
+        )
+        kilometer_reading = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Relevé kilométrique du véhicule",
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        can_actor_log_on_mission_at,
+        get_target_from_args=lambda *args, **kwargs: LocationEntry.query.get(
+            kwargs["mission_location_id"]
+        ).mission,
+        error_message="Actor is not authorized to perform this operation",
+    )
+    def mutate(cls, _, info, mission_location_id, kilometer_reading):
+        with atomic_transaction(commit_at_end=True):
+            mission_location = LocationEntry.query.get(mission_location_id)
+            mission_location.kilometer_reading = kilometer_reading
+            mission_location.kilometer_reading_received_at = datetime.now()
+
+        return Void(success=True)

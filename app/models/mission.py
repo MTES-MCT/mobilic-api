@@ -97,9 +97,7 @@ class Mission(EventBaseModel):
             for l in self.location_entries
             if l.type == LocationEntryType.MISSION_START_LOCATION
         ]
-        return (
-            start_location_entry[0].address if start_location_entry else None
-        )
+        return start_location_entry[0] if start_location_entry else None
 
     @property
     def end_location(self):
@@ -110,4 +108,4 @@ class Mission(EventBaseModel):
             for l in self.location_entries
             if l.type == LocationEntryType.MISSION_END_LOCATION
         ]
-        return end_location_entry[0].address if end_location_entry else None
+        return end_location_entry[0] if end_location_entry else None

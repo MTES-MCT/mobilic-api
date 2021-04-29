@@ -22,6 +22,7 @@ from app.controllers.location_entry import (
     EditCompanyKnownAddress,
     TerminateCompanyKnownAddress,
     LogMissionLocation,
+    RegisterKilometerAtLocation,
 )
 from app.controllers.mission import (
     CreateMission,
@@ -72,6 +73,7 @@ class Activities(graphene.ObjectType):
     edit_activity = EditActivity.Field()
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
+    register_kilometer_at_location = RegisterKilometerAtLocation.Field()
 
 
 class SignUp(graphene.ObjectType):

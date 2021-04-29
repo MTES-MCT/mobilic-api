@@ -81,7 +81,10 @@ class BaseAddressOutput(graphene.Interface):
     @classmethod
     def resolve_type(cls, instance, info):
         from app.models.company_known_address import CompanyKnownAddressOutput
+        from app.models.location_entry import LocationEntry
 
+        if hasattr(instance, "kilometer_reading"):
+            return LocationEntry
         if hasattr(instance, "type"):
             return AddressOutput
         return CompanyKnownAddressOutput

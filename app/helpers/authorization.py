@@ -58,7 +58,10 @@ def with_authorization_policy(
             ):
                 raise AuthorizationError(error_message)
             elif rule_requires_target and get_target_from_args:
-                target = get_target_from_args(*args, **kwargs)
+                try:
+                    target = get_target_from_args(*args, **kwargs)
+                except:
+                    raise AuthorizationError(error_message)
                 if not authorization_rule(current_user, target):
                     raise AuthorizationError(error_message)
 

@@ -60,7 +60,7 @@ def only_self(actor, user_obj_or_id):
 
 
 def can_actor_log_on_mission_at(actor, mission, date=None):
-    if not mission:
+    if not mission or not authenticated_and_active(actor):
         return False
     return belongs_to_company_at(
         actor, mission.company_id, date, include_pending_invite=False
