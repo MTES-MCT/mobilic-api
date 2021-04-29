@@ -2,6 +2,9 @@ from sqlalchemy.orm import backref
 from enum import Enum
 
 from app import db
+from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType
+from app.models.address import BaseAddressOutput
 from app.models.event import EventBaseModel
 from app.models.utils import enum_column
 
@@ -34,6 +37,12 @@ class LocationEntry(EventBaseModel):
     )
     _company_known_address = db.relationship("CompanyKnownAddress")
 
+    kilometer_reading = db.Column(db.Integer, nullable=True)
+
+    kilometer_reading_received_at = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
+
     type = enum_column(LocationEntryType, nullable=False)
 
     __table_args__ = (
@@ -46,4 +55,27 @@ class LocationEntry(EventBaseModel):
 
     @property
     def address(self):
-        return self._company_known_address or self._address
+        return (
+            self._company_known_address.address
+            if self._company_known_address
+            else self._address
+        )
+
+
+class LocationEntryOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = LocationEntry
+        interfaces = (BaseAddressOutput,)
+        only_fields = ("kilometer_reading", "id")
+
+    def resolve_alias(self, info):
+        return None
+
+    def resolve_name(self, info):
+        return self.address.name
+
+    def resolve_postal_code(self, info):
+        return self.address.postal_code
+
+    def resolve_city(self, info):
+        return self.address.city

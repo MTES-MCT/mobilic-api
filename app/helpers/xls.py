@@ -225,7 +225,7 @@ columns_in_main_sheet = [
     ),
     (
         "Lieu de début de service",
-        lambda wday: wday.start_location.format()
+        lambda wday: wday.start_location.address.format()
         if wday.start_location
         else "",
         None,
@@ -234,7 +234,9 @@ columns_in_main_sheet = [
     ),
     (
         "Lieu de fin de service",
-        lambda wday: wday.end_location.format() if wday.end_location else "",
+        lambda wday: wday.end_location.address.format()
+        if wday.end_location
+        else "",
         None,
         30,
         light_blue_hex,

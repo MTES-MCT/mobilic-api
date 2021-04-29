@@ -7,7 +7,7 @@ from app.models.activity import ActivityOutput
 from app.models.address import BaseAddressOutput
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
-from app.models.location_entry import LocationEntryType
+from app.models.location_entry import LocationEntryType, LocationEntryOutput
 from app.models.mission_validation import MissionValidationOutput
 
 
@@ -63,10 +63,10 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         CommentOutput, description="Liste des commentaires de la mission"
     )
     start_location = graphene.Field(
-        BaseAddressOutput, description="Lieu de début de la mission"
+        LocationEntryOutput, description="Lieu de début de la mission"
     )
     end_location = graphene.Field(
-        BaseAddressOutput, description="Lieu de fin de la mission"
+        LocationEntryOutput, description="Lieu de fin de la mission"
     )
 
     def resolve_activities(self, info):
