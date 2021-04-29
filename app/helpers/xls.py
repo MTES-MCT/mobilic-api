@@ -233,8 +233,26 @@ columns_in_main_sheet = [
         light_blue_hex,
     ),
     (
+        "Relevé km de début de service",
+        lambda wday: wday.start_location.kilometer_reading
+        if wday.start_location
+        else "",
+        None,
+        30,
+        light_blue_hex,
+    ),
+    (
         "Lieu de fin de service",
         lambda wday: wday.end_location.address.format()
+        if wday.end_location
+        else "",
+        None,
+        30,
+        light_blue_hex,
+    ),
+    (
+        "Relevé km de fin de service",
+        lambda wday: wday.end_location.kilometer_reading
         if wday.end_location
         else "",
         None,
