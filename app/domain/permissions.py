@@ -73,7 +73,9 @@ def can_actor_log_on_mission_for_user_at(actor, user, mission, date=None):
     ) and can_actor_log_on_mission_at(user, mission, date)
     if not base_permission:
         return False
-    if actor == user or mission.company.allow_team_mode:
+    if actor == user:
+        return True
+    if mission.company.allow_team_mode and actor.id == mission.submitter_id:
         return True
     return company_admin_at(actor, mission.company_id, date)
 

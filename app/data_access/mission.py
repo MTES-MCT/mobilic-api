@@ -4,7 +4,7 @@ from graphene.types.generic import GenericScalar
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission
 from app.models.activity import ActivityOutput
-from app.models.address import BaseAddressOutput
+from app.helpers.authentication import current_user
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
 from app.models.location_entry import LocationEntryType, LocationEntryOutput
@@ -68,6 +68,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     end_location = graphene.Field(
         LocationEntryOutput, description="Lieu de fin de la mission"
     )
+    is_ended_for_self = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info):
         return self.acknowledged_activities
@@ -86,3 +87,6 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_end_location(self, info):
         return self.end_location
+
+    def resolve_is_ended_for_self(self, info):
+        return len([e for e in self.ends if e.user_id == current_user.id]) > 0
