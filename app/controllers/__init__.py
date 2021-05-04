@@ -29,7 +29,6 @@ from app.controllers.mission import (
     EndMission,
     ValidateMission,
     Query as MissionQuery,
-    PrivateQuery as PrivateMissionQuery,
     UpdateMissionVehicle,
 )
 from app.controllers.user import (
@@ -162,11 +161,7 @@ class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
 
 
 class PrivateQueries(
-    company.NonPublicQuery,
-    GetInvitation,
-    PrivateMissionQuery,
-    UserReadQuery,
-    graphene.ObjectType,
+    company.NonPublicQuery, GetInvitation, UserReadQuery, graphene.ObjectType,
 ):
     pass
 

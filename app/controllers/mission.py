@@ -449,25 +449,3 @@ class Query(graphene.ObjectType):
         mission = Mission.query.get(id)
         app.logger.info(f"Sending mission data for {mission}")
         return mission
-
-
-class PrivateQuery(graphene.ObjectType):
-    is_mission_ended_for_self = graphene.Field(
-        graphene.Boolean, mission_id=graphene.Int(required=True)
-    )
-
-    @with_authorization_policy(
-        can_actor_access_mission_at,
-        get_target_from_args=lambda self, info, mission_id: Mission.query.get(
-            mission_id
-        ),
-        error_message="Forbidden access",
-    )
-    def resolve_is_mission_ended_for_self(self, info, mission_id):
-        return (
-            MissionEnd.query.filter(
-                MissionEnd.user_id == current_user.id,
-                MissionEnd.mission_id == mission_id,
-            ).count()
-            > 0
-        )
