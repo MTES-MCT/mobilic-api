@@ -223,11 +223,8 @@ class LogMissionLocation(graphene.Mutation):
                 )
                 if are_addresses_equal:
                     if kilometer_reading:
-                        existing_location_entry.kilometer_reading = (
+                        existing_location_entry.register_kilometer_reading(
                             kilometer_reading
-                        )
-                        existing_location_entry.kilometer_reading_received_at = (
-                            datetime.now()
                         )
                     return existing_location_entry
                 raise MissionLocationAlreadySetError()
@@ -241,9 +238,8 @@ class LogMissionLocation(graphene.Mutation):
                 submitter=current_user,
                 _company_known_address=company_known_address,
                 type=type,
-                kilometer_reading=kilometer_reading,
-                kilometer_reading_received_at=now,
             )
+            location_entry.register_kilometer_reading(kilometer_reading, now)
             db.session.add(location_entry)
 
         return location_entry
@@ -275,7 +271,6 @@ class RegisterKilometerAtLocation(graphene.Mutation):
     def mutate(cls, _, info, mission_location_id, kilometer_reading):
         with atomic_transaction(commit_at_end=True):
             mission_location = LocationEntry.query.get(mission_location_id)
-            mission_location.kilometer_reading = kilometer_reading
-            mission_location.kilometer_reading_received_at = datetime.now()
+            mission_location.register_kilometer_reading(kilometer_reading)
 
         return Void(success=True)

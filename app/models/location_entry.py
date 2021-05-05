@@ -1,8 +1,10 @@
 from sqlalchemy.orm import backref
 from enum import Enum
+from datetime import datetime
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.errors import InvalidParamsError
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.address import BaseAddressOutput
 from app.models.event import EventBaseModel
@@ -60,6 +62,35 @@ class LocationEntry(EventBaseModel):
             if self._company_known_address
             else self._address
         )
+
+    def register_kilometer_reading(self, km, reception_time=None):
+        if not km:
+            return
+        time = reception_time or datetime.now()
+        is_location_at_mission_end = True
+        if self.type == LocationEntryType.MISSION_START_LOCATION:
+            other_location = self.mission.end_location
+            is_location_at_mission_end = False
+        else:
+            other_location = self.mission.start_location
+        if other_location and other_location.kilometer_reading:
+            start_kilometer_reading = (
+                other_location.kilometer_reading
+                if is_location_at_mission_end
+                else km
+            )
+            end_kilometer_reading = (
+                km
+                if is_location_at_mission_end
+                else other_location.kilometer_reading
+            )
+            if not start_kilometer_reading <= end_kilometer_reading:
+                raise InvalidParamsError(
+                    "Kilometer reading at end of mission should be higher than kilometer reading at start"
+                )
+
+        self.kilometer_reading = km
+        self.kilometer_reading_received_at = time
 
 
 class LocationEntryOutput(BaseSQLAlchemyObjectType):
