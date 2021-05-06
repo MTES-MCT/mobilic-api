@@ -68,7 +68,7 @@ date_formats = dict(
     time_format={"num_format": "h:mm"},
     duration_format={"num_format": "[h]:mm"},
 )
-formats = dict(bold={"bold": True}, **date_formats)
+formats = dict(bold={"bold": True}, wrap={"text_wrap": True}, **date_formats)
 
 
 def format_activity_version_description(version, previous_version, is_delete):
@@ -93,11 +93,21 @@ def format_activity_version_description(version, previous_version, is_delete):
         return f"Correction de la période d'activité de {to_fr_tz(previous_version.start_time).strftime('%H:%M')} - {to_fr_tz(previous_version.end_time).strftime('%H:%M') if previous_version.end_time else ''} à {to_fr_tz(version.start_time).strftime('%H:%M')} - {to_fr_tz(version.end_time).strftime('%H:%M') if version.end_time else ''}"
 
 
+def format_kilometer_reading(location, wday):
+    if (
+        not wday.one_and_only_one_vehicle_used
+        or not location
+        or not location.kilometer_reading
+    ):
+        return ""
+    return location.kilometer_reading
+
+
 columns_in_main_sheet = [
     (
         "Employé",
         lambda wday: wday.user.display_name,
-        None,
+        "wrap",
         30,
         light_yellow_hex,
     ),
@@ -105,7 +115,7 @@ columns_in_main_sheet = [
     (
         "Mission(s)",
         lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
-        None,
+        "wrap",
         30,
         light_blue_hex,
     ),
@@ -120,7 +130,7 @@ columns_in_main_sheet = [
                 ]
             )
         ),
-        None,
+        "wrap",
         30,
         light_blue_hex,
     ),
@@ -142,14 +152,14 @@ columns_in_main_sheet = [
         "Amplitude",
         lambda wday: timedelta(seconds=wday.service_duration),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
         "Total travail",
         lambda wday: timedelta(seconds=wday.total_work_duration),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
@@ -158,7 +168,7 @@ columns_in_main_sheet = [
             seconds=wday.activity_durations[ActivityType.DRIVE]
         ),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
@@ -167,7 +177,7 @@ columns_in_main_sheet = [
             seconds=wday.activity_durations[ActivityType.SUPPORT]
         ),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
@@ -176,7 +186,7 @@ columns_in_main_sheet = [
             seconds=wday.activity_durations[ActivityType.WORK]
         ),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
@@ -185,41 +195,41 @@ columns_in_main_sheet = [
             seconds=wday.service_duration - wday.total_work_duration
         ),
         "duration_format",
-        10,
+        13,
         light_green_hex,
     ),
     (
         "Repas jour",
         lambda wday: wday.expenditures.get("day_meal", 0),
         None,
-        10,
+        13,
         light_orange_hex,
     ),
     (
         "Repas nuit",
         lambda wday: wday.expenditures.get("night_meal", 0),
         None,
-        10,
+        13,
         light_orange_hex,
     ),
     (
         "Découchage",
         lambda wday: wday.expenditures.get("sleep_over", 0),
         None,
-        10,
+        13,
         light_orange_hex,
     ),
     (
         "Casse-croûte",
         lambda wday: wday.expenditures.get("snack", 0),
         None,
-        10,
+        13,
         light_orange_hex,
     ),
     (
         "Observations",
         lambda wday: "\n".join([" - " + c.text for c in wday.comments]),
-        None,
+        "wrap",
         50,
         light_red_hex,
     ),
@@ -228,15 +238,13 @@ columns_in_main_sheet = [
         lambda wday: wday.start_location.address.format()
         if wday.start_location
         else "",
-        None,
+        "wrap",
         30,
         light_blue_hex,
     ),
     (
-        "Relevé km de début de service",
-        lambda wday: wday.start_location.kilometer_reading
-        if wday.start_location
-        else "",
+        "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
+        lambda wday: format_kilometer_reading(wday.start_location, wday),
         None,
         30,
         light_blue_hex,
@@ -246,15 +254,13 @@ columns_in_main_sheet = [
         lambda wday: wday.end_location.address.format()
         if wday.end_location
         else "",
-        None,
+        "wrap",
         30,
         light_blue_hex,
     ),
     (
-        "Relevé km de fin de service",
-        lambda wday: wday.end_location.kilometer_reading
-        if wday.end_location
-        else "",
+        "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
+        lambda wday: format_kilometer_reading(wday.end_location, wday),
         None,
         30,
         light_blue_hex,
@@ -262,8 +268,8 @@ columns_in_main_sheet = [
     (
         "Entreprise(s)",
         lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
-        None,
-        30,
+        "wrap",
+        50,
         light_blue_hex,
     ),
 ]
@@ -336,7 +342,7 @@ activity_version_columns_in_details_sheet = [
             (av_or_a.context if not is_delete else av_or_a.dismiss_context)
             or {}
         ).get("comment"),
-        None,
+        "wrap",
         60,
         light_red_hex,
     ),
@@ -371,6 +377,7 @@ def write_work_days_sheet(wb, wdays_by_user):
                     "right": right_border,
                     "align": "center",
                     "valign": "center",
+                    "text_wrap": True,
                 }
             ),
         )
