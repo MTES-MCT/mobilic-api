@@ -186,6 +186,11 @@ class WorkDay:
         return [m.name for m in self.missions]
 
     @cached_property
+    def one_and_only_one_vehicle_used(self):
+        all_vehicles = set([m.vehicle for m in self.missions])
+        return len(all_vehicles) == 1 and all_vehicles.pop() is not None
+
+    @cached_property
     def start_location(self):
         self._sort_activities()
         if not self.activities:
