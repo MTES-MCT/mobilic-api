@@ -38,7 +38,10 @@ class Mailer:
         self.app_config = config
 
     @staticmethod
-    def _handle_mailjet_response(response, recipient):
+    def _retrieve_mailjet_id_or_handle_error(response, recipient):
+        if response.status_code == 200:
+            return response.json()["Messages"][0]["To"][0]["MessageID"]
+
         if not response.status_code == 200:
             try:
                 response_payload = response.json()["Messages"][0]
@@ -77,22 +80,19 @@ class Mailer:
 
         actual_recipient = user.email if user else recipient
 
-        custom_id = f"{env}-{str(uuid4())}"
-        message = {
-            **message,
-            "To": [{"Email": actual_recipient}],
-            "CustomId": custom_id,
-        }
+        message = {**message, "To": [{"Email": actual_recipient}]}
         if add_sender:
             message["From"] = {"Email": SENDER_ADDRESS, "Name": SENDER_NAME}
         if subject:
             message["Subject"] = subject
 
         response = self.mailjet.send.create(data={"Messages": [message]})
-        self._handle_mailjet_response(response, actual_recipient)
+        mailjet_id = self._retrieve_mailjet_id_or_handle_error(
+            response, actual_recipient
+        )
         db.session.add(
             Email(
-                mailjet_id=custom_id,
+                mailjet_id=mailjet_id,
                 address=actual_recipient,
                 user=user,
                 type=type_,
