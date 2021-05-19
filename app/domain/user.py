@@ -50,7 +50,12 @@ def create_user(
 
     g.user = user
     app.logger.info(
-        message, extra={"post_to_slack": True, "emoji": ":tada:"},
+        message,
+        extra={
+            "post_to_mattermost": True,
+            "log_title": "New user signup",
+            "emoji": ":tada:",
+        },
     )
 
     return user

@@ -12,7 +12,7 @@ class Config:
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=1)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_AUTH_FOR_TESTING = False
-    SLACK_TOKEN = os.environ.get("SLACK_TOKEN")
+    MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SENTRY_URL = os.environ.get("SENTRY_URL")
@@ -26,11 +26,11 @@ class Config:
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
-    SLACK_PRIMARY_LOG_CHANNEL = os.environ.get(
-        "SLACK_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
+    MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
+        "MATTERMOST_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
     )
-    SLACK_SECONDARY_LOG_CHANNEL = os.environ.get(
-        "SLACK_SECONDARY_LOG_CHANNEL", "#mobilic-secondary-alerts"
+    MATTERMOST_SECONDARY_LOG_CHANNEL = os.environ.get(
+        "MATTERMOST_SECONDARY_LOG_CHANNEL", "#mobilic-secondary-alerts"
     )
     JWT_TOKEN_LOCATION = ["headers", "cookies"]
     JWT_COOKIE_CSRF_PROTECT = False

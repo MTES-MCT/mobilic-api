@@ -117,7 +117,11 @@ class CompanySignUp(graphene.Mutation):
 
         app.logger.info(
             f"Signed up new company {company}",
-            extra={"post_to_slack": True, "emoji": ":tada:"},
+            extra={
+                "post_to_mattermost": True,
+                "log_title": "New company signup",
+                "emoji": ":tada:",
+            },
         )
 
         try:

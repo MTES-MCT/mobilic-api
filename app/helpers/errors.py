@@ -327,7 +327,11 @@ def handle_database_error(db_error):
                 caught_error = error_generator(db_error.orig)
 
     app.logger.exception(
-        db_error, extra={"post_to_slack": caught_error is None}
+        db_error,
+        extra={
+            "post_to_mattermost": caught_error is None,
+            "log_title": "Unidentified DB Error",
+        },
     )
     if caught_error:
         raise caught_error
