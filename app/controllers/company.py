@@ -305,6 +305,7 @@ def download_activity_report():
             ConsultationScope(company_ids=company_ids),
             from_date=min_date,
             until_date=max_date,
+            include_dismissed_or_empty_days=True,
         )
 
     return send_work_days_as_excel(all_users_work_days)

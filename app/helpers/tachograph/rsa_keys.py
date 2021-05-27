@@ -89,6 +89,7 @@ class C1BSigningKey(BaseModel, RSAKey):
         )
         if not current_ms_key:
             return cls.generate_new_key(SigningKeyOwnerType.MEMBER_STATE)
+        return current_ms_key
 
     @classmethod
     def get_or_create_current_card_key(cls):
@@ -100,6 +101,7 @@ class C1BSigningKey(BaseModel, RSAKey):
         )
         if not current_card_key:
             return cls.generate_new_key(SigningKeyOwnerType.CARD)
+        return current_card_key
 
     @cached_property
     def modulus(self):

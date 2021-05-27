@@ -180,7 +180,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                     for work_day in group_user_missions_by_day(
                         user, missions, from_date, until_date
                     )
-                    if work_day.activities
                 ],
                 key=lambda wd: wd.day,
             )

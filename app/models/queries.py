@@ -6,7 +6,6 @@ from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
 
 from app import db
-from app.helpers.time import FR_TIMEZONE
 from app.models import (
     User,
     Activity,
@@ -210,7 +209,11 @@ def query_work_day_stats(
                 "1 day",
             ).label("day"),
         )
-        .filter(Mission.company_id == company_id, ~Activity.is_dismissed)
+        .filter(
+            Mission.company_id == company_id,
+            ~Activity.is_dismissed,
+            Activity.start_time != Activity.end_time,
+        )
     )
 
     query = _apply_time_range_filters(query, start_time, end_time).subquery()

@@ -60,19 +60,27 @@ class WorkDay:
     def add_mission(self, mission):
         self._are_activities_sorted = False
         self.missions.append(mission)
+        activities = mission.activities_for(
+            self.user, include_dismissed_activities=True
+        )
         self.activities.extend(
             [
                 a
-                for a in mission.activities_for(self.user)
-                if a.start_time <= self._end_of_day
-                and (not a.end_time or a.end_time >= self._start_of_day)
+                for a in activities
+                if not a.is_dismissed
+                and a.start_time < self.end_of_day
+                and (not a.end_time or a.end_time > self.start_of_day)
+                and a.start_time != a.end_time
             ]
         )
         self.companies.add(mission.company)
         self._all_activities.extend(
-            mission.activities_for(
-                self.user, include_dismissed_activities=True
-            )
+            [
+                a
+                for a in activities
+                if a.start_time <= self.end_of_day
+                and (not a.end_time or a.end_time >= self.start_of_day)
+            ]
         )
         self.comments.extend(mission.acknowledged_comments)
 
@@ -99,7 +107,7 @@ class WorkDay:
         return self._is_complete
 
     @cached_property
-    def _start_of_day(self):
+    def start_of_day(self):
         return (
             datetime(
                 self.day.year, self.day.month, self.day.day, tzinfo=self.tz
@@ -109,13 +117,13 @@ class WorkDay:
         )
 
     @cached_property
-    def _end_of_day(self):
-        return self._start_of_day + timedelta(days=1)
+    def end_of_day(self):
+        return self.start_of_day + timedelta(days=1)
 
     @property
     def start_time(self):
         self._sort_activities()
-        start_of_day = self._start_of_day
+        start_of_day = self.start_of_day
         if self.activities:
             return max(self.activities[0].start_time, start_of_day)
         return None
@@ -123,7 +131,7 @@ class WorkDay:
     @property
     def end_time(self):
         self._sort_activities()
-        end_of_day = self._end_of_day
+        end_of_day = self.end_of_day
         if self.activities:
             acts_end_time = self.activities[-1].end_time
             if acts_end_time:
@@ -159,7 +167,7 @@ class WorkDay:
     def _activity_timers(self):
         self._sort_activities()
         return compute_aggregate_durations(
-            self.activities, self._start_of_day, self._end_of_day
+            self.activities, self.start_of_day, self.end_of_day
         )[2]
 
     @property
@@ -191,28 +199,42 @@ class WorkDay:
         return len(all_vehicles) == 1 and all_vehicles.pop() is not None
 
     @cached_property
-    def start_location(self):
+    def is_first_mission_overlapping_with_previous_day(self):
         self._sort_activities()
         if not self.activities:
-            return None
+            return False
         first_mission = self.activities[0].mission
         first_mission_start = first_mission.activities_for(self.user)[
             0
         ].start_time
-        if first_mission_start < self._start_of_day:
+        return first_mission_start < self.start_of_day
+
+    @cached_property
+    def is_last_mission_overlapping_with_next_day(self):
+        self._sort_activities()
+        if not self.activities:
+            return False
+        last_mission = self.activities[-1].mission
+        last_mission_end = last_mission.activities_for(self.user)[-1].end_time
+        return not last_mission_end or last_mission_end > self.end_of_day
+
+    @cached_property
+    def start_location(self):
+        if (
+            not self.activities
+            or self.is_first_mission_overlapping_with_previous_day
+        ):
             return None
-        return first_mission.start_location
+        return self.activities[0].mission.start_location
 
     @cached_property
     def end_location(self):
-        self._sort_activities()
-        if not self.activities:
+        if (
+            not self.activities
+            or self.is_last_mission_overlapping_with_next_day
+        ):
             return None
-        last_mission = self.activities[-1].mission
-        last_mission_end = last_mission.activities_for(self.user)[-1].end_time
-        if not last_mission_end or last_mission_end > self._end_of_day:
-            return None
-        return last_mission.end_location
+        return self.activities[-1].mission.end_location
 
 
 class WorkDayStatsOnly:
@@ -261,7 +283,12 @@ class WorkDayStatsOnly:
 
 
 def group_user_events_by_day(
-    user, consultation_scope, from_date=None, until_date=None, tz=FR_TIMEZONE
+    user,
+    consultation_scope=None,
+    from_date=None,
+    until_date=None,
+    tz=FR_TIMEZONE,
+    include_dismissed_or_empty_days=False,
 ):
     missions = user.query_missions(
         include_dismissed_activities=True,
@@ -270,7 +297,7 @@ def group_user_events_by_day(
         end_time=until_date,
     )
 
-    if consultation_scope.company_ids:
+    if consultation_scope and consultation_scope.company_ids:
         missions = [
             m
             for m in missions
@@ -278,12 +305,22 @@ def group_user_events_by_day(
         ]
 
     return group_user_missions_by_day(
-        user, missions, from_date=from_date, until_date=until_date, tz=tz
+        user,
+        missions,
+        from_date=from_date,
+        until_date=until_date,
+        tz=tz,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
     )
 
 
 def group_user_missions_by_day(
-    user, missions, from_date=None, until_date=None, tz=FR_TIMEZONE
+    user,
+    missions,
+    from_date=None,
+    until_date=None,
+    tz=FR_TIMEZONE,
+    include_dismissed_or_empty_days=False,
 ):
     work_days = []
     current_work_day = None
@@ -317,7 +354,9 @@ def group_user_missions_by_day(
                 not current_work_day
                 or current_work_day.day != mission_running_day
             ):
-                current_work_day = WorkDay(user=user, day=mission_running_day)
+                current_work_day = WorkDay(
+                    user=user, day=mission_running_day, tz=tz
+                )
                 work_days.append(current_work_day)
             current_work_day.add_mission(mission)
             mission_running_day += timedelta(days=1)
@@ -326,4 +365,6 @@ def group_user_missions_by_day(
         work_days = [w for w in work_days if w.day >= from_date]
     if until_date:
         work_days = [w for w in work_days if w.day <= until_date]
+    if not include_dismissed_or_empty_days:
+        work_days = [w for w in work_days if w.activities]
     return work_days

@@ -1,9 +1,10 @@
 from io import BytesIO
-from typing import NamedTuple, Optional, List
+from typing import NamedTuple, Optional
 from datetime import datetime, timezone, date, timedelta
 import os
 
-from app.models.activity import Activity, ActivityType
+from app.domain.work_days import WorkDay, group_user_events_by_day
+from app.models.activity import ActivityType
 from app.helpers.tachograph.signature import (
     verify_signature,
     verify_signatures,
@@ -16,13 +17,8 @@ from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
 # Summary : https://docs.google.com/document/d/16q6slqW2SIcpaBjhziVVO_Jb_bcZtLWWbX6ne_SFNrE/edit
 
 
-class CalendarWorkDay:
-    date: date
-    activities: List[Activity]
-
-    def __init__(self, date):
-        self.date = date
-        self.activities = []
+MAX_VEHICLE_RECORDS = 200
+ACTIVITY_BYTES = 13776
 
 
 class FileSpec(NamedTuple):
@@ -79,7 +75,10 @@ class FileSpecs:
     APPLICATION_IDENTIFICATION = FileSpec(
         b"\x05\x01",
         10,
-        default_content=b"\x01\x00\x4D\x0c\x18\x35\xd0\x00\xc8\x70",
+        default_content=b"\x01\x00\x4D\x0c\x18"
+        + ACTIVITY_BYTES.to_bytes(2, "big")
+        + MAX_VEHICLE_RECORDS.to_bytes(2, "big")
+        + b"\x70",
         signable=True,
     )
 
@@ -137,7 +136,7 @@ class FileSpecs:
     # These are the main data : records of activity changes for the card holder
     # cf dedicated content generation function for more info about structure
     DRIVER_ACTIVITY_DATA = FileSpec(
-        b"\x05\x04", 13780, right_fill_with=b"\x00", signable=True
+        b"\x05\x04", 4 + ACTIVITY_BYTES, right_fill_with=b"\x00", signable=True
     )
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
@@ -146,7 +145,7 @@ class FileSpecs:
     # If the whole space (6202) is not filled by vehicle usage records we add empty records (of length 31)
     VEHICLES_USED = FileSpec(
         b"\x05\x05",
-        6202,
+        2 + 31 * MAX_VEHICLE_RECORDS,
         right_fill_with=bytes(16) + bytes([32] * 13) + bytes(2),
         default_content=bytes(2),
         signable=True,
@@ -216,6 +215,9 @@ class File:
     def sign(self, sk):
         self.adjust_content()
         sign_file(self, sk)
+
+    def __repr__(self):
+        return f"<Tachograph File ({repr(self.spec)}) at {id(self)}>"
 
     # Explained here : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=378
     def verify_signature(self, pk):
@@ -355,46 +357,16 @@ def build_identification_file(user):
     return File(spec=FileSpecs.IDENTIFICATION, content=content)
 
 
-def compute_calendar_work_days(activities):
-    work_days = []
-    for a in activities:
-        current_work_day = work_days[-1] if work_days else None
-        activity_date = a.start_time.astimezone(timezone.utc).date()
-        if not current_work_day or current_work_day.date != activity_date:
-            current_work_day = CalendarWorkDay(date=activity_date)
-            work_days.append(current_work_day)
-        current_work_day.activities.append(a)
-
-        activity_end_date = a.end_time.astimezone(timezone.utc).date()
-        date_on_which_activity_is_running = activity_date + timedelta(days=1)
-        while date_on_which_activity_is_running <= activity_end_date:
-            new_work_day = CalendarWorkDay(
-                date=date_on_which_activity_is_running
-            )
-            work_days.append(new_work_day)
-            new_work_day.activities.append(a)
-            date_on_which_activity_is_running += timedelta(days=1)
-
-    return work_days
-
-
 class ActivityChange(NamedTuple):
     type: Optional[ActivityType]
     minutes: int
 
 
 def build_activity_file(
-    activities, first_activity_day, start_date=None, end_date=None
+    work_days, user, first_activity_day, start_date=None, end_date=None
 ):
-    activities = sorted(
-        activities,
-        key=lambda a: (a.start_time, a.end_time is None, a.end_time),
-    )
-    # List of activities per calendar days
-    work_days = compute_calendar_work_days(activities)
-
     # First, since the space is limited on the archive, we may need to restrict the number of work days
-    remaining_space = 13776
+    remaining_space = ACTIVITY_BYTES
     work_days_current_index = len(work_days) - 1
     work_days_with_fills = []
     current_date = end_date or date.today()
@@ -408,12 +380,12 @@ def build_activity_file(
             if work_days_current_index >= 0
             else None
         )
-        if work_day and work_day.date == current_date:
+        if work_day and work_day.day == current_date:
             # See https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=101
             # this is a conservative estimate
             activity_change_times = set(
                 [a.start_time for a in work_day.activities]
-            ) | set([a.end_time for a in work_day.activities])
+            ) | set([a.end_time for a in work_day.activities if a.end_time])
             maximum_activity_changes = len(activity_change_times)
             maximum_required_space = 14 + 2 * maximum_activity_changes
             remaining_space -= maximum_required_space
@@ -422,10 +394,12 @@ def build_activity_file(
                 work_days_current_index -= 1
                 current_date -= timedelta(days=1)
 
-        elif (work_day and work_day.date < current_date) or not work_day:
+        elif (work_day and work_day.day < current_date) or not work_day:
             remaining_space -= 14
             if remaining_space >= 0:
-                work_days_with_fills.append(CalendarWorkDay(date=current_date))
+                work_days_with_fills.append(
+                    WorkDay(user=user, day=current_date)
+                )
                 current_date -= timedelta(days=1)
 
         else:
@@ -448,7 +422,7 @@ def build_activity_file(
         first_activity = wd.activities[0] if wd.activities else None
         activity_status_at_midnight = None
         midnight = datetime(
-            wd.date.year, wd.date.month, wd.date.day, tzinfo=timezone.utc
+            wd.day.year, wd.day.month, wd.day.day, tzinfo=timezone.utc
         )
         if (
             first_activity
@@ -467,8 +441,12 @@ def build_activity_file(
                         minutes=start.hour * 60 + start.minute,
                     )
                 )
-            end = activity.end_time.astimezone(timezone.utc)
-            if end.date() == wd.date:
+            end = (
+                activity.end_time.astimezone(timezone.utc)
+                if activity.end_time
+                else None
+            )
+            if end and end.date() == wd.day:
                 next_activity = None
                 if index < len(wd.activities) - 1:
                     next_activity = wd.activities[index + 1]
@@ -493,11 +471,28 @@ def build_activity_file(
         ## - 2 bytes for the work day counter
         content.extend(
             _int_string_to_bcd(
-                str((wd.date - first_activity_day).days).rjust(4, "0")
+                str((wd.day - first_activity_day).days).rjust(4, "0")
             )
         )
-        ## - 2 bytes for the kilometric data. Mobilic does not have them so we put 0.
-        content.extend(bytes(2))
+        ## - 2 bytes for the kilometric data (distance made during the day).
+        distance = 0
+        if (
+            not wd.is_first_mission_overlapping_with_previous_day
+            and not wd.is_last_mission_overlapping_with_next_day
+        ):
+            missions_with_activities = set([a.mission for a in wd.activities])
+            for mission in missions_with_activities:
+                if (
+                    mission.start_location
+                    and mission.end_location
+                    and mission.start_location.kilometer_reading
+                    and mission.end_location.kilometer_reading
+                ):
+                    distance += (
+                        mission.end_location.kilometer_reading
+                        - mission.start_location.kilometer_reading
+                    )
+        content.extend(min(distance, 9999).to_bytes(2, "big"))
 
         ## Write each activity record : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=97
         ## 2 bytes (16 bits), with a lot info set at the bit-level
@@ -533,6 +528,116 @@ def build_activity_file(
     return File(spec=FileSpecs.DRIVER_ACTIVITY_DATA, content=content)
 
 
+class VehicleRecord:
+    def __init__(
+        self,
+        vehicle_registration_number,
+        start_time,
+        end_time,
+        start_kilometer_reading=None,
+        end_kilometer_reading=None,
+    ):
+        self.vehicle_registration_number = vehicle_registration_number
+        self.start_time = start_time
+        self.end_time = end_time
+        self.start_kilometer_reading = start_kilometer_reading
+        self.end_kilometer_reading = end_kilometer_reading
+
+
+def build_vehicles_file(work_days):
+    vehicle_records_to_write = []
+    n_vehicle_records = 0
+
+    for work_day in reversed(work_days):
+        last_minute_of_day = work_day.end_of_day - timedelta(minutes=1)
+        if n_vehicle_records >= MAX_VEHICLE_RECORDS:
+            break
+        current_mission = None
+        current_vehicle = None
+        current_vehicle_record = None
+        work_day_vehicle_records = []
+        for index, activity in enumerate(work_day.activities):
+            mission = activity.mission
+            if mission.vehicle:
+                if (
+                    mission != current_mission
+                    and mission.vehicle != current_vehicle
+                ):
+                    current_vehicle_record = VehicleRecord(
+                        vehicle_registration_number=mission.vehicle.registration_number,
+                        start_time=max(
+                            activity.start_time, work_day.start_of_day
+                        ),
+                        end_time=min(
+                            activity.end_time or last_minute_of_day,
+                            last_minute_of_day,
+                        ),
+                        start_kilometer_reading=mission.start_location.kilometer_reading
+                        if (
+                            index > 0
+                            or not work_day.is_first_mission_overlapping_with_previous_day
+                        )
+                        and mission.start_location
+                        else None,
+                        end_kilometer_reading=mission.end_location.kilometer_reading
+                        if mission.end_location
+                        else None,
+                    )
+                    work_day_vehicle_records.append(current_vehicle_record)
+                    n_vehicle_records += 1
+                else:
+                    current_vehicle_record.end_time = min(
+                        activity.end_time or last_minute_of_day,
+                        last_minute_of_day,
+                    )
+                    if mission != current_mission:
+                        current_vehicle_record.end_kilometer_reading = (
+                            mission.end_location.kilometer_reading
+                            if mission.end_location
+                            else None
+                        )
+                if (
+                    index == len(work_day.activities) - 1
+                    and work_day.is_last_mission_overlapping_with_next_day
+                ):
+                    current_vehicle_record.end_kilometer_reading = None
+                current_mission = mission
+                current_vehicle = mission.vehicle
+
+        vehicle_records_to_write.extend(reversed(work_day_vehicle_records))
+
+    vehicle_records_to_write = list(
+        reversed(vehicle_records_to_write[:MAX_VEHICLE_RECORDS])
+    )
+    content = bytearray()
+
+    ## First 2 bytes refer to the index (not the offset) of the newest record.
+    content.extend(
+        max(len(vehicle_records_to_write) - 1, 0).to_bytes(2, "big")
+    )
+    for index, vr in enumerate(vehicle_records_to_write):
+        ### - 3 bytes for the kilometer reading at the start
+        content.extend((vr.start_kilometer_reading or 0).to_bytes(3, "big"))
+        ### - 3 bytes for the kilometer reading at the end
+        content.extend((vr.end_kilometer_reading or 0).to_bytes(3, "big"))
+        ### - 4 bytes for the start time
+        content.extend(int(vr.start_time.timestamp()).to_bytes(4, "big"))
+        ### - 4 for the end time
+        content.extend(int(vr.end_time.timestamp()).to_bytes(4, "big"))
+        ### - 1 byte for the nation in which the vehicle is registered (for now it's always \x11 for France)
+        content.extend(b"\x11")
+        ### - 14 bytes for the registration number
+        content.extend(
+            _serialize_name(
+                vr.vehicle_registration_number.replace(" ", ""), 14
+            )
+        )
+        ### - 2 bytes for the counter of the vehicle unit. We just give the index of the vehicle record, even though this is inconsistent
+        content.extend((index + 1).to_bytes(2, "big"))
+
+    return File(spec=FileSpecs.VEHICLES_USED, content=content)
+
+
 def output_user_data_in_tachograph_format(
     user, start_date=None, end_date=None, with_signatures=True
 ):
@@ -542,12 +647,13 @@ def output_user_data_in_tachograph_format(
     first_user_activity_date = first_user_activity.start_time.astimezone(
         timezone.utc
     ).date()
-    complete_activities = [
-        a
-        for a in user.query_activities_with_relations(
-            start_time=start_date, end_time=end_date
-        )
-        if a.end_time and a.start_time != a.end_time
+    work_days = group_user_events_by_day(
+        user, from_date=start_date, until_date=end_date, tz=timezone.utc
+    )
+    complete_work_days = [
+        w
+        for w in work_days
+        if w.day < date.today() or w.activities[-1].end_time
     ]
 
     files = [
@@ -561,12 +667,13 @@ def output_user_data_in_tachograph_format(
         File(spec=FileSpecs.EVENTS_DATA),
         File(spec=FileSpecs.FAULTS_DATA),
         build_activity_file(
-            complete_activities,
+            complete_work_days,
+            user,
             first_user_activity_date,
             start_date=start_date,
             end_date=end_date,
         ),
-        File(spec=FileSpecs.VEHICLES_USED),
+        build_vehicles_file(complete_work_days),
         File(spec=FileSpecs.PLACES),
         File(spec=FileSpecs.CURRENT_USAGE),
         File(spec=FileSpecs.CONTROL_ACTIVITY_DATA),

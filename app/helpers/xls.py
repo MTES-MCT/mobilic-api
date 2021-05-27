@@ -213,7 +213,7 @@ columns_in_main_sheet = [
         light_orange_hex,
     ),
     (
-        "Découchage",
+        "Découché",
         lambda wday: wday.expenditures.get("sleep_over", 0),
         None,
         13,

@@ -152,16 +152,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
             until_date, consultation_scope.max_activity_date
         )
 
-        return [
-            wd
-            for wd in group_user_events_by_day(
-                self,
-                consultation_scope,
-                from_date=from_time.date() if from_time else None,
-                until_date=until_time.date() if until_time else None,
-            )
-            if wd.activities
-        ]
+        return group_user_events_by_day(
+            self,
+            consultation_scope,
+            from_date=from_time.date() if from_time else None,
+            until_date=until_time.date() if until_time else None,
+        )
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
