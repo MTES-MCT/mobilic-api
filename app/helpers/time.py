@@ -28,31 +28,45 @@ def get_date_or_today(date=None):
     return date
 
 
+def _to_datetime(dt_or_date, convert_dates_to_end_of_day_times=False):
+    if not dt_or_date:
+        return dt_or_date
+    if type(dt_or_date) is datetime.datetime:
+        return dt_or_date
+    if type(dt_or_date) is datetime.date:
+        dt = datetime.datetime(
+            dt_or_date.year, dt_or_date.month, dt_or_date.day
+        )
+        if convert_dates_to_end_of_day_times:
+            dt = (
+                dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
+            )
+        return dt
+
+    return datetime.datetime.fromisoformat(dt_or_date)
+
+
 def _datetime_operator(convert_dates_to_end_of_day_times=False):
     def decorator(op):
         def wrapper(date_or_dt1, date_or_dt2):
             if date_or_dt1 is None:
-                return date_or_dt2
+                return _to_datetime(
+                    date_or_dt2,
+                    convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                )
             if date_or_dt2 is None:
-                return date_or_dt1
-            _dt1 = date_or_dt1
-            _dt2 = date_or_dt2
-            if type(_dt1) is datetime.date:
-                _dt1 = datetime.datetime(_dt1.year, _dt1.month, _dt1.day)
-                if convert_dates_to_end_of_day_times:
-                    _dt1 = (
-                        _dt1
-                        + datetime.timedelta(days=1)
-                        - datetime.timedelta(seconds=1)
-                    )
-            if type(_dt2) is datetime.date:
-                _dt2 = datetime.datetime(_dt2.year, _dt2.month, _dt2.day)
-                if convert_dates_to_end_of_day_times:
-                    _dt2 = (
-                        _dt2
-                        + datetime.timedelta(days=1)
-                        - datetime.timedelta(seconds=1)
-                    )
+                return _to_datetime(
+                    date_or_dt1,
+                    convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                )
+            _dt1 = _to_datetime(
+                date_or_dt1,
+                convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+            )
+            _dt2 = _to_datetime(
+                date_or_dt2,
+                convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+            )
 
             return op(_dt1, _dt2)
 
