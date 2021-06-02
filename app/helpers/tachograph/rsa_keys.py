@@ -3,10 +3,6 @@ from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy import desc
 from cached_property import cached_property
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import (
-    Encoding,
-    PrivateFormat,
-)
 from hashlib import sha1
 from functools import lru_cache
 from werkzeug.local import LocalProxy
@@ -165,6 +161,7 @@ class C1BSigningKey(BaseModel, RSAKey):
         cert_date = _int_string_to_bcd(self.creation_time.strftime("%m%y"))
         return serial_number + cert_date + b"\xff\x01"
 
+    # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=367
     @lru_cache(maxsize=10)
     def certificate(self, authority):
         if not authority:
