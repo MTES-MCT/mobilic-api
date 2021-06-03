@@ -1,9 +1,15 @@
 import graphene
-from flask import request, jsonify
-from datetime import datetime, date
+from flask import jsonify, send_file
+from datetime import datetime, timedelta
 from graphene.types.generic import GenericScalar
 import requests
 from sqlalchemy.orm import selectinload
+from zipfile import ZipFile, ZIP_DEFLATED
+from io import BytesIO
+
+from webargs import fields
+from marshmallow import Schema, validates_schema, ValidationError
+from flask_apispec import use_kwargs, doc
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
@@ -21,6 +27,11 @@ from app.helpers.authorization import (
 )
 from app import siren_api_client, mailer
 from app.helpers.insee_tranche_effectifs import format_tranche_effectif
+from app.helpers.tachograph import (
+    generate_tachograph_parts,
+    write_tachograph_archive,
+    generate_tachograph_file_name,
+)
 from app.helpers.xls import send_work_days_as_excel
 from app.models import Company, Employment, NafCode
 from app.models.employment import (
@@ -248,34 +259,7 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
-@app.route("/download_company_activity_report", methods=["POST"])
-def download_activity_report():
-    try:
-        company_ids = request.args.get("company_ids")
-        company_ids = [int(cid) for cid in company_ids.split(",")]
-        if not company_ids:
-            raise Exception
-    except:
-        return jsonify({"error": "invalid company ids"}), 400
-
-    try:
-        user_ids = request.args.get("user_ids")
-        user_ids = [int(uid) for uid in user_ids.split(",")]
-    except Exception:
-        user_ids = []
-
-    try:
-        min_date = request.args.get("min_date")
-        min_date = date.fromisoformat(min_date)
-    except Exception:
-        min_date = None
-
-    try:
-        max_date = request.args.get("max_date")
-        max_date = date.fromisoformat(max_date)
-    except Exception:
-        max_date = None
-
+def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
     try:
         require_auth()()
     except AuthenticationError as e:
@@ -293,19 +277,110 @@ def download_activity_report():
         .filter(Company.id.in_(company_ids))
         .all()
     )
-
-    app.logger.info(f"Downloading activity report for {companies}")
-    all_users_work_days = []
-    all_users = set([user for company in companies for user in company.users])
+    users = set(
+        [
+            user
+            for company in companies
+            for user in company.users_between(min_date, max_date)
+        ]
+    )
     if user_ids:
-        all_users = [u for u in all_users if u.id in user_ids]
-    for user in all_users:
+        users = [u for u in users if u.id in user_ids]
+    return users
+
+
+@app.route("/companies/download_activity_report", methods=["POST"])
+@doc(description="Téléchargement du rapport d'activité au format Excel")
+@use_kwargs(
+    {
+        "company_ids": fields.List(
+            fields.Int(), required=True, validate=lambda l: len(l) > 0
+        ),
+        "user_ids": fields.List(fields.Int(), required=False),
+        "min_date": fields.Date(required=False),
+        "max_date": fields.Date(required=False),
+    },
+    apply=True,
+)
+def download_activity_report(
+    company_ids, user_ids=None, min_date=None, max_date=None
+):
+    users = check_auth_and_get_users_list(
+        company_ids, user_ids, min_date, max_date
+    )
+    scope = ConsultationScope(company_ids=company_ids)
+
+    app.logger.info(f"Downloading activity report for {company_ids}")
+    all_users_work_days = []
+    for user in users:
         all_users_work_days += group_user_events_by_day(
             user,
-            ConsultationScope(company_ids=company_ids),
+            consultation_scope=scope,
             from_date=min_date,
             until_date=max_date,
             include_dismissed_or_empty_days=True,
         )
 
     return send_work_days_as_excel(all_users_work_days)
+
+
+class TachographGenerationScopeSchema(Schema):
+    company_ids = fields.List(
+        fields.Int(), required=True, validate=lambda l: len(l) > 0
+    )
+    user_ids = fields.List(fields.Int(), required=False)
+    min_date = fields.Date(required=True)
+    max_date = fields.Date(required=True)
+    with_digital_signatures = fields.Boolean(required=False)
+
+    @validates_schema
+    def check_period_is_small_enough(self, data, **kwargs):
+        if data["max_date"] - data["min_date"] > timedelta(days=60):
+            raise ValidationError(
+                "The requested period should be less than 60 days"
+            )
+
+
+@app.route("/companies/generate_tachograph_files", methods=["POST"])
+@doc(
+    description="Génération de fichiers C1B contenant les données d'activité des salariés"
+)
+@use_kwargs(TachographGenerationScopeSchema(), apply=True)
+def download_tachograph_files(
+    company_ids,
+    min_date,
+    max_date,
+    with_digital_signatures=False,
+    user_ids=None,
+):
+    users = check_auth_and_get_users_list(
+        company_ids, user_ids, min_date, max_date
+    )
+    scope = ConsultationScope(company_ids=company_ids)
+
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        for user in users:
+            tachograph_data = generate_tachograph_parts(
+                user,
+                start_date=min_date,
+                end_date=max_date,
+                consultation_scope=scope,
+                only_activities_validated_by_admin=False,
+                with_signatures=with_digital_signatures,
+                do_not_generate_if_empty=True,
+            )
+            if tachograph_data:
+                f.writestr(
+                    generate_tachograph_file_name(user),
+                    write_tachograph_archive(tachograph_data),
+                )
+
+    archive.seek(0)
+    return send_file(
+        archive,
+        mimetype="application/zip",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename="fichiers_C1B.zip",
+    )

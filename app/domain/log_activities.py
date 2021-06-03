@@ -86,12 +86,7 @@ def check_mission_still_open_for_activities_edition(
     submitter, mission, user, reception_time
 ):
     # If a company admin validated the mission, it becomes read-only for everyone
-    if any(
-        [
-            v.is_admin and (not v.user_id or v.user_id == user.id)
-            for v in mission.validations
-        ]
-    ):
+    if mission.validated_by_admin_for(user):
         raise MissionAlreadyValidatedByAdminError()
 
     # If the user validated the mission, only himself or a company admin can edit his data

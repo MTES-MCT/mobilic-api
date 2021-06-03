@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
 from app.models.base import BaseModel
 from app import db
 
@@ -158,7 +159,7 @@ class User(BaseModel):
             Activity.query.filter(
                 Activity.user_id == self.id,
                 ~Activity.is_dismissed,
-                Activity.start_time > (date_time or datetime(2000, 1, 1)),
+                Activity.start_time > (date_time or VERY_LONG_AGO),
             )
             .order_by(Activity.start_time)
             .first()
@@ -217,7 +218,9 @@ class User(BaseModel):
                 for e in self.employments
                 if e.is_not_rejected
                 and not e.is_dismissed
-                and e.start_date <= date_ <= (e.end_date or date(2100, 1, 1))
+                and e.start_date
+                <= date_
+                <= (e.end_date or VERY_FAR_AHEAD.date())
             ],
             key=lambda e: not e.is_primary,
         )

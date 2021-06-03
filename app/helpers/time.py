@@ -2,6 +2,8 @@ import datetime
 from dateutil.tz import gettz
 
 FR_TIMEZONE = gettz("Europe/Paris")
+VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
+VERY_FAR_AHEAD = datetime.datetime(2100, 1, 1)
 
 
 def from_timestamp(ts):

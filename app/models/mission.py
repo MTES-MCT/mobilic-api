@@ -109,3 +109,11 @@ class Mission(EventBaseModel):
             if l.type == LocationEntryType.MISSION_END_LOCATION
         ]
         return end_location_entry[0] if end_location_entry else None
+
+    def validated_by_admin_for(self, user):
+        return any(
+            [
+                v.is_admin and (not v.user_id or v.user_id == user.id)
+                for v in self.validations
+            ]
+        )

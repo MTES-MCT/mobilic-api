@@ -104,7 +104,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_users(self, info):
         info.context.company_ids_scope = [self.id]
-        return self.query_users()
+        return self.query_current_users()
 
     @with_authorization_policy(
         belongs_to_company_at,

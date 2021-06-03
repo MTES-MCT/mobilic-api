@@ -289,6 +289,7 @@ def group_user_events_by_day(
     until_date=None,
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
+    only_missions_validated_by_admin=False,
 ):
     missions = user.query_missions(
         include_dismissed_activities=True,
@@ -296,6 +297,9 @@ def group_user_events_by_day(
         start_time=from_date,
         end_time=until_date,
     )
+
+    if only_missions_validated_by_admin:
+        missions = [m for m in missions if not m.validated_by_admin_for(user)]
 
     if consultation_scope and consultation_scope.company_ids:
         missions = [

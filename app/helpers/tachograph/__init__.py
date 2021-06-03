@@ -273,7 +273,7 @@ def dump_file(file):
     return file_dump
 
 
-def write_archive(files):
+def write_tachograph_archive(files):
     """
     The ultimate output, corresponding to .ddd, .c1b or .v1b files, is the direct concatenation of binary file dumps,
     as specified there : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=299.
@@ -638,23 +638,38 @@ def build_vehicles_file(work_days):
     return File(spec=FileSpecs.VEHICLES_USED, content=content)
 
 
-def output_user_data_in_tachograph_format(
-    user, start_date=None, end_date=None, with_signatures=True
+def generate_tachograph_parts(
+    user,
+    start_date=None,
+    end_date=None,
+    consultation_scope=None,
+    only_activities_validated_by_admin=False,
+    with_signatures=True,
+    do_not_generate_if_empty=False,
 ):
     first_user_activity = user.first_activity_after(None)
     if not first_user_activity:
-        raise ValueError("No activities for the user throughout his lifetime")
-    first_user_activity_date = first_user_activity.start_time.astimezone(
-        timezone.utc
-    ).date()
+        first_user_activity_date = start_date
+    else:
+        first_user_activity_date = first_user_activity.start_time.astimezone(
+            timezone.utc
+        ).date()
     work_days = group_user_events_by_day(
-        user, from_date=start_date, until_date=end_date, tz=timezone.utc
+        user,
+        from_date=start_date,
+        until_date=end_date,
+        tz=timezone.utc,
+        only_missions_validated_by_admin=only_activities_validated_by_admin,
+        consultation_scope=consultation_scope,
     )
     complete_work_days = [
         w
         for w in work_days
         if w.day < date.today() or w.activities[-1].end_time
     ]
+
+    if not complete_work_days and do_not_generate_if_empty:
+        return None
 
     files = [
         File(spec=FileSpecs.CARD_ICC_IDENTIFICATION),
@@ -706,22 +721,25 @@ def output_user_data_in_tachograph_format(
         if with_signatures and file.spec.signable:
             file.sign(current_card_key)
 
-    output = BytesIO()
-    output.write(write_archive(files))
-    output.seek(0)
-    return output
+    return files
 
 
-def export_user_data_in_tachograph_format(
+def generate_tachograph_file_name(user):
+    now = datetime.utcnow()
+    return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
+
+
+def generate_and_export_tachograph_file(
     user, output_dir, start_date=None, end_date=None
 ):
-    output = output_user_data_in_tachograph_format(
+    files = generate_tachograph_parts(
         user, start_date=start_date, end_date=end_date
     )
-    now = datetime.utcnow()
-    file_name = f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
-    with open(f"{os.path.join(output_dir, file_name)}", "wb") as f:
-        f.write(output.read())
+    with open(
+        f"{os.path.join(output_dir, generate_tachograph_file_name(user))}",
+        "wb",
+    ) as f:
+        f.write(write_tachograph_archive(files))
 
 
 _file_specs = [v for v in vars(FileSpecs).values() if type(v) is FileSpec]

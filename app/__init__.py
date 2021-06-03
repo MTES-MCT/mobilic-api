@@ -1,23 +1,40 @@
-from flask import Flask, g, request
-from flask_httpauth import HTTPBasicAuth
+from flask import Flask
+from flask_apispec import FlaskApiSpec
 from flask_migrate import Migrate
 from flask_cors import CORS
 import os
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
 
 import config
 from app.helpers.db import SQLAlchemyWithStrongRefSession
 from app.helpers.mail import Mailer
 from app.helpers.siren import SirenAPIClient
+from app.helpers.request_parser import CustomRequestParser
 
 app = Flask(__name__)
+app.config.update(
+    {
+        "APISPEC_SPEC": APISpec(
+            title="Mobilic",
+            version="v1",
+            openapi_version="3.0.0",
+            plugins=[MarshmallowPlugin()],
+        ),
+        "APISPEC_WEBARGS_PARSER": CustomRequestParser(),
+    }
+)
+
+docs = FlaskApiSpec(app)
 
 env = os.environ.get("MOBILIC_ENV", "dev")
 app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
 
 siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 mailer = Mailer(app)
+
 
 if app.config["SENTRY_URL"]:
     sentry_sdk.init(
