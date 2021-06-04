@@ -3,10 +3,11 @@ from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy import desc
 from cached_property import cached_property
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cachetools import LRUCache, cached
 from hashlib import sha1
-from functools import lru_cache
 from werkzeug.local import LocalProxy
 
+from app.helpers.cache import cache_at_request_scope
 from app.models.base import BaseModel
 from app import db
 from app.models.utils import enum_column
@@ -65,6 +66,7 @@ class C1BSigningKey(BaseModel, RSAKey):
     serial_number = db.Column(db.Integer, nullable=False)
 
     @classmethod
+    @cache_at_request_scope
     def get_current_root_key(cls):
         return (
             cls.query.filter(cls.owner_type == SigningKeyOwnerType.ROOT)
@@ -74,6 +76,7 @@ class C1BSigningKey(BaseModel, RSAKey):
         )
 
     @classmethod
+    @cache_at_request_scope
     def get_or_create_current_member_state_key(cls):
         current_ms_key = (
             cls.query.filter(
@@ -88,6 +91,7 @@ class C1BSigningKey(BaseModel, RSAKey):
         return current_ms_key
 
     @classmethod
+    @cache_at_request_scope
     def get_or_create_current_card_key(cls):
         current_card_key = (
             cls.query.filter(cls.owner_type == SigningKeyOwnerType.CARD)
@@ -162,7 +166,12 @@ class C1BSigningKey(BaseModel, RSAKey):
         return serial_number + cert_date + b"\xff\x01"
 
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=367
-    @lru_cache(maxsize=10)
+    @cached(
+        cache=LRUCache(maxsize=10),
+        key=lambda s, a: hash(
+            (s.__class__, s.id or s, a.__class__, a.id or a)
+        ),
+    )
     def certificate(self, authority):
         if not authority:
             raise EnvironmentError("Signing service is unavailable")
@@ -186,9 +195,6 @@ class C1BSigningKey(BaseModel, RSAKey):
         signed = authority.sign(to_sign)
 
         return signed + cert_part_to_add_in_clear + authority.reference
-
-    def dump_public_key(self):
-        return None
 
 
 MOBILIC_ROOT_KEY = LocalProxy(lambda: C1BSigningKey.get_current_root_key())
