@@ -183,7 +183,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 ],
                 key=lambda wd: wd.day,
             )
-            return work_days[-limit:]
+            return work_days[-limit:] if limit else work_days
 
         ## Efficient approach
         else:
