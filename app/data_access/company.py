@@ -29,6 +29,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             "siren",
             "allow_team_mode",
             "require_kilometer_data",
+            "require_expenditures",
         )
 
     id = graphene.Field(

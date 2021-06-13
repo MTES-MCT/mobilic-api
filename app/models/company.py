@@ -15,10 +15,12 @@ class Company(BaseModel):
 
     siren_api_info = db.Column(JSONB(none_as_null=True), nullable=True)
 
+    # Parameters of work day logging
     allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)
     require_kilometer_data = db.Column(
         db.Boolean, nullable=False, default=True
     )
+    require_expenditures = db.Column(db.Boolean, nullable=False, default=True)
 
     @property
     def name(self):

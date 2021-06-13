@@ -103,176 +103,198 @@ def format_kilometer_reading(location, wday):
     return location.kilometer_reading
 
 
-columns_in_main_sheet = [
-    (
-        "Employé",
-        lambda wday: wday.user.display_name,
-        "wrap",
-        30,
-        light_yellow_hex,
-    ),
-    ("Jour", lambda wday: wday.day, "date_format", 20, light_yellow_hex,),
-    (
-        "Mission(s)",
-        lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
-        "wrap",
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Véhicule(s)",
-        lambda wday: ", ".join(
-            set(
-                [
-                    m.vehicle.name
-                    for m in wday.missions
-                    if m.vehicle is not None
-                ]
-            )
+def get_columns_in_main_sheet(require_expenditures):
+    columns_in_main_sheet = [
+        (
+            "Employé",
+            lambda wday: wday.user.display_name,
+            "wrap",
+            30,
+            light_yellow_hex,
         ),
-        "wrap",
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Début",
-        lambda wday: to_fr_tz(wday.start_time) if wday.start_time else None,
-        "time_format",
-        15,
-        light_green_hex,
-    ),
-    (
-        "Fin",
-        lambda wday: to_fr_tz(wday.end_time) if wday.end_time else None,
-        "time_format",
-        15,
-        light_green_hex,
-    ),
-    (
-        "Amplitude",
-        lambda wday: timedelta(seconds=wday.service_duration),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Total travail",
-        lambda wday: timedelta(seconds=wday.total_work_duration),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Conduite",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.DRIVE]
+        ("Jour", lambda wday: wday.day, "date_format", 20, light_yellow_hex,),
+        (
+            "Mission(s)",
+            lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
+            "wrap",
+            30,
+            light_blue_hex,
         ),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Accompagnement",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.SUPPORT]
+        (
+            "Véhicule(s)",
+            lambda wday: ", ".join(
+                set(
+                    [
+                        m.vehicle.name
+                        for m in wday.missions
+                        if m.vehicle is not None
+                    ]
+                )
+            ),
+            "wrap",
+            30,
+            light_blue_hex,
         ),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Autre tâche",
-        lambda wday: timedelta(
-            seconds=wday.activity_durations[ActivityType.WORK]
+        (
+            "Début",
+            lambda wday: to_fr_tz(wday.start_time)
+            if wday.start_time
+            else None,
+            "time_format",
+            15,
+            light_green_hex,
         ),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Pause",
-        lambda wday: timedelta(
-            seconds=wday.service_duration - wday.total_work_duration
+        (
+            "Fin",
+            lambda wday: to_fr_tz(wday.end_time) if wday.end_time else None,
+            "time_format",
+            15,
+            light_green_hex,
         ),
-        "duration_format",
-        13,
-        light_green_hex,
-    ),
-    (
-        "Repas jour",
-        lambda wday: wday.expenditures.get("day_meal", 0),
-        None,
-        13,
-        light_orange_hex,
-    ),
-    (
-        "Repas nuit",
-        lambda wday: wday.expenditures.get("night_meal", 0),
-        None,
-        13,
-        light_orange_hex,
-    ),
-    (
-        "Découché",
-        lambda wday: wday.expenditures.get("sleep_over", 0),
-        None,
-        13,
-        light_orange_hex,
-    ),
-    (
-        "Casse-croûte",
-        lambda wday: wday.expenditures.get("snack", 0),
-        None,
-        13,
-        light_orange_hex,
-    ),
-    (
-        "Observations",
-        lambda wday: "\n".join([" - " + c.text for c in wday.comments]),
-        "wrap",
-        50,
-        light_red_hex,
-    ),
-    (
-        "Lieu de début de service",
-        lambda wday: wday.start_location.address.format()
-        if wday.start_location
-        else "",
-        "wrap",
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
-        lambda wday: format_kilometer_reading(wday.start_location, wday),
-        None,
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Lieu de fin de service",
-        lambda wday: wday.end_location.address.format()
-        if wday.end_location
-        else "",
-        "wrap",
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
-        lambda wday: format_kilometer_reading(wday.end_location, wday),
-        None,
-        30,
-        light_blue_hex,
-    ),
-    (
-        "Entreprise(s)",
-        lambda wday: ", ".join([c.name for c in wday.companies if c.name]),
-        "wrap",
-        50,
-        light_blue_hex,
-    ),
-]
+        (
+            "Amplitude",
+            lambda wday: timedelta(seconds=wday.service_duration),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+        (
+            "Total travail",
+            lambda wday: timedelta(seconds=wday.total_work_duration),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+        (
+            "Conduite",
+            lambda wday: timedelta(
+                seconds=wday.activity_durations[ActivityType.DRIVE]
+            ),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+        (
+            "Accompagnement",
+            lambda wday: timedelta(
+                seconds=wday.activity_durations[ActivityType.SUPPORT]
+            ),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+        (
+            "Autre tâche",
+            lambda wday: timedelta(
+                seconds=wday.activity_durations[ActivityType.WORK]
+            ),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+        (
+            "Pause",
+            lambda wday: timedelta(
+                seconds=wday.service_duration - wday.total_work_duration
+            ),
+            "duration_format",
+            13,
+            light_green_hex,
+        ),
+    ]
+
+    if require_expenditures:
+        columns_in_main_sheet.extend(
+            [
+                (
+                    "Repas jour",
+                    lambda wday: wday.expenditures.get("day_meal", 0),
+                    None,
+                    13,
+                    light_orange_hex,
+                ),
+                (
+                    "Repas nuit",
+                    lambda wday: wday.expenditures.get("night_meal", 0),
+                    None,
+                    13,
+                    light_orange_hex,
+                ),
+                (
+                    "Découché",
+                    lambda wday: wday.expenditures.get("sleep_over", 0),
+                    None,
+                    13,
+                    light_orange_hex,
+                ),
+                (
+                    "Casse-croûte",
+                    lambda wday: wday.expenditures.get("snack", 0),
+                    None,
+                    13,
+                    light_orange_hex,
+                ),
+            ]
+        )
+
+    columns_in_main_sheet.extend(
+        [
+            (
+                "Observations",
+                lambda wday: "\n".join(
+                    [" - " + c.text for c in wday.comments]
+                ),
+                "wrap",
+                50,
+                light_red_hex,
+            ),
+            (
+                "Lieu de début de service",
+                lambda wday: wday.start_location.address.format()
+                if wday.start_location
+                else "",
+                "wrap",
+                30,
+                light_blue_hex,
+            ),
+            (
+                "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
+                lambda wday: format_kilometer_reading(
+                    wday.start_location, wday
+                ),
+                None,
+                30,
+                light_blue_hex,
+            ),
+            (
+                "Lieu de fin de service",
+                lambda wday: wday.end_location.address.format()
+                if wday.end_location
+                else "",
+                "wrap",
+                30,
+                light_blue_hex,
+            ),
+            (
+                "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
+                lambda wday: format_kilometer_reading(wday.end_location, wday),
+                None,
+                30,
+                light_blue_hex,
+            ),
+            (
+                "Entreprise(s)",
+                lambda wday: ", ".join(
+                    [c.name for c in wday.companies if c.name]
+                ),
+                "wrap",
+                50,
+                light_blue_hex,
+            ),
+        ]
+    )
+
+    return columns_in_main_sheet
 
 
 activity_columns_in_details_sheet = [
@@ -349,11 +371,12 @@ activity_version_columns_in_details_sheet = [
 ]
 
 
-def write_work_days_sheet(wb, wdays_by_user):
+def write_work_days_sheet(wb, wdays_by_user, require_expenditures):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(1, 2)
     row_idx = 1
+    columns_in_main_sheet = get_columns_in_main_sheet(require_expenditures)
 
     col_idx = 0
     column_base_formats = []
@@ -561,7 +584,7 @@ def write_day_details_sheet(wb, wdays_by_user):
                 col_idx += 1
 
 
-def send_work_days_as_excel(user_wdays):
+def send_work_days_as_excel(user_wdays, companies):
     complete_work_days = [wd for wd in user_wdays if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
@@ -571,7 +594,11 @@ def send_work_days_as_excel(user_wdays):
     for work_day in complete_work_days:
         wdays_by_user[work_day.user].append(work_day)
 
-    write_work_days_sheet(wb, wdays_by_user)
+    require_expenditures = any([c.require_expenditures for c in companies])
+
+    write_work_days_sheet(
+        wb, wdays_by_user, require_expenditures=require_expenditures
+    )
     write_day_details_sheet(wb, wdays_by_user)
 
     wb.close()

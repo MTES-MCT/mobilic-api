@@ -211,6 +211,10 @@ class EditCompanySettings(graphene.Mutation):
             required=False,
             description="Active ou désactive la saisie du kilométrage en début et fin de mission",
         )
+        require_expenditures = graphene.Boolean(
+            required=False,
+            description="Active ou désactive la saisie des frais.",
+        )
 
     Output = CompanyOutput
 
@@ -321,7 +325,10 @@ def download_activity_report(
             include_dismissed_or_empty_days=True,
         )
 
-    return send_work_days_as_excel(all_users_work_days)
+    return send_work_days_as_excel(
+        all_users_work_days,
+        companies=Company.query.filter(Company.id.in_(company_ids)).all(),
+    )
 
 
 class TachographGenerationScopeSchema(Schema):
