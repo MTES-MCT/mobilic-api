@@ -21,15 +21,27 @@ from app.models.queries import query_company_missions, query_work_day_stats
 from app.models.vehicle import VehicleOutput
 
 
+class CompanySettings(graphene.ObjectType):
+    allow_team_mode = graphene.Boolean(
+        description="Indique si l'entreprise permet les saisies en mode équipe pour ses missions"
+    )
+    require_kilometer_data = graphene.Boolean(
+        description="Indique si l'entreprise exige les données kilométriques en début et fin de mission"
+    )
+    require_expenditures = graphene.Boolean(
+        description="Indique si l'entreprise utilise le module Mobilic de saisie des frais."
+    )
+    require_support_activity = graphene.Boolean(
+        description="Indique si l'entreprise établit une distinction entre conduite et accompagnement dans les activités."
+    )
+
+
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
         only_fields = (
             "id",
             "siren",
-            "allow_team_mode",
-            "require_kilometer_data",
-            "require_expenditures",
         )
 
     id = graphene.Field(
@@ -88,11 +100,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         CompanyKnownAddressOutput,
         description="Liste des lieux enregistrés de l'entreprise",
     )
-    allow_team_mode = graphene.Boolean(
-        description="Indique si l'entreprise permet les saisies en mode équipe pour ses missions"
-    )
-    require_kilometer_data = graphene.Boolean(
-        description="Indique si l'entreprise exige les données kilométriques en début et fin de mission"
+    settings = graphene.Field(
+        CompanySettings, description="Paramètres de saisie"
     )
 
     def resolve_name(self, info):
@@ -223,6 +232,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_known_addresses(self, info):
         return [a for a in self.known_addresses if not a.is_dismissed]
+
+    def resolve_settings(self, info):
+        return CompanySettings(
+            **{
+                k: getattr(self, k)
+                for k in CompanySettings._meta.fields.keys()
+            }
+        )
 
 
 from app.data_access.user import UserOutput

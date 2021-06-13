@@ -215,6 +215,10 @@ class EditCompanySettings(graphene.Mutation):
             required=False,
             description="Active ou désactive la saisie des frais.",
         )
+        require_support_activity = graphene.Boolean(
+            required=False,
+            description="Active ou désactive la prise en charge de l'accompagnement.",
+        )
 
     Output = CompanyOutput
 

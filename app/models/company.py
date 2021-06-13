@@ -21,6 +21,9 @@ class Company(BaseModel):
         db.Boolean, nullable=False, default=True
     )
     require_expenditures = db.Column(db.Boolean, nullable=False, default=True)
+    require_support_activity = db.Column(
+        db.Boolean, nullable=False, default=False
+    )
 
     @property
     def name(self):
