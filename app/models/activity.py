@@ -230,3 +230,8 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
     type = graphene_enum_type(ActivityType)(
         required=True, description="Nature de l'activité"
     )
+
+
+class ActivityConnection(graphene.Connection):
+    class Meta:
+        node = ActivityOutput

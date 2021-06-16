@@ -75,8 +75,9 @@ class User(BaseModel):
         include_revisions=False,
         start_time=None,
         end_time=None,
+        restrict_to_company_ids=None,
     ):
-        from app.models import Activity
+        from app.models import Activity, Mission
         from app.models.queries import query_activities, add_mission_relations
 
         base_query = query_activities(
@@ -95,6 +96,11 @@ class User(BaseModel):
             )
         elif include_revisions:
             base_query = base_query.options(joinedload(Activity.revisions))
+
+        if restrict_to_company_ids:
+            base_query = base_query.join(Activity.mission).filter(
+                Mission.company_id.in_(restrict_to_company_ids)
+            )
 
         return base_query
 
@@ -165,30 +171,58 @@ class User(BaseModel):
             .first()
         )
 
-    def query_missions(
+    def query_missions_with_limit(
         self,
         include_dismissed_activities=False,
         include_revisions=False,
         start_time=None,
         end_time=None,
+        restrict_to_company_ids=None,
+        additional_activity_filters=None,
+        sort_activities=True,
+        limit_fetch_activities=None,
     ):
         sorted_missions = []
         missions = set()
-        activities = sorted(
-            self.query_activities_with_relations(
-                include_dismissed_activities=include_dismissed_activities,
-                include_mission_relations=True,
-                include_revisions=include_revisions,
-                start_time=start_time,
-                end_time=end_time,
-            ).all(),
-            key=lambda a: a.start_time,
+        activity_query = self.query_activities_with_relations(
+            include_dismissed_activities=include_dismissed_activities,
+            include_mission_relations=True,
+            include_revisions=include_revisions,
+            start_time=start_time,
+            end_time=end_time,
+            restrict_to_company_ids=restrict_to_company_ids,
         )
+        if additional_activity_filters:
+            activity_query = additional_activity_filters(activity_query)
+        if limit_fetch_activities:
+            activity_query = activity_query.limit(limit_fetch_activities + 1)
+        activities = activity_query.all()
+        has_next_page = (
+            len(activities) == limit_fetch_activities + 1
+            if limit_fetch_activities
+            else False
+        )
+        activities = (
+            activities[:limit_fetch_activities]
+            if limit_fetch_activities
+            else activities
+        )
+
+        if sort_activities:
+            activities = sorted(
+                activities, key=lambda a: (a.is_dismissed, a.start_time),
+            )
+
         for a in activities:
             if a.mission not in missions:
                 sorted_missions.append(a.mission)
                 missions.add(a.mission)
-        return sorted_missions
+        return sorted_missions, has_next_page
+
+    def query_missions(self, **kwargs):
+        return self.query_missions_with_limit(
+            **kwargs, **{"limit_fetch_activities": None}
+        )[0]
 
     def revoke_all_tokens(self):
         self.latest_token_revocation_time = datetime.now()

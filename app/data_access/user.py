@@ -1,21 +1,27 @@
 import graphene
-from datetime import date
+from datetime import date, datetime
+from sqlalchemy import desc, or_, and_
+from base64 import b64encode
 
-from app.data_access.mission import MissionOutput
+from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
     self_or_company_admin,
 )
-from app.domain.work_days import group_user_events_by_day
+from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.pagination import (
+    paginate_query,
+    parse_datetime_plus_id_cursor,
+)
 from app.helpers.time import get_max_datetime, get_min_datetime
-from app.models import User, Company
-from app.models.activity import ActivityOutput
+from app.models import User, Company, Activity, Mission
+from app.models.activity import ActivityConnection
 from app.models.employment import EmploymentOutput
 
 
@@ -60,19 +66,25 @@ class UserOutput(BaseSQLAlchemyObjectType):
         description="Précise si l'utilisateur est gestionnaire de son entreprise principale",
     )
     activities = graphene.Field(
-        graphene.List(
-            ActivityOutput,
-            description="Liste complète des activités de l'utilisateur",
-        ),
+        ActivityConnection,
+        description="Liste des activités de l'utilisateur, triées par id (pas forcément par récence).",
         from_time=TimeStamp(
             required=False, description="Horodatage de début de l'historique"
         ),
         until_time=TimeStamp(
             required=False, description="Horodatage de fin de l'historique"
         ),
+        first=graphene.Argument(
+            graphene.Int,
+            description="Nombre maximum d'activités retournées (taille de la page), conformément aux spécifications sur les cursor connections.",
+        ),
+        after=graphene.Argument(
+            graphene.String,
+            description="Valeur du curseur, qui détermine quelle page retourner.",
+        ),
     )
-    work_days = graphene.List(
-        lambda: WorkDayOutput,
+    work_days = graphene.Field(
+        lambda: WorkDayConnection,
         description="Regroupement des missions et activités par journée calendaire",
         from_date=graphene.Date(
             required=False, description="Date de début de l'historique"
@@ -80,15 +92,25 @@ class UserOutput(BaseSQLAlchemyObjectType):
         until_date=graphene.Date(
             required=False, description="Date de fin de l'historique"
         ),
+        first=graphene.Argument(graphene.Int, required=False),
+        after=graphene.Argument(graphene.String, required=False),
     )
-    missions = graphene.List(
-        MissionOutput,
-        description="Liste complète des missions de l'utilisateur",
+    missions = graphene.Field(
+        MissionConnection,
+        description="Liste des missions de l'utilisateur, triées par récence.",
         from_time=TimeStamp(
             required=False, description="Horodatage de début de l'historique"
         ),
         until_time=TimeStamp(
             required=False, description="Horodatage de fin de l'historique"
+        ),
+        first=graphene.Argument(
+            graphene.Int,
+            description="Nombre maximum de missions retournées (taille de la page), conformément aux spécifications sur les cursor connections.",
+        ),
+        after=graphene.Argument(
+            graphene.String,
+            description="Valeur du curseur, qui détermine quelle page retourner.",
         ),
     )
     current_employments = graphene.List(
@@ -118,7 +140,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_activities(
-        self, info, consultation_scope, from_time=None, until_time=None
+        self,
+        info,
+        consultation_scope,
+        from_time=None,
+        until_time=None,
+        first=None,
+        after=None,
     ):
         from_time = get_max_datetime(
             from_time, consultation_scope.min_activity_date
@@ -127,23 +155,44 @@ class UserOutput(BaseSQLAlchemyObjectType):
             until_time, consultation_scope.max_activity_date
         )
 
-        acknowledged_activities = self.query_activities_with_relations(
-            start_time=from_time, end_time=until_time
+        acknowledged_activity_query = self.query_activities_with_relations(
+            start_time=from_time,
+            end_time=until_time,
+            restrict_to_company_ids=consultation_scope.company_ids or None,
         )
-        if consultation_scope.company_ids:
-            acknowledged_activities = [
-                a
-                for a in acknowledged_activities
-                if a.mission.company_id in consultation_scope.company_ids
-            ]
-        return acknowledged_activities
+
+        def cursor_to_filter(cursor_string):
+            start_time, id_ = cursor_string.split(",")
+            start_time = datetime.fromisoformat(start_time)
+            id_ = int(id_)
+            return or_(
+                Activity.start_time < start_time,
+                and_(Activity.start_time == start_time, Activity.id < id_),
+            )
+
+        return paginate_query(
+            acknowledged_activity_query,
+            item_to_cursor=lambda activity: f"{str(activity.start_time)},{activity.id}",
+            cursor_to_filter=cursor_to_filter,
+            orders=(desc(Activity.start_time), desc(Activity.id)),
+            connection_cls=ActivityConnection,
+            after=after,
+            first=first,
+            max_first=200,
+        )
 
     @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'workDays' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_work_days(
-        self, info, consultation_scope, from_date=None, until_date=None
+        self,
+        info,
+        consultation_scope,
+        from_date=None,
+        until_date=None,
+        first=None,
+        after=None,
     ):
         from_time = get_max_datetime(
             from_date, consultation_scope.min_activity_date
@@ -152,11 +201,35 @@ class UserOutput(BaseSQLAlchemyObjectType):
             until_date, consultation_scope.max_activity_date
         )
 
-        return group_user_events_by_day(
+        work_days, has_next = group_user_events_by_day_with_limit(
             self,
             consultation_scope,
             from_date=from_time.date() if from_time else None,
             until_date=until_time.date() if until_time else None,
+            first=first,
+            after=after,
+        )
+        reverse_work_days = sorted(
+            work_days, key=lambda wd: wd.day, reverse=True
+        )
+        edges = [
+            WorkDayConnection.Edge(
+                node=wd, cursor=b64encode(str(wd.day).encode()).decode()
+            )
+            for wd in reverse_work_days
+        ]
+        if first and len(edges) > first:
+            has_next = True
+            edges = edges[:first]
+
+        return WorkDayConnection(
+            edges=edges,
+            page_info=graphene.PageInfo(
+                has_previous_page=False,
+                has_next_page=has_next,
+                start_cursor=edges[0].cursor if edges else None,
+                end_cursor=edges[-1].cursor if edges else None,
+            ),
         )
 
     @with_authorization_policy(authenticated)
@@ -164,7 +237,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'missions' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_missions(
-        self, info, consultation_scope, from_time=None, until_time=None
+        self,
+        info,
+        consultation_scope,
+        from_time=None,
+        until_time=None,
+        first=None,
+        after=None,
     ):
         from_time = get_max_datetime(
             from_time, consultation_scope.min_activity_date
@@ -173,16 +252,57 @@ class UserOutput(BaseSQLAlchemyObjectType):
             until_time, consultation_scope.max_activity_date
         )
 
-        missions = self.query_missions(
-            start_time=from_time, end_time=until_time
+        if after:
+            max_time, after_mission_id = parse_datetime_plus_id_cursor(after)
+            until_time = min(until_time, max_time) if until_time else max_time
+
+        def additional_activity_filters(query):
+            if after:
+                query = query.filter(
+                    or_(
+                        Activity.start_time < max_time,
+                        and_(
+                            Activity.start_time == max_time,
+                            Activity.mission_id < after_mission_id,
+                        ),
+                    )
+                )
+
+            query = query.join(Activity.mission).order_by(
+                desc(Activity.start_time), desc(Mission.id)
+            )
+            return query
+
+        actual_first = first or 200
+        missions, has_next_page = self.query_missions_with_limit(
+            start_time=from_time,
+            end_time=until_time,
+            restrict_to_company_ids=consultation_scope.company_ids or None,
+            additional_activity_filters=additional_activity_filters,
+            sort_activities=False,
+            limit_fetch_activities=actual_first * 5,
         )
-        if consultation_scope.company_ids:
-            missions = [
-                m
-                for m in missions
-                if m.company_id in consultation_scope.company_ids
-            ]
-        return missions
+        has_next_page = has_next_page or len(missions) > actual_first
+        missions = missions[:actual_first]
+
+        edges = [
+            MissionConnection.Edge(
+                node=m,
+                cursor=b64encode(
+                    f"{str(m.activities_for(self)[0].start_time)},{m.id}".encode()
+                ).decode(),
+            )
+            for m in missions
+        ]
+        return MissionConnection(
+            edges=edges,
+            page_info=graphene.PageInfo(
+                has_previous_page=False,
+                has_next_page=has_next_page,
+                start_cursor=edges[0].cursor,
+                end_cursor=edges[-1].cursor,
+            ),
+        )
 
     @with_authorization_policy(
         only_self,
@@ -211,4 +331,4 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
 
 from app.data_access.company import CompanyOutput
-from app.data_access.work_day import WorkDayOutput
+from app.data_access.work_day import WorkDayConnection

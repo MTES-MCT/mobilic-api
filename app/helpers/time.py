@@ -18,6 +18,10 @@ def to_tz(date_time, tz):
     return date_time.astimezone(tz).replace(tzinfo=None)
 
 
+def from_tz(date_time, tz):
+    return date_time.replace(tzinfo=tz).astimezone().replace(tzinfo=None)
+
+
 def to_fr_tz(date_time):
     return to_tz(date_time, FR_TIMEZONE)
 
@@ -30,7 +34,7 @@ def get_date_or_today(date=None):
     return date
 
 
-def _to_datetime(dt_or_date, convert_dates_to_end_of_day_times=False):
+def to_datetime(dt_or_date, convert_dates_to_end_of_day_times=False):
     if not dt_or_date:
         return dt_or_date
     if type(dt_or_date) is datetime.datetime:
@@ -52,20 +56,20 @@ def _datetime_operator(convert_dates_to_end_of_day_times=False):
     def decorator(op):
         def wrapper(date_or_dt1, date_or_dt2):
             if date_or_dt1 is None:
-                return _to_datetime(
+                return to_datetime(
                     date_or_dt2,
                     convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
                 )
             if date_or_dt2 is None:
-                return _to_datetime(
+                return to_datetime(
                     date_or_dt1,
                     convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
                 )
-            _dt1 = _to_datetime(
+            _dt1 = to_datetime(
                 date_or_dt1,
                 convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
             )
-            _dt2 = _to_datetime(
+            _dt2 = to_datetime(
                 date_or_dt2,
                 convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
             )

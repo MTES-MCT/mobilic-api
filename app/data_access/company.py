@@ -2,7 +2,7 @@ import graphene
 from sqlalchemy.orm import selectinload
 from collections import defaultdict
 
-from app.data_access.mission import MissionOutput
+from app.data_access.mission import MissionOutput, MissionConnection
 from app.domain.permissions import company_admin_at, belongs_to_company_at
 from app.domain.work_days import group_user_missions_by_day, WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
@@ -71,8 +71,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
     )
-    missions = graphene.List(
-        MissionOutput,
+    missions = graphene.Field(
+        MissionConnection,
         description="Liste des missions de l'entreprise",
         from_time=graphene.Date(
             required=False, description="Horodatage de début de l'historique"
@@ -80,7 +80,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         until_time=graphene.Date(
             required=False, description="Horodatage de fin de l'historique"
         ),
-        limit=graphene.Int(
+        after=graphene.String(
+            required=False,
+            description="Curseur de connection, utilisé pour la pagination.",
+        ),
+        first=graphene.Int(
             required=False,
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
@@ -151,14 +155,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         info,
         from_time=None,
         until_time=None,
-        limit=None,
         only_non_validated_missions=False,
+        first=None,
+        after=None,
     ):
         return query_company_missions(
-            self.id,
+            [self.id],
             start_time=from_time,
             end_time=until_time,
-            limit=limit,
+            first=first,
+            after=after,
             only_non_validated_missions=only_non_validated_missions,
         )
 
@@ -175,7 +181,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
         if set(get_children_field_names(info)) & {"activities", "missions"}:
             missions = query_company_missions(
-                self.id, start_time=from_date, end_time=until_date, limit=limit
+                [self.id],
+                start_time=from_date,
+                end_time=until_date,
+                limit=limit,
             )
 
             user_to_missions = defaultdict(set)

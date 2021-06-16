@@ -19,7 +19,7 @@ from app.domain.permissions import (
     company_admin_at,
 )
 from app.helpers.authentication import require_auth, AuthenticationError
-from app.domain.work_days import group_user_events_by_day
+from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated,
@@ -321,13 +321,13 @@ def download_activity_report(
     app.logger.info(f"Downloading activity report for {company_ids}")
     all_users_work_days = []
     for user in users:
-        all_users_work_days += group_user_events_by_day(
+        all_users_work_days += group_user_events_by_day_with_limit(
             user,
             consultation_scope=scope,
             from_date=min_date,
             until_date=max_date,
             include_dismissed_or_empty_days=True,
-        )
+        )[0]
 
     return send_work_days_as_excel(
         all_users_work_days,

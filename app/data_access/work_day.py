@@ -56,4 +56,9 @@ class WorkDayOutput(graphene.ObjectType):
         return self.user.id
 
 
+class WorkDayConnection(graphene.Connection):
+    class Meta:
+        node = WorkDayOutput
+
+
 from app.data_access.user import UserOutput

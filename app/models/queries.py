@@ -1,11 +1,18 @@
 from sqlalchemy.orm import selectinload, subqueryload, joinedload
-from sqlalchemy import and_, or_, desc, Integer, Interval
+from sqlalchemy import and_, or_, desc, Integer, Interval, text
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
+from collections import OrderedDict
+from base64 import b64decode, b64encode
 
 from app import db
+from app.helpers.errors import InvalidParamsError
+from app.helpers.pagination import (
+    paginate_query,
+    parse_datetime_plus_id_cursor,
+)
 from app.models import (
     User,
     Activity,
@@ -109,14 +116,17 @@ def add_mission_relations(query, include_revisions=False):
 
 
 def query_company_missions(
-    company_id,
+    company_ids,
     start_time=None,
     end_time=None,
-    limit=None,
+    first=None,
+    after=None,
     only_non_validated_missions=False,
 ):
+    from app.data_access.mission import MissionConnection
+
     company_mission_subq = Mission.query.with_entities(Mission.id).filter(
-        Mission.company_id == company_id
+        Mission.company_id.in_(company_ids)
     )
     if only_non_validated_missions:
         company_mission_subq = (
@@ -140,7 +150,11 @@ def query_company_missions(
 
     company_mission_subq = company_mission_subq.subquery()
 
-    mission_id_query = (
+    if after:
+        max_time, _ = parse_datetime_plus_id_cursor(after)
+        end_time = min(max_time, end_time) if end_time else max_time
+
+    mission_id_subquery = (
         query_activities(start_time=start_time, end_time=end_time)
         .join(company_mission_subq, Activity.mission)
         .group_by(Activity.mission_id)
@@ -149,21 +163,54 @@ def query_company_missions(
             func.min(Activity.start_time).label("mission_start_time"),
         )
         .from_self()
-        .with_entities("mission_id")
-        .order_by(desc("mission_start_time"))
-        .limit(limit)
+        .with_entities("mission_id", "mission_start_time")
+        .subquery()
+    )
+
+    mission_id_query = db.session.query(mission_id_subquery)
+
+    def cursor_to_filter(cs):
+        max_start_time, id_ = cs.split(",")
+        max_start_time = datetime.fromisoformat(max_start_time)
+        id_ = int(id_)
+        return or_(
+            mission_id_subquery.c.mission_start_time < max_start_time,
+            and_(
+                mission_id_subquery.c.mission_start_time == max_start_time,
+                mission_id_subquery.c.mission_id < id_,
+            ),
+        )
+
+    mission_id_results, page_info = paginate_query(
+        mission_id_query,
+        item_to_cursor=lambda item: f"{str(getattr(item, 'mission_start_time'))},{getattr(item, 'mission_id')}",
+        cursor_to_filter=cursor_to_filter,
+        orders=(
+            desc(mission_id_subquery.c.mission_start_time),
+            desc(mission_id_subquery.c.mission_id),
+        ),
+        first=first,
+        after=after,
+        max_first=200,
     )
 
     mission_query = add_mission_relations(Mission.query)
+    mission_ids_and_cursors = [
+        (getattr(r["node"], "mission_id"), r["cursor"])
+        for r in mission_id_results
+    ]
+    missions = mission_query.filter(
+        Mission.id.in_([m[0] for m in mission_ids_and_cursors])
+    ).all()
+    missions = {mission.id: mission for mission in missions}
 
-    if start_time or end_time or limit:
-        mission_ids = mission_id_query.all()
-        mission_query = mission_query.filter(Mission.id.in_(mission_ids))
-    else:
-        mission_query = mission_query.filter(Mission.company_id == company_id)
-
-    missions = mission_query.all()
-    return missions
+    return MissionConnection(
+        edges=[
+            MissionConnection.Edge(node=missions[id_], cursor=cursor)
+            for id_, cursor in mission_ids_and_cursors
+        ],
+        page_info=page_info,
+    )
 
 
 def query_work_day_stats(

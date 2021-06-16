@@ -26,6 +26,9 @@ from sqlalchemy import event
 
 # We want to avoid garbage collection on the sqlalchemy session, which would force new DB queries
 # so we keep a strong ref of each persistent object stored in the session
+from app.helpers.time import to_tz, from_tz
+
+
 def strong_reference_session(session):
     @event.listens_for(session, "pending_to_persistent")
     @event.listens_for(session, "deleted_to_persistent")
@@ -58,14 +61,10 @@ class DateTimeStoredAsUTC(TypeDecorator):
 
     def process_bind_param(self, value, dialect):
         if value is not None:
-            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            value = to_tz(value, timezone.utc)
         return value
 
     def process_result_value(self, value, dialect):
         if value is not None:
-            value = (
-                value.replace(tzinfo=timezone.utc)
-                .astimezone()
-                .replace(tzinfo=None)
-            )
+            value = from_tz(value, timezone.utc)
         return value

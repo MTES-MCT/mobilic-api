@@ -90,3 +90,8 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_is_ended_for_self(self, info):
         return len([e for e in self.ends if e.user_id == current_user.id]) > 0
+
+
+class MissionConnection(graphene.Connection):
+    class Meta:
+        node = MissionOutput

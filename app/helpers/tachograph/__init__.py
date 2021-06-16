@@ -3,7 +3,7 @@ from typing import NamedTuple, Optional
 from datetime import datetime, timezone, date, timedelta
 import os
 
-from app.domain.work_days import WorkDay, group_user_events_by_day
+from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
 from app.models.activity import ActivityType
 from app.helpers.tachograph.signature import (
     verify_signature,
@@ -654,7 +654,7 @@ def generate_tachograph_parts(
         first_user_activity_date = first_user_activity.start_time.astimezone(
             timezone.utc
         ).date()
-    work_days = group_user_events_by_day(
+    work_days, _ = group_user_events_by_day_with_limit(
         user,
         from_date=start_date,
         until_date=end_date,

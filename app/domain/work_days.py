@@ -4,8 +4,17 @@ from dataclasses import dataclass
 from typing import List, Set
 from datetime import datetime, date, timedelta, timezone
 from functools import reduce
+from base64 import b64decode
+from sqlalchemy import desc
 
-from app.helpers.time import to_timestamp, FR_TIMEZONE, to_tz
+from app.helpers.errors import InvalidParamsError
+from app.helpers.time import (
+    to_timestamp,
+    FR_TIMEZONE,
+    to_tz,
+    from_tz,
+    to_datetime,
+)
 from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
@@ -108,12 +117,8 @@ class WorkDay:
 
     @cached_property
     def start_of_day(self):
-        return (
-            datetime(
-                self.day.year, self.day.month, self.day.day, tzinfo=self.tz
-            )
-            .astimezone()
-            .replace(tzinfo=None)
+        return from_tz(
+            datetime(self.day.year, self.day.month, self.day.day), self.tz
         )
 
     @cached_property
@@ -263,15 +268,9 @@ class WorkDayStatsOnly:
     ):
         self.day = day
         self.user = user
-        self.start_time = (
-            start_time.replace(tzinfo=timezone.utc)
-            .astimezone()
-            .replace(tzinfo=None)
-        )
+        self.start_time = from_tz(start_time, timezone.utc)
         self.end_time = (
-            end_time.replace(tzinfo=timezone.utc)
-            .astimezone()
-            .replace(tzinfo=None)
+            from_tz(end_time, timezone.utc)
             if not is_running and end_time
             else None
         )
@@ -282,7 +281,7 @@ class WorkDayStatsOnly:
         self.mission_names = mission_names
 
 
-def group_user_events_by_day(
+def group_user_events_by_day_with_limit(
     user,
     consultation_scope=None,
     from_date=None,
@@ -290,25 +289,39 @@ def group_user_events_by_day(
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
+    first=None,
+    after=None,
 ):
-    missions = user.query_missions(
+    if after:
+        try:
+            max_date = b64decode(after).decode()
+            max_date = date.fromisoformat(max_date) - timedelta(days=1)
+        except:
+            raise InvalidParamsError("Invalid pagination cursor")
+        until_date = min(max_date, until_date) if until_date else max_date
+
+    missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
         include_revisions=True,
-        start_time=from_date,
-        end_time=until_date,
+        start_time=from_tz(to_datetime(from_date), tz) if from_date else None,
+        end_time=from_tz(
+            to_datetime(until_date, convert_dates_to_end_of_day_times=True), tz
+        )
+        if until_date
+        else None,
+        restrict_to_company_ids=(consultation_scope.company_ids or None)
+        if consultation_scope
+        else None,
+        additional_activity_filters=lambda query: query.order_by(
+            desc(Activity.start_time)
+        ),
+        limit_fetch_activities=max(first * 5, 200) if first else None,
     )
 
     if only_missions_validated_by_admin:
         missions = [m for m in missions if not m.validated_by_admin_for(user)]
 
-    if consultation_scope and consultation_scope.company_ids:
-        missions = [
-            m
-            for m in missions
-            if m.company_id in consultation_scope.company_ids
-        ]
-
-    return group_user_missions_by_day(
+    work_days = group_user_missions_by_day(
         user,
         missions,
         from_date=from_date,
@@ -316,6 +329,9 @@ def group_user_events_by_day(
         tz=tz,
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
     )
+    if first and has_next:
+        work_days = work_days[1:]
+    return work_days, has_next
 
 
 def group_user_missions_by_day(
