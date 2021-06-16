@@ -74,10 +74,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     missions = graphene.Field(
         MissionConnection,
         description="Liste des missions de l'entreprise",
-        from_time=graphene.Date(
+        from_time=TimeStamp(
             required=False, description="Horodatage de début de l'historique"
         ),
-        until_time=graphene.Date(
+        until_time=TimeStamp(
             required=False, description="Horodatage de fin de l'historique"
         ),
         after=graphene.String(
