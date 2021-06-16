@@ -131,7 +131,11 @@ class TestQueries(BaseTest):
                         users {
                             id
                             activities {
-                                id
+                                edges {
+                                    node {
+                                        id
+                                    }
+                                }
                             }
                         }
                     }
@@ -155,7 +159,11 @@ class TestQueries(BaseTest):
                         users {
                             id
                             activities {
-                                id
+                                edges {
+                                    node {
+                                        id
+                                    }
+                                }
                             }
                         }
                     }
@@ -170,7 +178,7 @@ class TestQueries(BaseTest):
             company_data = response.json["data"]["company"]
             self.assertListEqual(
                 [user["activities"] for user in company_data["users"]],
-                [[], []],
+                [{"edges": []}, {"edges": []}],
             )
 
     def test_user_cannot_access_data_from_other_company(self):
