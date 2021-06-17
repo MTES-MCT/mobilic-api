@@ -201,12 +201,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
             until_date, consultation_scope.max_activity_date
         )
 
+        actual_first = min(first or 200, 200)
         work_days, has_next = group_user_events_by_day_with_limit(
             self,
             consultation_scope,
             from_date=from_time.date() if from_time else None,
             until_date=until_time.date() if until_time else None,
-            first=first,
+            first=actual_first,
             after=after,
         )
         reverse_work_days = sorted(
@@ -218,9 +219,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
             )
             for wd in reverse_work_days
         ]
-        if first and len(edges) > first:
+        if actual_first and len(edges) > actual_first:
             has_next = True
-            edges = edges[:first]
+            edges = edges[:actual_first]
 
         return WorkDayConnection(
             edges=edges,
@@ -268,12 +269,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
                     )
                 )
 
-            query = query.join(Activity.mission).order_by(
-                desc(Activity.start_time), desc(Mission.id)
+            query = query.order_by(
+                desc(Activity.start_time), desc(Activity.mission_id)
             )
             return query
 
-        actual_first = first or 200
+        actual_first = min(first or 200, 200)
         missions, has_next_page = self.query_missions_with_limit(
             start_time=from_time,
             end_time=until_time,

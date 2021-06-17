@@ -1,18 +1,14 @@
 from sqlalchemy.orm import selectinload, subqueryload, joinedload
-from sqlalchemy import and_, or_, desc, Integer, Interval, text
+from sqlalchemy import and_, or_, desc, Integer, Interval, literal_column
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
-from collections import OrderedDict
-from base64 import b64decode, b64encode
+import graphene
+from base64 import b64encode
 
 from app import db
-from app.helpers.errors import InvalidParamsError
-from app.helpers.pagination import (
-    paginate_query,
-    parse_datetime_plus_id_cursor,
-)
+from app.helpers.pagination import parse_datetime_plus_id_cursor
 from app.models import (
     User,
     Activity,
@@ -95,20 +91,27 @@ def query_activities(
     return _apply_time_range_filters(base_query, start_time, end_time)
 
 
-def add_mission_relations(query, include_revisions=False):
-    mission_activities_subq = subqueryload(Mission.activities)
+def add_mission_relations(
+    query, include_revisions=False, use_subqueries=False
+):
+    relationship_loading_technique = (
+        subqueryload if use_subqueries else selectinload
+    )
+    mission_activities_subq = relationship_loading_technique(
+        Mission.activities
+    )
     if include_revisions:
         mission_activities_subq = mission_activities_subq.joinedload(
             Activity.revisions, innerjoin=True
         )
 
     return query.options(
-        subqueryload(Mission.validations),
-        subqueryload(Mission.expenditures),
-        subqueryload(Mission.comments),
-        subqueryload(Mission.vehicle),
+        relationship_loading_technique(Mission.validations),
+        relationship_loading_technique(Mission.expenditures),
+        relationship_loading_technique(Mission.comments),
+        relationship_loading_technique(Mission.vehicle),
         mission_activities_subq,
-        subqueryload(Mission.location_entries).options(
+        relationship_loading_technique(Mission.location_entries).options(
             joinedload(LocationEntry._address),
             joinedload(LocationEntry._company_known_address),
         ),
@@ -151,10 +154,10 @@ def query_company_missions(
     company_mission_subq = company_mission_subq.subquery()
 
     if after:
-        max_time, _ = parse_datetime_plus_id_cursor(after)
+        max_time, id_ = parse_datetime_plus_id_cursor(after)
         end_time = min(max_time, end_time) if end_time else max_time
 
-    mission_id_subquery = (
+    mission_id_query = (
         query_activities(start_time=start_time, end_time=end_time)
         .join(company_mission_subq, Activity.mission)
         .group_by(Activity.mission_id)
@@ -164,41 +167,41 @@ def query_company_missions(
         )
         .from_self()
         .with_entities("mission_id", "mission_start_time")
-        .subquery()
     )
 
-    mission_id_query = db.session.query(mission_id_subquery)
-
-    def cursor_to_filter(cs):
-        max_start_time, id_ = cs.split(",")
-        max_start_time = datetime.fromisoformat(max_start_time)
-        id_ = int(id_)
-        return or_(
-            mission_id_subquery.c.mission_start_time < max_start_time,
-            and_(
-                mission_id_subquery.c.mission_start_time == max_start_time,
-                mission_id_subquery.c.mission_id < id_,
-            ),
+    if after:
+        mission_id_query = mission_id_query.filter(
+            or_(
+                literal_column("mission_start_time") < max_time,
+                and_(
+                    literal_column("mission_start_time") == max_time,
+                    literal_column("mission_id") < id_,
+                ),
+            )
         )
 
-    mission_id_results, page_info = paginate_query(
-        mission_id_query,
-        item_to_cursor=lambda item: f"{str(getattr(item, 'mission_start_time'))},{getattr(item, 'mission_id')}",
-        cursor_to_filter=cursor_to_filter,
-        orders=(
-            desc(mission_id_subquery.c.mission_start_time),
-            desc(mission_id_subquery.c.mission_id),
-        ),
-        first=first,
-        after=after,
-        max_first=200,
-    )
+    actual_first = min(first or 1000, 1000)
+    mission_id_query = mission_id_query.order_by(
+        desc("mission_start_time"), desc("mission_id")
+    ).limit(actual_first + 1)
 
-    mission_query = add_mission_relations(Mission.query)
+    missions_ids_and_start_times = mission_id_query.all()
+    has_next_page = len(missions_ids_and_start_times) == actual_first + 1
+    missions_ids_and_start_times = missions_ids_and_start_times[:actual_first]
+
     mission_ids_and_cursors = [
-        (getattr(r["node"], "mission_id"), r["cursor"])
-        for r in mission_id_results
+        (
+            getattr(m, "mission_id"),
+            b64encode(
+                f"{str(getattr(m, 'mission_start_time'))},{getattr(m, 'mission_id')}".encode()
+            ).decode(),
+        )
+        for m in missions_ids_and_start_times
     ]
+
+    mission_query = add_mission_relations(
+        Mission.query, use_subqueries=len(mission_ids_and_cursors) > 500
+    )
     missions = mission_query.filter(
         Mission.id.in_([m[0] for m in mission_ids_and_cursors])
     ).all()
@@ -209,7 +212,16 @@ def query_company_missions(
             MissionConnection.Edge(node=missions[id_], cursor=cursor)
             for id_, cursor in mission_ids_and_cursors
         ],
-        page_info=page_info,
+        page_info=graphene.PageInfo(
+            has_previous_page=False,
+            has_next_page=has_next_page,
+            start_cursor=mission_ids_and_cursors[0][1]
+            if mission_ids_and_cursors
+            else None,
+            end_cursor=mission_ids_and_cursors[-1][1]
+            if mission_ids_and_cursors
+            else None,
+        ),
     )
 
 

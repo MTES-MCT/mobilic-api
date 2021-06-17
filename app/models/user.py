@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from sqlalchemy.orm import synonym, joinedload, subqueryload
+from sqlalchemy.orm import synonym, joinedload, subqueryload, selectinload
 from sqlalchemy import desc, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
@@ -75,9 +75,9 @@ class User(BaseModel):
         include_revisions=False,
         start_time=None,
         end_time=None,
-        restrict_to_company_ids=None,
+        use_subqueries=False,
     ):
-        from app.models import Activity, Mission
+        from app.models import Activity
         from app.models.queries import query_activities, add_mission_relations
 
         base_query = query_activities(
@@ -90,17 +90,13 @@ class User(BaseModel):
         if include_mission_relations:
             base_query = base_query.options(
                 add_mission_relations(
-                    subqueryload(Activity.mission),
+                    selectinload(Activity.mission),
                     include_revisions=include_revisions,
+                    use_subqueries=use_subqueries,
                 )
             )
         elif include_revisions:
             base_query = base_query.options(joinedload(Activity.revisions))
-
-        if restrict_to_company_ids:
-            base_query = base_query.join(Activity.mission).filter(
-                Mission.company_id.in_(restrict_to_company_ids)
-            )
 
         return base_query
 
@@ -184,13 +180,19 @@ class User(BaseModel):
     ):
         sorted_missions = []
         missions = set()
+
+        small_query = (
+            start_time
+            and (end_time or datetime.now()) - start_time
+            <= timedelta(days=250)
+        ) or (limit_fetch_activities and limit_fetch_activities <= 1500)
         activity_query = self.query_activities_with_relations(
             include_dismissed_activities=include_dismissed_activities,
             include_mission_relations=True,
             include_revisions=include_revisions,
             start_time=start_time,
             end_time=end_time,
-            restrict_to_company_ids=restrict_to_company_ids,
+            use_subqueries=not small_query,
         )
         if additional_activity_filters:
             activity_query = additional_activity_filters(activity_query)
@@ -214,7 +216,10 @@ class User(BaseModel):
             )
 
         for a in activities:
-            if a.mission not in missions:
+            if a.mission not in missions and (
+                restrict_to_company_ids is None
+                or a.mission.company_id in restrict_to_company_ids
+            ):
                 sorted_missions.append(a.mission)
                 missions.add(a.mission)
         return sorted_missions, has_next_page

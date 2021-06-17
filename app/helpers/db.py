@@ -19,7 +19,7 @@ from sqlalchemy import event
 # def after_cursor_execute(conn, cursor, statement,
 #                         parameters, context, executemany):
 #     total = time.time() - conn.info['query_start_time'].pop(-1)
-#     if total > 0.2:
+#     if total > 0.1:
 #         print(f"   ----     Total Time: {round(total * 1000, 3)} ms for statement {statement}")
 #         print(datetime.now())
 

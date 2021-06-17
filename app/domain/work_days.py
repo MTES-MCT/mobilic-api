@@ -315,7 +315,7 @@ def group_user_events_by_day_with_limit(
         additional_activity_filters=lambda query: query.order_by(
             desc(Activity.start_time)
         ),
-        limit_fetch_activities=max(first * 5, 200) if first else None,
+        limit_fetch_activities=first * 5 if first else None,
     )
 
     if only_missions_validated_by_admin:
