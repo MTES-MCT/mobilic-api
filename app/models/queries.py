@@ -224,9 +224,8 @@ def query_work_day_stats(
     tz = gettz(tzname)
     if after:
         max_time, user_id_ = parse_datetime_plus_id_cursor(after)
-        end_date = (
-            min(max_time.date(), end_date) if end_date else max_time.date()
-        )
+        max_date = max_time.date()
+        end_date = min(max_date, end_date) if end_date else max_date
 
     query = (
         Activity.query.join(Mission)
@@ -427,7 +426,14 @@ def query_work_day_stats(
         ).label("total_work_duration"),
     )
 
-    results = query.all()
+    if after:
+        results = [
+            r
+            for r in query.all()
+            if r.day.date() < max_date
+            or (r.day.date() == max_date and r.user_id < user_id_)
+        ]
+
     if first:
         if has_next_page:
             # The last work day may be incomplete because we didn't fetch all the activities => remove it
