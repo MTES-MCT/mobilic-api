@@ -18,6 +18,7 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import (
     paginate_query,
     parse_datetime_plus_id_cursor,
+    to_connection,
 )
 from app.helpers.time import get_max_datetime, get_min_datetime
 from app.models import User, Company, Activity, Mission
@@ -213,24 +214,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
         reverse_work_days = sorted(
             work_days, key=lambda wd: wd.day, reverse=True
         )
-        edges = [
-            WorkDayConnection.Edge(
-                node=wd, cursor=b64encode(str(wd.day).encode()).decode()
-            )
-            for wd in reverse_work_days
-        ]
-        if actual_first and len(edges) > actual_first:
-            has_next = True
-            edges = edges[:actual_first]
 
-        return WorkDayConnection(
-            edges=edges,
-            page_info=graphene.PageInfo(
-                has_previous_page=False,
-                has_next_page=has_next,
-                start_cursor=edges[0].cursor if edges else None,
-                end_cursor=edges[-1].cursor if edges else None,
-            ),
+        return to_connection(
+            reverse_work_days,
+            connection_cls=WorkDayConnection,
+            has_next_page=has_next,
+            get_cursor=lambda wd: str(wd.day),
+            first=actual_first,
         )
 
     @with_authorization_policy(authenticated)
@@ -283,26 +273,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
             sort_activities=False,
             limit_fetch_activities=actual_first * 5,
         )
-        has_next_page = has_next_page or len(missions) > actual_first
-        missions = missions[:actual_first]
-
-        edges = [
-            MissionConnection.Edge(
-                node=m,
-                cursor=b64encode(
-                    f"{str(m.activities_for(self)[0].start_time)},{m.id}".encode()
-                ).decode(),
-            )
-            for m in missions
-        ]
-        return MissionConnection(
-            edges=edges,
-            page_info=graphene.PageInfo(
-                has_previous_page=False,
-                has_next_page=has_next_page,
-                start_cursor=edges[0].cursor,
-                end_cursor=edges[-1].cursor,
-            ),
+        return to_connection(
+            missions,
+            connection_cls=MissionConnection,
+            get_cursor=lambda m: f"{str(m.activities_for(self)[0].start_time)},{m.id}",
+            has_next_page=has_next_page,
+            first=actual_first,
         )
 
     @with_authorization_policy(

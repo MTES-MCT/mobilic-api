@@ -6,9 +6,11 @@ from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
 import graphene
 from base64 import b64encode
+from dateutil.tz import gettz
 
 from app import db
-from app.helpers.pagination import parse_datetime_plus_id_cursor
+from app.helpers.pagination import parse_datetime_plus_id_cursor, to_connection
+from app.helpers.time import to_datetime
 from app.models import (
     User,
     Activity,
@@ -185,53 +187,47 @@ def query_company_missions(
         desc("mission_start_time"), desc("mission_id")
     ).limit(actual_first + 1)
 
-    missions_ids_and_start_times = mission_id_query.all()
-    has_next_page = len(missions_ids_and_start_times) == actual_first + 1
-    missions_ids_and_start_times = missions_ids_and_start_times[:actual_first]
-
-    mission_ids_and_cursors = [
-        (
-            getattr(m, "mission_id"),
-            b64encode(
-                f"{str(getattr(m, 'mission_start_time'))},{getattr(m, 'mission_id')}".encode()
-            ).decode(),
-        )
-        for m in missions_ids_and_start_times
+    missions_ids_and_start_times = [
+        (getattr(m, "mission_id"), getattr(m, "mission_start_time"))
+        for m in mission_id_query.all()
     ]
 
+    mission_id_to_cursor = {
+        m[0]: f"{str(m[1])},{m[0]}" for m in missions_ids_and_start_times
+    }
+
     mission_query = add_mission_relations(
-        Mission.query, use_subqueries=len(mission_ids_and_cursors) > 500
+        Mission.query, use_subqueries=len(missions_ids_and_start_times) > 500
     )
     missions = mission_query.filter(
-        Mission.id.in_([m[0] for m in mission_ids_and_cursors])
+        Mission.id.in_([m[0] for m in missions_ids_and_start_times])
     ).all()
     missions = {mission.id: mission for mission in missions}
 
-    return MissionConnection(
-        edges=[
-            MissionConnection.Edge(node=missions[id_], cursor=cursor)
-            for id_, cursor in mission_ids_and_cursors
-        ],
-        page_info=graphene.PageInfo(
-            has_previous_page=False,
-            has_next_page=has_next_page,
-            start_cursor=mission_ids_and_cursors[0][1]
-            if mission_ids_and_cursors
-            else None,
-            end_cursor=mission_ids_and_cursors[-1][1]
-            if mission_ids_and_cursors
-            else None,
-        ),
+    return to_connection(
+        [missions[m[0]] for m in missions_ids_and_start_times],
+        connection_cls=MissionConnection,
+        has_next_page=False,
+        get_cursor=lambda m: mission_id_to_cursor.get(m.id, None),
+        first=actual_first,
     )
 
 
 def query_work_day_stats(
     company_id,
-    start_time=None,
-    end_time=None,
-    limit=None,
+    start_date=None,
+    end_date=None,
+    first=None,
+    after=None,
     tzname="Europe/Paris",
 ):
+    tz = gettz(tzname)
+    if after:
+        max_time, user_id_ = parse_datetime_plus_id_cursor(after)
+        end_date = (
+            min(max_time.date(), end_date) if end_date else max_time.date()
+        )
+
     query = (
         Activity.query.join(Mission)
         .join(
@@ -275,7 +271,23 @@ def query_work_day_stats(
         )
     )
 
-    query = _apply_time_range_filters(query, start_time, end_time).subquery()
+    query = _apply_time_range_filters(
+        query,
+        to_datetime(start_date, tz_for_date=tz),
+        to_datetime(
+            end_date, tz_for_date=tz, convert_dates_to_end_of_day_times=True
+        ),
+    )
+
+    has_next_page = False
+    if first:
+        activity_first = max(first * 5, 200)
+        query = query.order_by(desc("day"), desc(Activity.user_id)).limit(
+            activity_first + 1
+        )
+        has_next_page = query.count() > activity_first
+
+    query = query.subquery()
 
     query = (
         db.session.query(query)
@@ -397,8 +409,7 @@ def query_work_day_stats(
                 for e_type in ExpenditureType
             ],
         )
-        .order_by(desc("day"))
-        .limit(limit)
+        .order_by(desc("day"), desc("user_id"))
         .subquery()
     )
 
@@ -416,4 +427,13 @@ def query_work_day_stats(
         ).label("total_work_duration"),
     )
 
-    return query.all()
+    results = query.all()
+    if first:
+        if has_next_page:
+            # The last work day may be incomplete because we didn't fetch all the activities => remove it
+            results = results[:-1]
+        if len(results) > first:
+            results = results[:first]
+            has_next_page = True
+
+    return results, has_next_page

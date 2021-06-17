@@ -70,3 +70,27 @@ def paginate_query(
         )
 
     return edges, page_info
+
+
+def to_connection(
+    iterable, connection_cls, has_next_page, get_cursor, first=None
+):
+    if first and len(iterable) > first:
+        iterable = iterable[:first]
+        has_next_page = True
+
+    edges = [
+        connection_cls.Edge(
+            node=item, cursor=_opacify_cursor_string(get_cursor(item))
+        )
+        for item in iterable
+    ]
+    return connection_cls(
+        edges=edges,
+        page_info=PageInfo(
+            has_previous_page=False,
+            has_next_page=has_next_page,
+            start_cursor=edges[0].cursor if edges else None,
+            end_cursor=edges[-1].cursor if edges else None,
+        ),
+    )

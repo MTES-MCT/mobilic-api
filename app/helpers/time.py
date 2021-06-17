@@ -34,7 +34,9 @@ def get_date_or_today(date=None):
     return date
 
 
-def to_datetime(dt_or_date, convert_dates_to_end_of_day_times=False):
+def to_datetime(
+    dt_or_date, tz_for_date=None, convert_dates_to_end_of_day_times=False
+):
     if not dt_or_date:
         return dt_or_date
     if type(dt_or_date) is datetime.datetime:
@@ -47,6 +49,8 @@ def to_datetime(dt_or_date, convert_dates_to_end_of_day_times=False):
             dt = (
                 dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
             )
+        if tz_for_date:
+            dt = from_tz(dt, tz_for_date)
         return dt
 
     return datetime.datetime.fromisoformat(dt_or_date)

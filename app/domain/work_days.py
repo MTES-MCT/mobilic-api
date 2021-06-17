@@ -303,9 +303,11 @@ def group_user_events_by_day_with_limit(
     missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
         include_revisions=True,
-        start_time=from_tz(to_datetime(from_date), tz) if from_date else None,
-        end_time=from_tz(
-            to_datetime(until_date, convert_dates_to_end_of_day_times=True), tz
+        start_time=to_datetime(from_date, tz_for_date=tz)
+        if from_date
+        else None,
+        end_time=to_datetime(
+            until_date, tz_for_date=tz, convert_dates_to_end_of_day_times=True
         )
         if until_date
         else None,
@@ -315,7 +317,7 @@ def group_user_events_by_day_with_limit(
         additional_activity_filters=lambda query: query.order_by(
             desc(Activity.start_time)
         ),
-        limit_fetch_activities=first * 5 if first else None,
+        limit_fetch_activities=max(first * 5, 200) if first else None,
     )
 
     if only_missions_validated_by_admin:

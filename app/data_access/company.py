@@ -8,6 +8,8 @@ from app.domain.work_days import group_user_missions_by_day, WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.graphql import get_children_field_names
+from app.helpers.pagination import to_connection
+from app.helpers.time import to_datetime
 from app.models import Company, User
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
@@ -57,8 +59,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         lambda: UserOutput,
         description="Liste des utilisateurs rattachés à l'entreprise",
     )
-    work_days = graphene.List(
-        lambda: WorkDayOutput,
+    work_days = graphene.Field(
+        lambda: WorkDayConnection,
         description="Regroupement des missions et activités par journée calendaire",
         from_date=graphene.Date(
             required=False, description="Date de début de l'historique"
@@ -66,9 +68,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         until_date=graphene.Date(
             required=False, description="Date de fin de l'historique"
         ),
-        limit=graphene.Int(
+        first=graphene.Int(
             required=False,
-            description="Nombre maximal de missions retournées, par ordre de récence.",
+            description="Nombre maximal de journées de travail retournées, par ordre de récence.",
+        ),
+        after=graphene.String(
+            required=False,
+            description="Curseur de connection GraphQL, utilisé pour la pagination",
         ),
     )
     missions = graphene.Field(
@@ -174,65 +180,75 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(
-        self, info, from_date=None, until_date=None, limit=None
+        self, info, from_date=None, until_date=None, first=None, after=None
     ):
         # There are two ways to build the work days :
         ## - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
         ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
-        if set(get_children_field_names(info)) & {"activities", "missions"}:
-            missions = query_company_missions(
-                [self.id],
-                start_time=from_date,
-                end_time=until_date,
-                limit=limit,
-            )
-
-            user_to_missions = defaultdict(set)
-            for mission in missions:
-                for activity in mission.activities:
-                    user_to_missions[activity.user].add(mission)
-
-            work_days = sorted(
-                [
-                    work_day
-                    for user, missions in user_to_missions.items()
-                    for work_day in group_user_missions_by_day(
-                        user, missions, from_date, until_date
-                    )
-                ],
-                key=lambda wd: wd.day,
-            )
-            return work_days[-limit:] if limit else work_days
+        # if set(get_children_field_names(info)) & {"activities", "missions"}:
+        #     missions = query_company_missions(
+        #         [self.id],
+        #         start_time=from_date,
+        #         end_time=until_date,
+        #         limit=limit,
+        #     )
+        #
+        #     user_to_missions = defaultdict(set)
+        #     for mission in missions:
+        #         for activity in mission.activities:
+        #             user_to_missions[activity.user].add(mission)
+        #
+        #     work_days = sorted(
+        #         [
+        #             work_day
+        #             for user, missions in user_to_missions.items()
+        #             for work_day in group_user_missions_by_day(
+        #                 user, missions, from_date, until_date
+        #             )
+        #         ],
+        #         key=lambda wd: wd.day,
+        #     )
+        #     return work_days[-limit:] if limit else work_days
 
         ## Efficient approach
-        else:
-            work_day_stats = query_work_day_stats(
-                self.id, start_time=from_date, end_time=until_date, limit=limit
+        work_day_stats, has_next_page = query_work_day_stats(
+            self.id,
+            start_date=from_date,
+            end_date=until_date,
+            first=first,
+            after=after,
+        )
+        user_ids = set([row.user_id for row in work_day_stats])
+        users = {user_id: User.query.get(user_id) for user_id in user_ids}
+        wds = [
+            WorkDayStatsOnly(
+                day=row.day,
+                user=users[row.user_id],
+                start_time=row.start_time,
+                end_time=row.end_time,
+                is_running=row.is_running,
+                service_duration=row.service_duration,
+                total_work_duration=row.total_work_duration,
+                activity_timers={
+                    a_type: getattr(row, f"{a_type.value}_duration")
+                    for a_type in ActivityType
+                },
+                expenditures={
+                    e_type: getattr(row, f"n_{e_type.value}_expenditures")
+                    for e_type in ExpenditureType
+                },
+                mission_names=row.mission_names,
             )
-            user_ids = set([row.user_id for row in work_day_stats])
-            users = {user_id: User.query.get(user_id) for user_id in user_ids}
-            wds = [
-                WorkDayStatsOnly(
-                    day=row.day,
-                    user=users[row.user_id],
-                    start_time=row.start_time,
-                    end_time=row.end_time,
-                    is_running=row.is_running,
-                    service_duration=row.service_duration,
-                    total_work_duration=row.total_work_duration,
-                    activity_timers={
-                        a_type: getattr(row, f"{a_type.value}_duration")
-                        for a_type in ActivityType
-                    },
-                    expenditures={
-                        e_type: getattr(row, f"n_{e_type.value}_expenditures")
-                        for e_type in ExpenditureType
-                    },
-                    mission_names=row.mission_names,
-                )
-                for index, row in enumerate(work_day_stats)
-            ]
-            return wds
+            for index, row in enumerate(work_day_stats)
+        ]
+
+        return to_connection(
+            wds,
+            connection_cls=WorkDayConnection,
+            has_next_page=has_next_page,
+            get_cursor=lambda wd: f"{str(to_datetime(wd.day))},{wd.user.id}",
+            first=first,
+        )
 
     @with_authorization_policy(
         belongs_to_company_at,
@@ -252,4 +268,4 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
 
 from app.data_access.user import UserOutput
-from app.data_access.work_day import WorkDayOutput
+from app.data_access.work_day import WorkDayConnection
