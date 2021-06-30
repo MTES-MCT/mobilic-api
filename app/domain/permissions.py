@@ -70,7 +70,7 @@ def can_actor_log_on_mission_at(actor, mission, date=None):
 def can_actor_log_on_mission_for_user_at(actor, user, mission, date=None):
     base_permission = can_actor_log_on_mission_at(
         actor, mission, date
-    ) and can_actor_log_on_mission_at(user, mission, date)
+    ) and can_actor_access_mission_at(user, mission, date)
     if not base_permission:
         return False
     if actor == user:

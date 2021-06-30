@@ -426,10 +426,11 @@ def query_work_day_stats(
         ).label("total_work_duration"),
     )
 
+    results = query.all()
     if after:
         results = [
             r
-            for r in query.all()
+            for r in results
             if r.day.date() < max_date
             or (r.day.date() == max_date and r.user_id < user_id_)
         ]
