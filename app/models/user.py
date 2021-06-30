@@ -76,8 +76,9 @@ class User(BaseModel):
         start_time=None,
         end_time=None,
         use_subqueries=False,
+        restrict_to_company_ids=None,
     ):
-        from app.models import Activity
+        from app.models import Activity, Mission
         from app.models.queries import query_activities, add_mission_relations
 
         base_query = query_activities(
@@ -86,6 +87,11 @@ class User(BaseModel):
             end_time=end_time,
             user_id=self.id,
         )
+
+        if restrict_to_company_ids:
+            base_query = base_query.join(Activity.mission).filter(
+                Mission.company_id.in_(restrict_to_company_ids)
+            )
 
         if include_mission_relations:
             base_query = base_query.options(
