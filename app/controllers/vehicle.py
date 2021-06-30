@@ -74,7 +74,7 @@ class EditVehicle(graphene.Mutation):
             kwargs["id"]
         ).company_id,
     )
-    def mutate(cls, _, info, alias, id):
+    def mutate(cls, _, info, id, alias=None):
         vehicle = Vehicle.query.get(id)
         vehicle.alias = alias
         db.session.commit()
