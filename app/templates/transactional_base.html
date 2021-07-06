@@ -31,6 +31,7 @@
 
       table {
         border-collapse: separate;
+        border-spacing: 0;
         mso-table-lspace: 0pt;
         mso-table-rspace: 0pt;
         width: 100%; }
@@ -79,7 +80,7 @@
 
       .wrapper {
         box-sizing: border-box;
-        padding: 24px;
+        padding: 0 0 36px 0;
       }
 
       .content-block {
@@ -88,7 +89,6 @@
 
       .footer {
         clear: both;
-        margin-top: 16px;
         text-align: center;
         width: 100%;
       }
@@ -153,11 +153,7 @@
         width: 100%; }
         .btn > tbody > tr > td {
           padding-bottom: 15px; }
-        .btn table {
-          width: auto;
-      }
         .btn table td {
-          background-color: #ffffff;
           border-radius: 5px;
           text-align: center;
       }
@@ -263,7 +259,7 @@
         }
         table[class=body] .wrapper,
         table[class=body] .article {
-          padding: 10px !important;
+          padding: 0 0 36px 0 !important;
         }
         table[class=body] .content {
           padding: 0 !important;
@@ -350,16 +346,25 @@
                         <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn">
                           <tbody>
                             <tr>
-                              <td align="center">
+                              <td align="center" style="background-color: #3184FF; padding-right:24px; padding-left: 24px; padding-top: 12px; padding-bottom: 12px;">
                                 <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                                   <tbody>
                                     <tr>
                                       <td>
-                                        <img align="center" alt="Mobilic" src="https://sandbox.mobilic.beta.gouv.fr/logo_text_mobilic.png"
-                                             width="200"
+                                        <img align="left" alt="Mobilic" src="https://sandbox.mobilic.beta.gouv.fr/ministere_transports_logo_white.png"
+                                             height="70"
+                                             style="
+                                                padding-left: 0;
+                                                display: inline !important;
+                                                vertical-align: bottom;"
+                                        >
+                                      </td>
+                                      <td>
+                                        <img align="right" alt="Mobilic" src="https://sandbox.mobilic.beta.gouv.fr/mobilic_logo_white.png"
+                                             height="70"
                                              style="
                                                 max-width:200px;
-                                                padding-left: 0;
+                                                padding-right: 0;
                                                 display: inline !important;
                                                 vertical-align: bottom;"
                                         >
@@ -371,8 +376,10 @@
                             </tr>
                           </tbody>
                         </table>
-                        {% block body %}
-                        {% endblock %}
+                        <div style="padding-right: 24px; padding-left:24px; padding-top: 36px;">
+                          {% block body %}
+                          {% endblock %}
+                        </div>
                       </td>
                     </tr>
                   </table>
@@ -387,8 +394,22 @@
             <div class="footer">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                 <tr>
+                  <td class="content-block" style="color: white; background-color: #3184FF; padding-top: 24px; padding-bottom: 24px;">
+                    Mobilic est un service numérique de l'Etat incubé à la Fabrique Numérique du Ministère de la Transition écologique, membre du réseau d’incubateurs beta.gouv.fr <br/>
+                    <a style="color: white" href="https://mobilic.beta.gouv.fr" target="_blank">Accéder au site</a>
+                  </td>
+                </tr>
+                <tr>
                   <td class="content-block">
-                    Mobilic est un service numérique de l'Etat incubé à la Fabrique Numérique du Ministère de la Transition écologique, membre du réseau d’incubateurs beta.gouv.fr
+                    N'hésitez pas à nous suivre sur notre page LinkedIn <br />
+                    <a href="https://www.linkedin.com/company/mobilic-beta-gouv/" target="_blank">
+                      <img height="24" alt="LinkedIn" src="https://sandbox.mobilic.beta.gouv.fr/linkedin.png">
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="content-block">
+                    <img height="100" alt="Mobilic-qrcode" src="https://sandbox.mobilic.beta.gouv.fr/landing-qrcode.svg" >
                   </td>
                 </tr>
               </table>
