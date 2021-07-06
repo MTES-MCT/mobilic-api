@@ -6,6 +6,7 @@ import requests
 from sqlalchemy.orm import selectinload
 from zipfile import ZipFile, ZIP_DEFLATED
 from io import BytesIO
+import os
 
 from webargs import fields
 from marshmallow import Schema, validates_schema, ValidationError
@@ -184,7 +185,7 @@ class CompanySignUp(graphene.Mutation):
                     f"Creation of Trello card for {company} failed with error : {e}"
                 )
 
-        if app.config["GOOGLE_PRIVATE_KEY"]:
+        if os.environ.get("GOOGLE_PRIVATE_KEY"):
             # Add new company to spreadsheet
             try:
                 add_company_to_spreadsheet(company, current_user)
