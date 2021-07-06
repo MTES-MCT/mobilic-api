@@ -346,9 +346,9 @@ class TachographGenerationScopeSchema(Schema):
 
     @validates_schema
     def check_period_is_small_enough(self, data, **kwargs):
-        if data["max_date"] - data["min_date"] > timedelta(days=60):
+        if data["max_date"] - data["min_date"] > timedelta(days=64):
             raise ValidationError(
-                "The requested period should be less than 60 days"
+                "The requested period should be less than 64 days"
             )
 
 
@@ -379,13 +379,12 @@ def download_tachograph_files(
                 consultation_scope=scope,
                 only_activities_validated_by_admin=False,
                 with_signatures=with_digital_signatures,
-                do_not_generate_if_empty=True,
+                do_not_generate_if_empty=False,
             )
-            if tachograph_data:
-                f.writestr(
-                    generate_tachograph_file_name(user),
-                    write_tachograph_archive(tachograph_data),
-                )
+            f.writestr(
+                generate_tachograph_file_name(user),
+                write_tachograph_archive(tachograph_data),
+            )
 
     archive.seek(0)
     return send_file(

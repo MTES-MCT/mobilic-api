@@ -1,4 +1,3 @@
-from io import BytesIO
 from typing import NamedTuple, Optional
 from datetime import datetime, timezone, date, timedelta
 import os
