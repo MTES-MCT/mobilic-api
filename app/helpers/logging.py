@@ -14,6 +14,9 @@ from app.helpers.authentication import current_user
 from app.helpers.errors import MobilicError
 
 
+logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
+
+
 def add_request_and_user_context(record):
     try:
         record.current_user = str(current_user)

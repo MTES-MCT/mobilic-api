@@ -164,15 +164,19 @@ class CompanySignUp(graphene.Mutation):
                         location=f"{first_establishment_info.get('adresse', '')} {first_establishment_info.get('codePostal', '')}"
                         if first_establishment_info
                         else None,
-                        activity_code=formatted_main_activity,
+                        activity_code=main_activity_code,
                         n_employees=format_tranche_effectif(
                             siren_api_info["uniteLegale"][
                                 "trancheEffectifsUniteLegale"
                             ]
+                            if siren_api_info
+                            else ""
                         ),
                         n_employees_year=siren_api_info["uniteLegale"][
                             "anneeEffectifsUniteLegale"
-                        ],
+                        ]
+                        if siren_api_info
+                        else "",
                     ),
                     timeout=3,
                 )
