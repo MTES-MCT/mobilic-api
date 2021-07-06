@@ -39,6 +39,9 @@ from app.models.employment import (
     EmploymentOutput,
 )
 from app import db, app
+from app.services.update_companies_spreadsheet import (
+    add_company_to_spreadsheet,
+)
 
 
 class CompanySignUp(graphene.Mutation):
@@ -179,6 +182,15 @@ class CompanySignUp(graphene.Mutation):
             except Exception as e:
                 app.logger.warning(
                     f"Creation of Trello card for {company} failed with error : {e}"
+                )
+
+        if app.config["GOOGLE_PRIVATE_KEY"]:
+            # Add new company to spreadsheet
+            try:
+                add_company_to_spreadsheet(company, current_user)
+            except Exception as e:
+                app.logger.warning(
+                    f"Could not add {company} to spreadsheet because : {e}"
                 )
 
         return CompanySignUp(company=company, employment=admin_employment)
