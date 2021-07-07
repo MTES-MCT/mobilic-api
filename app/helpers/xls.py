@@ -106,8 +106,15 @@ def format_kilometer_reading(location, wday):
 def get_columns_in_main_sheet(require_expenditures):
     columns_in_main_sheet = [
         (
-            "Employé",
-            lambda wday: wday.user.display_name,
+            "Prénom",
+            lambda wday: wday.user.first_name,
+            "wrap",
+            30,
+            light_yellow_hex,
+        ),
+        (
+            "Nom",
+            lambda wday: wday.user.last_name,
             "wrap",
             30,
             light_yellow_hex,
@@ -298,7 +305,8 @@ def get_columns_in_main_sheet(require_expenditures):
 
 
 activity_columns_in_details_sheet = [
-    ("Employé", lambda a: a.user.display_name, None, 30, light_yellow_hex,),
+    ("Prénom", lambda a: a.user.first_name, None, 30, light_yellow_hex,),
+    ("Nom", lambda a: a.user.last_name, None, 30, light_yellow_hex,),
     (
         "Jour",
         lambda a: to_fr_tz(a.start_time),
