@@ -182,6 +182,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_work_days(
         self, info, from_date=None, until_date=None, first=None, after=None
     ):
+        print(until_date)
+        print(after)
         # There are two ways to build the work days :
         ## - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
         ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
@@ -241,6 +243,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             )
             for index, row in enumerate(work_day_stats)
         ]
+
+        print(max([wd.day for wd in wds]) if wds else None)
 
         return to_connection(
             wds,

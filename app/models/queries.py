@@ -266,7 +266,10 @@ def query_work_day_stats(
         .filter(
             Mission.company_id == company_id,
             ~Activity.is_dismissed,
-            Activity.start_time != Activity.end_time,
+            or_(
+                Activity.end_time.is_(None),
+                Activity.start_time != Activity.end_time,
+            ),
         )
     )
 
