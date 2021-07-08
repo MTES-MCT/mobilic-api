@@ -110,6 +110,14 @@ class Mission(EventBaseModel):
         ]
         return end_location_entry[0] if end_location_entry else None
 
+    def latest_validation_time_for(self, user):
+        user_validation_times = [
+            v.reception_time
+            for v in self.validations
+            if v.submitter_id == user.id
+        ]
+        return max(user_validation_times) if user_validation_times else None
+
     def validated_by_admin_for(self, user):
         return any(
             [

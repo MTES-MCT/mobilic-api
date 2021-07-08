@@ -5,6 +5,9 @@ from sqlalchemy.orm import selectinload
 
 from app import app, db, mailer
 from app.controllers.utils import atomic_transaction
+from app.domain.notifications import (
+    warn_if_mission_changes_since_latest_user_action,
+)
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -307,77 +310,14 @@ class ValidateMission(graphene.Mutation):
 
         try:
             if is_admin_validation:
-                latest_non_admin_validations = [
-                    v
-                    for v in mission.latest_validations_per_user
-                    if not v.is_admin
-                ]
                 if user:
-                    latest_user_validation = [
-                        v
-                        for v in latest_non_admin_validations
-                        if v.submitter_id == user.id
-                    ]
-                    users_in_alerting_scope = (
-                        {user: latest_user_validation[0]}
-                        if latest_user_validation
-                        else dict()
-                    )
+                    concerned_users = [user]
                 else:
-                    users_in_alerting_scope = {
-                        v.user: v for v in latest_non_admin_validations
-                    }
-                for u, validation in users_in_alerting_scope.items():
-                    validation_time = validation.reception_time
-                    all_user_activities = mission.activities_for(
-                        u, include_dismissed_activities=True
+                    concerned_users = set([a.user for a in mission.activities])
+                for u in concerned_users:
+                    warn_if_mission_changes_since_latest_user_action(
+                        mission, u
                     )
-                    if any(
-                        [
-                            activity.last_update_time > validation_time
-                            for activity in all_user_activities
-                        ]
-                    ):
-                        (
-                            old_start_time,
-                            old_end_time,
-                            old_timers,
-                        ) = compute_aggregate_durations(
-                            activity_versions_at(
-                                all_user_activities, validation_time
-                            )
-                        )
-                        (
-                            new_start_time,
-                            new_end_time,
-                            new_timers,
-                        ) = compute_aggregate_durations(
-                            [
-                                a
-                                for a in all_user_activities
-                                if not a.is_dismissed
-                            ]
-                        )
-                        if (
-                            old_start_time != new_start_time
-                            or old_end_time != new_end_time
-                            or old_timers["total_work"]
-                            != new_timers["total_work"]
-                        ):
-                            try:
-                                mailer.send_warning_email_about_mission_changes(
-                                    user=u,
-                                    mission=mission,
-                                    admin=current_user,
-                                    old_start_time=old_start_time,
-                                    new_start_time=new_start_time,
-                                    old_end_time=old_end_time,
-                                    new_end_time=new_end_time,
-                                    old_timers=old_timers,
-                                    new_timers=new_timers,
-                                )
-                            except MailjetError as e:
-                                app.logger.exception(e)
         except Exception as e:
             app.logger.exception(e)
 

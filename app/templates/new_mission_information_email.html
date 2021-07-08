@@ -1,0 +1,24 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+La mission {{ mission_name }} du {{ mission_day }} a été rajoutée à votre historique
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour {{first_name | capitalize }},</p>
+    <p>Du temps de travail a été rajouté à votre historique : la mission <strong>{{ mission_name }}</strong> du <strong>{{ mission_day }}</strong>, validée par le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}}.</p>
+    <p>Vos horaires d'activité sur cette mission sont : </p>
+    <ul>
+        <li>
+            Heure de début : <strong>{{ start_time | format_time(show_dates) }}</strong>.
+        </li>
+        <li>
+            Heure de fin : <strong>{{ end_time | format_time(show_dates) }}</strong>.
+        </li>
+        <li>
+            Temps de travail : <strong>{{ work_duration | format_duration }}</strong>.
+        </li>
+    </ul>
+    <p>Vous pouvez consulter ici le détail <a href={{mission_link}} target="_blank">détail de la mission</a>. Si vous le souhaitez, vous pouvez apporter une réserve dans la section Observations.</p>
+    <strong>L'équipe Mobilic</strong>
+{% endblock %}

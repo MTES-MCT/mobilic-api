@@ -1,7 +1,6 @@
 from mailjet_rest import Client
 import jwt
 import os
-from uuid import uuid4
 from flask import render_template
 from datetime import datetime, date
 from markupsafe import Markup
@@ -20,6 +19,12 @@ class InvalidEmailAddressError(MailjetError):
     code = "INVALID_EMAIL_ADDRESS"
 
 
+def format_time(value, show_dates):
+    if show_dates:
+        return value.strftime("%d/%m/%y %H:%M")
+    return value.strftime("%H:%M")
+
+
 def format_seconds_duration(seconds):
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
@@ -31,6 +36,7 @@ class Mailer:
     def __init__(self, app):
         config = app.config
         app.template_filter("format_duration")(format_seconds_duration)
+        app.template_filter("format_time")(format_time)
         self.mailjet = Client(
             auth=(config["MAILJET_API_KEY"], config["MAILJET_API_SECRET"]),
             version="v3.1",
@@ -315,6 +321,45 @@ class Mailer:
             new_work_duration=new_timers["total_work"]
             if new_timers["total_work"] != old_timers["total_work"]
             else None,
+            show_dates=len(
+                set(
+                    [
+                        dt.date()
+                        for dt in [
+                            new_end_time,
+                            new_start_time,
+                            old_start_time,
+                            old_end_time,
+                        ]
+                    ]
+                )
+            )
+            > 1,
+        )
+
+    def send_information_email_about_new_mission(
+        self, user, admin, mission, start_time, end_time, timers
+    ):
+        start_time = to_fr_tz(start_time)
+        end_time = to_fr_tz(end_time)
+        mission_day = start_time.strftime("%d/%m")
+        self._send_email_from_flask_template(
+            "new_mission_information_email.html",
+            subject=f"La mission {mission.name} du {mission_day} a été rajoutée à votre historique",
+            user=user,
+            type_=EmailType.NEW_MISSION_INFORMATION,
+            first_name=user.first_name,
+            mission_name=mission.name,
+            company_name=mission.company.name,
+            admin_full_name=admin.display_name,
+            mission_day=Markup(mission_day),
+            mission_link=Markup(
+                f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}"
+            ),
+            start_time=start_time,
+            end_time=end_time,
+            work_duration=timers["total_work"],
+            show_dates=start_time.date() != end_time.date(),
         )
 
     def send_worker_onboarding_first_email(self, user):

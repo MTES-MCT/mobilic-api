@@ -10,30 +10,30 @@ Modifications sur votre mission {{ mission_name }} du {{ mission_day }}
     <ul>
         {% if new_start_time and new_work_duration and not new_end_time %}
             <li>
-                Le début de journée est passé de <strong>{{ old_start_time.strftime("%H:%M") }}</strong> à <strong>{{ new_start_time.strftime("%H:%M") }}</strong>.
+                Le début de journée est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
-                La fin de journée est restée inchangée à <strong>{{ old_end_time.strftime("%H:%M") }}</strong>.
+                La fin de journée est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
                 Le temps de travail a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
         {% elif new_end_time and new_work_duration and not new_start_time %}
              <li>
-                Le début de journée est resté inchangé à <strong>{{ old_start_time.strftime("%H:%M") }}</strong>.
+                Le début de journée est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
-                La fin de journée est passée de <strong>{{ old_end_time.strftime("%H:%M") }}</strong> à <strong>{{ new_end_time.strftime("%H:%M") }}</strong>.
+                La fin de journée est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
                 Le temps de travail a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
         {% elif new_end_time and new_work_duration and new_start_time %}
             <li>
-                Le début de journée est passé de <strong>{{ old_start_time.strftime("%H:%M") }}</strong> à <strong>{{ new_start_time.strftime("%H:%M") }}</strong>.
+                Le début de journée est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
-                La fin de journée est passé de <strong>{{ old_end_time.strftime("%H:%M") }}</strong> à <strong>{{ new_end_time.strftime("%H:%M") }}</strong>.
+                La fin de journée est passé de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
                 Le temps de travail a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
@@ -43,17 +43,17 @@ Modifications sur votre mission {{ mission_name }} du {{ mission_day }}
                 Le temps de travail a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
             <li>
-                Le début de journée est resté inchangé à <strong>{{ old_start_time.strftime("%H:%M") }}</strong>.
+                Le début de journée est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
-                La fin de journée est restée inchangée à <strong>{{ old_end_time.strftime("%H:%M") }}</strong>.
+                La fin de journée est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
             </li>
         {% elif new_start_time and new_end_time %}
             <li>
-                Le début de journée est passé de <strong>{{ old_start_time.strftime("%H:%M") }}</strong> à <strong>{{ new_start_time.strftime("%H:%M") }}</strong>.
+                Le début de journée est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
-                La fin de journée est passée de <strong>{{ old_end_time.strftime("%H:%M") }}</strong> à <strong>{{ new_end_time.strftime("%H:%M") }}</strong>.
+                La fin de journée est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
             </li>
             <li>
                 Le temps de travail est resté inchangé à <strong>{{ old_work_duration | format_duration }}</strong>.
@@ -61,6 +61,5 @@ Modifications sur votre mission {{ mission_name }} du {{ mission_day }}
         {% else %}{% endif %}
     </ul>
     <p>Vous pouvez consulter ici le nouveau <a href={{mission_link}} target="_blank">détail de la journée</a>. Si vous le souhaitez, vous pouvez apporter une réserve dans la section Observations.</p>
-    <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>
 {% endblock %}

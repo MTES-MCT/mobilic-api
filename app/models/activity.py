@@ -86,6 +86,16 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             key=lambda r: r.version,
         )
 
+    def latest_modification_time_by(self, user):
+        if self.dismiss_author_id == user.id:
+            return self.dismissed_at
+        user_revision_times = [
+            r.reception_time
+            for r in self.revisions
+            if r.submitter_id == user.id
+        ]
+        return max(user_revision_times) if user_revision_times else None
+
     def revise(
         self,
         revision_time,
