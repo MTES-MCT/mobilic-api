@@ -359,16 +359,20 @@ def build_identification_file(user):
 class ActivityChange(NamedTuple):
     type: Optional[ActivityType]
     minutes: int
+    nothing_after: bool = False
 
 
 def build_activity_file(
     work_days, user, first_activity_day, start_date=None, end_date=None
 ):
     # First, since the space is limited on the archive, we may need to restrict the number of work days
-    remaining_space = ACTIVITY_BYTES
+    now = datetime.utcnow()
+
     work_days_current_index = len(work_days) - 1
     work_days_with_fills = []
-    current_date = end_date or date.today()
+    current_date = end_date or now.date()
+    remaining_space = ACTIVITY_BYTES - (2 if current_date == now.date() else 0)
+
     while (
         remaining_space > 0
         and (current_date >= first_activity_day)
@@ -458,6 +462,16 @@ def build_activity_file(
                             type=None, minutes=end.hour * 60 + end.minute
                         )
                     )
+
+        if wd.day == now.date():
+            activity_changes.append(
+                ActivityChange(
+                    type=None,
+                    minutes=now.hour * 60 + now.minute,
+                    nothing_after=True,
+                )
+            )
+
         day_length = 12 + len(activity_changes) * 2
 
         # Write daily activity record : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=101
@@ -499,11 +513,11 @@ def build_activity_file(
             bit_string = ""
             ### - First bit : 0 (driver) or 1 (passenger)
             bit_string += "1" if ac.type == ActivityType.SUPPORT else "0"
-            ### - Second bit : 0 (solo) or 1 (team)
+            ### - Second bit : 0 (solo) or 1 (team) if automatic log, else 0 (unknown) or 1 (manual log)
             ### TODO : set that more precisely
             bit_string += "1" if ac.type == ActivityType.SUPPORT else "0"
             ### - Third bit : 0 (card is inserted, all good) or 1 (card not inserted)
-            bit_string += "0"
+            bit_string += "1" if ac.nothing_after else "0"
             ### - Fourth and fifth bits : activity type
             activity_type_in_bits = "00"
             if ac.type:
@@ -661,13 +675,8 @@ def generate_tachograph_parts(
         only_missions_validated_by_admin=only_activities_validated_by_admin,
         consultation_scope=consultation_scope,
     )
-    complete_work_days = [
-        w
-        for w in work_days
-        if w.day < date.today() or w.activities[-1].end_time
-    ]
 
-    if not complete_work_days and do_not_generate_if_empty:
+    if not work_days and do_not_generate_if_empty:
         return None
 
     files = [
@@ -681,13 +690,13 @@ def generate_tachograph_parts(
         File(spec=FileSpecs.EVENTS_DATA),
         File(spec=FileSpecs.FAULTS_DATA),
         build_activity_file(
-            complete_work_days,
+            work_days,
             user,
             first_user_activity_date,
             start_date=start_date,
             end_date=end_date,
         ),
-        build_vehicles_file(complete_work_days),
+        build_vehicles_file(work_days),
         File(spec=FileSpecs.PLACES),
         File(spec=FileSpecs.CURRENT_USAGE),
         File(spec=FileSpecs.CONTROL_ACTIVITY_DATA),
