@@ -4,8 +4,6 @@ from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
-import graphene
-from base64 import b64encode
 from dateutil.tz import gettz
 
 from app import db
