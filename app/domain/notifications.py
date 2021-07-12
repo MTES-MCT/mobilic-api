@@ -17,8 +17,8 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
     )
     if not all_user_activities:
         return False
-    latest_user_activity_modification_time = max(
-        [a.latest_modification_time_by(user) for a in all_user_activities]
+    latest_user_activity_modification_time = _max_or_none(
+        *[a.latest_modification_time_by(user) for a in all_user_activities]
     )
     latest_user_action_time = _max_or_none(
         latest_validation_time, latest_user_activity_modification_time
