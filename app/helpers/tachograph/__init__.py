@@ -3,6 +3,7 @@ from datetime import datetime, timezone, date, timedelta
 import os
 
 from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
+from app.helpers.time import to_datetime
 from app.models.activity import ActivityType
 from app.helpers.tachograph.signature import (
     verify_signature,
@@ -187,7 +188,7 @@ class FileSpecs:
     # https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=236
     # Records of specific situations like "ferrying"
     SPECIFIC_CONDITIONS = FileSpec(
-        b"\x05\x22", 280, default_content=bytes(280), signable=True
+        b"\x05\x22", 280, right_fill_with=bytes(5), signable=True
     )
 
 
@@ -363,10 +364,9 @@ class ActivityChange(NamedTuple):
 
 
 def build_activity_file(
-    work_days, user, first_activity_day, start_date=None, end_date=None
+    work_days, user, first_activity_day, now, start_date=None, end_date=None
 ):
     # First, since the space is limited on the archive, we may need to restrict the number of work days
-    now = datetime.utcnow()
 
     work_days_current_index = len(work_days) - 1
     work_days_with_fills = []
@@ -538,7 +538,10 @@ def build_activity_file(
     ## Now that everything is written we set the offset of the most recent records
     content[2:4] = current_offset.to_bytes(2, "big")
 
-    return File(spec=FileSpecs.DRIVER_ACTIVITY_DATA, content=content)
+    return (
+        File(spec=FileSpecs.DRIVER_ACTIVITY_DATA, content=content),
+        current_date + timedelta(days=1),
+    )
 
 
 class VehicleRecord:
@@ -651,6 +654,31 @@ def build_vehicles_file(work_days):
     return File(spec=FileSpecs.VEHICLES_USED, content=content)
 
 
+# Spec : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=146
+def build_specific_conditions_file(now, start_date, end_date=None):
+    start_time = to_datetime(start_date, tz_for_date=timezone.utc)
+    end_time = now
+    if end_date:
+        end_time = min(
+            now,
+            to_datetime(
+                end_date,
+                tz_for_date=timezone.utc,
+                convert_dates_to_end_of_day_times=True,
+            ),
+        )
+
+    content = bytearray()
+    # Start "hors champ" at the beginning of the earliest work day in the archive
+    content.extend(int(start_time.timestamp()).to_bytes(4, "big"))
+    content.extend(b"\x01")
+    # End "hors champ" at the end time of the latest work day in the archive
+    content.extend(int(end_time.timestamp()).to_bytes(4, "big"))
+    content.extend(b"\x02")
+
+    return File(spec=FileSpecs.SPECIFIC_CONDITIONS, content=content)
+
+
 def generate_tachograph_parts(
     user,
     start_date=None,
@@ -660,6 +688,7 @@ def generate_tachograph_parts(
     with_signatures=True,
     do_not_generate_if_empty=False,
 ):
+    now = datetime.utcnow()
     first_user_activity = user.first_activity_after(None)
     if not first_user_activity:
         first_user_activity_date = start_date
@@ -679,6 +708,17 @@ def generate_tachograph_parts(
     if not work_days and do_not_generate_if_empty:
         return None
 
+    activity_file, actual_start_date = build_activity_file(
+        work_days,
+        user,
+        first_user_activity_date,
+        now,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    work_days = [w for w in work_days if w.day >= actual_start_date]
+
     files = [
         File(spec=FileSpecs.CARD_ICC_IDENTIFICATION),
         File(spec=FileSpecs.CARD_CHIP_IDENTIFICATION),
@@ -689,18 +729,14 @@ def generate_tachograph_parts(
         File(spec=FileSpecs.CARD_DOWNLOAD),
         File(spec=FileSpecs.EVENTS_DATA),
         File(spec=FileSpecs.FAULTS_DATA),
-        build_activity_file(
-            work_days,
-            user,
-            first_user_activity_date,
-            start_date=start_date,
-            end_date=end_date,
-        ),
+        activity_file,
         build_vehicles_file(work_days),
         File(spec=FileSpecs.PLACES),
         File(spec=FileSpecs.CURRENT_USAGE),
         File(spec=FileSpecs.CONTROL_ACTIVITY_DATA),
-        File(spec=FileSpecs.SPECIFIC_CONDITIONS),
+        build_specific_conditions_file(
+            now, actual_start_date, end_date=end_date
+        ),
     ]
 
     current_card_key = None
