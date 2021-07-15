@@ -185,7 +185,7 @@ def log_activity(
             start_time=start_time,
             end_time=end_time,
             context=context,
-            version=1,
+            version_number=1,
             submitter=submitter,
         )
         db.session.add(activity)

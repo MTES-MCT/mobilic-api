@@ -136,7 +136,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 start_time=new["start_time"],
                 end_time=new["end_time"],
                 context=revision_context,
-                version=(self.latest_version_number() or 0) + 1,
+                version_number=(self.latest_version_number() or 0) + 1,
                 submitter=current_user,
             )
             db.session.add(revision)
