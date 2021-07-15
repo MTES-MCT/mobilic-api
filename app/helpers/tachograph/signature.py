@@ -22,6 +22,7 @@ class FileSignatureErrors(Enum):
     SIGNATURE_HASH_DOES_NOT_MATCH = "signature_hash_does_not_match"
 
 
+# cf. https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=378
 def sign_file(file, sk):
     file_hash = sha1(file.content).digest()
     to_sign = (

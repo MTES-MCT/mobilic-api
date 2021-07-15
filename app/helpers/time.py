@@ -34,9 +34,7 @@ def get_date_or_today(date=None):
     return date
 
 
-def to_datetime(
-    dt_or_date, tz_for_date=None, convert_dates_to_end_of_day_times=False
-):
+def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
     if not dt_or_date:
         return dt_or_date
     if type(dt_or_date) is datetime.datetime:
@@ -45,7 +43,7 @@ def to_datetime(
         dt = datetime.datetime(
             dt_or_date.year, dt_or_date.month, dt_or_date.day
         )
-        if convert_dates_to_end_of_day_times:
+        if date_as_end_of_day:
             dt = (
                 dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
             )
@@ -56,26 +54,22 @@ def to_datetime(
     return datetime.datetime.fromisoformat(dt_or_date)
 
 
-def _datetime_operator(convert_dates_to_end_of_day_times=False):
+def _datetime_operator(date_as_end_of_day=False):
     def decorator(op):
         def wrapper(date_or_dt1, date_or_dt2):
             if date_or_dt1 is None:
                 return to_datetime(
-                    date_or_dt2,
-                    convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                    date_or_dt2, date_as_end_of_day=date_as_end_of_day,
                 )
             if date_or_dt2 is None:
                 return to_datetime(
-                    date_or_dt1,
-                    convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                    date_or_dt1, date_as_end_of_day=date_as_end_of_day,
                 )
             _dt1 = to_datetime(
-                date_or_dt1,
-                convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                date_or_dt1, date_as_end_of_day=date_as_end_of_day,
             )
             _dt2 = to_datetime(
-                date_or_dt2,
-                convert_dates_to_end_of_day_times=convert_dates_to_end_of_day_times,
+                date_or_dt2, date_as_end_of_day=date_as_end_of_day,
             )
 
             return op(_dt1, _dt2)
@@ -90,6 +84,6 @@ def get_max_datetime(date_or_dt1, date_or_dt2):
     return max(date_or_dt1, date_or_dt2)
 
 
-@_datetime_operator(convert_dates_to_end_of_day_times=True)
+@_datetime_operator(date_as_end_of_day=True)
 def get_min_datetime(date_or_dt1, date_or_dt2):
     return min(date_or_dt1, date_or_dt2)

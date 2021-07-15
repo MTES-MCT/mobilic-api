@@ -67,26 +67,29 @@ class LocationEntry(EventBaseModel):
         if not km:
             return
         time = reception_time or datetime.now()
-        is_location_at_mission_end = True
-        if self.type == LocationEntryType.MISSION_START_LOCATION:
-            other_location = self.mission.end_location
-            is_location_at_mission_end = False
-        else:
-            other_location = self.mission.start_location
+
+        # We perform a consistency check : kilometer reading at end of mission should be superior to kilometer reading at start.
+        is_mission_end = (
+            True
+            if self.type == LocationEntryType.MISSION_END_LOCATION
+            else False
+        )
+        other_location = (
+            self.mission_end_location
+            if self.type == LocationEntryType.MISSION_END_LOCATION
+            else self.mission_start_location
+        )
+
         if other_location and other_location.kilometer_reading:
             start_kilometer_reading = (
-                other_location.kilometer_reading
-                if is_location_at_mission_end
-                else km
+                other_location.kilometer_reading if is_mission_end else km
             )
             end_kilometer_reading = (
-                km
-                if is_location_at_mission_end
-                else other_location.kilometer_reading
+                km if is_mission_end else other_location.kilometer_reading
             )
             if not start_kilometer_reading <= end_kilometer_reading:
                 raise InvalidParamsError(
-                    "Kilometer reading at end of mission should be higher than kilometer reading at start"
+                    "Kilometer reading at end of mission should be superior to kilometer reading at start"
                 )
 
         self.kilometer_reading = km

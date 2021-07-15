@@ -22,6 +22,8 @@ class Period:
     def duration(self):
         return (self.end_time or datetime.now()) - self.start_time
 
+    # Duration of the activity period that is overlapping with the period given by start_time and end_time
+    # This is mostly used for activities spanning several days, to split its duration among the different days
     def duration_over(self, start_time, end_time):
         if start_time and self.end_time and self.end_time <= start_time:
             return timedelta(0)
@@ -45,14 +47,14 @@ class Period:
 
 
 class ActivityVersion(EventBaseModel, Period):
-    backref_base_name = "activity_revisions"
+    backref_base_name = "activity_versions"
 
     activity_id = db.Column(
         db.Integer, db.ForeignKey("activity.id"), index=True, nullable=False
     )
-    activity = db.relationship("Activity", backref=backref("revisions"))
+    activity = db.relationship("Activity", backref=backref("versions"))
 
-    version = db.Column(db.Integer, nullable=False)
+    version_number = db.Column(db.Integer, nullable=False)
     context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @property
@@ -61,7 +63,7 @@ class ActivityVersion(EventBaseModel, Period):
 
     __table_args__ = (
         db.UniqueConstraint(
-            "version",
+            "version_number",
             "activity_id",
             name="unique_version_among_same_activity_versions",
         ),

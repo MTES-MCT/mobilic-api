@@ -497,7 +497,7 @@ def write_day_details_sheet(wb, wdays_by_user):
         for activity in sorted(acts, key=lambda a: a.start_time):
             starting_row_idx = row_idx
             activity_versions = sorted(
-                activity.revisions, key=lambda r: r.version
+                activity.versions, key=lambda r: r.version_number
             )
             events = [
                 (version, previous_version, False)

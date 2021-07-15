@@ -26,7 +26,7 @@ from app.models.location_entry import LocationEntry
 def user_query_with_all_relations():
     return User.query.options(
         selectinload(User.activities)
-        .options(selectinload(Activity.revisions))
+        .options(selectinload(Activity.versions))
         .options(
             selectinload(Activity.mission)
             .options(selectinload(Mission.validations))
@@ -51,19 +51,13 @@ def company_queries_with_all_relations():
         .options(
             selectinload(Activity.mission).selectinload(Mission.expenditures)
         )
-        .options(selectinload(Activity.revisions))
+        .options(selectinload(Activity.versions))
     ).options(selectinload(Company.vehicles))
 
 
-def _apply_time_range_filters(query, start_time, end_time):
-    if type(start_time) is date:
-        start_time = datetime(
-            start_time.year, start_time.month, start_time.day
-        )
-    if type(end_time) is date:
-        end_time = datetime(
-            end_time.year, end_time.month, end_time.day, 23, 59, 59
-        )
+def _apply_time_range_filters_to_activity_query(query, start_time, end_time):
+    start_time = to_datetime(start_time)
+    end_time = to_datetime(end_time, date_as_end_of_day=True)
     if start_time or end_time:
         return query.filter(
             func.tsrange(Activity.start_time, Activity.end_time, "[]").op(
@@ -88,7 +82,9 @@ def query_activities(
     if not include_dismissed_activities:
         base_query = base_query.filter(~Activity.is_dismissed)
 
-    return _apply_time_range_filters(base_query, start_time, end_time)
+    return _apply_time_range_filters_to_activity_query(
+        base_query, start_time, end_time
+    )
 
 
 def add_mission_relations(
@@ -102,7 +98,7 @@ def add_mission_relations(
     )
     if include_revisions:
         mission_activities_subq = mission_activities_subq.joinedload(
-            Activity.revisions, innerjoin=True
+            Activity.versions, innerjoin=True
         )
 
     return query.options(
@@ -128,6 +124,7 @@ def query_company_missions(
 ):
     from app.data_access.mission import MissionConnection
 
+    # This first query yields the ids of the missions that fall in the company scope
     company_mission_subq = Mission.query.with_entities(Mission.id).filter(
         Mission.company_id.in_(company_ids)
     )
@@ -153,10 +150,12 @@ def query_company_missions(
 
     company_mission_subq = company_mission_subq.subquery()
 
+    # Cursor pagination : missions are sorted by descending start time (start time of the earliest activity) and id
     if after:
         max_time, id_ = parse_datetime_plus_id_cursor(after)
         end_time = min(max_time, end_time) if end_time else max_time
 
+    # This query yields the ids of the missions that are in the requested period scope, on top of being in the requested company scope
     mission_id_query = (
         query_activities(start_time=start_time, end_time=end_time)
         .join(company_mission_subq, Activity.mission)
@@ -180,6 +179,7 @@ def query_company_missions(
             )
         )
 
+    # Hard cap on the number of records returned is 1000
     actual_first = min(first or 1000, 1000)
     mission_id_query = mission_id_query.order_by(
         desc("mission_start_time"), desc("mission_id")
@@ -194,6 +194,7 @@ def query_company_missions(
         m[0]: f"{str(m[1])},{m[0]}" for m in missions_ids_and_start_times
     }
 
+    # The second query that yields the missions themselves, from the ids we retrieved earlier
     mission_query = add_mission_relations(
         Mission.query, use_subqueries=len(missions_ids_and_start_times) > 500
     )
@@ -219,12 +220,17 @@ def query_work_day_stats(
     after=None,
     tzname="Europe/Paris",
 ):
+    # The following is a bit complex because we want to compute day-centric statistics from data that are not day-centric (an activity period can for instance span over several days)
+
     tz = gettz(tzname)
+
+    # Cursor pagination : work days are sorted by descending date and user id
     if after:
         max_time, user_id_ = parse_datetime_plus_id_cursor(after)
         max_date = max_time.date()
         end_date = min(max_date, end_date) if end_date else max_date
 
+    # First query returns all the activities that will be used to compute statistics, split by days
     query = (
         Activity.query.join(Mission)
         .join(
@@ -245,6 +251,7 @@ def query_work_day_stats(
             Activity.type,
             Expenditure.id.label("expenditure_id"),
             Expenditure.type.label("expenditure_type"),
+            # Split an activity by the number of days it overlaps.
             func.generate_series(
                 func.date_trunc(
                     "day",
@@ -263,6 +270,7 @@ def query_work_day_stats(
         )
         .filter(
             Mission.company_id == company_id,
+            # Keep only activities that are not dismissed and have a non-zero period
             ~Activity.is_dismissed,
             or_(
                 Activity.end_time.is_(None),
@@ -271,16 +279,15 @@ def query_work_day_stats(
         )
     )
 
-    query = _apply_time_range_filters(
+    query = _apply_time_range_filters_to_activity_query(
         query,
         to_datetime(start_date, tz_for_date=tz),
-        to_datetime(
-            end_date, tz_for_date=tz, convert_dates_to_end_of_day_times=True
-        ),
+        to_datetime(end_date, tz_for_date=tz, date_as_end_of_day=True),
     )
 
     has_next_page = False
     if first:
+        # Retrieve at least 200 activities to ensure that we have at least a full work day
         activity_first = max(first * 5, 200)
         query = query.order_by(desc("day"), desc(Activity.user_id)).limit(
             activity_first + 1
@@ -289,6 +296,8 @@ def query_work_day_stats(
 
     query = query.subquery()
 
+    # Now compute the statistics from the activities in the requested scope
+    ## First round groups by user id, day and mission
     query = (
         db.session.query(query)
         .group_by(
@@ -378,6 +387,7 @@ def query_work_day_stats(
         .subquery()
     )
 
+    ## Second round further groups by user id and day : that is the scale we want
     query = (
         db.session.query(query)
         .group_by(query.c.user_id, query.c.day)

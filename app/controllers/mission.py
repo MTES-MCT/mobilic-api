@@ -266,7 +266,7 @@ class ValidateMission(graphene.Mutation):
     @with_authorization_policy(
         can_actor_log_on_mission_at,
         get_target_from_args=lambda *args, **kwargs: Mission.query.options(
-            selectinload(Mission.activities).selectinload(Activity.revisions)
+            selectinload(Mission.activities).selectinload(Activity.versions)
         ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )

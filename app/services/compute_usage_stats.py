@@ -40,7 +40,7 @@ def compute_usage_stats(users):
             revision_times = {
                 av.reception_time
                 for a in wd._all_activities
-                for av in a.revisions
+                for av in a.versions
             }
             dismiss_times = {
                 a.dismissed_at

@@ -102,7 +102,7 @@ class User(BaseModel):
                 )
             )
         elif include_revisions:
-            base_query = base_query.options(joinedload(Activity.revisions))
+            base_query = base_query.options(joinedload(Activity.versions))
 
         return base_query
 
@@ -192,6 +192,7 @@ class User(BaseModel):
             and (end_time or datetime.now()) - start_time
             <= timedelta(days=250)
         ) or (limit_fetch_activities and limit_fetch_activities <= 1500)
+
         activity_query = self.query_activities_with_relations(
             include_dismissed_activities=include_dismissed_activities,
             include_mission_relations=True,

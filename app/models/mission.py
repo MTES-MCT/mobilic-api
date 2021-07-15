@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
@@ -36,7 +34,7 @@ class Mission(EventBaseModel):
             return [a for a in all_activities_for_user if not a.is_dismissed]
         return all_activities_for_user
 
-    def current_activity_for_at(self, user, date_time):
+    def current_activity_at_time_for_user(self, user, date_time):
         for activity in self.activities_for(user):
             if activity.start_time <= date_time and (
                 not activity.end_time or activity.end_time > date_time

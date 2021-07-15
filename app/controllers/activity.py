@@ -100,7 +100,7 @@ class LogActivity(graphene.Mutation):
             start_time = activity_input["start_time"]
 
             if user and switch_mode and mission:
-                current_activity = mission.current_activity_for_at(
+                current_activity = mission.current_activity_at_time_for_user(
                     user, start_time
                 )
                 if current_activity:

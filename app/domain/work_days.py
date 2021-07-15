@@ -180,7 +180,7 @@ class WorkDay:
         all_activity_contexts = [
             ar.context
             for a in self._all_activities
-            for ar in a.revisions
+            for ar in a.versions
             if ar.context is not None
         ]
         all_comments = [
@@ -307,7 +307,7 @@ def group_user_events_by_day_with_limit(
         if from_date
         else None,
         end_time=to_datetime(
-            until_date, tz_for_date=tz, convert_dates_to_end_of_day_times=True
+            until_date, tz_for_date=tz, date_as_end_of_day=True
         )
         if until_date
         else None,

@@ -61,18 +61,13 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         db.Constraint(name="no_successive_activities_with_same_type"),
     )
 
-    # TODO : add (maybe)
-    # - validator
-    # - version (each version represents a set of changes to the day activities)
-    # OR revises (indicates which prior activity the current one revises)
-
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 
     def latest_version_number(self):
         return (
-            max([r.version for r in self.revisions])
-            if self.revisions
+            max([r.version_number for r in self.versions])
+            if self.versions
             else None
         )
 
@@ -82,8 +77,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         if self.dismissed_at and self.dismissed_at <= at_time:
             return None
         return max(
-            [r for r in self.revisions if r.reception_time <= at_time],
-            key=lambda r: r.version,
+            [r for r in self.versions if r.reception_time <= at_time],
+            key=lambda r: r.version_number,
         )
 
     def latest_modification_time_by(self, user):
@@ -91,7 +86,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             return self.dismissed_at
         user_revision_times = [
             r.reception_time
-            for r in self.revisions
+            for r in self.versions
             if r.submitter_id == user.id
         ]
         return max(user_revision_times) if user_revision_times else None

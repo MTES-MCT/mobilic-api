@@ -33,6 +33,9 @@ class Address(BaseModel):
         existing_addresses = cls.query.filter(
             cls.geo_api_id == geo_api_id
         ).all()
+
+        # We check whether the new address exists in the DB with the same exact properties.
+        # If not or if at least one property differ we create a new DB entry.
         for addr in existing_addresses:
             are_addresses_equal = True
             for key, value in properties.items():
@@ -41,6 +44,7 @@ class Address(BaseModel):
                     break
             if are_addresses_equal:
                 return addr
+
         address = cls(
             **properties,
             geo_api_id=geo_api_id,
