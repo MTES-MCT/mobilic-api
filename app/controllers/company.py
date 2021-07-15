@@ -81,7 +81,6 @@ class CompanySignUp(graphene.Mutation):
                 )
 
             require_kilometer_data = True
-            main_activity_code = ""
             if siren_api_info:
                 formatted_main_activity = main_activity_code = siren_api_info[
                     "uniteLegale"
@@ -164,7 +163,7 @@ class CompanySignUp(graphene.Mutation):
                         location=f"{first_establishment_info.get('adresse', '')} {first_establishment_info.get('codePostal', '')}"
                         if first_establishment_info
                         else None,
-                        activity_code=main_activity_code,
+                        activity_code=formatted_main_activity or "inconnu",
                         n_employees=format_tranche_effectif(
                             siren_api_info["uniteLegale"][
                                 "trancheEffectifsUniteLegale"
