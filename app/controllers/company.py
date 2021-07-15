@@ -28,6 +28,7 @@ from app.helpers.authorization import (
 )
 from app import siren_api_client, mailer
 from app.helpers.insee_tranche_effectifs import format_tranche_effectif
+from app.helpers.integromat import call_integromat_webhook
 from app.helpers.tachograph import (
     generate_tachograph_parts,
     write_tachograph_archive,
@@ -81,28 +82,21 @@ class CompanySignUp(graphene.Mutation):
                 )
 
             require_kilometer_data = True
+            require_support_activity = False
             if siren_api_info:
-                formatted_main_activity = main_activity_code = siren_api_info[
-                    "uniteLegale"
-                ]["activitePrincipaleUniteLegale"]
-                main_activity = (
-                    NafCode.get_code(main_activity_code)
-                    if main_activity_code
-                    else None
-                )
-                if main_activity:
-                    formatted_main_activity = (
-                        f"{main_activity.code} {main_activity.label}"
-                    )
-                # For déménagement companies disable kilometer data by default
+                # For déménagement companies disable kilometer data by default, and enable support activity
                 if (
                     siren_api_info["uniteLegale"][
                         "nomenclatureActivitePrincipaleUniteLegale"
                     ]
                     == "NAFRev2"
-                    and main_activity_code == "49.42Z"
+                    and siren_api_info["uniteLegale"][
+                        "activitePrincipaleUniteLegale"
+                    ]
+                    == "49.42Z"
                 ):
                     require_kilometer_data = False
+                    require_support_activity = True
 
             now = datetime.now()
             company = Company(
@@ -112,6 +106,7 @@ class CompanySignUp(graphene.Mutation):
                 siren_api_info=siren_api_info,
                 allow_team_mode=True,
                 require_kilometer_data=require_kilometer_data,
+                require_support_activity=require_support_activity,
             )
             db.session.add(company)
             db.session.flush()  # Early check for SIREN duplication
@@ -146,43 +141,7 @@ class CompanySignUp(graphene.Mutation):
         if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
             # Call Integromat for Trello card creation
             try:
-                first_establishment_info = (
-                    siren_api_info["etablissements"][0]
-                    if siren_api_info
-                    else None
-                )
-                response = requests.post(
-                    app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"],
-                    data=dict(
-                        name=company.name,
-                        creation_time=company.creation_time,
-                        submitter_name=current_user.display_name,
-                        submitter_email=current_user.email,
-                        siren=company.siren,
-                        metabase_link=f"{app.config['METABASE_COMPANY_DASHBOARD_BASE_URL']}{company.id}",
-                        location=f"{first_establishment_info.get('adresse', '')} {first_establishment_info.get('codePostal', '')}"
-                        if first_establishment_info
-                        else None,
-                        activity_code=formatted_main_activity or "inconnu",
-                        n_employees=format_tranche_effectif(
-                            siren_api_info["uniteLegale"][
-                                "trancheEffectifsUniteLegale"
-                            ]
-                            if siren_api_info
-                            else ""
-                        ),
-                        n_employees_year=siren_api_info["uniteLegale"][
-                            "anneeEffectifsUniteLegale"
-                        ]
-                        if siren_api_info
-                        else "",
-                    ),
-                    timeout=3,
-                )
-                if not response.status_code == 200:
-                    app.logger.warning(
-                        f"Creation of Trello card for {company} failed with error : {response.text}"
-                    )
+                call_integromat_webhook(company, current_user)
             except Exception as e:
                 app.logger.warning(
                     f"Creation of Trello card for {company} failed with error : {e}"
