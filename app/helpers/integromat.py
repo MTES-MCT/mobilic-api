@@ -33,6 +33,8 @@ def call_integromat_webhook(company, admin=None):
             formatted_main_activity = (
                 f"{main_activity.code} {main_activity.label}"
             )
+        else:
+            formatted_main_activity = main_activity_code
 
     response = requests.post(
         app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"],
