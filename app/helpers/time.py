@@ -51,7 +51,9 @@ def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
             dt = from_tz(dt, tz_for_date)
         return dt
 
-    return datetime.datetime.fromisoformat(dt_or_date)
+    if type(dt_or_date) is str:
+        return datetime.datetime.fromisoformat(dt_or_date)
+    return dt_or_date
 
 
 def _datetime_operator(date_as_end_of_day=False):
