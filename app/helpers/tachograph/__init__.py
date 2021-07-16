@@ -360,7 +360,7 @@ def build_identification_file(user):
 class ActivityChange(NamedTuple):
     type: Optional[ActivityType]
     minutes: int
-    nothing_after: bool = False
+    mark_as_unknown: bool = False
 
 
 def build_activity_file(
@@ -433,7 +433,12 @@ def build_activity_file(
         ):
             activity_status_at_midnight = first_activity.type
         activity_changes.append(
-            ActivityChange(type=activity_status_at_midnight, minutes=0)
+            ActivityChange(
+                type=activity_status_at_midnight,
+                minutes=0,
+                mark_as_unknown=not activity_status_at_midnight
+                and not wd.is_first_mission_overlapping_with_previous_day,
+            )
         )
         for index, activity in enumerate(wd.activities):
             start = activity.start_time.astimezone(timezone.utc)
@@ -459,16 +464,19 @@ def build_activity_file(
                 ):
                     activity_changes.append(
                         ActivityChange(
-                            type=None, minutes=end.hour * 60 + end.minute
+                            type=None,
+                            minutes=end.hour * 60 + end.minute,
+                            mark_as_unknown=not next_activity
+                            and not wd.is_last_mission_overlapping_with_next_day,
                         )
                     )
 
-        if wd.day == now.date():
+        if wd.day == now.date() and not activity_changes[-1].mark_as_unknown:
             activity_changes.append(
                 ActivityChange(
                     type=None,
                     minutes=now.hour * 60 + now.minute,
-                    nothing_after=True,
+                    mark_as_unknown=True,
                 )
             )
 
@@ -517,7 +525,7 @@ def build_activity_file(
             ### TODO : set that more precisely
             bit_string += "1" if ac.type == ActivityType.SUPPORT else "0"
             ### - Third bit : 0 (card is inserted, all good) or 1 (card not inserted)
-            bit_string += "1" if ac.nothing_after else "0"
+            bit_string += "1" if ac.mark_as_unknown else "0"
             ### - Fourth and fifth bits : activity type
             activity_type_in_bits = "00"
             if ac.type:
