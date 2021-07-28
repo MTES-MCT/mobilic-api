@@ -45,10 +45,7 @@ def with_authorization_policy(
         )
 
     def decorator(resolver):
-        if (
-            authorization_rule == allow_all
-            or app.config["DISABLE_AUTH_FOR_TESTING"]
-        ):
+        if authorization_rule == allow_all:
             return resolver
 
         @wraps(resolver)

@@ -89,7 +89,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return self.end_location
 
     def resolve_is_ended_for_self(self, info):
-        return len([e for e in self.ends if e.user_id == current_user.id]) > 0
+        return self.ended_for(current_user)
 
 
 class MissionConnection(graphene.Connection):

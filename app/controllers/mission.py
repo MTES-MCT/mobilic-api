@@ -272,6 +272,7 @@ class ValidateMission(graphene.Mutation):
     )
     def mutate(cls, _, info, mission_id, user_id=None):
         with atomic_transaction(commit_at_end=True):
+            validation_time = datetime.now()
             mission = Mission.query.get(mission_id)
 
             is_admin_validation = (
@@ -299,9 +300,26 @@ class ValidateMission(graphene.Mutation):
             if any([not a.end_time for a in activities_to_validate]):
                 raise MissionStillRunningError()
 
+            users = (
+                list(set([a.user for a in activities_to_validate]))
+                if is_admin_validation
+                else [current_user]
+            )
+
+            for u in users:
+                if not mission.ended_for(u):
+                    db.session.add(
+                        MissionEnd(
+                            submitter=current_user,
+                            reception_time=validation_time,
+                            user=u,
+                            mission=mission,
+                        )
+                    )
+
             mission_validation = MissionValidation(
                 submitter=current_user,
-                reception_time=datetime.now(),
+                reception_time=validation_time,
                 mission=mission,
                 user=user if is_admin_validation else current_user,
                 is_admin=is_admin_validation,

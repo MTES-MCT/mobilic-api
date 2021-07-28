@@ -11,7 +11,7 @@ class Config:
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=1)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
-    DISABLE_AUTH_FOR_TESTING = False
+    DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)

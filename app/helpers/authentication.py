@@ -244,7 +244,10 @@ class LoginMutation(graphene.Mutation):
     def mutate(cls, _, info, email, password):
         app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
-        if not user or not user.password or not user.check_password(password):
+        if not user or (
+            not app.config["DISABLE_PASSWORD_CHECK"]
+            and (not user.password or not user.check_password(password))
+        ):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )

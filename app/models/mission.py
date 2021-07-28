@@ -123,3 +123,6 @@ class Mission(EventBaseModel):
                 for v in self.validations
             ]
         )
+
+    def ended_for(self, user):
+        return len([e for e in self.ends if e.user_id == user.id]) > 0
