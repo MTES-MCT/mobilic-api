@@ -1,7 +1,20 @@
 from sqlalchemy.dialects.postgresql import JSONB
+from enum import Enum
 
 from app import db
 from app.models.event import EventBaseModel
+
+
+def _max_or_none(*args):
+    args_not_none = [a for a in args if a is not None]
+    return max(args_not_none) if args_not_none else None
+
+
+class UserMissionModificationStatus(str, Enum):
+    USER_MODIFIED_LAST = "user_modified_last"
+    OTHERS_MODIFIED_AFTER_USER = "other_modified_after_user"
+    ONLY_OTHERS_ACTIONS = "only_others_actions"
+    NO_DATA_FOR_USER = "no_data_for_user"
 
 
 class Mission(EventBaseModel):
@@ -122,6 +135,39 @@ class Mission(EventBaseModel):
                 v.is_admin and (not v.user_id or v.user_id == user.id)
                 for v in self.validations
             ]
+        )
+
+    def modification_status_and_latest_action_time_for_user(self, user):
+        latest_validation_time = self.latest_validation_time_for(user)
+        all_user_activities = self.activities_for(
+            user, include_dismissed_activities=True
+        )
+        if not all_user_activities:
+            return UserMissionModificationStatus.NO_DATA_FOR_USER, None
+
+        latest_user_activity_modification_time = _max_or_none(
+            *[a.latest_modification_time_by(user) for a in all_user_activities]
+        )
+        latest_user_action_time = _max_or_none(
+            latest_validation_time, latest_user_activity_modification_time
+        )
+
+        if not latest_user_action_time:
+            # Mission was most likely created by the admin, user is not yet informed of it
+            activities = [a for a in all_user_activities if not a.is_dismissed]
+            if not activities:
+                return UserMissionModificationStatus.ONLY_OTHERS_ACTIONS, None
+
+        return (
+            UserMissionModificationStatus.OTHERS_MODIFIED_AFTER_USER
+            if any(
+                [
+                    activity.last_update_time > latest_user_action_time
+                    for activity in all_user_activities
+                ]
+            )
+            else UserMissionModificationStatus.USER_MODIFIED_LAST,
+            latest_user_action_time,
         )
 
     def ended_for(self, user):

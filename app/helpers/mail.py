@@ -19,24 +19,10 @@ class InvalidEmailAddressError(MailjetError):
     code = "INVALID_EMAIL_ADDRESS"
 
 
-def format_time(value, show_dates):
-    if show_dates:
-        return value.strftime("%d/%m/%y %H:%M")
-    return value.strftime("%H:%M")
-
-
-def format_seconds_duration(seconds):
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    return f"{hours}h{minutes if minutes >= 10 else '0' + str(minutes)}"
-
-
 # Mailjet is used as the email solution : what follows is the wrapper of their API, whose doc is here : https://github.com/mailjet/mailjet-apiv3-python
 class Mailer:
     def __init__(self, app):
         config = app.config
-        app.template_filter("format_duration")(format_seconds_duration)
-        app.template_filter("format_time")(format_time)
         self.mailjet = Client(
             auth=(config["MAILJET_API_KEY"], config["MAILJET_API_SECRET"]),
             version="v3.1",

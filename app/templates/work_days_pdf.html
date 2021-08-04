@@ -1,0 +1,349 @@
+{% extends "pdf_base.html" %}
+
+{% block style %}
+<style>
+    .section {
+        margin-bottom: 30pt;
+    }
+
+    .can-break-after {
+        -pdf-keep-with-next: false;
+    }
+
+    .context-table {
+        padding-right: 0;
+        margin: 0;
+        width: 300pt;
+        border: solid 1px black;
+    }
+    .context-table table tbody tr {
+        padding: 0;
+        margin: 0;
+    }
+    .context-table td {
+        height: 20pt;
+        padding: 2pt;
+        line-height: 1;
+    }
+    .context-table-cell-name {
+        width: 40pt;
+        text-align: left;
+        font-size: 8pt;
+        background-color: #f0f0f0;
+    }
+    .context-table-cell-value {
+        width: 260pt;
+    }
+
+    .summary-table td, th {
+        border-right: solid 0.5px lightgrey;
+        border-bottom: solid 0.5px lightgrey;
+        padding: 6pt 2pt 6pt 2pt;
+        font-size: 10pt;
+        line-height: 0;
+        text-align: center;
+    }
+
+    .summary-table.dense td, th {
+        border-right: solid 0.5px lightgrey;
+        border-bottom: solid 0.5px lightgrey;
+        padding: 2pt;
+        font-size: 9pt;
+        line-height: 0;
+        text-align: center;
+    }
+
+    .summary-table th {
+        border-bottom: solid 1pt black;
+        border-top: none;
+        font-size: 10pt;
+        padding-top: 4pt;
+        padding-bottom: 4pt;
+    }
+    .summary-table-month {
+        border-right: solid 1pt black;
+        border-left: none !important;
+    }
+    .summary-table .summary-table-major-prop {
+        font-size: 10pt;
+    }
+    .summary-table .summary-table-minor-prop {
+        font-size: 8pt;
+        font-weight: lighter;
+        color: #444444
+    }
+
+    .summary-table.dense .summary-table-minor-prop {
+        font-size: 7pt;
+    }
+
+    .section-title {
+        font-size: 12pt;
+        font-weight: bold;
+        padding-bottom: 2pt;
+        margin-bottom: 0;
+    }
+
+    .week-details-table {
+        margin-bottom: 20pt;
+    }
+
+    .week-details-table td, th {
+        border-right: solid 0.5px lightgrey;
+        border-bottom: solid 0.5px lightgrey;
+        padding: 1pt;
+        font-size: 7pt;
+        line-height: 0;
+        text-align: center;
+    }
+
+    .week-details-table th {
+        border-bottom: solid 1pt black;
+        border-top: solid 1pt black;
+        padding-top: 4pt;
+        padding-bottom: 4pt;
+    }
+
+    .week-details-table .details-table-major-prop {
+        font-size: 7pt;
+    }
+
+    .week-details-table .details-table-minor-prop {
+        font-size: 6pt;
+        font-weight: lighter;
+        color: #444444
+    }
+
+    .helper-text {
+        font-style: italic;
+        font-size: 7pt;
+        color: #888888;
+        padding: 0;
+        padding-top: 4pt;
+    }
+
+    .helper-text-star {
+        font-style: normal;
+        font-size: 7pt;
+        color: #888888;
+        padding: 0;
+    }
+
+</style>
+{% endblock %}
+
+{% block body %}
+    <table style="margin-bottom: 50pt;">
+        <tr>
+            <td align="left">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <p
+                                  style="
+                                    text-transform: uppercase;
+                                    font-weight: bold;
+                                    font-size: 16pt;
+                                    line-height: 0;
+                                    padding-top: 0;
+                                    padding-bottom: 8pt;
+                                  "
+                                >
+                                    RELEVÉ D'HEURES
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <p>
+                                    Extrait le {{ generation_time | full_format_day }} à {{ generation_time | format_time(False) }}
+                                </p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+            <td align="right" class="context-table">
+                <table>
+                    <tbody>
+                        <tr>
+                            <td class="context-table-cell-name">Nom</td>
+                            <td class="context-table-cell-value" style="font-weight: bold; font-size: 11pt;">{{ user_name | title }}</td>
+                        </tr>
+                        <tr>
+                            <td class="context-table-cell-name">Période</td>
+                            <td class="context-table-cell-value">du {{ start_date | full_format_day }} au {{ end_date | full_format_day }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
+    <p class="section-title">Global par mois</p>
+    <table class="summary-table section">
+        <thead>
+            <tr>
+                <th class="summary-table-month">Mois</th>
+                {% for column in summary_columns %}
+                    <th
+                        style="background-color: {{ column.color }}; {{ 'border-right: none;' if loop.last else '' }}"
+                        align="{{ 'right' if column.number else 'center' }}"
+                    >
+                        {{ column.label }}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for month in months %}
+                {% set outer_loop = loop %}
+                <tr>
+                   <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none;' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}">
+                       {{ month["date"] | pretty_format_month }}
+                   </td>
+                   {% for column in summary_columns %}
+                       <td class="{{ 'summary-table-minor-prop' if column.secondary else 'summary-table-major-prop' }}"
+                            style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}"
+                            align="{{ 'right' if column.number else 'center' }}"
+                        >
+                            {{ column.format(month[column.name]) }}
+                        </td>
+                   {% endfor %}
+                </tr>
+            {% endfor %}
+            {% if show_month_total %}
+            <tr class="summary-table-total">
+                <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
+                {% for column in summary_columns %}
+                   <td
+                        style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
+                        align="{{ 'right' if column.number else 'center' }}"
+                    >
+                        {{ column.format(total[column.name]) }}
+                    </td>
+               {% endfor %}
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    {% if show_week_summary %}
+        {% if break_after_month %}
+            <pdf:nextpage>
+        {% endif %}
+        <p class="section-title">Global par semaine</p>
+        <table class="summary-table section dense">
+            <thead>
+                <tr>
+                    <th class="summary-table-month">Semaine</th>
+                    {% for column in summary_columns %}
+                        <th
+                            style="background-color: {{ column.color }}; {{ 'border-right: none;' if loop.last else '' }}"
+                            align="{{ 'right' if column.number else 'center' }}"
+                        >
+                            {{ column.label }}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for week in weeks %}
+                    {% set outer_loop = loop %}
+                    <tr>
+                       <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}">
+                           Du {{ week["start"] | format_day }} au {{ week["end"] | format_day }}
+                       </td>
+                       {% for column in summary_columns %}
+                           <td class="{{ 'summary-table-minor-prop' if column.secondary else 'summary-table-major-prop' }}"
+                                style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}"
+                                align="{{ 'right' if column.number else 'center' }}"
+                            >
+                                {{ column.format(week[column.name]) }}
+                            </td>
+                       {% endfor %}
+                    </tr>
+                {% endfor %}
+                <tr class="summary-table-total">
+                    <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
+                    {% for column in summary_columns %}
+                       <td
+                            style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
+                            align="{{ 'right' if column.number else 'center' }}"
+                        >
+                            {{ column.format(total[column.name]) }}
+                        </td>
+                   {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    {% endif %}
+    <pdf:nextpage>
+    <p class="section-title">Détail par semaine</p>
+    {% for week in weeks %}
+        <table class="week-details-table can-break-after">
+            <thead>
+                <tr>
+                    <th style="border-left: solid 1pt black; border-right: solid 1pt black;">Du {{ week["start"] | format_day }} au {{ week["end"] | format_day }}</th>
+                    {% for column in day_columns %}
+                        <th
+                            style="background-color: {{ column.color }}; border-top: solid 1pt black; {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}"
+                            align="{{ 'right' if column.number else 'center' }}"
+                        >
+                            {{ column.label }}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in week["days"] %}
+                    {% set outer_loop = loop %}
+                    <tr style="{{ 'background-color: #d0d0d0;' if day["date"].weekday() >= 5 else '' }}">
+                       <td style="border-right: solid 1pt black; border-left: solid 1pt black;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}">
+                           {{ day["date"] | pretty_format_day }}
+                           {% if day.get("not_validated_by_self", False) %}<span class="helper-text-star"> *</span>{% endif %}
+                           {% if day.get("not_validated_by_admin", False) %}<span class="helper-text-star"> **</span>{% endif %}
+                           {% if day.get("modified_after_self_validation", False) %}<span class="helper-text-star"> ***</span>{% endif %}
+                       </td>
+                       {% for column in day_columns %}
+                           <td class="{{ 'details-table-minor-prop' if column.secondary else 'details-table-major-prop' }}"
+                                style="{{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}"
+                                align="{{ 'right' if column.number else 'center' }}"
+                            >
+                                {{ column.format(day[column.name]) if day.get(column.name, None) is not none else '' }}
+                            </td>
+                       {% endfor %}
+                    </tr>
+                {% endfor %}
+                <tr>
+                    <td style="border-right: solid 1pt black; border-left: solid 1pt black; border-bottom: solid 1pt black; font-weight: bold;">Total</td>
+                    {% for column in day_columns %}
+                       <td
+                            style="border-bottom: solid 1pt black; {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }} font-weight: {{ 'normal' if column.secondary else 'bold' }};"
+                            align="{{ 'right' if column.number else 'center' }}"
+                        >
+                            {{ column.format(week[column.name]) if week.get(column.name, None) is not none else '' }}
+                        </td>
+                   {% endfor %}
+                </tr>
+                {% if week.get("has_day_not_validated_by_self", False) %}
+                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                        <span class="helper-text-star">*</span> La journée contient des activités non validées par le salarié
+                    </p></td></tr>
+                {% endif %}
+                {% if week.get("has_day_not_validated_by_admin", False) %}
+                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                        <span class="helper-text-star">**</span> La journée contient des activités non validées par le gestionnaire
+                    </p></td></tr>
+                {% endif %}
+                {% if week.get("has_day_modified_after_self_validation", False) %}
+                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                        <span class="helper-text-star">***</span> Des modifications ont été apportées à cette journée après la validation du salarié
+                    </p></td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+        {% if week.get("break_after", False) %}
+            <pdf:nextpage>
+        {% endif %}
+    {% endfor %}
+{% endblock %}
