@@ -13,7 +13,7 @@ def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
     if not authenticated_and_active(actor):
         return False
     date_ = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.employments_at(date_)
+    actor_employments_at_date = actor.active_employments_at(date_)
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
@@ -32,8 +32,8 @@ def belongs_to_company_at(
     include_pending_invite=True,
 ):
     date_ = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.employments_at(
-        date_, with_pending_ones=include_pending_invite
+    actor_employments_at_date = actor.active_employments_at(
+        date_, include_pending_ones=include_pending_invite
     )
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:

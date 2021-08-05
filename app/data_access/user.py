@@ -287,7 +287,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'currentEmployments' of user object. The field is only accessible to the user himself.",
     )
     def resolve_current_employments(self, info):
-        return self.employments_at(date.today(), with_pending_ones=True)
+        return sorted(
+            self.active_employments_at(
+                date.today(), include_pending_ones=True
+            ),
+            key=lambda e: not e.is_primary,
+        )
 
     @with_authorization_policy(
         only_self,

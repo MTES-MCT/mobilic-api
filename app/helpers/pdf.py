@@ -3,6 +3,7 @@ from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from xhtml2pdf import pisa
 from flask import render_template
+from io import BytesIO
 
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.time import to_fr_tz
@@ -21,7 +22,7 @@ class Column(NamedTuple):
     number: bool = True
 
 
-def get_summary_columns(include_support=False, include_expenditures=False):
+def _get_summary_columns(include_support=False, include_expenditures=False):
     summary_columns = [
         Column(name="worked_days", label="Jours travaillés", color="#CFDAC8"),
         Column(
@@ -93,7 +94,7 @@ def get_summary_columns(include_support=False, include_expenditures=False):
     return summary_columns
 
 
-def get_detail_columns(include_support=False, include_expenditures=False):
+def _get_detail_columns(include_support=False, include_expenditures=False):
     columns = [
         Column(
             name="start_time",
@@ -193,7 +194,7 @@ def get_detail_columns(include_support=False, include_expenditures=False):
     return columns
 
 
-def generate_work_days_pdf(
+def _generate_work_days_pdf(
     user,
     work_days,
     start_date,
@@ -318,6 +319,8 @@ def generate_work_days_pdf(
     current_group_count = 0
     current_group_uses_extra_space = start_date.weekday() == 0
     for week in weeks:
+        week["start"] = max(week["start"], start_date)
+        week["end"] = min(week["end"], end_date)
         week.update(
             {
                 "has_day_not_validated_by_self": any(
@@ -359,12 +362,12 @@ def generate_work_days_pdf(
         user_name=user.display_name,
         start_date=start_date,
         end_date=end_date,
-        summary_columns=get_summary_columns(
+        summary_columns=_get_summary_columns(
             include_support=include_support_activity
             or total[ActivityType.SUPPORT] > 0,
             include_expenditures=include_expenditures,
         ),
-        day_columns=get_detail_columns(
+        day_columns=_get_detail_columns(
             include_support=include_support_activity
             or total[ActivityType.SUPPORT] > 0,
             include_expenditures=include_expenditures,
@@ -372,20 +375,34 @@ def generate_work_days_pdf(
         weeks=weeks,
         months=months,
         total=total,
-        show_month_total=True,
+        show_month_total=len(months) > 1,
         show_week_summary=True,
         break_after_month=len(months) > 2,
         generation_time=datetime.now(),
     )
 
-    with open("test.pdf", "wb") as f:
-        pisa.CreatePDF(html, f)
+    output = BytesIO()
+    pisa.CreatePDF(html, output)
+    output.seek(0)
+
+    return output
 
 
-def generate_work_days_pdf_for(user, start_date, end_date):
+def generate_work_days_pdf_for(
+    user,
+    start_date,
+    end_date,
+    include_support_activity=False,
+    include_expenditures=False,
+):
     work_days, _ = group_user_events_by_day_with_limit(
         user, from_date=start_date, until_date=end_date
     )
-    generate_work_days_pdf(
-        user, work_days, start_date, end_date, include_expenditures=True
+    return _generate_work_days_pdf(
+        user,
+        work_days,
+        start_date,
+        end_date,
+        include_support_activity=include_support_activity,
+        include_expenditures=include_expenditures,
     )

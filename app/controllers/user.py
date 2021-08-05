@@ -1,9 +1,13 @@
 import graphene
 import jwt
-from flask import redirect, request, after_this_request
+from flask import redirect, request, after_this_request, send_file
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode, unquote
+
+from webargs import fields
+from flask_apispec import use_kwargs, doc
+from marshmallow import Schema, validates_schema, ValidationError
 
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.user import UserOutput
@@ -17,6 +21,7 @@ from app.helpers.authentication import (
     AuthenticationError,
     unset_fc_auth_cookies,
     set_auth_cookies,
+    require_auth,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -30,6 +35,8 @@ from app.helpers.errors import (
     MailjetError,
 )
 from app.helpers.france_connect import get_fc_user_info
+from app.helpers.pdf import generate_work_days_pdf_for
+from app.templates.filters import full_format_day
 from app.models import User
 from app import app, db, mailer
 
@@ -386,3 +393,47 @@ def query_user(info, id=None):
     info.context.user_being_queried = user
     app.logger.info(f"Sending user data for {user}")
     return user
+
+
+class PDFExportSchema(Schema):
+    min_date = fields.Date(required=True)
+    max_date = fields.Date(required=True)
+
+    @validates_schema
+    def check_period_is_small_enough(self, data, **kwargs):
+        if data["max_date"] - data["min_date"] > timedelta(days=366):
+            raise ValidationError(
+                "The requested period should be less than 1 year"
+            )
+
+
+@app.route("/users/generate_pdf_export", methods=["POST"])
+@doc(description="Génération d'un relevé d'heures au format PDF")
+@use_kwargs(PDFExportSchema(), apply=True)
+@require_auth
+def generate_pdf_export(
+    min_date, max_date,
+):
+    relevant_companies = [
+        e.company
+        for e in current_user.active_employments_between(min_date, max_date)
+    ]
+    pdf = generate_work_days_pdf_for(
+        current_user,
+        min_date,
+        max_date,
+        include_support_activity=any(
+            [c.require_support_activity for c in relevant_companies]
+        ),
+        include_expenditures=any(
+            [c.require_expenditures for c in relevant_companies]
+        ),
+    )
+
+    return send_file(
+        pdf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename=f"Relevé d'heures de {current_user.display_name} - {full_format_day(min_date)} au {full_format_day(max_date)}",
+    )

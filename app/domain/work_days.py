@@ -315,7 +315,7 @@ def group_user_events_by_day_with_limit(
         if consultation_scope
         else None,
         additional_activity_filters=lambda query: query.order_by(
-            desc(Activity.start_time)
+            desc(Activity.start_time), desc(Activity.id)
         ),
         limit_fetch_activities=max(first * 5, 200) if first else None,
     )

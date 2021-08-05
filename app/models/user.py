@@ -1,6 +1,12 @@
 from datetime import date, datetime, timedelta
 
-from sqlalchemy.orm import synonym, joinedload, subqueryload, selectinload
+from sqlalchemy.orm import (
+    synonym,
+    joinedload,
+    subqueryload,
+    selectinload,
+    contains_eager,
+)
 from sqlalchemy import desc, or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from cached_property import cached_property
@@ -8,12 +14,13 @@ from uuid import uuid4
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
 from app.models.base import BaseModel
 from app import db
 
 
-class User(BaseModel):
+class User(BaseModel, WithEmploymentHistory):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
     first_name = db.Column(db.String(255), nullable=False)
@@ -89,8 +96,10 @@ class User(BaseModel):
         )
 
         if restrict_to_company_ids:
-            base_query = base_query.join(Activity.mission).filter(
-                Mission.company_id.in_(restrict_to_company_ids)
+            base_query = (
+                base_query.join(Activity.mission)
+                .options(contains_eager(Activity.mission))
+                .filter(Mission.company_id.in_(restrict_to_company_ids))
             )
 
         if include_mission_relations:
@@ -190,7 +199,7 @@ class User(BaseModel):
         small_query = (
             start_time
             and (end_time or datetime.now()) - start_time
-            <= timedelta(days=250)
+            <= timedelta(days=366)
         ) or (limit_fetch_activities and limit_fetch_activities <= 1500)
 
         activity_query = self.query_activities_with_relations(
@@ -257,35 +266,16 @@ class User(BaseModel):
             else None
         )
 
-    def employments_at(self, date_, with_pending_ones=False):
-        employments = sorted(
-            [
-                e
-                for e in self.employments
-                if e.is_not_rejected
-                and not e.is_dismissed
-                and e.start_date
-                <= date_
-                <= (e.end_date or VERY_FAR_AHEAD.date())
-            ],
-            key=lambda e: not e.is_primary,
-        )
-        if not with_pending_ones:
-            return [e for e in employments if e.is_acknowledged]
-        return employments
-
     def primary_employment_at(self, date_):
-        employments = self.employments_at(date_)
-        if employments and employments[0].is_primary:
-            return employments[0]
-        else:
-            return None
+        employments = self.active_employments_at(date_)
+        primary_employment = [e for e in employments if e.is_primary]
+        return primary_employment[0] if primary_employment else None
 
     @cached_property
     def current_company_ids_with_admin_rights(self):
         return [
             e.company_id
-            for e in self.employments_at(date.today())
+            for e in self.active_employments_at(date.today())
             if e.has_admin_rights
         ]
 

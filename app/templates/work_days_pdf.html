@@ -39,15 +39,6 @@
         border-right: solid 0.5px lightgrey;
         border-bottom: solid 0.5px lightgrey;
         padding: 6pt 2pt 6pt 2pt;
-        font-size: 10pt;
-        line-height: 0;
-        text-align: center;
-    }
-
-    .summary-table.dense td, th {
-        border-right: solid 0.5px lightgrey;
-        border-bottom: solid 0.5px lightgrey;
-        padding: 2pt;
         font-size: 9pt;
         line-height: 0;
         text-align: center;
@@ -56,10 +47,20 @@
     .summary-table th {
         border-bottom: solid 1pt black;
         border-top: none;
-        font-size: 10pt;
+        font-size: 9pt;
         padding-top: 4pt;
         padding-bottom: 4pt;
     }
+
+    .summary-table.dense td, th {
+        border-right: solid 0.5px lightgrey;
+        border-bottom: solid 0.5px lightgrey;
+        padding: 2pt;
+        font-size: 8pt;
+        line-height: 0;
+        text-align: center;
+    }
+
     .summary-table-month {
         border-right: solid 1pt black;
         border-left: none !important;
@@ -92,7 +93,7 @@
         border-right: solid 0.5px lightgrey;
         border-bottom: solid 0.5px lightgrey;
         padding: 1pt;
-        font-size: 7pt;
+        font-size: 6pt;
         line-height: 0;
         text-align: center;
     }
@@ -105,18 +106,18 @@
     }
 
     .week-details-table .details-table-major-prop {
-        font-size: 7pt;
+        font-size: 6pt;
     }
 
     .week-details-table .details-table-minor-prop {
-        font-size: 6pt;
+        font-size: 5pt;
         font-weight: lighter;
         color: #444444
     }
 
     .helper-text {
         font-style: italic;
-        font-size: 7pt;
+        font-size: 6pt;
         color: #888888;
         padding: 0;
         padding-top: 4pt;
@@ -124,7 +125,7 @@
 
     .helper-text-star {
         font-style: normal;
-        font-size: 7pt;
+        font-size: 6pt;
         color: #888888;
         padding: 0;
     }
@@ -342,7 +343,7 @@
                 {% endif %}
             </tbody>
         </table>
-        {% if week.get("break_after", False) %}
+        {% if week.get("break_after", False) and not loop.last %}
             <pdf:nextpage>
         {% endif %}
     {% endfor %}

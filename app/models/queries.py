@@ -23,6 +23,9 @@ from app.models.expenditure import ExpenditureType
 from app.models.location_entry import LocationEntry
 
 
+# https://docs.sqlalchemy.org/en/14/orm/loading_relationships.html#what-kind-of-loading-to-use
+
+
 def user_query_with_all_relations():
     return User.query.options(
         selectinload(User.activities)
@@ -93,20 +96,22 @@ def add_mission_relations(
     relationship_loading_technique = (
         subqueryload if use_subqueries else selectinload
     )
-    mission_activities_subq = relationship_loading_technique(
-        Mission.activities
-    )
+    mission_activities_subq = (
+        relationship_loading_technique
+        if not include_revisions
+        else selectinload
+    )(Mission.activities)
     if include_revisions:
         mission_activities_subq = mission_activities_subq.joinedload(
             Activity.versions, innerjoin=True
         )
 
     return query.options(
+        mission_activities_subq,
         relationship_loading_technique(Mission.validations),
         relationship_loading_technique(Mission.expenditures),
         relationship_loading_technique(Mission.comments),
         relationship_loading_technique(Mission.vehicle),
-        mission_activities_subq,
         relationship_loading_technique(Mission.location_entries).options(
             joinedload(LocationEntry._address),
             joinedload(LocationEntry._company_known_address),
