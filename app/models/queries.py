@@ -1,5 +1,13 @@
 from sqlalchemy.orm import selectinload, subqueryload, joinedload
-from sqlalchemy import and_, or_, desc, Integer, Interval, literal_column
+from sqlalchemy import (
+    and_,
+    or_,
+    desc,
+    Integer,
+    Interval,
+    literal_column,
+    column,
+)
 from datetime import datetime, date
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
@@ -170,7 +178,7 @@ def query_company_missions(
             func.min(Activity.start_time).label("mission_start_time"),
         )
         .from_self()
-        .with_entities("mission_id", "mission_start_time")
+        .with_entities(column("mission_id"), column("mission_start_time"))
     )
 
     if after:
