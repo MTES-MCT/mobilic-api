@@ -1,4 +1,5 @@
 from app import db
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.helpers.mail_type import EmailType
 from app.models.base import BaseModel
 from app.models.utils import enum_column
@@ -20,3 +21,14 @@ class Email(BaseModel):
         db.Integer, db.ForeignKey("employment.id"), nullable=True, index=True
     )
     employment = db.relationship("Employment", backref="invite_emails")
+
+
+class EmailOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = Email
+        only_fields = (
+            "id",
+            "creation_time",
+            "type",
+            "address",
+        )

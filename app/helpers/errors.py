@@ -66,10 +66,6 @@ class NoSirenAPICredentialsError(MobilicError):
     code = "NO_SIREN_API_CREDENTIALS"
 
 
-class MailjetError(MobilicError):
-    code = "MAILJET_ERROR"
-
-
 class FranceConnectAuthenticationError(MobilicError):
     code = "FRANCE_CONNECT_ERROR"
 

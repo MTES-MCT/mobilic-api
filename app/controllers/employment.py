@@ -18,8 +18,8 @@ from app.helpers.errors import (
     InvalidParamsError,
     InvalidTokenError,
     InvalidResourceError,
-    MailjetError,
 )
+from app.helpers.mail import MailjetError
 from app.helpers.authentication import AuthenticationError
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -32,6 +32,9 @@ from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
 )
+
+MAX_SIZE_OF_INVITATION_BATCH = 100
+MAILJET_BATCH_SEND_LIMIT = 50
 
 
 class CreateEmployment(graphene.Mutation):
@@ -149,15 +152,83 @@ class CreateEmployment(graphene.Mutation):
             db.session.add(employment)
 
             try:
-                mailer.send_employee_invite(
-                    employment,
-                    user.email if user else employment_input.get("mail"),
-                )
+                mailer.send_employee_invite(employment)
             except MailjetError as e:
                 if not user:
                     raise e
 
         return employment
+
+
+class CreateWorkerEmploymentsFromEmails(graphene.Mutation):
+    """
+    Invitation de rattachement d'un travailleur mobile à une entreprise. L'invitation doit être approuvée par le salarié pour être effective.
+
+    Retourne le rattachement.
+    """
+
+    class Arguments:
+        company_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de l'entreprise de rattachement",
+        )
+        mails = graphene.Argument(
+            graphene.List(graphene.String),
+            required=True,
+            description="Liste d'emais à rattacher.",
+        )
+
+    Output = graphene.List(EmploymentOutput)
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin_at,
+        get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
+    )
+    def mutate(cls, _, info, company_id, mails):
+        with atomic_transaction(commit_at_end=True):
+            print(mails)
+            if len(mails) > MAX_SIZE_OF_INVITATION_BATCH:
+                raise InvalidParamsError(
+                    f"List of emails to invite cannot exceed {MAX_SIZE_OF_INVITATION_BATCH} in length"
+                )
+            reception_time = datetime.now()
+            company = Company.query.get(company_id)
+
+            employments = [
+                Employment(
+                    reception_time=reception_time,
+                    submitter=current_user,
+                    is_primary=None,
+                    validation_status=EmploymentRequestValidationStatus.PENDING,
+                    start_date=reception_time.date(),
+                    end_date=None,
+                    company=company,
+                    has_admin_rights=False,
+                    invite_token=uuid4().hex,
+                    email=mail,
+                )
+                for mail in mails
+            ]
+            db.session.flush()
+
+            messages = []
+            for cursor in range(0, len(mails), MAILJET_BATCH_SEND_LIMIT):
+                messages.extend(
+                    mailer.batch_send_employee_invites(
+                        employments[
+                            cursor : (cursor + MAILJET_BATCH_SEND_LIMIT)
+                        ]
+                    )
+                )
+            unsent_employments = []
+            for index, message in enumerate(messages):
+                if isinstance(message.response, MailjetError):
+                    unsent_employments.append(employments[index])
+                    db.session.delete(employments[index])
+
+        return [e for e in employments if not e in unsent_employments]
 
 
 def review_employment(employment_id, reject):
@@ -318,18 +389,17 @@ class TerminateEmployment(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(
+        company_admin_at,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to terminate the employment",
+    )
     def mutate(cls, _, info, employment_id, end_date=None):
         with atomic_transaction(commit_at_end=True):
             employment_end_date = end_date or date.today()
-
             employment = Employment.query.get(employment_id)
-            if not employment or not company_admin_at(
-                current_user, employment.company
-            ):
-                raise AuthorizationError(
-                    "Actor is not authorized to terminate the employment"
-                )
 
             if not employment.is_acknowledged or employment.end_date:
                 raise InvalidResourceError(
@@ -368,17 +438,16 @@ class CancelEmployment(graphene.Mutation):
         )
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(
+        company_admin_at,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to cancel the employment",
+    )
     def mutate(self, _, info, employment_id):
         with atomic_transaction(commit_at_end=True):
             employment = Employment.query.get(employment_id)
-
-            if not employment or not company_admin_at(
-                current_user, employment.company
-            ):
-                raise AuthorizationError(
-                    "Actor is not authorized to cancel the employment"
-                )
 
             if employment.is_dismissed:
                 raise InvalidResourceError(
@@ -387,5 +456,42 @@ class CancelEmployment(graphene.Mutation):
             app.logger.info(f"Cancelling Employment {employment_id}")
 
             employment.dismiss()
+
+        return Void(success=True)
+
+
+class SendInvitationReminder(graphene.Mutation):
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement pour lequel relancer un email d'invitation",
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin_at,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to send invitation emails for the employment",
+    )
+    def mutate(cls, _, info, employment_id):
+        employment = Employment.query.get(employment_id)
+        min_time_between_emails = app.config[
+            "MIN_DELAY_BETWEEN_INVITATION_EMAILS"
+        ]
+        if (
+            datetime.now()
+            - (
+                employment.latest_invite_email_time
+                or employment.reception_time
+            )
+            >= min_time_between_emails
+        ):
+            mailer.send_employee_invite(employment, reminder=True)
+            db.session.commit()
 
         return Void(success=True)

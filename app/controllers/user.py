@@ -32,8 +32,8 @@ from app.helpers.errors import (
     InvalidTokenError,
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
-    MailjetError,
 )
+from app.helpers.mail import MailjetError
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.pdf import generate_work_days_pdf_for
 from app.templates.filters import full_format_day

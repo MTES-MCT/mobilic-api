@@ -31,7 +31,6 @@ if grep --quiet "$COMMENT" $ACTIVATE_PATH; then
 else
   echo -en "\n$COMMENT" >> $ACTIVATE_PATH
   echo -e "$EXPORT_STMT" >> $ACTIVATE_PATH
-  echo "Done! Happy coding."
 fi
 
 # Step 3 : install dependencies

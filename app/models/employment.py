@@ -97,6 +97,13 @@ class Employment(UserEventBaseModel, Dismissable):
         )
         self.validation_time = time if time else datetime.now()
 
+    @property
+    def latest_invite_email_time(self):
+        invite_emails = self.invite_emails
+        if not invite_emails:
+            return None
+        return max([e.creation_time for e in invite_emails])
+
 
 class EmploymentOutput(BaseSQLAlchemyObjectType):
     class Meta:
@@ -115,6 +122,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "company",
             "has_admin_rights",
             "email",
+            "latest_invite_email_time",
         )
 
     id = graphene.Field(
@@ -163,6 +171,11 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     is_acknowledged = graphene.Field(
         graphene.Boolean,
         description="Précise si le rattachement a été approuvé par l'utilisateur concerné ou s'il est en attente de validation. Un rattachement non validé ne peut pas être actif.",
+    )
+    latest_invite_email_time = graphene.Field(
+        TimeStamp,
+        required=False,
+        description="Horodatage d'envoi du dernier email d'invitation",
     )
 
     def resolve_is_acknowledged(self, info):

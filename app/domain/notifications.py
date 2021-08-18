@@ -1,6 +1,6 @@
 from app import mailer, app
 from app.domain.work_days import compute_aggregate_durations
-from app.helpers.errors import MailjetError
+from app.helpers.mail import MailjetError
 from app.models.activity import activity_versions_at
 from app.helpers.authentication import current_user
 from app.models.mission import UserMissionModificationStatus

@@ -35,8 +35,8 @@ from app.helpers.errors import (
     UnavailableSwitchModeError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
-    MailjetError,
 )
+from app.helpers.mail import MailjetError
 from app.models.vehicle import VehicleOutput
 
 

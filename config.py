@@ -54,6 +54,11 @@ class Config:
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
     MOBILIC_SERVICE_ACTOR_TOKEN = os.environ.get("MOBILIC_SERVICE_ACTOR_TOKEN")
     USER_CONTROL_HISTORY_DEPTH = timedelta(days=60)
+    MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
+        minutes=os.environ.get(
+            "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 24
+        )
+    )
 
 
 class DevConfig(Config):
@@ -61,6 +66,9 @@ class DevConfig(Config):
     ECHO_DB_QUERIES = os.environ.get("ECHO_DB_QUERIES", False)
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
     JWT_COOKIE_SECURE = False
+    MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
+        minutes=os.environ.get("MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 2)
+    )
 
 
 class StagingConfig(Config):
