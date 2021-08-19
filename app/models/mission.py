@@ -155,8 +155,9 @@ class Mission(EventBaseModel):
         if not latest_user_action_time:
             # Mission was most likely created by the admin, user is not yet informed of it
             activities = [a for a in all_user_activities if not a.is_dismissed]
-            if not activities:
+            if activities:
                 return UserMissionModificationStatus.ONLY_OTHERS_ACTIONS, None
+            return UserMissionModificationStatus.NO_DATA_FOR_USER, None
 
         return (
             UserMissionModificationStatus.OTHERS_MODIFIED_AFTER_USER
