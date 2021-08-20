@@ -1,6 +1,6 @@
 # API Mobilic
 
-Dépôt de code du back de la startup d'état **Mobilic** incubée à la Fabrique Numérique du Ministère de la Transition Écologique et Solidaire.
+Dépôt de code du back de la startup d'état **Mobilic** incubée à la Fabrique Numérique du Ministère de la Transition Écologique.
 
 Ce `README` contient essentiellement des informations pour installer un environnement de développement local du back Mobilic. 
 
@@ -20,7 +20,7 @@ C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations c
 
 Démarrer un serveur PostgreSQL local.
 
-Exécuter le script d'installation :
+Exécuter le script d'installation depuis la racine du projet :
 
 ```sh
 ./setup_local.sh
