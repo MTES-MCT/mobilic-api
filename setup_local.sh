@@ -35,7 +35,7 @@ fi
 
 # Step 3 : install dependencies
 
-echo "Installing dependencies"
+echo "Installing dependencies..."
 source ${VIRTUAL_ENV_FOLDER}/bin/activate
 pip install --quiet -r requirements.txt
 
@@ -48,3 +48,16 @@ pre-commit install
 deactivate
 source ${VIRTUAL_ENV_FOLDER}/bin/activate
 
+# Step 6 : create local database
+echo "Creating local database mobilic (if needed)..."
+if [ -z "$(command -v psql)" ]; then
+  echo 'ERROR : psql cli not found. Are you sure it is installed ?'
+  exit 1
+fi;
+psql -c "CREATE DATABASE mobilic"  2> /dev/null || true
+
+# Step 7 : run migrations
+echo "Running DB migrations..."
+flask db upgrade 1> /dev/null
+
+echo "All good ! You are all set"
