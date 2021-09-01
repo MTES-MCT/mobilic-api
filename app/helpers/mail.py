@@ -107,7 +107,7 @@ class MailjetMessage:
                 address=self.actual_recipient,
                 user_id=self.user.id if self.user else None,
                 type=self.email_type,
-                employment_id=self.employment.id,
+                employment_id=self.employment.id if self.employment else None,
             )
         return None
 
