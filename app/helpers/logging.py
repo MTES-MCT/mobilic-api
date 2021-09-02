@@ -1,5 +1,3 @@
-import os
-
 import logging
 import requests
 from marshmallow import fields
@@ -10,6 +8,7 @@ from logging_ldp.handlers import LDPGELFTCPSocketHandler
 from logging_ldp.schemas import LDPSchema
 
 from app import app
+from config import MOBILIC_ENV
 from app.helpers.authentication import current_user
 from app.helpers.errors import MobilicError
 
@@ -52,7 +51,7 @@ def post_to_mattermost(
             channel=app.config["MATTERMOST_PRIMARY_LOG_CHANNEL"]
             if not is_secondary
             else app.config["MATTERMOST_SECONDARY_LOG_CHANNEL"],
-            username=f"Mobilic backend - {os.environ.get('MOBILIC_ENV', 'test').capitalize()}",
+            username=f"Mobilic backend - {MOBILIC_ENV.capitalize()}",
             icon_emoji=emoji,
             attachments=[
                 dict(

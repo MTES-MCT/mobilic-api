@@ -9,6 +9,7 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
 import config
+from config import MOBILIC_ENV
 from app.helpers.db import SQLAlchemyWithStrongRefSession
 from app.helpers.mail import Mailer
 from app.helpers.siren import SirenAPIClient
@@ -30,8 +31,7 @@ app.config.update(
 
 docs = FlaskApiSpec(app)
 
-env = os.environ.get("MOBILIC_ENV", "dev")
-app.config.from_object(getattr(config, f"{env.capitalize()}Config"))
+app.config.from_object(getattr(config, f"{MOBILIC_ENV.capitalize()}Config"))
 
 siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 

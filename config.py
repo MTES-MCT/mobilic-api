@@ -5,6 +5,8 @@ import os
 if os.environ.get("DOTENV_FILE", False):
     load_dotenv(os.environ.get("DOTENV_FILE"))
 
+MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
+
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get(
