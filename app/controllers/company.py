@@ -147,7 +147,7 @@ class CompanySignUp(graphene.Mutation):
                     f"Creation of Trello card for {company} failed with error : {e}"
                 )
 
-        if os.environ.get("GOOGLE_PRIVATE_KEY"):
+        if app.config["GOOGLE_PRIVATE_KEY"]:
             # Add new company to spreadsheet
             try:
                 add_company_to_spreadsheet(company, current_user)

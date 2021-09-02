@@ -1,5 +1,9 @@
 from datetime import timedelta
+from dotenv import load_dotenv
 import os
+
+if os.environ.get("DOTENV_FILE", False):
+    load_dotenv(os.environ.get("DOTENV_FILE"))
 
 
 class Config:
@@ -59,6 +63,12 @@ class Config:
             "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 24
         )
     )
+    GOOGLE_CLIENT_CERT_URL = os.environ.get("GOOGLE_CLIENT_CERT_URL", None)
+    GOOGLE_CLIENT_EMAIL = os.environ.get("GOOGLE_CLIENT_EMAIL", None)
+    GOOGLE_PRIVATE_KEY = os.environ.get("GOOGLE_PRIVATE_KEY", None)
+    GOOGLE_PRIVATE_KEY_ID = os.environ.get("GOOGLE_PRIVATE_KEY_ID", None)
+    GOOGLE_PROJECT_NAME = os.environ.get("GOOGLE_PROJECT_NAME", None)
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", None)
 
 
 class DevConfig(Config):

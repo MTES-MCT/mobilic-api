@@ -1,7 +1,8 @@
-import os
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
+
+from app import app
 
 
 def auth_to_google_sheets():
@@ -22,17 +23,17 @@ def auth_to_google_sheets():
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
                     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "client_x509_cert_url": os.environ.get(
+                    "client_x509_cert_url": app.config[
                         "GOOGLE_CLIENT_CERT_URL"
-                    ),
-                    "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
+                    ],
+                    "client_email": app.config["GOOGLE_CLIENT_EMAIL"],
                     "type": "service_account",
-                    "project_id": os.environ.get("GOOGLE_PROJECT_NAME"),
-                    "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-                    "private_key": os.environ.get(
-                        "GOOGLE_PRIVATE_KEY"
-                    ).replace("\\n", "\n"),
-                    "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+                    "project_id": app.config["GOOGLE_PROJECT_NAME"],
+                    "private_key_id": app.config["GOOGLE_PRIVATE_KEY_ID"],
+                    "private_key": app.config["GOOGLE_PRIVATE_KEY"].replace(
+                        "\\n", "\n"
+                    ),
+                    "client_id": app.config["GOOGLE_CLIENT_ID"],
                 }
             )
 
