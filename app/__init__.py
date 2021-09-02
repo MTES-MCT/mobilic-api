@@ -45,7 +45,7 @@ if app.config["SENTRY_URL"]:
     sentry_sdk.init(
         dsn=app.config["SENTRY_URL"],
         integrations=[FlaskIntegration()],
-        environment=env,
+        environment=MOBILIC_ENV,
     )
 
 db = SQLAlchemyWithStrongRefSession(
@@ -67,7 +67,7 @@ from app.helpers import logging
 
 @app.before_first_request
 def configure_app():
-    if env == "prod":
+    if MOBILIC_ENV == "prod":
         db.engine.dispose()
 
 
