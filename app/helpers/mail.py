@@ -1,6 +1,5 @@
 from mailjet_rest import Client
 import jwt
-import os
 from cached_property import cached_property
 from flask import render_template
 from datetime import datetime, date
@@ -12,8 +11,6 @@ from app.helpers.mail_type import EmailType
 
 SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
-
-env = os.environ.get("MOBILIC_ENV", "dev")
 
 
 class MailjetSuccess:

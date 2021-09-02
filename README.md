@@ -36,9 +36,16 @@ Exécuter le script d'installation depuis la racine du projet :
 * `FRONTEND_URL` : URL du serveur front (utilisé pour générer des liens dans des mails par exemple)
 * `JWT_SECRET_KEY` : secret utilisé pour générer les jetons d'authentification. Facultatif.
 
-Ne sont listées ici que les variables les plus importantes. En outre il existe d'autres variables de configuration directement définies dans le fichier [config.py](./config.py).
+Ne sont listées ici que les variables les plus importantes. L'intégralité des variables de configuration peut être trouvée dans le fichier [config.py](./config.py).
 
-⚠️ Attention : les fichiers de type `.env` ne sont pas pris en charge (pour l'instant).
+Il possible de définir les variables d'environnement à partir d'un fichier texte qu'il faut rajouter à la racine du projet. Il faut ensuite passer le nom du fichier à l'application via la variable `DOTENV_FILE`.
+
+```
+DOTENV_FILE=.env flask run ...
+```
+
+Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce fichier. 
+
 
 ## Démarrage du serveur de développement
 

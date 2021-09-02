@@ -1,6 +1,9 @@
 # python virtual env
 venv
 
+# Environment variables file
+.env
+
 # IDE files
 .idea
 
