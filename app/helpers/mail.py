@@ -1,5 +1,8 @@
 from mailjet_rest import Client
+from contextlib import contextmanager
 import jwt
+from enum import Enum
+import os
 from cached_property import cached_property
 from flask import render_template
 from datetime import datetime, date
@@ -13,6 +16,23 @@ SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
 
+MAILJET_API_REQUEST_TIMEOUT = 10
+MAILJET_NEWSLETTER_CONTACT_LIST_ID = 58293
+
+
+class MailjetSubscriptionStatus(str, Enum):
+    SUBSCRIBED = "subscribed"
+    UNSUBSCRIBED = "unsubscribed"
+    NONE = "none"
+
+
+# The following values are defined by Mailjet, don't change them !
+class MailjetSubscriptionActions(str, Enum):
+    SUBSCRIBE = "addforce"
+    UNSUBSCRIBE = "unsub"
+    REMOVE = "remove"
+
+
 class MailjetSuccess:
     def __init__(self, message_id):
         self.message_id = message_id
@@ -24,6 +44,10 @@ class MailjetError(MobilicError):
 
 class InvalidEmailAddressError(MailjetError):
     code = "INVALID_EMAIL_ADDRESS"
+
+
+class SubscriptionRequestError(MailjetError):
+    code = "SUBSCRIPTION_REQUEST_ERROR"
 
 
 class MailjetMessage:
@@ -196,6 +220,89 @@ class Mailer:
             email_type=type_,
             add_sender=True,
             employment=kwargs.get("employment"),
+        )
+
+    @contextmanager
+    def _override_api_version(self, version):
+        # API V3.1 does not handle contact subscriptions => we need to temporarily change client version (to V3) for this
+        current_version = self.mailjet.config.version
+        self.mailjet.config.version = version
+        try:
+            yield
+        finally:
+            self.mailjet.config.version = current_version
+
+    # https://dev.mailjet.com/email/reference/contacts/subscriptions#v3_get_listrecipient
+    def get_subscription_status(
+        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
+    ):
+        with self._override_api_version("v3"):
+            try:
+                response = self.mailjet.listrecipient.get(
+                    filters=dict(
+                        ContactEmail=email, ContactsList=contact_list_id
+                    ),
+                    timeout=MAILJET_API_REQUEST_TIMEOUT,
+                )
+                if response.status_code != 200:
+                    raise ValueError(
+                        f"Response status code {response.status_code}"
+                    )
+
+                response = response.json()
+                if response["Count"] == 0:
+                    return MailjetSubscriptionStatus.NONE
+                if response["Data"][0]["IsUnsubscribed"]:
+                    return MailjetSubscriptionStatus.UNSUBSCRIBED
+                return MailjetSubscriptionStatus.SUBSCRIBED
+
+            except Exception as e:
+                raise SubscriptionRequestError(
+                    f"Request for subscription info failed because : {e}"
+                )
+
+    # https://dev.mailjet.com/email/reference/contacts/subscriptions#v3_post_contactslist_list_ID_managecontact
+    def _manage_email_subscription_to_contact_list(
+        self, email, contact_list_id, action
+    ):
+        with self._override_api_version("v3"):
+            try:
+                response = self.mailjet.contactslist_managecontact.create(
+                    id=contact_list_id,
+                    data=dict(Action=action, Email=email),
+                    timeout=MAILJET_API_REQUEST_TIMEOUT,
+                )
+                if response.status_code != 201:
+                    raise ValueError(
+                        f"Response status code {response.status_code}"
+                    )
+
+            except Exception as e:
+                raise SubscriptionRequestError(
+                    f"{'Subscription' if action == MailjetSubscriptionActions.SUBSCRIBE else 'Unsubscription'} request failed for {email} because : {e}"
+                )
+
+    def subscribe_email_to_contact_list(
+        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
+    ):
+        return self._manage_email_subscription_to_contact_list(
+            email, contact_list_id, action=MailjetSubscriptionActions.SUBSCRIBE
+        )
+
+    def unsubscribe_email_to_contact_list(
+        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
+    ):
+        return self._manage_email_subscription_to_contact_list(
+            email,
+            contact_list_id,
+            action=MailjetSubscriptionActions.UNSUBSCRIBE,
+        )
+
+    def remove_email_from_contact_list(
+        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
+    ):
+        return self._manage_email_subscription_to_contact_list(
+            email, contact_list_id, action=MailjetSubscriptionActions.REMOVE
         )
 
     def generate_employee_invite(self, employment, reminder=False):
