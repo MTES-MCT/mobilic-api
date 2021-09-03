@@ -8,7 +8,7 @@ from flask_jwt_extended import jwt_required
 from app import db, app
 from app.helpers.authentication import (
     current_user,
-    with_jwt_auth_error_handling,
+    wrap_jwt_errors,
 )
 from app.models import User
 from app.helpers.oauth.models import (
@@ -85,7 +85,7 @@ oauth_blueprint = Blueprint(__name__, "app.helpers.oauth")
 
 
 @oauth_blueprint.route("/authorize", methods=["GET"])
-@with_jwt_auth_error_handling
+@wrap_jwt_errors
 @jwt_required
 def authorize():
     response = authorization.create_authorization_response(
