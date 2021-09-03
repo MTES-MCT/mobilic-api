@@ -148,12 +148,12 @@ class Mailer:
         from app import db
 
         response = self.mailjet.send.create(
-            data={"Messages": [m.payload for m in messages]}
+            data={"Messages": [m.payload for m in messages]},
+            timeout=MAILJET_API_REQUEST_TIMEOUT,
         )
         try:
             all_message_responses = response.json()["Messages"]
             for index, message_response in enumerate(all_message_responses):
-                print(message_response)
                 messages[index].parse_response(message_response)
         except:
             raise MailjetError(
