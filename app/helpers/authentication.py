@@ -68,7 +68,7 @@ def require_auth(f=lambda *args, **kwargs: None):
     return wrapper
 
 
-def with_jwt_auth_error_handling(f):
+def wrap_jwt_errors(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:
@@ -318,7 +318,7 @@ class Auth(graphene.ObjectType):
     logout = LogoutMutation.Field()
 
 
-@with_jwt_auth_error_handling
+@wrap_jwt_errors
 def _refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
@@ -349,7 +349,7 @@ def rest_refresh_token():
         return jsonify({"error": e.message}), 401
 
 
-@with_jwt_auth_error_handling
+@wrap_jwt_errors
 def logout():
     delete_refresh_token()
     db.session.commit()
