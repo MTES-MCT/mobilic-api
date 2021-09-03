@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
+from app.helpers.validation import validate_email_field_in_db
 from app.models.base import BaseModel
 from app import db
 
@@ -41,6 +42,8 @@ class User(BaseModel, WithEmploymentHistory):
     activation_email_token = db.Column(
         db.String(128), unique=True, nullable=True, default=None
     )
+
+    db.validates("email")(validate_email_field_in_db)
 
     @property
     def password(self):

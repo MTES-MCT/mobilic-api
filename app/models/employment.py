@@ -9,6 +9,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
 )
+from app.helpers.validation import validate_email_field_in_db
 from app.models.event import UserEventBaseModel, Dismissable
 from app.models.utils import enum_column
 
@@ -45,6 +46,8 @@ class Employment(UserEventBaseModel, Dismissable):
     )
     email = db.Column(db.String(255), nullable=True)
     invite_token = db.Column(db.String(255), nullable=True, unique=True)
+
+    db.validates("email")(validate_email_field_in_db)
 
     __table_args__ = (
         db.Constraint(name="only_one_current_primary_enrollment_per_user"),
