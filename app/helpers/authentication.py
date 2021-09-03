@@ -51,21 +51,37 @@ def verify_oauth_token_in_request():
     g.user = matching_token.user
 
 
-def require_auth(f=lambda *args, **kwargs: None):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if not g.get("user"):
-            try:
-                verify_jwt_in_request()
-            except (NoAuthorizationError, InvalidHeaderError):
-                raise AuthenticationError(
-                    "Unable to find a valid cookie or authorization header"
-                )
-            except (JWTExtendedException, PyJWTError):
-                verify_oauth_token_in_request()
-        return f(*args, **kwargs)
+def _check_auth():
+    if g.get("user"):
+        return
+    try:
+        verify_jwt_in_request()
+    except (NoAuthorizationError, InvalidHeaderError):
+        raise AuthenticationError(
+            "Unable to find a valid cookie or authorization header"
+        )
+    except (JWTExtendedException, PyJWTError):
+        verify_oauth_token_in_request()
 
-    return wrapper
+
+def _auth_decorator(required=True):
+    def decorator(f=lambda *args, **kwargs: None):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                _check_auth()
+            except:
+                if required:
+                    raise
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+require_auth = _auth_decorator(required=True)
+optional_auth = _auth_decorator(required=False)
 
 
 def wrap_jwt_errors(f):
