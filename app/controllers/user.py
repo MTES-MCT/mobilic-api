@@ -33,7 +33,7 @@ from app.helpers.errors import (
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
 )
-from app.helpers.mail import MailjetError
+from app.helpers.mail import MailjetError, MailjetSubscriptionStatus
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.pdf import generate_work_days_pdf_for
 from app.templates.filters import full_format_day
@@ -129,16 +129,26 @@ class ChangeEmail(graphene.Mutation):
     @classmethod
     @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email):
-        with atomic_transaction(commit_at_end=True):
-            if current_user.email != email:
+        old_email = current_user.email
+        if old_email != email:
+            with atomic_transaction(commit_at_end=True):
                 current_user.email = email
                 current_user.has_confirmed_email = True
                 current_user.create_activation_link()
 
-        try:
-            mailer.send_activation_email(current_user, create_account=False)
-        except Exception as e:
-            app.logger.exception(e)
+                mailer.send_activation_email(
+                    current_user, create_account=False, _disable_commit=True
+                )
+
+            try:
+                if (
+                    mailer.get_subscription_status(old_email)
+                    == MailjetSubscriptionStatus.SUBSCRIBED
+                ):
+                    mailer.remove_email_from_contact_list(old_email)
+                    mailer.subscribe_email_to_contact_list(email)
+            except Exception as e:
+                app.logger.exception(e)
 
         return current_user
 

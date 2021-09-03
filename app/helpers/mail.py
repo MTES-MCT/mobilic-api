@@ -350,7 +350,9 @@ class Mailer:
         self._send_batch(messages, _disable_commit=True)
         return messages
 
-    def send_activation_email(self, user, create_account=True):
+    def send_activation_email(
+        self, user, create_account=True, _disable_commit=False
+    ):
         if not user.email:
             raise ValueError(
                 f"Cannot send activation email because user has no email address"
@@ -396,7 +398,8 @@ class Mailer:
                 activation_link=Markup(activation_link),
                 company_name=company.name if company else None,
                 has_admin_rights=has_admin_rights,
-            )
+            ),
+            _disable_commit=_disable_commit,
         )
 
     def send_company_creation_email(self, company, user):
