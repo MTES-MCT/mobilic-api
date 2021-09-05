@@ -15,7 +15,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
-    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=1)
+    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
