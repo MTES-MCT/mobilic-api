@@ -71,6 +71,9 @@ class Config:
     GOOGLE_PRIVATE_KEY_ID = os.environ.get("GOOGLE_PRIVATE_KEY_ID", None)
     GOOGLE_PROJECT_NAME = os.environ.get("GOOGLE_PROJECT_NAME", None)
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", None)
+    ENABLE_NEWSLETTER_SUBSCRIPTION = os.environ.get(
+        "ENABLE_NEWSLETTER_SUBSCRIPTION", False
+    )
 
 
 class DevConfig(Config):

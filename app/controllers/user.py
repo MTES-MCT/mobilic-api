@@ -141,12 +141,14 @@ class ChangeEmail(graphene.Mutation):
                 )
 
             try:
-                if (
-                    mailer.get_subscription_status(old_email)
-                    == MailjetSubscriptionStatus.SUBSCRIBED
-                ):
-                    mailer.remove_email_from_contact_list(old_email)
-                    mailer.subscribe_email_to_contact_list(email)
+                for list_id, status in mailer.get_subscription_statuses(
+                    old_email
+                ).items():
+                    if status == MailjetSubscriptionStatus.SUBSCRIBED:
+                        mailer.remove_email_from_contact_list(
+                            old_email, list_id
+                        )
+                        mailer.subscribe_email_to_contact_list(email, list_id)
             except Exception as e:
                 app.logger.exception(e)
 
@@ -422,7 +424,8 @@ class PDFExportSchema(Schema):
 @use_kwargs(PDFExportSchema(), apply=True)
 @require_auth
 def generate_pdf_export(
-    min_date, max_date,
+    min_date,
+    max_date,
 ):
     relevant_companies = [
         e.company

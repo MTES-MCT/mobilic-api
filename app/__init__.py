@@ -11,7 +11,6 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 import config
 from config import MOBILIC_ENV
 from app.helpers.db import SQLAlchemyWithStrongRefSession
-from app.helpers.mail import Mailer
 from app.helpers.siren import SirenAPIClient
 from app.helpers.request_parser import CustomRequestParser
 from app.templates.filters import JINJA_CUSTOM_FILTERS
@@ -38,7 +37,7 @@ siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 for name, filter in JINJA_CUSTOM_FILTERS.items():
     app.template_filter(name)(filter)
 
-mailer = Mailer(app)
+from app.helpers.mail import mailer
 
 
 if app.config["SENTRY_URL"]:

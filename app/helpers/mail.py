@@ -8,6 +8,7 @@ from flask import render_template
 from datetime import datetime, date
 from markupsafe import Markup
 
+from app import app
 from app.helpers.errors import MobilicError
 from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
@@ -20,10 +21,18 @@ MAILJET_API_REQUEST_TIMEOUT = 10
 
 
 class MailjetContactLists(int, Enum):
-    NL_EMPLOYEES = 58466
-    NL_ADMINS = 58293
-    NL_CONTROLLERS = 58467
-    NL_SOFTWARES = 58468
+    NL_EMPLOYEES = (
+        58466 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    )
+    NL_ADMINS = (
+        58293 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    )
+    NL_CONTROLLERS = (
+        58467 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    )
+    NL_SOFTWARES = (
+        58468 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    )
 
 
 class MailjetSubscriptionStatus(str, Enum):
@@ -141,13 +150,14 @@ class MailjetMessage:
 
 # Mailjet is used as the email solution : what follows is the wrapper of their API, whose doc is here : https://github.com/mailjet/mailjet-apiv3-python
 class Mailer:
-    def __init__(self, app):
-        config = app.config
+    def __init__(self):
         self.mailjet = Client(
-            auth=(config["MAILJET_API_KEY"], config["MAILJET_API_SECRET"]),
+            auth=(
+                app.config["MAILJET_API_KEY"],
+                app.config["MAILJET_API_SECRET"],
+            ),
             version="v3.1",
         )
-        self.app_config = config
 
     def _send_batch(self, messages, _disable_commit=False):
         from app.models import Email
@@ -241,13 +251,11 @@ class Mailer:
             self.mailjet.config.version = current_version
 
     # https://dev.mailjet.com/email/reference/contacts/subscriptions#v3_get_listrecipient
-    def get_subscription_status(self, email, contact_list_id):
+    def get_subscription_statuses(self, email):
         with self._override_api_version("v3"):
             try:
                 response = self.mailjet.listrecipient.get(
-                    filters=dict(
-                        ContactEmail=email, ContactsList=contact_list_id
-                    ),
+                    filters=dict(ContactEmail=email, Limit=100),
                     timeout=MAILJET_API_REQUEST_TIMEOUT,
                 )
                 if response.status_code != 200:
@@ -256,11 +264,19 @@ class Mailer:
                     )
 
                 response = response.json()
-                if response["Count"] == 0:
-                    return MailjetSubscriptionStatus.NONE
-                if response["Data"][0]["IsUnsubscribed"]:
-                    return MailjetSubscriptionStatus.UNSUBSCRIBED
-                return MailjetSubscriptionStatus.SUBSCRIBED
+                statuses = {
+                    k: MailjetSubscriptionStatus.NONE
+                    for k in MailjetContactLists
+                }
+                if response["Count"] != 0:
+                    for list_recipient in response["Data"]:
+                        if list_recipient["ListID"] in statuses:
+                            statuses[list_recipient["ListID"]] = (
+                                MailjetSubscriptionStatus.UNSUBSCRIBED
+                                if list_recipient["IsUnsubscribed"]
+                                else MailjetSubscriptionStatus.SUBSCRIBED
+                            )
+                return statuses
 
             except Exception as e:
                 raise SubscriptionRequestError(
@@ -312,10 +328,10 @@ class Mailer:
             )
 
         if employment.user_id:
-            invitation_link = f"{self.app_config['FRONTEND_URL']}/redeem_invite?token={employment.invite_token}"
+            invitation_link = f"{app.config['FRONTEND_URL']}/redeem_invite?token={employment.invite_token}"
 
         else:
-            invitation_link = f"{self.app_config['FRONTEND_URL']}/invite?token={employment.invite_token}"
+            invitation_link = f"{app.config['FRONTEND_URL']}/invite?token={employment.invite_token}"
 
         company_name = employment.company.name
         subject = f"{'Rappel : ' if reminder else ''}{company_name} vous invite à rejoindre Mobilic."
@@ -365,16 +381,16 @@ class Mailer:
                 "email": user.email,
                 "expires_at": (
                     datetime.now()
-                    + self.app_config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
+                    + app.config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
                 ).timestamp(),
                 "user_id": id,
                 "token": user.activation_email_token,
             },
-            self.app_config["JWT_SECRET_KEY"],
+            app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
         ).decode("utf-8")
         activation_link = (
-            f"{self.app_config['FRONTEND_URL']}/activate_email?token={token}"
+            f"{app.config['FRONTEND_URL']}/activate_email?token={token}"
         )
 
         company = None
@@ -410,7 +426,7 @@ class Mailer:
                 user=user,
                 type_=EmailType.COMPANY_CREATION,
                 first_name=user.first_name,
-                website_link=Markup(self.app_config["FRONTEND_URL"]),
+                website_link=Markup(app.config["FRONTEND_URL"]),
                 company_name=company.name,
                 company_siren=Markup(company.siren),
                 contact_email=Markup(SENDER_ADDRESS),
@@ -437,14 +453,14 @@ class Mailer:
                 "hash": user.password,
                 "expires_at": (
                     datetime.now()
-                    + self.app_config["RESET_PASSWORD_TOKEN_EXPIRATION"]
+                    + app.config["RESET_PASSWORD_TOKEN_EXPIRATION"]
                 ).timestamp(),
             },
-            self.app_config["JWT_SECRET_KEY"],
+            app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
         ).decode("utf-8")
         reset_link = (
-            f"{self.app_config['FRONTEND_URL']}/reset_password?token={token}"
+            f"{app.config['FRONTEND_URL']}/reset_password?token={token}"
         )
         self._send_single(
             self._create_message_from_flask_template(
@@ -485,7 +501,7 @@ class Mailer:
                 admin_full_name=admin.display_name,
                 mission_day=Markup(old_start_time.strftime("%d/%m")),
                 mission_link=Markup(
-                    f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}"
+                    f"{app.config['FRONTEND_URL']}/app/history?mission={mission.id}"
                 ),
                 old_start_time=old_start_time,
                 new_start_time=new_start_time
@@ -534,7 +550,7 @@ class Mailer:
                 admin_full_name=admin.display_name,
                 mission_day=Markup(mission_day),
                 mission_link=Markup(
-                    f"{self.app_config['FRONTEND_URL']}/app/history?mission={mission.id}"
+                    f"{app.config['FRONTEND_URL']}/app/history?mission={mission.id}"
                 ),
                 start_time=start_time,
                 end_time=end_time,
@@ -550,7 +566,7 @@ class Mailer:
                 type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
                 user=user,
                 first_name=user.first_name,
-                cta=f"{self.app_config['FRONTEND_URL']}/login?next=/app",
+                cta=f"{app.config['FRONTEND_URL']}/login?next=/app",
             )
         )
 
@@ -561,7 +577,7 @@ class Mailer:
                 type_=EmailType.WORKER_ONBOARDING_SECOND_INFO,
                 user=user,
                 first_name=user.first_name,
-                cta=f"{self.app_config['FRONTEND_URL']}/login?next=/app/history",
+                cta=f"{app.config['FRONTEND_URL']}/login?next=/app/history",
             )
         )
 
@@ -573,7 +589,7 @@ class Mailer:
                 user=user,
                 first_name=user.first_name,
                 company=company.name,
-                cta=f"{self.app_config['FRONTEND_URL']}/login?next=/admin/company",
+                cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
             )
         )
 
@@ -584,6 +600,9 @@ class Mailer:
                 type_=EmailType.MANAGER_ONBOARDING_SECOND_INFO,
                 user=user,
                 first_name=user.first_name,
-                cta=f"{self.app_config['FRONTEND_URL']}/login?next=/admin/company",
+                cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
             )
         )
+
+
+mailer = Mailer()
