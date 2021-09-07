@@ -12,8 +12,4 @@ class MissionEnd(UserEventBaseModel):
     )
     mission = db.relationship("Mission", backref=backref("ends"))
 
-    __table_args__ = (
-        db.UniqueConstraint(
-            "mission_id", "user_id", name="user_can_only_end_mission_once"
-        ),
-    )
+    __table_args__ = (db.Constraint(name="user_can_only_end_mission_once"),)
