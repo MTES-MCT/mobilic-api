@@ -136,3 +136,6 @@ def send_onboarding_emails():
     send_onboarding_emails(date.today())
 
     return "C'est fait", 200
+
+
+from app.controllers.misc import *
