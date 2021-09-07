@@ -33,7 +33,6 @@ def cache_at_request_scope(f):
 
         cached_value = f_cache.get(cache_key, missing)
         if cached_value is not missing:
-            print(f"Cache hit for {f} and key {cache_key}")
             return cached_value
 
         value = f(*args, **kwargs)

@@ -20,19 +20,27 @@ SENDER_NAME = "Mobilic"
 MAILJET_API_REQUEST_TIMEOUT = 10
 
 
-class MailjetContactLists(int, Enum):
-    NL_EMPLOYEES = (
-        58466 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    )
-    NL_ADMINS = (
-        58293 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    )
-    NL_CONTROLLERS = (
-        58467 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    )
-    NL_SOFTWARES = (
-        58468 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    )
+class MailingContactList(str, Enum):
+    EMPLOYEES = "employees"
+    ADMINS = "admins"
+    CONTROLLERS = "controllers"
+    SOFTWARES = "softwares"
+
+
+MAILJET_CONTACT_LIST_IDS = {
+    MailingContactList.EMPLOYEES: 58466
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.ADMINS: 58293
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.CONTROLLERS: 58467
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.SOFTWARES: 58468
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+}
 
 
 class MailjetSubscriptionStatus(str, Enum):
@@ -266,7 +274,7 @@ class Mailer:
                 response = response.json()
                 statuses = {
                     k: MailjetSubscriptionStatus.NONE
-                    for k in MailjetContactLists
+                    for k in MailingContactList
                 }
                 if response["Count"] != 0:
                     for list_recipient in response["Data"]:
@@ -285,12 +293,12 @@ class Mailer:
 
     # https://dev.mailjet.com/email/reference/contacts/subscriptions#v3_post_contactslist_list_ID_managecontact
     def _manage_email_subscription_to_contact_list(
-        self, email, contact_list_id, action
+        self, email, contact_list, action
     ):
         with self._override_api_version("v3"):
             try:
                 response = self.mailjet.contactslist_managecontact.create(
-                    id=contact_list_id,
+                    id=MAILJET_CONTACT_LIST_IDS[contact_list],
                     data=dict(Action=action, Email=email),
                     timeout=MAILJET_API_REQUEST_TIMEOUT,
                 )
@@ -304,21 +312,21 @@ class Mailer:
                     f"{'Subscription' if action == MailjetSubscriptionActions.SUBSCRIBE else 'Unsubscription'} request failed for {email} because : {e}"
                 )
 
-    def subscribe_email_to_contact_list(self, email, contact_list_id):
+    def subscribe_email_to_contact_list(self, email, contact_list):
         return self._manage_email_subscription_to_contact_list(
-            email, contact_list_id, action=MailjetSubscriptionActions.SUBSCRIBE
+            email, contact_list, action=MailjetSubscriptionActions.SUBSCRIBE
         )
 
-    def unsubscribe_email_to_contact_list(self, email, contact_list_id):
+    def unsubscribe_email_to_contact_list(self, email, contact_list):
         return self._manage_email_subscription_to_contact_list(
             email,
-            contact_list_id,
+            contact_list,
             action=MailjetSubscriptionActions.UNSUBSCRIBE,
         )
 
-    def remove_email_from_contact_list(self, email, contact_list_id):
+    def remove_email_from_contact_list(self, email, contact_list):
         return self._manage_email_subscription_to_contact_list(
-            email, contact_list_id, action=MailjetSubscriptionActions.REMOVE
+            email, contact_list, action=MailjetSubscriptionActions.REMOVE
         )
 
     def generate_employee_invite(self, employment, reminder=False):

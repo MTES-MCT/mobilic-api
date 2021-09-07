@@ -1,9 +1,7 @@
 from datetime import date, datetime, timedelta
-
 from sqlalchemy.orm import (
     synonym,
     joinedload,
-    subqueryload,
     selectinload,
     contains_eager,
 )
@@ -18,7 +16,7 @@ from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
 from app.helpers.validation import validate_email_field_in_db
 from app.models.base import BaseModel
-from app import db
+from app import db, mailer
 
 
 class User(BaseModel, WithEmploymentHistory):
@@ -42,6 +40,7 @@ class User(BaseModel, WithEmploymentHistory):
     activation_email_token = db.Column(
         db.String(128), unique=True, nullable=True, default=None
     )
+    subscribed_mailing_lists = db.Column(db.ARRAY(db.TEXT), nullable=True)
 
     db.validates("email")(validate_email_field_in_db)
 
@@ -231,7 +230,8 @@ class User(BaseModel, WithEmploymentHistory):
 
         if sort_activities:
             activities = sorted(
-                activities, key=lambda a: (a.is_dismissed, a.start_time),
+                activities,
+                key=lambda a: (a.is_dismissed, a.start_time),
             )
 
         for a in activities:
@@ -288,3 +288,25 @@ class User(BaseModel, WithEmploymentHistory):
     def create_activation_link(self):
         self.has_activated_email = False
         self.activation_email_token = str(uuid4())
+
+    def subscribe_to_contact_list(self, contact_list):
+        if not self.subscribed_mailing_lists:
+            self.subscribed_mailing_lists = []
+        if contact_list not in self.subscribed_mailing_lists:
+            mailer.subscribe_email_to_contact_list(self.email, contact_list)
+            self.subscribed_mailing_lists.append(contact_list)
+            db.session.commit()
+
+    def unsubscribe_from_contact_list(self, contact_list, remove=False):
+        if not self.subscribed_mailing_lists:
+            self.subscribed_mailing_lists = []
+        if contact_list in self.subscribed_mailing_lists:
+            (
+                mailer.remove_email_from_contact_list
+                if remove
+                else mailer.unsubscribe_email_to_contact_list
+            )(self.email, contact_list)
+            self.subscribed_mailing_lists = [
+                l for l in self.subscribed_mailing_lists if l != contact_list
+            ]
+            db.session.commit()
