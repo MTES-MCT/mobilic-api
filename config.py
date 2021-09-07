@@ -74,6 +74,7 @@ class Config:
     ENABLE_NEWSLETTER_SUBSCRIPTION = os.environ.get(
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )
+    APISPEC_FORMAT_RESPONSE = lambda x: x
 
 
 class DevConfig(Config):

@@ -27,8 +27,8 @@ from app.helpers.authorization import (
     current_user,
 )
 from app import siren_api_client, mailer
-from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 from app.helpers.integromat import call_integromat_webhook
+from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
     generate_tachograph_parts,
     write_tachograph_archive,
@@ -137,6 +137,17 @@ class CompanySignUp(graphene.Mutation):
             mailer.send_company_creation_email(company, current_user)
         except Exception as e:
             app.logger.exception(e)
+
+        if current_user.subscribed_mailing_lists:
+            try:
+                current_user.unsubscribe_from_contact_list(
+                    MailingContactList.EMPLOYEES, remove=True
+                )
+                current_user.subscribe_to_contact_list(
+                    MailingContactList.ADMINS
+                )
+            except Exception as e:
+                app.logger.exception(e)
 
         if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
             # Call Integromat for Trello card creation

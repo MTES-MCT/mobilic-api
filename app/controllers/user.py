@@ -2,7 +2,7 @@ import graphene
 import jwt
 from flask import redirect, request, after_this_request, send_file
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from urllib.parse import quote, urlencode, unquote
 
 from webargs import fields
@@ -33,7 +33,7 @@ from app.helpers.errors import (
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
 )
-from app.helpers.mail import MailjetError, MailjetSubscriptionStatus
+from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.pdf import generate_work_days_pdf_for
 from app.templates.filters import full_format_day
@@ -62,12 +62,19 @@ class UserSignUp(graphene.Mutation):
         ssn = graphene.String(
             required=False, description="Numéro de sécurité sociale"
         )
+        subscribe_to_newsletter = graphene.Boolean(
+            required=False,
+            description="Consentement de l'utilisateur pour recevoir les mails newsletter",
+        )
 
     Output = UserTokens
 
     @classmethod
     def mutate(cls, _, info, **data):
         with atomic_transaction(commit_at_end=True):
+            has_subscribed_to_newsletter = data.pop(
+                "subscribe_to_newsletter", False
+            )
             user = create_user(**data)
             user.create_activation_link()
 
@@ -75,6 +82,17 @@ class UserSignUp(graphene.Mutation):
             mailer.send_activation_email(user)
         except Exception as e:
             app.logger.exception(e)
+
+        if has_subscribed_to_newsletter:
+            try:
+                newsletter_to_subscribe_to = MailingContactList.EMPLOYEES
+                primary_employment = user.primary_employment_at(date.today())
+                if primary_employment and primary_employment.has_admin_rights:
+                    newsletter_to_subscribe_to = MailingContactList.ADMINS
+
+                user.subscribe_to_contact_list(newsletter_to_subscribe_to)
+            except Exception as e:
+                app.logger.exception(e)
 
         tokens = create_access_tokens_for(user)
 
@@ -141,14 +159,13 @@ class ChangeEmail(graphene.Mutation):
                 )
 
             try:
-                for list_id, status in mailer.get_subscription_statuses(
-                    old_email
-                ).items():
-                    if status == MailjetSubscriptionStatus.SUBSCRIBED:
-                        mailer.remove_email_from_contact_list(
-                            old_email, list_id
-                        )
-                        mailer.subscribe_email_to_contact_list(email, list_id)
+                for mailing_list in current_user.subscribed_mailing_lists:
+                    mailer.remove_email_from_contact_list(
+                        old_email, mailing_list
+                    )
+                    mailer.subscribe_email_to_contact_list(email, mailing_list)
+                db.session.commit()
+
             except Exception as e:
                 app.logger.exception(e)
 

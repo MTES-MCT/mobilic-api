@@ -165,7 +165,10 @@ class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
 
 
 class PrivateQueries(
-    company.NonPublicQuery, GetInvitation, UserReadQuery, graphene.ObjectType,
+    company.NonPublicQuery,
+    GetInvitation,
+    UserReadQuery,
+    graphene.ObjectType,
 ):
     pass
 
@@ -177,3 +180,5 @@ graphql_schema = graphene.Schema(
 private_graphql_schema = graphene.Schema(
     query=PrivateQueries, mutation=PrivateMutations, types=[AddressOutput]
 )
+
+from app.controllers.contacts import *
