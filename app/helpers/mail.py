@@ -17,7 +17,13 @@ SENDER_NAME = "Mobilic"
 
 
 MAILJET_API_REQUEST_TIMEOUT = 10
-MAILJET_NEWSLETTER_CONTACT_LIST_ID = 58293
+
+
+class MailjetContactLists(int, Enum):
+    NL_EMPLOYEES = 58466
+    NL_ADMINS = 58293
+    NL_CONTROLLERS = 58467
+    NL_SOFTWARES = 58468
 
 
 class MailjetSubscriptionStatus(str, Enum):
@@ -174,7 +180,9 @@ class Mailer:
             db.session.commit() if not _disable_commit else db.session.flush()
 
     def _send_single(
-        self, message, _disable_commit=False,
+        self,
+        message,
+        _disable_commit=False,
     ):
         self._send_batch([message], _disable_commit=_disable_commit)
         if isinstance(message.response, MailjetError):
@@ -233,9 +241,7 @@ class Mailer:
             self.mailjet.config.version = current_version
 
     # https://dev.mailjet.com/email/reference/contacts/subscriptions#v3_get_listrecipient
-    def get_subscription_status(
-        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
-    ):
+    def get_subscription_status(self, email, contact_list_id):
         with self._override_api_version("v3"):
             try:
                 response = self.mailjet.listrecipient.get(
@@ -282,25 +288,19 @@ class Mailer:
                     f"{'Subscription' if action == MailjetSubscriptionActions.SUBSCRIBE else 'Unsubscription'} request failed for {email} because : {e}"
                 )
 
-    def subscribe_email_to_contact_list(
-        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
-    ):
+    def subscribe_email_to_contact_list(self, email, contact_list_id):
         return self._manage_email_subscription_to_contact_list(
             email, contact_list_id, action=MailjetSubscriptionActions.SUBSCRIBE
         )
 
-    def unsubscribe_email_to_contact_list(
-        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
-    ):
+    def unsubscribe_email_to_contact_list(self, email, contact_list_id):
         return self._manage_email_subscription_to_contact_list(
             email,
             contact_list_id,
             action=MailjetSubscriptionActions.UNSUBSCRIBE,
         )
 
-    def remove_email_from_contact_list(
-        self, email, contact_list_id=MAILJET_NEWSLETTER_CONTACT_LIST_ID
-    ):
+    def remove_email_from_contact_list(self, email, contact_list_id):
         return self._manage_email_subscription_to_contact_list(
             email, contact_list_id, action=MailjetSubscriptionActions.REMOVE
         )
