@@ -75,9 +75,9 @@ class LocationEntry(EventBaseModel):
             else False
         )
         other_location = (
-            self.mission.end_location
-            if self.type == LocationEntryType.MISSION_END_LOCATION
-            else self.mission.start_location
+            self.mission.start_location
+            if is_mission_end
+            else self.mission.end_location
         )
 
         if other_location and other_location.kilometer_reading:
