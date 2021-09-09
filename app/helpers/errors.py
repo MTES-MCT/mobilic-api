@@ -12,6 +12,8 @@ class MobilicError(GraphQLError, ABC):
     def code(self):
         pass
 
+    http_status_code = 500
+
     default_should_alert_team = True
     default_message = "Error"
 
@@ -31,8 +33,15 @@ class MobilicError(GraphQLError, ABC):
         return dict(message=self.message, extensions=self.extensions)
 
 
+class BadRequestError(MobilicError):
+    code = "BAD_REQUEST"
+    default_message = "Invalid request"
+    http_status_code = 400
+
+
 class InvalidParamsError(MobilicError):
     code = "INVALID_INPUTS"
+    http_status_code = 422
 
 
 class InternalError(MobilicError):
@@ -42,10 +51,12 @@ class InternalError(MobilicError):
 class AuthenticationError(MobilicError):
     code = "AUTHENTICATION_ERROR"
     default_should_alert_team = False
+    http_status_code = 401
 
 
 class AuthorizationError(MobilicError):
     code = "AUTHORIZATION_ERROR"
+    http_status_code = 403
 
 
 class SirenAlreadySignedUpError(MobilicError):

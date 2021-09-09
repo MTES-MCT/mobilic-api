@@ -1,5 +1,5 @@
 import graphene
-from flask import jsonify, send_file
+from flask import send_file
 from datetime import datetime, timedelta
 from graphene.types.generic import GenericScalar
 import requests
@@ -18,6 +18,7 @@ from app.domain.permissions import (
     belongs_to_company_at,
     ConsultationScope,
     company_admin_at,
+    AuthorizationError,
 )
 from app.helpers.authentication import require_auth, AuthenticationError
 from app.domain.work_days import group_user_events_by_day_with_limit
@@ -254,15 +255,12 @@ class Query(graphene.ObjectType):
 
 
 def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
-    try:
-        require_auth()()
-    except AuthenticationError as e:
-        return jsonify({"error": e.message}), 401
+    require_auth()()
 
     if not set(company_ids) <= set(
         current_user.current_company_ids_with_admin_rights
     ):
-        return jsonify({"error": "Forbidden access"}), 403
+        raise AuthorizationError("Forbidden access")
 
     companies = (
         Company.query.options(
