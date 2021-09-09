@@ -120,7 +120,8 @@ def get_user_from_token_identity(identity):
 
 
 def create_access_tokens_for(
-    user, client_id=None,
+    user,
+    client_id=None,
 ):
     from app.models.refresh_token import RefreshToken
 

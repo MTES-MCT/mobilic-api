@@ -670,7 +670,9 @@ def build_specific_conditions_file(now, start_date, end_date=None):
         end_time = min(
             now,
             to_datetime(
-                end_date, tz_for_date=timezone.utc, date_as_end_of_day=True,
+                end_date,
+                tz_for_date=timezone.utc,
+                date_as_end_of_day=True,
             ),
         )
 

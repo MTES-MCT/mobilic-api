@@ -61,17 +61,21 @@ def _datetime_operator(date_as_end_of_day=False):
         def wrapper(date_or_dt1, date_or_dt2):
             if date_or_dt1 is None:
                 return to_datetime(
-                    date_or_dt2, date_as_end_of_day=date_as_end_of_day,
+                    date_or_dt2,
+                    date_as_end_of_day=date_as_end_of_day,
                 )
             if date_or_dt2 is None:
                 return to_datetime(
-                    date_or_dt1, date_as_end_of_day=date_as_end_of_day,
+                    date_or_dt1,
+                    date_as_end_of_day=date_as_end_of_day,
                 )
             _dt1 = to_datetime(
-                date_or_dt1, date_as_end_of_day=date_as_end_of_day,
+                date_or_dt1,
+                date_as_end_of_day=date_as_end_of_day,
             )
             _dt2 = to_datetime(
-                date_or_dt2, date_as_end_of_day=date_as_end_of_day,
+                date_or_dt2,
+                date_as_end_of_day=date_as_end_of_day,
             )
 
             return op(_dt1, _dt2)

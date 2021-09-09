@@ -33,7 +33,10 @@ def upgrade():
         sa.Column("company_id", sa.Integer(), nullable=True),
         sa.Column("token", sa.String(length=255), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["company_id"], ["company.id"],),
+        sa.ForeignKeyConstraint(
+            ["company_id"],
+            ["company.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
     )

@@ -16,7 +16,9 @@ from app.models.comment import CommentOutput
 
 class CommentInput:
     text = graphene.Argument(
-        graphene.String, required=True, description="Contenu du commentaire",
+        graphene.String,
+        required=True,
+        description="Contenu du commentaire",
     )
     mission_id = graphene.Int(
         required=True,

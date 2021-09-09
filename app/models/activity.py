@@ -23,7 +23,11 @@ def activity_versions_at(activities, at_time):
     versions = [a.version_at(at_time) for a in activities]
     return sorted(
         [v for v in versions if v],
-        key=lambda v: (v.start_time, v.end_time is None, v.reception_time,),
+        key=lambda v: (
+            v.start_time,
+            v.end_time is None,
+            v.reception_time,
+        ),
     )
 
 

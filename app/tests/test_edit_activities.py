@@ -319,7 +319,7 @@ class TestEditActivities(TestLogActivities):
         )
 
     def test_cancel_activity_handle_complex_neighbour_inconsistencies(self):
-        """ We are cancelling all the activities of the day following the 12:13pm break
+        """We are cancelling all the activities of the day following the 12:13pm break
 
         The end of the day should be set to 12:13pm after the cancel
         """
@@ -329,11 +329,12 @@ class TestEditActivities(TestLogActivities):
         cancel_time = datetime(2020, 2, 7, 17)
 
         self._cancel_or_edit_activity_as_team_leader(
-            activity_to_cancel_user_time, cancel_time,
+            activity_to_cancel_user_time,
+            cancel_time,
         )
 
     def test_cancel_lone_activity(self):
-        """ We are cancelling the single activity of a given mission
+        """We are cancelling the single activity of a given mission
 
         The cancel should remove the mission end as well
         """
@@ -358,13 +359,13 @@ class TestEditActivities(TestLogActivities):
         cancel_time = datetime(2020, 2, 7, 10)
 
         self._cancel_or_edit_activity_as_simple_member(
-            first_team_mate_id, lone_activity_time, cancel_time,
+            first_team_mate_id,
+            lone_activity_time,
+            cancel_time,
         )
 
     def test_edit_activity_cannot_exceed_mission_bounds(self):
-        """ Check that an activity revision cannot lead to overlapping missions
-
-        """
+        """Check that an activity revision cannot lead to overlapping missions"""
         self.test_log_standard_mission(datetime(2020, 2, 7))
         self.test_log_standard_mission(datetime(2020, 2, 8))
 
@@ -392,7 +393,7 @@ class TestEditActivities(TestLogActivities):
         )
 
     def test_cancel_multiple_activities_by_multiple_cancellors(self):
-        """ We are cancelling some activities for the whole team, after one of the team mates did the cancellation on his part.
+        """We are cancelling some activities for the whole team, after one of the team mates did the cancellation on his part.
 
         The new cancel should proceed for the other team mates
         """

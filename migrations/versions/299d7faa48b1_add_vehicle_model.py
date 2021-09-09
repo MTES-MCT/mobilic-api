@@ -82,8 +82,14 @@ def upgrade():
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["company_id"], ["company.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["company_id"],
+            ["company.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "company_id",

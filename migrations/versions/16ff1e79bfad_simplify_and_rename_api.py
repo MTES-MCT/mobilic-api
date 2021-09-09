@@ -183,10 +183,22 @@ def _migrate_missions_and_expenditures():
             "((dismissed_at is not null)::bool = (dismiss_type is not null)::bool AND (dismiss_type is not null)::bool = (dismiss_received_at is not null)::bool)",
             name="non_nullable_dismiss_type",
         ),
-        sa.ForeignKeyConstraint(["dismiss_author_id"], ["user.id"],),
-        sa.ForeignKeyConstraint(["mission_id"], ["mission.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["dismiss_author_id"],
+            ["user.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["mission_id"],
+            ["mission.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

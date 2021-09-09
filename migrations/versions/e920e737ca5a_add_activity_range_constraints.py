@@ -509,9 +509,18 @@ def upgrade():
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["mission_id"], ["mission.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["mission_id"],
+            ["mission.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "mission_id", "user_id", name="user_can_only_end_mission_once"
@@ -551,8 +560,14 @@ def upgrade():
         ),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["activity_id"], ["activity.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["activity_id"],
+            ["activity.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "version",

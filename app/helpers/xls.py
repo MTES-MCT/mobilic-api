@@ -119,7 +119,13 @@ def get_columns_in_main_sheet(require_expenditures):
             30,
             light_yellow_hex,
         ),
-        ("Jour", lambda wday: wday.day, "date_format", 20, light_yellow_hex,),
+        (
+            "Jour",
+            lambda wday: wday.day,
+            "date_format",
+            20,
+            light_yellow_hex,
+        ),
         (
             "Mission(s)",
             lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
@@ -305,8 +311,20 @@ def get_columns_in_main_sheet(require_expenditures):
 
 
 activity_columns_in_details_sheet = [
-    ("Prénom", lambda a: a.user.first_name, None, 30, light_yellow_hex,),
-    ("Nom", lambda a: a.user.last_name, None, 30, light_yellow_hex,),
+    (
+        "Prénom",
+        lambda a: a.user.first_name,
+        None,
+        30,
+        light_yellow_hex,
+    ),
+    (
+        "Nom",
+        lambda a: a.user.last_name,
+        None,
+        30,
+        light_yellow_hex,
+    ),
     (
         "Jour",
         lambda a: to_fr_tz(a.start_time),
@@ -314,7 +332,13 @@ activity_columns_in_details_sheet = [
         20,
         light_yellow_hex,
     ),
-    ("Mission", lambda a: a.mission.name, None, 20, light_blue_hex,),
+    (
+        "Mission",
+        lambda a: a.mission.name,
+        None,
+        20,
+        light_blue_hex,
+    ),
     (
         "Activité",
         lambda a: ACTIVITY_TYPE_LABEL[a.type],
@@ -388,7 +412,13 @@ def write_work_days_sheet(wb, wdays_by_user, require_expenditures):
 
     col_idx = 0
     column_base_formats = []
-    for (col_name, resolver, _, column_width, color,) in columns_in_main_sheet:
+    for (
+        col_name,
+        resolver,
+        _,
+        column_width,
+        color,
+    ) in columns_in_main_sheet:
         right_border = 0
         if col_idx == 1:
             right_border = 2
@@ -463,7 +493,13 @@ def write_day_details_sheet(wb, wdays_by_user):
 
     col_idx = 0
     column_base_formats = []
-    for (col_name, resolver, _, column_width, color,) in all_columns:
+    for (
+        col_name,
+        resolver,
+        _,
+        column_width,
+        color,
+    ) in all_columns:
         right_border = 0
         if (
             col_idx < len(all_columns) - 1

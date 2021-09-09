@@ -93,7 +93,10 @@ def can_actor_access_mission_at(actor, mission, date=None):
     if not mission:
         return False
     return belongs_to_company_at(
-        actor, mission.company_id, date, include_pending_invite=False,
+        actor,
+        mission.company_id,
+        date,
+        include_pending_invite=False,
     )
 
 
