@@ -17,4 +17,3 @@ from .user_read_token import UserReadToken
 from .email import Email
 from app.helpers.tachograph.rsa_keys import C1BSigningKey
 from .naf_code import NafCode
-from .webinar import Webinar
