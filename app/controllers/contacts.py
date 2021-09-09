@@ -7,7 +7,6 @@ from app import app, mailer
 from app.helpers.authentication import (
     optional_auth,
     current_user,
-    require_auth,
 )
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.validation import (
@@ -21,13 +20,6 @@ class NLSubscriptionSchema(Schema):
         required=False,
         validate=lambda s: validate_clean_email_string(clean_email_string(s)),
     )
-    list = fields.String(
-        required=True,
-        validate=validate.OneOf(list(MailingContactList.__members__.values())),
-    )
-
-
-class NLUnSubscriptionSchema(Schema):
     list = fields.String(
         required=True,
         validate=validate.OneOf(list(MailingContactList.__members__.values())),
@@ -52,17 +44,6 @@ def subscribe_to_newsletter(list, email=None):
             current_user.subscribe_to_contact_list(list)
         else:
             mailer.subscribe_email_to_contact_list(email, list)
-    except MailjetError as e:
-        return jsonify({"error": e.message}), 500
-    return jsonify({"success": True}), 200
-
-
-@app.route("/contacts/unsubscribe-from-newsletter", methods=["POST"])
-@use_kwargs(NLUnSubscriptionSchema(), apply=True)
-@require_auth
-def unsubscribe_from_newsletter(list):
-    try:
-        current_user.unsubscribe_from_contact_list(list)
     except MailjetError as e:
         return jsonify({"error": e.message}), 500
     return jsonify({"success": True}), 200
