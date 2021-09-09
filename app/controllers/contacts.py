@@ -7,8 +7,9 @@ from app import app, mailer
 from app.helpers.authentication import (
     optional_auth,
     current_user,
+    AuthenticationError,
 )
-from app.helpers.mail import MailjetError, MailingContactList
+from app.helpers.mail import MailingContactList
 from app.helpers.validation import (
     validate_clean_email_string,
     clean_email_string,
@@ -22,7 +23,18 @@ class NLSubscriptionSchema(Schema):
     )
     list = fields.String(
         required=True,
-        validate=validate.OneOf(list(MailingContactList.__members__.values())),
+        validate=validate.OneOf(
+            [l.value for l in MailingContactList.__members__.values()]
+        ),
+    )
+
+
+class NLUnSubscriptionSchema(Schema):
+    list = fields.String(
+        required=True,
+        validate=validate.OneOf(
+            [l.value for l in MailingContactList.__members__.values()]
+        ),
     )
 
 
@@ -31,19 +43,12 @@ class NLSubscriptionSchema(Schema):
 @optional_auth
 def subscribe_to_newsletter(list, email=None):
     if not current_user and not email:
-        return (
-            jsonify(
-                {
-                    "error": "No email address nor an auth token was provided for subscription to the newsletter"
-                }
-            ),
-            400,
+        raise AuthenticationError(
+            "Request for subscription to the newsletter must be authentified if no email is provided"
         )
-    try:
-        if current_user:
-            current_user.subscribe_to_contact_list(list)
-        else:
-            mailer.subscribe_email_to_contact_list(email, list)
-    except MailjetError as e:
-        return jsonify({"error": e.message}), 500
+    if current_user:
+        current_user.subscribe_to_contact_list(list)
+    else:
+        mailer.subscribe_email_to_contact_list(email, list)
     return jsonify({"success": True}), 200
+

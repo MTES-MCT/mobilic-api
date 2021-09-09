@@ -10,12 +10,18 @@ from app.helpers.authentication import (
     current_user,
     wrap_jwt_errors,
 )
+from app.helpers.errors import MobilicError
 from app.models import User
 from app.helpers.oauth.models import (
     OAuth2AuthorizationCode,
     OAuth2Client,
     OAuth2Token,
 )
+
+
+class AuthorizationRequestParsingError(MobilicError):
+    code = "AUTHORIZATION_PARSING_ERROR"
+    http_status_code = 400
 
 
 class AuthorizationCodeGrant(grants.AuthorizationCodeGrant):
@@ -107,9 +113,8 @@ def parse_authorization_request():
 
     except Exception as e:
         app.logger.exception(e)
-        return make_response(
-            jsonify({"error": "Invalid or missing client id or redirect uri"}),
-            400,
+        raise AuthorizationRequestParsingError(
+            "Invalid or missing client id or redirect uri"
         )
 
     return jsonify({"client_name": client.name, "redirect_uri": redirect_uri})
