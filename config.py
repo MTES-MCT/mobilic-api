@@ -75,6 +75,7 @@ class Config:
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )
     APISPEC_FORMAT_RESPONSE = lambda x: x
+    LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
 
 
 class DevConfig(Config):

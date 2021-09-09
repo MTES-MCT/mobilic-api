@@ -1,26 +1,12 @@
 from flask import jsonify
 
 from app import app
+from app.helpers.livestorm import livestorm, NoLivestormCredentialsError
 
 
 @app.route("/next-webinars", methods=["GET"])
 def get_webinars_list():
-    return jsonify(
-        [
-            {
-                "time": 1630933800,
-                "title": "Presentation Mobilic",
-                "link": "abc",
-            },
-            {
-                "time": 1631695500,
-                "title": "Autre chose à propos de Mobilic",
-                "link": "abc",
-            },
-            {
-                "time": 1632306600,
-                "title": "Quelque chose de très très très très très très très très très très très très très très très très looooooooooooooooooong à propos de Mobilic",
-                "link": "abc",
-            },
-        ]
-    )
+    if not app.config["LIVESTORM_API_TOKEN"]:
+        raise NoLivestormCredentialsError()
+    webinars = sorted(livestorm.get_next_webinars(), key=lambda w: w.time)
+    return jsonify([w._asdict() for w in webinars]), 200
