@@ -24,7 +24,10 @@ def upgrade():
         sa.Column("token", sa.String(length=128), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token"),
     )

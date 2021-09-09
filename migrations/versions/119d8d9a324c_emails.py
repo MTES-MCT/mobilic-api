@@ -44,8 +44,14 @@ def upgrade():
         sa.Column("user_id", sa.Integer(), nullable=True),
         sa.Column("employment_id", sa.Integer(), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["employment_id"], ["employment.id"],),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["employment_id"],
+            ["employment.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("mailjet_id"),
     )

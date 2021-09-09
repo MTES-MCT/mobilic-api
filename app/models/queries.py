@@ -269,13 +269,15 @@ def query_work_day_stats(
                 func.date_trunc(
                     "day",
                     func.timezone(
-                        tzname, func.timezone("UTC", Activity.start_time),
+                        tzname,
+                        func.timezone("UTC", Activity.start_time),
                     ),
                 ),
                 func.timezone(
                     tzname,
                     func.coalesce(
-                        func.timezone("UTC", Activity.end_time), func.now(),
+                        func.timezone("UTC", Activity.end_time),
+                        func.now(),
                     ),
                 ),
                 "1 day",

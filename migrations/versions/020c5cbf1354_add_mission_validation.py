@@ -25,8 +25,14 @@ def upgrade():
         sa.Column("mission_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["mission_id"], ["mission.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["mission_id"],
+            ["mission.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(

@@ -30,7 +30,10 @@ COLUMNS = [
         "name": "Lien Metabase",
         "value": lambda company, user: f"https://metabase.mobilic.beta.gouv.fr/dashboard/3?id={company.id}",
     },
-    {"name": "ID", "value": lambda company, user: company.id,},
+    {
+        "name": "ID",
+        "value": lambda company, user: company.id,
+    },
 ]
 
 
@@ -137,5 +140,6 @@ def add_company_to_spreadsheet(company, admin):
         }
     )
     sheets.batchUpdate(
-        spreadsheetId=SPREADSHEET_ID, body={"requests": requests},
+        spreadsheetId=SPREADSHEET_ID,
+        body={"requests": requests},
     ).execute()

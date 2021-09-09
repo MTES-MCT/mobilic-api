@@ -92,8 +92,7 @@ class TestLogActivities(BaseTest):
             return mission_id
 
     def test_log_simple_activity(self, time=datetime(2020, 2, 7, 6)):
-        """ Logging one simple activity for everybody
-        """
+        """Logging one simple activity for everybody"""
         self.begin_mission(time)
 
     def test_cannot_log_in_advance(self):
@@ -121,7 +120,7 @@ class TestLogActivities(BaseTest):
             )
 
     def test_log_linear_activity_list(self, day=datetime(2020, 2, 7)):
-        """ Logging a list of activities for the team,
+        """Logging a list of activities for the team,
 
         with long durations and valid activity switches
         """
@@ -257,7 +256,7 @@ class TestLogActivities(BaseTest):
         return mission_id
 
     def test_log_activity_list_with_activity_duplicates(self):
-        """ Logging activities for the team,
+        """Logging activities for the team,
 
         with two subsequent activities having the same type (no switch)
         """

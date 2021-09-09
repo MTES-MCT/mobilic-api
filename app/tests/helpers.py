@@ -243,7 +243,8 @@ def make_authenticated_request(
             mock_authentication_with_user=User.query.get(submitter_id)
         ) as c:
             response = c.post_graphql(
-                query=query, variables=formatted_variables,
+                query=query,
+                variables=formatted_variables,
             )
     # print(response.json)
     db.session.rollback()

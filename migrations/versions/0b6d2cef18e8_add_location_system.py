@@ -52,9 +52,18 @@ def upgrade():
         sa.Column("alias", sa.String(length=255), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("dismiss_author_id", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(["address_id"], ["address.id"],),
-        sa.ForeignKeyConstraint(["company_id"], ["company.id"],),
-        sa.ForeignKeyConstraint(["dismiss_author_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["address_id"],
+            ["address.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["company_id"],
+            ["company.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["dismiss_author_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "company_id",
@@ -99,12 +108,22 @@ def upgrade():
         ),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["address_id"], ["address.id"],),
         sa.ForeignKeyConstraint(
-            ["company_known_address_id"], ["company_known_address.id"],
+            ["address_id"],
+            ["address.id"],
         ),
-        sa.ForeignKeyConstraint(["mission_id"], ["mission.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["company_known_address_id"],
+            ["company_known_address.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["mission_id"],
+            ["mission.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "mission_id",

@@ -53,7 +53,8 @@ class CustomGraphQLView(GraphQLView):
                         pass
 
                     app.logger.info(
-                        "Graphql op", extra=log_data,
+                        "Graphql op",
+                        extra=log_data,
                     )
             except Exception as e:
                 app.logger.warning(

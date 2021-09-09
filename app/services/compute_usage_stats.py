@@ -120,7 +120,8 @@ def _compute_work_days_stats(wds):
         if complete_wds
         else None,
         "Nombre moyen d'activités par jour": round(
-            sum([w.n_activities for w in complete_wds]) / len(complete_wds), 1,
+            sum([w.n_activities for w in complete_wds]) / len(complete_wds),
+            1,
         )
         if complete_wds
         else None,

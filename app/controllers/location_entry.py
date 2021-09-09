@@ -45,7 +45,8 @@ class CreateCompanyKnownAddress(graphene.Mutation):
             required=False, description="Nom usuel optionnel du lieu"
         )
         company_id = graphene.Int(
-            required=True, description="Identifiant de l'entreprise",
+            required=True,
+            description="Identifiant de l'entreprise",
         )
 
     Output = CompanyKnownAddressOutput

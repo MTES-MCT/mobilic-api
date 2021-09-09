@@ -69,7 +69,10 @@ class TestQueries(BaseTest):
             company_data = response.json["data"]["company"]
             self.assertDictEqual(
                 company_data,
-                dict(name=self.company1.name, id=self.company1.id,),
+                dict(
+                    name=self.company1.name,
+                    id=self.company1.id,
+                ),
             )
 
     def test_user_can_customize_return_data(self):

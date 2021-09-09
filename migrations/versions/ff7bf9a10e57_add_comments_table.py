@@ -98,9 +98,18 @@ def upgrade():
             "((dismissed_at is not null)::bool = (dismiss_author_id is not null)::bool)",
             name="non_nullable_dismiss_info",
         ),
-        sa.ForeignKeyConstraint(["dismiss_author_id"], ["user.id"],),
-        sa.ForeignKeyConstraint(["mission_id"], ["mission.id"],),
-        sa.ForeignKeyConstraint(["submitter_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["dismiss_author_id"],
+            ["user.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["mission_id"],
+            ["mission.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["submitter_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
 

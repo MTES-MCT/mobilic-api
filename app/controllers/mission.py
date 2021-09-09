@@ -58,7 +58,8 @@ def find_or_create_vehicle(vehicle_id, vehicle_registration_number, company):
 
     else:
         vehicle = Vehicle.query.filter(
-            Vehicle.id == vehicle_id, Vehicle.company_id == company.id,
+            Vehicle.id == vehicle_id,
+            Vehicle.company_id == company.id,
         ).one_or_none()
 
     return vehicle
@@ -229,7 +230,8 @@ class EndMission(graphene.Mutation):
                     )
                 if not last_activity.end_time:
                     last_activity.revise(
-                        reception_time, end_time=args["end_time"],
+                        reception_time,
+                        end_time=args["end_time"],
                     )
 
             db.session.add(

@@ -26,8 +26,14 @@ def upgrade():
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("revoked_at", sa.DateTime(), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["client_id"], ["oauth2_client.id"],),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"],),
+        sa.ForeignKeyConstraint(
+            ["client_id"],
+            ["oauth2_client.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"],
+            ["user.id"],
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token"),
     )
