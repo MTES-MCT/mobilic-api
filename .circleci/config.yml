@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/python:3.8.2
+      - image: circleci/python:3.9.7
       - image: circleci/postgres:12.0-alpine-ram
         environment:
           POSTGRES_USER: circleci
