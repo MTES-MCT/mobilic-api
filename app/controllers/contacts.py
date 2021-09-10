@@ -51,4 +51,3 @@ def subscribe_to_newsletter(list, email=None):
     else:
         mailer.subscribe_email_to_contact_list(email, list)
     return jsonify({"success": True}), 200
-
