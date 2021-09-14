@@ -36,6 +36,9 @@ class CompanySettings(graphene.ObjectType):
     require_support_activity = graphene.Boolean(
         description="Indique si l'entreprise établit une distinction entre conduite et accompagnement dans les activités."
     )
+    require_mission_name = graphene.Boolean(
+        description="Indique si un nom doit être saisi à la création de chaque mission."
+    )
 
 
 class CompanyOutput(BaseSQLAlchemyObjectType):

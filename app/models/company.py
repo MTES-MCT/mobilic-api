@@ -24,6 +24,7 @@ class Company(BaseModel, WithEmploymentHistory):
     require_support_activity = db.Column(
         db.Boolean, nullable=False, default=False
     )
+    require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
 
     @property
     def name(self):
