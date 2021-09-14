@@ -108,9 +108,6 @@ class CreateMission(graphene.Mutation):
     @with_authorization_policy(authenticated_and_active)
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
-            app.logger.info(
-                f"Creating a new mission with name {mission_input.get('name')}"
-            )
             # Preload resources
             company_id = mission_input.get("company_id")
             if company_id:
@@ -215,7 +212,6 @@ class EndMission(graphene.Mutation):
                     mission_end=existing_mission_end
                 )
 
-            app.logger.info(f"Ending mission {mission}")
             user_activities = mission.activities_for(user)
             last_activity = user_activities[-1] if user_activities else None
 
@@ -407,5 +403,4 @@ class Query(graphene.ObjectType):
     )
     def resolve_mission(self, info, id):
         mission = Mission.query.get(id)
-        app.logger.info(f"Sending mission data for {mission}")
         return mission

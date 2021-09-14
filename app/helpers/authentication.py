@@ -259,7 +259,6 @@ class LoginMutation(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info, email, password):
-        app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
         if not user or (
             not app.config["DISABLE_PASSWORD_CHECK"]

@@ -46,7 +46,6 @@ class CreateVehicle(graphene.Mutation):
                 company_id=company_id,
             )
             db.session.add(vehicle)
-        app.logger.info(f"Created new vehicle {vehicle}")
         return vehicle
 
 
@@ -78,7 +77,6 @@ class EditVehicle(graphene.Mutation):
         vehicle = Vehicle.query.get(id)
         vehicle.alias = alias
         db.session.commit()
-        app.logger.info(f"Updated vehicle {vehicle}")
         return vehicle
 
 
@@ -105,5 +103,4 @@ class TerminateVehicle(graphene.Mutation):
         vehicle = Vehicle.query.get(id)
         vehicle.terminated_at = datetime.now()
         db.session.commit()
-        app.logger.info(f"Updated vehicle {vehicle}")
         return Void(success=True)
