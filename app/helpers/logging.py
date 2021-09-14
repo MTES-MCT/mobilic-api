@@ -3,7 +3,7 @@ from logging import StreamHandler
 import requests
 from time import time
 from marshmallow import fields
-import sys
+from werkzeug.exceptions import HTTPException
 from flask.logging import default_handler
 from flask import request, g, has_request_context
 from logging_ldp.formatters import LDPGELFFormatter
@@ -217,13 +217,12 @@ class MattermostHandler(logging.Handler):
                     ].should_alert_team
 
         title = getattr(record, "log_title", None)
-        if (
-            not title
-            and record.exc_info
-            and type(record.exc_info) is tuple
-            and issubclass(record.exc_info[0], MobilicError)
-        ):
-            title = record.exc_info[0].__name__
+        if not title and record.exc_info and type(record.exc_info) is tuple:
+            exception = record.exc_info[0]
+            if isinstance(exception, MobilicError):
+                title = record.exception
+            elif isinstance(exception, HTTPException):
+                title = f"Flask error : {exception.code} {exception.name}"
 
         return post_to_mattermost(
             self.format(record),
