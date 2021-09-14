@@ -45,7 +45,7 @@ class InvalidParamsError(MobilicError):
 
 
 class InternalError(MobilicError):
-    code = "INTERNAL_ERROR"
+    code = "INTERNAL_SERVER_ERROR"
 
 
 class AuthenticationError(MobilicError):
