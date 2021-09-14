@@ -75,7 +75,7 @@ def _get_request_endpoint():
 def store_time_and_request_params():
     g.log_info = {
         "start_time": time(),
-        "vars": request.json,
+        "vars": request.json,  # par défaut c'est le paylaod JSON de la requête, sauf pour les requêtes GraphQL où c'est les variables GraphQL (voir app/helpers/graphql.py)
         "graphql_op": None,
         "json": request.json,
         "graphql_op_short": "",
@@ -263,18 +263,17 @@ default_handler.setFormatter(
     )
 )
 
-
-if MOBILIC_ENV == "dev":
-    logging.getLogger("werkzeug").setLevel(logging.ERROR)
-    dev_handler = StreamHandler()
-    dev_handler.addFilter(lambda r: getattr(r, "_request_log", False))
-    dev_handler.addFilter(add_request_and_user_context)
-    dev_handler.setFormatter(
-        logging.Formatter(
-            "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response)s device=%(device)s referrer=%(referrer)s"
-        )
+# Logs all requests
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+request_log_handler = StreamHandler()
+request_log_handler.addFilter(lambda r: getattr(r, "_request_log", False))
+request_log_handler.addFilter(add_request_and_user_context)
+request_log_handler.setFormatter(
+    logging.Formatter(
+        "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response)s device=%(device)s referrer=%(referrer)s"
     )
-    logging.getLogger().addHandler(dev_handler)
+)
+logging.getLogger().addHandler(request_log_handler)
 
 
 if app.config["MATTERMOST_WEBHOOK"]:
