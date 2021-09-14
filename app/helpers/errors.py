@@ -48,22 +48,9 @@ class AuthorizationError(MobilicError):
     code = "AUTHORIZATION_ERROR"
 
 
-class InaccessibleSirenError(MobilicError):
-    code = "INACCESSIBLE_SIREN"
-    default_should_alert_team = False
-
-
 class SirenAlreadySignedUpError(MobilicError):
     code = "SIREN_ALREADY_SIGNED_UP"
     default_should_alert_team = False
-
-
-class UnavailableSirenAPIError(MobilicError):
-    code = "UNAVAILABLE_SIREN_API"
-
-
-class NoSirenAPICredentialsError(MobilicError):
-    code = "NO_SIREN_API_CREDENTIALS"
 
 
 class FranceConnectAuthenticationError(MobilicError):

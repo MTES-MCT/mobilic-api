@@ -2,11 +2,21 @@ import requests
 from typing import NamedTuple
 from datetime import date
 
-from app.helpers.errors import (
-    UnavailableSirenAPIError,
-    InaccessibleSirenError,
-    NoSirenAPICredentialsError,
-)
+from app.helpers.errors import MobilicError
+
+
+class UnavailableSirenAPIError(MobilicError):
+    code = "UNAVAILABLE_SIREN_API"
+
+
+class InaccessibleSirenError(MobilicError):
+    code = "INACCESSIBLE_SIREN"
+    default_should_alert_team = False
+
+
+class NoSirenAPICredentialsError(MobilicError):
+    code = "NO_SIREN_API_CREDENTIALS"
+
 
 SIREN_API_TOKEN_ENDPOINT = "https://api.insee.fr/token"
 SIREN_API_SIREN_INFO_ENDPOINT = (
