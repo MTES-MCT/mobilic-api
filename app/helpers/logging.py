@@ -1,8 +1,11 @@
 import logging
+from logging import StreamHandler
 import requests
+from time import time
 from marshmallow import fields
+import sys
 from flask.logging import default_handler
-from flask import request, has_request_context
+from flask import request, g, has_request_context
 from logging_ldp.formatters import LDPGELFFormatter
 from logging_ldp.handlers import LDPGELFTCPSocketHandler
 from logging_ldp.schemas import LDPSchema
@@ -15,30 +18,144 @@ from app.helpers.errors import MobilicError
 
 logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
 
+SENSITIVE_FIELDS = [
+    "password",
+    "accessToken",
+    "refreshToken",
+    "access_token",
+    "refresh_token",
+]
+UNWANTED_FIELDS = ["__typename"]
+
+
+def _user_info():
+    return dict(
+        user_name=current_user.display_name if current_user else None,
+        user=str(current_user),
+        user_id=current_user.id if current_user else None,
+        email=str(current_user.email if current_user else None),
+        metabase=f"https://metabase.mobilic.beta.gouv.fr/dashboard/6?id={current_user.id}"
+        if current_user
+        else None,
+    )
+
+
+def _strip_unwanted_and_sensitive_fields_from_log_data(data):
+    if not data:
+        return data
+    if type(data) is dict:
+        return {
+            k: "***"
+            if k in SENSITIVE_FIELDS
+            else _strip_unwanted_and_sensitive_fields_from_log_data(v)
+            for k, v in data.items()
+            if k not in UNWANTED_FIELDS
+        }
+    if type(data) is list:
+        return [
+            _strip_unwanted_and_sensitive_fields_from_log_data(i) for i in data
+        ]
+    return data
+
+
+def _get_request_endpoint():
+    path = (
+        request.full_path[:-1]
+        if request.full_path and request.full_path.endswith("?")
+        else request.full_path
+    )
+    method_with_path = f"{request.method} {path}"
+    graphql_op_short = g.log_info.get("graphql_op_short", "")
+    if graphql_op_short:
+        return f'{method_with_path} "{graphql_op_short}"'
+    return method_with_path
+
+
+@app.before_request
+def store_time_and_request_params():
+    g.log_info = {
+        "start_time": time(),
+        "vars": request.json,
+        "graphql_op": None,
+        "json": request.json,
+        "graphql_op_short": "",
+        "remote_addr": request.remote_addr,
+        "referrer": request.referrer,
+    }
+
+
+@app.after_request
+def log_request_info(response):
+    if not g.log_info.get("no_log", False) and request.method != "OPTIONS":
+        start_time = g.log_info.pop("start_time")
+        request_time = round((time() - start_time) * 1000)
+        try:
+            if (
+                response.content_length is not None
+                and response.content_length < 10000
+            ):
+                response_data = response.json
+            else:
+                response_data = {"not shown": "response too long"}
+        except:
+            response_data = None
+
+        endpoint = _get_request_endpoint()
+
+        log_func = app.logger.info
+        log_title = None
+        log_message = endpoint
+        log_info = _strip_unwanted_and_sensitive_fields_from_log_data(
+            g.log_info
+        )
+
+        # For GraphQL request with invalid syntax (error 400) we want to error-log the request info so that it may appear in Mattermost.
+        # For other errors we don't need to error-log because the application-level error will be logged at the error level.
+        if response.status_code == 400 and g.log_info.get("is_graphql", False):
+            log_title = "Invalid GraphQL request"
+            log_message = log_info["json"]
+            log_func = app.logger.error
+
+        log_func(
+            log_message,
+            extra={
+                "time": request_time,
+                "response": _strip_unwanted_and_sensitive_fields_from_log_data(
+                    response_data
+                ),
+                "status_code": response.status_code,
+                "size": response.content_length,
+                **_user_info(),
+                **log_info,
+                "endpoint": endpoint,
+                "_request_log": True,
+                "log_title": log_title,
+            },
+        )
+    return response
+
 
 def add_request_and_user_context(record):
-    try:
-        record.current_user = str(current_user)
-        record.email = str(current_user.email)
-        record.metabase = f"https://metabase.mobilic.beta.gouv.fr/dashboard/6?id={current_user.id}"
-    except:
-        record.current_user = None
-        record.email = None
-        record.metabase = None
-    if has_request_context():
-        record.endpoint = (
-            request.full_path[:-1]
-            if request.full_path and request.full_path.endswith("?")
-            else request.full_path
-        )
-        record.device = "{} ({} {})".format(
-            request.user_agent.platform,
-            request.user_agent.browser,
-            request.user_agent.version,
-        )
-    else:
-        record.endpoint = None
-        record.device = None
+    # Make filter idempotent because it might be called several times
+    if not getattr(record, "user", False):
+        for prop, value in _user_info().items():
+            setattr(record, prop, value)
+
+    if not getattr(record, "endpoint", False):
+        if has_request_context():
+            record.endpoint = _get_request_endpoint()
+        else:
+            record.endpoint = None
+
+    if not getattr(record, "device", False):
+        if has_request_context():
+            record.device = "{} ({} {})".format(
+                request.user_agent.platform,
+                request.user_agent.browser,
+                request.user_agent.version,
+            )
+        else:
+            record.device = None
     return True
 
 
@@ -115,7 +232,7 @@ class MattermostHandler(logging.Handler):
             title=title,
             is_secondary=should_log_to_secondary_channel,
             fields_=[
-                ("User", record.current_user, True),
+                ("User", record.user, True),
                 ("Device", record.device, True),
                 ("Email", record.email, True),
                 ("Metabase", record.metabase, True),
@@ -138,17 +255,30 @@ class MattermostFormatter(logging.Formatter):
 
 app.logger.setLevel(logging.INFO)
 app.logger.addFilter(add_request_and_user_context)
-default_handler.addFilter(lambda r: not getattr(r, "graphql_request", False))
+
+default_handler.addFilter(lambda r: not getattr(r, "_request_log", False))
 default_handler.setFormatter(
     logging.Formatter(
-        "[%(asctime)s] user=%(current_user)s %(levelname)s in %(name)s: %(message)s"
+        "[%(asctime)s] user=%(user)s %(levelname)s in %(name)s: %(message)s"
     )
 )
 
 
+if MOBILIC_ENV == "dev":
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    dev_handler = StreamHandler()
+    dev_handler.addFilter(lambda r: getattr(r, "_request_log", False))
+    dev_handler.addFilter(add_request_and_user_context)
+    dev_handler.setFormatter(
+        logging.Formatter(
+            "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response)s device=%(device)s referrer=%(referrer)s"
+        )
+    )
+    logging.getLogger().addHandler(dev_handler)
+
+
 if app.config["MATTERMOST_WEBHOOK"]:
     mattermost_handler = MattermostHandler()
-    mattermost_handler.addFilter(add_request_and_user_context)
     mattermost_handler.addFilter(
         lambda r: getattr(
             r,
@@ -157,21 +287,27 @@ if app.config["MATTERMOST_WEBHOOK"]:
             and r.name != "graphql.execution.utils",
         )
     )
+    mattermost_handler.addFilter(add_request_and_user_context)
     mattermost_handler.setFormatter(MattermostFormatter("%(message)s"))
     logging.getLogger().addHandler(mattermost_handler)
 
 
-class FreeSchema(LDPSchema):
-    graphql_request = fields.Dict()
-    status_code = fields.Int()
+class OVHLogSchema(LDPSchema):
+    json = fields.Dict()
+    time = fields.Int(required=True)
+    status_code = fields.Int(required=True)
+    graphql_op = fields.String()
     response = fields.Dict()
-    current_user = fields.String()
+    endpoint = fields.String()
+    user_name = fields.String()
+    user_id = fields.Int()
     device = fields.String()
+    referrer = fields.String(required=False)
 
 
 if app.config["OVH_LDP_TOKEN"]:
     ovh_handler = LDPGELFTCPSocketHandler("gra2.logs.ovh.com")
     ovh_handler.setFormatter(
-        LDPGELFFormatter(app.config["OVH_LDP_TOKEN"], schema=FreeSchema)
+        LDPGELFFormatter(app.config["OVH_LDP_TOKEN"], schema=OVHLogSchema)
     )
     logging.getLogger().addHandler(ovh_handler)
