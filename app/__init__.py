@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_apispec import FlaskApiSpec
 from flask_migrate import Migrate
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from apispec import APISpec
@@ -149,3 +150,17 @@ def handle_error(error):
     if error.extensions:
         error_payload["details"] = error.extensions
     return jsonify(error_payload), error.http_status_code
+
+
+@app.errorhandler(HTTPException)
+def handle_error(error):
+    app.logger.exception(error)
+    return (
+        jsonify(
+            {
+                "error": error.description,
+                "error_code": error.name.upper().replace(" ", "_"),
+            }
+        ),
+        error.code,
+    )
