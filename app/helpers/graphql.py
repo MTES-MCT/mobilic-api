@@ -1,21 +1,32 @@
 from app import app
 
 from flask_graphql import GraphQLView
-from flask import request
+from flask import request, g
 
 
-def get_children_field_names(info):
-    field_asts = info.field_asts[0].selection_set.selections
-    return [field_ast.name.value for field_ast in field_asts]
+def parse_graphql_request_info(request_data):
+    if type(request_data) is not list or len(request_data) == 1:
+        actual_request_data = (
+            request_data[0] if type(request_data) is list else request_data
+        )
+        return dict(
+            vars=actual_request_data.get("variables", {}),
+            graphql_op=actual_request_data.get("operationName", None),
+            graphql_op_short=actual_request_data.get("operationName", None),
+        )
+    return dict(
+        vars=[r.get("variables", {}) for r in request_data],
+        graphql_op=[r.get("operationName", None) for r in request_data],
+        graphql_op_short=f'{request_data[0].get("operationName", None)} + {len(request_data) - 1}',
+    )
 
 
 class CustomGraphQLView(GraphQLView):
     """
-    Log all graphql requests (to OVH log solution). For each request we want :
+    Add request information to log context. For each request we want :
     - the graphql query text
     - graphql variables if they exist
-    - status code
-    - (json) response except when it's too big (we exclude specific queries)
+    - operation name
     """
 
     def dispatch_request(self):
@@ -23,7 +34,6 @@ class CustomGraphQLView(GraphQLView):
             request_data = self.parse_body()
         except:
             request_data = "Invalid body"
-        response = super().dispatch_request()
         if request.method == "POST":
             # Do not log introspection queries
             try:
@@ -39,25 +49,14 @@ class CustomGraphQLView(GraphQLView):
                         if hasattr(query, "__iter__") and "__schema" in query:
                             is_introspection = True
                 if not is_introspection:
-                    log_data = {
-                        "status_code": response.status_code,
-                        "graphql_request": request_data,
-                    }
-                    try:
-                        if request_data.get("operationName", "") not in [
-                            "user",
-                            "adminCompanies",
-                        ]:
-                            log_data["response"] = response.json
-                    except:
-                        pass
-
-                    app.logger.info(
-                        "Graphql op",
-                        extra=log_data,
-                    )
+                    g.log_info["is_graphql"] = True
+                    g.log_info["json"] = request_data
+                    g.log_info.update(parse_graphql_request_info(request_data))
+                else:
+                    g.log_info["no_log"] = True
             except Exception as e:
                 app.logger.warning(
-                    f"Could not log graphql op because of following error {e}"
+                    f"Could not add GraphQl request info to log context because of following error {e}"
                 )
+        response = super().dispatch_request()
         return response
