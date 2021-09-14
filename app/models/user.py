@@ -294,7 +294,11 @@ class User(BaseModel, WithEmploymentHistory):
     def subscribe_to_contact_list(self, contact_list):
         if contact_list not in self.subscribed_mailing_lists:
             mailer.subscribe_email_to_contact_list(self.email, contact_list)
-            self.subscribed_mailing_lists.append(contact_list)
+            self.subscribed_mailing_lists = [
+                *self.subscribed_mailing_lists,
+                contact_list,
+            ]
+            db.session.add(self)
             db.session.commit()
 
     def unsubscribe_from_contact_list(self, contact_list, remove=False):
@@ -307,4 +311,5 @@ class User(BaseModel, WithEmploymentHistory):
             self.subscribed_mailing_lists = [
                 l for l in self.subscribed_mailing_lists if l != contact_list
             ]
+            db.session.add(self)
             db.session.commit()

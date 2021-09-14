@@ -309,7 +309,7 @@ class Mailer:
 
             except Exception as e:
                 raise SubscriptionRequestError(
-                    f"{'Subscription' if action == MailjetSubscriptionActions.SUBSCRIBE else 'Unsubscription'} request failed for {email} because : {e}"
+                    f"{'Subscription' if action == MailjetSubscriptionActions.SUBSCRIBE else 'Unsubscription'} request failed for email {email} because : {e}"
                 )
 
     def subscribe_email_to_contact_list(self, email, contact_list):
