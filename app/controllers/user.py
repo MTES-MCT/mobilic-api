@@ -420,7 +420,6 @@ def query_user(info, id=None):
         user = current_user
 
     info.context.user_being_queried = user
-    app.logger.info(f"Sending user data for {user}")
     return user
 
 

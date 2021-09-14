@@ -123,7 +123,6 @@ class CancelExpenditure(graphene.Mutation):
                 )
 
             db.session.add(expenditure_to_dismiss)
-            app.logger.info(f"Cancelling {expenditure_to_dismiss}")
             expenditure_to_dismiss.dismiss(reception_time)
 
         return Void(success=True)

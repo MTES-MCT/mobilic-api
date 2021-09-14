@@ -93,9 +93,6 @@ class CreateEmployment(graphene.Mutation):
         force_employment_type = employment_is_primary is not None
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
-            app.logger.info(
-                f"Creating employment submitted by {current_user} for User {employment_input.get('user_id', employment_input.get('mail'))} in Company {employment_input['company_id']}"
-            )
             company = Company.query.get(employment_input["company_id"])
 
             if (employment_input.get("user_id") is None) == (
@@ -411,9 +408,6 @@ class TerminateEmployment(graphene.Mutation):
                     "End date is before the employment start date"
                 )
 
-            app.logger.info(
-                f"Terminating employment for User {employment.user_id} in Company {employment.company_id}"
-            )
             employment.end_date = employment_end_date
 
             db.session.add(employment)
@@ -453,7 +447,6 @@ class CancelEmployment(graphene.Mutation):
                 raise InvalidResourceError(
                     f"Could not find valid employment with id {employment_id}"
                 )
-            app.logger.info(f"Cancelling Employment {employment_id}")
 
             employment.dismiss()
 

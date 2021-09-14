@@ -85,9 +85,6 @@ class LogActivity(graphene.Mutation):
                 )
 
             reception_time = datetime.now()
-            app.logger.info(
-                f"Logging activity {activity_input['type']} submitted by {current_user}"
-            )
             mission_id = activity_input.get("mission_id")
             mission = Mission.query.options(
                 selectinload(Mission.activities)
@@ -189,9 +186,7 @@ def edit_activity(
             raise ResourceAlreadyDismissedError(f"Activity already dismissed.")
 
         db.session.add(activity_to_update)
-        app.logger.info(
-            f"{'Cancelling' if cancel else 'Revising'} {activity_to_update}"
-        )
+
         if cancel:
             activity_to_update.dismiss(reception_time, context)
         else:

@@ -302,7 +302,6 @@ def download_activity_report(
     )
     scope = ConsultationScope(company_ids=company_ids)
 
-    app.logger.info(f"Downloading activity report for {company_ids}")
     all_users_work_days = []
     for user in users:
         all_users_work_days += group_user_events_by_day_with_limit(
