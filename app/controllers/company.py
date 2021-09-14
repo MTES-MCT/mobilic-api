@@ -108,6 +108,7 @@ class CompanySignUp(graphene.Mutation):
                 allow_team_mode=True,
                 require_kilometer_data=require_kilometer_data,
                 require_support_activity=require_support_activity,
+                require_mission_name=True,
             )
             db.session.add(company)
             db.session.flush()  # Early check for SIREN duplication
@@ -205,6 +206,10 @@ class EditCompanySettings(graphene.Mutation):
         require_support_activity = graphene.Boolean(
             required=False,
             description="Active ou désactive la prise en charge de l'accompagnement.",
+        )
+        require_mission_name = graphene.Boolean(
+            required=False,
+            description="Rend obligatoire ou non la saisie d'un nom pour une mission.",
         )
 
     Output = CompanyOutput
