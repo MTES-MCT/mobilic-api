@@ -264,11 +264,15 @@ default_handler.setFormatter(
     )
 )
 
-# Logs all requests
-werkzeug_logger = logging.getLogger("werkzeug")
-werkzeug_logger.setLevel(logging.ERROR)
-werkzeug_logger.disabled = True
+# This is a hack to disable Werkzeug logging as the following solution doesn't work : it still show request logs in Scalingo (solution comes from https://stackoverflow.com/questions/14888799/disable-console-messages-in-flask-server)
+## werkzeug_logger = logging.getLogger("werkzeug")
+## werkzeug_logger.setLevel(logging.ERROR)
+## werkzeug_logger.disabled = True
+from werkzeug.serving import WSGIRequestHandler
 
+WSGIRequestHandler.log_request = lambda *args, **kwargs: None
+
+# Our custom request logger
 request_log_handler = StreamHandler()
 request_log_handler.addFilter(lambda r: getattr(r, "_request_log", False))
 request_log_handler.addFilter(add_request_and_user_context)
