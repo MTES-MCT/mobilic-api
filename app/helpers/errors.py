@@ -284,12 +284,12 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "activity_end_time_before_update_time": lambda _: InvalidParamsError(
         "End time of activity cannot be in the future"
     ),
-    "only_one_current_primary_enrollment_per_user": lambda _: OverlappingEmploymentsError(
+    "only_one_current_primary_employment_per_user": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping primary employments",
         overlap_type="primary",
         should_alert_team=True,
     ),
-    "no_simultaneous_enrollments_for_the_same_company": lambda _: OverlappingEmploymentsError(
+    "no_simultaneous_employments_for_the_same_company": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping employments on the same company",
         overlap_type="company",
         should_alert_team=False,
