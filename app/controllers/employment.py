@@ -142,6 +142,7 @@ class CreateEmployment(graphene.Mutation):
                 end_date=employment_input.get("end_date"),
                 company=company,
                 has_admin_rights=employment_input.get("has_admin_rights"),
+                user=user,
                 user_id=user_id,
                 invite_token=invite_token,
                 email=employment_input.get("mail"),
@@ -153,6 +154,7 @@ class CreateEmployment(graphene.Mutation):
             except MailjetError as e:
                 if not user:
                     raise e
+                app.logger.exception(e)
 
         return employment
 
