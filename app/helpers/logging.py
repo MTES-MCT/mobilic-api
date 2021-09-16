@@ -220,7 +220,7 @@ class MattermostHandler(logging.Handler):
         if not title and record.exc_info and type(record.exc_info) is tuple:
             exception = record.exc_info[0]
             if isinstance(exception, MobilicError):
-                title = record.exception
+                title = exception.__name__
             elif isinstance(exception, HTTPException):
                 title = f"Flask error : {exception.code} {exception.name}"
 
