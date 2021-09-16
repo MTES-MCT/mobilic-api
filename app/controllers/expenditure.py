@@ -55,9 +55,6 @@ class LogExpenditure(graphene.Mutation):
     def mutate(cls, _, info, **expenditure_input):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
-            app.logger.info(
-                f"Logging expenditure submitted by {current_user} of company {current_user.primary_company}"
-            )
             mission_id = expenditure_input.get("mission_id")
             mission = Mission.query.get(mission_id)
 
