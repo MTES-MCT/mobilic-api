@@ -265,7 +265,10 @@ default_handler.setFormatter(
 )
 
 # Logs all requests
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.ERROR)
+werkzeug_logger.disabled = True
+
 request_log_handler = StreamHandler()
 request_log_handler.addFilter(lambda r: getattr(r, "_request_log", False))
 request_log_handler.addFilter(add_request_and_user_context)
