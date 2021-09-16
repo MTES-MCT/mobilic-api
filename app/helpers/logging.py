@@ -210,17 +210,19 @@ class MattermostHandler(logging.Handler):
         if should_log_to_secondary_channel is None:
             should_log_to_secondary_channel = False
             if record.exc_info and type(record.exc_info) is tuple:
-                exc_info_class = record.exc_info[0]
-                if issubclass(exc_info_class, MobilicError):
-                    should_log_to_secondary_channel = not record.exc_info[
-                        1
-                    ].should_alert_team
+                exception = record.exc_info[1]
+                if isinstance(exception, MobilicError):
+                    should_log_to_secondary_channel = (
+                        not exception.should_alert_team
+                    )
+                if isinstance(exception, HTTPException):
+                    should_log_to_secondary_channel = exception.code in [404]
 
         title = getattr(record, "log_title", None)
         if not title and record.exc_info and type(record.exc_info) is tuple:
-            exception = record.exc_info[0]
+            exception = record.exc_info[1]
             if isinstance(exception, MobilicError):
-                title = exception.__name__
+                title = exception.__class__.__name__
             elif isinstance(exception, HTTPException):
                 title = f"Flask error : {exception.code} {exception.name}"
 
