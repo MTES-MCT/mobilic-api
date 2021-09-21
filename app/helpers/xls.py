@@ -103,7 +103,7 @@ def format_kilometer_reading(location, wday):
     return location.kilometer_reading
 
 
-def get_columns_in_main_sheet(require_expenditures):
+def get_columns_in_main_sheet(require_expenditures, require_mission_name):
     columns_in_main_sheet = [
         (
             "Prénom",
@@ -126,96 +126,110 @@ def get_columns_in_main_sheet(require_expenditures):
             20,
             light_yellow_hex,
         ),
-        (
-            "Mission(s)",
-            lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
-            "wrap",
-            30,
-            light_blue_hex,
-        ),
-        (
-            "Véhicule(s)",
-            lambda wday: ", ".join(
-                set(
-                    [
-                        m.vehicle.name
-                        for m in wday.missions
-                        if m.vehicle is not None
-                    ]
-                )
-            ),
-            "wrap",
-            30,
-            light_blue_hex,
-        ),
-        (
-            "Début",
-            lambda wday: to_fr_tz(wday.start_time)
-            if wday.start_time
-            else None,
-            "time_format",
-            15,
-            light_green_hex,
-        ),
-        (
-            "Fin",
-            lambda wday: to_fr_tz(wday.end_time) if wday.end_time else None,
-            "time_format",
-            15,
-            light_green_hex,
-        ),
-        (
-            "Amplitude",
-            lambda wday: timedelta(seconds=wday.service_duration),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
-        (
-            "Total travail",
-            lambda wday: timedelta(seconds=wday.total_work_duration),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
-        (
-            "Conduite",
-            lambda wday: timedelta(
-                seconds=wday.activity_durations[ActivityType.DRIVE]
-            ),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
-        (
-            "Accompagnement",
-            lambda wday: timedelta(
-                seconds=wday.activity_durations[ActivityType.SUPPORT]
-            ),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
-        (
-            "Autre tâche",
-            lambda wday: timedelta(
-                seconds=wday.activity_durations[ActivityType.WORK]
-            ),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
-        (
-            "Pause",
-            lambda wday: timedelta(
-                seconds=wday.service_duration - wday.total_work_duration
-            ),
-            "duration_format",
-            13,
-            light_green_hex,
-        ),
     ]
 
+    if require_mission_name:
+        columns_in_main_sheet.extend(
+            [
+                (
+                    "Mission(s)",
+                    lambda wday: ", ".join(
+                        [m.name for m in wday.missions if m.name]
+                    ),
+                    "wrap",
+                    30,
+                    light_blue_hex,
+                )
+            ]
+        )
+
+    columns_in_main_sheet.extend(
+        [
+            (
+                "Véhicule(s)",
+                lambda wday: ", ".join(
+                    set(
+                        [
+                            m.vehicle.name
+                            for m in wday.missions
+                            if m.vehicle is not None
+                        ]
+                    )
+                ),
+                "wrap",
+                30,
+                light_blue_hex,
+            ),
+            (
+                "Début",
+                lambda wday: to_fr_tz(wday.start_time)
+                if wday.start_time
+                else None,
+                "time_format",
+                15,
+                light_green_hex,
+            ),
+            (
+                "Fin",
+                lambda wday: to_fr_tz(wday.end_time)
+                if wday.end_time
+                else None,
+                "time_format",
+                15,
+                light_green_hex,
+            ),
+            (
+                "Amplitude",
+                lambda wday: timedelta(seconds=wday.service_duration),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
+                "Total travail",
+                lambda wday: timedelta(seconds=wday.total_work_duration),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
+                "Conduite",
+                lambda wday: timedelta(
+                    seconds=wday.activity_durations[ActivityType.DRIVE]
+                ),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
+                "Accompagnement",
+                lambda wday: timedelta(
+                    seconds=wday.activity_durations[ActivityType.SUPPORT]
+                ),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
+                "Autre tâche",
+                lambda wday: timedelta(
+                    seconds=wday.activity_durations[ActivityType.WORK]
+                ),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
+                "Pause",
+                lambda wday: timedelta(
+                    seconds=wday.service_duration - wday.total_work_duration
+                ),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+        ]
+    )
     if require_expenditures:
         columns_in_main_sheet.extend(
             [
@@ -310,57 +324,69 @@ def get_columns_in_main_sheet(require_expenditures):
     return columns_in_main_sheet
 
 
-activity_columns_in_details_sheet = [
-    (
-        "Prénom",
-        lambda a: a.user.first_name,
-        None,
-        30,
-        light_yellow_hex,
-    ),
-    (
-        "Nom",
-        lambda a: a.user.last_name,
-        None,
-        30,
-        light_yellow_hex,
-    ),
-    (
-        "Jour",
-        lambda a: to_fr_tz(a.start_time),
-        "date_format",
-        20,
-        light_yellow_hex,
-    ),
-    (
-        "Mission",
-        lambda a: a.mission.name,
-        None,
-        20,
-        light_blue_hex,
-    ),
-    (
-        "Activité",
-        lambda a: ACTIVITY_TYPE_LABEL[a.type],
-        None,
-        15,
-        light_blue_hex,
-    ),
-    (
-        "Début",
-        lambda a: to_fr_tz(a.start_time),
-        "time_format",
-        10,
-        light_blue_hex,
-    ),
-    (
-        "Fin",
-        lambda a: to_fr_tz(a.end_time) if a.end_time else None,
-        "time_format",
-        10,
-        light_blue_hex,
-    ),
-]
+def get_columns_in_details_sheet(require_mission_name):
+    activity_columns_in_details_sheet = [
+        (
+            "Prénom",
+            lambda a: a.user.first_name,
+            None,
+            30,
+            light_yellow_hex,
+        ),
+        (
+            "Nom",
+            lambda a: a.user.last_name,
+            None,
+            30,
+            light_yellow_hex,
+        ),
+        (
+            "Jour",
+            lambda a: to_fr_tz(a.start_time),
+            "date_format",
+            20,
+            light_yellow_hex,
+        ),
+    ]
+    if require_mission_name:
+        activity_columns_in_details_sheet.extend(
+            [
+                (
+                    "Mission",
+                    lambda a: a.mission.name,
+                    None,
+                    20,
+                    light_blue_hex,
+                )
+            ]
+        )
+    activity_columns_in_details_sheet.extend(
+        [
+            (
+                "Activité",
+                lambda a: ACTIVITY_TYPE_LABEL[a.type],
+                None,
+                15,
+                light_blue_hex,
+            ),
+            (
+                "Début",
+                lambda a: to_fr_tz(a.start_time),
+                "time_format",
+                10,
+                light_blue_hex,
+            ),
+            (
+                "Fin",
+                lambda a: to_fr_tz(a.end_time) if a.end_time else None,
+                "time_format",
+                10,
+                light_blue_hex,
+            ),
+        ]
+    )
+    return activity_columns_in_details_sheet
+
 
 activity_version_columns_in_details_sheet = [
     (
@@ -403,12 +429,16 @@ activity_version_columns_in_details_sheet = [
 ]
 
 
-def write_work_days_sheet(wb, wdays_by_user, require_expenditures):
+def write_work_days_sheet(
+    wb, wdays_by_user, require_expenditures, require_mission_name
+):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(1, 2)
     row_idx = 1
-    columns_in_main_sheet = get_columns_in_main_sheet(require_expenditures)
+    columns_in_main_sheet = get_columns_in_main_sheet(
+        require_expenditures, require_mission_name
+    )
 
     col_idx = 0
     column_base_formats = []
@@ -481,11 +511,11 @@ def write_work_days_sheet(wb, wdays_by_user, require_expenditures):
                 row_idx += 1
 
 
-def write_day_details_sheet(wb, wdays_by_user):
+def write_day_details_sheet(wb, wdays_by_user, require_mission_name):
     sheet = wb.add_worksheet("Détails")
     sheet.protect()
     all_columns = [
-        *activity_columns_in_details_sheet,
+        *get_columns_in_details_sheet(require_mission_name),
         *activity_version_columns_in_details_sheet,
     ]
     # sheet.freeze_panes(1, 2)
@@ -547,7 +577,9 @@ def write_day_details_sheet(wb, wdays_by_user):
             if activity.is_dismissed:
                 events.append((activity, None, True))
             for (av_or_a, previous_version, is_delete) in events:
-                col_idx = len(activity_columns_in_details_sheet)
+                col_idx = len(
+                    get_columns_in_details_sheet(require_mission_name)
+                )
                 for (
                     col_name,
                     resolver,
@@ -591,7 +623,7 @@ def write_day_details_sheet(wb, wdays_by_user):
                 resolver,
                 style,
                 *_,
-            ) in activity_columns_in_details_sheet:
+            ) in get_columns_in_details_sheet(require_mission_name):
                 cell_format = wb.add_format(
                     {
                         **column_base_formats[col_idx],
@@ -639,11 +671,17 @@ def send_work_days_as_excel(user_wdays, companies):
         wdays_by_user[work_day.user].append(work_day)
 
     require_expenditures = any([c.require_expenditures for c in companies])
+    require_mission_name = any([c.require_mission_name for c in companies])
 
     write_work_days_sheet(
-        wb, wdays_by_user, require_expenditures=require_expenditures
+        wb,
+        wdays_by_user,
+        require_expenditures=require_expenditures,
+        require_mission_name=require_mission_name,
     )
-    write_day_details_sheet(wb, wdays_by_user)
+    write_day_details_sheet(
+        wb, wdays_by_user, require_mission_name=require_mission_name
+    )
 
     wb.close()
 
