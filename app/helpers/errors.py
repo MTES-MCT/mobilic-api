@@ -59,8 +59,8 @@ class AuthorizationError(MobilicError):
     http_status_code = 403
 
 
-class SirenAlreadySignedUpError(MobilicError):
-    code = "SIREN_ALREADY_SIGNED_UP"
+class SiretAlreadySignedUpError(MobilicError):
+    code = "SIRET_ALREADY_SIGNED_UP"
     default_should_alert_team = False
 
 
@@ -306,8 +306,8 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "no_duplicate_expenditures_per_user_and_date_and_mission": lambda _: DuplicateExpendituresError(
         "An expenditure of that type and that date is already logged for the user on the mission"
     ),
-    "company_siren_key": lambda _: SirenAlreadySignedUpError(
-        "SIREN already registered"
+    "only_one_company_per_siret": lambda _: SiretAlreadySignedUpError(
+        "SIRET already registered"
     ),
     "user_email_key": lambda _: EmailAlreadyRegisteredError(),
     "user_can_only_end_mission_once": lambda error: MissionAlreadyEndedError(

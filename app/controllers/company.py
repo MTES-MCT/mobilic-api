@@ -103,7 +103,7 @@ class CompanySignUp(graphene.Mutation):
             company = Company(
                 usual_name=usual_name,
                 siren=siren,
-                sirets=sirets,
+                short_sirets=[int(siret[9:]) for siret in sirets],
                 siren_api_info=siren_api_info,
                 allow_team_mode=True,
                 require_kilometer_data=require_kilometer_data,
