@@ -73,11 +73,15 @@ def _get_request_endpoint():
 
 @app.before_request
 def store_time_and_request_params():
+    try:
+        request_json_payload = request.json
+    except:
+        request_json_payload = {"error": "JSON syntax error"}
     g.log_info = {
         "start_time": time(),
-        "vars": request.json,  # par défaut c'est le paylaod JSON de la requête, sauf pour les requêtes GraphQL où c'est les variables GraphQL (voir app/helpers/graphql.py)
+        "vars": request_json_payload,  # by default 'vars' stores the JSON payload of the request, except for GraphQL requests where it's only the GraphQL variables (not the query, see app/helpers/graphql.py).
         "graphql_op": None,
-        "json": request.json,
+        "json": request_json_payload,
         "graphql_op_short": "",
         "remote_addr": request.remote_addr,
         "referrer": request.referrer,
