@@ -9,9 +9,9 @@ from app import db
 class Company(BaseModel, WithEmploymentHistory):
     usual_name = db.Column(db.String(255), nullable=False)
 
-    siren = db.Column(db.Integer, unique=True, nullable=True)
+    siren = db.Column(db.Integer, unique=False, nullable=True)
 
-    sirets = db.Column(db.ARRAY(db.String(14)), nullable=True)
+    short_sirets = db.Column(db.ARRAY(db.Integer), nullable=True)
 
     siren_api_info = db.Column(JSONB(none_as_null=True), nullable=True)
 
@@ -25,6 +25,8 @@ class Company(BaseModel, WithEmploymentHistory):
         db.Boolean, nullable=False, default=False
     )
     require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
 
     @property
     def name(self):
