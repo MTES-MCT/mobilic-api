@@ -8,7 +8,7 @@ from sqlalchemy import (
     literal_column,
     column,
 )
-from datetime import datetime, date
+from datetime import timezone
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
@@ -16,7 +16,7 @@ from dateutil.tz import gettz
 
 from app import db
 from app.helpers.pagination import parse_datetime_plus_id_cursor, to_connection
-from app.helpers.time import to_datetime
+from app.helpers.time import to_datetime, to_tz
 from app.models import (
     User,
     Activity,
@@ -73,7 +73,13 @@ def _apply_time_range_filters_to_activity_query(query, start_time, end_time):
         return query.filter(
             func.tsrange(Activity.start_time, Activity.end_time, "[]").op(
                 "&&"
-            )(DateTimeRange(start_time, end_time, "[)"))
+            )(
+                DateTimeRange(
+                    to_tz(start_time, timezone.utc) if start_time else None,
+                    to_tz(end_time, timezone.utc) if end_time else None,
+                    "[]",
+                )
+            )
         )
 
     return query
