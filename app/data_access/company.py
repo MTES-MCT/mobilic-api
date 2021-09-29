@@ -115,6 +115,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     settings = graphene.Field(
         CompanySettings, description="Paramètres de saisie"
     )
+    sirets = graphene.List(
+        graphene.String,
+        description="Liste des SIRETS des établissements regroupés dans cette entreprise",
+    )
 
     def resolve_name(self, info):
         return self.name
@@ -267,6 +271,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 k: getattr(self, k)
                 for k in CompanySettings._meta.fields.keys()
             }
+        )
+
+    def resolve_sirets(self, info):
+        return (
+            [
+                f"{self.siren}{str(short_siret).zfill(5)}"
+                for short_siret in self.short_sirets
+            ]
+            if self.short_sirets
+            else ""
         )
 
 
