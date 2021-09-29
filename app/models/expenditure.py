@@ -37,7 +37,7 @@ class Expenditure(UserEventBaseModel, Dismissable):
 
     type = enum_column(ExpenditureType, nullable=False)
 
-    spending_date = db.Column(DateTimeStoredAsUTC, nullable=False)
+    spending_date = db.Column(db.Date, nullable=False)
 
     __table_args__ = (
         db.Constraint(

@@ -5,7 +5,6 @@ import graphene
 from datetime import datetime
 from app.helpers.graphene_types import (
     graphene_enum_type,
-    TimeStamp,
 )
 from app import app, db
 from app.controllers.utils import atomic_transaction, Void
@@ -40,7 +39,7 @@ class ExpenditureInput:
         description="Optionnel, identifiant du travailleur concerné par le frais. Par défaut c'est l'auteur de l'opération.",
     )
     spending_date = graphene.Argument(
-        TimeStamp,
+        graphene.Date,
         required=True,
         description="Date à laquelle le frais a été engagé.",
     )
