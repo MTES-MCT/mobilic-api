@@ -10,6 +10,7 @@ from app.helpers.graphene_types import (
 )
 from app.models.event import UserEventBaseModel, Dismissable
 from app.models.utils import enum_column
+from app.helpers.db import DateTimeStoredAsUTC
 
 
 class ExpenditureType(str, Enum):
@@ -36,8 +37,12 @@ class Expenditure(UserEventBaseModel, Dismissable):
 
     type = enum_column(ExpenditureType, nullable=False)
 
+    spending_date = db.Column(DateTimeStoredAsUTC, nullable=False)
+
     __table_args__ = (
-        db.Constraint("no_duplicate_expenditures_per_user_and_mission"),
+        db.Constraint(
+            "no_duplicate_expenditures_per_user_and_date_and_mission"
+        ),
     )
 
     def __repr__(self):
@@ -55,6 +60,7 @@ class ExpenditureOutput(BaseSQLAlchemyObjectType):
             "type",
             "user_id",
             "user",
+            "spending_date",
             "submitter_id",
             "submitter",
         )
@@ -84,4 +90,9 @@ class ExpenditureOutput(BaseSQLAlchemyObjectType):
     )
     type = graphene_enum_type(ExpenditureType)(
         required=True, description="Nature du frais"
+    )
+    spending_date = graphene.Field(
+        graphene.Date,
+        required=True,
+        description="Date à laquelle le frais a été engagé",
     )

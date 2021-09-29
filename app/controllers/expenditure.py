@@ -3,7 +3,10 @@ from app.domain.permissions import check_actor_can_log_on_mission_for_user_at
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
-
+from app.helpers.graphene_types import (
+    graphene_enum_type,
+    TimeStamp,
+)
 from app import app, db
 from app.controllers.utils import atomic_transaction, Void
 from app.helpers.errors import (
@@ -14,7 +17,6 @@ from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
 )
-from app.helpers.graphene_types import graphene_enum_type
 from app.models import User, Mission
 from app.models.expenditure import (
     ExpenditureType,
@@ -36,6 +38,11 @@ class ExpenditureInput:
     user_id = graphene.Int(
         required=False,
         description="Optionnel, identifiant du travailleur concerné par le frais. Par défaut c'est l'auteur de l'opération.",
+    )
+    spending_date = graphene.Argument(
+        TimeStamp,
+        required=True,
+        description="Date à laquelle le frais a été engagé.",
     )
 
 
@@ -59,6 +66,9 @@ class LogExpenditure(graphene.Mutation):
             mission = Mission.query.get(mission_id)
 
             user_id = expenditure_input.get("user_id")
+
+            spending_date = expenditure_input.get("spending_date")
+
             if user_id:
                 user = User.query.get(user_id)
                 if not user:
@@ -72,6 +82,7 @@ class LogExpenditure(graphene.Mutation):
                 mission=mission,
                 type=expenditure_input["type"],
                 reception_time=reception_time,
+                spending_date=spending_date,
             )
 
         return expenditure
