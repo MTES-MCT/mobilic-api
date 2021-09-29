@@ -98,6 +98,7 @@ class OverlappingMissionsError(MobilicError):
             dict(
                 conflictingMission=dict(
                     id=conflicting_mission.id,
+                    name=conflicting_mission.name,
                     receptionTime=to_timestamp(
                         conflicting_mission.reception_time
                     ),
