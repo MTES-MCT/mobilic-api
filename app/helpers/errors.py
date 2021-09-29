@@ -298,8 +298,8 @@ CONSTRAINTS_TO_ERRORS_MAP = {
         overlap_type="company",
         should_alert_team=False,
     ),
-    "no_duplicate_expenditures_per_user_and_mission": lambda _: DuplicateExpendituresError(
-        "An expenditure of that type is already logged for the user on the mission"
+    "no_duplicate_expenditures_per_user_and_date_and_mission": lambda _: DuplicateExpendituresError(
+        "An expenditure of that type and that date is already logged for the user on the mission"
     ),
     "company_siren_key": lambda _: SirenAlreadySignedUpError(
         "SIREN already registered"

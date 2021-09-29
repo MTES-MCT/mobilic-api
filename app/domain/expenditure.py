@@ -4,7 +4,9 @@ from app.models.expenditure import Expenditure
 from app.helpers.authorization import AuthorizationError
 
 
-def log_expenditure(submitter, user, mission, type, reception_time):
+def log_expenditure(
+    submitter, user, mission, type, reception_time, spending_date
+):
     # 1. Check permissions
     check_actor_can_log_on_mission_for_user_at(
         submitter, user, mission, reception_time
@@ -21,6 +23,7 @@ def log_expenditure(submitter, user, mission, type, reception_time):
         mission=mission,
         user=user,
         submitter=submitter,
+        spending_date=spending_date,
     )
     db.session.add(expenditure)
     return expenditure
