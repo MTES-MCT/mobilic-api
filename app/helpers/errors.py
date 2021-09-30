@@ -117,6 +117,11 @@ class UnavailableSwitchModeError(MobilicError):
     default_message = "Invalid time for switch mode because there is a current activity with an end time"
 
 
+class EmptyActivityDurationError(MobilicError):
+    code = "EMPTY_ACTIVITY_DURATION"
+    default_message = "Activity duration cannot be zero"
+
+
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
     default_should_alert_team = False
@@ -267,12 +272,8 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "no_overlapping_acknowledged_activities": lambda error: OverlappingActivitiesError(
         conflicting_activity=_get_conflicting_activity(error)
     ),
-    "activity_start_time_before_end_time": lambda _: InvalidParamsError(
-        "End time of activity cannot be before the start time"
-    ),
-    "activity_version_start_time_before_end_time": lambda _: InvalidParamsError(
-        "End time of activity cannot be before the start time"
-    ),
+    "activity_start_time_before_end_time": lambda _: EmptyActivityDurationError(),
+    "activity_version_start_time_before_end_time": lambda _: EmptyActivityDurationError(),
     "activity_version_start_time_before_reception_time": lambda _: InvalidParamsError(
         "Start time of activity cannot be in the future"
     ),
