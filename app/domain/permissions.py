@@ -146,9 +146,9 @@ def check_actor_can_write_on_mission_over_period(
     ):
         raise MissionAlreadyValidatedByAdminError()
 
-    # 6. If logging for a specific user check that user has not yet validated
-    if for_user and not is_actor_company_admin:
-        if mission.validations_of(for_user):
+    # 6. Check that the mission is not yet validated by the person concerned by the edition (user or actor)
+    if not is_actor_company_admin:
+        if mission.validations_of(for_user or actor):
             raise MissionAlreadyValidatedByUserError()
 
 
