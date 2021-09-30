@@ -1,6 +1,6 @@
 from flask import after_this_request
 
-from app.domain.permissions import company_admin_at
+from app.domain.permissions import company_admin
 from app.helpers.authentication import (
     current_user,
     set_auth_cookies,
@@ -85,7 +85,7 @@ class CreateEmployment(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, **employment_input):
@@ -182,7 +182,7 @@ class CreateWorkerEmploymentsFromEmails(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, company_id, mails):
@@ -389,7 +389,7 @@ class TerminateEmployment(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: Employment.query.get(
             kwargs["employment_id"]
         ).company_id,
@@ -435,7 +435,7 @@ class CancelEmployment(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: Employment.query.get(
             kwargs["employment_id"]
         ).company_id,
@@ -467,7 +467,7 @@ class SendInvitationReminder(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: Employment.query.get(
             kwargs["employment_id"]
         ).company_id,

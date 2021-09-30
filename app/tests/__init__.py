@@ -139,6 +139,8 @@ class UserFactory(BaseFactory):
                 user=obj,
                 submitter=obj,
                 has_admin_rights=kwargs.get("has_admin_rights", False),
+                start_date=kwargs.get("start_date", date(2000, 1, 1)),
+                end_date=kwargs.get("end_date", None),
             )
 
 

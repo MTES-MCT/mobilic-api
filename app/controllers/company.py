@@ -19,9 +19,9 @@ from app.domain.company import (
     get_siren_registration_status,
 )
 from app.domain.permissions import (
-    belongs_to_company_at,
+    is_employed_by_company_over_period,
     ConsultationScope,
-    company_admin_at,
+    company_admin,
     AuthorizationError,
 )
 from app.helpers.authentication import require_auth, AuthenticationError
@@ -258,7 +258,7 @@ class EditCompanySettings(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
             kwargs["company_id"]
         ),
@@ -292,7 +292,7 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(
-        belongs_to_company_at,
+        is_employed_by_company_over_period,
         get_target_from_args=lambda self, info, id: id,
         error_message="Forbidden access",
     )

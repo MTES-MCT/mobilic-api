@@ -3,18 +3,16 @@ from graphene.types.generic import GenericScalar
 from datetime import datetime
 from sqlalchemy.orm import selectinload
 
-from app import app, db, mailer
+from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
-from app.domain.work_days import compute_aggregate_durations
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
 )
 from app.helpers.graphene_types import TimeStamp
-from app.models.activity import activity_versions_at
 from app.models.mission import Mission
 from app.models import Company, Vehicle, User, Activity
 from app.models.mission_end import MissionEnd
@@ -24,9 +22,9 @@ from app.models.mission_validation import (
 )
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
-    can_actor_log_on_mission_at,
-    belongs_to_company_at,
-    can_actor_access_mission_at,
+    check_actor_can_write_on_mission,
+    is_employed_by_company_over_period,
+    can_actor_read_mission,
 )
 from app.helpers.authentication import current_user
 from app.helpers.errors import (
@@ -112,7 +110,7 @@ class CreateMission(graphene.Mutation):
             company_id = mission_input.get("company_id")
             if company_id:
                 company = Company.query.get(company_id)
-                if not belongs_to_company_at(
+                if not is_employed_by_company_over_period(
                     current_user, company, include_pending_invite=False
                 ):
                     raise AuthorizationError(
@@ -262,7 +260,7 @@ class ValidateMission(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_actor_log_on_mission_at,
+        check_actor_can_write_on_mission,
         get_target_from_args=lambda *args, **kwargs: Mission.query.options(
             selectinload(Mission.activities).selectinload(Activity.versions)
         ).get(kwargs["mission_id"]),
@@ -362,10 +360,10 @@ class UpdateMissionVehicle(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_actor_log_on_mission_at,
-        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
-            kwargs["mission_id"]
-        ),
+        check_actor_can_write_on_mission,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
+            selectinload(Mission.activities)
+        ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to set the vehicle for the mission",
     )
     def mutate(
@@ -397,7 +395,7 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(
-        can_actor_access_mission_at,
+        can_actor_read_mission,
         get_target_from_args=lambda self, info, id: Mission.query.get(id),
         error_message="Forbidden access",
     )

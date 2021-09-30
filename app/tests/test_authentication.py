@@ -6,7 +6,7 @@ from app.tests import BaseTest, UserFactory
 from app import app, db
 
 
-class TestAuth(BaseTest):
+class TestAuthentication(BaseTest):
     def setUp(self):
         super().setUp()
         self.user = UserFactory.create(password="passwd")

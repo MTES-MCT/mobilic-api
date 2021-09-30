@@ -1,12 +1,13 @@
 import graphene
 from datetime import datetime
 from graphene.types.generic import GenericScalar
+from sqlalchemy.orm import selectinload
 
 from app.controllers.utils import Void, atomic_transaction
 
 from app.domain.permissions import (
-    company_admin_at,
-    can_actor_log_on_mission_at,
+    company_admin,
+    check_actor_can_write_on_mission,
 )
 from app.helpers.authorization import with_authorization_policy, current_user
 from app import db
@@ -53,7 +54,7 @@ class CreateCompanyKnownAddress(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, geo_api_data, company_id, alias=None):
@@ -86,7 +87,7 @@ class EditCompanyKnownAddress(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: CompanyKnownAddress.query.get(
             kwargs["company_known_address_id"]
         ).company_id,
@@ -114,7 +115,7 @@ class TerminateCompanyKnownAddress(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda *args, **kwargs: CompanyKnownAddress.query.get(
             kwargs["company_known_address_id"]
         ).company_id,
@@ -162,10 +163,10 @@ class LogMissionLocation(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_actor_log_on_mission_at,
-        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
-            kwargs["mission_id"]
-        ),
+        check_actor_can_write_on_mission,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
+            selectinload(Mission.activities)
+        ).get(kwargs["mission_id"]),
     )
     def mutate(
         cls,
@@ -263,7 +264,7 @@ class RegisterKilometerAtLocation(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_actor_log_on_mission_at,
+        check_actor_can_write_on_mission,
         get_target_from_args=lambda *args, **kwargs: LocationEntry.query.get(
             kwargs["mission_location_id"]
         ).mission,

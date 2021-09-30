@@ -198,7 +198,7 @@ class ExpenditureDateNotIncludedInMissionRangeError(MobilicError):
 
 class MissionAlreadyValidatedByUserError(MobilicError):
     code = "MISSION_ALREADY_VALIDATED_BY_USER"
-    default_message = "The user validated his activities on the mission, only himself or a company admin can edit them."
+    default_message = "The user validated his activities on the mission, only a company admin can edit them."
 
 
 class MissionStillRunningError(MobilicError):

@@ -1,10 +1,12 @@
 import graphene
 from sqlalchemy.orm import selectinload
-from collections import defaultdict
 
-from app.data_access.mission import MissionOutput, MissionConnection
-from app.domain.permissions import company_admin_at, belongs_to_company_at
-from app.domain.work_days import group_user_missions_by_day, WorkDayStatsOnly
+from app.data_access.mission import MissionConnection
+from app.domain.permissions import (
+    company_admin,
+    is_employed_by_company_over_period,
+)
+from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
@@ -124,7 +126,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return self.name
 
     @with_authorization_policy(
-        belongs_to_company_at,
+        is_employed_by_company_over_period,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'users' of company object.",
     )
@@ -133,7 +135,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return self.query_current_users()
 
     @with_authorization_policy(
-        belongs_to_company_at,
+        is_employed_by_company_over_period,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'vehicles' of company object.",
     )
@@ -141,7 +143,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return [v for v in self.vehicles if not v.is_terminated]
 
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'employments' of company object. Actor must be company admin.",
     )
@@ -158,7 +160,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be company admin.",
     )
@@ -181,7 +183,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     @with_authorization_policy(
-        company_admin_at,
+        company_admin,
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
@@ -258,7 +260,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     @with_authorization_policy(
-        belongs_to_company_at,
+        is_employed_by_company_over_period,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'knownAddresses' of company object.",
     )

@@ -1,5 +1,5 @@
 from app.domain.expenditure import log_expenditure
-from app.domain.permissions import check_actor_can_log_on_mission_for_user_at
+from app.domain.permissions import check_actor_can_write_on_mission
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -117,11 +117,11 @@ class CancelExpenditure(graphene.Mutation):
 
             mission = Mission.query.get(expenditure_to_dismiss.mission_id)
 
-            check_actor_can_log_on_mission_for_user_at(
+            check_actor_can_write_on_mission(
                 current_user,
-                expenditure_to_dismiss.user,
                 mission,
-                expenditure_to_dismiss.reception_time,
+                for_user=expenditure_to_dismiss.user,
+                at=expenditure_to_dismiss.reception_time,
             )
 
             if expenditure_to_dismiss.is_dismissed:

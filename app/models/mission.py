@@ -117,13 +117,20 @@ class Mission(EventBaseModel):
         ]
         return end_location_entry[0] if end_location_entry else None
 
-    def latest_validation_time_for(self, user):
-        user_validation_times = [
-            v.reception_time
-            for v in self.validations
-            if v.submitter_id == user.id
-        ]
-        return max(user_validation_times) if user_validation_times else None
+    def validations_of(self, user):
+        return [v for v in self.validations if v.submitter_id == user.id]
+
+    def latest_validation_time_of(self, user):
+        user_validations = self.validations_of(user)
+        return (
+            max([u.reception_time for u in user_validations])
+            if user_validations
+            else None
+        )
+
+    @property
+    def validated_by_admin(self):
+        return any([v.is_admin and not v.user_id for v in self.validations])
 
     def validated_by_admin_for(self, user):
         return any(
@@ -134,7 +141,7 @@ class Mission(EventBaseModel):
         )
 
     def modification_status_and_latest_action_time_for_user(self, user):
-        latest_validation_time = self.latest_validation_time_for(user)
+        latest_validation_time = self.latest_validation_time_of(user)
         all_user_activities = self.activities_for(
             user, include_dismissed_activities=True
         )
