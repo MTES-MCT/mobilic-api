@@ -193,7 +193,5 @@ class TestAuthorization(BaseTest):
         check_actor_can_write_on_mission_over_period(self.team_leader, mission)
 
         for w in self.workers:
-            self.assertRaises(
+            with self.assertRaises(AuthorizationError):
                 check_actor_can_write_on_mission_over_period(w, mission),
-                AuthorizationError,
-            )
