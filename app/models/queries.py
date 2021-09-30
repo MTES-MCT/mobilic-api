@@ -251,6 +251,7 @@ def query_work_day_stats(
             and_(
                 Activity.user_id == Expenditure.user_id,
                 Activity.mission_id == Expenditure.mission_id,
+                ~Expenditure.is_dismissed,
             ),
             isouter=True,
         )
@@ -264,6 +265,7 @@ def query_work_day_stats(
             Activity.type,
             Expenditure.id.label("expenditure_id"),
             Expenditure.type.label("expenditure_type"),
+            Expenditure.spending_date.label("expenditure_spending_date"),
             # Split an activity by the number of days it overlaps.
             func.generate_series(
                 func.date_trunc(
@@ -392,7 +394,16 @@ def query_work_day_stats(
             *[
                 func.sum(
                     case(
-                        [(query.c.expenditure_type == e_type.value, 1)],
+                        [
+                            (
+                                and_(
+                                    query.c.expenditure_type == e_type.value,
+                                    query.c.expenditure_spending_date
+                                    == query.c.day,
+                                ),
+                                1,
+                            )
+                        ],
                         else_=0,
                     )
                 ).label(f"n_{e_type.value}_expenditures")
