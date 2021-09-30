@@ -293,10 +293,6 @@ def query_work_day_stats(
             Mission.company_id == company_id,
             # Keep only activities that are not dismissed and have a non-zero period
             ~Activity.is_dismissed,
-            or_(
-                Activity.end_time.is_(None),
-                Activity.start_time != Activity.end_time,
-            ),
         )
     )
 

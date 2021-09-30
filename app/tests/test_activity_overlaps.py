@@ -7,6 +7,7 @@ from app.domain.log_activities import log_activity
 from app.helpers.errors import (
     OverlappingActivitiesError,
     OverlappingMissionsError,
+    InvalidParamsError,
 )
 from app.models import Mission
 from app.models.activity import ActivityType, Activity
@@ -125,7 +126,7 @@ class TestActivityOverlaps(BaseTest):
             mission, datetime(2021, 1, 1, 12), datetime(2021, 1, 1, 12, 15)
         )
 
-    def test_zero_duration_activities_overlap(self):
+    def test_should_not_log_zero_duration_activities(self):
         mission = self.create_mission_with_work_activity(
             datetime(2021, 1, 1, 8), datetime(2021, 1, 1, 12)
         )
@@ -134,27 +135,14 @@ class TestActivityOverlaps(BaseTest):
             mission,
             datetime(2021, 1, 1, 10),
             datetime(2021, 1, 1, 10),
-            should_raise=OverlappingActivitiesError,
-        )
-
-        self._log_activity_and_check(
-            mission, datetime(2021, 1, 1, 12), datetime(2021, 1, 1, 12)
-        )
-        self._log_activity_and_check(
-            mission, datetime(2021, 1, 1, 14), datetime(2021, 1, 1, 14)
-        )
-        self._log_activity_and_check(
-            mission, datetime(2021, 1, 1, 16), datetime(2021, 1, 1, 16)
-        )
-        self._log_activity_and_check(
-            mission, datetime(2021, 1, 1, 12), datetime(2021, 1, 1, 14)
+            should_raise=InvalidParamsError,
         )
 
         self._log_activity_and_check(
             mission,
-            datetime(2021, 1, 1, 15),
-            datetime(2021, 1, 1, 17),
-            should_raise=OverlappingActivitiesError,
+            datetime(2021, 1, 1, 13),
+            datetime(2021, 1, 1, 13),
+            should_raise=InvalidParamsError,
         )
 
     def test_missions_overlap(self):
@@ -168,16 +156,6 @@ class TestActivityOverlaps(BaseTest):
         self.create_mission_with_work_activity(
             datetime(2021, 1, 1, 13),
             datetime(2021, 1, 1, 13, 30),
-            should_raise=OverlappingMissionsError,
-        )
-        self.create_mission_with_work_activity(
-            datetime(2021, 1, 1, 13),
-            datetime(2021, 1, 1, 13),
-            should_raise=OverlappingMissionsError,
-        )
-        self.create_mission_with_work_activity(
-            datetime(2021, 1, 1, 15),
-            datetime(2021, 1, 1, 15),
             should_raise=OverlappingMissionsError,
         )
         self.create_mission_with_work_activity(
@@ -202,7 +180,7 @@ class TestActivityOverlaps(BaseTest):
             should_raise=OverlappingMissionsError,
         )
 
-        mission_after = self.create_mission_with_work_activity(
+        self.create_mission_with_work_activity(
             datetime(2021, 1, 1, 18), datetime(2021, 1, 1, 20)
         )
         self._log_activity_and_check(
