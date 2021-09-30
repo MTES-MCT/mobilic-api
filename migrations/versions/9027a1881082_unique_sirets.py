@@ -61,5 +61,6 @@ def downgrade():
         ) a WHERE a.id = company.id;
         """
     )
+    op.drop_column("company", "short_sirets")
     op.drop_constraint("only_one_company_per_siret", "company")
     # ### end Alembic commands ###
