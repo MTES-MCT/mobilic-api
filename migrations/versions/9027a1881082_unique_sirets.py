@@ -55,9 +55,9 @@ def downgrade():
         """
         UPDATE company SET sirets = a.sirets FROM (
             SELECT id,
-                array_agg(siren || short_siret) AS sirets
-            FROM (SELECT id, unnest(short_sirets) as short_siret FROM company) b
-            GROUP BY id
+                array_agg(siren::text || short_siret::text) AS sirets
+            FROM (SELECT id, siren, unnest(short_sirets) as short_siret FROM company) b
+            GROUP BY id, siren
         ) a WHERE a.id = company.id;
         """
     )
