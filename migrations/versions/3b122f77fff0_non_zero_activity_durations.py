@@ -11,7 +11,7 @@ from collections import defaultdict
 
 # revision identifiers, used by Alembic.
 revision = "3b122f77fff0"
-down_revision = "a4be56f6b1a8"
+down_revision = "fedbcc50bf6f"
 branch_labels = None
 depends_on = None
 
