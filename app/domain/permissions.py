@@ -1,5 +1,9 @@
 from app.helpers.authorization import authenticated_and_active
-from app.helpers.errors import AuthorizationError
+from app.helpers.errors import (
+    AuthorizationError,
+    MissionAlreadyValidatedByAdminError,
+    MissionAlreadyValidatedByUserError,
+)
 from app.helpers.time import get_date_or_today
 from app.helpers.authentication import current_user
 from app.models import Company, User
@@ -9,36 +13,56 @@ from functools import wraps
 from datetime import date
 
 
-def company_admin_at(actor, company_obj_or_id, date_or_datetime=None):
+def company_admin(actor, company_obj_or_id):
     if not authenticated_and_active(actor):
         return False
-    date_ = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.active_employments_at(date_)
+
+    today = date.today()
+
+    actor_employments_on_period = actor.active_employments_at(today)
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
+
     return any(
         [
             e.company_id == company_id and e.has_admin_rights
-            for e in actor_employments_at_date
+            for e in actor_employments_on_period
         ]
     )
 
 
-def belongs_to_company_at(
+def is_employed_by_company_over_period(
     actor,
     company_obj_or_id,
-    date_or_datetime=None,
+    start=None,
+    end=None,
     include_pending_invite=True,
 ):
-    date_ = get_date_or_today(date_or_datetime)
-    actor_employments_at_date = actor.active_employments_at(
-        date_, include_pending_ones=include_pending_invite
+    start_ = get_date_or_today(start)
+    end_ = get_date_or_today(end)
+    actor_employments_on_period = actor.active_employments_between(
+        start_, end_, include_pending_ones=include_pending_invite
     )
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
-    return any([e.company_id == company_id for e in actor_employments_at_date])
+
+    company_employments_on_period = sorted(
+        [e for e in actor_employments_on_period if e.company_id == company_id],
+        key=lambda e: e.start_date,
+    )
+
+    if not company_employments_on_period:
+        return False
+    earliest_employment = company_employments_on_period[0]
+    latest_employment = company_employments_on_period[-1]
+
+    if earliest_employment.start_date > start_ or (
+        latest_employment.end_date and latest_employment.end_date < end_
+    ):
+        return False
+    return True
 
 
 def self_or_company_admin(actor, user_obj_or_id):
@@ -47,7 +71,7 @@ def self_or_company_admin(actor, user_obj_or_id):
         user = User.query.get(user_obj_or_id)
     if not user:
         return False
-    return actor.id == user.id or company_admin_at(actor, user.primary_company)
+    return actor.id == user.id or company_admin(actor, user.primary_company)
 
 
 def only_self(actor, user_obj_or_id):
@@ -59,44 +83,78 @@ def only_self(actor, user_obj_or_id):
     return actor.id == user.id
 
 
-def can_actor_log_on_mission_at(actor, mission, date=None):
-    if not mission or not authenticated_and_active(actor):
-        return False
-    return belongs_to_company_at(
-        actor, mission.company_id, date, include_pending_invite=False
+def _is_actor_allowed_to_access_mission(actor, mission):
+    return (
+        company_admin(actor, mission.company_id)
+        or actor.id == mission.submitter_id
+        or len(
+            mission.activities_for(actor, include_dismissed_activities=True)
+        )
+        > 0
     )
 
 
-def can_actor_log_on_mission_for_user_at(actor, user, mission, date=None):
-    base_permission = can_actor_log_on_mission_at(
-        actor, mission, date
-    ) and can_actor_access_mission_at(user, mission, date)
-    if not base_permission:
-        return False
-    if actor == user:
-        return True
-    if mission.company.allow_team_mode and actor.id == mission.submitter_id:
-        return True
-    return company_admin_at(actor, mission.company_id, date)
+def can_actor_read_mission(actor, mission):
+    return _is_actor_allowed_to_access_mission(actor, mission)
 
 
-def check_actor_can_log_on_mission_for_user_at(
-    actor, user, mission, date=None
+def _raise_authorization_error():
+    raise AuthorizationError(
+        "Actor is not authorized to perform the operation"
+    )
+
+
+def check_actor_can_write_on_mission_over_period(
+    actor, mission, for_user=None, start=None, end=None
 ):
-    if not can_actor_log_on_mission_for_user_at(actor, user, mission, date):
-        raise AuthorizationError(
-            "Actor is not authorized to perform this operation"
-        )
+    # 1. Check that actor has activated account
+    if not mission or not authenticated_and_active(actor):
+        _raise_authorization_error()
 
+    # 2. Check that actor is allowed to access mission (must be a company admin, the mission submitter or have activities on the mission)
+    if not _is_actor_allowed_to_access_mission(actor, mission):
+        _raise_authorization_error()
 
-def can_actor_access_mission_at(actor, mission, date=None):
-    if not mission:
-        return False
-    return belongs_to_company_at(
-        actor,
+    # 3. Check that the eventual user can work on the mission over the period :
+    if for_user and not is_employed_by_company_over_period(
+        for_user,
         mission.company_id,
-        date,
+        start=start,
+        end=end,
         include_pending_invite=False,
+    ):
+        _raise_authorization_error()
+
+    is_actor_company_admin = company_admin(actor, mission.company_id)
+    # 4. Check that actor can log for the eventual user (must be either a company admin, the user himself or the team leader)
+    if (
+        for_user
+        and not is_actor_company_admin
+        and not (
+            actor == for_user
+            or (
+                mission.company.allow_team_mode
+                and actor.id == mission.submitter_id
+            )
+        )
+    ):
+        _raise_authorization_error()
+
+    # 5. Check that the mission is not yet validated by an admin
+    if mission.validated_by_admin or (
+        for_user and mission.validated_by_admin_for(for_user)
+    ):
+        raise MissionAlreadyValidatedByAdminError()
+
+    # 6. If logging for a specific user check that user has not yet validated
+    if for_user and not is_actor_company_admin:
+        if mission.validations_of(for_user):
+            raise MissionAlreadyValidatedByUserError()
+
+
+def check_actor_can_write_on_mission(actor, mission, for_user, at=None):
+    return check_actor_can_write_on_mission_over_period(
+        actor, mission, for_user, start=at, end=at
     )
 
 

@@ -99,7 +99,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         self,
         revision_time,
         revision_context=None,
-        bypass_check=False,
+        bypass_overlap_check=False,
+        bypass_auth_check=False,
         **updated_props,
     ):
         from app.domain.log_activities import handle_activities_update
@@ -132,7 +133,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             reception_time=revision_time,
             start_time=new["start_time"],
             end_time=new["end_time"],
-            bypass_check=bypass_check,
+            bypass_overlap_check=bypass_overlap_check,
+            bypass_auth_check=bypass_auth_check,
         ):
             revision = ActivityVersion(
                 activity=self,
@@ -166,7 +168,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             reception_time=dismiss_time,
             start_time=self.start_time,
             end_time=None,
-            bypass_check=True,
+            bypass_overlap_check=True,
             reopen_mission_if_needed=False,
         ):
             super().dismiss(dismiss_time, context)

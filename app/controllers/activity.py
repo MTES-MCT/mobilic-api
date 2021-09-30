@@ -3,18 +3,15 @@ from datetime import datetime
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
 
-from app import app, db
+from app import db
 from app.controllers.utils import atomic_transaction, Void
+from app.domain.permissions import check_actor_can_write_on_mission_over_period
 from app.helpers.authentication import current_user
-from app.domain.log_activities import (
-    log_activity,
-    check_actor_can_log_on_mission_for_user_at,
-)
+from app.domain.log_activities import log_activity
 from app.helpers.errors import (
     AuthorizationError,
     ResourceAlreadyDismissedError,
     InvalidParamsError,
-    UnavailableSwitchModeError,
 )
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -94,32 +91,12 @@ class LogActivity(graphene.Mutation):
             if user_id:
                 user = User.query.get(user_id)
 
-            start_time = activity_input["start_time"]
-
-            if user and switch_mode and mission:
-                current_activity = mission.current_activity_at_time_for_user(
-                    user, start_time
-                )
-                if current_activity:
-                    check_actor_can_log_on_mission_for_user_at(
-                        current_user, user, mission, start_time
-                    )
-                    if current_activity.end_time:
-                        raise UnavailableSwitchModeError()
-                    if current_activity.type == activity_input.get("type"):
-                        return current_activity
-                    if not current_activity.end_time:
-                        current_activity.revise(
-                            reception_time,
-                            bypass_check=True,
-                            end_time=start_time,
-                        )
-
             activity = log_activity(
                 submitter=current_user,
                 user=user,
                 mission=mission,
                 type=activity_input["type"],
+                switch_mode=switch_mode,
                 reception_time=reception_time,
                 start_time=activity_input["start_time"],
                 end_time=activity_input.get("end_time"),
@@ -175,11 +152,12 @@ def edit_activity(
             activity_to_update.mission_id
         )
 
-        check_actor_can_log_on_mission_for_user_at(
+        check_actor_can_write_on_mission_over_period(
             current_user,
-            activity_to_update.user,
             mission,
+            activity_to_update.user,
             activity_to_update.start_time,
+            activity_to_update.end_time or activity_to_update.start_time,
         )
 
         if activity_to_update.is_dismissed:

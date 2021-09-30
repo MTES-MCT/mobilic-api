@@ -1,6 +1,6 @@
 from app import db
-from app.domain.permissions import check_actor_can_log_on_mission_for_user_at
 from app.helpers.errors import ExpenditureDateNotIncludedInMissionRangeError
+from app.domain.permissions import check_actor_can_write_on_mission
 from app.models.expenditure import Expenditure
 from app.helpers.authorization import AuthorizationError
 
@@ -22,8 +22,8 @@ def log_expenditure(
     submitter, user, mission, type, reception_time, spending_date
 ):
     # 1. Check permissions
-    check_actor_can_log_on_mission_for_user_at(
-        submitter, user, mission, reception_time
+    check_actor_can_write_on_mission(
+        submitter, mission, user, at=reception_time
     )
     if not mission.company.require_expenditures:
         raise AuthorizationError(

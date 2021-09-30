@@ -1,15 +1,11 @@
 from contextlib import contextmanager
 
 from app import app, db
-from app.domain.permissions import (
-    check_actor_can_log_on_mission_for_user_at,
-    company_admin_at,
-)
+from app.domain.permissions import check_actor_can_write_on_mission_over_period
 from app.helpers.errors import (
     OverlappingMissionsError,
     InvalidParamsError,
-    MissionAlreadyValidatedByAdminError,
-    MissionAlreadyValidatedByUserError,
+    UnavailableSwitchModeError,
 )
 from app.models.activity import Activity
 from app.models import Mission, ActivityVersion
@@ -88,22 +84,6 @@ def _check_inter_mission_overlaps(user, mission):
         )
 
 
-def check_mission_still_open_for_activities_edition(
-    submitter, mission, user, reception_time
-):
-    # If a company admin validated the mission, it becomes read-only for everyone
-    if mission.validated_by_admin_for(user):
-        raise MissionAlreadyValidatedByAdminError()
-
-    # If the user validated the mission, only himself or a company admin can edit his data
-    if (
-        any([v.submitter_id == user.id for v in mission.validations])
-        and submitter.id != user.id
-        and not company_admin_at(submitter, mission.company_id, reception_time)
-    ):
-        raise MissionAlreadyValidatedByUserError()
-
-
 @contextmanager
 def handle_activities_update(
     submitter,
@@ -112,7 +92,8 @@ def handle_activities_update(
     reception_time,
     start_time,
     end_time,
-    bypass_check=False,
+    bypass_auth_check=False,
+    bypass_overlap_check=False,
     reopen_mission_if_needed=True,
 ):
     # 1. Check that start time and end time are not ahead in the future
@@ -122,19 +103,14 @@ def handle_activities_update(
     check_event_time_is_not_in_the_future(end_time, reception_time, "End time")
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
-    check_actor_can_log_on_mission_for_user_at(
-        submitter, user, mission, start_time
-    )
-    if end_time:
-        check_actor_can_log_on_mission_for_user_at(
-            submitter, user, mission, end_time
+    if not bypass_auth_check:
+        check_actor_can_write_on_mission_over_period(
+            submitter,
+            mission,
+            for_user=user,
+            start=start_time,
+            end=end_time or start_time,
         )
-
-    # 2b. Check that the mission is still open for edition, at least for the user
-    check_mission_still_open_for_activities_edition(
-        submitter, mission, user, reception_time
-    )
-
     # 3. Do the stuff
     yield
 
@@ -146,7 +122,7 @@ def handle_activities_update(
         if existing_mission_end:
             db.session.delete(existing_mission_end)
 
-    if not bypass_check:
+    if not bypass_overlap_check:
         # 4. Check that the new/updated activity is consistent with the timeline for the user
         check_overlaps(user, mission)
 
@@ -157,10 +133,12 @@ def log_activity(
     mission,
     type,
     reception_time,
+    switch_mode,
     start_time,
     end_time=None,
     context=None,
-    bypass_check=False,
+    bypass_overlap_check=False,
+    bypass_auth_check=False,
 ):
 
     with handle_activities_update(
@@ -170,8 +148,25 @@ def log_activity(
         reception_time,
         start_time,
         end_time,
-        bypass_check=bypass_check,
+        bypass_overlap_check=bypass_overlap_check,
+        bypass_auth_check=bypass_auth_check,
     ):
+        if switch_mode:
+            current_activity = mission.current_activity_at_time_for_user(
+                user, start_time
+            )
+            if current_activity:
+                if current_activity.end_time:
+                    raise UnavailableSwitchModeError()
+                if current_activity.type == type:
+                    return current_activity
+                if not current_activity.end_time:
+                    current_activity.revise(
+                        reception_time,
+                        bypass_overlap_check=True,
+                        bypass_auth_check=True,
+                        end_time=start_time,
+                    )
         activity = Activity(
             type=type,
             reception_time=reception_time,

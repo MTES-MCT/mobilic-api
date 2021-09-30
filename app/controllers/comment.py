@@ -1,4 +1,6 @@
-from app.domain.permissions import can_actor_log_on_mission_at
+from sqlalchemy.orm import selectinload
+
+from app.domain.permissions import can_actor_read_mission
 from app.helpers.authentication import current_user
 import graphene
 from datetime import datetime
@@ -39,10 +41,10 @@ class LogComment(graphene.Mutation):
 
     @classmethod
     @with_authorization_policy(
-        can_actor_log_on_mission_at,
-        get_target_from_args=lambda *args, **kwargs: Mission.query.get(
-            kwargs["mission_id"]
-        ),
+        can_actor_read_mission,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
+            selectinload(Mission.activities)
+        ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to comment on this mission.",
     )
     def mutate(cls, _, info, **comment_input):
