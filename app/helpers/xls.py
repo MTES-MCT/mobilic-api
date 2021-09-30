@@ -1,5 +1,6 @@
 from collections import defaultdict
 from flask import send_file, after_this_request
+from abc import ABC
 from xlsxwriter import Workbook
 from datetime import timedelta
 from io import BytesIO
@@ -8,7 +9,7 @@ import hashlib
 from zipfile import ZipFile, ZIP_DEFLATED
 from defusedxml.ElementTree import parse
 
-from app import app
+from app import app, MobilicError
 from app.models.activity import ActivityType
 from app.helpers.time import to_fr_tz
 
@@ -42,8 +43,8 @@ light_red_hex = "#efaca6"
 very_light_red_hex = "#fcb4b4"
 
 
-class IntegrityVerificationError(Exception):
-    code = None
+class IntegrityVerificationError(MobilicError, ABC):
+    pass
 
 
 class InvalidXlsxFormat(IntegrityVerificationError):

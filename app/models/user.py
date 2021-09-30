@@ -40,7 +40,9 @@ class User(BaseModel, WithEmploymentHistory):
     activation_email_token = db.Column(
         db.String(128), unique=True, nullable=True, default=None
     )
-    subscribed_mailing_lists = db.Column(db.ARRAY(db.TEXT), nullable=True)
+    subscribed_mailing_lists = db.Column(
+        db.ARRAY(db.TEXT), nullable=False, default=[]
+    )
 
     db.validates("email")(validate_email_field_in_db)
 
@@ -290,16 +292,16 @@ class User(BaseModel, WithEmploymentHistory):
         self.activation_email_token = str(uuid4())
 
     def subscribe_to_contact_list(self, contact_list):
-        if not self.subscribed_mailing_lists:
-            self.subscribed_mailing_lists = []
         if contact_list not in self.subscribed_mailing_lists:
             mailer.subscribe_email_to_contact_list(self.email, contact_list)
-            self.subscribed_mailing_lists.append(contact_list)
+            self.subscribed_mailing_lists = [
+                *self.subscribed_mailing_lists,
+                contact_list,
+            ]
+            db.session.add(self)
             db.session.commit()
 
     def unsubscribe_from_contact_list(self, contact_list, remove=False):
-        if not self.subscribed_mailing_lists:
-            self.subscribed_mailing_lists = []
         if contact_list in self.subscribed_mailing_lists:
             (
                 mailer.remove_email_from_contact_list
@@ -309,4 +311,5 @@ class User(BaseModel, WithEmploymentHistory):
             self.subscribed_mailing_lists = [
                 l for l in self.subscribed_mailing_lists if l != contact_list
             ]
+            db.session.add(self)
             db.session.commit()

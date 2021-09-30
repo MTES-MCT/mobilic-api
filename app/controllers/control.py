@@ -5,9 +5,9 @@ from app.helpers.authorization import (
     authenticated_and_active,
     current_user,
 )
+from app.helpers.errors import BadRequestError
 from app.helpers.xls import (
     retrieve_and_verify_signature,
-    IntegrityVerificationError,
 )
 from app.models import UserReadToken
 
@@ -27,10 +27,9 @@ def generate_read_token():
 @control_blueprint.route("/verify-xlsx-signature", methods=["POST"])
 def verify_xlsx_signature():
     if FILE_NAME not in request.files:
-        return jsonify({"error": "MISSING_FILE"}), 400
+        raise BadRequestError(
+            f"Could not find file with name {FILE_NAME} in request"
+        )
     file = request.files[FILE_NAME]
-    try:
-        retrieve_and_verify_signature(file)
-        return {"success": True}
-    except IntegrityVerificationError as e:
-        return jsonify({"error": e.code})
+    retrieve_and_verify_signature(file)
+    return {"success": True}

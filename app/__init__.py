@@ -1,8 +1,8 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_apispec import FlaskApiSpec
 from flask_migrate import Migrate
 from flask_cors import CORS
-import os
+from werkzeug.exceptions import HTTPException
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from apispec import APISpec
@@ -11,6 +11,7 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 import config
 from config import MOBILIC_ENV
 from app.helpers.db import SQLAlchemyWithStrongRefSession
+from app.helpers.errors import MobilicError
 from app.helpers.siren import SirenAPIClient
 from app.helpers.request_parser import CustomRequestParser
 from app.templates.filters import JINJA_CUSTOM_FILTERS
@@ -127,6 +128,9 @@ def compute_usage_stats():
     )
 
 
+from app.controllers.misc import *
+
+
 @app.route("/services/send-onboarding-emails", methods=["POST"])
 @service_decorator
 def send_onboarding_emails():
@@ -136,3 +140,27 @@ def send_onboarding_emails():
     send_onboarding_emails(date.today())
 
     return "C'est fait", 200
+
+
+@app.errorhandler(MobilicError)
+def handle_error(error):
+    app.logger.exception(error)
+    error.extensions.pop("code")
+    error_payload = {"error": error.message, "error_code": error.code}
+    if error.extensions:
+        error_payload["details"] = error.extensions
+    return jsonify(error_payload), error.http_status_code
+
+
+@app.errorhandler(HTTPException)
+def handle_error(error):
+    app.logger.exception(error)
+    return (
+        jsonify(
+            {
+                "error": error.description,
+                "error_code": error.name.upper().replace(" ", "_"),
+            }
+        ),
+        error.code,
+    )

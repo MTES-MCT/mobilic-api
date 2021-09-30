@@ -20,6 +20,7 @@ COMMENT='#Enabling Flask CLI...'
 EXPORT_STMT="
 export FLASK_APP=app:app
 export FLASK_DEBUG=1
+export FLASK_SKIP_DOTENV=1
 "
 
 # Step 2 : enable flask CLI upon venv activation

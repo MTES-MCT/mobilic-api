@@ -12,6 +12,8 @@ class MobilicError(GraphQLError, ABC):
     def code(self):
         pass
 
+    http_status_code = 500
+
     default_should_alert_team = True
     default_message = "Error"
 
@@ -31,39 +33,35 @@ class MobilicError(GraphQLError, ABC):
         return dict(message=self.message, extensions=self.extensions)
 
 
+class BadRequestError(MobilicError):
+    code = "BAD_REQUEST"
+    default_message = "Invalid request"
+    http_status_code = 400
+
+
 class InvalidParamsError(MobilicError):
     code = "INVALID_INPUTS"
+    http_status_code = 422
 
 
 class InternalError(MobilicError):
-    code = "INTERNAL_ERROR"
+    code = "INTERNAL_SERVER_ERROR"
 
 
 class AuthenticationError(MobilicError):
     code = "AUTHENTICATION_ERROR"
     default_should_alert_team = False
+    http_status_code = 401
 
 
 class AuthorizationError(MobilicError):
     code = "AUTHORIZATION_ERROR"
-
-
-class InaccessibleSirenError(MobilicError):
-    code = "INACCESSIBLE_SIREN"
-    default_should_alert_team = False
+    http_status_code = 403
 
 
 class SirenAlreadySignedUpError(MobilicError):
     code = "SIREN_ALREADY_SIGNED_UP"
     default_should_alert_team = False
-
-
-class UnavailableSirenAPIError(MobilicError):
-    code = "UNAVAILABLE_SIREN_API"
-
-
-class NoSirenAPICredentialsError(MobilicError):
-    code = "NO_SIREN_API_CREDENTIALS"
 
 
 class FranceConnectAuthenticationError(MobilicError):
@@ -286,12 +284,12 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "activity_end_time_before_update_time": lambda _: InvalidParamsError(
         "End time of activity cannot be in the future"
     ),
-    "only_one_current_primary_enrollment_per_user": lambda _: OverlappingEmploymentsError(
+    "only_one_current_primary_employment_per_user": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping primary employments",
         overlap_type="primary",
         should_alert_team=True,
     ),
-    "no_simultaneous_enrollments_for_the_same_company": lambda _: OverlappingEmploymentsError(
+    "no_simultaneous_employments_for_the_same_company": lambda _: OverlappingEmploymentsError(
         "User cannot have two overlapping employments on the same company",
         overlap_type="company",
         should_alert_team=False,

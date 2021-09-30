@@ -7,7 +7,6 @@ from app.domain.permissions import company_admin_at, belongs_to_company_at
 from app.domain.work_days import group_user_missions_by_day, WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.helpers.graphql import get_children_field_names
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
 from app.models import Company, User

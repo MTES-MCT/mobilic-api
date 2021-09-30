@@ -259,7 +259,6 @@ class LoginMutation(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info, email, password):
-        app.logger.info(f"{email} is attempting to log in")
         user = User.query.filter(User.email == email).one_or_none()
         if not user or (
             not app.config["DISABLE_PASSWORD_CHECK"]
@@ -356,14 +355,13 @@ def rest_refresh_token():
         tokens = _refresh_token()
         return jsonify(tokens), 200
     except AuthenticationError as e:
-        app.logger.exception(e)
 
         @after_this_request
         def unset_cookies(response):
             unset_auth_cookies(response)
             return response
 
-        return jsonify({"error": e.message}), 401
+        raise
 
 
 @wrap_jwt_errors
@@ -379,12 +377,8 @@ def rest_logout():
         unset_auth_cookies(response)
         return response
 
-    try:
-        logout()
-        return jsonify({"success": True}), 200
-    except AuthenticationError as e:
-        app.logger.exception(e)
-        return jsonify({"error": e.message}), 401
+    logout()
+    return jsonify({"success": True}), 200
 
 
 @jwt_refresh_token_required
