@@ -118,7 +118,12 @@ class Mission(EventBaseModel):
         return end_location_entry[0] if end_location_entry else None
 
     def validations_of(self, user):
-        return [v for v in self.validations if v.submitter_id == user.id]
+        return [
+            v
+            for v in self.validations
+            if v.submitter_id == user.id
+            and (v.user_id is None or v.user_id == user.id)
+        ]
 
     def latest_validation_time_of(self, user):
         user_validations = self.validations_of(user)
