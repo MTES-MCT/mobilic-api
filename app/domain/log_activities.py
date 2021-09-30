@@ -10,7 +10,6 @@ from app.helpers.errors import (
     InvalidParamsError,
     MissionAlreadyValidatedByAdminError,
     MissionAlreadyValidatedByUserError,
-    OverlappingActivitiesError,
 )
 from app.models.activity import Activity
 from app.models import Mission, ActivityVersion
@@ -34,31 +33,8 @@ def check_overlaps(user, mission):
     # 1. Flush to check DB overlap constraints
     db.session.flush()
 
-    # 2. Check overlap with other mission activities in case of 0-duration activities (not checked by DB)
-    _check_overlap_between_zero_duration_activities(
-        mission.activities_for(user)
-    )
-
-    # 3. Check that the created activity didn't introduce inconsistencies in the timeline of missions
+    # 2. Check that the created activity didn't introduce inconsistencies in the timeline of missions
     _check_inter_mission_overlaps(user, mission)
-
-
-def _check_overlap_between_zero_duration_activities(activities):
-    zero_duration_activities = [
-        a for a in activities if a.start_time == a.end_time
-    ]
-    non_zero_duration_activities = [
-        a for a in activities if a.start_time != a.end_time
-    ]
-
-    if zero_duration_activities:
-        for non_zero_a in non_zero_duration_activities:
-            for zero_a in zero_duration_activities:
-                if non_zero_a.start_time < zero_a.start_time and (
-                    not non_zero_a.end_time
-                    or non_zero_a.end_time > zero_a.end_time
-                ):
-                    raise OverlappingActivitiesError()
 
 
 def _check_inter_mission_overlaps(user, mission):
