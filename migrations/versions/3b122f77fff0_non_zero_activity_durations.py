@@ -1,7 +1,7 @@
 """non zero activity durations
 
 Revision ID: 3b122f77fff0
-Revises: a4be56f6b1a8
+Revises: fedbcc50bf6f
 Create Date: 2021-09-30 14:32:06.014043
 
 """
