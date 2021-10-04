@@ -1,7 +1,6 @@
 import graphene
 from datetime import date, datetime
 from sqlalchemy import desc, or_, and_
-from base64 import b64encode
 
 from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
@@ -36,6 +35,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "email",
             "has_confirmed_email",
             "has_activated_email",
+            "disabled_warnings",
         )
 
     id = graphene.Field(

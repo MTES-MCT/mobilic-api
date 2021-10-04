@@ -1,5 +1,6 @@
 import graphene
 import jwt
+from enum import Enum
 from flask import redirect, request, after_this_request, send_file
 from uuid import uuid4
 from datetime import datetime, timedelta, date
@@ -33,6 +34,7 @@ from app.helpers.errors import (
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
 )
+from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.pdf import generate_work_days_pdf_for
@@ -466,3 +468,36 @@ def generate_pdf_export(
         cache_timeout=0,
         attachment_filename=f"Relevé d'heures de {current_user.display_name} - {full_format_day(min_date)} au {full_format_day(max_date)}",
     )
+
+
+class WarningToDisableType(str, Enum):
+    EMPLOYEE_VALIDATION = "employee-validation"
+    WORK = "work"
+    SUPPORT = "support"
+    __description__ = """
+Enumération des valeurs suivantes.
+- "employee-validation" : alerte relative au caractère bloquant de la validation par le salarié
+"""
+
+
+class DisableWarning(graphene.Mutation):
+    class Arguments:
+        warning_name = graphene.Argument(
+            graphene_enum_type(WarningToDisableType),
+            required=True,
+            description="Alerte à désactiver",
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(authenticated)
+    def mutate(cls, _, info, warning_name):
+        with atomic_transaction(commit_at_end=True):
+            if warning_name not in current_user.disabled_warnings:
+                current_user.disabled_warnings = [
+                    *current_user.disabled_warnings,
+                    warning_name,
+                ]
+
+        return Void(success=True)

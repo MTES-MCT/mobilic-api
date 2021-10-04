@@ -42,6 +42,7 @@ from app.controllers.user import (
     ActivateEmail,
     ResetPassword,
     RequestPasswordReset,
+    DisableWarning,
 )
 from app.controllers.vehicle import (
     CreateVehicle,
@@ -97,6 +98,7 @@ class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     reset_password = ResetPassword.Field()
     request_reset_password = RequestPasswordReset.Field()
+    disable_warning = DisableWarning.Field()
 
 
 class Employments(graphene.ObjectType):

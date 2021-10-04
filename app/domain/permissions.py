@@ -151,8 +151,10 @@ def check_actor_can_write_on_mission_over_period(
         if mission.validations_of(for_user or actor):
             raise MissionAlreadyValidatedByUserError()
 
+    return True
 
-def check_actor_can_write_on_mission(actor, mission, for_user, at=None):
+
+def check_actor_can_write_on_mission(actor, mission, for_user=None, at=None):
     return check_actor_can_write_on_mission_over_period(
         actor, mission, for_user, start=at, end=at
     )
