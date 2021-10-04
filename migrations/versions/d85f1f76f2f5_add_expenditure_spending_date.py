@@ -1,7 +1,7 @@
 """Add expenditure spending date
 
 Revision ID: aba5d96052ab
-Revises: fedbcc50bf6f
+Revises: 3b122f77fff0
 Create Date: 2021-09-28 14:00:39.676274
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "aba5d96052ab"
-down_revision = "fedbcc50bf6f"
+down_revision = "3b122f77fff0"
 branch_labels = None
 depends_on = None
 
