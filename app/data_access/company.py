@@ -242,6 +242,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 mission_names=row.mission_names,
             )
             for index, row in enumerate(work_day_stats)
+            if row.service_duration > 0
         ]
 
         return to_connection(
