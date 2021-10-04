@@ -8,6 +8,7 @@ from app.helpers.errors import (
     OverlappingActivitiesError,
     OverlappingMissionsError,
     InvalidParamsError,
+    EmptyActivityDurationError,
 )
 from app.models import Mission
 from app.models.activity import ActivityType, Activity
@@ -135,14 +136,14 @@ class TestActivityOverlaps(BaseTest):
             mission,
             datetime(2021, 1, 1, 10),
             datetime(2021, 1, 1, 10),
-            should_raise=InvalidParamsError,
+            should_raise=EmptyActivityDurationError,
         )
 
         self._log_activity_and_check(
             mission,
             datetime(2021, 1, 1, 13),
             datetime(2021, 1, 1, 13),
-            should_raise=InvalidParamsError,
+            should_raise=EmptyActivityDurationError,
         )
 
     def test_missions_overlap(self):
