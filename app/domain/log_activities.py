@@ -6,7 +6,6 @@ from app.domain.permissions import (
     company_admin_at,
 )
 from app.helpers.errors import (
-    AuthorizationError,
     OverlappingMissionsError,
     InvalidParamsError,
     MissionAlreadyValidatedByAdminError,
@@ -30,7 +29,15 @@ def check_event_time_is_not_in_the_future(
         )
 
 
-def check_mission_overlaps(user, mission):
+def check_overlaps(user, mission):
+    # 1. Flush to check DB overlap constraints
+    db.session.flush()
+
+    # 2. Check that the created activity didn't introduce inconsistencies in the timeline of missions
+    _check_inter_mission_overlaps(user, mission)
+
+
+def _check_inter_mission_overlaps(user, mission):
     mission_activities = mission.activities_for(user)
 
     if len(mission_activities) == 0:
@@ -38,28 +45,27 @@ def check_mission_overlaps(user, mission):
 
     mission_start = mission_activities[0].start_time
     mission_end = mission_activities[-1].end_time
-    # 1. Check that the mission period is not overlapping with other ones
 
-    ## 1a. No activity from another mission should be located within the mission period
-    existing_conflicting_mission_activity = (
+    # Check that the mission period is not overlapping with other ones
+    ## 1. No activity from another mission should be located within the mission period
+    other_mission_activities_in_potential_conflict = (
         user.query_activities_with_relations(
             start_time=mission_start,
             end_time=mission_end,
             include_mission_relations=False,
         )
         .filter(Activity.mission_id != mission.id)
-        .first()
+        .all()
     )
-    if (
-        existing_conflicting_mission_activity
-        and existing_conflicting_mission_activity.end_time != mission_start
-    ):
-        raise OverlappingMissionsError(
-            f"Mission cannot overlap with mission {existing_conflicting_mission_activity.mission_id} for the user.",
-            conflicting_mission=Mission.query.get(
-                existing_conflicting_mission_activity.mission_id
-            ),
-        )
+    for activity in other_mission_activities_in_potential_conflict:
+        if not (
+            (activity.end_time and activity.end_time <= mission_start)
+            or (activity.start_time >= mission_end)
+        ):
+            raise OverlappingMissionsError(
+                f"Mission cannot overlap with mission {activity.mission_id} for the user.",
+                conflicting_mission=Mission.query.get(activity.mission_id),
+            )
 
     ## 1b. Conversely the mission period should not be contained within another mission period
     latest_activity_before_mission_start = user.latest_activity_before(
@@ -141,11 +147,8 @@ def handle_activities_update(
             db.session.delete(existing_mission_end)
 
     if not bypass_check:
-        # 4. Flush to check db constraints
-        db.session.flush()
-
-        # 5. Check that the created activity didn't introduce inconsistencies in the timeline of missions :
-        check_mission_overlaps(user, mission)
+        # 4. Check that the new/updated activity is consistent with the timeline for the user
+        check_overlaps(user, mission)
 
 
 def log_activity(

@@ -98,6 +98,7 @@ class OverlappingMissionsError(MobilicError):
             dict(
                 conflictingMission=dict(
                     id=conflicting_mission.id,
+                    name=conflicting_mission.name,
                     receptionTime=to_timestamp(
                         conflicting_mission.reception_time
                     ),
@@ -114,6 +115,13 @@ class OverlappingMissionsError(MobilicError):
 class UnavailableSwitchModeError(MobilicError):
     code = "INVALID_ACTIVITY_SWITCH"
     default_message = "Invalid time for switch mode because there is a current activity with an end time"
+
+
+class EmptyActivityDurationError(MobilicError):
+    code = "EMPTY_ACTIVITY_DURATION"
+    default_message = (
+        "End time of activity should be strictly after start time"
+    )
 
 
 class OverlappingActivitiesError(MobilicError):
@@ -271,12 +279,8 @@ CONSTRAINTS_TO_ERRORS_MAP = {
     "no_overlapping_acknowledged_activities": lambda error: OverlappingActivitiesError(
         conflicting_activity=_get_conflicting_activity(error)
     ),
-    "activity_start_time_before_end_time": lambda _: InvalidParamsError(
-        "End time of activity cannot be before the start time"
-    ),
-    "activity_version_start_time_before_end_time": lambda _: InvalidParamsError(
-        "End time of activity cannot be before the start time"
-    ),
+    "activity_start_time_before_end_time": lambda _: EmptyActivityDurationError(),
+    "activity_version_start_time_before_end_time": lambda _: EmptyActivityDurationError(),
     "activity_version_start_time_before_reception_time": lambda _: InvalidParamsError(
         "Start time of activity cannot be in the future"
     ),

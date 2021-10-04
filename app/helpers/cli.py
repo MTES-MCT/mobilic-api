@@ -11,8 +11,6 @@ from config import TestConfig
 def test():
     app.config.from_object(TestConfig)
     with app.app_context():
-        db.engine.execute("DROP schema public CASCADE; CREATE schema public;")
-        upgrade()
         root_project_path = os.path.dirname(app.root_path)
         test_suite = TestLoader().discover(
             os.path.join(app.root_path, "tests"),

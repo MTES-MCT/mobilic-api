@@ -1,9 +1,8 @@
-from unittest import TestCase
-
 from app.helpers.validation import validate_clean_email_string
+from app.tests import BaseTest
 
 
-class TestEmailValidation(TestCase):
+class TestEmailValidation(BaseTest):
     def test_email_validation_works(self):
         valid_emails = [
             "prenom.nom@beta.gouv.fr",

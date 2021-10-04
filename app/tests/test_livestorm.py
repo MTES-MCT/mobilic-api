@@ -1,9 +1,9 @@
-from unittest import TestCase
 import json
 from unittest.mock import patch
 
 from app import app
 from app.helpers.livestorm import livestorm
+from app.tests import BaseTest
 
 
 def generate_livestorm_response_payload(
@@ -25,7 +25,7 @@ LIVESTORM_ENDPOINT = "/sessions?filter[status]=upcoming&include=event"
 MOBILIC_WEBINARS_ENDPOINT = "/next-webinars"
 
 
-class TestLiveStormWebinars(TestCase):
+class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
