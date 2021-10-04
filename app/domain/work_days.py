@@ -151,7 +151,8 @@ class WorkDay:
         expenditures = defaultdict(lambda: 0)
         for mission in self.missions:
             for expenditure in mission.expenditures_for(self.user):
-                expenditures[expenditure.type] += 1
+                if expenditure.spending_date == self.day:
+                    expenditures[expenditure.type] += 1
         return dict(expenditures)
 
     @property
