@@ -119,7 +119,9 @@ class UnavailableSwitchModeError(MobilicError):
 
 class EmptyActivityDurationError(MobilicError):
     code = "EMPTY_ACTIVITY_DURATION"
-    default_message = "Activity duration cannot be zero"
+    default_message = (
+        "End time of activity should be strictly after start time"
+    )
 
 
 class OverlappingActivitiesError(MobilicError):
