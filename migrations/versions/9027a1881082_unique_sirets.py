@@ -1,7 +1,7 @@
 """unique-sirets
 
 Revision ID: 9027a1881082
-Revises: a4be56f6b1a8
+Revises: 3b122f77fff0
 Create Date: 2021-09-27 15:41:27.345669
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "9027a1881082"
-down_revision = "a4be56f6b1a8"
+down_revision = "3b122f77fff0"
 branch_labels = None
 depends_on = None
 
