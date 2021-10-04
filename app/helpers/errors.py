@@ -177,6 +177,11 @@ class MissionAlreadyValidatedByAdminError(MobilicError):
     default_message = "A company admin validated the mission activities for the user, no further changes can be made."
 
 
+class ExpenditureDateNotIncludedInMissionRangeError(MobilicError):
+    code = "EXPENDITURE_DATE_NOT_INCLUDED_IN_MISSION_RANGE"
+    default_message = "The spending date of the expenditure is not between the start date and the end date of the mission."
+
+
 class MissionAlreadyValidatedByUserError(MobilicError):
     code = "MISSION_ALREADY_VALIDATED_BY_USER"
     default_message = "The user validated his activities on the mission, only himself or a company admin can edit them."
