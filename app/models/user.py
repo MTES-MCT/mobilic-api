@@ -43,6 +43,9 @@ class User(BaseModel, WithEmploymentHistory):
     subscribed_mailing_lists = db.Column(
         db.ARRAY(db.TEXT), nullable=False, default=[]
     )
+    disabled_warnings = db.Column(
+        db.ARRAY(db.TEXT), nullable=False, default=[]
+    )
 
     db.validates("email")(validate_email_field_in_db)
 
