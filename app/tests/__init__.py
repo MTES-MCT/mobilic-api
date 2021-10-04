@@ -1,8 +1,9 @@
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
 import factory
+import os
+from flask_migrate import upgrade
 from flask.testing import FlaskClient
-from enum import Enum
 from datetime import date, datetime
 
 from app import app, db, graphql_api_path
@@ -11,10 +12,28 @@ from app.models.employment import EmploymentRequestValidationStatus
 from config import TestConfig
 
 
+MIGRATED_TEST_DB = {"value": False}
+
+
+def migrate_test_db():
+    app.config.from_object(TestConfig)
+    if not MIGRATED_TEST_DB["value"]:
+        current_dir = os.getcwd()
+        os.chdir(os.path.dirname(app.root_path))
+        with app.app_context():
+            db.engine.execute(
+                "DROP schema public CASCADE; CREATE schema public;"
+            )
+            upgrade()
+            MIGRATED_TEST_DB["value"] = True
+        os.chdir(current_dir)
+
+
 class BaseTest(TestCase):
     def setUp(self):
         app.config.from_object(TestConfig)
         app.testing = True
+        migrate_test_db()
 
     def tearDown(self) -> None:
         db.close_all_sessions()
