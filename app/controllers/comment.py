@@ -18,19 +18,19 @@ class CommentInput:
     text = graphene.Argument(
         graphene.String,
         required=True,
-        description="Contenu du commentaire",
+        description="Contenu de l'observation",
     )
     mission_id = graphene.Int(
         required=True,
-        description="Identifiant de la mission à laquelle se rattache le commentaire",
+        description="Identifiant de la mission à laquelle se rattache l'observation",
     )
 
 
 class LogComment(graphene.Mutation):
     """
-    Ajout d'un commentaire à la mission.
+    Ajout d'une observation à la mission.
 
-    Retourne le commentaire nouvellement créé.
+    Retourne l'observation nouvellement créé.
     """
 
     Arguments = CommentInput
@@ -67,7 +67,7 @@ class LogComment(graphene.Mutation):
 
 class CancelComment(graphene.Mutation):
     """
-    Retrait d'un commentaire.
+    Retrait d'une observation.
 
     Retourne un message de succès.
     """
@@ -76,7 +76,7 @@ class CancelComment(graphene.Mutation):
         comment_id = graphene.Argument(
             graphene.Int,
             required=True,
-            description="Identifiant du commentaire à retirer.",
+            description="Identifiant de l'observation à retirer.",
         )
 
     Output = Void

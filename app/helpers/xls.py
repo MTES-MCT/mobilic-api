@@ -418,7 +418,7 @@ activity_version_columns_in_details_sheet = [
         light_green_hex,
     ),
     (
-        "Commentaire",
+        "Observation",
         lambda av_or_a, pav, is_delete: (
             (av_or_a.context if not is_delete else av_or_a.dismiss_context)
             or {}

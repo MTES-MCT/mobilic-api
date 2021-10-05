@@ -33,12 +33,12 @@ class CommentOutput(BaseSQLAlchemyObjectType):
         )
 
     id = graphene.Field(
-        graphene.Int, required=True, description="Identifiant du commentaire"
+        graphene.Int, required=True, description="Identifiant de l'observation"
     )
     mission_id = graphene.Field(
         graphene.Int,
         required=True,
-        description="Identifiant de la mission à laquelle se rattache le commentaire",
+        description="Identifiant de la mission à laquelle se rattache l'observation",
     )
     reception_time = graphene.Field(
         TimeStamp,
@@ -48,6 +48,8 @@ class CommentOutput(BaseSQLAlchemyObjectType):
     submitter_id = graphene.Field(
         graphene.Int,
         required=True,
-        description="Identifiant de la personne qui a écrit le commentaire",
+        description="Identifiant de la personne qui a écrit l'observation",
     )
-    text = graphene.String(required=True, description="Contenu du commentaire")
+    text = graphene.String(
+        required=True, description="Contenu de l'observation"
+    )
