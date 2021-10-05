@@ -60,7 +60,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         description="Liste des validations de la mission",
     )
     comments = graphene.List(
-        CommentOutput, description="Liste des commentaires de la mission"
+        CommentOutput, description="Liste des observations de la mission"
     )
     start_location = graphene.Field(
         LocationEntryOutput, description="Lieu de début de la mission"
