@@ -68,6 +68,7 @@ class TestActivityOverlaps(BaseTest):
                         user=self.current_user,
                         mission=mission,
                         type=ActivityType.WORK,
+                        switch_mode=False,
                         reception_time=datetime.now(),
                         start_time=start_time,
                         end_time=end_time,
