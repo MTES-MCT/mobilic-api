@@ -1,7 +1,7 @@
 """Add disabled warnings
 
 Revision ID: fa96dfc8237d
-Revises: 3b122f77fff0
+Revises: 9027a1881082
 Create Date: 2021-10-04 16:16:14.802894
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "fa96dfc8237d"
-down_revision = "3b122f77fff0"
+down_revision = "9027a1881082"
 branch_labels = None
 depends_on = None
 
