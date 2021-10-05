@@ -33,6 +33,16 @@ def upgrade():
     )
     op.execute(
         """
+                UPDATE expenditure e
+                SET spending_date =
+                    (SELECT date_trunc('day', m.creation_time)
+                     FROM mission m
+                     WHERE m.id = e.mission_id)
+                where spending_date is null
+                     """
+    )
+    op.execute(
+        """
             ALTER TABLE expenditure DROP CONSTRAINT no_duplicate_expenditures_per_user_and_mission;
             """
     )
