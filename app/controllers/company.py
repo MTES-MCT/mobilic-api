@@ -14,6 +14,10 @@ from flask_apispec import use_kwargs, doc
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
+from app.domain.company import (
+    SirenRegistrationStatus,
+    get_siren_registration_status,
+)
 from app.domain.permissions import (
     belongs_to_company_at,
     ConsultationScope,
@@ -28,6 +32,8 @@ from app.helpers.authorization import (
     current_user,
 )
 from app import siren_api_client, mailer
+from app.helpers.errors import SirenAlreadySignedUpError
+from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.integromat import call_integromat_webhook
 from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
@@ -75,8 +81,21 @@ class CompanySignUp(graphene.Mutation):
     def mutate(cls, _, info, usual_name, siren, sirets):
         with atomic_transaction(commit_at_end=True):
             siren_api_info = None
+            registration_status, _ = get_siren_registration_status(siren)
+
+            if (
+                registration_status != SirenRegistrationStatus.UNREGISTERED
+                and not sirets
+            ):
+                raise SirenAlreadySignedUpError()
             try:
                 siren_api_info = siren_api_client.get_siren_info(siren)
+                (
+                    legal_unit,
+                    open_facilities,
+                ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
+                    siren_api_info
+                )
             except Exception as e:
                 app.logger.warning(
                     f"Could not add SIREN API info for company of SIREN {siren} : {e}"
@@ -86,16 +105,7 @@ class CompanySignUp(graphene.Mutation):
             require_support_activity = False
             if siren_api_info:
                 # For déménagement companies disable kilometer data by default, and enable support activity
-                if (
-                    siren_api_info["uniteLegale"][
-                        "nomenclatureActivitePrincipaleUniteLegale"
-                    ]
-                    == "NAFRev2"
-                    and siren_api_info["uniteLegale"][
-                        "activitePrincipaleUniteLegale"
-                    ]
-                    == "49.42Z"
-                ):
+                if legal_unit.activity_code == "49.42Z":
                     require_kilometer_data = False
                     require_support_activity = True
 
@@ -111,7 +121,7 @@ class CompanySignUp(graphene.Mutation):
                 require_mission_name=True,
             )
             db.session.add(company)
-            db.session.flush()  # Early check for SIREN duplication
+            db.session.flush()  # Early check for SIRET duplication
 
             admin_employment = Employment(
                 is_primary=False if current_user.primary_company else True,
@@ -154,7 +164,9 @@ class CompanySignUp(graphene.Mutation):
         if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
             # Call Integromat for Trello card creation
             try:
-                call_integromat_webhook(company, current_user)
+                call_integromat_webhook(
+                    company, legal_unit, open_facilities, current_user
+                )
             except Exception as e:
                 app.logger.warning(
                     f"Creation of Trello card for {company} failed with error : {e}"
@@ -172,17 +184,47 @@ class CompanySignUp(graphene.Mutation):
         return CompanySignUp(company=company, employment=admin_employment)
 
 
+class SirenInfo(graphene.ObjectType):
+    registration_status = graphene_enum_type(SirenRegistrationStatus)(
+        required=True
+    )
+    legal_unit = graphene.Field(GenericScalar)
+    facilities = graphene.List(GenericScalar)
+
+
 class NonPublicQuery(graphene.ObjectType):
     siren_info = graphene.Field(
-        GenericScalar,
+        SirenInfo,
         siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
         description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
     )
 
     def resolve_siren_info(self, info, siren):
         all_siren_info = siren_api_client.get_siren_info(siren)
-        return siren_api_client.extract_current_facilities_short_info(
+        (
+            legal_unit,
+            open_facilities,
+        ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
             all_siren_info
+        )
+        registration_status, registered_sirets = get_siren_registration_status(
+            siren
+        )
+
+        facility_dicts = []
+        for facility in open_facilities:
+            d = facility._asdict()
+            if (
+                registration_status
+                == SirenRegistrationStatus.PARTIALLY_REGISTERED
+            ):
+                d["registered"] = int(facility.siret[9:]) in registered_sirets
+            facility_dicts.append(d)
+
+        return SirenInfo(
+            registration_status=registration_status,
+            legal_unit=legal_unit._asdict(),
+            facilities=facility_dicts,
         )
 
 

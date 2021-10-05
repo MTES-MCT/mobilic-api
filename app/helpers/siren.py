@@ -3,6 +3,7 @@ from typing import NamedTuple
 from datetime import date
 
 from app.helpers.errors import MobilicError
+from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 
 
 class UnavailableSirenAPIError(MobilicError):
@@ -22,6 +23,7 @@ SIREN_API_TOKEN_ENDPOINT = "https://api.insee.fr/token"
 SIREN_API_SIREN_INFO_ENDPOINT = (
     "https://api.insee.fr/entreprises/sirene/V3/siret/"
 )
+SIREN_API_PAGE_SIZE = 100
 
 
 ADDRESS_STREET_TYPE_TO_LABEL = {
@@ -78,14 +80,25 @@ ADDRESS_NUMBER_REPETITION_TO_LABEL = {
 }
 
 
+class LegalUnitInfo(NamedTuple):
+    siren: str
+    name: str
+    tranche_effectif: str
+    tranche_effectif_year: int
+    activity: str
+    activity_code: str
+    creation_date: str
+
+
 class FacilityInfo(NamedTuple):
     siret: str
-    siren: str
     activity: str
-    company_name: str
+    activity_code: str
     name: str
     address: str
     postal_code: str
+    tranche_effectif: str
+    tranche_effectif_year: int
 
 
 class SirenAPIClient:
@@ -123,7 +136,7 @@ class SirenAPIClient:
         if not self.access_token:
             self._generate_access_token()
         siren_response = requests.get(
-            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&date={date.today()}",
+            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&date={date.today()}&nombre={SIREN_API_PAGE_SIZE}",
             headers={"Authorization": f"Bearer {self.access_token}"},
             timeout=10,
         )
@@ -184,9 +197,19 @@ class SirenAPIClient:
         }
 
     @staticmethod
-    def _parse_siren_info(info):
+    def _get_legal_unit_name(lu_dict):
+        name = lu_dict["denominationUniteLegale"]
+        if not name:
+            if not lu_dict["nomUniteLegale"]:
+                name = ""
+            else:
+                name = f"{lu_dict['prenom1UniteLegale']} {lu_dict['nomUsageUniteLegale'] or lu_dict['nomUniteLegale']}"
+        return name
+
+    @staticmethod
+    def _raw_siren_info_with_clean_addresses(info):
         facilities = info["etablissements"]
-        company = {
+        legal_unit_dict = {
             **facilities[0]["uniteLegale"],
             "siren": facilities[0]["siren"],
         }
@@ -220,48 +243,67 @@ class SirenAPIClient:
         ]
 
         return dict(
-            uniteLegale=company,
+            uniteLegale=legal_unit_dict,
             etablissements=facilities_with_simplified_address,
         )
 
     @staticmethod
-    def extract_current_facilities_short_info(parsed_siren_info):
+    def _format_activity_from_naf_code(activity_code):
         from app.models import NafCode
 
+        formatted_activity = activity_code
+        activity = NafCode.get_code(activity_code) if activity_code else None
+        if activity:
+            formatted_activity = f"{activity.code} {activity.label}"
+        return formatted_activity
+
+    @staticmethod
+    def parse_legal_unit_and_open_facilities_info_from_dict(clean_siren_info):
         # Spec of the data returned by the SIREN API : https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Variables-V3.9.pdf
+        legal_unit_dict = clean_siren_info["uniteLegale"]
+        facilities_raw_info = clean_siren_info["etablissements"]
+
+        legal_unit = LegalUnitInfo(
+            siren=legal_unit_dict["siren"],
+            name=SirenAPIClient._get_legal_unit_name(legal_unit_dict),
+            tranche_effectif=format_tranche_effectif(
+                legal_unit_dict["trancheEffectifsUniteLegale"]
+            ),
+            tranche_effectif_year=legal_unit_dict["anneeEffectifsUniteLegale"],
+            activity_code=legal_unit_dict["activitePrincipaleUniteLegale"],
+            activity=SirenAPIClient._format_activity_from_naf_code(
+                legal_unit_dict["activitePrincipaleUniteLegale"]
+            ),
+            creation_date=legal_unit_dict["dateCreationUniteLegale"]
+            if legal_unit_dict["dateCreationUniteLegale"]
+            else None,
+        )
+
         open_facilities = []
-        for facility in parsed_siren_info["etablissements"]:
+        for facility in facilities_raw_info:
             if facility["etatAdministratifEtablissement"] == "F":
                 continue
 
-            company = parsed_siren_info["uniteLegale"]
-            company_name = company["denominationUniteLegale"]
-            if not company_name:
-                if not company["nomUniteLegale"]:
-                    company_name = ""
-                else:
-                    company_name = f"{company['prenom1UniteLegale']} {company['nomUsageUniteLegale'] or company['nomUniteLegale']}"
-
-            activity_code = facility["activitePrincipaleEtablissement"]
-            activity = (
-                NafCode.get_code(activity_code) if activity_code else None
-            )
-            if activity:
-                activity_code = f"{activity.code} {activity.label}"
-
             open_facilities.append(
                 FacilityInfo(
-                    siren=company["siren"],
                     siret=facility["siret"],
-                    company_name=company_name,
-                    activity=activity_code,
+                    activity_code=facility["activitePrincipaleEtablissement"],
+                    activity=SirenAPIClient._format_activity_from_naf_code(
+                        facility["activitePrincipaleEtablissement"]
+                    ),
                     name=facility["denominationUsuelleEtablissement"] or "",
                     address=facility["adresse"],
                     postal_code=facility["codePostal"],
-                )._asdict()
+                    tranche_effectif=format_tranche_effectif(
+                        facility["trancheEffectifsEtablissement"]
+                    ),
+                    tranche_effectif_year=facility[
+                        "anneeEffectifsEtablissement"
+                    ],
+                )
             )
-        return open_facilities
+        return legal_unit, open_facilities
 
     def get_siren_info(self, siren):
         siren_response = self._request_siren_info(siren)
-        return self._parse_siren_info(siren_response.json())
+        return self._raw_siren_info_with_clean_addresses(siren_response.json())
