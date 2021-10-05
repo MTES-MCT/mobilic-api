@@ -30,7 +30,7 @@ class LogComment(graphene.Mutation):
     """
     Ajout d'une observation à la mission.
 
-    Retourne l'observation nouvellement créé.
+    Retourne l'observation nouvellement créée.
     """
 
     Arguments = CommentInput
