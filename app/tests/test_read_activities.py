@@ -40,6 +40,7 @@ class TestReadActivities(BaseTest):
                                 user=user,
                                 mission=mission,
                                 type=ActivityType.WORK,
+                                switch_mode=True,
                                 reception_time=datetime.now(),
                                 start_time=datetime(2021, 1, day, hour),
                                 end_time=datetime(2021, 1, day, hour + 1, 30),
