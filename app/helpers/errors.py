@@ -64,6 +64,12 @@ class SiretAlreadySignedUpError(MobilicError):
     default_should_alert_team = False
 
 
+class SirenAlreadySignedUpError(MobilicError):
+    code = "SIREN_ALREADY_SIGNED_UP"
+    default_message = "SIREN already registered"
+    default_should_alert_team = False
+
+
 class FranceConnectAuthenticationError(MobilicError):
     code = "FRANCE_CONNECT_ERROR"
 
