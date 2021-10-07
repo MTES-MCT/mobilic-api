@@ -42,11 +42,9 @@ from app.helpers.mail import mailer
 
 
 if app.config["SENTRY_URL"]:
-    sentry_sdk.init(
-        dsn=app.config["SENTRY_URL"],
-        integrations=[FlaskIntegration()],
-        environment=MOBILIC_ENV,
-    )
+    from app.helpers.sentry import setup_sentry
+
+    setup_sentry()
 
 db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}

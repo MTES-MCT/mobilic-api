@@ -39,6 +39,12 @@ class BadRequestError(MobilicError):
     http_status_code = 400
 
 
+class BadGraphQLRequestError(MobilicError):
+    code = "BAD_GRAPHQL_REQUEST"
+    default_message = "Invalid GraphQL request"
+    http_status_code = 400
+
+
 class InvalidParamsError(MobilicError):
     code = "INVALID_INPUTS"
     http_status_code = 422

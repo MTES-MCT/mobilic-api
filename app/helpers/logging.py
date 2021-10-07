@@ -13,8 +13,7 @@ from logging_ldp.schemas import LDPSchema
 from app import app
 from config import MOBILIC_ENV
 from app.helpers.authentication import current_user
-from app.helpers.errors import MobilicError
-
+from app.helpers.errors import MobilicError, BadGraphQLRequestError
 
 logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
 
@@ -106,21 +105,18 @@ def log_request_info(response):
 
         endpoint = _get_request_endpoint()
 
-        log_func = app.logger.info
         log_title = None
         log_message = endpoint
         log_info = _strip_unwanted_and_sensitive_fields_from_log_data(
             g.log_info
         )
 
-        # For GraphQL request with invalid syntax (error 400) we want to error-log the request info so that it may appear in Mattermost.
-        # For other errors we don't need to error-log because the application-level error will be logged at the error level.
         if response.status_code == 400 and g.log_info.get("is_graphql", False):
             log_title = "Invalid GraphQL request"
             log_message = log_info["json"]
-            log_func = app.logger.error
+            app.logger.error(BadGraphQLRequestError())
 
-        log_func(
+        app.logger.info(
             log_message,
             extra={
                 "time": request_time,
