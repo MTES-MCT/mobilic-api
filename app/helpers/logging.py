@@ -12,7 +12,7 @@ from logging_ldp.schemas import LDPSchema
 
 from app import app
 from config import MOBILIC_ENV
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, check_auth
 from app.helpers.errors import MobilicError, BadGraphQLRequestError
 
 logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
@@ -114,6 +114,11 @@ def log_request_info(response):
         if response.status_code == 400 and g.log_info.get("is_graphql", False):
             log_title = "Invalid GraphQL request"
             log_message = log_info["json"]
+            # Attempt to retrieve current user to augment log info
+            try:
+                check_auth()
+            except:
+                pass
             app.logger.error(BadGraphQLRequestError())
 
         app.logger.info(

@@ -51,7 +51,7 @@ def verify_oauth_token_in_request():
     g.user = matching_token.user
 
 
-def _check_auth():
+def check_auth():
     if g.get("user"):
         return
     try:
@@ -69,7 +69,7 @@ def _auth_decorator(required=True):
         @wraps(f)
         def wrapper(*args, **kwargs):
             try:
-                _check_auth()
+                check_auth()
             except:
                 if required:
                     raise
