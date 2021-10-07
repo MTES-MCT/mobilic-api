@@ -373,10 +373,8 @@ def build_activity_file(
     current_date = end_date or now.date()
     remaining_space = ACTIVITY_BYTES - (2 if current_date == now.date() else 0)
 
-    while (
-        remaining_space > 0
-        and (current_date >= first_activity_day)
-        and (not start_date or current_date >= start_date)
+    while remaining_space > 0 and (
+        not start_date or current_date >= start_date
     ):
         work_day = (
             work_days[work_days_current_index]
@@ -408,7 +406,13 @@ def build_activity_file(
         else:
             work_days_current_index -= 1
 
-    work_days = reversed(work_days_with_fills)
+    work_days = list(reversed(work_days_with_fills))
+    first_day_in_records = work_days[0].day if work_days else None
+    day_counter_starts_at = (
+        min(first_activity_day, first_day_in_records)
+        if first_day_in_records
+        else first_activity_day
+    )
 
     content = bytearray()
 
@@ -492,7 +496,7 @@ def build_activity_file(
         ## - 2 bytes for the work day counter
         content.extend(
             _int_string_to_bcd(
-                str((wd.day - first_activity_day).days).rjust(4, "0")
+                str((wd.day - day_counter_starts_at).days).rjust(4, "0")
             )
         )
         ## - 2 bytes for the kilometric data (distance made during the day).
