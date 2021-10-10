@@ -15,11 +15,11 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
 from app.helpers.validation import validate_email_field_in_db
-from app.models.base import BaseModel
+from app.models.base import BaseModel, RandomNineIntId
 from app import db, mailer
 
 
-class User(BaseModel, WithEmploymentHistory):
+class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
     first_name = db.Column(db.String(255), nullable=False)
@@ -63,13 +63,6 @@ class User(BaseModel, WithEmploymentHistory):
         return check_password_hash(self.password, plain_text.encode("utf-8"))
 
     password = synonym("_password", descriptor=password)
-
-    @staticmethod
-    def _generate_id():
-        while True:
-            id_ = int(str(uuid4().int)[:9])
-            if User.query.get(id_) is None:
-                return id_
 
     @property
     def acknowledged_activities(self):

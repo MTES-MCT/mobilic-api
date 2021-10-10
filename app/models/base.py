@@ -1,9 +1,18 @@
 from sqlalchemy.ext.declarative import declared_attr
-
-from app import db
+from uuid import uuid4
 from datetime import datetime
 
+from app import db
 from app.helpers.db import DateTimeStoredAsUTC
+
+
+class RandomNineIntId(db.Model):
+    @classmethod
+    def _generate_id(cls):
+        while True:
+            id_ = int(str(uuid4().int)[:9])
+            if cls.query.get(id_) is None:
+                return id_
 
 
 class BaseModel(db.Model):

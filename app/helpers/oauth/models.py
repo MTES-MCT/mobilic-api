@@ -1,26 +1,18 @@
-from uuid import uuid4
 import time
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
-from app.models.base import BaseModel
+from app.models.base import BaseModel, RandomNineIntId
 
 
-class OAuth2Client(BaseModel, ClientMixin):
+class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
     __tablename__ = "oauth2_client"
 
     name = db.Column(db.String(255), nullable=False)
     secret = db.Column(db.String(120), nullable=False)
     redirect_uris = db.Column(db.ARRAY(db.String))
-
-    @staticmethod
-    def _generate_id():
-        while True:
-            id_ = int(str(uuid4().int)[:9])
-            if OAuth2Client.query.get(id_) is None:
-                return id_
 
     def get_client_id(self):
         return self.id
