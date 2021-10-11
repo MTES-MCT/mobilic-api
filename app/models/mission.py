@@ -181,3 +181,10 @@ class Mission(EventBaseModel):
 
     def ended_for(self, user):
         return len([e for e in self.ends if e.user_id == user.id]) > 0
+
+    def ended_for_all_users(self):
+        users = list(set([a.user for a in self.acknowledged_activities]))
+        for u in users:
+            if not self.ended_for(u):
+                return False
+        return True

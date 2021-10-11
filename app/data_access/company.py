@@ -98,9 +98,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
-        only_non_validated_missions=graphene.Boolean(
+        only_ended_missions=graphene.Boolean(
             required=False,
-            description="Ne retourne que les missions qui n'ont pas encore été validées par le gestionnaire. Par défaut l'option n'est pas activée.",
+            description="Ne retourne que les missions qui sont terminées par tous leurs utilisateurs.",
         ),
     )
     vehicles = graphene.List(
@@ -169,7 +169,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         info,
         from_time=None,
         until_time=None,
-        only_non_validated_missions=False,
+        only_ended_missions=False,
         first=None,
         after=None,
     ):
@@ -179,7 +179,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             end_time=until_time,
             first=first,
             after=after,
-            only_non_validated_missions=only_non_validated_missions,
+            only_ended_missions=only_ended_missions,
         )
 
     @with_authorization_policy(
