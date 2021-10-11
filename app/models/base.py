@@ -7,6 +7,8 @@ from app.helpers.db import DateTimeStoredAsUTC
 
 
 class RandomNineIntId(db.Model):
+    __abstract__ = True
+
     @classmethod
     def _generate_id(cls):
         while True:
