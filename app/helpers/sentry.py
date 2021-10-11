@@ -11,6 +11,7 @@ from app import app
 from app.helpers.errors import EmailAlreadyRegisteredError, MobilicError
 from app.helpers.mail import InvalidEmailAddressError
 from config import MOBILIC_ENV
+from app.helpers.livestorm import NoLivestormCredentialsError
 
 
 FILTER_OUT_ERRORS = [
@@ -19,11 +20,12 @@ FILTER_OUT_ERRORS = [
     HTTPVersionNotSupported,
     EmailAlreadyRegisteredError,
     InvalidEmailAddressError,
+    NoLivestormCredentialsError,
 ]
 
 
 FILTER_OUT_RE_FOR_MOBILIC_ERRORS = [
-    re.compile(r"$Wrong email/password combination")
+    re.compile(r"^Wrong email/password combination")
 ]
 
 
