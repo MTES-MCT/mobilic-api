@@ -139,7 +139,7 @@ def query_company_missions(
     end_time=None,
     first=None,
     after=None,
-    only_non_validated_missions=False,
+    only_ended_missions=False,
 ):
     from app.data_access.mission import MissionConnection
 
@@ -147,25 +147,6 @@ def query_company_missions(
     company_mission_subq = Mission.query.with_entities(Mission.id).filter(
         Mission.company_id.in_(company_ids)
     )
-    if only_non_validated_missions:
-        company_mission_subq = (
-            company_mission_subq.join(Mission.validations, isouter=True)
-            .group_by(Mission.id)
-            .having(
-                func.bool_and(
-                    or_(
-                        and_(
-                            MissionValidation.is_admin.is_(None),
-                            MissionValidation.user_id.isnot(None),
-                        ),
-                        and_(
-                            ~MissionValidation.is_admin,
-                            MissionValidation.user_id.isnot(None),
-                        ),
-                    )
-                )
-            )
-        )
 
     company_mission_subq = company_mission_subq.subquery()
 
@@ -220,10 +201,18 @@ def query_company_missions(
     missions = mission_query.filter(
         Mission.id.in_([m[0] for m in missions_ids_and_start_times])
     ).all()
-    missions = {mission.id: mission for mission in missions}
+
+    endedMissions = {}
+    for mission in missions:
+        if not only_ended_missions or mission.ended_for_all_users():
+            endedMissions[mission.id] = mission
+        else:
+            missions_ids_and_start_times = [
+                m for m in missions_ids_and_start_times if m[0] != mission.id
+            ]
 
     return to_connection(
-        [missions[m[0]] for m in missions_ids_and_start_times],
+        [endedMissions[m[0]] for m in missions_ids_and_start_times],
         connection_cls=MissionConnection,
         has_next_page=False,
         get_cursor=lambda m: mission_id_to_cursor.get(m.id, None),
