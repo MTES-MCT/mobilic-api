@@ -12,9 +12,15 @@ def check_date_is_during_mission(spending_date, mission, user):
         raise ExpenditureDateNotIncludedInMissionRangeError()
 
     mission_start = mission_activities[0].start_time.date()
-    mission_end = mission_activities[-1].end_time.date()
+    mission_end = (
+        mission_activities[-1].end_time.date()
+        if mission_activities[-1].end_time
+        else None
+    )
 
-    if spending_date < mission_start or spending_date > mission_end:
+    if spending_date < mission_start or (
+        mission_end and spending_date > mission_end
+    ):
         raise ExpenditureDateNotIncludedInMissionRangeError()
 
 
