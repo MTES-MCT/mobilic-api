@@ -25,6 +25,7 @@ from app.models import (
     Employment,
     Expenditure,
     MissionValidation,
+    MissionEnd,
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
@@ -148,6 +149,23 @@ def query_company_missions(
         Mission.company_id.in_(company_ids)
     )
 
+    if only_ended_missions:
+        company_mission_subq = (
+            company_mission_subq.join(
+                Activity, Activity.mission_id == Mission.id
+            )
+            .join(
+                MissionEnd,
+                and_(
+                    Activity.mission_id == MissionEnd.mission_id,
+                    Activity.user_id == MissionEnd.user_id,
+                ),
+                isouter=True,
+            )
+            .group_by(Mission.id)
+            .having(func.every(MissionEnd.id.isnot(None)))
+        )
+
     company_mission_subq = company_mission_subq.subquery()
 
     # Cursor pagination : missions are sorted by descending start time (start time of the earliest activity) and id
@@ -201,18 +219,10 @@ def query_company_missions(
     missions = mission_query.filter(
         Mission.id.in_([m[0] for m in missions_ids_and_start_times])
     ).all()
-
-    endedMissions = {}
-    for mission in missions:
-        if not only_ended_missions or mission.ended_for_all_users():
-            endedMissions[mission.id] = mission
-        else:
-            missions_ids_and_start_times = [
-                m for m in missions_ids_and_start_times if m[0] != mission.id
-            ]
+    missions = {mission.id: mission for mission in missions}
 
     return to_connection(
-        [endedMissions[m[0]] for m in missions_ids_and_start_times],
+        [missions[m[0]] for m in missions_ids_and_start_times],
         connection_cls=MissionConnection,
         has_next_page=False,
         get_cursor=lambda m: mission_id_to_cursor.get(m.id, None),
