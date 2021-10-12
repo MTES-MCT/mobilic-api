@@ -162,6 +162,7 @@ def query_company_missions(
                 ),
                 isouter=True,
             )
+            .filter(~Activity.is_dismissed)
             .group_by(Mission.id)
             .having(func.every(MissionEnd.id.isnot(None)))
         )
