@@ -22,7 +22,8 @@ from app.helpers.graphene_types import (
     TimeStamp,
 )
 from app.models import User, Mission
-from app.models.activity import Activity, ActivityOutput, ActivityType
+from app.models.activity import Activity, ActivityType
+from app.data_access.activity import ActivityOutput
 
 
 class ActivityLogInput:

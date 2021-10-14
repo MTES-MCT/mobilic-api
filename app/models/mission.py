@@ -78,24 +78,6 @@ class Mission(EventBaseModel):
         )
 
     @property
-    def latest_validations_per_user(self):
-        latest_validations_by_user = {}
-        for validation in self.validations:
-            current_latest_val_for_user = latest_validations_by_user.get(
-                validation.submitter_id
-            )
-            if (
-                not current_latest_val_for_user
-                or current_latest_val_for_user.reception_time
-                < validation.reception_time
-            ):
-                latest_validations_by_user[
-                    validation.submitter_id
-                ] = validation
-
-        return list(latest_validations_by_user.values())
-
-    @property
     def start_location(self):
         from app.models.location_entry import LocationEntryType
 
@@ -117,19 +99,20 @@ class Mission(EventBaseModel):
         ]
         return end_location_entry[0] if end_location_entry else None
 
-    def validations_of(self, user):
-        return [
+    def validation_of(self, user):
+        validations_of_user_for_himself_or_all = [
             v
             for v in self.validations
             if v.submitter_id == user.id
             and (v.user_id is None or v.user_id == user.id)
         ]
-
-    def latest_validation_time_of(self, user):
-        user_validations = self.validations_of(user)
+        if len(validations_of_user_for_himself_or_all) == 2:
+            return [
+                v for v in validations_of_user_for_himself_or_all if v.user_id
+            ][0]
         return (
-            max([u.reception_time for u in user_validations])
-            if user_validations
+            validations_of_user_for_himself_or_all[0]
+            if validations_of_user_for_himself_or_all
             else None
         )
 
@@ -146,19 +129,24 @@ class Mission(EventBaseModel):
         )
 
     def modification_status_and_latest_action_time_for_user(self, user):
-        latest_validation_time = self.latest_validation_time_of(user)
+        user_validation = self.validation_of(user)
+
+        latest_user_action_time = (
+            user_validation.reception_time if user_validation else None
+        )
         all_user_activities = self.activities_for(
             user, include_dismissed_activities=True
         )
         if not all_user_activities:
             return UserMissionModificationStatus.NO_DATA_FOR_USER, None
 
-        latest_user_activity_modification_time = _max_or_none(
-            *[a.latest_modification_time_by(user) for a in all_user_activities]
-        )
-        latest_user_action_time = _max_or_none(
-            latest_validation_time, latest_user_activity_modification_time
-        )
+        if not latest_user_action_time:
+            latest_user_action_time = _max_or_none(
+                *[
+                    a.latest_modification_time_by(user)
+                    for a in all_user_activities
+                ]
+            )
 
         if not latest_user_action_time:
             # Mission was most likely created by the admin, user is not yet informed of it

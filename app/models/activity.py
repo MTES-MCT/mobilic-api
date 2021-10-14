@@ -1,7 +1,5 @@
 from enum import Enum
-import graphene
 from datetime import datetime
-from graphene.types.generic import GenericScalar
 
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
@@ -9,11 +7,6 @@ from sqlalchemy.orm import backref
 from app import db, app
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import ResourceAlreadyDismissedError
-from app.helpers.graphene_types import (
-    BaseSQLAlchemyObjectType,
-    graphene_enum_type,
-    TimeStamp,
-)
 from app.models.event import UserEventBaseModel, Dismissable
 from app.models.activity_version import ActivityVersion, Period
 from app.models.utils import enum_column
@@ -173,76 +166,3 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         ):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
-
-
-class ActivityOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = Activity
-        only_fields = (
-            "id",
-            "reception_time",
-            "mission_id",
-            "mission",
-            "start_time",
-            "end_time",
-            "last_update_time",
-            "type",
-            "context",
-            "user_id",
-            "user",
-            "submitter_id",
-            "submitter",
-        )
-        description = (
-            "Evènement de changement d'activité dans la journée de travail"
-        )
-
-    id = graphene.Field(
-        graphene.Int, required=True, description="Identifiant de l'activité"
-    )
-    mission_id = graphene.Field(
-        graphene.Int,
-        required=True,
-        description="Identifiant de la mission dans laquelle s'inscrit l'activité",
-    )
-    reception_time = graphene.Field(
-        TimeStamp,
-        required=True,
-        description="Horodatage de création de l'entité",
-    )
-    start_time = graphene.Field(
-        TimeStamp,
-        required=True,
-        description="Horodatage de début de l'activité",
-    )
-    end_time = graphene.Field(
-        TimeStamp,
-        required=False,
-        description="Horodatage de fin de l'activité",
-    )
-    last_update_time = graphene.Field(
-        TimeStamp,
-        required=True,
-        description="Horodatage de la dernière mise à jour de l'activité",
-    )
-    user_id = graphene.Field(
-        graphene.Int,
-        required=True,
-        description="Identifiant du travailleur mobile qui a effectué l'activité",
-    )
-    context = graphene.Field(
-        GenericScalar, description="Données contextuelles libres"
-    )
-    submitter_id = graphene.Field(
-        graphene.Int,
-        required=True,
-        description="Identifiant de la personne qui a enregistré l'activité",
-    )
-    type = graphene_enum_type(ActivityType)(
-        required=True, description="Nature de l'activité"
-    )
-
-
-class ActivityConnection(graphene.Connection):
-    class Meta:
-        node = ActivityOutput
