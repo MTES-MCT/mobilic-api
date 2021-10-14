@@ -3,7 +3,7 @@ from graphene.types.generic import GenericScalar
 
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission
-from app.models.activity import ActivityOutput
+from app.data_access.activity import ActivityOutput
 from app.helpers.authentication import current_user
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
@@ -37,7 +37,12 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         description="Horodatage de création de l'entité",
     )
     activities = graphene.List(
-        ActivityOutput, description="Activités de la mission"
+        ActivityOutput,
+        description="Activités de la mission",
+        include_dismissed_activities=graphene.Boolean(
+            required=False,
+            description="Flag pour inclure les activités effacées",
+        ),
     )
     context = graphene.Field(
         GenericScalar, description="Données contextuelles libres"
@@ -53,7 +58,11 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         description="Identifiant de la personne qui a créé la mission",
     )
     expenditures = graphene.List(
-        ExpenditureOutput, description="Frais associés la mission"
+        ExpenditureOutput,
+        description="Frais associés la mission",
+        include_dismissed_expenditures=graphene.Boolean(
+            required=False, description="Flag pour inclure les frais effacés"
+        ),
     )
     validations = graphene.List(
         MissionValidationOutput,
@@ -70,14 +79,22 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     )
     is_ended_for_self = graphene.Field(graphene.Boolean)
 
-    def resolve_activities(self, info):
-        return self.acknowledged_activities
+    def resolve_activities(self, info, include_dismissed_activities=False):
+        return (
+            self.activities
+            if include_dismissed_activities
+            else self.acknowledged_activities
+        )
 
-    def resolve_expenditures(self, info):
-        return self.acknowledged_expenditures
+    def resolve_expenditures(self, info, include_dismissed_expenditures=False):
+        return (
+            self.expenditures
+            if include_dismissed_expenditures
+            else self.acknowledged_expenditures
+        )
 
     def resolve_validations(self, info):
-        return self.latest_validations_per_user
+        return self.validations
 
     def resolve_comments(self, info):
         return self.acknowledged_comments

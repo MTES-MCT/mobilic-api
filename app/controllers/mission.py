@@ -8,6 +8,7 @@ from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
+from app.domain.validation import validate_mission
 from app.helpers.authorization import (
     with_authorization_policy,
     authenticated_and_active,
@@ -268,62 +269,22 @@ class ValidateMission(graphene.Mutation):
     )
     def mutate(cls, _, info, mission_id, user_id=None):
         with atomic_transaction(commit_at_end=True):
-            validation_time = datetime.now()
             mission = Mission.query.get(mission_id)
 
-            is_admin_validation = (
-                mission.company_id
-                in current_user.current_company_ids_with_admin_rights
-            )
             user = None
             if user_id:
-                if not is_admin_validation and user_id != current_user.id:
+                user = User.query.get(user_id)
+                if not user:
                     raise AuthorizationError(
                         "Actor is not authorized to validate the mission for the user"
                     )
-                user = User.query.get(user_id)
 
-            if user:
-                activities_to_validate = mission.activities_for(user)
-            else:
-                activities_to_validate = mission.acknowledged_activities
-
-            if not activities_to_validate:
-                raise NoActivitiesToValidateError(
-                    "There are no activities in the validation scope."
-                )
-
-            if any([not a.end_time for a in activities_to_validate]):
-                raise MissionStillRunningError()
-
-            users = (
-                list(set([a.user for a in activities_to_validate]))
-                if is_admin_validation
-                else [current_user]
+            mission_validation = validate_mission(
+                submitter=current_user, mission=mission, for_user=user
             )
-
-            for u in users:
-                if not mission.ended_for(u):
-                    db.session.add(
-                        MissionEnd(
-                            submitter=current_user,
-                            reception_time=validation_time,
-                            user=u,
-                            mission=mission,
-                        )
-                    )
-
-            mission_validation = MissionValidation(
-                submitter=current_user,
-                reception_time=validation_time,
-                mission=mission,
-                user=user if is_admin_validation else current_user,
-                is_admin=is_admin_validation,
-            )
-            db.session.add(mission_validation)
 
         try:
-            if is_admin_validation:
+            if mission_validation.is_admin:
                 if user:
                     concerned_users = [user]
                 else:
