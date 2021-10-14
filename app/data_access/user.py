@@ -21,7 +21,7 @@ from app.helpers.pagination import (
 )
 from app.helpers.time import get_max_datetime, get_min_datetime
 from app.models import User, Company, Activity, Mission
-from app.models.activity import ActivityConnection
+from app.data_access.activity import ActivityConnection
 from app.models.employment import EmploymentOutput
 
 

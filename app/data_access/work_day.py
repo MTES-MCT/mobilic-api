@@ -3,7 +3,7 @@ from graphene.types.generic import GenericScalar
 
 from app.data_access.mission import MissionOutput
 from app.helpers.graphene_types import TimeStamp
-from app.models.activity import ActivityOutput
+from app.data_access.activity import ActivityOutput
 
 
 class WorkDayOutput(graphene.ObjectType):

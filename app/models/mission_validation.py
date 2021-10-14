@@ -27,6 +27,9 @@ class MissionValidation(UserEventBaseModel):
             "(is_admin OR (user_id = submitter_id))",
             name="non_admin_can_only_validate_for_self",
         ),
+        db.Constraint(
+            name="only_one_validation_per_submitter_mission_and_user"
+        ),
     )
 
 

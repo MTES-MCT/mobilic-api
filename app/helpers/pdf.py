@@ -277,7 +277,7 @@ def _generate_work_days_pdf(
                 accumulator[type_.value] += wd.expenditures.get(type_, 0)
 
         show_not_validated_by_self_alert = any(
-            [m.latest_validation_time_of(user) is None for m in wd.missions]
+            [m.validation_of(user) is None for m in wd.missions]
         )
         show_not_validated_by_admin_alert = (
             not show_not_validated_by_self_alert

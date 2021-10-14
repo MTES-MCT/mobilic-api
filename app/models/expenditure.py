@@ -63,6 +63,9 @@ class ExpenditureOutput(BaseSQLAlchemyObjectType):
             "spending_date",
             "submitter_id",
             "submitter",
+            "dismiss_author_id",
+            "dismiss_author",
+            "dismissed_at",
         )
 
     id = graphene.Field(
@@ -95,4 +98,12 @@ class ExpenditureOutput(BaseSQLAlchemyObjectType):
         graphene.Date,
         required=True,
         description="Date à laquelle le frais a été engagé",
+    )
+    dismissed_at = graphene.Field(
+        TimeStamp,
+        description="Horodatage de suppression du frais, si jamais le frais a été effacé",
+    )
+    dismiss_author_id = graphene.Field(
+        graphene.Int,
+        description="Identifiant de la personne qui a effacé le frais, si jamais le frais a été effacé",
     )
