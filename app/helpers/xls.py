@@ -235,14 +235,14 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
         columns_in_main_sheet.extend(
             [
                 (
-                    "Repas jour",
+                    "Repas midi",
                     lambda wday: wday.expenditures.get("day_meal", 0),
                     None,
                     13,
                     light_orange_hex,
                 ),
                 (
-                    "Repas nuit",
+                    "Repas soir",
                     lambda wday: wday.expenditures.get("night_meal", 0),
                     None,
                     13,

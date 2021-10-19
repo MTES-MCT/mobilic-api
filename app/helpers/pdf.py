@@ -66,13 +66,13 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
             [
                 Column(
                     name=ExpenditureType.DAY_MEAL.value,
-                    label="Repas",
+                    label="Repas midi",
                     color="#FFE5B9",
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.NIGHT_MEAL.value,
-                    label="Repas nuit",
+                    label="Repas soir",
                     color="#FFE5B9",
                     secondary=True,
                 ),
@@ -166,13 +166,13 @@ def _get_detail_columns(include_support=False, include_expenditures=False):
             [
                 Column(
                     name="day_meal",
-                    label="Repas",
+                    label="Repas midi",
                     color="#FFE5B9",
                     secondary=True,
                 ),
                 Column(
                     name="night_meal",
-                    label="Repas nuit",
+                    label="Repas soir",
                     color="#FFE5B9",
                     secondary=True,
                 ),

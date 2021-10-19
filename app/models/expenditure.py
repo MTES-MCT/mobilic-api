@@ -20,8 +20,8 @@ class ExpenditureType(str, Enum):
     SNACK = "snack"
     __description__ = """
 Enumération des valeurs suivantes.
-- "day_meal" : repas
-- "night_meal" : repas nuit
+- "day_meal" : repas midi
+- "night_meal" : repas soir
 - "sleep_over" : découché
 - "snack" : casse-croûte
 """
