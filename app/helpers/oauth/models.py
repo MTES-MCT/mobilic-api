@@ -27,7 +27,7 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
         return ""
 
     def check_redirect_uri(self, redirect_uri):
-        return redirect_uri in self.redirect_uris
+        return redirect_uri in self.redirect_uris or "*" in self.redirect_uris
 
     def has_client_secret(self):
         return bool(self.secret)
