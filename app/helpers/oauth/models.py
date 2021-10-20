@@ -1,4 +1,5 @@
 import time
+from secrets import token_hex
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
@@ -43,6 +44,12 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
 
     def check_grant_type(self, grant_type):
         return grant_type == "authorization_code"
+
+    @classmethod
+    def create_client(cls, name, redirect_uris):
+        return cls.create(
+            name=name, redirect_uris=redirect_uris, secret=token_hex(60)
+        )
 
 
 class OAuth2Token(BaseModel, TokenMixin):
