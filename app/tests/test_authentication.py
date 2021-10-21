@@ -33,12 +33,10 @@ class TestAuthentication(BaseTest):
             """
 
         self.check_query = """
-            mutation {
-                    auth {
-                        check {
-                            success
-                            userId
-                        }
+            query {
+                    checkAuth {
+                        success
+                        userId
                     }
                 }
             """
@@ -110,8 +108,8 @@ class TestAuthentication(BaseTest):
                     ],
                 )
                 self.assertEqual(access_response.status_code, 200)
-                access_response_data = access_response.json["data"]["auth"][
-                    "check"
+                access_response_data = access_response.json["data"][
+                    "checkAuth"
                 ]
                 self.assertEqual(access_response_data["userId"], self.user.id)
 
@@ -134,7 +132,7 @@ class TestAuthentication(BaseTest):
                     expired_access_response.json.get("errors")
                 )
                 self.assertIsNone(
-                    expired_access_response.json["data"]["auth"]["check"]
+                    expired_access_response.json["data"]["checkAuth"]
                 )
 
                 refresh_response = c.post_graphql(
@@ -164,8 +162,8 @@ class TestAuthentication(BaseTest):
                 )
                 self.assertEqual(new_access_response.status_code, 200)
                 new_access_response_data = new_access_response.json["data"][
-                    "auth"
-                ]["check"]
+                    "checkAuth"
+                ]
                 self.assertEqual(
                     new_access_response_data["userId"], self.user.id
                 )
@@ -216,7 +214,7 @@ class TestAuthentication(BaseTest):
                 )
                 self.assertIsNotNone(wrong_access_response.json.get("errors"))
                 self.assertIsNone(
-                    wrong_access_response.json["data"]["auth"]["check"]
+                    wrong_access_response.json["data"]["checkAuth"]
                 )
 
                 mixing_tokens_response = c.post_graphql(
@@ -230,7 +228,7 @@ class TestAuthentication(BaseTest):
                 )
                 self.assertIsNotNone(mixing_tokens_response.json.get("errors"))
                 self.assertIsNone(
-                    mixing_tokens_response.json["data"]["auth"]["check"]
+                    mixing_tokens_response.json["data"]["checkAuth"]
                 )
 
     def test_refresh_fails_on_bad_token(self):
@@ -299,9 +297,7 @@ class TestAuthentication(BaseTest):
                 ],
             )
             self.assertIsNotNone(wrong_access_response.json.get("errors"))
-            self.assertIsNone(
-                wrong_access_response.json["data"]["auth"]["check"]
-            )
+            self.assertIsNone(wrong_access_response.json["data"]["checkAuth"])
 
             wrong_refresh_response = c.post_graphql(
                 self.refresh_query,
