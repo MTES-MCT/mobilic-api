@@ -4,6 +4,9 @@ from graphene.types.generic import GenericScalar
 from app.data_access.mission import MissionOutput
 from app.helpers.graphene_types import TimeStamp
 from app.data_access.activity import ActivityOutput
+from app.models import Mission
+from app.models.activity import Activity
+from app.models.queries import query_activities
 
 
 class WorkDayOutput(graphene.ObjectType):
@@ -45,9 +48,35 @@ class WorkDayOutput(graphene.ObjectType):
         GenericScalar,
         description="Temps de travail cumulés par activité, exprimés en secondes.",
     )
+    activities = graphene.List(
+        ActivityOutput, description="Activités de la journée"
+    )
+    missions = graphene.List(
+        MissionOutput, description="Missions de la journée"
+    )
 
     def resolve_user_id(self, info):
         return self.user.id
+
+    def resolve_activities(self, info):
+        return query_activities(
+            include_dismissed_activities=False,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            user_id=self.user.id,
+        ).all()
+
+    def resolve_missions(self, info):
+        activity_query = query_activities(
+            include_dismissed_activities=False,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            user_id=self.user.id,
+        )
+        mission_ids = (
+            activity_query.with_entities(Activity.mission_id).distinct().all()
+        )
+        return Mission.query.filter(Mission.id.in_(mission_ids)).all()
 
 
 class WorkDayConnection(graphene.Connection):
