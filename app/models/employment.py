@@ -23,8 +23,6 @@ class EmploymentRequestValidationStatus(str, Enum):
 class Employment(UserEventBaseModel, Dismissable):
     backref_base_name = "employments"
 
-    is_primary = db.Column(db.Boolean, nullable=True)
-
     validation_time = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     validation_status = enum_column(
@@ -50,7 +48,6 @@ class Employment(UserEventBaseModel, Dismissable):
     db.validates("email")(validate_email_field_in_db)
 
     __table_args__ = (
-        db.Constraint(name="only_one_current_primary_enrollment_per_user"),
         db.Constraint(name="no_simultaneous_enrollments_for_the_same_company"),
         db.Constraint(name="no_undefined_employment_type_for_user"),
     )
@@ -114,7 +111,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         only_fields = (
             "id",
             "reception_time",
-            "is_primary",
             "start_date",
             "end_date",
             "user_id",
@@ -143,10 +139,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     submitter_id = graphene.Field(
         graphene.Int,
         description="Identifiant de la personne qui a créé le rattachement",
-    )
-    is_primary = graphene.Field(
-        graphene.Boolean,
-        description="Précise si le rattachement est un rattachement principal ou secondaire. Un utilisateur ne peut pas avoir deux rattachements principaux simultanés",
     )
     start_date = graphene.Field(
         graphene.String,
