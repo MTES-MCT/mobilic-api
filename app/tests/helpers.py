@@ -8,6 +8,7 @@ import re
 from app import app, db
 from app.helpers.time import to_timestamp
 from app.models import User
+from app.tests import test_post_graphql
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
@@ -239,13 +240,11 @@ def make_authenticated_request(
         _convert_date_time_to_timestamps(variables)
     )
     with freeze_time(time):
-        with app.test_client(
-            mock_authentication_with_user=User.query.get(submitter_id)
-        ) as c:
-            response = c.post_graphql(
-                query=query,
-                variables=formatted_variables,
-            )
+        response = test_post_graphql(
+            query=query,
+            mock_authentication_with_user=User.query.get(submitter_id),
+            variables=formatted_variables,
+        )
     # print(response.json)
     db.session.rollback()
 

@@ -86,8 +86,14 @@ class GraphQLTestClient(FlaskClient, AuthenticatedUserContext):
         AuthenticatedUserContext.__exit__(self, *args)
         FlaskClient.__exit__(self, *args)
 
-    def post_graphql(self, query, variables=None, **kwargs):
-        return self.post(
+
+def test_post_graphql(
+    query, mock_authentication_with_user=None, variables=None, **kwargs
+):
+    with app.test_client(
+        mock_authentication_with_user=mock_authentication_with_user
+    ) as c:
+        return c.post(
             graphql_api_path,
             json=dict(query=query, variables=variables),
             **kwargs,
