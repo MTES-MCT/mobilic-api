@@ -25,7 +25,6 @@ from functools import wraps
 from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
-from app.models import UserReadToken
 
 current_user = LocalProxy(lambda: g.get("user") or current_actor)
 
@@ -54,6 +53,8 @@ def verify_oauth_token_in_request():
 
 
 def check_impersonate_user():
+    from app.models import UserReadToken
+
     impersonation_token = request.headers.get("Impersonation-Token")
     if impersonation_token:
         existing_token = UserReadToken.get_token(impersonation_token)
@@ -275,9 +276,10 @@ def require_auth_with_write_access(f):
     return wrapper
 
 
-class AuthenticatedMutation(graphene.Mutation):
+class AuthenticatedMutation(graphene.Mutation, abstract=True):
     @classmethod
     def __init_subclass__(cls, **kwargs):
+        super(AuthenticatedMutation, cls).__init_subclass__(**kwargs)
         cls.mutate = require_auth_with_write_access(cls.mutate)
 
 
