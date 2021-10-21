@@ -67,13 +67,23 @@ def is_employed_by_company_over_period(
     return True
 
 
-def self_or_company_admin(actor, user_obj_or_id):
+def self_or_have_common_company(actor, user_obj_or_id):
     user = user_obj_or_id
     if type(user_obj_or_id) is int:
         user = User.query.get(user_obj_or_id)
     if not user:
         return False
-    return actor.id == user.id or company_admin(actor, user.primary_company)
+    if actor.id == user.id:
+        return True
+    current_actor_companies = [
+        e.company for e in actor.active_employments_at(date.today())
+    ]
+    all_lifetime_user_companies = [
+        e.company for e in user.employments if e.is_not_rejected
+    ]
+    return bool(
+        set(current_actor_companies) & set(all_lifetime_user_companies)
+    )
 
 
 def only_self(actor, user_obj_or_id):

@@ -12,7 +12,7 @@ from marshmallow import Schema, validates_schema, ValidationError
 
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.user import UserOutput
-from app.domain.permissions import self_or_company_admin
+from app.domain.permissions import self_or_have_common_company
 from app.domain.user import create_user, get_user_from_fc_info
 from app.helpers.authentication import (
     current_user,
@@ -87,8 +87,8 @@ class UserSignUp(graphene.Mutation):
         if has_subscribed_to_newsletter:
             try:
                 newsletter_to_subscribe_to = MailingContactList.EMPLOYEES
-                primary_employment = user.primary_employment_at(date.today())
-                if primary_employment and primary_employment.has_admin_rights:
+                employment = user.employments[0] if user.employments else None
+                if employment and employment.has_admin_rights:
                     newsletter_to_subscribe_to = MailingContactList.ADMINS
 
                 user.subscribe_to_contact_list(newsletter_to_subscribe_to)
@@ -413,7 +413,7 @@ class Query(graphene.ObjectType):
 def query_user(info, id=None):
     if id:
         user = User.query.get(id)
-        if not user or not self_or_company_admin(current_user, user):
+        if not user or not self_or_have_common_company(current_user, user):
             raise AuthorizationError("Forbidden access")
     else:
         user = current_user

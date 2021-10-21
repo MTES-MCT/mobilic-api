@@ -154,8 +154,6 @@ class EmploymentFactory(BaseFactory):
     class Meta:
         model = Employment
 
-    is_primary = True
-
     submitter = factory.SubFactory(UserFactory)
     reception_time = datetime(2000, 1, 1)
     validation_time = datetime(2000, 1, 1)

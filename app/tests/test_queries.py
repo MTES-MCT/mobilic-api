@@ -1,5 +1,4 @@
 from app.tests import BaseTest, UserFactory, CompanyFactory, test_post_graphql
-from app import app
 
 
 class TestQueries(BaseTest):
@@ -80,7 +79,6 @@ class TestQueries(BaseTest):
                     id
                     users {
                         id
-                        isAdminOfPrimaryCompany
                     }
                 }
             }
@@ -104,10 +102,6 @@ class TestQueries(BaseTest):
         self.assertSetEqual(
             {self.user_company1.id, self.admin_company1.id},
             set([u["id"] for u in company_data["users"]]),
-        )
-        self.assertSetEqual(
-            {True, False},
-            set([u["isAdminOfPrimaryCompany"] for u in company_data["users"]]),
         )
 
     def test_admin_restricted_data(self):

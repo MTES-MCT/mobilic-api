@@ -403,10 +403,11 @@ class Mailer:
 
         company = None
         has_admin_rights = None
-        primary_employment = user.primary_employment_at(date.today())
-        if primary_employment:
-            company = primary_employment.company
-            has_admin_rights = primary_employment.has_admin_rights
+        if create_account:
+            employment = user.employments[0] if user.employments else None
+            if employment:
+                company = employment.company
+                has_admin_rights = employment.has_admin_rights
 
         self._send_single(
             self._create_message_from_flask_template(

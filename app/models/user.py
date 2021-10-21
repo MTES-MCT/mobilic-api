@@ -259,20 +259,6 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     def __repr__(self):
         return f"<User [{self.id}] : {self.display_name}>"
 
-    @property
-    def primary_company(self):
-        current_primary_employment = self.primary_employment_at(date.today())
-        return (
-            current_primary_employment.company
-            if current_primary_employment
-            else None
-        )
-
-    def primary_employment_at(self, date_):
-        employments = self.active_employments_at(date_)
-        primary_employment = [e for e in employments if e.is_primary]
-        return primary_employment[0] if primary_employment else None
-
     @cached_property
     def current_company_ids_with_admin_rights(self):
         return [

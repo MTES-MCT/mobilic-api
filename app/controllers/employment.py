@@ -16,13 +16,11 @@ from uuid import uuid4
 from app import app, db, mailer
 from app.controllers.utils import atomic_transaction, Void
 from app.helpers.errors import (
-    MissingPrimaryEmploymentError,
     InvalidParamsError,
     InvalidTokenError,
     InvalidResourceError,
 )
 from app.helpers.mail import MailjetError
-from app.helpers.authentication import AuthenticationError
 from app.helpers.authorization import (
     with_authorization_policy,
     active,
@@ -77,11 +75,6 @@ class CreateEmployment(AuthenticatedMutation):
             required=False,
             description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'admnistration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
         )
-        is_primary = graphene.Argument(
-            graphene.Boolean,
-            required=False,
-            description="Précise si l'entreprise de rattachement est l'entreprise principale du travailleur. Un salarié ne peut pas être rattaché à deux entreprises principales en même temps mais il peut avoir plusieurs rattachements secondaires, qui lui permettront d'associer du temps de travail à ces entreprises. Par défaut le rattachement sera principal s'il n'existe pas de rattachement principal existant pour l'utilisateur, sinon il sera secondaire.",
-        )
 
     Output = EmploymentOutput
 
@@ -91,8 +84,6 @@ class CreateEmployment(AuthenticatedMutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, **employment_input):
-        employment_is_primary = employment_input.get("is_primary")
-        force_employment_type = employment_is_primary is not None
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             company = Company.query.get(employment_input["company_id"])
@@ -118,27 +109,9 @@ class CreateEmployment(AuthenticatedMutation):
 
             start_date = employment_input.get("start_date", date.today())
 
-            user_current_primary_employment = None
-            if user:
-                user_current_primary_employment = user.primary_employment_at(
-                    start_date
-                )
-                if (
-                    not user_current_primary_employment
-                    and force_employment_type
-                    and not employment_is_primary
-                ):
-                    raise MissingPrimaryEmploymentError(
-                        "Cannot create a secondary employment for user because there is no primary employment in the same period"
-                    )
-
-            if not force_employment_type and user:
-                employment_is_primary = user_current_primary_employment is None
-
             employment = Employment(
                 reception_time=reception_time,
                 submitter=current_user,
-                is_primary=employment_is_primary,
                 validation_status=EmploymentRequestValidationStatus.PENDING,
                 start_date=start_date,
                 end_date=employment_input.get("end_date"),
@@ -201,7 +174,6 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                 Employment(
                     reception_time=reception_time,
                     submitter=current_user,
-                    is_primary=None,
                     validation_status=EmploymentRequestValidationStatus.PENDING,
                     start_date=reception_time.date(),
                     end_date=None,
@@ -343,13 +315,6 @@ class RedeemInvitation(graphene.Mutation):
                 @with_authorization_policy(active)
                 @require_auth_with_write_access
                 def bind_and_redeem():
-                    if employment.is_primary is None:
-                        employment.is_primary = (
-                            current_user.primary_employment_at(
-                                employment.start_date
-                            )
-                            is None
-                        )
                     employment.bind(current_user)
                     employment.validate_by(user=current_user)
 
