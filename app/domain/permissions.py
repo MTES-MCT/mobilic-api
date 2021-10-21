@@ -1,4 +1,10 @@
-from app.helpers.authorization import authenticated_and_active
+from typing import List, Optional
+from dataclasses import dataclass, field
+from functools import wraps
+from datetime import date
+from flask import g
+
+from app.helpers.authorization import active
 from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyValidatedByAdminError,
@@ -7,14 +13,10 @@ from app.helpers.errors import (
 from app.helpers.time import get_date_or_today
 from app.helpers.authentication import current_user
 from app.models import Company, User
-from typing import List, Optional
-from dataclasses import dataclass, field
-from functools import wraps
-from datetime import date
 
 
 def company_admin(actor, company_obj_or_id):
-    if not authenticated_and_active(actor):
+    if not active(actor):
         return False
 
     today = date.today()
@@ -108,7 +110,7 @@ def check_actor_can_write_on_mission_over_period(
     actor, mission, for_user=None, start=None, end=None
 ):
     # 1. Check that actor has activated account
-    if not mission or not authenticated_and_active(actor):
+    if not mission or not active(actor):
         _raise_authorization_error()
 
     # 2. Check that actor is allowed to access mission (must be a company admin, the mission submitter or have activities on the mission)
@@ -164,8 +166,8 @@ def check_actor_can_write_on_mission(actor, mission, for_user=None, at=None):
 class ConsultationScope:
     all_access: bool = False
     company_ids: List = field(default_factory=list)
-    max_activity_date: Optional[date] = None
-    min_activity_date: Optional[date] = None
+    user_data_min_date: Optional[date] = None
+    user_data_max_date: Optional[date] = None
 
 
 def get_activity_consultation_scope(actor, user=None) -> ConsultationScope:
@@ -200,11 +202,11 @@ def user_resolver_with_consultation_scope(error_message="Forbidden access"):
             ):
                 raise AuthorizationError(error_message)
 
-            consultation_scope.max_activity_date = getattr(
-                info.context, "max_activity_date", None
+            consultation_scope.user_data_min_date = getattr(
+                g, "user_data_min_date", None
             )
-            consultation_scope.min_activity_date = getattr(
-                info.context, "min_activity_date", None
+            consultation_scope.user_data_max_date = getattr(
+                g, "user_data_max_date", None
             )
 
             kwargs["consultation_scope"] = consultation_scope

@@ -23,10 +23,9 @@ from app.helpers.authentication import (
     unset_fc_auth_cookies,
     set_auth_cookies,
     require_auth,
+    AuthenticatedMutation,
 )
 from app.helpers.authorization import (
-    with_authorization_policy,
-    authenticated,
     AuthorizationError,
 )
 from app.helpers.errors import (
@@ -106,7 +105,7 @@ class UserSignUp(graphene.Mutation):
         return UserTokens(**tokens)
 
 
-class ConfirmFranceConnectEmail(graphene.Mutation):
+class ConfirmFranceConnectEmail(AuthenticatedMutation):
     class Arguments:
         email = graphene.String(
             required=True,
@@ -117,7 +116,6 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
     Output = UserOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email, password=None):
         with atomic_transaction(commit_at_end=True):
             if not current_user.france_connect_id or current_user.password:
@@ -137,7 +135,7 @@ class ConfirmFranceConnectEmail(graphene.Mutation):
         return current_user
 
 
-class ChangeEmail(graphene.Mutation):
+class ChangeEmail(AuthenticatedMutation):
     class Arguments:
         email = graphene.String(
             required=True,
@@ -147,7 +145,6 @@ class ChangeEmail(graphene.Mutation):
     Output = UserOutput
 
     @classmethod
-    @with_authorization_policy(authenticated)
     def mutate(cls, _, info, email):
         old_email = current_user.email
         if old_email != email:
@@ -412,7 +409,7 @@ class Query(graphene.ObjectType):
         return query_user(info)
 
 
-@with_authorization_policy(authenticated)
+@require_auth
 def query_user(info, id=None):
     if id:
         user = User.query.get(id)
@@ -480,7 +477,7 @@ Enumération des valeurs suivantes.
 """
 
 
-class DisableWarning(graphene.Mutation):
+class DisableWarning(AuthenticatedMutation):
     class Arguments:
         warning_name = graphene.Argument(
             graphene_enum_type(WarningToDisableType),
@@ -491,7 +488,6 @@ class DisableWarning(graphene.Mutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(authenticated)
     def mutate(cls, _, info, warning_name):
         with atomic_transaction(commit_at_end=True):
             if warning_name not in current_user.disabled_warnings:

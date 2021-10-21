@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, request
 
+from app.helpers.authentication import require_auth_with_write_access
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
     current_user,
 )
 from app.helpers.errors import BadRequestError
@@ -18,7 +19,8 @@ control_blueprint = Blueprint(__name__, "app.controllers.control")
 
 
 @control_blueprint.route("/generate-user-read-token", methods=["POST"])
-@with_authorization_policy(authenticated_and_active)
+@with_authorization_policy(active)
+@require_auth_with_write_access
 def generate_read_token():
     token = UserReadToken.get_or_create(current_user)
     return jsonify({"token": token.token})

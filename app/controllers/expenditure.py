@@ -1,6 +1,6 @@
 from app.domain.expenditure import log_expenditure
 from app.domain.permissions import check_actor_can_write_on_mission
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, AuthenticatedMutation
 import graphene
 from datetime import datetime
 from app.helpers.graphene_types import (
@@ -14,7 +14,7 @@ from app.helpers.errors import (
 )
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
 )
 from app.models import User, Mission
 from app.models.expenditure import (
@@ -45,7 +45,7 @@ class ExpenditureInput:
     )
 
 
-class LogExpenditure(graphene.Mutation):
+class LogExpenditure(AuthenticatedMutation):
     """
     Enregistrement d'un frais.
 
@@ -57,7 +57,7 @@ class LogExpenditure(graphene.Mutation):
     Output = ExpenditureOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **expenditure_input):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
@@ -87,7 +87,7 @@ class LogExpenditure(graphene.Mutation):
         return expenditure
 
 
-class CancelExpenditure(graphene.Mutation):
+class CancelExpenditure(AuthenticatedMutation):
     """
     Annulation d'un frais.
 
@@ -104,7 +104,7 @@ class CancelExpenditure(graphene.Mutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, expenditure_id):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()

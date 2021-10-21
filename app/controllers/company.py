@@ -24,11 +24,14 @@ from app.domain.permissions import (
     company_admin,
     AuthorizationError,
 )
-from app.helpers.authentication import require_auth, AuthenticationError
+from app.helpers.authentication import (
+    require_auth,
+    AuthenticationError,
+    AuthenticatedMutation,
+)
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated,
     current_user,
 )
 from app import siren_api_client, mailer
@@ -53,7 +56,7 @@ from app.services.update_companies_spreadsheet import (
 )
 
 
-class CompanySignUp(graphene.Mutation):
+class CompanySignUp(AuthenticatedMutation):
     """
     Inscription d'une nouvelle entreprise.
 
@@ -77,7 +80,6 @@ class CompanySignUp(graphene.Mutation):
     employment = graphene.Field(EmploymentOutput)
 
     @classmethod
-    @with_authorization_policy(authenticated)
     def mutate(cls, _, info, usual_name, siren, sirets):
         with atomic_transaction(commit_at_end=True):
             siren_api_info = None
@@ -228,7 +230,7 @@ class NonPublicQuery(graphene.ObjectType):
         )
 
 
-class EditCompanySettings(graphene.Mutation):
+class EditCompanySettings(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
             required=True, description="Identifiant de l'entreprise"
@@ -301,9 +303,8 @@ class Query(graphene.ObjectType):
         return matching_company
 
 
+@require_auth
 def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
-    require_auth()()
-
     if not set(company_ids) <= set(
         current_user.current_company_ids_with_admin_rights
     ):
