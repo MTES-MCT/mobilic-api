@@ -43,7 +43,7 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_constraintt(
+    op.drop_constraint(
         "only_one_validation_per_submitter_mission_and_user",
         "mission_validation",
     )
