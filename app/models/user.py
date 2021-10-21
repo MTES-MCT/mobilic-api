@@ -250,6 +250,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         self.latest_token_revocation_time = datetime.now()
         for token in self.refresh_tokens:
             db.session.delete(token)
+        db.session.add(self)
 
     @property
     def display_name(self):
