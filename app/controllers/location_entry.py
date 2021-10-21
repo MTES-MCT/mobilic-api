@@ -9,6 +9,7 @@ from app.domain.permissions import (
     company_admin,
     check_actor_can_write_on_mission,
 )
+from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy, current_user
 from app import db
 from app.helpers.errors import (
@@ -29,7 +30,7 @@ from app.models.location_entry import (
 from app.models import Mission
 
 
-class CreateCompanyKnownAddress(graphene.Mutation):
+class CreateCompanyKnownAddress(AuthenticatedMutation):
     """
     Ajout d'un lieu enregistré.
 
@@ -68,7 +69,7 @@ class CreateCompanyKnownAddress(graphene.Mutation):
         return company_known_address
 
 
-class EditCompanyKnownAddress(graphene.Mutation):
+class EditCompanyKnownAddress(AuthenticatedMutation):
     """
     Edition du nom usuel d'un lieu enregistré.
 
@@ -101,7 +102,7 @@ class EditCompanyKnownAddress(graphene.Mutation):
         return company_known_address
 
 
-class TerminateCompanyKnownAddress(graphene.Mutation):
+class TerminateCompanyKnownAddress(AuthenticatedMutation):
     """
     Retrait d'un véhicule de la liste.
     """
@@ -129,7 +130,7 @@ class TerminateCompanyKnownAddress(graphene.Mutation):
         return Void(success=True)
 
 
-class LogMissionLocation(graphene.Mutation):
+class LogMissionLocation(AuthenticatedMutation):
     class Arguments:
         geo_api_data = graphene.Argument(
             GenericScalar,
@@ -247,7 +248,7 @@ class LogMissionLocation(graphene.Mutation):
         return location_entry
 
 
-class RegisterKilometerAtLocation(graphene.Mutation):
+class RegisterKilometerAtLocation(AuthenticatedMutation):
     class Arguments:
         mission_location_id = graphene.Argument(
             graphene.Int,

@@ -1,20 +1,11 @@
 from inspect import signature
 from functools import wraps
 
-from app import app
 from app.helpers.authentication import current_user, require_auth
 from app.helpers.errors import AuthorizationError
 
 
-def allow_all():
-    pass
-
-
-def authenticated(user):
-    return user is not None
-
-
-def authenticated_and_active(user):
+def active(user):
     if not user:
         return False
     if not user.has_activated_email:
@@ -45,9 +36,6 @@ def with_authorization_policy(
         )
 
     def decorator(resolver):
-        if authorization_rule == allow_all:
-            return resolver
-
         @wraps(resolver)
         def decorated_resolver(*args, **kwargs):
             if not rule_requires_target and not authorization_rule(

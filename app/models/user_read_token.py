@@ -69,9 +69,13 @@ class UserReadToken(BaseModel):
             UserReadToken.token == token
         ).one_or_none()
         if not token:
-            raise InvalidTokenError("Invalid token", should_alert_team=True)
+            raise InvalidTokenError(
+                "Invalid impersonation read token", should_alert_team=True
+            )
         if token.valid_until < datetime.now():
-            raise TokenExpiredError("Expired token", should_alert_team=True)
+            raise TokenExpiredError(
+                "Expired impersonation read token", should_alert_team=True
+            )
         return token
 
 

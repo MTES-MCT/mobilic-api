@@ -11,14 +11,13 @@ from app.domain.notifications import (
 from app.domain.validation import validate_mission
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
 )
 from app.helpers.graphene_types import TimeStamp
 from app.models.mission import Mission
 from app.models import Company, Vehicle, User, Activity
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import (
-    MissionValidation,
     MissionValidationOutput,
 )
 from app.data_access.mission import MissionOutput
@@ -27,15 +26,12 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     can_actor_read_mission,
 )
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
-    NoActivitiesToValidateError,
-    MissionStillRunningError,
 )
-from app.helpers.mail import MailjetError
 from app.models.vehicle import VehicleOutput
 
 
@@ -92,7 +88,7 @@ class MissionInput:
     )
 
 
-class CreateMission(graphene.Mutation):
+class CreateMission(AuthenticatedMutation):
     """
     Création d'une nouvelle mission, dans laquelle pourront être enregistrés des activités et des frais.
 
@@ -104,7 +100,7 @@ class CreateMission(graphene.Mutation):
     Output = MissionOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             # Preload resources
@@ -153,7 +149,7 @@ class CreateMission(graphene.Mutation):
         return mission
 
 
-class EndMission(graphene.Mutation):
+class EndMission(AuthenticatedMutation):
     """
     Fin de la mission, qui mettra un terme à l'activité la plus récente enregistrée pour la mission.
 
@@ -177,7 +173,7 @@ class EndMission(graphene.Mutation):
     Output = MissionOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
@@ -241,7 +237,7 @@ class EndMission(graphene.Mutation):
         return mission
 
 
-class ValidateMission(graphene.Mutation):
+class ValidateMission(AuthenticatedMutation):
     """
     Validation du contenu (activités + frais) de la mission.
 
@@ -299,7 +295,7 @@ class ValidateMission(graphene.Mutation):
         return mission_validation
 
 
-class UpdateMissionVehicle(graphene.Mutation):
+class UpdateMissionVehicle(AuthenticatedMutation):
     class Arguments:
         mission_id = graphene.Argument(
             graphene.Int,

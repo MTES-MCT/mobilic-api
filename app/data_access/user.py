@@ -11,7 +11,6 @@ from app.domain.permissions import (
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import (
@@ -136,7 +135,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
             else None
         )
 
-    @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
     )
@@ -150,10 +148,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
         after=None,
     ):
         from_time = get_max_datetime(
-            from_time, consultation_scope.min_activity_date
+            from_time, consultation_scope.user_data_min_date
         )
         until_time = get_min_datetime(
-            until_time, consultation_scope.max_activity_date
+            until_time, consultation_scope.user_data_max_date
         )
 
         acknowledged_activity_query = self.query_activities_with_relations(
@@ -182,7 +180,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
             max_first=200,
         )
 
-    @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'workDays' of user object. The field is only accessible to the user himself of company admins."
     )
@@ -196,10 +193,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
         after=None,
     ):
         from_time = get_max_datetime(
-            from_date, consultation_scope.min_activity_date
+            from_date, consultation_scope.user_data_min_date
         )
         until_time = get_min_datetime(
-            until_date, consultation_scope.max_activity_date
+            until_date, consultation_scope.user_data_max_date
         )
 
         actual_first = min(first or 200, 200)
@@ -223,7 +220,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
             first=actual_first,
         )
 
-    @with_authorization_policy(authenticated)
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'missions' of user object. The field is only accessible to the user himself of company admins."
     )
@@ -237,10 +233,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
         after=None,
     ):
         from_time = get_max_datetime(
-            from_time, consultation_scope.min_activity_date
+            from_time, consultation_scope.user_data_min_date
         )
         until_time = get_min_datetime(
-            until_time, consultation_scope.max_activity_date
+            until_time, consultation_scope.user_data_max_date
         )
 
         if after:

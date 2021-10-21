@@ -5,6 +5,8 @@ from app.helpers.authentication import (
     current_user,
     set_auth_cookies,
     create_access_tokens_for,
+    AuthenticatedMutation,
+    require_auth_with_write_access,
 )
 import graphene
 from datetime import datetime, date
@@ -23,7 +25,7 @@ from app.helpers.mail import MailjetError
 from app.helpers.authentication import AuthenticationError
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
     AuthorizationError,
 )
 from app.models import Company, User
@@ -37,7 +39,7 @@ MAX_SIZE_OF_INVITATION_BATCH = 100
 MAILJET_BATCH_SEND_LIMIT = 50
 
 
-class CreateEmployment(graphene.Mutation):
+class CreateEmployment(AuthenticatedMutation):
     """
     Invitation de rattachement d'un travailleur mobile à une entreprise. L'invitation doit être approuvée par le salarié pour être effective.
 
@@ -159,7 +161,7 @@ class CreateEmployment(graphene.Mutation):
         return employment
 
 
-class CreateWorkerEmploymentsFromEmails(graphene.Mutation):
+class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     """
     Invitation de rattachement d'un travailleur mobile à une entreprise. L'invitation doit être approuvée par le salarié pour être effective.
 
@@ -244,7 +246,7 @@ def review_employment(employment_id, reject):
     return employment
 
 
-class ValidateEmployment(graphene.Mutation):
+class ValidateEmployment(AuthenticatedMutation):
     """
     Validation d'une invitation de rattachement par le salarié.
 
@@ -261,7 +263,7 @@ class ValidateEmployment(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, employment_id):
         employment = review_employment(employment_id, reject=False)
 
@@ -273,7 +275,7 @@ class ValidateEmployment(graphene.Mutation):
         return employment
 
 
-class RejectEmployment(graphene.Mutation):
+class RejectEmployment(AuthenticatedMutation):
     """
     Refus d'une invitation de rattachement par le salarié.
 
@@ -290,7 +292,7 @@ class RejectEmployment(graphene.Mutation):
     Output = EmploymentOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, employment_id):
         return review_employment(employment_id, reject=True)
 
@@ -338,7 +340,8 @@ class RedeemInvitation(graphene.Mutation):
 
             else:
 
-                @with_authorization_policy(authenticated_and_active)
+                @with_authorization_policy(active)
+                @require_auth_with_write_access
                 def bind_and_redeem():
                     if employment.is_primary is None:
                         employment.is_primary = (
@@ -366,7 +369,7 @@ class RedeemInvitation(graphene.Mutation):
         return employment
 
 
-class TerminateEmployment(graphene.Mutation):
+class TerminateEmployment(AuthenticatedMutation):
     """
     Fin du rattachement d'un salarié.
 
@@ -417,7 +420,7 @@ class TerminateEmployment(graphene.Mutation):
         return employment
 
 
-class CancelEmployment(graphene.Mutation):
+class CancelEmployment(AuthenticatedMutation):
     """
     Annulation du rattachement d'un salarié. Supprime le rattachement qu'il soit actif ou non.
 
@@ -455,7 +458,7 @@ class CancelEmployment(graphene.Mutation):
         return Void(success=True)
 
 
-class SendInvitationReminder(graphene.Mutation):
+class SendInvitationReminder(AuthenticatedMutation):
     class Arguments:
         employment_id = graphene.Argument(
             graphene.Int,

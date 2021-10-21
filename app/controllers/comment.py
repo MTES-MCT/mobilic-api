@@ -1,7 +1,7 @@
 from sqlalchemy.orm import selectinload
 
 from app.domain.permissions import can_actor_read_mission
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, AuthenticatedMutation
 import graphene
 from datetime import datetime
 
@@ -10,7 +10,7 @@ from app.controllers.utils import atomic_transaction, Void
 from app.helpers.errors import AuthorizationError, InvalidParamsError
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
 )
 from app.models import Comment, Mission
 from app.models.comment import CommentOutput
@@ -28,7 +28,7 @@ class CommentInput:
     )
 
 
-class LogComment(graphene.Mutation):
+class LogComment(AuthenticatedMutation):
     """
     Ajout d'une observation à la mission.
 
@@ -67,7 +67,7 @@ class LogComment(graphene.Mutation):
         return comment
 
 
-class CancelComment(graphene.Mutation):
+class CancelComment(AuthenticatedMutation):
     """
     Retrait d'une observation.
 
@@ -84,7 +84,7 @@ class CancelComment(graphene.Mutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, comment_id):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()

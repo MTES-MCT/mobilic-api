@@ -2,7 +2,7 @@ import graphene
 from datetime import datetime
 
 from app.controllers.utils import Void, atomic_transaction
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, AuthenticatedMutation
 
 from app.domain.permissions import company_admin
 from app.helpers.authorization import with_authorization_policy
@@ -10,7 +10,7 @@ from app import db, app
 from app.models.vehicle import VehicleOutput, Vehicle
 
 
-class CreateVehicle(graphene.Mutation):
+class CreateVehicle(AuthenticatedMutation):
     """
     Ajout d'un nouveau véhicule à la liste.
 
@@ -48,7 +48,7 @@ class CreateVehicle(graphene.Mutation):
         return vehicle
 
 
-class EditVehicle(graphene.Mutation):
+class EditVehicle(AuthenticatedMutation):
     """
     Edition du nom usuel d'un véhicule.
 
@@ -79,7 +79,7 @@ class EditVehicle(graphene.Mutation):
         return vehicle
 
 
-class TerminateVehicle(graphene.Mutation):
+class TerminateVehicle(AuthenticatedMutation):
     """
     Retrait d'un véhicule de la liste.
     """

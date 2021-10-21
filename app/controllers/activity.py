@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.controllers.utils import atomic_transaction, Void
 from app.domain.permissions import check_actor_can_write_on_mission_over_period
-from app.helpers.authentication import current_user
+from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.domain.log_activities import log_activity
 from app.helpers.errors import (
     AuthorizationError,
@@ -15,7 +15,7 @@ from app.helpers.errors import (
 )
 from app.helpers.authorization import (
     with_authorization_policy,
-    authenticated_and_active,
+    active,
 )
 from app.helpers.graphene_types import (
     graphene_enum_type,
@@ -61,7 +61,7 @@ class ActivityLogInput:
     )
 
 
-class LogActivity(graphene.Mutation):
+class LogActivity(AuthenticatedMutation):
     """
     Enregistrement d'une nouvelle activité.
 
@@ -73,7 +73,7 @@ class LogActivity(graphene.Mutation):
     Output = ActivityOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
             switch_mode = activity_input.get("switch", True)
@@ -181,7 +181,7 @@ def edit_activity(
     return activity_to_update
 
 
-class CancelActivity(graphene.Mutation):
+class CancelActivity(AuthenticatedMutation):
     """
     Annulation d'une activité précédemment enregistrée.
 
@@ -203,7 +203,7 @@ class CancelActivity(graphene.Mutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **edit_input):
         edit_activity(
             edit_input["activity_id"],
@@ -213,7 +213,7 @@ class CancelActivity(graphene.Mutation):
         return Void(success=True)
 
 
-class EditActivity(graphene.Mutation):
+class EditActivity(AuthenticatedMutation):
     """
     Correction d'une activité précédemment enregistrée.
 
@@ -225,7 +225,7 @@ class EditActivity(graphene.Mutation):
     Output = ActivityOutput
 
     @classmethod
-    @with_authorization_policy(authenticated_and_active)
+    @with_authorization_policy(active)
     def mutate(cls, _, info, **edit_input):
         if (
             not edit_input.get("start_time")

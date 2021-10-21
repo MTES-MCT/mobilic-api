@@ -6,7 +6,7 @@ from app.controllers.company import (
     Query as CompanyQuery,
     EditCompanySettings,
 )
-from app.controllers.user_read import Query as UserReadQuery
+from app.controllers.user_read import Query as UserReadTokenQuery
 from app.controllers.employment import (
     CreateEmployment,
     ValidateEmployment,
@@ -49,7 +49,7 @@ from app.controllers.vehicle import (
     EditVehicle,
     TerminateVehicle,
 )
-from app.helpers.authentication import Auth
+from app.helpers.authentication import Auth, CheckQuery
 from app.controllers.activity import (
     LogActivity,
     EditActivity,
@@ -158,7 +158,9 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_settings = EditCompanySettings.Field()
 
 
-class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
+class Queries(
+    UserQuery, CheckQuery, CompanyQuery, MissionQuery, graphene.ObjectType
+):
     """
     Requêtes de consultation qui ne modifient pas l'état du système
     """
@@ -169,7 +171,7 @@ class Queries(UserQuery, CompanyQuery, MissionQuery, graphene.ObjectType):
 class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
-    UserReadQuery,
+    UserReadTokenQuery,
     graphene.ObjectType,
 ):
     pass

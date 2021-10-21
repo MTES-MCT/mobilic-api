@@ -1,6 +1,6 @@
 from calendar import timegm
 
-from flask import g, after_this_request, jsonify
+from flask import g, after_this_request, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -17,6 +17,7 @@ from flask_jwt_extended.exceptions import (
     JWTExtendedException,
     NoAuthorizationError,
     InvalidHeaderError,
+    UserLoadError,
 )
 from flask_jwt_extended.view_decorators import _decode_jwt_from_headers
 from jwt import PyJWTError
@@ -24,13 +25,14 @@ from functools import wraps
 from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
+from app.models import UserReadToken
 
 current_user = LocalProxy(lambda: g.get("user") or current_actor)
 
 
 from app.models.user import User
 from app import app, db
-from app.helpers.errors import AuthenticationError
+from app.helpers.errors import AuthenticationError, AuthorizationError
 
 jwt = JWTManager(app)
 
@@ -51,7 +53,20 @@ def verify_oauth_token_in_request():
     g.user = matching_token.user
 
 
+def check_impersonate_user():
+    impersonation_token = request.headers.get("Impersonation-Token")
+    if impersonation_token:
+        existing_token = UserReadToken.get_token(impersonation_token)
+        g.user = existing_token.user
+        g.user_data_max_date = existing_token.creation_day
+        g.user_data_min_date = existing_token.history_start_day
+        g.read_only_access = True
+
+
 def check_auth():
+    if current_user:
+        return
+    check_impersonate_user()
     if g.get("user"):
         return
     try:
@@ -60,6 +75,8 @@ def check_auth():
         raise AuthenticationError(
             "Unable to find a valid cookie or authorization header"
         )
+    except UserLoadError:
+        raise AuthenticationError("Invalid token")
     except (JWTExtendedException, PyJWTError):
         verify_oauth_token_in_request()
 
@@ -244,6 +261,26 @@ class UserTokensWithFC(UserTokens, graphene.ObjectType):
     fc_token = graphene.String(description="Jeton d'accès")
 
 
+def require_auth_with_write_access(f):
+    auth_f = require_auth(f)
+
+    @wraps(auth_f)
+    def wrapper(*args, **kwargs):
+        if g.get("read_only_access", False):
+            raise AuthorizationError(
+                "Mutations are not allowed in read access mode"
+            )
+        return auth_f(*args, **kwargs)
+
+    return wrapper
+
+
+class AuthenticatedMutation(graphene.Mutation):
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        cls.mutate = require_auth_with_write_access(cls.mutate)
+
+
 class LoginMutation(graphene.Mutation):
     """
     Authentification par email/mot de passe.
@@ -278,19 +315,22 @@ class LoginMutation(graphene.Mutation):
         return UserTokens(**tokens)
 
 
-class CheckMutation(graphene.Mutation):
+class CheckOutput(graphene.ObjectType):
+    success = graphene.Boolean()
+    user_id = graphene.Int()
+
+
+class CheckQuery(graphene.ObjectType):
     """
     Test de validité du jeton d'accès.
 
     """
 
-    success = graphene.Boolean()
-    user_id = graphene.Int()
+    check_auth = graphene.Field(CheckOutput, required=True)
 
-    @classmethod
     @require_auth
-    def mutate(cls, _, info):
-        return CheckMutation(success=True, user_id=current_user.id)
+    def resolve_check_auth(self, info):
+        return CheckOutput(success=True, user_id=current_user.id)
 
 
 class LogoutMutation(graphene.Mutation):
@@ -330,7 +370,6 @@ class Auth(graphene.ObjectType):
 
     login = LoginMutation.Field()
     refresh = RefreshMutation.Field()
-    check = CheckMutation.Field()
     logout = LogoutMutation.Field()
 
 
