@@ -143,17 +143,10 @@ def create_access_tokens_for(
 ):
     from app.models.refresh_token import RefreshToken
 
-    current_primary_employment = user.primary_employment_at(date.today())
     tokens = {
         "access_token": create_access_token(
             {
                 "id": user.id,
-                "company_id": current_primary_employment.company_id
-                if current_primary_employment
-                else None,
-                "company_admin": current_primary_employment.has_admin_rights
-                if current_primary_employment
-                else None,
                 "client_id": client_id,
             },
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],

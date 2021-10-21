@@ -68,7 +68,7 @@ class MissionInput:
     )
     company_id = graphene.Argument(
         graphene.Int,
-        required=False,
+        required=True,
         description="Optionnel, précise l'entreprise qui effectue la mission. Par défaut c'est l'entreprise de l'auteur de l'opération.",
     )
     context = graphene.Argument(
@@ -104,21 +104,14 @@ class CreateMission(AuthenticatedMutation):
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             # Preload resources
-            company_id = mission_input.get("company_id")
-            if company_id:
-                company = Company.query.get(company_id)
-                if not is_employed_by_company_over_period(
-                    current_user, company, include_pending_invite=False
-                ):
-                    raise AuthorizationError(
-                        "Actor is not authorized to create a mission for the company"
-                    )
-
-            else:
-                company = current_user.primary_company
-
-            if not company:
-                raise AuthorizationError("Actor has no primary company")
+            company_id = mission_input["company_id"]
+            company = Company.query.get(company_id)
+            if not is_employed_by_company_over_period(
+                current_user, company, include_pending_invite=False
+            ):
+                raise AuthorizationError(
+                    "Actor is not authorized to create a mission for the company"
+                )
 
             context = mission_input.get("context")
             received_vehicle_id = mission_input.get("vehicle_id")

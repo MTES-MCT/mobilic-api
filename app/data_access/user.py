@@ -6,7 +6,6 @@ from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
-    self_or_company_admin,
 )
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
@@ -56,14 +55,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         required=False,
         description="Adresse email, qui sert également d'identifiant de connexion",
-    )
-    primary_company = graphene.Field(
-        lambda: CompanyOutput,
-        description="Entreprise de rattachement principale",
-    )
-    is_admin_of_primary_company = graphene.Field(
-        graphene.Boolean,
-        description="Précise si l'utilisateur est gestionnaire de son entreprise principale",
     )
     activities = graphene.Field(
         ActivityConnection,
@@ -121,19 +112,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         lambda: CompanyOutput,
         description="Liste des entreprises sur lesquelles l'utilisateur a les droits de gestion",
     )
-
-    @with_authorization_policy(
-        self_or_company_admin,
-        get_target_from_args=lambda self, info: self,
-        error_message="Forbidden access to 'isAdminOfPrimaryCompany' field of user object.",
-    )
-    def resolve_is_admin_of_primary_company(self, info):
-        current_primary_employment = self.primary_employment_at(date.today())
-        return (
-            current_primary_employment.has_admin_rights
-            if current_primary_employment
-            else None
-        )
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
@@ -287,7 +265,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             self.active_employments_at(
                 date.today(), include_pending_ones=True
             ),
-            key=lambda e: not e.is_primary,
+            key=lambda e: e.start_date,
         )
 
     @with_authorization_policy(

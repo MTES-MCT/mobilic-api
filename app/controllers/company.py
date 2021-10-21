@@ -126,7 +126,6 @@ class CompanySignUp(AuthenticatedMutation):
             db.session.flush()  # Early check for SIRET duplication
 
             admin_employment = Employment(
-                is_primary=False if current_user.primary_company else True,
                 user_id=current_user.id,
                 company=company,
                 start_date=now.date(),
