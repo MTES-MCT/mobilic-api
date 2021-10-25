@@ -1,17 +1,15 @@
 import graphene
 from flask import send_file
-from datetime import datetime, timedelta
+from datetime import datetime
 from graphene.types.generic import GenericScalar
-import requests
 from sqlalchemy.orm import selectinload
 from zipfile import ZipFile, ZIP_DEFLATED
 from io import BytesIO
-import os
 
 from webargs import fields
-from marshmallow import Schema, validates_schema, ValidationError
 from flask_apispec import use_kwargs, doc
 
+from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
 from app.domain.company import (
@@ -26,7 +24,6 @@ from app.domain.permissions import (
 )
 from app.helpers.authentication import (
     require_auth,
-    AuthenticationError,
     AuthenticatedMutation,
 )
 from app.domain.work_days import group_user_events_by_day_with_limit
@@ -45,7 +42,7 @@ from app.helpers.tachograph import (
     generate_tachograph_file_name,
 )
 from app.helpers.xls import send_work_days_as_excel
-from app.models import Company, Employment, NafCode
+from app.models import Company, Employment
 from app.models.employment import (
     EmploymentRequestValidationStatus,
     EmploymentOutput,
@@ -365,21 +362,11 @@ def download_activity_report(
     )
 
 
-class TachographGenerationScopeSchema(Schema):
+class TachographGenerationScopeSchema(TachographBaseOptionsSchema):
     company_ids = fields.List(
         fields.Int(), required=True, validate=lambda l: len(l) > 0
     )
     user_ids = fields.List(fields.Int(), required=False)
-    min_date = fields.Date(required=True)
-    max_date = fields.Date(required=True)
-    with_digital_signatures = fields.Boolean(required=False)
-
-    @validates_schema
-    def check_period_is_small_enough(self, data, **kwargs):
-        if data["max_date"] - data["min_date"] > timedelta(days=64):
-            raise ValidationError(
-                "The requested period should be less than 64 days"
-            )
 
 
 @app.route("/companies/generate_tachograph_files", methods=["POST"])
