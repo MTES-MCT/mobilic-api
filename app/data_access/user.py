@@ -17,7 +17,12 @@ from app.helpers.pagination import (
     parse_datetime_plus_id_cursor,
     to_connection,
 )
-from app.helpers.time import get_max_datetime, get_min_datetime
+from app.helpers.time import (
+    get_max_datetime,
+    get_min_datetime,
+    max_or_none,
+    min_or_none,
+)
 from app.models import User, Company, Activity, Mission
 from app.data_access.activity import ActivityConnection
 from app.models.employment import EmploymentOutput
@@ -107,6 +112,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
     current_employments = graphene.List(
         EmploymentOutput,
         description="Liste des rattachements actifs ou en attente de validation",
+    )
+    employments = graphene.List(
+        EmploymentOutput,
+        description="Liste de tous les rattachements actifs on en attente de validation de l'utilisateur sur une période donnée",
+        from_date=graphene.Date(required=False, description="Date de début"),
+        until_date=graphene.Date(required=False, description="Date de fin"),
     )
     admined_companies = graphene.List(
         lambda: CompanyOutput,
@@ -267,6 +278,37 @@ class UserOutput(BaseSQLAlchemyObjectType):
             ),
             key=lambda e: e.start_date,
         )
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info: self,
+        error_message="Forbidden access to field 'employments' of user object. The field is only accessible to the user himself.",
+    )
+    @user_resolver_with_consultation_scope()
+    def resolve_employments(
+        self, info, consultation_scope, from_date=None, until_date=None
+    ):
+        from_date = max_or_none(
+            from_date, consultation_scope.user_data_min_date
+        )
+        until_date = min_or_none(
+            until_date, consultation_scope.user_data_max_date
+        )
+
+        employments_with_eventual_duplicates = sorted(
+            self.active_employments_between(
+                from_date, until_date, include_pending_ones=False
+            ),
+            key=lambda e: e.start_date,
+            reverse=True,
+        )
+        company_ids = set()
+        deduplicated_employments = []
+        for e in employments_with_eventual_duplicates:
+            if e.company_id not in company_ids:
+                deduplicated_employments.append(e)
+                company_ids.add(e.company_id)
+        return reversed(deduplicated_employments)
 
     @with_authorization_policy(
         only_self,

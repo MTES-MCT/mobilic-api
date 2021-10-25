@@ -93,3 +93,13 @@ def get_max_datetime(date_or_dt1, date_or_dt2):
 @_datetime_operator(date_as_end_of_day=True)
 def get_min_datetime(date_or_dt1, date_or_dt2):
     return min(date_or_dt1, date_or_dt2)
+
+
+def max_or_none(*args):
+    args_not_none = [a for a in args if a is not None]
+    return max(args_not_none) if args_not_none else None
+
+
+def min_or_none(*args):
+    args_not_none = [a for a in args if a is not None]
+    return min(args_not_none) if args_not_none else None
