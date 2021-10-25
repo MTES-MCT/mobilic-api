@@ -2,12 +2,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
 
 from app import db
+from app.helpers.time import max_or_none
 from app.models.event import EventBaseModel
-
-
-def _max_or_none(*args):
-    args_not_none = [a for a in args if a is not None]
-    return max(args_not_none) if args_not_none else None
 
 
 class UserMissionModificationStatus(str, Enum):
@@ -141,7 +137,7 @@ class Mission(EventBaseModel):
             return UserMissionModificationStatus.NO_DATA_FOR_USER, None
 
         if not latest_user_action_time:
-            latest_user_action_time = _max_or_none(
+            latest_user_action_time = max_or_none(
                 *[
                     a.latest_modification_time_by(user)
                     for a in all_user_activities
