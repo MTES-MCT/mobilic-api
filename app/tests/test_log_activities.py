@@ -68,7 +68,7 @@ class TestLogActivities(BaseTest):
                 time=submit_time or time,
                 submitter_id=self.team_leader.id,
                 query=ApiRequests.create_mission,
-                variables={},
+                variables={"company_id": self.company.id},
             )
             mission_id = create_mission_response["data"]["activities"][
                 "createMission"
