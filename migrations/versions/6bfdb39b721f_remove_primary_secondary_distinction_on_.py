@@ -1,7 +1,7 @@
 """Remove primary/secondary distinction on employments
 
 Revision ID: 6bfdb39b721f
-Revises: fa96dfc8237d
+Revises: 1a89721126f7
 Create Date: 2021-10-22 00:39:22.338857
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "6bfdb39b721f"
-down_revision = "fa96dfc8237d"
+down_revision = "1a89721126f7"
 branch_labels = None
 depends_on = None
 
