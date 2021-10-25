@@ -1,10 +1,11 @@
 import graphene
 import jwt
 from enum import Enum
-from flask import redirect, request, after_this_request, send_file
+from flask import redirect, request, after_this_request, send_file, g
 from uuid import uuid4
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode, unquote
+from io import BytesIO
 
 from webargs import fields
 from flask_apispec import use_kwargs, doc
@@ -37,6 +38,12 @@ from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.pdf import generate_work_days_pdf_for
+from app.helpers.tachograph import (
+    generate_tachograph_parts,
+    write_tachograph_archive,
+    generate_tachograph_file_name,
+)
+from app.helpers.time import min_or_none, max_or_none
 from app.templates.filters import full_format_day
 from app.models import User
 from app import app, db, mailer
@@ -422,6 +429,47 @@ def query_user(info, id=None):
     return user
 
 
+class TachographBaseOptionsSchema(Schema):
+    min_date = fields.Date(required=True)
+    max_date = fields.Date(required=True)
+    with_digital_signatures = fields.Boolean(required=False)
+
+    @validates_schema
+    def check_period_is_small_enough(self, data, **kwargs):
+        if data["max_date"] - data["min_date"] > timedelta(days=64):
+            raise ValidationError(
+                "The requested period should be less than 64 days"
+            )
+
+
+@app.route("/users/generate_tachograph_file", methods=["POST"])
+@doc(description="Génération de fichier C1B pour l'utilisateur et la période")
+@use_kwargs(TachographBaseOptionsSchema(), apply=True)
+@require_auth
+def generate_tachograph_file(min_date, max_date, with_digital_signatures=True):
+    tachograph_data = generate_tachograph_parts(
+        current_user,
+        start_date=max_or_none(
+            min_date, getattr(g, "user_data_min_date", None)
+        ),
+        end_date=min_or_none(max_date, getattr(g, "user_data_max_date", None)),
+        only_activities_validated_by_admin=False,
+        with_signatures=with_digital_signatures,
+        do_not_generate_if_empty=False,
+    )
+    file = BytesIO()
+    file.write(write_tachograph_archive(tachograph_data))
+    file.seek(0)
+
+    return send_file(
+        file,
+        cache_timeout=0,
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        attachment_filename=generate_tachograph_file_name(current_user),
+    )
+
+
 class PDFExportSchema(Schema):
     min_date = fields.Date(required=True)
     max_date = fields.Date(required=True)
@@ -448,8 +496,10 @@ def generate_pdf_export(
     ]
     pdf = generate_work_days_pdf_for(
         current_user,
-        min_date,
-        max_date,
+        start_date=max_or_none(
+            min_date, getattr(g, "user_data_min_date", None)
+        ),
+        end_date=min_or_none(max_date, getattr(g, "user_data_max_date", None)),
         include_support_activity=any(
             [c.require_support_activity for c in relevant_companies]
         ),
