@@ -76,7 +76,7 @@ class ApiRequests:
         }
     """
     create_mission = """
-        mutation ($name: String, $companyId: Int, $context: GenericScalar) {
+        mutation ($name: String, $companyId: Int!, $context: GenericScalar) {
             activities {
                 createMission (name: $name, companyId: $companyId, context: $context) {
                     id
