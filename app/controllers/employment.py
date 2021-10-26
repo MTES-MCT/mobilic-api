@@ -312,7 +312,6 @@ class RedeemInvitation(graphene.Mutation):
 
             else:
 
-                @with_authorization_policy(active)
                 @require_auth_with_write_access
                 def bind_and_redeem():
                     employment.bind(current_user)
