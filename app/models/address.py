@@ -18,21 +18,32 @@ class Address(BaseModel):
     manual = db.Column(db.Boolean, nullable=False)
 
     @classmethod
-    def get_or_create(cls, data):
-        try:
-            geo_api_id = data["properties"]["id"]
-            properties = dict(
-                type=data["properties"]["type"],
-                postal_code=data["properties"]["postcode"],
-                city=data["properties"]["city"],
-                name=data["properties"]["name"],
-                coords=data["geometry"]["coordinates"],
+    def get_or_create(cls, geo_api_data=None, manual_address=None):
+        if geo_api_data:
+            try:
+                geo_api_id = geo_api_data["properties"]["id"]
+                properties = dict(
+                    type=geo_api_data["properties"]["type"],
+                    postal_code=geo_api_data["properties"]["postcode"],
+                    city=geo_api_data["properties"]["city"],
+                    name=geo_api_data["properties"]["name"],
+                    coords=geo_api_data["geometry"]["coordinates"],
+                    manual=False,
+                )
+                additional_props = dict(
+                    geo_api_id=geo_api_id, geo_api_raw_data=geo_api_data
+                )
+            except:
+                raise InvalidParamsError("Could not parse GeoJSON payload")
+            existing_addresses = cls.query.filter(
+                cls.geo_api_id == geo_api_id
+            ).all()
+        else:
+            properties = dict(manual=True, name=manual_address)
+            additional_props = dict()
+            existing_addresses = cls.query.filter(
+                cls.manual.is_(True), cls.name == manual_address
             )
-        except:
-            raise InvalidParamsError("Could not parse GeoJSON payload")
-        existing_addresses = cls.query.filter(
-            cls.geo_api_id == geo_api_id
-        ).all()
 
         # We check whether the new address exists in the DB with the same exact properties.
         # If not or if at least one property differ we create a new DB entry.
@@ -45,12 +56,7 @@ class Address(BaseModel):
             if are_addresses_equal:
                 return addr
 
-        address = cls(
-            **properties,
-            geo_api_id=geo_api_id,
-            geo_api_raw_data=data,
-            manual=False,
-        )
+        address = cls(**properties, **additional_props)
         db.session.add(address)
         return address
 
