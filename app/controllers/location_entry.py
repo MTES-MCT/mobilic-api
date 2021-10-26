@@ -39,8 +39,13 @@ class CreateCompanyKnownAddress(graphene.Mutation):
     class Arguments:
         geo_api_data = graphene.Argument(
             GenericScalar,
-            required=True,
+            required=False,
             description="Informations sur le lieu au format GeoJSON",
+        )
+        manual_address = graphene.Argument(
+            graphene.String,
+            required=False,
+            description="Addresse donnée manuellement",
         )
         alias = graphene.String(
             required=False, description="Nom usuel optionnel du lieu"
@@ -57,10 +62,27 @@ class CreateCompanyKnownAddress(graphene.Mutation):
         company_admin,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
-    def mutate(cls, _, info, geo_api_data, company_id, alias=None):
+    def mutate(
+        cls,
+        _,
+        info,
+        company_id,
+        geo_api_data=None,
+        manual_address=None,
+        alias=None,
+    ):
+        if (
+            int(geo_api_data is not None) + int(manual_address is not None)
+            != 1
+        ):
+            raise InvalidParamsError(
+                "Exactly one of geoApiData or manualAddress should be set"
+            )
         company_known_address = CompanyKnownAddress(
             alias=alias,
-            address=Address.get_or_create(geo_api_data),
+            address=Address.get_or_create(
+                geo_api_data=geo_api_data, manual_address=manual_address
+            ),
             company_id=company_id,
         )
         db.session.add(company_known_address)
@@ -203,10 +225,10 @@ class LogMissionLocation(graphene.Mutation):
                 ):
                     raise InvalidParamsError("Invalid companyKnownAddressId")
                 address = company_known_address.address
-            elif geo_api_data:
-                address = Address.get_or_create(geo_api_data)
             else:
-                address = Address(manual=True, name=manual_address)
+                address = Address.get_or_create(
+                    geo_api_data=geo_api_data, manual_address=manual_address
+                )
                 db.session.add(address)
 
             existing_location_entry = [
