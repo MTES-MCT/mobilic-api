@@ -16,6 +16,7 @@ from app.helpers.authentication import current_user, check_auth
 from app.helpers.errors import MobilicError, BadGraphQLRequestError
 
 logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
+root_logger = logging.getLogger()
 
 SENSITIVE_FIELDS = [
     "password",
@@ -141,10 +142,13 @@ def log_request_info(response):
 
 
 def add_request_and_user_context(record):
-    # Make filter idempotent because it might be called several times
-    if not getattr(record, "user", False):
-        for prop, value in _user_info().items():
-            setattr(record, prop, value)
+    try:
+        # Make filter idempotent because it might be called several times
+        if not getattr(record, "user", False):
+            for prop, value in _user_info().items():
+                setattr(record, prop, value)
+    except:
+        setattr(record, "user", None)
 
     if not getattr(record, "endpoint", False):
         if has_request_context():
@@ -161,6 +165,7 @@ def add_request_and_user_context(record):
             )
         else:
             record.device = None
+
     return True
 
 
@@ -262,13 +267,6 @@ class MattermostFormatter(logging.Formatter):
 app.logger.setLevel(logging.INFO)
 app.logger.addFilter(add_request_and_user_context)
 
-default_handler.addFilter(lambda r: not getattr(r, "_request_log", False))
-default_handler.setFormatter(
-    logging.Formatter(
-        "[%(asctime)s] user=%(user)s %(levelname)s in %(name)s: %(message)s"
-    )
-)
-
 # Disable request loggers (werkzeug for dev and gunicorn for prod)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 logging.getLogger("gunicorn.access").setLevel(logging.ERROR)
@@ -282,7 +280,20 @@ request_log_handler.setFormatter(
         "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response)s device=%(device)s referrer=%(referrer)s"
     )
 )
-logging.getLogger().addHandler(request_log_handler)
+root_logger.addHandler(request_log_handler)
+
+app.logger.removeHandler(default_handler)
+
+# Stream handler for the rest
+other_handler = StreamHandler()
+other_handler.addFilter(lambda r: not getattr(r, "_request_log", False))
+other_handler.addFilter(add_request_and_user_context)
+other_handler.setFormatter(
+    logging.Formatter(
+        "[%(asctime)s] user=%(user)s %(levelname)s in %(name)s: %(message)s"
+    )
+)
+root_logger.addHandler(other_handler)
 
 
 if app.config["MATTERMOST_WEBHOOK"]:
@@ -297,7 +308,7 @@ if app.config["MATTERMOST_WEBHOOK"]:
     )
     mattermost_handler.addFilter(add_request_and_user_context)
     mattermost_handler.setFormatter(MattermostFormatter("%(message)s"))
-    logging.getLogger().addHandler(mattermost_handler)
+    root_logger.addHandler(mattermost_handler)
 
 
 class OVHLogSchema(LDPSchema):
@@ -318,4 +329,4 @@ if app.config["OVH_LDP_TOKEN"]:
     ovh_handler.setFormatter(
         LDPGELFFormatter(app.config["OVH_LDP_TOKEN"], schema=OVHLogSchema)
     )
-    logging.getLogger().addHandler(ovh_handler)
+    root_logger.addHandler(ovh_handler)
