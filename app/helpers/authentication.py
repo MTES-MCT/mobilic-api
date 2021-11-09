@@ -256,24 +256,22 @@ class UserTokensWithFC(UserTokens, graphene.ObjectType):
 
 
 def require_auth_with_write_access(f):
-    auth_f = require_auth(f)
-
-    @wraps(auth_f)
+    @wraps(f)
     def wrapper(*args, **kwargs):
         if g.get("read_only_access", False):
             raise AuthorizationError(
                 "Mutations are not allowed in read access mode"
             )
-        return auth_f(*args, **kwargs)
+        return f(*args, **kwargs)
 
-    return wrapper
+    return require_auth(wrapper)
 
 
 class AuthenticatedMutation(graphene.Mutation, abstract=True):
     @classmethod
     def __init_subclass__(cls, **kwargs):
-        super(AuthenticatedMutation, cls).__init_subclass__(**kwargs)
         cls.mutate = require_auth_with_write_access(cls.mutate)
+        super(AuthenticatedMutation, cls).__init_subclass__(**kwargs)
 
 
 class LoginMutation(graphene.Mutation):
