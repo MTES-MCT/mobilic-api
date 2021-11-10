@@ -33,10 +33,13 @@ from app.helpers.errors import (
     InvalidTokenError,
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
+    ActivationEmailDelayError,
+    EmailSendingError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
+from app.helpers.mail_type import EmailType
 from app.helpers.pdf import generate_work_days_pdf_for
 from app.helpers.tachograph import (
     generate_tachograph_parts,
@@ -47,6 +50,7 @@ from app.helpers.time import min_or_none, max_or_none
 from app.templates.filters import full_format_day
 from app.models import User
 from app import app, db, mailer
+from app.models.email import Email
 
 
 class UserSignUp(graphene.Mutation):
@@ -248,6 +252,45 @@ class RequestPasswordReset(graphene.Mutation):
             except MailjetError as e:
                 app.logger.exception(e)
                 return RequestPasswordReset(message="failure")
+        return Void(success=True)
+
+
+class ResendActivationEmail(AuthenticatedMutation):
+    class Arguments:
+        email = graphene.String(required=True)
+
+    Output = Void
+
+    @classmethod
+    def mutate(cls, _, info, email):
+        user = User.query.filter(User.email == email).one_or_none()
+        if user:
+            if user.id != current_user.id:
+                raise AuthorizationError()
+            last_activation_email_time = (
+                db.session.query(db.func.max(Email.creation_time))
+                .filter(
+                    Email.user_id == user.id,
+                    Email.type == EmailType.ACCOUNT_ACTIVATION,
+                )
+                .first()
+            )
+            min_time_between_emails = app.config[
+                "MIN_MINUTES_BETWEEN_ACTIVATION_EMAILS"
+            ]
+            if (
+                datetime.now() - last_activation_email_time[0]
+                >= min_time_between_emails
+            ):
+                try:
+                    mailer.send_activation_email(user)
+                except MailjetError as e:
+                    app.logger.exception(e)
+                    raise EmailSendingError()
+            else:
+                raise ActivationEmailDelayError()
+        else:
+            raise AuthorizationError()
         return Void(success=True)
 
 

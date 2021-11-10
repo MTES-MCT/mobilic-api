@@ -96,6 +96,18 @@ class EmailAlreadyRegisteredError(MobilicError):
     default_should_alert_team = False
 
 
+class ActivationEmailDelayError(MobilicError):
+    code = "ACTIVATION_EMAIL_DELAY_ERROR"
+    default_message = "An activation email has already been sent"
+    default_should_alert_team = False
+
+
+class EmailSendingError(MobilicError):
+    code = "EMAIL_SENDING_ERROR"
+    default_message = "An error occured while sending an email"
+    default_should_alert_team = False
+
+
 class FCUserAlreadyRegisteredError(MobilicError):
     code = "FC_USER_ALREADY_REGISTERED"
     default_should_alert_team = False
