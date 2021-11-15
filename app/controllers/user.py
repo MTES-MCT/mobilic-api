@@ -34,7 +34,6 @@ from app.helpers.errors import (
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
     ActivationEmailDelayError,
-    EmailSendingError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailjetError, MailingContactList
@@ -282,11 +281,8 @@ class ResendActivationEmail(AuthenticatedMutation):
                 datetime.now() - last_activation_email_time[0]
                 >= min_time_between_emails
             ):
-                try:
-                    mailer.send_activation_email(user)
-                except MailjetError as e:
-                    app.logger.exception(e)
-                    raise EmailSendingError()
+                raise MailjetError()
+                mailer.send_activation_email(user)
             else:
                 raise ActivationEmailDelayError()
         else:
