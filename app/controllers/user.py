@@ -281,7 +281,6 @@ class ResendActivationEmail(AuthenticatedMutation):
                 datetime.now() - last_activation_email_time[0]
                 >= min_time_between_emails
             ):
-                raise MailjetError()
                 mailer.send_activation_email(user)
             else:
                 raise ActivationEmailDelayError()
