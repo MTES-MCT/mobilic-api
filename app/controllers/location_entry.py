@@ -10,7 +10,11 @@ from app.domain.permissions import (
     check_actor_can_write_on_mission,
 )
 from app.helpers.authentication import AuthenticatedMutation
-from app.helpers.authorization import with_authorization_policy, current_user
+from app.helpers.authorization import (
+    with_authorization_policy,
+    current_user,
+    AuthorizationError,
+)
 from app import db
 from app.helpers.errors import (
     InvalidParamsError,
@@ -181,6 +185,11 @@ class LogMissionLocation(AuthenticatedMutation):
             required=False,
             description="Valeur du compteur kilométrique du véhicule.",
         )
+        override_existing = graphene.Argument(
+            graphene.Boolean,
+            required=False,
+            description="Ecrase le précédent enregistrement pour le type et la mission. Il faut avoir les droits d'administration de l'entreprise associée à la mission",
+        )
 
     Output = LocationEntryOutput
 
@@ -201,6 +210,7 @@ class LogMissionLocation(AuthenticatedMutation):
         geo_api_data=None,
         manual_address=None,
         kilometer_reading=None,
+        override_existing=False,
     ):
         with atomic_transaction(commit_at_end=True):
             if (
@@ -214,6 +224,12 @@ class LogMissionLocation(AuthenticatedMutation):
                 )
 
             mission = Mission.query.get(mission_id)
+            if override_existing and not company_admin(
+                current_user, mission.company_id
+            ):
+                raise AuthorizationError(
+                    "Only a company admin can override mission locations"
+                )
 
             company_known_address = None
             if company_known_address_id:
@@ -252,7 +268,11 @@ class LogMissionLocation(AuthenticatedMutation):
                             kilometer_reading
                         )
                     return existing_location_entry
-                raise MissionLocationAlreadySetError()
+                elif override_existing:
+                    db.session.delete(existing_location_entry)
+                    db.session.flush()  # Ensure that the existing location is deleted before the new one is attempted to be added
+                else:
+                    raise MissionLocationAlreadySetError()
 
             now = datetime.now()
 

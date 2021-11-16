@@ -337,6 +337,37 @@ class UpdateMissionVehicle(AuthenticatedMutation):
         return mission.vehicle
 
 
+class ChangeMissionName(AuthenticatedMutation):
+    class Arguments:
+        mission_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de la mission",
+        )
+        name = graphene.Argument(
+            graphene.String,
+            required=True,
+            description="Nom de la mission",
+        )
+
+    Output = MissionOutput
+
+    @classmethod
+    @with_authorization_policy(
+        check_actor_can_write_on_mission,
+        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
+            selectinload(Mission.activities)
+        ).get(kwargs["mission_id"]),
+        error_message="Actor is not authorized to change the name of the mission",
+    )
+    def mutate(cls, _, info, mission_id, name):
+        with atomic_transaction(commit_at_end=True):
+            mission = Mission.query.get(mission_id)
+            mission.name = name
+
+        return mission
+
+
 class Query(graphene.ObjectType):
     mission = graphene.Field(
         MissionOutput,
