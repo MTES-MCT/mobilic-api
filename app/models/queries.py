@@ -7,7 +7,9 @@ from sqlalchemy import (
     Interval,
     literal_column,
     column,
+    TEXT,
 )
+from sqlalchemy.dialects.postgresql import array
 from datetime import timezone
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
@@ -320,7 +322,11 @@ def query_work_day_stats(
     query = (
         db.session.query(query)
         .group_by(
-            query.c.user_id, query.c.day, query.c.mission_id, query.c.name
+            query.c.user_id,
+            query.c.day,
+            query.c.mission_id,
+            query.c.company_id,
+            query.c.name,
         )
         .with_entities(
             query.c.user_id.label("user_id"),
@@ -422,9 +428,16 @@ def query_work_day_stats(
         .with_entities(
             query.c.user_id.label("user_id"),
             query.c.day,
-            func.array_agg(distinct(query.c.mission_name)).label(
-                "mission_names"
-            ),
+            func.array_agg(
+                distinct(
+                    array(
+                        [
+                            func.cast(query.c.mission_id, TEXT),
+                            query.c.mission_name,
+                        ]
+                    )
+                )
+            ).label("mission_names"),
             func.min(query.c.start_time).label("start_time"),
             func.max(query.c.end_time).label("end_time"),
             func.bool_or(query.c.is_running).label("is_running"),

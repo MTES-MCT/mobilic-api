@@ -252,7 +252,7 @@ class WorkDayStatsOnly:
     total_work_duration: int
     activity_durations: dict
     expenditures: dict
-    missions_names: list
+    missions_names: dict
 
     def __init__(
         self,
