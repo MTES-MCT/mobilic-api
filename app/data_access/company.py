@@ -245,7 +245,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                     e_type: getattr(row, f"n_{e_type.value}_expenditures")
                     for e_type in ExpenditureType
                 },
-                mission_names=row.mission_names,
+                mission_names={mn[0]: mn[1] for mn in row.mission_names},
             )
             for index, row in enumerate(work_day_stats)
             if row.service_duration > 0

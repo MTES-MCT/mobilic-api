@@ -38,8 +38,8 @@ class WorkDayOutput(graphene.ObjectType):
         graphene.Int,
         description="Temps de travail cumulé sur la journée, en secondes.",
     )
-    mission_names = graphene.List(
-        graphene.String, description="Liste des noms de mission de la journée"
+    mission_names = GenericScalar(
+        description="Noms et identifiants des mission de la journée"
     )
     activity_durations = graphene.Field(
         GenericScalar,
