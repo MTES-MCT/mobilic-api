@@ -325,7 +325,6 @@ def query_work_day_stats(
             query.c.user_id,
             query.c.day,
             query.c.mission_id,
-            query.c.company_id,
             query.c.name,
         )
         .with_entities(
