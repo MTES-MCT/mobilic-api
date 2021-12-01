@@ -1,3 +1,4 @@
+import graphene
 from sqlalchemy.orm import backref
 from enum import Enum
 from datetime import datetime
@@ -5,7 +6,7 @@ from datetime import datetime
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import InvalidParamsError
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.address import BaseAddressOutput
 from app.models.event import EventBaseModel
 from app.models.utils import enum_column
@@ -100,7 +101,14 @@ class LocationEntryOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = LocationEntry
         interfaces = (BaseAddressOutput,)
-        only_fields = ("kilometer_reading", "id")
+        only_fields = (
+            "kilometer_reading",
+            "id",
+            "reception_time",
+            "submitter",
+            "submitter_id",
+            "mission_id",
+        )
 
     def resolve_alias(self, info):
         return None
@@ -113,3 +121,9 @@ class LocationEntryOutput(BaseSQLAlchemyObjectType):
 
     def resolve_city(self, info):
         return self.address.city
+
+    reception_time = graphene.Field(
+        TimeStamp,
+        required=True,
+        description="Horodatage de création de l'entité",
+    )
