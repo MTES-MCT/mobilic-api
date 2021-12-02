@@ -129,6 +129,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         description="Liste des entreprises sur lesquelles l'utilisateur a les droits de gestion",
     )
 
+    disabled_warnings = graphene.List(
+        graphene.String,
+        description="Liste des avertissements que l'utilisateur a demandé à masquer dans son interface.",
+    )
+
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
     )
