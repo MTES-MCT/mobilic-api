@@ -558,8 +558,6 @@ def generate_pdf_export(
 class WarningToDisableType(str, Enum):
     EMPLOYEE_VALIDATION = "employee-validation"
     ADMIN_MISSION_MODIFICATION = "admin-mission-modification"
-    WORK = "work"
-    SUPPORT = "support"
     __description__ = """
 Enumération des valeurs suivantes.
 - "employee-validation" : alerte relative au caractère bloquant de la validation par le salarié
