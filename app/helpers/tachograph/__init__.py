@@ -251,10 +251,6 @@ def dump_file(file):
     a file is serialized thus :
     - a 5-bytes header specifying the file id and the file length
     - followed by the file content (whose length should match the expected file length)
-
-    TODO (maybe) : add the file signature as well, if we can provide it. File signature follows the same pattern :
-    - 5-bytes header with the id of the file and the length of the signature (usually 128 bits)
-    - the signature itself
     """
     file_dump = bytearray()
     # 5-bytes header :
