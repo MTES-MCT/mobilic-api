@@ -13,7 +13,10 @@ from marshmallow import Schema, validates_schema, ValidationError
 
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.user import UserOutput
-from app.domain.permissions import self_or_have_common_company
+from app.domain.permissions import (
+    self_or_have_common_company,
+    can_actor_read_mission,
+)
 from app.domain.user import create_user, get_user_from_fc_info
 from app.helpers.authentication import (
     current_user,
@@ -39,15 +42,17 @@ from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.mail_type import EmailType
-from app.helpers.pdf import generate_work_days_pdf_for
+from app.helpers.pdf.mission_details import generate_mission_details_pdf
+from app.helpers.pdf.work_days import generate_work_days_pdf_for
 from app.helpers.tachograph import (
     generate_tachograph_parts,
     write_tachograph_archive,
     generate_tachograph_file_name,
 )
 from app.helpers.time import min_or_none, max_or_none
+from app.models.queries import add_mission_relations
 from app.templates.filters import full_format_day
-from app.models import User
+from app.models import User, Mission
 from app import app, db, mailer
 from app.models.email import Email
 
@@ -553,6 +558,38 @@ def generate_pdf_export(
         as_attachment=True,
         cache_timeout=0,
         attachment_filename=f"Relevé d'heures de {current_user.display_name} - {full_format_day(min_date)} au {full_format_day(max_date)}",
+    )
+
+
+class MissionExportSchema(Schema):
+    mission_id = fields.Int(required=True)
+    user_id = fields.Int(required=True)
+
+
+@app.route("/users/generate_mission_export", methods=["POST"])
+@doc(description="Export des détails de la mission au format PDF")
+@use_kwargs(MissionExportSchema(), apply=True)
+@require_auth
+def generate_mission_export(mission_id, user_id):
+    mission = add_mission_relations(Mission.query).get(mission_id)
+    user = User.query.get(user_id)
+
+    if (
+        not mission
+        or not user
+        or not can_actor_read_mission(current_user, mission)
+        or not can_actor_read_mission(user, mission)
+    ):
+        raise AuthorizationError()
+
+    pdf = generate_mission_details_pdf(mission, user)
+
+    return send_file(
+        pdf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename=f"Détails de la mission {mission.name or mission.id} pour {user.display_name}",
     )
 
 

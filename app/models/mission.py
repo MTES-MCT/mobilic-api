@@ -47,9 +47,12 @@ class Mission(EventBaseModel):
                 return activity
         return None
 
-    def expenditures_for(self, user):
+    def expenditures_for(self, user, include_dismissed_expenditures=False):
         return [
-            e for e in self.acknowledged_expenditures if e.user_id == user.id
+            e
+            for e in self.expenditures
+            if e.user_id == user.id
+            and (include_dismissed_expenditures or not e.is_dismissed)
         ]
 
     @property

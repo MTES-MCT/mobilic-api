@@ -254,7 +254,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
 
     @property
     def display_name(self):
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}".lower().title()
 
     def __repr__(self):
         return f"<User [{self.id}] : {self.display_name}>"
