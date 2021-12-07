@@ -5,6 +5,7 @@ from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
     company_admin,
     is_employed_by_company_over_period,
+    has_any_employment_with_company,
 )
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
@@ -135,7 +136,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return self.query_current_users()
 
     @with_authorization_policy(
-        is_employed_by_company_over_period,
+        has_any_employment_with_company,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'vehicles' of company object.",
     )
@@ -260,7 +261,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     @with_authorization_policy(
-        is_employed_by_company_over_period,
+        has_any_employment_with_company,
         get_target_from_args=lambda self, info: self,
         error_message="Forbidden access to field 'knownAddresses' of company object.",
     )

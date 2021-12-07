@@ -67,6 +67,20 @@ def is_employed_by_company_over_period(
     return True
 
 
+def has_any_employment_with_company(actor, company_obj_or_id):
+    company_id = company_obj_or_id
+    if type(company_obj_or_id) is Company:
+        company_id = company_obj_or_id.id
+
+    return any(
+        [
+            e.company_id == company_id
+            for e in actor.employments
+            if e.is_not_rejected and not e.is_dismissed
+        ]
+    )
+
+
 def self_or_have_common_company(actor, user_obj_or_id):
     user = user_obj_or_id
     if type(user_obj_or_id) is int:
