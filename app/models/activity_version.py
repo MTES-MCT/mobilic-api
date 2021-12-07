@@ -61,6 +61,18 @@ class ActivityVersion(EventBaseModel, Period):
     def type(self):
         return self.activity.type
 
+    @property
+    def previous_version(self):
+        previous_versions = sorted(
+            [
+                v
+                for v in self.activity.versions
+                if v.version_number < self.version_number
+            ],
+            key=lambda v: v.version_number,
+        )
+        return previous_versions[-1] if previous_versions else None
+
     __table_args__ = (
         db.UniqueConstraint(
             "version_number",

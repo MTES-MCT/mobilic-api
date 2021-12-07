@@ -1,25 +1,13 @@
-from typing import NamedTuple
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
-from xhtml2pdf import pisa
-from flask import render_template
-from io import BytesIO
 
 from app.domain.work_days import group_user_events_by_day_with_limit
+from app.helpers.pdf import generate_pdf_from_template, Column
 from app.helpers.time import to_fr_tz
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
 from app.models.mission import UserMissionModificationStatus
 from app.templates.filters import format_seconds_duration, format_time
-
-
-class Column(NamedTuple):
-    name: str
-    label: str
-    color: str
-    format: any = lambda x: x
-    secondary: bool = False
-    number: bool = True
 
 
 def _get_summary_columns(include_support=False, include_expenditures=False):
@@ -357,7 +345,7 @@ def _generate_work_days_pdf(
             current_group_count = 0
             current_group_uses_extra_space = False
 
-    html = render_template(
+    return generate_pdf_from_template(
         "work_days_pdf.html",
         user_name=user.display_name,
         start_date=start_date,
@@ -380,12 +368,6 @@ def _generate_work_days_pdf(
         break_after_month=len(months) > 2,
         generation_time=datetime.now(),
     )
-
-    output = BytesIO()
-    pisa.CreatePDF(html, output)
-    output.seek(0)
-
-    return output
 
 
 def generate_work_days_pdf_for(
