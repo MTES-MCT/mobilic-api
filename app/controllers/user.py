@@ -273,12 +273,13 @@ class ResendActivationEmail(AuthenticatedMutation):
                     Email.type == EmailType.ACCOUNT_ACTIVATION,
                 )
                 .first()
-            )
+            )[0]
             min_time_between_emails = app.config[
                 "MIN_MINUTES_BETWEEN_ACTIVATION_EMAILS"
             ]
             if (
-                datetime.now() - last_activation_email_time[0]
+                not last_activation_email_time
+                or datetime.now() - last_activation_email_time
                 >= min_time_between_emails
             ):
                 mailer.send_activation_email(user)
