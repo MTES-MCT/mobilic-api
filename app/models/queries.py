@@ -93,6 +93,7 @@ def query_activities(
     start_time=None,
     end_time=None,
     user_id=None,
+    company_ids=None,
 ):
     base_query = Activity.query
 
@@ -101,6 +102,11 @@ def query_activities(
 
     if not include_dismissed_activities:
         base_query = base_query.filter(~Activity.is_dismissed)
+
+    if company_ids is not None:
+        base_query = base_query.join(Activity.mission).filter(
+            Mission.company_id.in_(company_ids)
+        )
 
     return _apply_time_range_filters_to_activity_query(
         base_query, start_time, end_time

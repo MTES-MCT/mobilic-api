@@ -9,7 +9,7 @@ from app.helpers.authentication import (
     require_auth_with_write_access,
 )
 import graphene
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from sqlalchemy.orm import selectinload
 from uuid import uuid4
 
@@ -32,6 +32,7 @@ from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
 )
+from app.models.queries import query_activities
 
 MAX_SIZE_OF_INVITATION_BATCH = 100
 MAILJET_BATCH_SEND_LIMIT = 50
@@ -375,6 +376,18 @@ class TerminateEmployment(AuthenticatedMutation):
             if employment.start_date > employment_end_date:
                 raise InvalidParamsError(
                     "End date is before the employment start date"
+                )
+
+            if (
+                query_activities(
+                    user_id=employment.user_id,
+                    start_time=employment_end_date + timedelta(days=1),
+                    company_ids=[employment.company_id],
+                ).count()
+                > 0
+            ):
+                raise InvalidParamsError(
+                    "User has logged activities for the company after this end date"
                 )
 
             employment.end_date = employment_end_date

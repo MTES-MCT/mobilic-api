@@ -159,7 +159,15 @@ def check_actor_can_write_on_mission_over_period(
         and not (
             actor == for_user
             or (
-                mission.company.allow_team_mode
+                (
+                    mission.company.allow_team_mode
+                    or len(
+                        mission.activities_for(
+                            for_user, include_dismissed_activities=True
+                        )
+                    )
+                    > 0
+                )
                 and actor.id == mission.submitter_id
             )
         )
