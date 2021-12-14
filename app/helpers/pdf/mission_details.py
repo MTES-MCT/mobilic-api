@@ -111,7 +111,7 @@ def sort_and_fill_with_breaks(activities):
 
 
 def generate_mission_details_pdf(
-    mission, user, show_history_before_validation=True
+    mission, user, show_history_before_employee_validation=True
 ):
     mission_name = mission.name
     mission_subtitle = None
@@ -181,10 +181,12 @@ def generate_mission_details_pdf(
         columns=_get_summary_columns(mission),
         stats=stats,
         activities=sort_and_fill_with_breaks(activities),
-        show_history_before_validation=show_history_before_validation,
+        show_history_before_employee_validation=show_history_before_employee_validation,
         comments=sorted(
             [c for c in mission.comments if not c.is_dismissed],
             key=lambda c: c.reception_time,
         ),
-        actions=actions_history(mission, user, show_history_before_validation),
+        actions=actions_history(
+            mission, user, show_history_before_employee_validation
+        ),
     )

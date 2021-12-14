@@ -27,7 +27,7 @@ class LogActionType(int, Enum):
 class LogAction(NamedTuple):
     time: datetime
     submitter: User
-    is_after_validation: bool
+    is_after_employee_validation: bool
     resource: any
     type: LogActionType
     version: any = None
@@ -71,7 +71,9 @@ class LogAction(NamedTuple):
             return f"a modifié la période de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, show_dates)} - {format_time(previous_version.end_time, show_dates)} à {format_time(self.version.start_time, show_dates)} - {format_time(self.version.end_time, show_dates)}"
 
 
-def actions_history(mission, user, show_history_before_validation=True):
+def actions_history(
+    mission, user, show_history_before_employee_validation=True
+):
     relevant_resources = [
         mission.start_location,
         mission.end_location,
@@ -94,7 +96,7 @@ def actions_history(mission, user, show_history_before_validation=True):
                 submitter=resource.submitter,
                 resource=resource,
                 type=LogActionType.CREATE,
-                is_after_validation=user_validation.reception_time
+                is_after_employee_validation=user_validation.reception_time
                 < resource.reception_time
                 if user_validation
                 else False,
@@ -111,7 +113,7 @@ def actions_history(mission, user, show_history_before_validation=True):
                     submitter=resource.dismiss_author,
                     resource=resource,
                     type=LogActionType.DELETE,
-                    is_after_validation=user_validation.reception_time
+                    is_after_employee_validation=user_validation.reception_time
                     < resource.dismissed_at
                     if user_validation
                     else False,
@@ -127,7 +129,7 @@ def actions_history(mission, user, show_history_before_validation=True):
                         submitter=revision.submitter,
                         resource=resource,
                         type=LogActionType.UPDATE,
-                        is_after_validation=user_validation.reception_time
+                        is_after_employee_validation=user_validation.reception_time
                         < revision.reception_time
                         if user_validation
                         else False,
@@ -135,6 +137,6 @@ def actions_history(mission, user, show_history_before_validation=True):
                     )
                 )
 
-    if not show_history_before_validation:
-        actions = [a for a in actions if a.is_after_validation]
+    if not show_history_before_employee_validation:
+        actions = [a for a in actions if a.is_after_employee_validation]
     return sorted(actions, key=lambda a: (a.time, a.type))
