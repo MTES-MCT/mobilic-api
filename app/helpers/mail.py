@@ -382,6 +382,9 @@ class Mailer:
                 f"Cannot send activation email because user has no email address"
             )
 
+        if not user.activation_email_token:
+            user.create_activation_link()
+
         id = user.id
 
         token = jwt.encode(
