@@ -26,6 +26,10 @@ class WorkDayOutput(graphene.ObjectType):
         TimeStamp,
         description="Horodatage de début de la journée de travail. Correspond à l'heure de début de la toute première activité",
     )
+    last_activity_start_time = graphene.Field(
+        TimeStamp,
+        description="Horodatage de début du début de la dernière activité de la journée.",
+    )
     end_time = graphene.Field(
         TimeStamp,
         description="Horodatage de fin de la journée. Correspond à l'heure de fin de la dernière mission",

@@ -247,6 +247,7 @@ class WorkDayStatsOnly:
     day: date
     user: User
     start_time: datetime
+    last_activity_start_time: datetime
     end_time: datetime
     service_duration: int
     total_work_duration: int
@@ -259,6 +260,7 @@ class WorkDayStatsOnly:
         day,
         user,
         start_time,
+        last_activity_start_time,
         end_time,
         activity_timers,
         expenditures,
@@ -270,6 +272,9 @@ class WorkDayStatsOnly:
         self.day = day
         self.user = user
         self.start_time = from_tz(start_time, timezone.utc)
+        self.last_activity_start_time = from_tz(
+            last_activity_start_time, timezone.utc
+        )
         self.end_time = (
             from_tz(end_time, timezone.utc)
             if not is_running and end_time
