@@ -120,20 +120,22 @@ def generate_mission_details_pdf(
     all_user_activities = mission.activities_for(
         user, include_dismissed_activities=True
     )
+    max_end_time = max_or_none(
+        *[
+            max_or_none(*[v.end_time for v in a.versions if v.end_time])
+            for a in all_user_activities
+        ]
+    )
 
     show_dates = (
-        min(
+        not max_end_time
+        or min(
             [
                 min([v.start_time for v in a.versions])
                 for a in all_user_activities
             ]
         ).date()
-        != max_or_none(
-            *[
-                max_or_none(*[v.end_time for v in a.versions if v.end_time])
-                for a in all_user_activities
-            ]
-        ).date()
+        != max_end_time.date()
     )
 
     if mission_name:
