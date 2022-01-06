@@ -90,52 +90,55 @@ def actions_history(
 
     actions = []
     for resource in relevant_resources:
-        actions.append(
-            LogAction(
-                time=resource.reception_time,
-                submitter=resource.submitter,
-                resource=resource,
-                type=LogActionType.CREATE,
-                is_after_employee_validation=user_validation.reception_time
-                < resource.reception_time
-                if user_validation
-                else False,
-                version=resource.version_at(resource.reception_time)
-                if type(resource) is Activity
-                else None,
-            )
-        )
-
-        if isinstance(resource, Dismissable) and resource.dismissed_at:
+        if resource is not None:
             actions.append(
                 LogAction(
-                    time=resource.dismissed_at,
-                    submitter=resource.dismiss_author,
+                    time=resource.reception_time,
+                    submitter=resource.submitter,
                     resource=resource,
-                    type=LogActionType.DELETE,
+                    type=LogActionType.CREATE,
                     is_after_employee_validation=user_validation.reception_time
-                    < resource.dismissed_at
+                    < resource.reception_time
                     if user_validation
                     else False,
+                    version=resource.version_at(resource.reception_time)
+                    if type(resource) is Activity
+                    else None,
                 )
             )
 
-        if isinstance(resource, Activity):
-            revisions = [v for v in resource.versions if v.version_number > 1]
-            for revision in revisions:
+            if isinstance(resource, Dismissable) and resource.dismissed_at:
                 actions.append(
                     LogAction(
-                        time=revision.reception_time,
-                        submitter=revision.submitter,
+                        time=resource.dismissed_at,
+                        submitter=resource.dismiss_author,
                         resource=resource,
-                        type=LogActionType.UPDATE,
+                        type=LogActionType.DELETE,
                         is_after_employee_validation=user_validation.reception_time
-                        < revision.reception_time
+                        < resource.dismissed_at
                         if user_validation
                         else False,
-                        version=revision,
                     )
                 )
+
+            if isinstance(resource, Activity):
+                revisions = [
+                    v for v in resource.versions if v.version_number > 1
+                ]
+                for revision in revisions:
+                    actions.append(
+                        LogAction(
+                            time=revision.reception_time,
+                            submitter=revision.submitter,
+                            resource=resource,
+                            type=LogActionType.UPDATE,
+                            is_after_employee_validation=user_validation.reception_time
+                            < revision.reception_time
+                            if user_validation
+                            else False,
+                            version=revision,
+                        )
+                    )
 
     if not show_history_before_employee_validation:
         actions = [a for a in actions if a.is_after_employee_validation]

@@ -73,10 +73,21 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             return None
         if self.dismissed_at and self.dismissed_at <= at_time:
             return None
-        return max(
-            [r for r in self.versions if r.reception_time <= at_time],
-            key=lambda r: r.version_number,
-        )
+        versions_before = [
+            r for r in self.versions if r.reception_time <= at_time
+        ]
+        if versions_before:
+            return max(
+                versions_before,
+                default=None,
+                key=lambda r: r.version_number,
+            )
+        else:
+            return min(
+                [r for r in self.versions],
+                default=None,
+                key=lambda r: r.version_number,
+            )
 
     def latest_modification_time_by(self, user):
         if self.dismiss_author_id == user.id:
