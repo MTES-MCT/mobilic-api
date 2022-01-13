@@ -15,6 +15,8 @@ from app.helpers.errors import MobilicError
 from app.helpers.siren import SirenAPIClient
 from app.helpers.request_parser import CustomRequestParser
 from app.templates.filters import JINJA_CUSTOM_FILTERS
+from elasticapm.contrib.flask import ElasticAPM
+import logging
 
 app = Flask(__name__)
 app.config.update(
@@ -33,6 +35,7 @@ docs = FlaskApiSpec(app)
 
 app.config.from_object(getattr(config, f"{MOBILIC_ENV.capitalize()}Config"))
 
+apm = ElasticAPM(app, logging=logging.INFO)
 siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 
 for name, filter in JINJA_CUSTOM_FILTERS.items():
