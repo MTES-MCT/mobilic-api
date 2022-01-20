@@ -35,7 +35,7 @@ docs = FlaskApiSpec(app)
 
 app.config.from_object(getattr(config, f"{MOBILIC_ENV.capitalize()}Config"))
 
-apm = ElasticAPM(app, logging=logging.INFO)
+apm = ElasticAPM(app, logging=logging.ERROR)
 siren_api_client = SirenAPIClient(app.config["SIREN_API_KEY"])
 
 for name, filter in JINJA_CUSTOM_FILTERS.items():
