@@ -347,6 +347,7 @@ def query_work_day_stats(
                     func.timezone("UTC", func.timezone(tzname, query.c.day)),
                 )
             ).label("start_time"),
+            func.max(query.c.start_time).label("last_activity_start_time"),
             func.max(
                 func.least(
                     func.timezone(
@@ -444,6 +445,9 @@ def query_work_day_stats(
                 )
             ).label("mission_names"),
             func.min(query.c.start_time).label("start_time"),
+            func.max(query.c.last_activity_start_time).label(
+                "last_activity_start_time"
+            ),
             func.max(query.c.end_time).label("end_time"),
             func.bool_or(query.c.is_running).label("is_running"),
             *[
