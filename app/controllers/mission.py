@@ -25,6 +25,7 @@ from app.domain.permissions import (
     check_actor_can_write_on_mission,
     is_employed_by_company_over_period,
     can_actor_read_mission,
+    company_admin,
 )
 from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.errors import (
@@ -243,7 +244,8 @@ class ValidateMission(AuthenticatedMutation):
         )
         user_id = graphene.Int(
             required=False,
-            description="Optionnel, dans le cas d'une validation gestionnaire il est possible de restreindre les informations validées à un travailleur spécifique.",
+            description="Optionnel, dans le cas d'une validation gestionnaire il est possible de "
+            "restreindre les informations validées à un travailleur spécifique.",
         )
 
     Output = MissionValidationOutput
@@ -263,7 +265,7 @@ class ValidateMission(AuthenticatedMutation):
             user = None
             if user_id:
                 user = User.query.get(user_id)
-                if not user:
+                if not user and not company_admin(user, mission.company_id):
                     raise AuthorizationError(
                         "Actor is not authorized to validate the mission for the user"
                     )
