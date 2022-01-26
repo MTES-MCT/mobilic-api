@@ -234,6 +234,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 day=row.day,
                 user=users[row.user_id],
                 start_time=row.start_time,
+                last_activity_start_time=row.last_activity_start_time,
                 end_time=row.end_time,
                 is_running=row.is_running,
                 service_duration=row.service_duration,

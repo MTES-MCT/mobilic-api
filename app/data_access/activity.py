@@ -128,6 +128,16 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         ActivityVersionOutput,
         description="Historique des versions de l'activité.",
     )
+    last_modification_by = graphene.Field(
+        graphene.Int,
+        description="Identifiant de la personne qui a effectué la dernière modification sur l'activité",
+    )
+
+    def resolve_last_modification_by(self, info):
+        from operator import attrgetter
+
+        last_version = max(self.versions, key=attrgetter("version_number"))
+        return last_version.submitter_id
 
 
 class ActivityConnection(graphene.Connection):
