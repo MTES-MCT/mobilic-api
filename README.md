@@ -12,7 +12,7 @@ C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations c
 
 ## Pré-requis
 
-- [Python](https://www.python.org/) 3.8
+- [Python](https://www.python.org/) 3.9
 - [pip](https://pypi.org/project/pip/) 21.2
 - [PostgreSQL](https://www.postgresql.org/) 12.0, avec sa ligne de commande `psql`
 
