@@ -8,7 +8,8 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_DB: mobilic
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: mobilic
+      POSTGRES_PASSWORD: mobilic
     volumes:
       - mobilic-postgresql-data:/var/lib/postgresql
 

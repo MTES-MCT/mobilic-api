@@ -18,7 +18,7 @@ class Config:
         ),
     }
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", "postgresql://localhost:5432/mobilic"
+        "DATABASE_URL", "postgresql://mobilic:mobilic@localhost:5432/mobilic"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ECHO_DB_QUERIES = False
