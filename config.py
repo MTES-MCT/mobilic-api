@@ -104,7 +104,9 @@ class StagingConfig(Config):
 
 
 class TestConfig(Config):
-    SQLALCHEMY_DATABASE_URI = "postgresql://localhost:5432/mobilic-test"
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL", "postgresql://localhost:5432/mobilic-test"
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 

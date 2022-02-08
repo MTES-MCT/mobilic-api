@@ -2,7 +2,7 @@
 
 Dépôt de code du back de la startup d'état **Mobilic** incubée à la Fabrique Numérique du Ministère de la Transition Écologique.
 
-Ce `README` contient essentiellement des informations pour installer un environnement de développement local du back Mobilic. 
+Ce `README` contient essentiellement des informations pour installer un environnement de développement local du back Mobilic.
 
 C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations concernant  :
 
@@ -12,9 +12,9 @@ C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations c
 
 ## Pré-requis
 
-- [Python](https://www.python.org/) 3.9
-- [pip](https://pypi.org/project/pip/) 21.2
-- [PostgreSQL](https://www.postgresql.org/) 12.0, avec sa ligne de commande `psql`
+* [Python](https://www.python.org/) 3.9
+* [pip](https://pypi.org/project/pip/) 21.2
+* [PostgreSQL](https://www.postgresql.org/) 12.0, avec sa ligne de commande `psql`
 
 ## Installation
 
@@ -40,12 +40,11 @@ Ne sont listées ici que les variables les plus importantes. L'intégralité des
 
 Il est possible de définir les variables d'environnement à partir d'un fichier texte qu'il faut rajouter à la racine du projet. Il faut ensuite passer le nom du fichier à l'application via la variable `DOTENV_FILE`.
 
-```
+```sh
 DOTENV_FILE=.env flask run ...
 ```
 
-Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce fichier. 
-
+Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce fichier.
 
 ## Démarrage du serveur de développement
 
@@ -55,17 +54,30 @@ Pour lancer le serveur de développement qui recompile à la volée :
 flask run --host 0.0.0.0
 ```
 
-## Lancement des tests 
+## Lancement des tests
+
+Créer un fichier dans `.env/.env.test` avec :
+
+```text
+# use development values
+ELASTIC_APM_SECRET_TOKEN=
+ELASTIC_APM_SERVER_URL=
+ELASTIC_APM_ENVIRONMENT=
+
+DATABASE_URL=postgresql://mobilic-test:mobilic-test@localhost:5433/mobilic-test
+```
+
+Lancer les tests :
 
 ```sh
-flask test
+DOTENV_FILE=.env/.env.test flask test
 ```
 
 ## Gestion des migrations
 
 L'ORM [SQLAlchemy](https://www.sqlalchemy.org/) utilise [Alembic](https://alembic.sqlalchemy.org/en/latest/) pour la gestion des migrations de la base.
 
-Les fichiers de migration sont situés [ici](./migrations/versions). 
+Les fichiers de migration sont situés [ici](./migrations/versions).
 
 Pour ajouter une migration il y a deux possibilités :
 
@@ -103,7 +115,7 @@ Les différentes technos/frameworks utilisés par le back sont :
 L'organisation s'inspire indirectement du motif Modèle-Vue-Contrôleur :
 
 * `models` contient la représentation interne des différentes entités "métier" (utilisateurs, entreprises, activités, ...)
-* `domain` contient la logique métier lorsque celle-ci devient un peu trop complexe 
+* `domain` contient la logique métier lorsque celle-ci devient un peu trop complexe
 * `data_access` définit la structure des données exposées dans l'API
 * `controllers` définit les actions de l'API
 * `services` contient des services secondaires

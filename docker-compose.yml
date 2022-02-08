@@ -13,5 +13,15 @@ services:
     volumes:
       - mobilic-postgresql-data:/var/lib/postgresql
 
+  mobilic-db-test:
+    image: postgres:12.4-alpine
+    ports:
+      - "5433:5432"
+    environment: 
+      POSTGRES_DB: mobilic-test
+      POSTGRES_USER: mobilic-test
+      POSTGRES_PASSWORD: mobilic-test
+
+
 volumes:
   mobilic-postgresql-data:
