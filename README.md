@@ -23,7 +23,7 @@ Démarrer un serveur PostgreSQL local.
 Exécuter le script d'installation depuis la racine du projet :
 
 ```sh
-./setup_local.sh
+./setup_local_docker.sh
 ```
 
 ## Variables d'environnement
@@ -48,10 +48,19 @@ Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce f
 
 ## Démarrage du serveur de développement
 
-Pour lancer le serveur de développement qui recompile à la volée :
+Créer un fichier dans `.env/.env.local` avec :
+
+```text
+# use development values
+ELASTIC_APM_SECRET_TOKEN=
+ELASTIC_APM_SERVER_URL=
+ELASTIC_APM_ENVIRONMENT=
+```
+
+Lancer le serveur de développement qui recompile à la volée :
 
 ```sh
-flask run --host 0.0.0.0
+DOTENV_FILE=.env/.env.local flask run --host 0.0.0.0
 ```
 
 ## Lancement des tests
