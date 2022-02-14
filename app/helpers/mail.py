@@ -9,6 +9,7 @@ from datetime import datetime, date
 from markupsafe import Markup
 
 from app import app
+from config import MOBILIC_ENV
 from app.helpers.errors import MobilicError
 from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
@@ -170,6 +171,9 @@ class Mailer:
     def _send_batch(self, messages, _disable_commit=False):
         from app.models import Email
         from app import db
+
+        if MOBILIC_ENV == "test":
+            return
 
         response = self.mailjet.send.create(
             data={"Messages": [m.payload for m in messages]},
