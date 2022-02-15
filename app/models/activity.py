@@ -48,6 +48,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 
     last_update_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
+    last_submitter_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )
+
     editable_fields = {"start_time", "end_time"}
 
     __table_args__ = (
