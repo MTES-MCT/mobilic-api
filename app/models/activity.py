@@ -159,6 +159,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 setattr(self, field, value)
 
             self.last_update_time = revision_time
+            self.last_submitter_id = current_user.id
             db.session.add(self)
 
             return revision
@@ -181,3 +182,4 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         ):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
+            self.last_submitter_id = current_user.id
