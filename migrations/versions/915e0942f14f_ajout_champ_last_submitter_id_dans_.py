@@ -26,10 +26,10 @@ def _migrate_activities():
             SELECT av.submitter_id
             FROM activity_version av
             WHERE (av.version_number = (
-                    SELECT max_version 
-                    FROM (SELECT av.activity_id AS activity_id, MAX(av.version_number) AS max_version 
-                            FROM activity_version av GROUP BY av.activity_id) AS max_versions 
-                    WHERE max_versions.activity_id = a.id)
+                    SELECT MAX(av2.version_number)
+                    FROM activity_version av2
+                    WHERE av2.activity_id = a.id
+                    )
                 )
             AND (av.activity_id = a.id)
         )
