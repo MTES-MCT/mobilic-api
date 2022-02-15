@@ -8,12 +8,33 @@ Create Date: 2022-02-15 11:02:33.733812
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm.session import Session
 
 # revision identifiers, used by Alembic.
 revision = "915e0942f14f"
 down_revision = "6bfdb39b721f"
 branch_labels = None
 depends_on = None
+
+
+def _migrate_activities():
+    session = Session(bind=op.get_bind())
+    session.execute(
+        """
+        UPDATE activity a
+        SET last_submitter_id = (
+            SELECT av.submitter_id
+            FROM activity_version av
+            WHERE (av.version_number = (
+                    SELECT max_version 
+                    FROM (SELECT av.activity_id AS activity_id, MAX(av.version_number) AS max_version 
+                            FROM activity_version av GROUP BY av.activity_id) AS max_versions 
+                    WHERE max_versions.activity_id = a.id)
+                )
+            AND (av.activity_id = a.id)
+        )
+        """
+    )
 
 
 def upgrade():
@@ -29,6 +50,8 @@ def upgrade():
         ["id"],
     )
     # ### end Alembic commands ###
+
+    _migrate_activities()
 
 
 def downgrade():
