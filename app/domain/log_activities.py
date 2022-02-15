@@ -176,7 +176,6 @@ def log_activity(
             end_time=end_time,
             user=user,
             submitter=submitter,
-            last_submitter_id=submitter.id,
         )
         version = ActivityVersion(
             activity=activity,
