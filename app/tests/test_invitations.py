@@ -143,7 +143,6 @@ class TestInvitations(BaseTest):
 
         self.check_has_pending_invite(self.employee_1, self.company)
 
-    # FIXME
     def test_invite_existing_user_by_email(self):
         self.invite_user_by_email(
             self.admin, self.employee_1.email, self.company
@@ -184,7 +183,7 @@ class TestInvitations(BaseTest):
         self.check_is_working_for(new_employee, self.company)
 
     def test_invite_future_employee_with_email(self):
-        future_employee_email = "future_employee@toto.com"
+        future_employee_email = "future_employee@titi.com"
 
         # admin invites an employee who doesn't exist
         self.invite_user_by_email(
@@ -194,9 +193,9 @@ class TestInvitations(BaseTest):
         # new employee creates an account without using invite token
         new_employee = self.create_account_get_user(
             email=future_employee_email,
-            password="greatpassword",
-            first_name="Albert",
-            last_name="Einstein",
+            password="fabulouspassword",
+            first_name="Magicien",
+            last_name="Oz",
         )
 
         self.check_has_pending_invite(new_employee, self.company)
