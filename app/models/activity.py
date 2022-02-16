@@ -1,6 +1,8 @@
 from enum import Enum
 from datetime import datetime
 
+from sqlalchemy import event
+
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
@@ -47,6 +49,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     type = enum_column(ActivityType, nullable=False)
 
     last_update_time = db.Column(DateTimeStoredAsUTC, nullable=False)
+
+    last_submitter_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )
 
     editable_fields = {"start_time", "end_time"}
 
@@ -177,3 +183,9 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         ):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
+
+
+@event.listens_for(Activity, "before_insert")
+@event.listens_for(Activity, "before_update")
+def set_last_submitter_id(mapper, connect, target):
+    target.last_submitter_id = current_user.id
