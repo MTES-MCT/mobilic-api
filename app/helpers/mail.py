@@ -9,7 +9,6 @@ from datetime import datetime, date
 from markupsafe import Markup
 
 from app import app
-from config import MOBILIC_ENV
 from app.helpers.errors import MobilicError
 from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
@@ -172,7 +171,10 @@ class Mailer:
         from app.models import Email
         from app import db
 
-        if MOBILIC_ENV == "test":
+        if not app.config["EMAIL_ENABLED"]:
+            app.logger.info(
+                f"Email not sent because EMAIL_ENABLED is set to false"
+            )
             return
 
         response = self.mailjet.send.create(

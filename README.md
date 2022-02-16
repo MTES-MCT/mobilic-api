@@ -55,6 +55,9 @@ Créer un fichier dans `.env/.env.local` avec :
 ELASTIC_APM_SECRET_TOKEN=
 ELASTIC_APM_SERVER_URL=
 ELASTIC_APM_ENVIRONMENT=
+
+# disable sending emails
+EMAIL_ENABLED=false
 ```
 
 Lancer le serveur de développement qui recompile à la volée :

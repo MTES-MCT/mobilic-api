@@ -87,6 +87,7 @@ class Config:
     )
     APISPEC_FORMAT_RESPONSE = lambda x: x
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
+    EMAIL_ENABLED = os.environ.get("EMAIL_ENABLED", True)
 
 
 class DevConfig(Config):
@@ -109,6 +110,7 @@ class TestConfig(Config):
         "postgresql://mobilic-test:mobilic-test@localhost:5433/mobilic-test",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    EMAIL_ENABLED = False
 
 
 class ProdConfig(Config):
