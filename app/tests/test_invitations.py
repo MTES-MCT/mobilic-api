@@ -1,4 +1,3 @@
-from app.domain.permissions import is_employed_by_company_over_period
 from app.tests import (
     BaseTest,
     CompanyFactory,
@@ -7,7 +6,7 @@ from app.tests import (
     test_post_graphql_unexposed,
 )
 from app.models import Employment, User
-from app import db
+from app.models.employment import EmploymentRequestValidationStatus
 
 
 def get_invite_token(response):
@@ -33,47 +32,47 @@ class TestInvitations(BaseTest):
         )
         self.employee_1 = UserFactory.create()
         self.send_invite_query = """
-            mutation ($userId: Int, $companyId: Int!, $mail: String) {
-                    employments {
-                      createEmployment(
-                        userId: $userId
-                        companyId: $companyId
-                        mail: $mail
-                      ) {
-                            id
+                mutation ($userId: Int, $companyId: Int!, $mail: String) {
+                        employments {
+                          createEmployment(
+                            userId: $userId
+                            companyId: $companyId
+                            mail: $mail
+                          ) {
+                                id
+                            }
                         }
                     }
-                }
-            """
+                """
         self.redeem_invite_query = """
-            mutation ($token: String!) {
-                signUp {
-                  redeemInvite(token: $token) {
-                    id
-                  }
-                }
-              }
-            """
-        self.create_account_query = """
-            mutation (
-                $email: String!
-                $password: String!
-                $firstName: String!
-                $lastName: String!
-                $inviteToken: String
-                ) {
+                mutation ($token: String!) {
                     signUp {
-                        user(
-                            email: $email
-                            password: $password
-                            inviteToken: $inviteToken
-                            firstName: $firstName
-                            lastName: $lastName) {
-                            accessToken
+                      redeemInvite(token: $token) {
+                        id
+                      }
+                    }
+                  }
+                """
+        self.create_account_query = """
+                mutation (
+                    $email: String!
+                    $password: String!
+                    $firstName: String!
+                    $lastName: String!
+                    $inviteToken: String
+                    ) {
+                        signUp {
+                            user(
+                                email: $email
+                                password: $password
+                                inviteToken: $inviteToken
+                                firstName: $firstName
+                                lastName: $lastName) {
+                                accessToken
+                            }
                         }
                     }
-                }
-        """
+            """
 
     def invite_user_by_userid(self, admin, user_id, company):
         return test_post_graphql(
@@ -90,15 +89,28 @@ class TestInvitations(BaseTest):
         )
 
     def check_has_pending_invite(self, employee, company):
-        self.assertTrue(is_employed_by_company_over_period(employee, company))
-        self.assertFalse(
-            is_employed_by_company_over_period(
-                employee, company, include_pending_invite=False
-            )
-        )
+        employments = Employment.query.filter_by(
+            user_id=employee.id,
+            company_id=company.id,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(employments), 1)
+
+    def check_has_pending_invite_by_email(self, email, company):
+        employments = Employment.query.filter_by(
+            email=email,
+            company_id=company.id,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(employments), 1)
 
     def check_is_working_for(self, employee, company):
-        self.assertTrue(is_employed_by_company_over_period(employee, company))
+        employments = Employment.query.filter_by(
+            user_id=employee.id,
+            company_id=company.id,
+            validation_status=EmploymentRequestValidationStatus.APPROVED,
+        ).all()
+        self.assertEqual(len(employments), 1)
 
     def create_account_get_user(
         self, email, password, first_name, last_name, invite_token=None
@@ -116,15 +128,14 @@ class TestInvitations(BaseTest):
 
         return User.query.filter_by(email=email).first()
 
-    def get_number_people_in_company(self):
-        return len(
-            Employment.query.filter_by(company_id=self.company.id).all()
-        )
+    def test_invite_new_user_by_email(self):
+        new_user_email = "blabla@test.com"
+
+        self.invite_user_by_email(self.admin, new_user_email, self.company)
+
+        self.check_has_pending_invite_by_email(new_user_email, self.company)
 
     def test_invite_existing_user_by_userid(self):
-        self.assertFalse(
-            is_employed_by_company_over_period(self.employee_1, self.company)
-        )
 
         self.invite_user_by_userid(
             self.admin, self.employee_1.id, self.company
@@ -132,11 +143,8 @@ class TestInvitations(BaseTest):
 
         self.check_has_pending_invite(self.employee_1, self.company)
 
+    # FIXME
     def test_invite_existing_user_by_email(self):
-        self.assertFalse(
-            is_employed_by_company_over_period(self.employee_1, self.company)
-        )
-
         self.invite_user_by_email(
             self.admin, self.employee_1.email, self.company
         )
@@ -193,14 +201,16 @@ class TestInvitations(BaseTest):
 
         self.check_has_pending_invite(new_employee, self.company)
 
-    ## TO BE REMOVED (used only to debug below test)
+    # TO BE REMOVED (used only to debug below test)
     def print_employments(self):
+        print(f"-----")
         employments = Employment.query.all()
         for e in employments:
-            print(f"company_id={e.company_id}, email={e.email}")
+            print(
+                f"company={e.company_id}, user={e.user_id}, email={e.email}, validation_status={e.validation_status}"
+            )
 
-    ##
-    # TODO: debug this test (can't create second invite)
+    # FIXME
     def test_two_companies_invite_future_employee(self):
         self.print_employments()
         future_employee_email = "future_employee@toto.com"
