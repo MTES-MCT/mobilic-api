@@ -54,6 +54,11 @@ class TestAuthorization(BaseTest):
         self._app_context.__enter__()
         self.current_user_context.__enter__()
 
+    def tearDown(self):
+        self.current_user_context.__exit__(None, None, None)
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
     def _create_mission(self):
         return Mission.create(
             submitter=self.team_leader,
