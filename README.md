@@ -65,21 +65,8 @@ DOTENV_FILE=.env/.env.local flask run --host 0.0.0.0
 
 ## Lancement des tests
 
-Créer un fichier dans `.env/.env.test` avec :
-
-```text
-# use development values
-ELASTIC_APM_SECRET_TOKEN=
-ELASTIC_APM_SERVER_URL=
-ELASTIC_APM_ENVIRONMENT=
-
-DATABASE_URL=postgresql://mobilic-test:mobilic-test@localhost:5433/mobilic-test
-```
-
-Lancer les tests :
-
 ```sh
-DOTENV_FILE=.env/.env.test flask test
+flask test
 ```
 
 ## Gestion des migrations

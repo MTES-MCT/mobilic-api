@@ -6,6 +6,7 @@ venv
 
 # IDE files
 .idea
+.vscode
 
 # python cache
 **/__pycache__
