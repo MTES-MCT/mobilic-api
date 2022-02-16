@@ -1,11 +1,18 @@
 from datetime import datetime, timedelta, date
+
+from flask.ctx import AppContext
 from freezegun import freeze_time
 from time import sleep
 
 from app.domain.log_activities import log_activity
 from app.models import Mission
 from app.models.activity import ActivityType
-from app.tests import BaseTest, UserFactory, CompanyFactory
+from app.tests import (
+    BaseTest,
+    UserFactory,
+    CompanyFactory,
+    AuthenticatedUserContext,
+)
 from app import app, db
 from app.helpers.errors import AuthorizationError
 from app.domain.permissions import (
@@ -39,6 +46,18 @@ class TestAuthorization(BaseTest):
             post__start_date=date(2019, 1, 1),
             post__end_date=date(2020, 1, 1),
         )
+        self.current_user = self.team_leader
+        self._app_context = AppContext(app)
+        self.current_user_context = AuthenticatedUserContext(
+            user=self.current_user
+        )
+        self._app_context.__enter__()
+        self.current_user_context.__enter__()
+
+    def tearDown(self):
+        self.current_user_context.__exit__(None, None, None)
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
 
     def _create_mission(self):
         return Mission.create(
