@@ -151,6 +151,13 @@ class TestInvitations(BaseTest):
 
         self.check_has_pending_invite(self.employee_1, self.company)
 
+    def test_invite_existing_user_by_email_case_insensitive(self):
+        self.invite_user_by_email(
+            self.admin, self.employee_1.email.upper(), self.company
+        )
+
+        self.check_has_pending_invite(self.employee_1, self.company)
+
     def test_error_when_invite_non_existing_user(self):
         # admin invites an employee who doesn't exist
         invite_response = self.invite_user_by_userid(

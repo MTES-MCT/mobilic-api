@@ -1,4 +1,5 @@
 from flask import after_this_request
+from sqlalchemy import func
 
 from app.domain.permissions import company_admin
 from app.helpers.authentication import (
@@ -109,7 +110,7 @@ class CreateEmployment(AuthenticatedMutation):
             if user_email:
                 user = (
                     User.query.options(selectinload(User.employments))
-                    .filter(User.email == user_email)
+                    .filter(func.lower(User.email) == func.lower(user_email))
                     .one_or_none()
                 )
 
