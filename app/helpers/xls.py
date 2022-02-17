@@ -29,6 +29,7 @@ ACTIVITY_TYPE_LABEL = {
     ActivityType.DRIVE: "conduite",
     ActivityType.WORK: "autre tâche",
     ActivityType.SUPPORT: "accompagnement",
+    ActivityType.TRANSFER: "temps de liaison",
 }
 
 EXCEL_MIMETYPE = (
@@ -221,9 +222,20 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 light_green_hex,
             ),
             (
+                "Temps de liaison",
+                lambda wday: timedelta(
+                    seconds=wday.activity_durations[ActivityType.TRANSFER]
+                ),
+                "duration_format",
+                13,
+                light_green_hex,
+            ),
+            (
                 "Pause",
                 lambda wday: timedelta(
-                    seconds=wday.service_duration - wday.total_work_duration
+                    seconds=wday.service_duration
+                    - wday.total_work_duration
+                    - wday.activity_durations[ActivityType.TRANSFER]
                 ),
                 "duration_format",
                 13,
