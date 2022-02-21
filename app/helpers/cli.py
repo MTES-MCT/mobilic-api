@@ -1,9 +1,8 @@
-from flask_migrate import upgrade
-from unittest import TestLoader, TextTestRunner
 import os
 import sys
+from unittest import TestLoader, TextTestRunner
 
-from app import app, db
+from app import app
 from config import TestConfig
 
 
