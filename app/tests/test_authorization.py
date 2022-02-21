@@ -9,8 +9,6 @@ from app.models import Mission
 from app.models.activity import ActivityType
 from app.tests import (
     BaseTest,
-    UserFactory,
-    CompanyFactory,
     AuthenticatedUserContext,
 )
 from app import app, db
@@ -21,6 +19,7 @@ from app.domain.permissions import (
     can_actor_read_mission,
     check_actor_can_write_on_mission_over_period,
 )
+from app.seeding import UserFactory, CompanyFactory
 
 
 class TestAuthorization(BaseTest):
