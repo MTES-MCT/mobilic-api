@@ -66,5 +66,5 @@ class EmploymentFactory(BaseFactory):
     start_date = date(2000, 1, 1)
     company = factory.SubFactory(CompanyFactory)
 
-    # user = factory.SubFactory(UserFactory)
+    user = factory.SubFactory(UserFactory)
     has_admin_rights = False

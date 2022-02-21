@@ -1,7 +1,17 @@
 import sys
+import datetime
 
 from app import app, db
-from app.models import User, Employment, Company, RefreshToken
+from app.domain.log_activities import log_activity
+from app.models import (
+    User,
+    Employment,
+    Company,
+    RefreshToken,
+    Mission,
+    ActivityVersion,
+)
+from app.models.activity import ActivityType, Activity
 from app.seeding.factories import (
     UserFactory,
     CompanyFactory,
@@ -24,6 +34,9 @@ def clean():
     exit_if_prod()
 
     print("------ CLEANING DATA -------")
+    ActivityVersion.query.delete()
+    Activity.query.delete()
+    Mission.query.delete()
     Employment.query.delete()
     Company.query.delete()
     RefreshToken.query.delete()
@@ -56,6 +69,12 @@ def seed():
     print(f"Admin created.")
 
     print(f"Creating {NB_EMPLOYEES} employees per companies.")
+    print(f"Each employee will create 1 mission and log 1 hour of work in it.")
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+    start_hour = datetime.time(hour=14, minute=0)
+    end_hour = datetime.time(hour=15, minute=0)
+    start_time = datetime.datetime.combine(yesterday, start_hour)
+    end_time = datetime.datetime.combine(yesterday, end_hour)
     for idx_company, company in enumerate(companies):
         EmploymentFactory.create(
             company=company, submitter=admin, user=admin, has_admin_rights=True
@@ -73,6 +92,26 @@ def seed():
                 user=employee,
                 has_admin_rights=False,
             )
+            mission = Mission(
+                name=f"Mission Test {idx_company}:{i}",
+                company=company,
+                reception_time=datetime.datetime.now(),
+                submitter=employee,
+            )
+            db.session.add(mission)
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=end_time,
+                start_time=start_time,
+                end_time=end_time,
+            )
+
         sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
     sys.stdout.flush()
+    db.session.commit()
     print(f"\nAll done.")
