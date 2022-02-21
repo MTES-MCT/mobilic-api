@@ -1,6 +1,7 @@
 import sys
 
-from app import app
+from app import app, db
+from app.models import User, Employment, Company, RefreshToken
 from app.seeding.factories import (
     UserFactory,
     CompanyFactory,
@@ -23,7 +24,11 @@ def unseed():
     exit_if_prod()
 
     print("------ UNSEEDING DATA -------")
-    print("todo: remove Busy Corp companies, and workers")
+    Employment.query.delete()
+    Company.query.delete()
+    RefreshToken.query.delete()
+    User.query.delete()
+    db.session.commit()
 
 
 @app.cli.command(with_appcontext=True)
@@ -62,12 +67,12 @@ def seed():
                 first_name="Employee {i}",
                 last_name=f"Corp {idx_company}",
             )
-        EmploymentFactory.create(
-            company=company,
-            submitter=admin,
-            user=employee,
-            has_admin_rights=False,
-        )
+            EmploymentFactory.create(
+                company=company,
+                submitter=admin,
+                user=employee,
+                has_admin_rights=False,
+            )
         sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
     sys.stdout.flush()
     print(f"\nAll done.")
