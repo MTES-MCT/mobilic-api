@@ -149,7 +149,13 @@ def generate_mission_details_pdf(
     for activity_or_break in activities_with_breaks:
         stats[activity_or_break.type] += activity_or_break.duration
         stats["service"] += activity_or_break.duration
-        if type(activity_or_break.type) is ActivityType:
+        #
+        #
+        # To check
+        if (
+            type(activity_or_break.type) is ActivityType
+            and type(activity_or_break.type) is not ActivityType.TRANSFER
+        ):
             stats["total_work"] += activity_or_break.duration
 
     stats["expenditures"] = defaultdict(lambda: 0)
