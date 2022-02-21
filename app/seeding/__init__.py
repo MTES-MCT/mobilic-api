@@ -20,10 +20,10 @@ def exit_if_prod():
 
 
 @app.cli.command(with_appcontext=True)
-def unseed():
+def clean():
     exit_if_prod()
 
-    print("------ UNSEEDING DATA -------")
+    print("------ CLEANING DATA -------")
     Employment.query.delete()
     Company.query.delete()
     RefreshToken.query.delete()
