@@ -62,10 +62,10 @@ def seed():
         )
         for i in range(NB_EMPLOYEES):
             employee = UserFactory.create(
-                email=f"busy.employee{i}@busycorp{idx_company}.com",
+                email=f"busy.employee{i+1}@busycorp{idx_company+1}.com",
                 password="password",
-                first_name=f"Employee {i}",
-                last_name=f"Corp {idx_company}",
+                first_name=f"Employee {i+1}",
+                last_name=f"Corp {idx_company+1}",
             )
             EmploymentFactory.create(
                 company=company,
