@@ -6,6 +6,9 @@ from flask.testing import FlaskClient
 from flask_migrate import upgrade
 
 from app import app, db, graphql_api_path
+from app import app, db, graphql_api_path, graphql_private_api_path
+from app.models import User, Company, Employment
+from app.models.employment import EmploymentRequestValidationStatus
 from config import TestConfig
 
 MIGRATED_TEST_DB = {"value": False}
@@ -91,6 +94,19 @@ def test_post_graphql(
     ) as c:
         return c.post(
             graphql_api_path,
+            json=dict(query=query, variables=variables),
+            **kwargs,
+        )
+
+
+def test_post_graphql_unexposed(
+    query, mock_authentication_with_user=None, variables=None, **kwargs
+):
+    with app.test_client(
+        mock_authentication_with_user=mock_authentication_with_user
+    ) as c:
+        return c.post(
+            graphql_private_api_path,
             json=dict(query=query, variables=variables),
             **kwargs,
         )

@@ -1,4 +1,5 @@
 from flask import after_this_request
+from sqlalchemy import func
 
 from app.domain.permissions import company_admin
 from app.helpers.authentication import (
@@ -88,15 +89,14 @@ class CreateEmployment(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             company = Company.query.get(employment_input["company_id"])
+            user_id = employment_input.get("user_id")
+            user_email = employment_input.get("mail")
 
-            if (employment_input.get("user_id") is None) == (
-                employment_input.get("mail") is None
-            ):
+            if (user_id is None) == (user_email is None):
                 raise InvalidParamsError(
                     "Exactly one of userId or mail should be provided."
                 )
 
-            user_id = employment_input.get("user_id")
             user = None
             invite_token = uuid4().hex
             if user_id:
@@ -107,6 +107,12 @@ class CreateEmployment(AuthenticatedMutation):
                     raise InvalidResourceError(
                         "Invalid user id", should_alert_team=False
                     )
+            if user_email:
+                user = (
+                    User.query.options(selectinload(User.employments))
+                    .filter(func.lower(User.email) == func.lower(user_email))
+                    .one_or_none()
+                )
 
             start_date = employment_input.get("start_date", date.today())
 
