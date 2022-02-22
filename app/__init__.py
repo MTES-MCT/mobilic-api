@@ -18,6 +18,7 @@ from app.templates.filters import JINJA_CUSTOM_FILTERS
 from elasticapm.contrib.flask import ElasticAPM
 import logging
 
+
 app = Flask(__name__)
 app.config.update(
     {
@@ -60,11 +61,9 @@ Migrate(app, db)
 
 CORS(app)
 
-from app.helpers import cli
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
-from app import seed
 
 
 @app.before_first_request
@@ -131,6 +130,8 @@ def compute_usage_stats():
 
 
 from app.controllers.misc import *
+
+from . import commands
 
 
 @app.route("/services/send-onboarding-emails", methods=["POST"])

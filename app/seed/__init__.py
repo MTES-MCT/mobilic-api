@@ -1,8 +1,7 @@
-import sys
 import datetime
-from unittest.mock import patch, MagicMock
+import sys
 
-from app import app, db
+from app import db
 from app.domain.log_activities import log_activity
 from app.models import (
     User,
@@ -30,39 +29,13 @@ START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
 END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
 
 
-# class AuthenticatedUserContext:
-#     def __init__(self, user=None):
-#         self.mocked_authenticated_user = None
-#         self.mocked_token_verification = None
-#         if user:
-#             self.mocked_token_verification = patch(
-#                 "app.helpers.authentication.verify_jwt_in_request",
-#                 new=MagicMock(return_value=None),
-#             )
-#             self.mocked_authenticated_user = patch(
-#                 "flask_jwt_extended.utils.get_current_user",
-#                 new=MagicMock(return_value=user),
-#             )
-#
-#     def __enter__(self):
-#         if self.mocked_authenticated_user:
-#             self.mocked_token_verification.__enter__()
-#             self.mocked_authenticated_user.__enter__()
-#         return self
-#
-#     def __exit__(self, *args):
-#         if self.mocked_token_verification:
-#             self.mocked_authenticated_user.__exit__(*args)
-#             self.mocked_token_verification.__exit__(*args)
-
-
 def exit_if_prod():
     if MOBILIC_ENV == "prod":
         print("Seeding not available in prod environment")
         sys.exit(0)
 
 
-@app.cli.command(with_appcontext=True)
+# @app.cli.command(with_appcontext=True)
 def clean():
     exit_if_prod()
 
@@ -77,7 +50,7 @@ def clean():
     db.session.commit()
 
 
-@app.cli.command(with_appcontext=True)
+# @app.cli.command(with_appcontext=True)
 def seed():
     exit_if_prod()
 

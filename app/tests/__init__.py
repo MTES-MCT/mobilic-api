@@ -1,5 +1,6 @@
 import os
-from unittest import TestCase
+import sys
+from unittest import TestCase, TestLoader, TextTestRunner
 from unittest.mock import patch, MagicMock
 
 from flask.testing import FlaskClient
@@ -10,6 +11,20 @@ from app.seed import AuthenticatedUserContext
 from config import TestConfig
 
 MIGRATED_TEST_DB = {"value": False}
+
+
+def run_tests_from_cli():
+    app.config.from_object(TestConfig)
+    root_project_path = os.path.dirname(app.root_path)
+    test_suite = TestLoader().discover(
+        os.path.join(app.root_path, "tests"),
+        pattern="test_*.py",
+        top_level_dir=root_project_path,
+    )
+    result = TextTestRunner(verbosity=3).run(test_suite)
+    if result.wasSuccessful():
+        sys.exit(0)
+    sys.exit(1)
 
 
 def migrate_test_db():
