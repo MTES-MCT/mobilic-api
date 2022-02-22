@@ -188,10 +188,5 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 @event.listens_for(Activity, "before_insert")
 @event.listens_for(Activity, "before_update")
 def set_last_submitter_id(mapper, connect, target):
-    # why current_user is not None does not work ??
-    try:
+    if current_user:
         target.last_submitter_id = current_user.id
-    except Exception as e:
-        app.logger.warning(
-            f"current_user id was not found, could not set activity last submitter id : {e}"
-        )

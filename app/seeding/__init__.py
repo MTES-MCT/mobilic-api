@@ -21,6 +21,11 @@ from config import MOBILIC_ENV
 
 NB_COMPANIES = 10
 NB_EMPLOYEES = 10
+YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
+START_HOUR = datetime.time(hour=14, minute=0)
+END_HOUR = datetime.time(hour=15, minute=0)
+START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
+END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
 
 
 def exit_if_prod():
@@ -70,11 +75,6 @@ def seed():
 
     print(f"Creating {NB_EMPLOYEES} employees per companies.")
     print(f"Each employee will create 1 mission and log 1 hour of work in it.")
-    yesterday = datetime.date.today() - datetime.timedelta(days=1)
-    start_hour = datetime.time(hour=14, minute=0)
-    end_hour = datetime.time(hour=15, minute=0)
-    start_time = datetime.datetime.combine(yesterday, start_hour)
-    end_time = datetime.datetime.combine(yesterday, end_hour)
     for idx_company, company in enumerate(companies):
         EmploymentFactory.create(
             company=company, submitter=admin, user=admin, has_admin_rights=True
@@ -93,7 +93,7 @@ def seed():
                 has_admin_rights=False,
             )
             mission = Mission(
-                name=f"Mission Test {idx_company}:{i}",
+                name=f"Mission Test {idx_company+1}:{i+1}",
                 company=company,
                 reception_time=datetime.datetime.now(),
                 submitter=employee,
@@ -106,9 +106,9 @@ def seed():
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=end_time,
-                start_time=start_time,
-                end_time=end_time,
+                reception_time=END_TIME,
+                start_time=START_TIME,
+                end_time=END_TIME,
             )
 
         sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
