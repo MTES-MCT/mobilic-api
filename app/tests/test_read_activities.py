@@ -10,7 +10,7 @@ from app.tests import (
     BaseTest,
     AuthenticatedUserContext,
 )
-from app.seeding import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory
 from app.tests.helpers import test_db_changes, DBEntryUpdate
 
 

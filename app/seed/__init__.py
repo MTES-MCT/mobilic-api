@@ -12,7 +12,7 @@ from app.models import (
     ActivityVersion,
 )
 from app.models.activity import ActivityType, Activity
-from app.seeding.factories import (
+from app.seed.factories import (
     UserFactory,
     CompanyFactory,
     EmploymentFactory,
@@ -52,6 +52,11 @@ def clean():
 @app.cli.command(with_appcontext=True)
 def seed():
     exit_if_prod()
+
+    # self.current_user_context = AuthenticatedUserContext(
+    #     user=self.current_user
+    # )
+    # self.current_user_context.__enter__()
 
     print("------ SEEDING DATA -------")
 
@@ -114,4 +119,6 @@ def seed():
         sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
     sys.stdout.flush()
     db.session.commit()
+
+    # self.current_user_context.__enter__()
     print(f"\nAll done.")

@@ -19,7 +19,7 @@ from app.domain.permissions import (
     can_actor_read_mission,
     check_actor_can_write_on_mission_over_period,
 )
-from app.seeding import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestAuthorization(BaseTest):

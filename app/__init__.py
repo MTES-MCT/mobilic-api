@@ -64,7 +64,7 @@ from app.helpers import cli
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
-from app import seeding
+from app import seed
 
 
 @app.before_first_request

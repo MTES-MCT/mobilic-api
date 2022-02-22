@@ -17,7 +17,7 @@ from app.tests import (
     AuthenticatedUserContext,
 )
 from app.tests.helpers import test_db_changes, DBEntryUpdate
-from app.seeding import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestActivityOverlaps(BaseTest):

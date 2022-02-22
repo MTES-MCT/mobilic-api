@@ -13,7 +13,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
-from app.seeding import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestLogActivities(BaseTest):

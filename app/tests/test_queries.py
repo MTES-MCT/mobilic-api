@@ -1,5 +1,5 @@
 from app.tests import BaseTest, test_post_graphql
-from app.seeding import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestQueries(BaseTest):
