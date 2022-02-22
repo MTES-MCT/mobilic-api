@@ -20,3 +20,9 @@ def clean():
 def seed():
     """Inject tests data in database."""
     seed_seed()
+
+
+@app.cli.command(with_appcontext=True)
+def toto():
+    """Say Hello."""
+    print("Hello toto")
