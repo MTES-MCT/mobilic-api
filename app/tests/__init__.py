@@ -5,10 +5,7 @@ from unittest.mock import patch, MagicMock
 from flask.testing import FlaskClient
 from flask_migrate import upgrade
 
-from app import app, db, graphql_api_path
 from app import app, db, graphql_api_path, graphql_private_api_path
-from app.models import User, Company, Employment
-from app.models.employment import EmploymentRequestValidationStatus
 from config import TestConfig
 
 MIGRATED_TEST_DB = {"value": False}
