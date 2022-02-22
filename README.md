@@ -98,6 +98,20 @@ Pour mettre à jour la DB avec les dernières migrations la commande à exécute
 flask db upgrade
 ```
 
+## Données de test
+
+Pour injecter des données en base
+```commandline
+flask seed
+```
+Utilisateurs créés:
+* busy.admin@test.com [password]: Gérant de 10 entreprises employant chacune 10 employés
+
+Pour vider la base
+```commandline
+flask clean
+```
+
 ## Infos complémentaires
 
 Les différentes technos/frameworks utilisés par le back sont :
