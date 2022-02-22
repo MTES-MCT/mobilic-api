@@ -1,4 +1,7 @@
 from collections import namedtuple
+from unittest.mock import patch, MagicMock
+
+from flask.testing import FlaskClient
 from freezegun import freeze_time
 from datetime import datetime
 from contextlib import contextmanager
@@ -110,6 +113,34 @@ class ApiRequests:
                 editActivity (activityId: $activityId, startTime: $startTime, endTime: $endTime, context: $context) {
                     id
                     type
+                }
+            }
+        }
+    """
+    create_account = """
+        mutation ($email: String!, $password: String!, $firstName: String!, $lastName: String!, $inviteToken: String) {
+            signUp {
+                user(email: $email, password: $password, inviteToken: $inviteToken, firstName: $firstName,
+                                                lastName: $lastName) {
+                    accessToken
+                }
+            }
+        }
+    """
+    invite = """
+        mutation ($userId: Int, $companyId: Int!, $mail: String) {
+            employments {
+                createEmployment(userId: $userId, companyId: $companyId, mail: $mail) {
+                    id
+                }
+            }
+        }
+    """
+    redeem_invite = """
+        mutation ($token: String!) {
+            signUp {
+                redeemInvite(token: $token) {
+                    id
                 }
             }
         }

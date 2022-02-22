@@ -188,5 +188,4 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 @event.listens_for(Activity, "before_insert")
 @event.listens_for(Activity, "before_update")
 def set_last_submitter_id(mapper, connect, target):
-    if current_user:
-        target.last_submitter_id = current_user.id
+    target.last_submitter_id = current_user.id

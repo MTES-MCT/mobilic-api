@@ -1,5 +1,6 @@
 import sys
 import datetime
+from unittest.mock import patch, MagicMock
 
 from app import app, db
 from app.domain.log_activities import log_activity
@@ -17,6 +18,7 @@ from app.seed.factories import (
     CompanyFactory,
     EmploymentFactory,
 )
+from app.seed.helpers import AuthenticatedUserContext
 from config import MOBILIC_ENV
 
 NB_COMPANIES = 10
@@ -26,6 +28,32 @@ START_HOUR = datetime.time(hour=14, minute=0)
 END_HOUR = datetime.time(hour=15, minute=0)
 START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
 END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
+
+
+# class AuthenticatedUserContext:
+#     def __init__(self, user=None):
+#         self.mocked_authenticated_user = None
+#         self.mocked_token_verification = None
+#         if user:
+#             self.mocked_token_verification = patch(
+#                 "app.helpers.authentication.verify_jwt_in_request",
+#                 new=MagicMock(return_value=None),
+#             )
+#             self.mocked_authenticated_user = patch(
+#                 "flask_jwt_extended.utils.get_current_user",
+#                 new=MagicMock(return_value=user),
+#             )
+#
+#     def __enter__(self):
+#         if self.mocked_authenticated_user:
+#             self.mocked_token_verification.__enter__()
+#             self.mocked_authenticated_user.__enter__()
+#         return self
+#
+#     def __exit__(self, *args):
+#         if self.mocked_token_verification:
+#             self.mocked_authenticated_user.__exit__(*args)
+#             self.mocked_token_verification.__exit__(*args)
 
 
 def exit_if_prod():
@@ -52,11 +80,6 @@ def clean():
 @app.cli.command(with_appcontext=True)
 def seed():
     exit_if_prod()
-
-    # self.current_user_context = AuthenticatedUserContext(
-    #     user=self.current_user
-    # )
-    # self.current_user_context.__enter__()
 
     print("------ SEEDING DATA -------")
 
@@ -105,20 +128,20 @@ def seed():
             )
             db.session.add(mission)
 
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=END_TIME,
-                start_time=START_TIME,
-                end_time=END_TIME,
-            )
+            with AuthenticatedUserContext(user=employee):
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=mission,
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=END_TIME,
+                    start_time=START_TIME,
+                    end_time=END_TIME,
+                )
 
         sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
     sys.stdout.flush()
     db.session.commit()
 
-    # self.current_user_context.__enter__()
     print(f"\nAll done.")
