@@ -64,7 +64,8 @@ CORS(app)
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
-from . import commands
+
+# from . import commands
 
 
 @app.before_first_request
@@ -166,3 +167,9 @@ def handle_error(error):
         ),
         error.code,
     )
+
+
+@app.cli.command(with_appcontext=True)
+def toto():
+    """Say Hello."""
+    print("Hello toto")
