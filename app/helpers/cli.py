@@ -6,7 +6,7 @@ from app import app
 from config import TestConfig
 
 
-@app.cli.command(with_appcontext=True)
+@app.cli.command(with_appcontext=False)
 def test():
     app.config.from_object(TestConfig)
     root_project_path = os.path.dirname(app.root_path)
