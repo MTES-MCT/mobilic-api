@@ -26,7 +26,7 @@ jobs:
       - run:
           command: |
             source venv/bin/activate
-            flask toto
+            flask test
           environment:
             FLASK_APP: "app:app"
             FLASK_DEBUG: "1"
