@@ -1,4 +1,4 @@
-from app import app
+# from app import app
 
 # from app.tests import run_tests_from_cli
 # from app.seed import clean as seed_clean
@@ -23,7 +23,7 @@ from app import app
 #     seed_seed()
 
 
-@app.cli.command(with_appcontext=True)
-def toto():
-    """Say Hello."""
-    print("Hello toto")
+# @app.cli.command(with_appcontext=True)
+# def toto():
+#     """Say Hello."""
+#     print("Hello toto")

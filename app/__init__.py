@@ -169,7 +169,7 @@ def handle_error(error):
     )
 
 
-@app.cli.command(with_appcontext=True)
+@app.cli.command(with_appcontext=False)
 def toto():
     """Say Hello."""
     print("Hello toto")
