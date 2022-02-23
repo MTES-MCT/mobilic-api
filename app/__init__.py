@@ -64,6 +64,7 @@ CORS(app)
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
+from . import commands
 
 
 @app.before_first_request
@@ -130,8 +131,6 @@ def compute_usage_stats():
 
 
 from app.controllers.misc import *
-
-from . import commands
 
 
 @app.route("/services/send-onboarding-emails", methods=["POST"])
