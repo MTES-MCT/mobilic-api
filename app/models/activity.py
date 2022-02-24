@@ -26,6 +26,10 @@ def activity_versions_at(activities, at_time):
     )
 
 
+def is_activity_considered_work(activity_type):
+    return activity_type != ActivityType.TRANSFER
+
+
 class ActivityType(str, Enum):
     DRIVE = "drive"
     WORK = "work"
