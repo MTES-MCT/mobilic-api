@@ -82,7 +82,9 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
     return summary_columns
 
 
-def _get_detail_columns(include_support=False, include_expenditures=False):
+def _get_detail_columns(
+    include_support=False, include_expenditures=False, include_transfers=False
+):
     columns = [
         Column(
             name="start_time",
@@ -119,6 +121,17 @@ def _get_detail_columns(include_support=False, include_expenditures=False):
             format=format_seconds_duration,
         ),
     ]
+
+    if include_transfers:
+        columns.append(
+            Column(
+                name="transfer",
+                label="Temps de Liaison",
+                color="#C9CBFF",
+                secondary=True,
+                format=format_seconds_duration,
+            )
+        )
 
     if include_support:
         columns.append(
@@ -189,6 +202,7 @@ def _generate_work_days_pdf(
     end_date,
     include_support_activity=False,
     include_expenditures=False,
+    include_transfers=False,
 ):
     months = []
     weeks = []
@@ -203,6 +217,7 @@ def _generate_work_days_pdf(
                 "drive": 0,
                 "work": 0,
                 "support": 0,
+                "transfer": 0,
                 "total_work": 0,
                 "day_meal": 0,
                 "night_meal": 0,
@@ -223,6 +238,7 @@ def _generate_work_days_pdf(
                 "drive": 0,
                 "work": 0,
                 "support": 0,
+                "transfer": 0,
                 "total_work": 0,
                 "day_meal": 0,
                 "night_meal": 0,
@@ -238,6 +254,7 @@ def _generate_work_days_pdf(
         "drive": 0,
         "work": 0,
         "support": 0,
+        "transfer": 0,
         "total_work": 0,
         "day_meal": 0,
         "night_meal": 0,
@@ -359,6 +376,8 @@ def _generate_work_days_pdf(
             include_support=include_support_activity
             or total[ActivityType.SUPPORT] > 0,
             include_expenditures=include_expenditures,
+            include_transfers=include_transfers
+            or total[ActivityType.TRANSFER] > 0,
         ),
         weeks=weeks,
         months=months,
@@ -376,6 +395,7 @@ def generate_work_days_pdf_for(
     end_date,
     include_support_activity=False,
     include_expenditures=False,
+    include_transfers=False,
 ):
     work_days, _ = group_user_events_by_day_with_limit(
         user, from_date=start_date, until_date=end_date
@@ -387,4 +407,5 @@ def generate_work_days_pdf_for(
         end_date,
         include_support_activity=include_support_activity,
         include_expenditures=include_expenditures,
+        include_transfers=include_transfers,
     )
