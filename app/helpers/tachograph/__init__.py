@@ -421,7 +421,6 @@ def build_activity_file(
     current_offset = 0
     previous_day_length = 0
     for wd in work_days:
-        print(wd)
         activity_changes = []
         first_activity = wd.activities[0] if wd.activities else None
         activity_status_at_midnight = None
@@ -519,9 +518,6 @@ def build_activity_file(
         ## Write each activity record : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=97
         ## 2 bytes (16 bits), with a lot info set at the bit-level
         for ac in activity_changes:
-            print("\n")
-            print(ac)
-            print("\n")
             bit_string = ""
             ### - First bit : 0 (driver) or 1 (passenger)
             bit_string += "1" if ac.type == ActivityType.SUPPORT else "0"
