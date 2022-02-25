@@ -26,7 +26,6 @@ jobs:
       - run:
           command: |
             source venv/bin/activate
-            flask --help
             flask test
           environment:
             FLASK_APP: "app:app"

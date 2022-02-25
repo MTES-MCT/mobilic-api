@@ -12,8 +12,8 @@ from app.seed import (
     AuthenticatedUserContext,
 )
 
-NB_COMPANIES = 10
-NB_EMPLOYEES = 10
+NB_COMPANIES = 50
+NB_EMPLOYEES = 20
 ADMIN_USER_NAME = "busy.admin@test.com"
 
 YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
