@@ -18,6 +18,7 @@ from app.templates.filters import JINJA_CUSTOM_FILTERS
 from elasticapm.contrib.flask import ElasticAPM
 import logging
 
+
 app = Flask(__name__)
 app.config.update(
     {
@@ -60,10 +61,11 @@ Migrate(app, db)
 
 CORS(app)
 
-from app.helpers import cli
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
+
+from . import commands
 
 
 @app.before_first_request

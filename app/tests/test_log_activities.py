@@ -5,7 +5,7 @@ from app.models.activity import (
     ActivityType,
     Activity,
 )
-from app.tests import BaseTest, UserFactory, CompanyFactory
+from app.tests import BaseTest
 from app.tests.helpers import (
     DBEntryUpdate,
     ForeignKey,
@@ -13,6 +13,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestLogActivities(BaseTest):
