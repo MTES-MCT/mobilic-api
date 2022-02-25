@@ -10,17 +10,17 @@ jobs:
           POSTGRES_DB: mobilic-test
     steps:
       - checkout
-      - restore_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      # - restore_cache:
+      #     key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
       - run:
           command: |
             python3 -m venv venv
             source venv/bin/activate
             pip install -r requirements.txt
-      - save_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
-          paths:
-            - "venv"
+      # - save_cache:
+      #     key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      #     paths:
+      #       - "venv"
       - run:
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
       - run:
