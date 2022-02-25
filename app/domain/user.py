@@ -1,4 +1,6 @@
 from flask import g
+from app.models import User, Employment
+from sqlalchemy import func
 
 from app import app, db
 from app.models import User, Employment
@@ -27,6 +29,8 @@ def create_user(
     db.session.flush()
 
     company = None
+
+    # if we have an invite_token, try to find employment based on it
     if invite_token:
         employment_to_validate = Employment.query.filter(
             Employment.invite_token == invite_token,
@@ -37,10 +41,21 @@ def create_user(
             app.logger.warning(
                 f"Could not find valid employment matching token {invite_token}"
             )
+        # we found the employment, let's accept it for the user
         else:
             employment_to_validate.bind(user)
             employment_to_validate.validate_by(user)
             company = employment_to_validate.company
+
+    # in case we don't have an invite_token, let's try to find an employment based on the user email
+    else:
+        employments_to_attach = Employment.query.filter(
+            func.lower(Employment.email) == func.lower(email),
+            Employment.user_id.is_(None),
+        ).all()
+
+        for employment in employments_to_attach:
+            employment.bind(user)
 
     message = f"Signed up new user {user}"
     if company:

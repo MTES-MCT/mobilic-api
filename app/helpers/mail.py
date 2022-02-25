@@ -171,6 +171,12 @@ class Mailer:
         from app.models import Email
         from app import db
 
+        if not app.config["EMAIL_ENABLED"]:
+            app.logger.info(
+                f"Email not sent because EMAIL_ENABLED is set to false"
+            )
+            return
+
         response = self.mailjet.send.create(
             data={"Messages": [m.payload for m in messages]},
             timeout=MAILJET_API_REQUEST_TIMEOUT,

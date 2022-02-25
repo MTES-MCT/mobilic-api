@@ -3,7 +3,6 @@ from random import randint
 
 from app.models import Mission
 from app.models.activity import (
-    ActivityType,
     Activity,
 )
 from app.tests.helpers import (
@@ -11,7 +10,6 @@ from app.tests.helpers import (
     make_authenticated_request,
     test_db_changes,
     ApiRequests,
-    ForeignKey,
 )
 
 from app.tests.test_log_activities import TestLogActivities

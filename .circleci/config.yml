@@ -30,6 +30,7 @@ jobs:
           environment:
             FLASK_APP: "app:app"
             FLASK_DEBUG: "1"
+            DATABASE_URL: "postgresql://localhost:5432/mobilic-test"
 
   format:
     docker:
