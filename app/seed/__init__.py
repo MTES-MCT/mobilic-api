@@ -1,8 +1,6 @@
-import datetime
 import sys
 
-from app import db
-from app.domain.log_activities import log_activity
+from app import db, app
 from app.models import (
     User,
     Employment,
@@ -10,23 +8,23 @@ from app.models import (
     RefreshToken,
     Mission,
     ActivityVersion,
+    MissionValidation,
+    MissionEnd,
+    LocationEntry,
+    Vehicle,
+    Email,
+    UserReadToken,
 )
-from app.models.activity import ActivityType, Activity
+from app.models.activity import Activity
 from app.seed.factories import (
     UserFactory,
     CompanyFactory,
     EmploymentFactory,
 )
 from app.seed.helpers import AuthenticatedUserContext
+from app.seed.scenarios import run_scenario_busy_admin
 from config import MOBILIC_ENV
-
-NB_COMPANIES = 10
-NB_EMPLOYEES = 10
-YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
-START_HOUR = datetime.time(hour=14, minute=0)
-END_HOUR = datetime.time(hour=15, minute=0)
-START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
-END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
+from app.seed.scenarios import scenarios
 
 
 def exit_if_prod():
@@ -40,12 +38,19 @@ def clean():
     exit_if_prod()
 
     print("------ CLEANING DATA -------")
+    # CAN WE USE CASCADE TO DELETE ALL OF THIS ??
     ActivityVersion.query.delete()
     Activity.query.delete()
+    MissionValidation.query.delete()
+    MissionEnd.query.delete()
+    LocationEntry.query.delete()
     Mission.query.delete()
     Employment.query.delete()
+    Vehicle.query.delete()
     Company.query.delete()
     RefreshToken.query.delete()
+    UserReadToken.query.delete()
+    Email.query.delete()
     User.query.delete()
     db.session.commit()
 
@@ -54,67 +59,9 @@ def clean():
 def seed():
     exit_if_prod()
 
-    print("------ SEEDING DATA -------")
+    print("###########################")
+    print("###### SEEDING DATA #######")
+    print("###########################")
 
-    print(f"Creating {NB_COMPANIES} companies...")
-    companies = [
-        CompanyFactory.create(
-            usual_name=f"Busy Corp {i + 1}", siren=f"000000{i}"
-        )
-        for i in range(NB_COMPANIES)
-    ]
-    print(f"{NB_COMPANIES} companies created.")
-
-    print(f"Creating admin...")
-    admin = UserFactory.create(
-        email="busy.admin@test.com",
-        password="password",
-        first_name="Busy",
-        last_name="Admin",
-    )
-    print(f"Admin created.")
-
-    print(f"Creating {NB_EMPLOYEES} employees per companies.")
-    print(f"Each employee will create 1 mission and log 1 hour of work in it.")
-    for idx_company, company in enumerate(companies):
-        EmploymentFactory.create(
-            company=company, submitter=admin, user=admin, has_admin_rights=True
-        )
-        for i in range(NB_EMPLOYEES):
-            employee = UserFactory.create(
-                email=f"busy.employee{i+1}@busycorp{idx_company+1}.com",
-                password="password",
-                first_name=f"Employee {i+1}",
-                last_name=f"Corp {idx_company+1}",
-            )
-            EmploymentFactory.create(
-                company=company,
-                submitter=admin,
-                user=employee,
-                has_admin_rights=False,
-            )
-            mission = Mission(
-                name=f"Mission Test {idx_company+1}:{i+1}",
-                company=company,
-                reception_time=datetime.datetime.now(),
-                submitter=employee,
-            )
-            db.session.add(mission)
-
-            with AuthenticatedUserContext(user=employee):
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=mission,
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=END_TIME,
-                    start_time=START_TIME,
-                    end_time=END_TIME,
-                )
-
-        sys.stdout.write(f"\r{idx_company + 1} / {NB_COMPANIES}")
-    sys.stdout.flush()
-    db.session.commit()
-
-    print(f"\nAll done.")
+    for scenario in scenarios:
+        scenario.run()
