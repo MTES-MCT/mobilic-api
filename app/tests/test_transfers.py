@@ -1,7 +1,8 @@
 from datetime import datetime
 
 from app.models.activity import ActivityType, Activity
-from app.tests import BaseTest, CompanyFactory, UserFactory
+from app.seed import CompanyFactory, UserFactory
+from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 
@@ -63,7 +64,6 @@ class TestTransfers(BaseTest):
             ),
             request_should_fail_with=None,
         )
-        print(res)
 
         activities = Activity.query.filter_by(
             type=ActivityType.TRANSFER, mission_id=mission_id
