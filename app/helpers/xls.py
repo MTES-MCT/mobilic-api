@@ -222,7 +222,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 light_green_hex,
             ),
             (
-                "Temps de liaison",
+                "Liaison",
                 lambda wday: timedelta(
                     seconds=wday.activity_durations[ActivityType.TRANSFER]
                 ),

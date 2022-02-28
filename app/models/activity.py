@@ -27,7 +27,9 @@ def activity_versions_at(activities, at_time):
 
 
 def is_activity_considered_work(activity_type):
-    return activity_type != ActivityType.TRANSFER
+    return activity_type in [
+        item for item in ActivityType if item != ActivityType.TRANSFER
+    ]
 
 
 class ActivityType(str, Enum):
@@ -40,7 +42,7 @@ Enumération des valeurs suivantes.
 - "drive" : conduite du véhicule
 - "work" : travail sans déplacement du véhicule
 - "support" : accompagnement ou disponibilité
-- "transfer": temps de liaison
+- "transfer": liaison d'un point à un autre
 """
 
 
