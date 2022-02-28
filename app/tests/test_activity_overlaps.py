@@ -14,11 +14,10 @@ from app.models import Mission
 from app.models.activity import ActivityType, Activity
 from app.tests import (
     BaseTest,
-    UserFactory,
-    CompanyFactory,
     AuthenticatedUserContext,
 )
 from app.tests.helpers import test_db_changes, DBEntryUpdate
+from app.seed import UserFactory, CompanyFactory
 
 
 class TestActivityOverlaps(BaseTest):

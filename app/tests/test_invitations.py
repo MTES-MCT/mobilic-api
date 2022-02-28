@@ -1,13 +1,14 @@
 import unittest
+
+from app.seed import CompanyFactory, UserFactory
 from app.tests import (
     BaseTest,
-    CompanyFactory,
-    UserFactory,
     test_post_graphql,
     test_post_graphql_unexposed,
 )
 from app.models import Employment, User
 from app.models.employment import EmploymentRequestValidationStatus
+from app.tests.helpers import ApiRequests
 
 
 def get_invite_token(response):
@@ -18,6 +19,39 @@ def get_invite_token(response):
         .get("id")
     )
     return Employment.query.filter_by(id=invitation_id).first().invite_token
+
+
+def create_account_get_user(
+    email, password, first_name, last_name, invite_token=None
+):
+    test_post_graphql_unexposed(
+        ApiRequests.create_account,
+        variables=dict(
+            email=email,
+            password=password,
+            firstName=first_name,
+            lastName=last_name,
+            inviteToken=invite_token,
+        ),
+    )
+
+    return User.query.filter_by(email=email).first()
+
+
+def invite_user_by_userid(admin, user_id, company):
+    return test_post_graphql(
+        ApiRequests.invite,
+        mock_authentication_with_user=admin,
+        variables=dict(userId=user_id, companyId=company.id),
+    )
+
+
+def invite_user_by_email(admin, email, company):
+    return test_post_graphql(
+        ApiRequests.invite,
+        mock_authentication_with_user=admin,
+        variables=dict(mail=email, companyId=company.id),
+    )
 
 
 class TestInvitations(BaseTest):
@@ -32,62 +66,6 @@ class TestInvitations(BaseTest):
             post__company=self.company2, post__has_admin_rights=True
         )
         self.employee_1 = UserFactory.create()
-        self.send_invite_query = """
-                mutation ($userId: Int, $companyId: Int!, $mail: String) {
-                        employments {
-                          createEmployment(
-                            userId: $userId
-                            companyId: $companyId
-                            mail: $mail
-                          ) {
-                                id
-                            }
-                        }
-                    }
-                """
-        self.redeem_invite_query = """
-                mutation ($token: String!) {
-                    signUp {
-                      redeemInvite(token: $token) {
-                        id
-                      }
-                    }
-                  }
-                """
-        self.create_account_query = """
-                mutation (
-                    $email: String!
-                    $password: String!
-                    $firstName: String!
-                    $lastName: String!
-                    $inviteToken: String
-                    ) {
-                        signUp {
-                            user(
-                                email: $email
-                                password: $password
-                                inviteToken: $inviteToken
-                                firstName: $firstName
-                                lastName: $lastName) {
-                                accessToken
-                            }
-                        }
-                    }
-            """
-
-    def invite_user_by_userid(self, admin, user_id, company):
-        return test_post_graphql(
-            self.send_invite_query,
-            mock_authentication_with_user=admin,
-            variables=dict(userId=user_id, companyId=company.id),
-        )
-
-    def invite_user_by_email(self, admin, email, company):
-        return test_post_graphql(
-            self.send_invite_query,
-            mock_authentication_with_user=admin,
-            variables=dict(mail=email, companyId=company.id),
-        )
 
     def check_has_pending_invite(self, employee, company):
         employments = Employment.query.filter_by(
@@ -113,46 +91,26 @@ class TestInvitations(BaseTest):
         ).all()
         self.assertEqual(len(employments), 1)
 
-    def create_account_get_user(
-        self, email, password, first_name, last_name, invite_token=None
-    ):
-        test_post_graphql_unexposed(
-            self.create_account_query,
-            variables=dict(
-                email=email,
-                password=password,
-                firstName=first_name,
-                lastName=last_name,
-                inviteToken=invite_token,
-            ),
-        )
-
-        return User.query.filter_by(email=email).first()
-
     def test_invite_new_user_by_email(self):
         new_user_email = "blabla@test.com"
 
-        self.invite_user_by_email(self.admin, new_user_email, self.company)
+        invite_user_by_email(self.admin, new_user_email, self.company)
 
         self.check_has_pending_invite_by_email(new_user_email, self.company)
 
     def test_invite_existing_user_by_userid(self):
 
-        self.invite_user_by_userid(
-            self.admin, self.employee_1.id, self.company
-        )
+        invite_user_by_userid(self.admin, self.employee_1.id, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
 
     def test_invite_existing_user_by_email(self):
-        self.invite_user_by_email(
-            self.admin, self.employee_1.email, self.company
-        )
+        invite_user_by_email(self.admin, self.employee_1.email, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
 
     def test_invite_existing_user_by_email_case_insensitive(self):
-        self.invite_user_by_email(
+        invite_user_by_email(
             self.admin, self.employee_1.email.upper(), self.company
         )
 
@@ -160,7 +118,7 @@ class TestInvitations(BaseTest):
 
     def test_error_when_invite_non_existing_user(self):
         # admin invites an employee who doesn't exist
-        invite_response = self.invite_user_by_userid(
+        invite_response = invite_user_by_userid(
             self.admin, 12545214, self.company
         )
 
@@ -174,13 +132,13 @@ class TestInvitations(BaseTest):
         future_employee_email = "future_employee@toto.com"
 
         # admin invites an employee who doesn't exist
-        invite_response = self.invite_user_by_email(
+        invite_response = invite_user_by_email(
             self.admin, future_employee_email, self.company
         )
         invite_token = get_invite_token(invite_response)
 
         # new employee creates an account via the invite token
-        new_employee = self.create_account_get_user(
+        new_employee = create_account_get_user(
             email=future_employee_email,
             password="greatpassword",
             first_name="Albert",
@@ -194,12 +152,10 @@ class TestInvitations(BaseTest):
         future_employee_email = "future_employee@titi.com"
 
         # admin invites an employee who doesn't exist
-        self.invite_user_by_email(
-            self.admin, future_employee_email, self.company
-        )
+        invite_user_by_email(self.admin, future_employee_email, self.company)
 
         # new employee creates an account without using invite token
-        new_employee = self.create_account_get_user(
+        new_employee = create_account_get_user(
             email=future_employee_email,
             password="fabulouspassword",
             first_name="Magicien",
@@ -225,14 +181,14 @@ class TestInvitations(BaseTest):
         future_employee_email = "future_employee@toto.com"
 
         # admin invites an employee who doesn't exist
-        response = self.invite_user_by_email(
+        response = invite_user_by_email(
             self.admin, future_employee_email, self.company
         )
         self.assertTrue(response.status_code, 200)
         self.print_employments()
 
         # second admin does the same
-        response = self.invite_user_by_email(
+        response = invite_user_by_email(
             self.admin2, future_employee_email, self.company2
         )
         print(f"{response.json}")
@@ -240,7 +196,7 @@ class TestInvitations(BaseTest):
         self.print_employments()
 
         # new employee creates an account without using invite token
-        new_employee = self.create_account_get_user(
+        new_employee = create_account_get_user(
             email=future_employee_email,
             password="greatpassword",
             first_name="Albert",
@@ -255,12 +211,12 @@ class TestInvitations(BaseTest):
         future_employee_email = "future_employee@toto.com"
 
         # admin invites an employee who doesn't exist in UPPER CASE
-        self.invite_user_by_email(
+        invite_user_by_email(
             self.admin, future_employee_email.upper(), self.company
         )
 
         # new employee creates an account without using invite token
-        new_employee = self.create_account_get_user(
+        new_employee = create_account_get_user(
             email=future_employee_email,
             password="greatpassword",
             first_name="Albert",

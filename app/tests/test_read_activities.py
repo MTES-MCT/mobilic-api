@@ -8,10 +8,9 @@ from app.models.activity import ActivityType, Activity
 from app.models.queries import query_activities
 from app.tests import (
     BaseTest,
-    UserFactory,
-    CompanyFactory,
     AuthenticatedUserContext,
 )
+from app.seed import UserFactory, CompanyFactory
 from app.tests.helpers import test_db_changes, DBEntryUpdate
 
 

@@ -1,9 +1,12 @@
-from flask_migrate import upgrade
-from unittest import TestLoader, TextTestRunner
 import os
 import sys
+from unittest import TestLoader, TextTestRunner
 
-from app import app, db
+from app import app
+
+from app.seed import clean as seed_clean
+from app.seed import seed as seed_seed
+
 from config import TestConfig
 
 
@@ -20,3 +23,15 @@ def test():
     if result.wasSuccessful():
         sys.exit(0)
     sys.exit(1)
+
+
+@app.cli.command(with_appcontext=True)
+def clean():
+    """Remove all data from database."""
+    seed_clean()
+
+
+@app.cli.command(with_appcontext=True)
+def seed():
+    """Inject tests data in database."""
+    seed_seed()
