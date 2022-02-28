@@ -7,6 +7,10 @@ from app.seed.scenarios.busy_admin import (
     ADMIN_USER_NAME,
     run_scenario_busy_admin,
 )
+from app.seed.scenarios.temps_de_liaison import (
+    ADMIN_USER_NAME as ADMIN_TEMPS_DE_LIAISON,
+)
+from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 
 
 @dataclass
@@ -27,10 +31,16 @@ class SeedScenario:
 
 
 scenarios = [
+    # SeedScenario(
+    #     "Busy Admin",
+    #     f"Creates an admin managing {NB_COMPANIES} companies with {NB_EMPLOYEES} employees each, logging some time in missions",
+    #     ADMIN_USER_NAME,
+    #     run_scenario_busy_admin,
+    # ),
     SeedScenario(
-        "Busy Admin",
-        f"Creates an admin managing {NB_COMPANIES} companies with {NB_EMPLOYEES} employees each, logging some time in missions",
-        ADMIN_USER_NAME,
-        run_scenario_busy_admin,
+        "Temps de Liaison",
+        f"Creates an admin managing a company with one employee",
+        ADMIN_TEMPS_DE_LIAISON,
+        run_scenario_temps_de_liaison,
     )
 ]
