@@ -11,14 +11,10 @@ from app.seed import (
     EmploymentFactory,
     AuthenticatedUserContext,
 )
+from app.seed.helpers import get_time
 
-ADMIN_USER_NAME = "tempsdeliaison.admin@test.com"
-
-YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
-START_HOUR = datetime.time(hour=14, minute=0)
-END_HOUR = datetime.time(hour=15, minute=0)
-START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
-END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
+ADMIN_EMAIL = "tempsdeliaison.admin@test.com"
+EMPLOYEE_EMAIL = "tempsdeliaison.employee@test.com"
 
 
 def run_scenario_temps_de_liaison():
@@ -27,7 +23,7 @@ def run_scenario_temps_de_liaison():
     )
 
     admin = UserFactory.create(
-        email=ADMIN_USER_NAME,
+        email=ADMIN_EMAIL,
         password="password",
         first_name="Tps de Liaison",
         last_name="Admin",
@@ -37,7 +33,7 @@ def run_scenario_temps_de_liaison():
     )
 
     employee = UserFactory.create(
-        email=f"tempsdeliaison.employee@test.com",
+        email=EMPLOYEE_EMAIL,
         password="password",
     )
     EmploymentFactory.create(
@@ -47,35 +43,81 @@ def run_scenario_temps_de_liaison():
         has_admin_rights=False,
     )
 
-    mission = Mission(
-        name=f"Mission Temps De Liaison",
-        company=company,
-        reception_time=datetime.datetime.now(),
-        submitter=employee,
-    )
-    db.session.add(mission)
+    missions = []
+    for title in [
+        "Temps de liaison à ajouter",
+        "Petite journée, grosse liaison",
+    ]:
+        mission = Mission(
+            name=title,
+            company=company,
+            reception_time=datetime.datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission)
+        missions.append(mission)
 
     with AuthenticatedUserContext(user=employee):
+
+        ## Mission 1
         log_activity(
             submitter=employee,
             user=employee,
-            mission=mission,
+            mission=missions[0],
             type=ActivityType.DRIVE,
             switch_mode=False,
-            reception_time=END_TIME,
-            start_time=START_TIME,
-            end_time=END_TIME,
+            reception_time=get_time(how_many_days_ago=1, hour=12),
+            start_time=get_time(how_many_days_ago=1, hour=10),
+            end_time=get_time(how_many_days_ago=1, hour=12),
         )
 
         db.session.add(
             MissionEnd(
                 submitter=employee,
-                reception_time=END_TIME,
+                reception_time=get_time(how_many_days_ago=1, hour=12),
                 user=employee,
-                mission=mission,
+                mission=missions[0],
             )
         )
         validate_mission(
-            submitter=employee, mission=mission, for_user=employee
+            submitter=employee, mission=missions[0], for_user=employee
         )
+
+        ## Mission 2
+        log_activity(
+            submitter=employee,
+            user=employee,
+            mission=missions[1],
+            type=ActivityType.DRIVE,
+            switch_mode=False,
+            reception_time=get_time(how_many_days_ago=2, hour=16),
+            start_time=get_time(how_many_days_ago=2, hour=14),
+            end_time=get_time(how_many_days_ago=2, hour=16),
+        )
+
+        db.session.add(
+            MissionEnd(
+                submitter=employee,
+                reception_time=get_time(how_many_days_ago=2, hour=16),
+                user=employee,
+                mission=missions[1],
+            )
+        )
+        validate_mission(
+            submitter=employee, mission=missions[1], for_user=employee
+        )
+
+    with AuthenticatedUserContext(user=admin):
+        ## Adding temps de liaison for second mission
+        log_activity(
+            submitter=admin,
+            user=employee,
+            mission=missions[1],
+            type=ActivityType.TRANSFER,
+            switch_mode=False,
+            reception_time=get_time(how_many_days_ago=2, hour=20),
+            start_time=get_time(how_many_days_ago=2, hour=4),
+            end_time=get_time(how_many_days_ago=2, hour=14),
+        )
+
     db.session.commit()

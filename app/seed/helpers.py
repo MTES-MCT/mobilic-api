@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+import datetime
 
 
 class AuthenticatedUserContext:
@@ -25,3 +26,9 @@ class AuthenticatedUserContext:
         if self.mocked_token_verification:
             self.mocked_authenticated_user.__exit__(*args)
             self.mocked_token_verification.__exit__(*args)
+
+
+def get_time(how_many_days_ago, hour, minute=0):
+    day = datetime.date.today() - datetime.timedelta(days=how_many_days_ago)
+    hour = datetime.time(hour=hour, minute=minute)
+    return datetime.datetime.combine(day, hour)

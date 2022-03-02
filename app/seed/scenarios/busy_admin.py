@@ -1,5 +1,4 @@
 import datetime
-import sys
 
 from app import db
 from app.domain.log_activities import log_activity
