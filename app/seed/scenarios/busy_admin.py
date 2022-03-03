@@ -2,7 +2,8 @@ import datetime
 
 from app import db
 from app.domain.log_activities import log_activity
-from app.models import Mission
+from app.domain.validation import validate_mission
+from app.models import Mission, MissionEnd
 from app.models.activity import ActivityType
 from app.seed import (
     CompanyFactory,
@@ -10,10 +11,13 @@ from app.seed import (
     EmploymentFactory,
     AuthenticatedUserContext,
 )
+from app.seed.helpers import get_time
 
-NB_COMPANIES = 50
-NB_EMPLOYEES = 20
-ADMIN_USER_NAME = "busy.admin@test.com"
+NB_COMPANIES = 10
+NB_EMPLOYEES = 10
+NB_HISTORY = 12
+INTERVAL_HISTORY = 15
+ADMIN_EMAIL = "busy.admin@test.com"
 
 YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
 START_HOUR = datetime.time(hour=14, minute=0)
@@ -31,7 +35,7 @@ def run_scenario_busy_admin():
     ]
 
     admin = UserFactory.create(
-        email=ADMIN_USER_NAME,
+        email=ADMIN_EMAIL,
         password="password",
         first_name="Busy",
         last_name="Admin",
@@ -54,24 +58,126 @@ def run_scenario_busy_admin():
                 user=employee,
                 has_admin_rights=False,
             )
-            mission = Mission(
-                name=f"Mission Test {idx_company + 1}:{i + 1}",
+
+            # TODAY: a mission still pending
+            today_mission = Mission(
+                name=f"Mission Pending {idx_company + 1}:{i + 1}",
                 company=company,
                 reception_time=datetime.datetime.now(),
                 submitter=employee,
             )
-            db.session.add(mission)
+            db.session.add(today_mission)
+
+            # YESTERDAY: a mission to validate
+            yesterday_mission = Mission(
+                name=f"Mission To Validate {idx_company + 1}:{i + 1}",
+                company=company,
+                reception_time=get_time(how_many_days_ago=2, hour=8),
+                submitter=employee,
+            )
+            db.session.add(yesterday_mission)
+
+            # CREATES HISTORY MISSIONS
+            history_missions = {}
+            for idx_history in range(NB_HISTORY):
+                tmp_mission = Mission(
+                    name=f"Mission Past {idx_history + 1} {idx_company + 1}:{i + 1}",
+                    company=company,
+                    reception_time=get_time(
+                        how_many_days_ago=((idx_history + 1) * 30), hour=8
+                    ),
+                    submitter=employee,
+                )
+                db.session.add(tmp_mission)
+                history_missions[idx_history] = tmp_mission
+            db.session.commit()
 
             with AuthenticatedUserContext(user=employee):
                 log_activity(
                     submitter=employee,
                     user=employee,
-                    mission=mission,
+                    mission=today_mission,
                     type=ActivityType.DRIVE,
                     switch_mode=False,
-                    reception_time=END_TIME,
-                    start_time=START_TIME,
-                    end_time=END_TIME,
+                    reception_time=get_time(how_many_days_ago=1, hour=15),
+                    start_time=get_time(how_many_days_ago=1, hour=14),
+                    end_time=get_time(how_many_days_ago=1, hour=15),
                 )
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=yesterday_mission,
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=get_time(how_many_days_ago=2, hour=15),
+                    start_time=get_time(how_many_days_ago=2, hour=14),
+                    end_time=get_time(how_many_days_ago=2, hour=15),
+                )
+                db.session.add(
+                    MissionEnd(
+                        submitter=employee,
+                        reception_time=get_time(how_many_days_ago=2, hour=15),
+                        user=employee,
+                        mission=yesterday_mission,
+                    )
+                )
+                validate_mission(
+                    submitter=employee,
+                    mission=yesterday_mission,
+                    for_user=employee,
+                )
+
+            for idx_history, history_mission in history_missions.items():
+                with AuthenticatedUserContext(user=employee):
+                    log_activity(
+                        submitter=employee,
+                        user=employee,
+                        mission=history_mission,
+                        type=ActivityType.DRIVE,
+                        switch_mode=False,
+                        reception_time=get_time(
+                            how_many_days_ago=(
+                                (idx_history + 1) * INTERVAL_HISTORY
+                            ),
+                            hour=15,
+                        ),
+                        start_time=get_time(
+                            how_many_days_ago=(
+                                (idx_history + 1) * INTERVAL_HISTORY
+                            ),
+                            hour=14,
+                        ),
+                        end_time=get_time(
+                            how_many_days_ago=(
+                                (idx_history + 1) * INTERVAL_HISTORY
+                            ),
+                            hour=15,
+                        ),
+                    )
+                    db.session.add(
+                        MissionEnd(
+                            submitter=employee,
+                            reception_time=get_time(
+                                how_many_days_ago=(
+                                    (idx_history + 1) * INTERVAL_HISTORY
+                                ),
+                                hour=15,
+                            ),
+                            user=employee,
+                            mission=history_mission,
+                        )
+                    )
+                    validate_mission(
+                        submitter=employee,
+                        mission=history_mission,
+                        for_user=employee,
+                    )
+                with AuthenticatedUserContext(user=admin):
+                    validate_mission(
+                        submitter=admin,
+                        mission=history_mission,
+                        for_user=employee,
+                    )
+                db.session.commit()
 
     db.session.commit()
