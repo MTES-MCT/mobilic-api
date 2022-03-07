@@ -1,6 +1,7 @@
 import graphene
 from datetime import date, datetime
 from sqlalchemy import desc, or_, and_
+from sqlalchemy.orm import selectinload
 
 from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
@@ -23,7 +24,7 @@ from app.helpers.time import (
     max_or_none,
     min_or_none,
 )
-from app.models import User, Company, Activity, Mission
+from app.models import User, Company, Activity, Mission, Employment
 from app.data_access.activity import ActivityConnection
 from app.models.employment import EmploymentOutput
 
@@ -331,9 +332,25 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
     def resolve_admined_companies(self, info):
-        return Company.query.filter(
-            Company.id.in_(self.current_company_ids_with_admin_rights)
-        ).all()
+        return (
+            Company.query.options(
+                selectinload(Company.employments)
+                .selectinload(Employment.user)
+                .selectinload(User.activities)
+                .options(
+                    selectinload(Activity.mission).selectinload(
+                        Mission.expenditures
+                    )
+                )
+                .options(selectinload(Activity.versions))
+            )
+            .options(selectinload(Company.vehicles))
+            .filter(Company.id.in_(self.current_company_ids_with_admin_rights))
+            .all()
+        )
+        #  return Company.query.filter(
+        #     Company.id.in_(self.current_company_ids_with_admin_rights)
+        # ).all()
 
     def resolve_birth_date(self, info):
         return (
