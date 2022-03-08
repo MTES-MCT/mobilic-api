@@ -18,6 +18,7 @@ from app.templates.filters import JINJA_CUSTOM_FILTERS
 from elasticapm.contrib.flask import ElasticAPM
 import logging
 
+
 app = Flask(__name__)
 app.config.update(
     {

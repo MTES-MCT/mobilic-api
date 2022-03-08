@@ -3,7 +3,7 @@ import datetime
 from app import db
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.models import Mission, MissionEnd
+from app.models import MissionEnd, Mission
 from app.models.activity import ActivityType
 from app.seed import (
     CompanyFactory,
@@ -18,12 +18,6 @@ NB_EMPLOYEES = 10
 NB_HISTORY = 12
 INTERVAL_HISTORY = 15
 ADMIN_EMAIL = "busy.admin@test.com"
-
-YESTERDAY = datetime.date.today() - datetime.timedelta(days=1)
-START_HOUR = datetime.time(hour=14, minute=0)
-END_HOUR = datetime.time(hour=15, minute=0)
-START_TIME = datetime.datetime.combine(YESTERDAY, START_HOUR)
-END_TIME = datetime.datetime.combine(YESTERDAY, END_HOUR)
 
 
 def run_scenario_busy_admin():
