@@ -17,6 +17,10 @@ class Company(BaseModel, WithEmploymentHistory):
 
     # Parameters of work day logging
     allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)
+
+    # Temps de liaisons
+    allow_transfers = db.Column(db.Boolean, nullable=False, default=False)
+
     require_kilometer_data = db.Column(
         db.Boolean, nullable=False, default=True
     )

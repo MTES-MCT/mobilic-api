@@ -37,7 +37,12 @@ def compute_aggregate_durations(periods, min_time=None, max_time=None):
         )
 
     timers["total_work"] = reduce(
-        lambda a, b: a + b, [timers[a_type] for a_type in ActivityType]
+        lambda a, b: a + b,
+        [
+            timers[a_type]
+            for a_type in ActivityType
+            if a_type != ActivityType.TRANSFER
+        ],
     )
 
     return start_time, end_time, timers

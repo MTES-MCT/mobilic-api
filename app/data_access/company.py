@@ -29,6 +29,9 @@ class CompanySettings(graphene.ObjectType):
     allow_team_mode = graphene.Boolean(
         description="Indique si l'entreprise permet les saisies en mode équipe pour ses missions"
     )
+    allow_transfers = graphene.Boolean(
+        description="Indique si l'entreprise permet de saisir des temps de liaison"
+    )
     require_kilometer_data = graphene.Boolean(
         description="Indique si l'entreprise exige les données kilométriques en début et fin de mission"
     )

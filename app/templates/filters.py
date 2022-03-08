@@ -66,6 +66,8 @@ def format_activity_type(activity_or_break_type):
         return "conduite"
     if activity_or_break_type == ActivityType.SUPPORT:
         return "accompagnement"
+    if activity_or_break_type == ActivityType.TRANSFER:
+        return "liaison"
     return "pause"
 
 
