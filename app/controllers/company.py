@@ -115,6 +115,7 @@ class CompanySignUp(AuthenticatedMutation):
                 short_sirets=[int(siret[9:]) for siret in sirets],
                 siren_api_info=siren_api_info,
                 allow_team_mode=True,
+                allow_transfers=False,
                 require_kilometer_data=require_kilometer_data,
                 require_support_activity=require_support_activity,
                 require_mission_name=True,
@@ -234,6 +235,10 @@ class EditCompanySettings(AuthenticatedMutation):
         allow_team_mode = graphene.Boolean(
             required=False,
             description="Permet ou interdit la saisie en mode équipe",
+        )
+        allow_transfers = graphene.Boolean(
+            required=False,
+            description="Active ou désactive la possibilité d'enregistrer des temps de liaison",
         )
         require_kilometer_data = graphene.Boolean(
             required=False,

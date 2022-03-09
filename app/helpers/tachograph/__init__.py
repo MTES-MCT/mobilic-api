@@ -531,6 +531,8 @@ def build_activity_file(
             if ac.type:
                 if ac.type in [ActivityType.DRIVE, ActivityType.SUPPORT]:
                     activity_type_in_bits = "11"
+                elif ac.type == ActivityType.TRANSFER:
+                    activity_type_in_bits = "01"
                 else:
                     activity_type_in_bits = "10"
             bit_string += activity_type_in_bits

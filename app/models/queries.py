@@ -483,6 +483,7 @@ def query_work_day_stats(
             [
                 getattr(query.c, f"{a_type.value}_duration")
                 for a_type in ActivityType
+                if a_type != ActivityType.TRANSFER
             ],
         ).label("total_work_duration"),
     )

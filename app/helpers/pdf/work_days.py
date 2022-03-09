@@ -82,7 +82,9 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
     return summary_columns
 
 
-def _get_detail_columns(include_support=False, include_expenditures=False):
+def _get_detail_columns(
+    include_support=False, include_expenditures=False, include_transfers=False
+):
     columns = [
         Column(
             name="start_time",
@@ -105,14 +107,14 @@ def _get_detail_columns(include_support=False, include_expenditures=False):
             format=format_seconds_duration,
         ),
         Column(
-            name="drive",
+            name=ActivityType.DRIVE.value,
             label="Conduite",
             color="#C9CBFF",
             secondary=True,
             format=format_seconds_duration,
         ),
         Column(
-            name="work",
+            name=ActivityType.WORK.value,
             label="Autre tâche",
             color="#C9CBFF",
             secondary=True,
@@ -120,10 +122,21 @@ def _get_detail_columns(include_support=False, include_expenditures=False):
         ),
     ]
 
+    if include_transfers:
+        columns.append(
+            Column(
+                name=ActivityType.TRANSFER.value,
+                label="Temps de Liaison",
+                color="#C9CBFF",
+                secondary=True,
+                format=format_seconds_duration,
+            )
+        )
+
     if include_support:
         columns.append(
             Column(
-                name="support",
+                name=ActivityType.SUPPORT.value,
                 label="Accompagnement",
                 color="#C9CBFF",
                 secondary=True,
@@ -153,25 +166,25 @@ def _get_detail_columns(include_support=False, include_expenditures=False):
         columns.extend(
             [
                 Column(
-                    name="day_meal",
+                    name=ExpenditureType.DAY_MEAL.value,
                     label="Repas midi",
                     color="#FFE5B9",
                     secondary=True,
                 ),
                 Column(
-                    name="night_meal",
+                    name=ExpenditureType.NIGHT_MEAL.value,
                     label="Repas soir",
                     color="#FFE5B9",
                     secondary=True,
                 ),
                 Column(
-                    name="sleep_over",
+                    name=ExpenditureType.SLEEP_OVER.value,
                     label="Découché",
                     color="#FFE5B9",
                     secondary=True,
                 ),
                 Column(
-                    name="snack",
+                    name=ExpenditureType.SNACK.value,
                     label="Casse-croûte",
                     color="#FFE5B9",
                     secondary=True,
@@ -189,6 +202,7 @@ def _generate_work_days_pdf(
     end_date,
     include_support_activity=False,
     include_expenditures=False,
+    include_transfers=False,
 ):
     months = []
     weeks = []
@@ -200,14 +214,15 @@ def _generate_work_days_pdf(
             {
                 "date": current_month,
                 "worked_days": 0,
-                "drive": 0,
-                "work": 0,
-                "support": 0,
+                ActivityType.DRIVE.value: 0,
+                ActivityType.WORK.value: 0,
+                ActivityType.SUPPORT.value: 0,
+                ActivityType.TRANSFER.value: 0,
                 "total_work": 0,
-                "day_meal": 0,
-                "night_meal": 0,
-                "sleep_over": 0,
-                "snack": 0,
+                ExpenditureType.DAY_MEAL.value: 0,
+                ExpenditureType.NIGHT_MEAL.value: 0,
+                ExpenditureType.SLEEP_OVER.value: 0,
+                ExpenditureType.SNACK.value: 0,
             }
         )
         current_month += relativedelta(months=1)
@@ -220,14 +235,15 @@ def _generate_work_days_pdf(
                 "start": current_week,
                 "end": current_week + timedelta(days=6),
                 "worked_days": 0,
-                "drive": 0,
-                "work": 0,
-                "support": 0,
+                ActivityType.DRIVE.value: 0,
+                ActivityType.WORK.value: 0,
+                ActivityType.SUPPORT.value: 0,
+                ActivityType.TRANSFER.value: 0,
                 "total_work": 0,
-                "day_meal": 0,
-                "night_meal": 0,
-                "sleep_over": 0,
-                "snack": 0,
+                ExpenditureType.DAY_MEAL.value: 0,
+                ExpenditureType.NIGHT_MEAL.value: 0,
+                ExpenditureType.SLEEP_OVER.value: 0,
+                ExpenditureType.SNACK.value: 0,
                 "days": [],
             }
         )
@@ -235,14 +251,15 @@ def _generate_work_days_pdf(
 
     total = {
         "worked_days": 0,
-        "drive": 0,
-        "work": 0,
-        "support": 0,
+        ActivityType.DRIVE.value: 0,
+        ActivityType.WORK.value: 0,
+        ActivityType.SUPPORT.value: 0,
+        ActivityType.TRANSFER.value: 0,
         "total_work": 0,
-        "day_meal": 0,
-        "night_meal": 0,
-        "sleep_over": 0,
-        "snack": 0,
+        ExpenditureType.DAY_MEAL.value: 0,
+        ExpenditureType.NIGHT_MEAL.value: 0,
+        ExpenditureType.SLEEP_OVER.value: 0,
+        ExpenditureType.SNACK.value: 0,
     }
 
     for wd in work_days:
@@ -359,6 +376,8 @@ def _generate_work_days_pdf(
             include_support=include_support_activity
             or total[ActivityType.SUPPORT] > 0,
             include_expenditures=include_expenditures,
+            include_transfers=include_transfers
+            or total[ActivityType.TRANSFER] > 0,
         ),
         weeks=weeks,
         months=months,
@@ -376,6 +395,7 @@ def generate_work_days_pdf_for(
     end_date,
     include_support_activity=False,
     include_expenditures=False,
+    include_transfers=False,
 ):
     work_days, _ = group_user_events_by_day_with_limit(
         user, from_date=start_date, until_date=end_date
@@ -387,4 +407,5 @@ def generate_work_days_pdf_for(
         end_date,
         include_support_activity=include_support_activity,
         include_expenditures=include_expenditures,
+        include_transfers=include_transfers,
     )

@@ -4,7 +4,7 @@ from typing import NamedTuple
 from app.domain.history import actions_history
 from app.helpers.pdf import generate_pdf_from_template, Column
 from app.helpers.time import max_or_none
-from app.models.activity import ActivityType
+from app.models.activity import ActivityType, is_activity_considered_work
 from app.templates.filters import (
     format_seconds_duration,
     full_format_day,
@@ -61,6 +61,17 @@ def _get_summary_columns(mission):
             )
         )
 
+    if mission.company.allow_transfers:
+        columns.append(
+            Column(
+                name=ActivityType.TRANSFER.value,
+                label="Liaison",
+                color="#C9CBFF",
+                secondary=True,
+                format=format_seconds_duration,
+            )
+        )
+
     columns.extend(
         [
             Column(
@@ -72,7 +83,7 @@ def _get_summary_columns(mission):
             ),
             Column(
                 name="total_work",
-                label="Temps de travail",
+                label="Travail",
                 color="#C9CBFF",
                 format=format_seconds_duration,
             ),
@@ -149,7 +160,8 @@ def generate_mission_details_pdf(
     for activity_or_break in activities_with_breaks:
         stats[activity_or_break.type] += activity_or_break.duration
         stats["service"] += activity_or_break.duration
-        if type(activity_or_break.type) is ActivityType:
+
+        if is_activity_considered_work(activity_or_break.type):
             stats["total_work"] += activity_or_break.duration
 
     stats["expenditures"] = defaultdict(lambda: 0)
