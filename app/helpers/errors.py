@@ -142,6 +142,27 @@ class EmptyActivityDurationError(MobilicError):
     )
 
 
+class ActivityInFutureError(MobilicError):
+    code = "ACTIVITY_TIME_IN_FUTURE"
+
+    def __init__(
+        self,
+        event_time,
+        reception_time,
+        event_name,
+        message="You can not record activity in the future.",
+        **kwargs,
+    ):
+        super().__init__(message, **kwargs)
+        self.extensions.update(
+            dict(
+                eventTime=to_timestamp(event_time),
+                receptionTime=to_timestamp(reception_time),
+                eventName=event_name,
+            )
+        )
+
+
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
     default_should_alert_team = False

@@ -4,8 +4,8 @@ from app import app, db
 from app.domain.permissions import check_actor_can_write_on_mission_over_period
 from app.helpers.errors import (
     OverlappingMissionsError,
-    InvalidParamsError,
     UnavailableSwitchModeError,
+    ActivityInFutureError,
 )
 from app.models.activity import Activity
 from app.models import Mission, ActivityVersion
@@ -13,15 +13,18 @@ from app.models.mission_end import MissionEnd
 
 
 def check_event_time_is_not_in_the_future(
-    event_time, reception_time, event_time_name
+    event_time, reception_time, event_name
 ):
     if (
         event_time
         and event_time - reception_time
         >= app.config["MAXIMUM_TIME_AHEAD_FOR_EVENT"]
     ):
-        raise InvalidParamsError(
-            f"{event_time_name} is in the future by {event_time - reception_time}"
+        raise ActivityInFutureError(
+            event_time,
+            reception_time,
+            event_name,
+            message=f"{event_name} time is in the future by {event_time - reception_time}",
         )
 
 
@@ -97,10 +100,8 @@ def handle_activities_update(
     reopen_mission_if_needed=True,
 ):
     # 1. Check that start time and end time are not ahead in the future
-    check_event_time_is_not_in_the_future(
-        start_time, reception_time, "Start time"
-    )
-    check_event_time_is_not_in_the_future(end_time, reception_time, "End time")
+    check_event_time_is_not_in_the_future(start_time, reception_time, "Start")
+    check_event_time_is_not_in_the_future(end_time, reception_time, "End")
 
     # 2. Assess whether the event submitter is authorized to log for the user and the mission
     if not bypass_auth_check:
