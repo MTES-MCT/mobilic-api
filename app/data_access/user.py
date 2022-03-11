@@ -127,10 +127,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
     admined_companies = graphene.List(
         lambda: CompanyOutput,
         description="Liste des entreprises sur lesquelles l'utilisateur a les droits de gestion",
-        only_first=graphene.Boolean(
-            required=False,
-            description="Si Vrai, seule la première entreprise est renvoyée",
-        ),
         company_ids=graphene.Argument(
             graphene.List(graphene.Int),
             required=False,
@@ -339,17 +335,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, *args, **kwargs: self,
         error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
-    def resolve_admined_companies(
-        self, info, only_first=False, company_ids=None
-    ):
-        company_ids_to_compute = self.current_company_ids_with_admin_rights
-        if only_first:
-            company_ids_to_compute = [
-                self.current_company_ids_with_admin_rights[0]
-            ]
+    def resolve_admined_companies(self, info, company_ids=None):
+        if company_ids is not None:
+            company_ids_to_compute = company_ids
         else:
-            if company_ids is not None:
-                company_ids_to_compute = company_ids
+            company_ids_to_compute = self.current_company_ids_with_admin_rights
 
         return Company.query.filter(
             Company.id.in_(company_ids_to_compute)
