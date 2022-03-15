@@ -3,7 +3,13 @@ import datetime
 from app import db
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.models import MissionEnd, Mission
+from app.models import (
+    MissionEnd,
+    Mission,
+    Vehicle,
+    CompanyKnownAddress,
+    Address,
+)
 from app.models.activity import ActivityType
 from app.seed import (
     CompanyFactory,
@@ -36,9 +42,31 @@ def run_scenario_busy_admin():
     )
 
     for idx_company, company in enumerate(companies):
+
         EmploymentFactory.create(
             company=company, submitter=admin, user=admin, has_admin_rights=True
         )
+
+        ## Vehicles
+        for idx_vehicle in range(1, 3):
+            vehicle = Vehicle(
+                registration_number=f"XXX-00{idx_vehicle}-CORP{idx_company + 1}",
+                alias=f"Vehicule {idx_vehicle} - Corp {idx_company + 1}",
+                submitter=admin,
+                company_id=company.id,
+            )
+            db.session.add(vehicle)
+
+        ## Addresses
+        address = CompanyKnownAddress(
+            alias=f"Entrepot Corp {idx_company + 1}",
+            address=Address.get_or_create(
+                geo_api_data=None, manual_address="1, rue de Paris"
+            ),
+            company_id=company.id,
+        )
+        db.session.add(address)
+
         for i in range(NB_EMPLOYEES):
             employee = UserFactory.create(
                 email=f"busy.employee{i + 1}@busycorp{idx_company + 1}.com",

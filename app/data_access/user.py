@@ -121,12 +121,17 @@ class UserOutput(BaseSQLAlchemyObjectType):
         until_date=graphene.Date(required=False, description="Date de fin"),
         include_pending=graphene.Boolean(
             required=False,
-            description="Inclut les rattechements en attente de validation",
+            description="Inclut les rattachements en attente de validation",
         ),
     )
     admined_companies = graphene.List(
         lambda: CompanyOutput,
         description="Liste des entreprises sur lesquelles l'utilisateur a les droits de gestion",
+        company_ids=graphene.Argument(
+            graphene.List(graphene.Int),
+            required=False,
+            description="Retourne uniquement les entreprises correspondant à ces ids.",
+        ),
     )
 
     disabled_warnings = graphene.List(
@@ -327,12 +332,17 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(
         only_self,
-        get_target_from_args=lambda self, info: self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
         error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
-    def resolve_admined_companies(self, info):
+    def resolve_admined_companies(self, info, company_ids=None):
+        if company_ids is not None:
+            company_ids_to_compute = company_ids
+        else:
+            company_ids_to_compute = self.current_company_ids_with_admin_rights
+
         return Company.query.filter(
-            Company.id.in_(self.current_company_ids_with_admin_rights)
+            Company.id.in_(company_ids_to_compute)
         ).all()
 
     def resolve_birth_date(self, info):

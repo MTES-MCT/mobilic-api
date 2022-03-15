@@ -14,6 +14,7 @@ from app.models import (
     Vehicle,
     Email,
     UserReadToken,
+    CompanyKnownAddress,
 )
 from app.models.activity import Activity
 from app.seed.factories import (
@@ -37,6 +38,7 @@ def clean():
     exit_if_prod()
 
     print("------ CLEANING DATA -------")
+
     ActivityVersion.query.delete()
     Activity.query.delete()
 
@@ -45,6 +47,7 @@ def clean():
     LocationEntry.query.delete()
     Mission.query.delete()
 
+    CompanyKnownAddress.query.delete()
     Employment.query.delete()
     Vehicle.query.delete()
     Company.query.delete()
