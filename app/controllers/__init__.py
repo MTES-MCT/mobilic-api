@@ -17,6 +17,7 @@ from app.controllers.employment import (
     CancelEmployment,
     SendInvitationReminder,
     CreateWorkerEmploymentsFromEmails,
+    ChangeEmployeeRole,
 )
 from app.controllers.expenditure import LogExpenditure, CancelExpenditure
 from app.controllers.location_entry import (
@@ -117,6 +118,7 @@ class Employments(graphene.ObjectType):
     cancel_employment = CancelEmployment.Field()
     send_invitation_reminder = SendInvitationReminder.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
+    change_employee_role = ChangeEmployeeRole.Field()
 
 
 class Vehicles(graphene.ObjectType):
