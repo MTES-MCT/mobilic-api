@@ -82,6 +82,10 @@ class UserSignUp(graphene.Mutation):
             required=False,
             description="Consentement de l'utilisateur pour recevoir les mails newsletter",
         )
+        is_employee = graphene.Boolean(
+            required=False,
+            description="Précise si le nouvel utilisateur est un travailleur mobile ou bien un gestionnaire. Vrai par défaut.",
+        )
 
     Output = UserTokens
 
@@ -91,11 +95,12 @@ class UserSignUp(graphene.Mutation):
             has_subscribed_to_newsletter = data.pop(
                 "subscribe_to_newsletter", False
             )
+            is_employee = data.pop("is_employee", True)
             user = create_user(**data)
             user.create_activation_link()
 
         try:
-            mailer.send_activation_email(user)
+            mailer.send_activation_email(user, is_employee=is_employee)
         except Exception as e:
             app.logger.exception(e)
 
