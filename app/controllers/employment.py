@@ -76,7 +76,7 @@ class CreateEmployment(AuthenticatedMutation):
         has_admin_rights = graphene.Argument(
             graphene.Boolean,
             required=False,
-            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'admnistration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
+            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
         )
 
     Output = EmploymentOutput
@@ -489,7 +489,7 @@ class ChangeEmployeeRole(AuthenticatedMutation):
         has_admin_rights = graphene.Argument(
             graphene.Boolean,
             required=True,
-            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'admnistration associés.",
+            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés.",
         )
 
     Output = EmploymentOutput
