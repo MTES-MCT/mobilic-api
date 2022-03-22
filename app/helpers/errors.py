@@ -239,6 +239,11 @@ class MissionStillRunningError(MobilicError):
     default_message = "The mission has activities currently running, it cannot be validated yet."
 
 
+class UserSelfChangeRoleError(MobilicError):
+    code = "USER_SELF_CHANGE_ROLE"
+    default_message = "A user can not change its own role, it has to be done by another admin."
+
+
 class NoActivitiesToValidateError(MobilicError):
     code = "NO_ACTIVITIES_TO_VALIDATE"
 

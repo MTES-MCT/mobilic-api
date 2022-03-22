@@ -145,6 +145,19 @@ class ApiRequests:
             }
         }
     """
+    change_employee_role = """
+        mutation changeEmployeeRole($employmentId: Int!, $hasAdminRights: Boolean!) {
+            employments {
+              changeEmployeeRole(
+                employmentId: $employmentId
+                hasAdminRights: $hasAdminRights
+              ) {
+                id
+                hasAdminRights
+              }
+            }
+        }
+    """
 
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):

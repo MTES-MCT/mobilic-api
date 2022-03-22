@@ -20,6 +20,7 @@ from app.helpers.errors import (
     InvalidParamsError,
     InvalidTokenError,
     InvalidResourceError,
+    UserSelfChangeRoleError,
 )
 from app.helpers.mail import MailjetError
 from app.helpers.authorization import (
@@ -75,7 +76,7 @@ class CreateEmployment(AuthenticatedMutation):
         has_admin_rights = graphene.Argument(
             graphene.Boolean,
             required=False,
-            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'admnistration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
+            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
         )
 
     Output = EmploymentOutput
@@ -476,3 +477,35 @@ class SendInvitationReminder(AuthenticatedMutation):
             db.session.commit()
 
         return Void(success=True)
+
+
+class ChangeEmployeeRole(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement pour lequel le rôle doit être changé",
+        )
+        has_admin_rights = graphene.Argument(
+            graphene.Boolean,
+            required=True,
+            description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés.",
+        )
+
+    Output = EmploymentOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to change employee role",
+    )
+    def mutate(cls, _, info, employment_id, has_admin_rights):
+        employment = Employment.query.get(employment_id)
+        if current_user.id == employment.user_id:
+            raise UserSelfChangeRoleError
+        employment.has_admin_rights = has_admin_rights
+        db.session.commit()
+        return employment
