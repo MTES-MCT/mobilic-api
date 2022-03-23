@@ -381,7 +381,11 @@ class Mailer:
         return messages
 
     def send_activation_email(
-        self, user, create_account=True, _disable_commit=False
+        self,
+        user,
+        is_employee=True,
+        create_account=True,
+        _disable_commit=False,
     ):
         if not user.email:
             raise ValueError(
@@ -432,6 +436,7 @@ class Mailer:
                 activation_link=Markup(activation_link),
                 company_name=company.name if company else None,
                 has_admin_rights=has_admin_rights,
+                is_employee=is_employee,
             ),
             _disable_commit=_disable_commit,
         )
