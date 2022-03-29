@@ -114,6 +114,8 @@ class CreateEmployment(AuthenticatedMutation):
                     .filter(func.lower(User.email) == func.lower(user_email))
                     .one_or_none()
                 )
+            if user:
+                user_id = user.id
 
             start_date = employment_input.get("start_date", date.today())
 
