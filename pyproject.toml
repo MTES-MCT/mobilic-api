@@ -3,15 +3,11 @@ line-length = 79
 target_version = ['py37']
 include = '\.pyi?$'
 exclude = '''
-
-(
-  /(
-      \.git
-    | \venv
-    | \.circleci
-    | \migrations
-  )/
-  | foo.py           # also separately exclude a file named foo.py in
-                     # the root of the project
-)
+/(
+    \.git
+  | \.circleci
+  | \.venv
+  | venv
+  | migrations
+)/
 '''

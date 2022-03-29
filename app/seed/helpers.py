@@ -32,3 +32,8 @@ def get_time(how_many_days_ago, hour, minute=0):
     day = datetime.date.today() - datetime.timedelta(days=how_many_days_ago)
     hour = datetime.time(hour=hour, minute=minute)
     return datetime.datetime.combine(day, hour)
+
+
+def get_date(how_many_days_ago):
+    today = datetime.date.today()
+    return today - datetime.timedelta(days=how_many_days_ago)
