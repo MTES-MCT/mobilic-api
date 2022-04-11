@@ -15,6 +15,7 @@ from app.models import (
     Email,
     UserReadToken,
     CompanyKnownAddress,
+    Expenditure,
 )
 from app.models.activity import Activity
 from app.seed.factories import (
@@ -39,6 +40,7 @@ def clean():
 
     print("------ CLEANING DATA -------")
 
+    Expenditure.query.delete()
     ActivityVersion.query.delete()
     Activity.query.delete()
 

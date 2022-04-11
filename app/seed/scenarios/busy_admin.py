@@ -1,6 +1,7 @@
 import datetime
 
 from app import db
+from app.domain.expenditure import log_expenditure
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.models import (
@@ -11,16 +12,17 @@ from app.models import (
     Address,
 )
 from app.models.activity import ActivityType
+from app.models.expenditure import ExpenditureType
 from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time
+from app.seed.helpers import get_time, get_date
 
-NB_COMPANIES = 10
-NB_EMPLOYEES = 10
+NB_COMPANIES = 2
+NB_EMPLOYEES = 2
 NB_HISTORY = 12
 INTERVAL_HISTORY = 15
 ADMIN_EMAIL = "busy.admin@test.com"
@@ -143,6 +145,14 @@ def run_scenario_busy_admin():
                         mission=yesterday_mission,
                     )
                 )
+                log_expenditure(
+                    submitter=employee,
+                    user=employee,
+                    mission=yesterday_mission,
+                    type=ExpenditureType.DAY_MEAL,
+                    reception_time=get_time(how_many_days_ago=2, hour=15),
+                    spending_date=get_date(how_many_days_ago=2),
+                )
                 validate_mission(
                     submitter=employee,
                     mission=yesterday_mission,
@@ -189,6 +199,22 @@ def run_scenario_busy_admin():
                             mission=history_mission,
                         )
                     )
+                    for expenditure_type in ExpenditureType:
+                        log_expenditure(
+                            submitter=employee,
+                            user=employee,
+                            mission=history_mission,
+                            type=expenditure_type,
+                            reception_time=get_time(
+                                how_many_days_ago=(idx_history + 1)
+                                * INTERVAL_HISTORY,
+                                hour=15,
+                            ),
+                            spending_date=get_date(
+                                how_many_days_ago=(idx_history + 1)
+                                * INTERVAL_HISTORY
+                            ),
+                        )
                     validate_mission(
                         submitter=employee,
                         mission=history_mission,
