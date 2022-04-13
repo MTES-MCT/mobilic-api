@@ -602,10 +602,12 @@ def generate_mission_export(mission_id, user_id):
 class WarningToDisableType(str, Enum):
     EMPLOYEE_VALIDATION = "employee-validation"
     ADMIN_MISSION_MODIFICATION = "admin-mission-modification"
+    EMPLOYEE_GEOLOCATION_INFORMATION = "employee-geolocation-information"
     __description__ = """
 Enumération des valeurs suivantes.
 - "employee-validation" : alerte relative au caractère bloquant de la validation par le salarié
 - "admin-mission-modification" : alerte relative à la visibilité des modifications de la mission par un gestionnaire 
+- "employee-geolocation-information" : Modale d'information sur la géolocalisation 
 """
 
 
