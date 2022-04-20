@@ -374,18 +374,26 @@
     </tr>
     <table class="grey padding-except-bottom comment-table">
         <tbody>
-        {% for comment in comments %}
-        <tr>
-            <td style="margin-left: 16pt" class="comment-caption">
-                <span class="comment-user">{{ comment.submitter.display_name }}</span> - {{ comment.reception_time | format_time(True) }}
-            </td>
-        </tr>
-        <tr>
-            <td style="margin-left: 16pt; {{ 'padding-bottom: 12pt' if loop.last else ''}}" class="comment-content">
-                {{ comment.text }}
-            </td>
-        </tr>
-        {% endfor %}
+        {% if comments %}
+            {% for comment in comments %}
+            <tr>
+                <td style="margin-left: 16pt" class="comment-caption">
+                    <span class="comment-user">{{ comment.submitter.display_name }}</span> - {{ comment.reception_time | format_time(True) }}
+                </td>
+            </tr>
+            <tr>
+                <td style="margin-left: 16pt; {{ 'padding-bottom: 12pt' if loop.last else ''}}" class="comment-content">
+                    {{ comment.text }}
+                </td>
+            </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td style="margin-left: 16pt; padding-bottom: 12pt" class="comment-content">
+                    Pas de commentaires.
+                </td>
+            </tr>
+        {% endif %}
         </tbody>
     </table>
 </table>
