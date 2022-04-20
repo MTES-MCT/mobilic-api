@@ -340,29 +340,48 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
         "user_ids": fields.List(fields.Int(), required=False),
         "min_date": fields.Date(required=False),
         "max_date": fields.Date(required=False),
+        "one_file_by_employee": fields.Boolean(required=False),
     },
     apply=True,
 )
 def download_activity_report(
-    company_ids, user_ids=None, min_date=None, max_date=None
+    company_ids,
+    user_ids=None,
+    min_date=None,
+    max_date=None,
+    one_file_by_employee=False,
 ):
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
     )
     scope = ConsultationScope(company_ids=company_ids)
 
-    all_users_work_days = []
-    for user in users:
-        all_users_work_days += group_user_events_by_day_with_limit(
-            user,
-            consultation_scope=scope,
-            from_date=min_date,
-            until_date=max_date,
-            include_dismissed_or_empty_days=True,
-        )[0]
+    if one_file_by_employee:
+        user_wdays_batches = []
+        for user in users:
+            user_wdays_batches += [
+                group_user_events_by_day_with_limit(
+                    user,
+                    consultation_scope=scope,
+                    from_date=min_date,
+                    until_date=max_date,
+                    include_dismissed_or_empty_days=True,
+                )[0]
+            ]
+    else:
+        all_users_work_days = []
+        for user in users:
+            all_users_work_days += group_user_events_by_day_with_limit(
+                user,
+                consultation_scope=scope,
+                from_date=min_date,
+                until_date=max_date,
+                include_dismissed_or_empty_days=True,
+            )[0]
+        user_wdays_batches = [all_users_work_days]
 
     return send_work_days_as_excel(
-        all_users_work_days,
+        user_wdays_batches=user_wdays_batches,
         companies=Company.query.filter(Company.id.in_(company_ids)).all(),
     )
 
