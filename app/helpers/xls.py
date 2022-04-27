@@ -37,10 +37,12 @@ EXCEL_MIMETYPE = (
 )
 
 light_yellow_hex = "#fdffbc"
+light_grey_hex = "#dadada"
 light_blue_hex = "#b4e1fa"
 light_green_hex = "#daf5e7"
 light_orange_hex = "#fff0e4"
 light_red_hex = "#efaca6"
+green_hex = "#a8d08d"
 very_light_red_hex = "#fcb4b4"
 
 
@@ -108,18 +110,12 @@ def format_kilometer_reading(location, wday):
 def get_columns_in_main_sheet(require_expenditures, require_mission_name):
     columns_in_main_sheet = [
         (
-            "Prénom",
-            lambda wday: wday.user.first_name,
-            "wrap",
+            "Employé",
+            lambda wday: wday.user.first_name + " " + wday.user.last_name,
+            "bold",
             30,
-            light_yellow_hex,
-        ),
-        (
-            "Nom",
-            lambda wday: wday.user.last_name,
-            "wrap",
-            30,
-            light_yellow_hex,
+            light_grey_hex,
+            False,
         ),
         (
             "Jour",
@@ -127,6 +123,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
             "date_format",
             20,
             light_yellow_hex,
+            False,
         ),
     ]
 
@@ -141,6 +138,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                     "wrap",
                     30,
                     light_blue_hex,
+                    False,
                 )
             ]
         )
@@ -161,6 +159,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "wrap",
                 30,
                 light_blue_hex,
+                False,
             ),
             (
                 "Début",
@@ -170,6 +169,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "time_format",
                 15,
                 light_green_hex,
+                False,
             ),
             (
                 "Fin",
@@ -179,20 +179,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "time_format",
                 15,
                 light_green_hex,
-            ),
-            (
-                "Amplitude",
-                lambda wday: timedelta(seconds=wday.service_duration),
-                "duration_format",
-                13,
-                light_green_hex,
-            ),
-            (
-                "Total travail",
-                lambda wday: timedelta(seconds=wday.total_work_duration),
-                "duration_format",
-                13,
-                light_green_hex,
+                False,
             ),
             (
                 "Conduite",
@@ -202,6 +189,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "duration_format",
                 13,
                 light_green_hex,
+                True,
             ),
             (
                 "Accompagnement",
@@ -211,6 +199,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "duration_format",
                 13,
                 light_green_hex,
+                True,
             ),
             (
                 "Autre tâche",
@@ -220,6 +209,15 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "duration_format",
                 13,
                 light_green_hex,
+                True,
+            ),
+            (
+                "Total travail",
+                lambda wday: timedelta(seconds=wday.total_work_duration),
+                "duration_format",
+                13,
+                light_green_hex,
+                True,
             ),
             (
                 "Liaison",
@@ -229,6 +227,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "duration_format",
                 13,
                 light_green_hex,
+                True,
             ),
             (
                 "Pause",
@@ -240,9 +239,70 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "duration_format",
                 13,
                 light_green_hex,
+                True,
+            ),
+            (
+                "Amplitude",
+                lambda wday: timedelta(seconds=wday.service_duration),
+                "duration_format",
+                13,
+                light_green_hex,
+                False,
             ),
         ]
     )
+
+    columns_in_main_sheet.extend(
+        [
+            (
+                "Lieu de début de service",
+                lambda wday: wday.start_location.address.format()
+                if wday.start_location
+                else "",
+                "wrap",
+                30,
+                light_blue_hex,
+                False,
+            ),
+            (
+                "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
+                lambda wday: format_kilometer_reading(
+                    wday.start_location, wday
+                ),
+                None,
+                30,
+                light_blue_hex,
+                False,
+            ),
+            (
+                "Lieu de fin de service",
+                lambda wday: wday.end_location.address.format()
+                if wday.end_location
+                else "",
+                "wrap",
+                30,
+                light_blue_hex,
+                False,
+            ),
+            (
+                "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
+                lambda wday: format_kilometer_reading(wday.end_location, wday),
+                None,
+                30,
+                light_blue_hex,
+                False,
+            ),
+            (
+                "Nombre de kilomètres parcourus",
+                lambda wday: "A FAIRE",
+                None,
+                30,
+                light_blue_hex,
+                True,
+            ),
+        ]
+    )
+
     if require_expenditures:
         columns_in_main_sheet.extend(
             [
@@ -252,6 +312,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                     None,
                     13,
                     light_orange_hex,
+                    True,
                 ),
                 (
                     "Repas soir",
@@ -259,6 +320,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                     None,
                     13,
                     light_orange_hex,
+                    True,
                 ),
                 (
                     "Découché",
@@ -266,6 +328,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                     None,
                     13,
                     light_orange_hex,
+                    True,
                 ),
                 (
                     "Casse-croûte",
@@ -273,6 +336,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                     None,
                     13,
                     light_orange_hex,
+                    True,
                 ),
             ]
         )
@@ -287,49 +351,7 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 "wrap",
                 50,
                 light_red_hex,
-            ),
-            (
-                "Lieu de début de service",
-                lambda wday: wday.start_location.address.format()
-                if wday.start_location
-                else "",
-                "wrap",
-                30,
-                light_blue_hex,
-            ),
-            (
-                "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
-                lambda wday: format_kilometer_reading(
-                    wday.start_location, wday
-                ),
-                None,
-                30,
-                light_blue_hex,
-            ),
-            (
-                "Lieu de fin de service",
-                lambda wday: wday.end_location.address.format()
-                if wday.end_location
-                else "",
-                "wrap",
-                30,
-                light_blue_hex,
-            ),
-            (
-                "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
-                lambda wday: format_kilometer_reading(wday.end_location, wday),
-                None,
-                30,
-                light_blue_hex,
-            ),
-            (
-                "Entreprise(s)",
-                lambda wday: ", ".join(
-                    [c.name for c in wday.companies if c.name]
-                ),
-                "wrap",
-                50,
-                light_blue_hex,
+                False,
             ),
         ]
     )
@@ -448,11 +470,114 @@ def write_work_days_sheet(
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(1, 2)
-    row_idx = 1
+    row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
         require_expenditures, require_mission_name
     )
 
+    for user, work_days in wdays_by_user.items():
+        column_base_formats = write_tab_headers(
+            wb, sheet, columns_in_main_sheet, row_idx
+        )
+        row_idx += 1
+        user_starting_row_idx = row_idx
+        for wday in sorted(work_days, key=lambda wd: wd.day):
+            col_idx = 0
+            for (col_name, resolver, style, *_) in columns_in_main_sheet:
+                if style in date_formats and resolver(wday) is not None:
+                    sheet.write_datetime(
+                        row_idx,
+                        col_idx,
+                        resolver(wday),
+                        wb.add_format(
+                            {
+                                **column_base_formats[col_idx],
+                                **(formats.get(style) or {}),
+                            }
+                        ),
+                    )
+                else:
+                    sheet.write(
+                        row_idx,
+                        col_idx,
+                        resolver(wday),
+                        wb.add_format(
+                            {
+                                **column_base_formats[col_idx],
+                                **(formats.get(style) or {}),
+                            }
+                        ),
+                    )
+                col_idx += 1
+            row_idx += 1
+
+        if user_starting_row_idx != row_idx - 1:
+            sheet.merge_range(
+                user_starting_row_idx,
+                0,
+                row_idx - 1,
+                0,
+                wday.user.first_name + " " + wday.user.last_name,
+                wb.add_format(
+                    {
+                        "bold": True,
+                        "valign": "top",
+                    }
+                ),
+            )
+        write_user_recap(
+            wb,
+            sheet,
+            columns_in_main_sheet,
+            user_starting_row_idx,
+            row_idx - 1,
+        )
+        row_idx += 4
+
+
+def compute_excel_sum_col_range(col_idx, row_start, row_end):
+    return "{{=SUM({0}{1}:{2}{3})}}".format(
+        chr(col_idx + 65), row_start + 1, chr(col_idx + 65), row_end + 1
+    )
+
+
+def write_user_recap(
+    wb,
+    sheet,
+    columns_in_main_sheet,
+    user_starting_row_idx,
+    user_ending_row_idx,
+):
+    recap_col_idx = 0
+    previous_has_to_be_summed = False
+    for (_, _, style, _, _, has_to_be_summed) in columns_in_main_sheet:
+        if has_to_be_summed:
+            if not previous_has_to_be_summed:
+                sheet.write(
+                    user_ending_row_idx + 2,
+                    recap_col_idx - 1,
+                    "Total",
+                    wb.add_format(
+                        {
+                            "bg_color": green_hex,
+                            "align": "center",
+                            "bold": True,
+                        }
+                    ),
+                )
+            sheet.write_formula(
+                user_ending_row_idx + 2,
+                recap_col_idx,
+                compute_excel_sum_col_range(
+                    recap_col_idx, user_starting_row_idx, user_ending_row_idx
+                ),
+                wb.add_format(formats.get(style)),
+            )
+        previous_has_to_be_summed = has_to_be_summed
+        recap_col_idx += 1
+
+
+def write_tab_headers(wb, sheet, columns_in_main_sheet, row_idx):
     col_idx = 0
     column_base_formats = []
     for (
@@ -461,6 +586,7 @@ def write_work_days_sheet(
         _,
         column_width,
         color,
+        *_,
     ) in columns_in_main_sheet:
         right_border = 0
         if col_idx == 1:
@@ -471,7 +597,7 @@ def write_work_days_sheet(
         ):
             right_border = 1
         sheet.write(
-            0,
+            row_idx,
             col_idx,
             col_name,
             wb.add_format(
@@ -488,40 +614,8 @@ def write_work_days_sheet(
         sheet.set_column(col_idx, col_idx, column_width)
         column_base_formats.append({"right": right_border})
         col_idx += 1
-
-    sheet.set_row(0, 40)
-
-    for user, work_days in wdays_by_user.items():
-        for wday in sorted(work_days, key=lambda wd: wd.day):
-            if wday.activities:
-                col_idx = 0
-                for (col_name, resolver, style, *_) in columns_in_main_sheet:
-                    if style in date_formats and resolver(wday) is not None:
-                        sheet.write_datetime(
-                            row_idx,
-                            col_idx,
-                            resolver(wday),
-                            wb.add_format(
-                                {
-                                    **column_base_formats[col_idx],
-                                    **(formats.get(style) or {}),
-                                }
-                            ),
-                        )
-                    else:
-                        sheet.write(
-                            row_idx,
-                            col_idx,
-                            resolver(wday),
-                            wb.add_format(
-                                {
-                                    **column_base_formats[col_idx],
-                                    **(formats.get(style) or {}),
-                                }
-                            ),
-                        )
-                    col_idx += 1
-                row_idx += 1
+    sheet.set_row(row_idx, 40)
+    return column_base_formats
 
 
 def write_day_details_sheet(wb, wdays_by_user, require_mission_name):
@@ -681,7 +775,8 @@ def send_work_days_as_excel(user_wdays, companies):
 
     wdays_by_user = defaultdict(list)
     for work_day in complete_work_days:
-        wdays_by_user[work_day.user].append(work_day)
+        if len(work_day.activities) > 0:
+            wdays_by_user[work_day.user].append(work_day)
 
     require_expenditures = any([c.require_expenditures for c in companies])
     require_mission_name = any([c.require_mission_name for c in companies])
