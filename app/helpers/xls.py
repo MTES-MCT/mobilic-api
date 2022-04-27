@@ -107,7 +107,9 @@ def format_kilometer_reading(location, wday):
     return location.kilometer_reading
 
 
-def get_columns_in_main_sheet(require_expenditures, require_mission_name):
+def get_columns_in_main_sheet(
+    require_expenditures, require_mission_name, allow_transfers
+):
     columns_in_main_sheet = [
         (
             "Employé",
@@ -219,16 +221,27 @@ def get_columns_in_main_sheet(require_expenditures, require_mission_name):
                 light_green_hex,
                 True,
             ),
-            (
-                "Liaison",
-                lambda wday: timedelta(
-                    seconds=wday.activity_durations[ActivityType.TRANSFER]
+        ]
+    )
+
+    if allow_transfers:
+        columns_in_main_sheet.extend(
+            [
+                (
+                    "Liaison",
+                    lambda wday: timedelta(
+                        seconds=wday.activity_durations[ActivityType.TRANSFER]
+                    ),
+                    "duration_format",
+                    13,
+                    light_green_hex,
+                    True,
                 ),
-                "duration_format",
-                13,
-                light_green_hex,
-                True,
-            ),
+            ]
+        )
+
+    columns_in_main_sheet.extend(
+        [
             (
                 "Pause",
                 lambda wday: timedelta(
@@ -465,14 +478,18 @@ activity_version_columns_in_details_sheet = [
 
 
 def write_work_days_sheet(
-    wb, wdays_by_user, require_expenditures, require_mission_name
+    wb,
+    wdays_by_user,
+    require_expenditures,
+    require_mission_name,
+    allow_transfers,
 ):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(1, 2)
     row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
-        require_expenditures, require_mission_name
+        require_expenditures, require_mission_name, allow_transfers
     )
 
     for user, work_days in wdays_by_user.items():
@@ -780,12 +797,14 @@ def send_work_days_as_excel(user_wdays, companies):
 
     require_expenditures = any([c.require_expenditures for c in companies])
     require_mission_name = any([c.require_mission_name for c in companies])
+    allow_transfers = any([c.allow_transfers for c in companies])
 
     write_work_days_sheet(
         wb,
         wdays_by_user,
         require_expenditures=require_expenditures,
         require_mission_name=require_mission_name,
+        allow_transfers=allow_transfers,
     )
     write_day_details_sheet(
         wb, wdays_by_user, require_mission_name=require_mission_name
