@@ -510,6 +510,7 @@ def write_work_days_sheet(
                             {
                                 **column_base_formats[col_idx],
                                 **(formats.get(style) or {}),
+                                "border": 1,
                             }
                         ),
                     )
@@ -522,6 +523,7 @@ def write_work_days_sheet(
                             {
                                 **column_base_formats[col_idx],
                                 **(formats.get(style) or {}),
+                                "border": 1,
                             }
                         ),
                     )
@@ -539,6 +541,7 @@ def write_work_days_sheet(
                     {
                         "bold": True,
                         "valign": "top",
+                        "border": 1,
                     }
                 ),
             )
@@ -579,6 +582,7 @@ def write_user_recap(
                             "bg_color": green_hex,
                             "align": "center",
                             "bold": True,
+                            "border": 1,
                         }
                     ),
                 )
@@ -588,7 +592,7 @@ def write_user_recap(
                 compute_excel_sum_col_range(
                     recap_col_idx, user_starting_row_idx, user_ending_row_idx
                 ),
-                wb.add_format(formats.get(style)),
+                wb.add_format({**(formats.get(style) or {}), "border": 1}),
             )
         previous_has_to_be_summed = has_to_be_summed
         recap_col_idx += 1
@@ -605,13 +609,9 @@ def write_tab_headers(wb, sheet, columns_in_main_sheet, row_idx):
         color,
         *_,
     ) in columns_in_main_sheet:
-        right_border = 0
         if col_idx == 1:
             right_border = 2
-        elif (
-            col_idx < len(columns_in_main_sheet) - 1
-            and columns_in_main_sheet[col_idx + 1][4] != color
-        ):
+        else:
             right_border = 1
         sheet.write(
             row_idx,
@@ -621,6 +621,7 @@ def write_tab_headers(wb, sheet, columns_in_main_sheet, row_idx):
                 {
                     "bold": True,
                     "bg_color": color,
+                    "border": 1,
                     "right": right_border,
                     "align": "center",
                     "valign": "center",
