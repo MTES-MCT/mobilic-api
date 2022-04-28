@@ -705,14 +705,21 @@ def get_one_excel_file(wdays_data, companies):
     return output
 
 
+def clean_string(s):
+    return "".join(filter(str.isalnum, s))
+
+
 def send_work_days_as_one_archive(batches, companies):
     memory_file = BytesIO()
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
     ) as zipObject:
         for idx_user, batch in enumerate(batches):
-            excel_file = get_one_excel_file(batch, companies)
-            user_name = f"employé_{idx_user + 1}"
+            (batch_user, batch_data) = batch
+            excel_file = get_one_excel_file(batch_data, companies)
+            last_name = clean_string(batch_user.last_name)
+            first_name = clean_string(batch_user.first_name)
+            user_name = f"{batch_user.id}_{last_name}_{first_name}"
             zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
 
     memory_file.seek(0)
@@ -745,7 +752,7 @@ def send_work_days_as_excel(user_wdays_batches, companies):
 
     if len(user_wdays_batches) == 1:
         return send_work_days_as_one_excel_file(
-            user_wdays_batches[0], companies
+            user_wdays_batches[0][1], companies
         )
     else:
         return send_work_days_as_one_archive(user_wdays_batches, companies)

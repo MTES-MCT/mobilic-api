@@ -360,13 +360,16 @@ def download_activity_report(
         user_wdays_batches = []
         for user in users:
             user_wdays_batches += [
-                group_user_events_by_day_with_limit(
+                (
                     user,
-                    consultation_scope=scope,
-                    from_date=min_date,
-                    until_date=max_date,
-                    include_dismissed_or_empty_days=True,
-                )[0]
+                    group_user_events_by_day_with_limit(
+                        user,
+                        consultation_scope=scope,
+                        from_date=min_date,
+                        until_date=max_date,
+                        include_dismissed_or_empty_days=True,
+                    )[0],
+                )
             ]
     else:
         all_users_work_days = []
@@ -378,8 +381,10 @@ def download_activity_report(
                 until_date=max_date,
                 include_dismissed_or_empty_days=True,
             )[0]
-        user_wdays_batches = [all_users_work_days]
+        user_wdays_batches = [(None, all_users_work_days)]
 
+    print("\n Batches:\n")
+    print(user_wdays_batches)
     return send_work_days_as_excel(
         user_wdays_batches=user_wdays_batches,
         companies=Company.query.filter(Company.id.in_(company_ids)).all(),
