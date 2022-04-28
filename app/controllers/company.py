@@ -383,8 +383,6 @@ def download_activity_report(
             )[0]
         user_wdays_batches = [(None, all_users_work_days)]
 
-    print("\n Batches:\n")
-    print(user_wdays_batches)
     return send_work_days_as_excel(
         user_wdays_batches=user_wdays_batches,
         companies=Company.query.filter(Company.id.in_(company_ids)).all(),
