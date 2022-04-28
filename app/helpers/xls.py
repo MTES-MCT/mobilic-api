@@ -221,6 +221,14 @@ def get_columns_in_main_sheet(
                 light_green_hex,
                 True,
             ),
+            (
+                "Total travail de nuit",
+                lambda wday: timedelta(seconds=wday.total_night_work_duration),
+                "duration_format",
+                13,
+                light_green_hex,
+                True,
+            ),
         ]
     )
 
@@ -486,7 +494,7 @@ def write_work_days_sheet(
 ):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
-    sheet.freeze_panes(1, 2)
+    sheet.freeze_panes(0, 2)
     row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
         require_expenditures, require_mission_name, allow_transfers
