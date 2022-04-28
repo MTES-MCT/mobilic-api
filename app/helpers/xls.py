@@ -1,3 +1,4 @@
+import zipfile
 from collections import defaultdict
 from flask import send_file, after_this_request
 from abc import ABC
@@ -793,8 +794,8 @@ def write_day_details_sheet(wb, wdays_by_user, require_mission_name):
                 col_idx += 1
 
 
-def send_work_days_as_excel(user_wdays, companies):
-    complete_work_days = [wd for wd in user_wdays if wd.is_complete]
+def get_one_excel_file(wdays_data, companies):
+    complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
     wb.set_custom_property(HMAC_PROP_NAME, "a")
@@ -824,19 +825,60 @@ def send_work_days_as_excel(user_wdays, companies):
     output.seek(0)
     output = add_signature(output)
     output.seek(0)
+    return output
 
-    @after_this_request
-    def change_cache_control_header(response):
-        response.headers["Cache-Control"] = "no-cache"
-        return response
+
+def clean_string(s):
+    return "".join(filter(str.isalnum, s))
+
+
+def send_work_days_as_one_archive(batches, companies):
+    memory_file = BytesIO()
+    with zipfile.ZipFile(
+        memory_file, "w", compression=zipfile.ZIP_DEFLATED
+    ) as zipObject:
+        for idx_user, batch in enumerate(batches):
+            (batch_user, batch_data) = batch
+            excel_file = get_one_excel_file(batch_data, companies)
+            last_name = clean_string(batch_user.last_name)
+            first_name = clean_string(batch_user.first_name)
+            user_name = f"{batch_user.id}_{last_name}_{first_name}"
+            zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
+
+    memory_file.seek(0)
+    return send_file(
+        memory_file,
+        mimetype="zip",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename="rapport_activités.zip",
+    )
+
+
+def send_work_days_as_one_excel_file(user_wdays, companies):
+    excel_file = get_one_excel_file(user_wdays, companies)
 
     return send_file(
-        output,
+        excel_file,
         mimetype=EXCEL_MIMETYPE,
         as_attachment=True,
         cache_timeout=0,
         attachment_filename="rapport_activité.xlsx",
     )
+
+
+def send_work_days_as_excel(user_wdays_batches, companies):
+    @after_this_request
+    def change_cache_control_header(response):
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+    if len(user_wdays_batches) == 1:
+        return send_work_days_as_one_excel_file(
+            user_wdays_batches[0][1], companies
+        )
+    else:
+        return send_work_days_as_one_archive(user_wdays_batches, companies)
 
 
 def compute_hmac(archive, key):
