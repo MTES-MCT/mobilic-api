@@ -1,5 +1,6 @@
 import datetime
 from dateutil.tz import gettz
+from jours_feries_france import JoursFeries
 
 FR_TIMEZONE = gettz("Europe/Paris")
 VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
@@ -103,3 +104,7 @@ def max_or_none(*args):
 def min_or_none(*args):
     args_not_none = [a for a in args if a is not None]
     return min(args_not_none) if args_not_none else None
+
+
+def is_sunday_or_bank_holiday(day):
+    return JoursFeries.is_bank_holiday(day) or day.weekday() == 6

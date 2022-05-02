@@ -20,7 +20,7 @@ from app.models.activity import ActivityType
 
 
 def compute_aggregate_durations(periods, min_time=None):
-    max_time = min_time + timedelta(1) if min_time else None
+    max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
         return {}
     timers = defaultdict(lambda: 0)

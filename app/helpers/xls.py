@@ -2,8 +2,9 @@ import zipfile
 from collections import defaultdict
 from flask import send_file, after_this_request
 from abc import ABC
+
 from xlsxwriter import Workbook
-from datetime import timedelta
+from datetime import timedelta, datetime
 from io import BytesIO
 import hmac
 import hashlib
@@ -12,7 +13,7 @@ from defusedxml.ElementTree import parse
 
 from app import app, MobilicError
 from app.models.activity import ActivityType
-from app.helpers.time import to_fr_tz
+from app.helpers.time import to_fr_tz, is_sunday_or_bank_holiday
 
 WORKSHEETS_TO_INCLUDE_IN_HMAC = [
     "xl/worksheets/sheet1.xml",
@@ -42,7 +43,8 @@ light_grey_hex = "#dadada"
 light_blue_hex = "#b4e1fa"
 light_green_hex = "#daf5e7"
 light_orange_hex = "#fff0e4"
-light_red_hex = "#efaca6"
+light_brown_hex = "#ffe599"
+light_red_hex = "#d9d2e9"
 green_hex = "#a8d08d"
 very_light_red_hex = "#fcb4b4"
 
@@ -70,10 +72,30 @@ class UnavailableService(IntegrityVerificationError):
 date_formats = dict(
     date_format={"num_format": "dd/mm/yyyy"},
     date_and_time_format={"num_format": "dd/mm/yyyy h:mm"},
-    time_format={"num_format": "h:mm"},
-    duration_format={"num_format": "[h]:mm"},
+    time_format={"num_format": "h:mm", "align": "center"},
+    duration_format={"num_format": "[h]:mm", "align": "center"},
+    bold_duration_format={
+        "num_format": "[h]:mm",
+        "align": "center",
+        "bold": True,
+    },
+    bank_holiday_duration_format={
+        "num_format": "[h]:mm",
+        "align": "center",
+        "bg_color": light_brown_hex,
+        "bold": True,
+    },
+    bank_holiday_date_format={
+        "num_format": "dd/mm/yyyy",
+        "bg_color": light_brown_hex,
+    },
 )
-formats = dict(bold={"bold": True}, wrap={"text_wrap": True}, **date_formats)
+formats = dict(
+    bold={"bold": True},
+    wrap={"text_wrap": True},
+    center={"align": "center"},
+    **date_formats,
+)
 
 
 def format_activity_version_description(version, previous_version, is_delete):
@@ -115,7 +137,7 @@ def get_columns_in_main_sheet(
         (
             "Employé",
             lambda wday: wday.user.first_name + " " + wday.user.last_name,
-            "bold",
+            lambda _: "bold",
             30,
             light_grey_hex,
             False,
@@ -123,7 +145,9 @@ def get_columns_in_main_sheet(
         (
             "Jour",
             lambda wday: wday.day,
-            "date_format",
+            lambda wday: "bank_holiday_date_format"
+            if is_sunday_or_bank_holiday(wday.day)
+            else "date_format",
             20,
             light_yellow_hex,
             False,
@@ -138,7 +162,7 @@ def get_columns_in_main_sheet(
                     lambda wday: ", ".join(
                         [m.name for m in wday.missions if m.name]
                     ),
-                    "wrap",
+                    lambda _: "wrap",
                     30,
                     light_blue_hex,
                     False,
@@ -159,7 +183,7 @@ def get_columns_in_main_sheet(
                         ]
                     )
                 ),
-                "wrap",
+                lambda _: "wrap",
                 30,
                 light_blue_hex,
                 False,
@@ -169,7 +193,7 @@ def get_columns_in_main_sheet(
                 lambda wday: to_fr_tz(wday.start_time)
                 if wday.start_time
                 else None,
-                "time_format",
+                lambda _: "time_format",
                 15,
                 light_green_hex,
                 False,
@@ -179,7 +203,7 @@ def get_columns_in_main_sheet(
                 lambda wday: to_fr_tz(wday.end_time)
                 if wday.end_time
                 else None,
-                "time_format",
+                lambda _: "time_format",
                 15,
                 light_green_hex,
                 False,
@@ -189,7 +213,7 @@ def get_columns_in_main_sheet(
                 lambda wday: timedelta(
                     seconds=wday.activity_durations[ActivityType.DRIVE]
                 ),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -199,7 +223,7 @@ def get_columns_in_main_sheet(
                 lambda wday: timedelta(
                     seconds=wday.activity_durations[ActivityType.SUPPORT]
                 ),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -209,7 +233,7 @@ def get_columns_in_main_sheet(
                 lambda wday: timedelta(
                     seconds=wday.activity_durations[ActivityType.WORK]
                 ),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -217,7 +241,9 @@ def get_columns_in_main_sheet(
             (
                 "Total travail",
                 lambda wday: timedelta(seconds=wday.total_work_duration),
-                "duration_format",
+                lambda wday: "bank_holiday_duration_format"
+                if wday and is_sunday_or_bank_holiday(wday.day)
+                else "bold_duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -225,7 +251,7 @@ def get_columns_in_main_sheet(
             (
                 "Total travail de nuit",
                 lambda wday: timedelta(seconds=wday.total_night_work_duration),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -241,7 +267,7 @@ def get_columns_in_main_sheet(
                     lambda wday: timedelta(
                         seconds=wday.activity_durations[ActivityType.TRANSFER]
                     ),
-                    "duration_format",
+                    lambda _: "duration_format",
                     13,
                     light_green_hex,
                     True,
@@ -258,7 +284,7 @@ def get_columns_in_main_sheet(
                     - wday.total_work_duration
                     - wday.activity_durations[ActivityType.TRANSFER]
                 ),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 True,
@@ -266,7 +292,7 @@ def get_columns_in_main_sheet(
             (
                 "Amplitude",
                 lambda wday: timedelta(seconds=wday.service_duration),
-                "duration_format",
+                lambda _: "duration_format",
                 13,
                 light_green_hex,
                 False,
@@ -281,7 +307,7 @@ def get_columns_in_main_sheet(
                 lambda wday: wday.start_location.address.format()
                 if wday.start_location
                 else "",
-                "wrap",
+                lambda _: "wrap",
                 30,
                 light_blue_hex,
                 False,
@@ -291,7 +317,7 @@ def get_columns_in_main_sheet(
                 lambda wday: format_kilometer_reading(
                     wday.start_location, wday
                 ),
-                None,
+                lambda _: "center",
                 30,
                 light_blue_hex,
                 False,
@@ -301,7 +327,7 @@ def get_columns_in_main_sheet(
                 lambda wday: wday.end_location.address.format()
                 if wday.end_location
                 else "",
-                "wrap",
+                lambda _: "wrap",
                 30,
                 light_blue_hex,
                 False,
@@ -309,7 +335,7 @@ def get_columns_in_main_sheet(
             (
                 "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
                 lambda wday: format_kilometer_reading(wday.end_location, wday),
-                None,
+                lambda _: "center",
                 30,
                 light_blue_hex,
                 False,
@@ -317,7 +343,7 @@ def get_columns_in_main_sheet(
             (
                 "Nombre de kilomètres parcourus",
                 lambda wday: "A FAIRE",
-                None,
+                lambda _: "center",
                 30,
                 light_blue_hex,
                 True,
@@ -331,7 +357,7 @@ def get_columns_in_main_sheet(
                 (
                     "Repas midi",
                     lambda wday: wday.expenditures.get("day_meal", 0),
-                    None,
+                    lambda _: "center",
                     13,
                     light_orange_hex,
                     True,
@@ -339,7 +365,7 @@ def get_columns_in_main_sheet(
                 (
                     "Repas soir",
                     lambda wday: wday.expenditures.get("night_meal", 0),
-                    None,
+                    lambda _: "center",
                     13,
                     light_orange_hex,
                     True,
@@ -347,7 +373,7 @@ def get_columns_in_main_sheet(
                 (
                     "Découché",
                     lambda wday: wday.expenditures.get("sleep_over", 0),
-                    None,
+                    lambda _: "center",
                     13,
                     light_orange_hex,
                     True,
@@ -355,7 +381,7 @@ def get_columns_in_main_sheet(
                 (
                     "Casse-croûte",
                     lambda wday: wday.expenditures.get("snack", 0),
-                    None,
+                    lambda _: "center",
                     13,
                     light_orange_hex,
                     True,
@@ -370,7 +396,7 @@ def get_columns_in_main_sheet(
                 lambda wday: "\n".join(
                     [" - " + c.text for c in wday.comments]
                 ),
-                "wrap",
+                lambda _: "wrap",
                 50,
                 light_red_hex,
                 False,
@@ -492,10 +518,40 @@ def write_work_days_sheet(
     require_expenditures,
     require_mission_name,
     allow_transfers,
+    min_date,
+    max_date,
 ):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(0, 2)
+    sheet.write(
+        0,
+        0,
+        "Date des données exportées : du {0} au {1}".format(
+            min_date.strftime("%d/%m/%Y"), max_date.strftime("%d/%m/%Y")
+        ),
+        wb.add_format({"bold": True}),
+    )
+    sheet.write(
+        0,
+        4,
+        "Légende :",
+        wb.add_format({"bold": True}),
+    )
+    sheet.write_datetime(
+        1,
+        4,
+        datetime(2022, 1, 1, 0, 0),
+        wb.add_format(
+            {**formats.get("bank_holiday_date_format"), "border": 1}
+        ),
+    )
+    sheet.write(
+        1,
+        5,
+        "Dimanches ou jours fériés : jours de travail majorés",
+        wb.add_format({"bold": True}),
+    )
     row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
         require_expenditures, require_mission_name, allow_transfers
@@ -510,7 +566,8 @@ def write_work_days_sheet(
         for wday in sorted(work_days, key=lambda wd: wd.day):
             col_idx = 0
             for (col_name, resolver, style, *_) in columns_in_main_sheet:
-                if style in date_formats and resolver(wday) is not None:
+                column_style = style(wday)
+                if column_style in date_formats and resolver(wday) is not None:
                     sheet.write_datetime(
                         row_idx,
                         col_idx,
@@ -518,7 +575,7 @@ def write_work_days_sheet(
                         wb.add_format(
                             {
                                 **column_base_formats[col_idx],
-                                **(formats.get(style) or {}),
+                                **(formats.get(column_style) or {}),
                                 "border": 1,
                             }
                         ),
@@ -531,7 +588,7 @@ def write_work_days_sheet(
                         wb.add_format(
                             {
                                 **column_base_formats[col_idx],
-                                **(formats.get(style) or {}),
+                                **(formats.get(column_style) or {}),
                                 "border": 1,
                             }
                         ),
@@ -601,7 +658,9 @@ def write_user_recap(
                 compute_excel_sum_col_range(
                     recap_col_idx, user_starting_row_idx, user_ending_row_idx
                 ),
-                wb.add_format({**(formats.get(style) or {}), "border": 1}),
+                wb.add_format(
+                    {**(formats.get(style(None)) or {}), "border": 1}
+                ),
             )
         previous_has_to_be_summed = has_to_be_summed
         recap_col_idx += 1
@@ -794,7 +853,7 @@ def write_day_details_sheet(wb, wdays_by_user, require_mission_name):
                 col_idx += 1
 
 
-def get_one_excel_file(wdays_data, companies):
+def get_one_excel_file(wdays_data, companies, min_date, max_date):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     output = BytesIO()
     wb = Workbook(output)
@@ -815,6 +874,8 @@ def get_one_excel_file(wdays_data, companies):
         require_expenditures=require_expenditures,
         require_mission_name=require_mission_name,
         allow_transfers=allow_transfers,
+        min_date=min_date,
+        max_date=max_date,
     )
     write_day_details_sheet(
         wb, wdays_by_user, require_mission_name=require_mission_name
@@ -832,14 +893,16 @@ def clean_string(s):
     return "".join(filter(str.isalnum, s))
 
 
-def send_work_days_as_one_archive(batches, companies):
+def send_work_days_as_one_archive(batches, companies, min_date, max_date):
     memory_file = BytesIO()
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
     ) as zipObject:
         for idx_user, batch in enumerate(batches):
             (batch_user, batch_data) = batch
-            excel_file = get_one_excel_file(batch_data, companies)
+            excel_file = get_one_excel_file(
+                batch_data, companies, min_date, max_date
+            )
             last_name = clean_string(batch_user.last_name)
             first_name = clean_string(batch_user.first_name)
             user_name = f"{batch_user.id}_{last_name}_{first_name}"
@@ -855,8 +918,10 @@ def send_work_days_as_one_archive(batches, companies):
     )
 
 
-def send_work_days_as_one_excel_file(user_wdays, companies):
-    excel_file = get_one_excel_file(user_wdays, companies)
+def send_work_days_as_one_excel_file(
+    user_wdays, companies, min_date, max_date
+):
+    excel_file = get_one_excel_file(user_wdays, companies, min_date, max_date)
 
     return send_file(
         excel_file,
@@ -867,7 +932,7 @@ def send_work_days_as_one_excel_file(user_wdays, companies):
     )
 
 
-def send_work_days_as_excel(user_wdays_batches, companies):
+def send_work_days_as_excel(user_wdays_batches, companies, min_date, max_date):
     @after_this_request
     def change_cache_control_header(response):
         response.headers["Cache-Control"] = "no-cache"
@@ -875,10 +940,12 @@ def send_work_days_as_excel(user_wdays_batches, companies):
 
     if len(user_wdays_batches) == 1:
         return send_work_days_as_one_excel_file(
-            user_wdays_batches[0][1], companies
+            user_wdays_batches[0][1], companies, min_date, max_date
         )
     else:
-        return send_work_days_as_one_archive(user_wdays_batches, companies)
+        return send_work_days_as_one_archive(
+            user_wdays_batches, companies, min_date, max_date
+        )
 
 
 def compute_hmac(archive, key):
