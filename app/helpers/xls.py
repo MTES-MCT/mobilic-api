@@ -130,6 +130,21 @@ def format_kilometer_reading(location, wday):
     return location.kilometer_reading
 
 
+def format_kilometer_driven_in_wday(wday):
+    if (
+        not wday.one_and_only_one_vehicle_used
+        or not wday.start_location
+        or not wday.end_location
+        or not wday.start_location.kilometer_reading
+        or not wday.end_location.kilometer_reading
+    ):
+        return ""
+    return (
+        wday.end_location.kilometer_reading
+        - wday.start_location.kilometer_reading
+    )
+
+
 def get_columns_in_main_sheet(
     require_expenditures, require_mission_name, allow_transfers
 ):
@@ -342,7 +357,7 @@ def get_columns_in_main_sheet(
             ),
             (
                 "Nombre de kilomètres parcourus",
-                lambda wday: "A FAIRE",
+                lambda wday: format_kilometer_driven_in_wday(wday),
                 lambda _: "center",
                 30,
                 light_blue_hex,
