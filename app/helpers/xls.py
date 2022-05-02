@@ -146,7 +146,10 @@ def format_kilometer_driven_in_wday(wday):
 
 
 def get_columns_in_main_sheet(
-    require_expenditures, require_mission_name, allow_transfers
+    require_expenditures,
+    require_mission_name,
+    allow_transfers,
+    require_kilometer_data,
 ):
     columns_in_main_sheet = [
         (
@@ -312,11 +315,6 @@ def get_columns_in_main_sheet(
                 light_green_hex,
                 False,
             ),
-        ]
-    )
-
-    columns_in_main_sheet.extend(
-        [
             (
                 "Lieu de début de service",
                 lambda wday: wday.start_location.address.format()
@@ -327,16 +325,26 @@ def get_columns_in_main_sheet(
                 light_blue_hex,
                 False,
             ),
-            (
-                "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
-                lambda wday: format_kilometer_reading(
-                    wday.start_location, wday
+        ]
+    )
+
+    if require_kilometer_data:
+        columns_in_main_sheet.extend(
+            [
+                (
+                    "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
+                    lambda wday: format_kilometer_reading(
+                        wday.start_location, wday
+                    ),
+                    lambda _: "center",
+                    30,
+                    light_blue_hex,
+                    False,
                 ),
-                lambda _: "center",
-                30,
-                light_blue_hex,
-                False,
-            ),
+            ]
+        )
+    columns_in_main_sheet.extend(
+        [
             (
                 "Lieu de fin de service",
                 lambda wday: wday.end_location.address.format()
@@ -347,24 +355,32 @@ def get_columns_in_main_sheet(
                 light_blue_hex,
                 False,
             ),
-            (
-                "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
-                lambda wday: format_kilometer_reading(wday.end_location, wday),
-                lambda _: "center",
-                30,
-                light_blue_hex,
-                False,
-            ),
-            (
-                "Nombre de kilomètres parcourus",
-                lambda wday: format_kilometer_driven_in_wday(wday),
-                lambda _: "center",
-                30,
-                light_blue_hex,
-                True,
-            ),
         ]
     )
+
+    if require_kilometer_data:
+        columns_in_main_sheet.extend(
+            [
+                (
+                    "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
+                    lambda wday: format_kilometer_reading(
+                        wday.end_location, wday
+                    ),
+                    lambda _: "center",
+                    30,
+                    light_blue_hex,
+                    False,
+                ),
+                (
+                    "Nombre de kilomètres parcourus",
+                    lambda wday: format_kilometer_driven_in_wday(wday),
+                    lambda _: "center",
+                    30,
+                    light_blue_hex,
+                    True,
+                ),
+            ]
+        )
 
     if require_expenditures:
         columns_in_main_sheet.extend(
@@ -533,12 +549,13 @@ def write_work_days_sheet(
     require_expenditures,
     require_mission_name,
     allow_transfers,
+    require_kilometer_data,
     min_date,
     max_date,
 ):
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
-    sheet.freeze_panes(0, 2)
+    sheet.freeze_panes(3, 2)
     sheet.write(
         0,
         0,
@@ -569,7 +586,10 @@ def write_work_days_sheet(
     )
     row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
-        require_expenditures, require_mission_name, allow_transfers
+        require_expenditures,
+        require_mission_name,
+        allow_transfers,
+        require_kilometer_data,
     )
 
     for user, work_days in wdays_by_user.items():
@@ -881,6 +901,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
 
     require_expenditures = any([c.require_expenditures for c in companies])
     require_mission_name = any([c.require_mission_name for c in companies])
+    require_kilometer_data = any([c.require_kilometer_data for c in companies])
     allow_transfers = any([c.allow_transfers for c in companies])
 
     write_work_days_sheet(
@@ -889,6 +910,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         require_expenditures=require_expenditures,
         require_mission_name=require_mission_name,
         allow_transfers=allow_transfers,
+        require_kilometer_data=require_kilometer_data,
         min_date=min_date,
         max_date=max_date,
     )
