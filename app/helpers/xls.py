@@ -557,40 +557,10 @@ def write_work_days_sheet(
     sheet = wb.add_worksheet("Activité")
     sheet.protect()
     sheet.freeze_panes(3, 2)
-    sheet.write(
-        0,
-        0,
-        "Date des données exportées : du {0} au {1}".format(
-            min_date.strftime("%d/%m/%Y"), max_date.strftime("%d/%m/%Y")
-        ),
-        wb.add_format({"bold": True}),
-    )
-    sheet.write(
-        1,
-        0,
-        "Entreprise : {0}".format(", ".join(c.name for c in companies)),
-        wb.add_format({"bold": True}),
-    )
-    sheet.write(
-        0,
-        4,
-        "Légende :",
-        wb.add_format({"bold": True}),
-    )
-    sheet.write_datetime(
-        1,
-        4,
-        datetime(2022, 1, 1, 0, 0),
-        wb.add_format(
-            {**formats.get("bank_holiday_date_format"), "border": 1}
-        ),
-    )
-    sheet.write(
-        1,
-        5,
-        "Dimanches ou jours fériés : jours de travail majorés",
-        wb.add_format({"bold": True}),
-    )
+    sheet.set_column(0, 4, 20)
+
+    write_work_days_sheet_header(wb, sheet, companies, max_date, min_date)
+
     row_idx = 4
     columns_in_main_sheet = get_columns_in_main_sheet(
         require_expenditures,
@@ -661,6 +631,43 @@ def write_work_days_sheet(
             row_idx - 1,
         )
         row_idx += 4
+
+
+def write_work_days_sheet_header(wb, sheet, companies, max_date, min_date):
+    sheet.write(
+        0,
+        0,
+        "Date des données exportées : du {0} au {1}".format(
+            min_date.strftime("%d/%m/%Y"), max_date.strftime("%d/%m/%Y")
+        ),
+        wb.add_format({"bold": True}),
+    )
+    sheet.write(
+        1,
+        0,
+        "Entreprise : {0}".format(", ".join(c.name for c in companies)),
+        wb.add_format({"bold": True}),
+    )
+    sheet.write(
+        0,
+        4,
+        "Légende :",
+        wb.add_format({"bold": True}),
+    )
+    sheet.write_datetime(
+        1,
+        4,
+        datetime(2022, 1, 1, 0, 0),
+        wb.add_format(
+            {**formats.get("bank_holiday_date_format"), "border": 1}
+        ),
+    )
+    sheet.write(
+        1,
+        5,
+        "Dimanches ou jours fériés : jours de travail majorés",
+        wb.add_format({"bold": True}),
+    )
 
 
 def compute_excel_sum_col_range(col_idx, row_start, row_end):
@@ -734,7 +741,7 @@ def write_tab_headers(wb, sheet, columns_in_main_sheet, row_idx):
                     "border": 1,
                     "right": right_border,
                     "align": "center",
-                    "valign": "center",
+                    "valign": "vcenter",
                     "text_wrap": True,
                 }
             ),
