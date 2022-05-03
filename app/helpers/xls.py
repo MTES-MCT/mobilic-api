@@ -550,6 +550,7 @@ def write_work_days_sheet(
     require_mission_name,
     allow_transfers,
     require_kilometer_data,
+    companies,
     min_date,
     max_date,
 ):
@@ -562,6 +563,12 @@ def write_work_days_sheet(
         "Date des données exportées : du {0} au {1}".format(
             min_date.strftime("%d/%m/%Y"), max_date.strftime("%d/%m/%Y")
         ),
+        wb.add_format({"bold": True}),
+    )
+    sheet.write(
+        1,
+        0,
+        "Entreprise : {0}".format(", ".join(c.name for c in companies)),
         wb.add_format({"bold": True}),
     )
     sheet.write(
@@ -911,6 +918,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         require_mission_name=require_mission_name,
         allow_transfers=allow_transfers,
         require_kilometer_data=require_kilometer_data,
+        companies=companies,
         min_date=min_date,
         max_date=max_date,
     )
