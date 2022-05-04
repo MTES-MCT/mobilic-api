@@ -23,7 +23,7 @@ from app.seed.helpers import get_time, get_date
 
 NB_COMPANIES = 2
 NB_EMPLOYEES = 2
-NB_HISTORY = 12
+NB_HISTORY = 4
 INTERVAL_HISTORY = 15
 ADMIN_EMAIL = "busy.admin@test.com"
 
@@ -73,7 +73,7 @@ def run_scenario_busy_admin():
             employee = UserFactory.create(
                 email=f"busy.employee{i + 1}@busycorp{idx_company + 1}.com",
                 password="password",
-                first_name=f"Employee {i + 1}",
+                first_name=f"Bérénice {i + 1}",
                 last_name=f"Corp {idx_company + 1}",
             )
             EmploymentFactory.create(
