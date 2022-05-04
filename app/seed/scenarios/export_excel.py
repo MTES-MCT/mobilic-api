@@ -110,15 +110,6 @@ def run_scenario_export_excel():
             )
         )
 
-    ## Points a tester
-    # plusieurs employes dans une entreprise
-    # travaille un dimanche
-    # travaille un jour ferie
-    # a cheval sur 2 jours
-    # utilisation d'un vehicule - kilometrage
-    # temps de liaison / kilometrage en settings
-    # plusieurs missions le meme jour
-    # plusieurs missions pour tester total
     employee_1 = UserFactory.create(
         email=EMPLOYEE_1_EMAIL,
         password="password",
