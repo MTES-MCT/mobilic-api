@@ -209,19 +209,27 @@ def get_columns_in_main_sheet(
             (
                 "Début",
                 lambda wday: to_fr_tz(wday.start_time)
+                if not wday.is_first_mission_overlapping_with_previous_day
+                else "-"
                 if wday.start_time
                 else None,
-                lambda _: "time_format",
+                lambda wday: "time_format"
+                if not wday.is_first_mission_overlapping_with_previous_day
+                else "center",
                 15,
                 light_green_hex,
                 False,
             ),
             (
                 "Fin",
-                lambda wday: to_fr_tz(wday.end_time)
+                lambda wday: "-"
+                if wday.is_last_mission_overlapping_with_next_day
+                else to_fr_tz(wday.end_time)
                 if wday.end_time
                 else None,
-                lambda _: "time_format",
+                lambda wday: "time_format"
+                if not wday.is_last_mission_overlapping_with_next_day
+                else "center",
                 15,
                 light_green_hex,
                 False,
@@ -568,14 +576,19 @@ def write_work_days_sheet(
         allow_transfers,
         require_kilometer_data,
     )
+    has_one_bank_holiday = False
 
-    for user, work_days in wdays_by_user.items():
+    for user, work_days in sorted(
+        wdays_by_user.items(), key=lambda u: u[0].first_name + u[0].last_name
+    ):
         column_base_formats = write_tab_headers(
             wb, sheet, columns_in_main_sheet, row_idx
         )
         row_idx += 1
         user_starting_row_idx = row_idx
         for wday in sorted(work_days, key=lambda wd: wd.day):
+            if is_sunday_or_bank_holiday(wday.day):
+                has_one_bank_holiday = True
             col_idx = 0
             for (col_name, resolver, style, *_) in columns_in_main_sheet:
                 column_style = style(wday)
@@ -631,6 +644,8 @@ def write_work_days_sheet(
             row_idx - 1,
         )
         row_idx += 4
+    if has_one_bank_holiday:
+        write_sheet_legend(wb, sheet)
 
 
 def write_work_days_sheet_header(wb, sheet, companies, max_date, min_date):
@@ -648,6 +663,9 @@ def write_work_days_sheet_header(wb, sheet, companies, max_date, min_date):
         ),
         wb.add_format({"bold": True}),
     )
+
+
+def write_sheet_legend(wb, sheet):
     sheet.write(
         0,
         4,
