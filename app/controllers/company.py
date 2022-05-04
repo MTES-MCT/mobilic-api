@@ -386,6 +386,8 @@ def download_activity_report(
     return send_work_days_as_excel(
         user_wdays_batches=user_wdays_batches,
         companies=Company.query.filter(Company.id.in_(company_ids)).all(),
+        min_date=min_date,
+        max_date=max_date,
     )
 
 

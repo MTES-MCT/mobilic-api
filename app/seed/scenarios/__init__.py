@@ -16,6 +16,10 @@ from app.seed.scenarios.invitations import (
     EMPLOYEE_EMAIL as EMPLOYEE_INVITATIONS,
     run_scenario_invitations,
 )
+from app.seed.scenarios.export_excel import (
+    ADMIN_EMAIL as ADMIN_EXPORT,
+    run_scenario_export_excel,
+)
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 
 
@@ -54,5 +58,11 @@ scenarios = [
         "Creates one admin, one employee with no job",
         [ADMIN_INVITATIONS, EMPLOYEE_INVITATIONS],
         run_scenario_invitations,
+    ),
+    SeedScenario(
+        "Export Excel Admin",
+        "Creates one admin, two companies, to test excel export",
+        [ADMIN_EXPORT],
+        run_scenario_export_excel,
     ),
 ]

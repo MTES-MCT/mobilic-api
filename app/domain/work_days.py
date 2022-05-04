@@ -19,7 +19,8 @@ from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
 
-def compute_aggregate_durations(periods, min_time=None, max_time=None):
+def compute_aggregate_durations(periods, min_time=None):
+    max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
         return {}
     timers = defaultdict(lambda: 0)
@@ -32,9 +33,18 @@ def compute_aggregate_durations(periods, min_time=None, max_time=None):
 
     timers["total_service"] = to_timestamp(end_time) - to_timestamp(start_time)
     for period in periods:
-        timers[period.type] += int(
+        total_duration = int(
             period.duration_over(min_time, max_time).total_seconds()
         )
+        timers[period.type] += total_duration
+        if period.type != ActivityType.TRANSFER and min_time:
+            day_duration = int(
+                period.duration_over(
+                    min_time.replace(hour=5, minute=0),
+                    min_time.replace(hour=22, minute=0),
+                ).total_seconds()
+            )
+            timers["night_work"] += total_duration - day_duration
 
     timers["total_work"] = reduce(
         lambda a, b: a + b,
@@ -169,6 +179,10 @@ class WorkDay:
         return self._activity_timers["total_work"]
 
     @property
+    def total_night_work_duration(self):
+        return self._activity_timers["night_work"]
+
+    @property
     def activity_durations(self):
         return {
             a_type: self._activity_timers[a_type] for a_type in ActivityType
@@ -177,9 +191,9 @@ class WorkDay:
     @cached_property
     def _activity_timers(self):
         self._sort_activities()
-        return compute_aggregate_durations(
-            self.activities, self.start_of_day, self.end_of_day
-        )[2]
+        return compute_aggregate_durations(self.activities, self.start_of_day)[
+            2
+        ]
 
     @property
     def activity_comments(self):
