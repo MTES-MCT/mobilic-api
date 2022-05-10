@@ -280,6 +280,7 @@
     {% endif %}
     <pdf:nextpage>
     <p class="section-title">Détail par semaine</p>
+        <p>* Les dimanches et jours fériés sont surlignés dans les tableaux ci-dessous.</p>
     {% for week in weeks %}
         <table class="week-details-table can-break-after">
             <thead>
@@ -298,7 +299,7 @@
             <tbody>
                 {% for day in week["days"] %}
                     {% set outer_loop = loop %}
-                    <tr style="{{ 'background-color: #d0d0d0;' if day["date"].weekday() >= 5 else '' }}">
+                    <tr style="{{ 'background-color: #ffe599;' if day["is_sunday_or_bank_holiday"] else '' }}">
                        <td style="border-right: solid 1pt black; border-left: solid 1pt black;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}">
                            {{ day["date"] | pretty_format_day }}
                            {% if day.get("not_validated_by_self", False) %}<span class="helper-text-star"> *</span>{% endif %}

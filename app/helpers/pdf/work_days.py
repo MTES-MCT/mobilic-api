@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
+from app.helpers.time import is_sunday_or_bank_holiday
 
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.pdf import generate_pdf_from_template, Column
@@ -348,6 +349,11 @@ def _generate_work_days_pdf(
             ):
                 week["days"].append({"date": current_day})
             current_day += timedelta(days=1)
+
+        for d in week["days"]:
+            d["is_sunday_or_bank_holiday"] = is_sunday_or_bank_holiday(
+                d["date"]
+            )
 
         week["days"].sort(key=lambda d: d["date"])
         current_group_count += 1
