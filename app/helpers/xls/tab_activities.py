@@ -14,6 +14,7 @@ from app.helpers.xls.common import (
     formats,
     write_tab_headers,
     write_sheet_legend,
+    merge_cells_if_needed,
 )
 from app.models.activity import ActivityType
 
@@ -46,7 +47,7 @@ def write_work_days_sheet(
     has_one_bank_holiday = False
 
     for user, work_days in sorted(
-        wdays_by_user.items(), key=lambda u: u[0].first_name + u[0].last_name
+        wdays_by_user.items(), key=lambda u: u[0].display_name
     ):
         column_base_formats = write_tab_headers(
             wb, sheet, row_idx, columns_in_main_sheet
@@ -88,21 +89,16 @@ def write_work_days_sheet(
                 col_idx += 1
             row_idx += 1
 
-        if user_starting_row_idx != row_idx - 1:
-            sheet.merge_range(
-                user_starting_row_idx,
-                0,
-                row_idx - 1,
-                0,
-                wday.user.first_name + " " + wday.user.last_name,
-                wb.add_format(
-                    {
-                        "bold": True,
-                        "valign": "top",
-                        "border": 1,
-                    }
-                ),
-            )
+        merge_cells_if_needed(
+            wb,
+            sheet,
+            user_starting_row_idx,
+            row_idx,
+            0,
+            wday.user.display_name,
+            formats.get("merged_top"),
+        )
+
         write_user_recap(
             wb,
             sheet,
@@ -163,7 +159,7 @@ def get_columns_in_main_sheet(
     columns_in_main_sheet = [
         (
             "Employé",
-            lambda wday: wday.user.first_name + " " + wday.user.last_name,
+            lambda wday: wday.user.display_name,
             lambda _: "bold",
             30,
             light_grey_hex,

@@ -296,3 +296,18 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             ]
             db.session.add(self)
             db.session.commit()
+
+    def has_admin_rights(self, company_id):
+        last_employment = next(
+            iter(
+                sorted(
+                    filter(
+                        lambda e: e.company_id == company_id, self.employments
+                    ),
+                    key=lambda e: e.start_date,
+                    reverse=True,
+                )
+            ),
+            None,
+        )
+        return last_employment.has_admin_rights if last_employment else False
