@@ -163,7 +163,7 @@ def write_cells(
 def merge_cells_if_needed(
     workbook, sheet, starting_row, current_row, col_idx, cell_text, cell_format
 ):
-    if starting_row != current_row - 1:
+    if starting_row <= current_row - 1:
         sheet.merge_range(
             starting_row,
             col_idx,

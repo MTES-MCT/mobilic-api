@@ -45,45 +45,52 @@ def write_day_details_sheet(
             for mission in sorted(
                 wday.missions, key=lambda mi: mi.creation_time
             ):
-                mission_starting_row_idx = row_idx
-                for history_event in sorted(
-                    mission.history, key=lambda ev: ev.time
+                first_activities_for_user = next(
+                    iter(mission.activities_for(user)), None
+                )
+                if (
+                    first_activities_for_user
+                    and first_activities_for_user.start_time.date() == wday.day
                 ):
-                    col_idx = 0
-                    additional_format = (
-                        {"top": 1}
-                        if mission_starting_row_idx == row_idx
-                        else None
-                    )
-                    col_idx = write_cells(
-                        wb,
-                        sheet,
-                        column_base_formats,
-                        col_idx,
-                        row_idx,
-                        workday_columns,
-                        wday,
-                    )
-                    col_idx = write_cells(
-                        wb,
-                        sheet,
-                        column_base_formats,
-                        col_idx,
-                        row_idx,
-                        get_mission_columns(require_mission_name),
-                        mission,
-                    )
-                    col_idx = write_cells(
-                        wb,
-                        sheet,
-                        column_base_formats,
-                        col_idx,
-                        row_idx,
-                        event_columns,
-                        history_event,
-                        additional_format,
-                    )
-                    row_idx += 1
+                    mission_starting_row_idx = row_idx
+                    for history_event in sorted(
+                        mission.history, key=lambda ev: ev.time
+                    ):
+                        col_idx = 0
+                        additional_format = (
+                            {"top": 1}
+                            if mission_starting_row_idx == row_idx
+                            else None
+                        )
+                        col_idx = write_cells(
+                            wb,
+                            sheet,
+                            column_base_formats,
+                            col_idx,
+                            row_idx,
+                            workday_columns,
+                            wday,
+                        )
+                        col_idx = write_cells(
+                            wb,
+                            sheet,
+                            column_base_formats,
+                            col_idx,
+                            row_idx,
+                            get_mission_columns(require_mission_name),
+                            mission,
+                        )
+                        col_idx = write_cells(
+                            wb,
+                            sheet,
+                            column_base_formats,
+                            col_idx,
+                            row_idx,
+                            event_columns,
+                            history_event,
+                            additional_format,
+                        )
+                        row_idx += 1
                 merge_cells_if_needed(
                     wb,
                     sheet,
