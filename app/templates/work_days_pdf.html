@@ -86,7 +86,7 @@
     }
 
     .week-details-table {
-        margin-bottom: 20pt;
+        margin-bottom: 15pt;
     }
 
     .week-details-table td, th {
@@ -121,6 +121,14 @@
         color: #888888;
         padding: 0;
         padding-top: 4pt;
+    }
+
+    .helper-text-big {
+        font-style: italic;
+        font-size: 10pt;
+        color: #888888;
+        padding: 0;
+        padding-top: 1pt;
     }
 
     .helper-text-star {
@@ -280,7 +288,7 @@
     {% endif %}
     <pdf:nextpage>
     <p class="section-title">Détail par semaine</p>
-        <p>* Les dimanches et jours fériés sont surlignés dans les tableaux ci-dessous.</p>
+        <p class="helper-text-big">* Les dimanches et jours fériés sont surlignés dans les tableaux ci-dessous.</p>
     {% for week in weeks %}
         <table class="week-details-table can-break-after">
             <thead>
