@@ -67,7 +67,7 @@ class Config:
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
     MOBILIC_SERVICE_ACTOR_TOKEN = os.environ.get("MOBILIC_SERVICE_ACTOR_TOKEN")
-    USER_CONTROL_HISTORY_DEPTH = timedelta(days=60)
+    USER_CONTROL_HISTORY_DEPTH = timedelta(days=28)
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get(
             "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 24
