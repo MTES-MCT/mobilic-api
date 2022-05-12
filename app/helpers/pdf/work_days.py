@@ -159,6 +159,14 @@ def _get_detail_columns(
                 color="#C9CBFF",
                 format=format_seconds_duration,
             ),
+            Column(
+                name="night_hours",
+                label="Dont heures de travail de nuit",
+                color="#C9CBFF",
+                format=format_seconds_duration,
+                secondary=True,
+                right_border=True,
+            ),
         ]
     )
 
@@ -240,6 +248,7 @@ def _generate_work_days_pdf(
                 ActivityType.SUPPORT.value: 0,
                 ActivityType.TRANSFER.value: 0,
                 "total_work": 0,
+                "night_hours": 0,
                 ExpenditureType.DAY_MEAL.value: 0,
                 ExpenditureType.NIGHT_MEAL.value: 0,
                 ExpenditureType.SLEEP_OVER.value: 0,
@@ -274,6 +283,8 @@ def _generate_work_days_pdf(
             accumulator["worked_days"] += 1
 
             accumulator["total_work"] += wd.total_work_duration
+            if "night_hours" in accumulator:
+                accumulator["night_hours"] += wd.total_night_work_duration
 
             for type_ in ActivityType:
                 accumulator[type_.value] += wd.activity_durations[type_]
@@ -321,6 +332,7 @@ def _generate_work_days_pdf(
                     type_.value: wd.expenditures.get(type_, 0)
                     for type_ in ExpenditureType
                 },
+                "night_hours": wd.total_night_work_duration,
                 "not_validated_by_self": show_not_validated_by_self_alert,
                 "not_validated_by_admin": show_not_validated_by_admin_alert,
                 "modified_after_self_validation": show_modifications_after_validation_alert,
