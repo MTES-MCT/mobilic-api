@@ -92,14 +92,12 @@ def _get_detail_columns(
             label="Début",
             color="#CFDAC8",
             secondary=True,
-            format=lambda x: format_time(x, False),
         ),
         Column(
             name="end_time",
             label="Fin",
             color="#CFDAC8",
             secondary=True,
-            format=lambda x: format_time(x, False),
         ),
         Column(
             name="service",
@@ -304,8 +302,14 @@ def _generate_work_days_pdf(
         week["days"].append(
             {
                 "date": wd.day,
-                "start_time": to_fr_tz(wd.start_time),
-                "end_time": to_fr_tz(wd.end_time or wd.end_of_day),
+                "start_time": "-"
+                if wd.is_first_mission_overlapping_with_previous_day
+                else format_time(to_fr_tz(wd.start_time), False),
+                "end_time": "-"
+                if wd.is_last_mission_overlapping_with_next_day
+                else format_time(
+                    to_fr_tz(wd.end_time or wd.end_of_day), False
+                ),
                 "service": wd.service_duration,
                 "total_work": wd.total_work_duration,
                 **{
