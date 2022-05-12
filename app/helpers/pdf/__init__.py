@@ -10,6 +10,7 @@ class Column(NamedTuple):
     color: str
     format: any = lambda x: x
     secondary: bool = False
+    right_border: bool = False
     number: bool = True
 
 

@@ -104,6 +104,7 @@ def _get_detail_columns(
             label="Amplitude",
             color="#CFDAC8",
             format=format_seconds_duration,
+            right_border=True,
         ),
         Column(
             name=ActivityType.DRIVE.value,
