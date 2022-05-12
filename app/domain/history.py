@@ -27,6 +27,7 @@ class LogActionType(int, Enum):
 class LogAction(NamedTuple):
     time: datetime
     submitter: User
+    submitter_has_admin_rights: bool
     is_after_employee_validation: bool
     resource: any
     type: LogActionType
@@ -95,6 +96,9 @@ def actions_history(
                 LogAction(
                     time=resource.reception_time,
                     submitter=resource.submitter,
+                    submitter_has_admin_rights=resource.submitter.has_admin_rights(
+                        mission.company_id
+                    ),
                     resource=resource,
                     type=LogActionType.CREATE,
                     is_after_employee_validation=user_validation.reception_time
@@ -112,6 +116,9 @@ def actions_history(
                     LogAction(
                         time=resource.dismissed_at,
                         submitter=resource.dismiss_author,
+                        submitter_has_admin_rights=resource.dismiss_author.has_admin_rights(
+                            mission.company_id
+                        ),
                         resource=resource,
                         type=LogActionType.DELETE,
                         is_after_employee_validation=user_validation.reception_time
@@ -130,6 +137,9 @@ def actions_history(
                         LogAction(
                             time=revision.reception_time,
                             submitter=revision.submitter,
+                            submitter_has_admin_rights=revision.submitter.has_admin_rights(
+                                mission.company_id
+                            ),
                             resource=resource,
                             type=LogActionType.UPDATE,
                             is_after_employee_validation=user_validation.reception_time

@@ -7,6 +7,7 @@ from functools import reduce
 from base64 import b64decode
 from sqlalchemy import desc
 
+from app.domain.history import actions_history
 from app.helpers.errors import InvalidParamsError
 from app.helpers.time import (
     to_timestamp,
@@ -83,6 +84,7 @@ class WorkDay:
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
+        mission.history = actions_history(mission, self.user)
         self.missions.append(mission)
         activities = mission.activities_for(
             self.user, include_dismissed_activities=True
