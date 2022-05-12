@@ -342,7 +342,7 @@
                 {% endif %}
                 {% if week.get("has_day_modified_after_self_validation", False) %}
                     <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">***</span> Des modifications ont été apportées à cette journée après la validation du salarié
+                        <span class="helper-text-star">***</span> Des modifications ont été apportées par le gestionnaire à cette journée après la validation du salarié
                     </p></td></tr>
                 {% endif %}
                 {% if loop.last %}
@@ -350,8 +350,8 @@
                     <p style="font-size: 6pt; text-decoration: underline; font-weight: bold;">Légende</p>
                 </td></tr>
                 <tr>
-                    <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">Dimanche 13/05</span></td>
-                    <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré</span></td>
+                    <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">jj/mm/aa</span></td>
+                    <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré : dimanches et jours fériés</span></td>
                 </tr>
                 {% endif %}
             </tbody>
