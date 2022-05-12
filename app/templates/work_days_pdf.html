@@ -332,17 +332,17 @@
                 </tr>
                 {% if week.get("has_day_not_validated_by_self", False) %}
                     <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">*</span> La journée contient des activités non validées par le salarié
+                        <span class="helper-text-star">*</span> Le salarié n'a pas encore validé la journée de travail
                     </p></td></tr>
                 {% endif %}
                 {% if week.get("has_day_not_validated_by_admin", False) %}
                     <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">**</span> La journée contient des activités non validées par le gestionnaire
+                        <span class="helper-text-star">**</span> Le gestionnaire n'a pas encore validé la journée de travail
                     </p></td></tr>
                 {% endif %}
                 {% if week.get("has_day_modified_after_self_validation", False) %}
                     <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">***</span> Des modifications ont été apportées par le gestionnaire à cette journée après la validation du salarié
+                        <span class="helper-text-star">***</span> Le gestionnaire a apporté des modifications à cette journée après validation du travailleur mobile
                     </p></td></tr>
                 {% endif %}
                 {% if loop.last %}
@@ -350,8 +350,8 @@
                     <p style="font-size: 6pt; text-decoration: underline; font-weight: bold;">Légende</p>
                 </td></tr>
                 <tr>
-                    <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">jj/mm/aa</span></td>
-                    <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré : dimanches et jours fériés</span></td>
+                    <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">Dimanche jj/mm</span></td>
+                    <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré (dimanches et jours fériés)</span></td>
                 </tr>
                 {% endif %}
             </tbody>
