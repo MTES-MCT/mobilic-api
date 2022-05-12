@@ -119,6 +119,10 @@
         background-color: #f3ce7b;
     }
 
+    .empty-day {
+        background-color: #d0d0d0;
+    }
+
     .helper-text {
         font-style: italic;
         font-size: 6pt;
@@ -302,7 +306,7 @@
             <tbody>
                 {% for day in week["days"] %}
                     {% set outer_loop = loop %}
-                    <tr class="{{ 'bank-holiday' if day["is_sunday_or_bank_holiday"] else '' }}">
+                    <tr class="{{ 'bank-holiday' if day["is_sunday_or_bank_holiday"] else 'empty-day' if day["is_empty"] else '' }}">
                        <td style="border-right: solid 1pt black; border-left: solid 1pt black;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}">
                            {{ day["date"] | pretty_format_day }}
                            {% if day.get("not_validated_by_self", False) %}<span class="helper-text-star"> *</span>{% endif %}
@@ -331,28 +335,32 @@
                    {% endfor %}
                 </tr>
                 {% if loop.last %}
-                <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; padding-top:8pt; padding-bottom:4pt; margin: 0; border: none;" align="left">
-                    <p style="font-size: 6pt; text-decoration: underline; font-weight: bold;">Légende</p>
-                </td></tr>
-                <tr>
-                    <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">Dimanche jj/mm</span></td>
-                    <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré (dimanches et jours fériés)</span></td>
-                </tr>
-                {% if has_any_week_comment_not_validated_by_self %}
-                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">*</span> Le salarié n'a pas encore validé la journée de travail
-                    </p></td></tr>
-                {% endif %}
-                {% if has_any_week_comment_not_validated_by_admin %}
-                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">**</span> Le gestionnaire n'a pas encore validé la journée de travail
-                    </p></td></tr>
-                {% endif %}
-                {% if has_any_week_comment_modified_after_self_validation %}
-                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
-                        <span class="helper-text-star">***</span> Le gestionnaire a apporté des modifications à cette journée après validation du travailleur mobile
-                    </p></td></tr>
-                {% endif %}
+                    <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; padding-top:8pt; padding-bottom:4pt; margin: 0; border: none;" align="left">
+                        <p style="font-size: 6pt; text-decoration: underline; font-weight: bold;">Légende</p>
+                    </td></tr>
+                    <tr>
+                        <td colspan="1" class="bank-holiday"><span style="font-weight: bold;">Dimanche jj/mm</span></td>
+                        <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Jour de travail majoré (dimanches et jours fériés)</span></td>
+                    </tr>
+                    <tr>
+                        <td colspan="1" class="empty-day"><span style="font-weight: bold;">Lundi jj/mm</span></td>
+                        <td colspan="3" style="border: none; text-align: left; padding-left: 4pt;"><span style="font-weight: bold;">Journée non travaillée</span></td>
+                    </tr>
+                    {% if has_any_week_comment_not_validated_by_self %}
+                        <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                            <span class="helper-text-star">*</span> Le salarié n'a pas encore validé la journée de travail
+                        </p></td></tr>
+                    {% endif %}
+                    {% if has_any_week_comment_not_validated_by_admin %}
+                        <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                            <span class="helper-text-star">**</span> Le gestionnaire n'a pas encore validé la journée de travail
+                        </p></td></tr>
+                    {% endif %}
+                    {% if has_any_week_comment_modified_after_self_validation %}
+                        <tr style="margin: 0; padding: 0;"><td colspan="6" style="padding: 0; margin: 0; border: none;" align="left"><p class="helper-text">
+                            <span class="helper-text-star">***</span> Le gestionnaire a apporté des modifications à cette journée après validation du travailleur mobile
+                        </p></td></tr>
+                    {% endif %}
                 {% endif %}
             </tbody>
         </table>

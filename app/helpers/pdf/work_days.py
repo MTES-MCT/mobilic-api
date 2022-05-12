@@ -347,7 +347,7 @@ def _generate_work_days_pdf(
                 start_date <= current_day <= end_date
                 and current_day not in days_with_works
             ):
-                week["days"].append({"date": current_day})
+                week["days"].append({"date": current_day, "is_empty": True})
             current_day += timedelta(days=1)
 
         for d in week["days"]:
