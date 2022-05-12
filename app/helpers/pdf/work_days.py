@@ -357,16 +357,20 @@ def _generate_work_days_pdf(
 
         week["days"].sort(key=lambda d: d["date"])
         current_group_count += 1
-        if (
-            week["has_day_not_validated_by_self"]
-            or week["has_day_not_validated_by_admin"]
-            or week["has_day_modified_after_self_validation"]
-        ):
-            current_group_uses_extra_space = True
         if current_group_count == (3 if current_group_uses_extra_space else 4):
             week["break_after"] = True
             current_group_count = 0
             current_group_uses_extra_space = False
+
+    has_any_week_comment_not_validated_by_self = any(
+        [w["has_day_not_validated_by_self"] for w in weeks]
+    )
+    has_any_week_comment_not_validated_by_admin = any(
+        [w["has_day_not_validated_by_admin"] for w in weeks]
+    )
+    has_any_week_comment_modified_after_self_validation = any(
+        [w["has_day_modified_after_self_validation"] for w in weeks]
+    )
 
     return generate_pdf_from_template(
         "work_days_pdf.html",
@@ -386,6 +390,9 @@ def _generate_work_days_pdf(
             or total[ActivityType.TRANSFER] > 0,
         ),
         weeks=weeks,
+        has_any_week_comment_not_validated_by_self=has_any_week_comment_not_validated_by_self,
+        has_any_week_comment_not_validated_by_admin=has_any_week_comment_not_validated_by_admin,
+        has_any_week_comment_modified_after_self_validation=has_any_week_comment_modified_after_self_validation,
         months=months,
         total=total,
         show_month_total=len(months) > 1,
