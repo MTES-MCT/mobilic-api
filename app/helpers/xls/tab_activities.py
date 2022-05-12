@@ -30,7 +30,7 @@ def write_work_days_sheet(
     min_date,
     max_date,
 ):
-    sheet = wb.add_worksheet("Activité")
+    sheet = wb.add_worksheet("Activités")
     sheet.protect()
     sheet.freeze_panes(3, 2)
     sheet.set_column(0, 4, 20)

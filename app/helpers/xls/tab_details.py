@@ -18,8 +18,8 @@ from app.templates.filters import format_activity_type
 def write_day_details_sheet(
     wb, wdays_by_user, require_mission_name, companies, min_date, max_date
 ):
-    sheet = wb.add_worksheet("Détails")
-
+    sheet = wb.add_worksheet("Détail")
+    sheet.protect()
     sheet.freeze_panes(3, 2)
     write_sheet_header(wb, sheet, companies, max_date, min_date)
 
