@@ -48,11 +48,11 @@ def write_day_details_sheet(
                 first_activities_for_user = next(
                     iter(mission.activities_for(user)), None
                 )
+                mission_starting_row_idx = row_idx
                 if (
                     first_activities_for_user
                     and first_activities_for_user.start_time.date() == wday.day
                 ):
-                    mission_starting_row_idx = row_idx
                     for history_event in sorted(
                         mission.history, key=lambda ev: ev.time
                     ):
