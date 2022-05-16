@@ -1,3 +1,4 @@
+from app.domain.history import LogActionType
 from app.helpers.time import to_fr_tz
 from app.helpers.xls.common import (
     write_sheet_header,
@@ -46,7 +47,7 @@ def write_day_details_sheet(
                 wday.missions, key=lambda mi: mi.creation_time
             ):
                 first_activities_for_user = next(
-                    iter(mission.activities_for(user)), None
+                    iter(mission.activities_for(user, True)), None
                 )
                 mission_starting_row_idx = row_idx
                 if (
@@ -200,6 +201,8 @@ event_columns = [
         "Activités effectuées",
         lambda event: format_activity_type(event.resource.type)
         if type(event.resource) is Activity
+        and event.type == LogActionType.CREATE
+        and not event.resource.dismissed_at
         else None,
         None,
         15,
