@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+from app.helpers.time import to_fr_tz
+
 DAYS = [
     "Lundi",
     "Mardi",
@@ -28,8 +30,8 @@ MONTHS = [
 
 def format_time(value, show_dates):
     if show_dates:
-        return value.strftime("%d/%m/%y %H:%M")
-    return value.strftime("%H:%M")
+        return to_fr_tz(value).strftime("%d/%m/%y %H:%M")
+    return to_fr_tz(value).strftime("%H:%M")
 
 
 def format_seconds_duration(seconds):
