@@ -15,12 +15,13 @@ from app.helpers.time import (
     to_tz,
     from_tz,
     to_datetime,
+    to_fr_tz,
 )
 from app.models import Activity, User, Mission, Company, Comment
 from app.models.activity import ActivityType
 
 
-def compute_aggregate_durations(periods, min_time=None):
+def compute_aggregate_durations(periods, min_time=None, tz=None):
     max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
         return {}
@@ -41,8 +42,8 @@ def compute_aggregate_durations(periods, min_time=None):
         if period.type != ActivityType.TRANSFER and min_time:
             day_duration = int(
                 period.duration_over(
-                    min_time.replace(hour=5, minute=0),
-                    min_time.replace(hour=22, minute=0),
+                    from_tz(to_fr_tz(min_time).replace(hour=5, minute=0), tz),
+                    from_tz(to_fr_tz(min_time).replace(hour=22, minute=0), tz),
                 ).total_seconds()
             )
             timers["night_work"] += total_duration - day_duration
@@ -193,9 +194,9 @@ class WorkDay:
     @cached_property
     def _activity_timers(self):
         self._sort_activities()
-        return compute_aggregate_durations(self.activities, self.start_of_day)[
-            2
-        ]
+        return compute_aggregate_durations(
+            self.activities, self.start_of_day, self.tz
+        )[2]
 
     @property
     def activity_comments(self):
