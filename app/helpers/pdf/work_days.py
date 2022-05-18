@@ -92,20 +92,19 @@ def _get_detail_columns(
             label="Début",
             color="#CFDAC8",
             secondary=True,
-            format=lambda x: format_time(x, False),
         ),
         Column(
             name="end_time",
             label="Fin",
             color="#CFDAC8",
             secondary=True,
-            format=lambda x: format_time(x, False),
         ),
         Column(
             name="service",
             label="Amplitude",
             color="#CFDAC8",
             format=format_seconds_duration,
+            right_border=True,
         ),
         Column(
             name=ActivityType.DRIVE.value,
@@ -159,6 +158,14 @@ def _get_detail_columns(
                 label="Heures travaillées",
                 color="#C9CBFF",
                 format=format_seconds_duration,
+            ),
+            Column(
+                name="night_hours",
+                label="Dont heures de travail de nuit",
+                color="#C9CBFF",
+                format=format_seconds_duration,
+                secondary=True,
+                right_border=True,
             ),
         ]
     )
@@ -241,6 +248,7 @@ def _generate_work_days_pdf(
                 ActivityType.SUPPORT.value: 0,
                 ActivityType.TRANSFER.value: 0,
                 "total_work": 0,
+                "night_hours": 0,
                 ExpenditureType.DAY_MEAL.value: 0,
                 ExpenditureType.NIGHT_MEAL.value: 0,
                 ExpenditureType.SLEEP_OVER.value: 0,
@@ -275,6 +283,8 @@ def _generate_work_days_pdf(
             accumulator["worked_days"] += 1
 
             accumulator["total_work"] += wd.total_work_duration
+            if "night_hours" in accumulator:
+                accumulator["night_hours"] += wd.total_night_work_duration
 
             for type_ in ActivityType:
                 accumulator[type_.value] += wd.activity_durations[type_]
@@ -304,8 +314,14 @@ def _generate_work_days_pdf(
         week["days"].append(
             {
                 "date": wd.day,
-                "start_time": to_fr_tz(wd.start_time),
-                "end_time": to_fr_tz(wd.end_time or wd.end_of_day),
+                "start_time": "-"
+                if wd.is_first_mission_overlapping_with_previous_day
+                else format_time(to_fr_tz(wd.start_time), False),
+                "end_time": "-"
+                if wd.is_last_mission_overlapping_with_next_day
+                else format_time(
+                    to_fr_tz(wd.end_time or wd.end_of_day), False
+                ),
                 "service": wd.service_duration,
                 "total_work": wd.total_work_duration,
                 **{
@@ -316,6 +332,7 @@ def _generate_work_days_pdf(
                     type_.value: wd.expenditures.get(type_, 0)
                     for type_ in ExpenditureType
                 },
+                "night_hours": wd.total_night_work_duration,
                 "not_validated_by_self": show_not_validated_by_self_alert,
                 "not_validated_by_admin": show_not_validated_by_admin_alert,
                 "modified_after_self_validation": show_modifications_after_validation_alert,
@@ -347,7 +364,7 @@ def _generate_work_days_pdf(
                 start_date <= current_day <= end_date
                 and current_day not in days_with_works
             ):
-                week["days"].append({"date": current_day})
+                week["days"].append({"date": current_day, "is_empty": True})
             current_day += timedelta(days=1)
 
         for d in week["days"]:
@@ -357,16 +374,20 @@ def _generate_work_days_pdf(
 
         week["days"].sort(key=lambda d: d["date"])
         current_group_count += 1
-        if (
-            week["has_day_not_validated_by_self"]
-            or week["has_day_not_validated_by_admin"]
-            or week["has_day_modified_after_self_validation"]
-        ):
-            current_group_uses_extra_space = True
         if current_group_count == (3 if current_group_uses_extra_space else 4):
             week["break_after"] = True
             current_group_count = 0
             current_group_uses_extra_space = False
+
+    has_any_week_comment_not_validated_by_self = any(
+        [w["has_day_not_validated_by_self"] for w in weeks]
+    )
+    has_any_week_comment_not_validated_by_admin = any(
+        [w["has_day_not_validated_by_admin"] for w in weeks]
+    )
+    has_any_week_comment_modified_after_self_validation = any(
+        [w["has_day_modified_after_self_validation"] for w in weeks]
+    )
 
     return generate_pdf_from_template(
         "work_days_pdf.html",
@@ -386,6 +407,9 @@ def _generate_work_days_pdf(
             or total[ActivityType.TRANSFER] > 0,
         ),
         weeks=weeks,
+        has_any_week_comment_not_validated_by_self=has_any_week_comment_not_validated_by_self,
+        has_any_week_comment_not_validated_by_admin=has_any_week_comment_not_validated_by_admin,
+        has_any_week_comment_modified_after_self_validation=has_any_week_comment_modified_after_self_validation,
         months=months,
         total=total,
         show_month_total=len(months) > 1,
