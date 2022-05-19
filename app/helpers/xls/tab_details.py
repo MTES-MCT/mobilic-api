@@ -35,10 +35,6 @@ def write_day_details_sheet(
     for user, work_days in sorted(
         wdays_by_user.items(), key=lambda u: u[0].display_name
     ):
-        column_base_formats = write_tab_headers(
-            wb, sheet, row_idx, all_columns
-        )
-        row_idx += 1
         user_starting_row_idx = row_idx
         col_idx = 0
         for wday in sorted(work_days, key=lambda wd: wd.day):
@@ -54,6 +50,15 @@ def write_day_details_sheet(
                     first_activities_for_user
                     and first_activities_for_user.start_time.date() == wday.day
                 ):
+                    if row_idx == user_starting_row_idx:
+                        column_base_formats = write_tab_headers(
+                            wb, sheet, row_idx, all_columns
+                        )
+                        row_idx = (
+                            user_starting_row_idx
+                        ) = (
+                            workday_starting_row_idx
+                        ) = mission_starting_row_idx = (row_idx + 1)
                     for history_event in sorted(
                         mission.history, key=lambda ev: ev.time
                     ):
@@ -128,7 +133,8 @@ def write_day_details_sheet(
                 wb.add_format({"top": 1}),
             )
 
-        row_idx += 2
+        if row_idx != user_starting_row_idx:
+            row_idx += 2
 
 
 workday_columns = [
