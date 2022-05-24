@@ -20,6 +20,11 @@ from app.seed.scenarios.export_excel import (
     ADMIN_EMAIL as ADMIN_EXPORT,
     run_scenario_export_excel,
 )
+from app.seed.scenarios.bug_mission_too_long import (
+    ADMIN_EMAIL as ADMIN_TOO_LONG,
+    EMPLOYEE_1_EMAIL as EMPLOYEE_TOO_LONG,
+    run_scenario_too_long,
+)
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 
 
@@ -64,5 +69,11 @@ scenarios = [
         "Creates one admin, two companies, to test excel export",
         [ADMIN_EXPORT],
         run_scenario_export_excel,
+    ),
+    SeedScenario(
+        "Too Long",
+        "Creates one admin, one company, one employee with a running mission very long",
+        [ADMIN_TOO_LONG, EMPLOYEE_TOO_LONG],
+        run_scenario_too_long,
     ),
 ]
