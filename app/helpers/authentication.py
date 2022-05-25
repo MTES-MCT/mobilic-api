@@ -195,6 +195,7 @@ def set_auth_cookies(
         expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
+        samesite="Strict",
     )
     response.set_cookie(
         "atEat",
@@ -208,6 +209,7 @@ def set_auth_cookies(
         expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
+        samesite="Strict",
     )
     if fc_token:
         response.set_cookie(
@@ -225,6 +227,7 @@ def set_auth_cookies(
             expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
+            samesite="Strict",
         )
 
 
