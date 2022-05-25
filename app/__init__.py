@@ -5,6 +5,7 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
 from flask_apispec import FlaskApiSpec
+from flask_cors import CORS
 from flask_migrate import Migrate
 from werkzeug.exceptions import HTTPException
 
@@ -56,7 +57,7 @@ if app.config["ECHO_DB_QUERIES"]:
 
 Migrate(app, db)
 
-# CORS(app)
+CORS(app, origins=["https://www.ploum.com"])
 
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
