@@ -134,6 +134,11 @@ L'organisation s'inspire indirectement du motif Modèle-Vue-Contrôleur :
 * `services` contient des services secondaires
 * `templates` contient les templates html servant aux emails ou à la génération de PDF
 
+## Intégration
+
+* [Documentation technique de l'API](https://mobilic.beta.gouv.fr/developers)
+* [Conditions d'interfaçage](https://developers.mobilic.beta.gouv.fr/conditions-dinterfacage)
+
 ## Licence
 
 [Licence MIT](./LICENSE.txt)
