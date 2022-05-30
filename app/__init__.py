@@ -57,8 +57,6 @@ if app.config["ECHO_DB_QUERIES"]:
 
 Migrate(app, db)
 
-CORS(app, origins=["https://www.ploum.com"])
-
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema
 from app.helpers import logging
