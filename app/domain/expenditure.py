@@ -25,7 +25,13 @@ def check_date_is_during_mission(spending_date, mission, user):
 
 
 def log_expenditure(
-    submitter, user, mission, type, reception_time, spending_date
+    submitter,
+    user,
+    mission,
+    type,
+    reception_time,
+    spending_date,
+    creation_time=None,
 ):
     # 1. Check permissions
     check_actor_can_write_on_mission(
@@ -47,6 +53,7 @@ def log_expenditure(
         user=user,
         submitter=submitter,
         spending_date=spending_date,
+        creation_time=creation_time,
     )
     db.session.add(expenditure)
     return expenditure

@@ -5,6 +5,7 @@ import graphene
 from datetime import datetime
 from app.helpers.graphene_types import (
     graphene_enum_type,
+    TimeStamp,
 )
 from app import app, db
 from app.controllers.utils import atomic_transaction, Void
@@ -42,6 +43,11 @@ class ExpenditureInput:
         graphene.Date,
         required=True,
         description="Date à laquelle le frais a été engagé.",
+    )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie du frais",
     )
 
 
@@ -82,6 +88,7 @@ class LogExpenditure(AuthenticatedMutation):
                 type=expenditure_input["type"],
                 reception_time=reception_time,
                 spending_date=spending_date,
+                creation_time=expenditure_input.get("creation_time"),
             )
 
         return expenditure
