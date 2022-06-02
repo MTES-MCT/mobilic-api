@@ -228,7 +228,7 @@ class EndMission(AuthenticatedMutation):
                     last_activity.revise(
                         reception_time,
                         end_time=args["end_time"],
-                        creation_time=args["creation_time"],
+                        creation_time=args.get("creation_time"),
                     )
 
             db.session.add(
