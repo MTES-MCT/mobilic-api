@@ -21,6 +21,8 @@ from app.helpers.errors import (
     InvalidTokenError,
     InvalidResourceError,
     UserSelfChangeRoleError,
+    ActivityExistAfterEmploymentEndDate,
+    EmploymentAlreadyTerminated,
 )
 from app.helpers.mail import MailjetError
 from app.helpers.authorization import (
@@ -378,7 +380,7 @@ class TerminateEmployment(AuthenticatedMutation):
             employment = Employment.query.get(employment_id)
 
             if not employment.is_acknowledged or employment.end_date:
-                raise InvalidResourceError(
+                raise EmploymentAlreadyTerminated(
                     f"Employment is inactive or has already an end date"
                 )
 
@@ -395,7 +397,7 @@ class TerminateEmployment(AuthenticatedMutation):
                 ).count()
                 > 0
             ):
-                raise InvalidParamsError(
+                raise ActivityExistAfterEmploymentEndDate(
                     "User has logged activities for the company after this end date"
                 )
 
