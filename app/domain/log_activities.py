@@ -136,6 +136,7 @@ def log_activity(
     reception_time,
     switch_mode,
     start_time,
+    creation_time=None,
     end_time=None,
     context=None,
     bypass_overlap_check=False,
@@ -167,6 +168,7 @@ def log_activity(
                         bypass_overlap_check=True,
                         bypass_auth_check=True,
                         end_time=start_time,
+                        creation_time=creation_time,
                     )
         activity = Activity(
             type=type,
@@ -177,6 +179,7 @@ def log_activity(
             end_time=end_time,
             user=user,
             submitter=submitter,
+            creation_time=creation_time,
         )
         version = ActivityVersion(
             activity=activity,
@@ -186,6 +189,7 @@ def log_activity(
             context=context,
             version_number=1,
             submitter=submitter,
+            creation_time=creation_time,
         )
         db.session.add(activity)
         db.session.add(version)

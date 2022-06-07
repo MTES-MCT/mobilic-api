@@ -54,6 +54,11 @@ class ActivityLogInput:
         required=False,
         description="Optionnel, horodatage de fin de l'activité. Ne peut être passé que si le mode tachygraphe est désactivé (`switch=False`)",
     )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie de l'activité",
+    )
     switch = graphene.Argument(
         graphene.Boolean,
         required=False,
@@ -102,6 +107,7 @@ class LogActivity(AuthenticatedMutation):
                 start_time=activity_input["start_time"],
                 end_time=activity_input.get("end_time"),
                 context=activity_input.get("context"),
+                creation_time=activity_input.get("creation_time"),
             )
 
         return activity
@@ -130,6 +136,11 @@ class ActivityEditInput:
         required=False,
         description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
     )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie de la modification de l'activité",
+    )
 
 
 def edit_activity(
@@ -138,6 +149,7 @@ def edit_activity(
     start_time=None,
     end_time=None,
     remove_end_time=False,
+    creation_time=None,
     context=None,
 ):
     with atomic_transaction(commit_at_end=True):
@@ -175,7 +187,10 @@ def edit_activity(
             if end_time or remove_end_time:
                 updates["end_time"] = end_time
             activity_to_update.revise(
-                reception_time, revision_context=context, **updates
+                reception_time,
+                revision_context=context,
+                creation_time=creation_time,
+                **updates,
             )
 
     return activity_to_update
@@ -199,6 +214,11 @@ class CancelActivity(AuthenticatedMutation):
             required=False,
             description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
         )
+        creation_time = graphene.Argument(
+            TimeStamp,
+            required=False,
+            description="Optionnel, date de suppression de l'activité",
+        )
 
     Output = Void
 
@@ -209,6 +229,7 @@ class CancelActivity(AuthenticatedMutation):
             edit_input["activity_id"],
             cancel=True,
             context=edit_input.get("context"),
+            creation_time=edit_input.get("creation_time"),
         )
         return Void(success=True)
 
@@ -248,4 +269,5 @@ class EditActivity(AuthenticatedMutation):
             end_time=edit_input.get("end_time"),
             remove_end_time=edit_input.get("remove_end_time"),
             context=edit_input.get("context"),
+            creation_time=edit_input.get("creation_time"),
         )

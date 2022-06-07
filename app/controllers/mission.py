@@ -87,6 +87,11 @@ class MissionInput:
         required=False,
         description="Numéro d'immatriculation du véhicule utilisé, s'il n'est pas déjà enregistré. Un nouveau véhicule sera ajouté.",
     )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie de début de mission",
+    )
 
 
 class CreateMission(AuthenticatedMutation):
@@ -137,6 +142,7 @@ class CreateMission(AuthenticatedMutation):
                 context=context,
                 submitter=current_user,
                 vehicle=vehicle,
+                creation_time=mission_input.get("creation_time"),
             )
             db.session.add(mission)
 
@@ -162,6 +168,11 @@ class EndMission(AuthenticatedMutation):
         user_id = graphene.Int(
             required=False,
             description="Optionnel, identifiant du travailleur mobile concerné par la fin de la mission. Par défaut c'est l'auteur de l'opération.",
+        )
+        creation_time = graphene.Argument(
+            TimeStamp,
+            required=False,
+            description="Optionnel, date de saisie de fin de mission",
         )
 
     Output = MissionOutput
@@ -217,6 +228,7 @@ class EndMission(AuthenticatedMutation):
                     last_activity.revise(
                         reception_time,
                         end_time=args["end_time"],
+                        creation_time=args.get("creation_time"),
                     )
 
             db.session.add(
@@ -225,6 +237,7 @@ class EndMission(AuthenticatedMutation):
                     reception_time=reception_time,
                     user=user,
                     mission=mission,
+                    creation_time=args.get("creation_time"),
                 )
             )
 
@@ -247,6 +260,11 @@ class ValidateMission(AuthenticatedMutation):
             description="Optionnel, dans le cas d'une validation gestionnaire il est possible de "
             "restreindre les informations validées à un travailleur spécifique.",
         )
+        creation_time = graphene.Argument(
+            TimeStamp,
+            required=False,
+            description="Optionnel, date de saisie de la validation",
+        )
 
     Output = MissionValidationOutput
 
@@ -258,7 +276,7 @@ class ValidateMission(AuthenticatedMutation):
         ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )
-    def mutate(cls, _, info, mission_id, user_id=None):
+    def mutate(cls, _, info, mission_id, user_id=None, creation_time=None):
         with atomic_transaction(commit_at_end=True):
             mission = Mission.query.get(mission_id)
 
@@ -271,7 +289,10 @@ class ValidateMission(AuthenticatedMutation):
                     )
 
             mission_validation = validate_mission(
-                submitter=current_user, mission=mission, for_user=user
+                submitter=current_user,
+                mission=mission,
+                creation_time=creation_time,
+                for_user=user,
             )
 
         try:

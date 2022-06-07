@@ -10,7 +10,7 @@ from app.models import MissionValidation, MissionEnd
 from app.helpers.authorization import AuthorizationError
 
 
-def validate_mission(mission, submitter, for_user=None):
+def validate_mission(mission, submitter, creation_time=None, for_user=None):
     validation_time = datetime.now()
     is_admin_validation = company_admin(submitter, mission.company_id)
 
@@ -44,6 +44,7 @@ def validate_mission(mission, submitter, for_user=None):
                     reception_time=validation_time,
                     user=u,
                     mission=mission,
+                    creation_time=creation_time,
                 )
             )
 
@@ -53,11 +54,17 @@ def validate_mission(mission, submitter, for_user=None):
         user,
         is_admin=is_admin_validation,
         validation_time=validation_time,
+        creation_time=creation_time,
     )
 
 
 def _get_or_create_validation(
-    mission, submitter, user, is_admin, validation_time=None
+    mission,
+    submitter,
+    user,
+    is_admin,
+    validation_time=None,
+    creation_time=None,
 ):
     existing_validation = MissionValidation.query.filter(
         MissionValidation.mission_id == mission.id,
@@ -74,6 +81,7 @@ def _get_or_create_validation(
             user=user,
             reception_time=validation_time or datetime.now(),
             is_admin=is_admin,
+            creation_time=creation_time,
         )
         db.session.add(validation)
         return validation
