@@ -252,6 +252,14 @@ class InvalidResourceError(MobilicError):
     code = "INVALID_RESOURCE"
 
 
+class EmploymentAlreadyTerminated(MobilicError):
+    code = "EMPLOYMENT_ALREADY_TERMINATED"
+
+
+class ActivityExistAfterEmploymentEndDate(MobilicError):
+    code = "ACTIVITY_EXIST_AFTER_EMPLOYMENT_END_DATE"
+
+
 class ResourceAlreadyDismissedError(InvalidResourceError):
     pass
 
