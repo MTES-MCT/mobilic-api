@@ -244,6 +244,11 @@ class UserSelfChangeRoleError(MobilicError):
     default_message = "A user can not change its own role, it has to be done by another admin."
 
 
+class UserSelfTerminateEmploymentError(MobilicError):
+    code = "USER_SELF_TERMINATE_EMPLOYMENT"
+    default_message = "A user can not terminate its own employment, it has to be done by another admin."
+
+
 class NoActivitiesToValidateError(MobilicError):
     code = "NO_ACTIVITIES_TO_VALIDATE"
 

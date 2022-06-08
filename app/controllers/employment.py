@@ -21,6 +21,7 @@ from app.helpers.errors import (
     InvalidTokenError,
     InvalidResourceError,
     UserSelfChangeRoleError,
+    UserSelfTerminateEmploymentError,
     ActivityExistAfterEmploymentEndDate,
     EmploymentAlreadyTerminated,
 )
@@ -378,6 +379,9 @@ class TerminateEmployment(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             employment_end_date = end_date or date.today()
             employment = Employment.query.get(employment_id)
+
+            if current_user.id == employment.user_id:
+                raise UserSelfTerminateEmploymentError
 
             if not employment.is_acknowledged or employment.end_date:
                 raise EmploymentAlreadyTerminated(
