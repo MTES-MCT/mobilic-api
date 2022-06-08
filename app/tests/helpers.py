@@ -158,6 +158,16 @@ class ApiRequests:
             }
         }
     """
+    terminate_employment = """
+        mutation terminateEmployment($employmentId: Int!, $endDate: Date) {
+            employments {
+              terminateEmployment(employmentId: $employmentId, endDate: $endDate) {
+                id
+                endDate
+              }
+            }
+        }
+    """
 
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
