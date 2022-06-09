@@ -16,6 +16,7 @@ from app.models import (
     UserReadToken,
     CompanyKnownAddress,
     Expenditure,
+    Comment,
 )
 from app.models.activity import Activity
 from app.seed.factories import (
@@ -44,6 +45,7 @@ def clean():
     ActivityVersion.query.delete()
     Activity.query.delete()
 
+    Comment.query.delete()
     MissionValidation.query.delete()
     MissionEnd.query.delete()
     LocationEntry.query.delete()
