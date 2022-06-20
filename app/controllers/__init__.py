@@ -57,6 +57,7 @@ from app.controllers.activity import (
     LogActivity,
     EditActivity,
     CancelActivity,
+    BulkActivity,
 )
 from app.models.address import AddressOutput, Address
 
@@ -75,6 +76,7 @@ class Activities(graphene.ObjectType):
     log_comment = LogComment.Field()
     cancel_comment = CancelComment.Field()
     cancel_activity = CancelActivity.Field()
+    bulk_activities = BulkActivity.Field()
     edit_activity = EditActivity.Field()
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
