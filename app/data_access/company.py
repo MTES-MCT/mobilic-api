@@ -66,6 +66,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     users = graphene.List(
         lambda: UserOutput,
         description="Liste des utilisateurs rattachés à l'entreprise",
+        from_date=graphene.Date(
+            required=False,
+            description="Début de la période pendant laquelle le salarié doit être actif.",
+        ),
+        to_date=graphene.Date(
+            required=False,
+            description="Fin de la période pendant laquelle le salarié doit être actif.",
+        ),
     )
     work_days = graphene.Field(
         lambda: WorkDayConnection,
@@ -131,12 +139,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(
         is_employed_by_company_over_period,
-        get_target_from_args=lambda self, info: self,
+        get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'users' of company object.",
     )
-    def resolve_users(self, info):
+    def resolve_users(self, info, from_date=None, to_date=None):
         info.context.company_ids_scope = [self.id]
-        return self.query_current_users()
+        return self.users_between(from_date, to_date)
 
     @with_authorization_policy(
         has_any_employment_with_company,
