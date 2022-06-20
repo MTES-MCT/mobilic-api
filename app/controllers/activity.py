@@ -61,6 +61,38 @@ class ActivityLogInput:
     )
 
 
+def log_activity_(input):
+    switch_mode = input.get("switch", True)
+    if switch_mode and input.get("end_time"):
+        raise InvalidParamsError(
+            "Specifying an end time is not authorized in switch mode"
+        )
+
+    reception_time = datetime.now()
+    mission_id = input.get("mission_id")
+    mission = Mission.query.options(selectinload(Mission.activities)).get(
+        mission_id
+    )
+    user = current_user
+    user_id = input.get("user_id")
+    if user_id:
+        user = User.query.get(user_id)
+
+    activity = log_activity(
+        submitter=current_user,
+        user=user,
+        mission=mission,
+        type=input["type"],
+        switch_mode=switch_mode,
+        reception_time=reception_time,
+        start_time=input["start_time"],
+        end_time=input.get("end_time"),
+        context=input.get("context"),
+    )
+
+    return activity
+
+
 class LogActivity(AuthenticatedMutation):
     """
     Enregistrement d'une nouvelle activité.
@@ -76,35 +108,7 @@ class LogActivity(AuthenticatedMutation):
     @with_authorization_policy(active)
     def mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
-            switch_mode = activity_input.get("switch", True)
-            if switch_mode and activity_input.get("end_time"):
-                raise InvalidParamsError(
-                    "Specifying an end time is not authorized in switch mode"
-                )
-
-            reception_time = datetime.now()
-            mission_id = activity_input.get("mission_id")
-            mission = Mission.query.options(
-                selectinload(Mission.activities)
-            ).get(mission_id)
-            user = current_user
-            user_id = activity_input.get("user_id")
-            if user_id:
-                user = User.query.get(user_id)
-
-            activity = log_activity(
-                submitter=current_user,
-                user=user,
-                mission=mission,
-                type=activity_input["type"],
-                switch_mode=switch_mode,
-                reception_time=reception_time,
-                start_time=activity_input["start_time"],
-                end_time=activity_input.get("end_time"),
-                context=activity_input.get("context"),
-            )
-
-        return activity
+            return log_activity_(input=activity_input)
 
 
 class ActivityEditInput:
@@ -132,6 +136,30 @@ class ActivityEditInput:
     )
 
 
+def edit_activity_(input):
+    if (
+        not input.get("start_time")
+        and not input.get("end_time")
+        and not input.get("remove_end_time")
+    ):
+        raise InvalidParamsError(
+            "At least one of startTime or endTime or removeEndTime should be set"
+        )
+
+    if input.get("end_time") and input.get("remove_end_time"):
+        raise InvalidParamsError(
+            "Either endTime or removeEndTime should be set but not both"
+        )
+    return edit_activity(
+        input["activity_id"],
+        cancel=False,
+        start_time=input.get("start_time"),
+        end_time=input.get("end_time"),
+        remove_end_time=input.get("remove_end_time"),
+        context=input.get("context"),
+    )
+
+
 def edit_activity(
     activity_id,
     cancel,
@@ -140,45 +168,57 @@ def edit_activity(
     remove_end_time=False,
     context=None,
 ):
-    with atomic_transaction(commit_at_end=True):
-        reception_time = datetime.now()
-        activity_to_update = Activity.query.get(activity_id)
+    reception_time = datetime.now()
+    activity_to_update = Activity.query.get(activity_id)
 
-        if not activity_to_update:
-            raise AuthorizationError(
-                f"Actor is not authorized to edit the activity"
-            )
-
-        mission = Mission.query.options(selectinload(Mission.activities)).get(
-            activity_to_update.mission_id
+    if not activity_to_update:
+        raise AuthorizationError(
+            f"Actor is not authorized to edit the activity"
         )
 
-        check_actor_can_write_on_mission_over_period(
-            current_user,
-            mission,
-            activity_to_update.user,
-            activity_to_update.start_time,
-            activity_to_update.end_time or activity_to_update.start_time,
+    mission = Mission.query.options(selectinload(Mission.activities)).get(
+        activity_to_update.mission_id
+    )
+
+    check_actor_can_write_on_mission_over_period(
+        current_user,
+        mission,
+        activity_to_update.user,
+        activity_to_update.start_time,
+        activity_to_update.end_time or activity_to_update.start_time,
+    )
+
+    if activity_to_update.is_dismissed:
+        raise ResourceAlreadyDismissedError(f"Activity already dismissed.")
+
+    db.session.add(activity_to_update)
+
+    if cancel:
+        activity_to_update.dismiss(reception_time, context)
+    else:
+        updates = {}
+        if start_time:
+            updates["start_time"] = start_time
+        if end_time or remove_end_time:
+            updates["end_time"] = end_time
+        activity_to_update.revise(
+            reception_time, revision_context=context, **updates
         )
-
-        if activity_to_update.is_dismissed:
-            raise ResourceAlreadyDismissedError(f"Activity already dismissed.")
-
-        db.session.add(activity_to_update)
-
-        if cancel:
-            activity_to_update.dismiss(reception_time, context)
-        else:
-            updates = {}
-            if start_time:
-                updates["start_time"] = start_time
-            if end_time or remove_end_time:
-                updates["end_time"] = end_time
-            activity_to_update.revise(
-                reception_time, revision_context=context, **updates
-            )
 
     return activity_to_update
+
+
+class ActivityCancelInput:
+    activity_id = graphene.Argument(
+        graphene.Int,
+        required=True,
+        description="Identifiant de l'activité à modifier.",
+    )
+    context = graphene.Argument(
+        GenericScalar,
+        required=False,
+        description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
+    )
 
 
 class CancelActivity(AuthenticatedMutation):
@@ -188,28 +228,19 @@ class CancelActivity(AuthenticatedMutation):
     Retourne la liste des activités de la mission.
     """
 
-    class Arguments:
-        activity_id = graphene.Argument(
-            graphene.Int,
-            required=True,
-            description="Identifiant de l'activité à modifier.",
-        )
-        context = graphene.Argument(
-            GenericScalar,
-            required=False,
-            description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
-        )
+    Arguments = ActivityCancelInput
 
     Output = Void
 
     @classmethod
     @with_authorization_policy(active)
     def mutate(cls, _, info, **edit_input):
-        edit_activity(
-            edit_input["activity_id"],
-            cancel=True,
-            context=edit_input.get("context"),
-        )
+        with atomic_transaction(commit_at_end=True):
+            edit_activity(
+                edit_input["activity_id"],
+                cancel=True,
+                context=edit_input.get("context"),
+            )
         return Void(success=True)
 
 
@@ -227,25 +258,61 @@ class EditActivity(AuthenticatedMutation):
     @classmethod
     @with_authorization_policy(active)
     def mutate(cls, _, info, **edit_input):
-        if (
-            not edit_input.get("start_time")
-            and not edit_input.get("end_time")
-            and not edit_input.get("remove_end_time")
-        ):
-            raise InvalidParamsError(
-                "At least one of startTime or endTime or removeEndTime should be set"
-            )
+        with atomic_transaction(commit_at_end=True):
+            return edit_activity_(edit_input)
 
-        if edit_input.get("end_time") and edit_input.get("remove_end_time"):
-            raise InvalidParamsError(
-                "Either endTime or removeEndTime should be set but not both"
-            )
 
-        return edit_activity(
-            edit_input["activity_id"],
-            cancel=False,
-            start_time=edit_input.get("start_time"),
-            end_time=edit_input.get("end_time"),
-            remove_end_time=edit_input.get("remove_end_time"),
-            context=edit_input.get("context"),
-        )
+class BulkActivityNewItem(graphene.InputObjectType, ActivityLogInput):
+    pass
+
+
+class BulkActivityEditItem(graphene.InputObjectType, ActivityEditInput):
+    pass
+
+
+class BulkActivityCancelItem(graphene.InputObjectType, ActivityCancelInput):
+    pass
+
+
+class BulkActivityItem(graphene.InputObjectType):
+    log = graphene.Argument(BulkActivityNewItem, required=False)
+    edit = graphene.Argument(BulkActivityEditItem, required=False)
+    cancel = graphene.Argument(BulkActivityCancelItem, required=False)
+
+
+class BulkResponse(graphene.Union):
+    class Meta:
+        types = (ActivityOutput, Void)
+
+    @classmethod
+    def resolve_type(cls, instance, info):
+        if instance.get("type"):
+            return ActivityOutput
+        return Void
+
+
+class BulkActivity(AuthenticatedMutation):
+    class Arguments:
+        items = graphene.List(BulkActivityItem)
+        virtual = graphene.Boolean()
+
+    Output = ActivityOutput
+
+    @classmethod
+    @with_authorization_policy(active)
+    def mutate(cls, _, info, items=[], virtual=True):
+        with atomic_transaction(commit_at_end=not virtual):
+            for item in items:
+                if item.get("log"):
+                    input = item.get("log")
+                    res = log_activity_(input)
+                if item.get("edit"):
+                    input = item.get("edit")
+                    res = edit_activity_(input)
+                if item.get("cancel"):
+                    res = edit_activity(
+                        item.get("cancel")["activity_id"],
+                        cancel=True,
+                        context=item.get("cancel").get("context"),
+                    )
+        return res
