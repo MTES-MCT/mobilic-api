@@ -8,7 +8,7 @@
     <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
     {% if create_account %}
 <p>Vous venez de créer un compte {% if company_name %}rattaché à l'entreprise <strong>{{company_name | upper}}</strong> {% endif %}sur <span style="font-weight: bold;">Mobilic</span>, la plateforme gouvernementale qui permet de simplifier <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement 🎉 !</p>
-        <p>Pour finaliser votre inscription veuillez cliquer sur le <a href={{activation_link}} target="_blank">lien suivant</a></p>
+        <p>Pour finaliser votre inscription veuillez cliquer sur le <a href="{{activation_link}}" target="_blank">lien suivant</a></p>
         {% if not company_name %}
             {% if is_employee %}
             <p>

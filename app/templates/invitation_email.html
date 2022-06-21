@@ -14,7 +14,7 @@
                 Vous avez été invité(e) par l’entreprise <strong>{{company_name | upper}}</strong>
             {% endif %} à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
         <p>Mobilic est la plateforme gouvernementale qui simplifie <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement.</p>
-        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
+        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href="{{invitation_link}}" target="_blank">lien suivant</a>.</p>
     {% else %}
         <p>
             {% if reminder %}
@@ -23,7 +23,7 @@
                 Vous avez été invité(e) à rejoindre l'entreprise <strong>{{company_name | upper}}</strong>
             {% endif %} sur Mobilic.
         </p>
-        <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href={{invitation_link}} target="_blank">lien suivant</a>.</p>
+        <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le <a href="{{invitation_link}}" target="_blank">lien suivant</a>.</p>
     {% endif %}
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>
