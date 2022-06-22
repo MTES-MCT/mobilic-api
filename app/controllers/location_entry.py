@@ -20,7 +20,7 @@ from app.helpers.errors import (
     InvalidParamsError,
     MissionLocationAlreadySetError,
 )
-from app.helpers.graphene_types import graphene_enum_type
+from app.helpers.graphene_types import graphene_enum_type, TimeStamp
 from app.models.company_known_address import (
     CompanyKnownAddressOutput,
     CompanyKnownAddress,
@@ -190,6 +190,11 @@ class LogMissionLocation(AuthenticatedMutation):
             required=False,
             description="Ecrase le précédent enregistrement pour le type et la mission. Il faut avoir les droits d'administration de l'entreprise associée à la mission",
         )
+        creation_time = graphene.Argument(
+            TimeStamp,
+            required=False,
+            description="Optionnel, date de saisie de la localisation",
+        )
 
     Output = LocationEntryOutput
 
@@ -206,6 +211,7 @@ class LogMissionLocation(AuthenticatedMutation):
         info,
         mission_id,
         type,
+        creation_time=None,
         company_known_address_id=None,
         geo_api_data=None,
         manual_address=None,
@@ -283,6 +289,7 @@ class LogMissionLocation(AuthenticatedMutation):
                 submitter=current_user,
                 _company_known_address=company_known_address,
                 type=type,
+                creation_time=creation_time,
             )
             location_entry.register_kilometer_reading(kilometer_reading, now)
             db.session.add(location_entry)

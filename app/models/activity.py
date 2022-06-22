@@ -119,6 +119,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         revision_context=None,
         bypass_overlap_check=False,
         bypass_auth_check=False,
+        creation_time=None,
         **updated_props,
     ):
         from app.domain.log_activities import handle_activities_update
@@ -162,6 +163,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 context=revision_context,
                 version_number=(self.latest_version_number() or 0) + 1,
                 submitter=current_user,
+                creation_time=creation_time,
             )
             db.session.add(revision)
 

@@ -54,6 +54,11 @@ class ActivityLogInput:
         required=False,
         description="Optionnel, horodatage de fin de l'activité. Ne peut être passé que si le mode tachygraphe est désactivé (`switch=False`)",
     )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie de l'activité",
+    )
     switch = graphene.Argument(
         graphene.Boolean,
         required=False,
@@ -88,8 +93,8 @@ def log_activity_(input):
         start_time=input["start_time"],
         end_time=input.get("end_time"),
         context=input.get("context"),
+        creation_time=input.get("creation_time"),
     )
-
     return activity
 
 
@@ -134,6 +139,11 @@ class ActivityEditInput:
         required=False,
         description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
     )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de saisie de la modification de l'activité",
+    )
 
 
 def edit_activity_(input):
@@ -156,6 +166,7 @@ def edit_activity_(input):
         start_time=input.get("start_time"),
         end_time=input.get("end_time"),
         remove_end_time=input.get("remove_end_time"),
+        creation_time=input.get("start_time"),
         context=input.get("context"),
     )
 
@@ -166,6 +177,7 @@ def edit_activity(
     start_time=None,
     end_time=None,
     remove_end_time=False,
+    creation_time=None,
     context=None,
 ):
     reception_time = datetime.now()
@@ -202,7 +214,10 @@ def edit_activity(
         if end_time or remove_end_time:
             updates["end_time"] = end_time
         activity_to_update.revise(
-            reception_time, revision_context=context, **updates
+            reception_time,
+            revision_context=context,
+            creation_time=creation_time,
+            **updates,
         )
 
     return activity_to_update
@@ -218,6 +233,11 @@ class ActivityCancelInput:
         GenericScalar,
         required=False,
         description="Champ libre sur le contexte de la modification. Utile pour préciser la cause",
+    )
+    creation_time = graphene.Argument(
+        TimeStamp,
+        required=False,
+        description="Optionnel, date de suppression de l'activité",
     )
 
 
@@ -240,6 +260,7 @@ class CancelActivity(AuthenticatedMutation):
                 edit_input["activity_id"],
                 cancel=True,
                 context=edit_input.get("context"),
+                creation_time=edit_input.get("creation_time"),
             )
         return Void(success=True)
 
@@ -259,7 +280,31 @@ class EditActivity(AuthenticatedMutation):
     @with_authorization_policy(active)
     def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
-            return edit_activity_(edit_input)
+            if (
+                not edit_input.get("start_time")
+                and not edit_input.get("end_time")
+                and not edit_input.get("remove_end_time")
+            ):
+                raise InvalidParamsError(
+                    "At least one of startTime or endTime or removeEndTime should be set"
+                )
+
+            if edit_input.get("end_time") and edit_input.get(
+                "remove_end_time"
+            ):
+                raise InvalidParamsError(
+                    "Either endTime or removeEndTime should be set but not both"
+                )
+
+            return edit_activity(
+                edit_input["activity_id"],
+                cancel=False,
+                start_time=edit_input.get("start_time"),
+                end_time=edit_input.get("end_time"),
+                remove_end_time=edit_input.get("remove_end_time"),
+                context=edit_input.get("context"),
+                creation_time=edit_input.get("creation_time"),
+            )
 
 
 class BulkActivityNewItem(graphene.InputObjectType, ActivityLogInput):

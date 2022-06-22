@@ -244,12 +244,25 @@ class UserSelfChangeRoleError(MobilicError):
     default_message = "A user can not change its own role, it has to be done by another admin."
 
 
+class UserSelfTerminateEmploymentError(MobilicError):
+    code = "USER_SELF_TERMINATE_EMPLOYMENT"
+    default_message = "A user can not terminate its own employment, it has to be done by another admin."
+
+
 class NoActivitiesToValidateError(MobilicError):
     code = "NO_ACTIVITIES_TO_VALIDATE"
 
 
 class InvalidResourceError(MobilicError):
     code = "INVALID_RESOURCE"
+
+
+class EmploymentAlreadyTerminated(MobilicError):
+    code = "EMPLOYMENT_ALREADY_TERMINATED"
+
+
+class ActivityExistAfterEmploymentEndDate(MobilicError):
+    code = "ACTIVITY_EXIST_AFTER_EMPLOYMENT_END_DATE"
 
 
 class ResourceAlreadyDismissedError(InvalidResourceError):
