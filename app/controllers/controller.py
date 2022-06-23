@@ -23,12 +23,14 @@ def redirect_to_ac_authorize():
     query_params = {
         "state": uuid4().hex,
         "nonce": uuid4().hex,
-        "scope": "openid profile email",
+        "response_type": "code",
+        "scope": "openid",
+        # "scope": "openid profile email given_name usual_name organizational_unit",
         "client_id": app.config["AC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
     return redirect(
-        f"{app.config['AC_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
+        f"{app.config['AC_AUTHORIZE_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
 

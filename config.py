@@ -39,6 +39,9 @@ class Config:
     FC_URL = os.environ.get(
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
+    AC_CLIENT_ID = os.environ.get("AC_CLIENT_ID")
+    AC_CLIENT_SECRET = os.environ.get("AC_CLIENT_SECRET")
+    AC_AUTHORIZE_URL = os.environ.get("AC_AUTHORIZE_URL")
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
     MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
         "MATTERMOST_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"

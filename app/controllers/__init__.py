@@ -6,6 +6,8 @@ from app.controllers.company import (
     Query as CompanyQuery,
     EditCompanySettings,
 )
+from app.controllers.controller import AgentConnectLogin
+
 from app.controllers.user_read import Query as UserReadTokenQuery
 from app.controllers.employment import (
     CreateEmployment,
