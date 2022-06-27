@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import selectinload
 
 from app import app, db
+from app.controllers.activity import BulkActivityItem, play_bulk_activity_items
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -265,6 +266,11 @@ class ValidateMission(AuthenticatedMutation):
             required=False,
             description="Optionnel, date de saisie de la validation",
         )
+        activity_items = graphene.List(
+            BulkActivityItem,
+            required=False,
+            description="Optionnel, liste de modifications/créations d'activités à jouer avant validation",
+        )
 
     Output = MissionValidationOutput
 
@@ -276,8 +282,19 @@ class ValidateMission(AuthenticatedMutation):
         ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )
-    def mutate(cls, _, info, mission_id, user_id=None, creation_time=None):
+    def mutate(
+        cls,
+        _,
+        info,
+        mission_id,
+        user_id=None,
+        creation_time=None,
+        activity_items=[],
+    ):
         with atomic_transaction(commit_at_end=True):
+
+            play_bulk_activity_items(activity_items)
+
             mission = Mission.query.get(mission_id)
 
             user = None

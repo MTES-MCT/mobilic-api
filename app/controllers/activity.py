@@ -307,6 +307,24 @@ class EditActivity(AuthenticatedMutation):
             )
 
 
+def play_bulk_activity_items(items):
+    res = None
+    for item in items:
+        if item.get("log"):
+            input = item.get("log")
+            res = log_activity_(input)
+        if item.get("edit"):
+            input = item.get("edit")
+            res = edit_activity_(input)
+        if item.get("cancel"):
+            res = edit_activity(
+                item.get("cancel")["activity_id"],
+                cancel=True,
+                context=item.get("cancel").get("context"),
+            )
+    return res
+
+
 class BulkActivityNewItem(graphene.InputObjectType, ActivityLogInput):
     pass
 
@@ -341,17 +359,4 @@ class BulkActivity(AuthenticatedMutation):
     @with_authorization_policy(active)
     def mutate(cls, _, info, items=[]):
         with atomic_transaction(commit_at_end=False):
-            for item in items:
-                if item.get("log"):
-                    input = item.get("log")
-                    res = log_activity_(input)
-                if item.get("edit"):
-                    input = item.get("edit")
-                    res = edit_activity_(input)
-                if item.get("cancel"):
-                    res = edit_activity(
-                        item.get("cancel")["activity_id"],
-                        cancel=True,
-                        context=item.get("cancel").get("context"),
-                    )
-        return res
+            return play_bulk_activity_items(items)
