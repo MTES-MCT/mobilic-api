@@ -5,7 +5,11 @@ from sqlalchemy.orm import selectinload
 
 from app import app, db
 from app.controllers.activity import BulkActivityItem, play_bulk_activity_items
-from app.controllers.expenditure import BulkExpenditureItem
+from app.controllers.expenditure import (
+    BulkExpenditureItem,
+    cancel_expenditure,
+    log_expenditure_,
+)
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -305,8 +309,13 @@ class ValidateMission(AuthenticatedMutation):
         expenditures_inputs=[],
     ):
         with atomic_transaction(commit_at_end=True):
-
             play_bulk_activity_items(activity_items)
+
+            for expenditure_cancel_id in expenditures_cancel_ids:
+                cancel_expenditure(expenditure_cancel_id)
+
+            for expenditure_input in expenditures_inputs:
+                log_expenditure_(expenditure_input)
 
             mission = Mission.query.get(mission_id)
 
