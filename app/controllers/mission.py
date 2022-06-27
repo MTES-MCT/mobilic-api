@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app import app, db
 from app.controllers.activity import BulkActivityItem, play_bulk_activity_items
+from app.controllers.expenditure import BulkExpenditureItem
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -271,6 +272,16 @@ class ValidateMission(AuthenticatedMutation):
             required=False,
             description="Optionnel, liste de modifications/créations d'activités à jouer avant validation",
         )
+        expenditures_cancel_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Optionnel, identifiants des frais à annuler",
+        )
+        expenditures_inputs = graphene.List(
+            BulkExpenditureItem,
+            required=False,
+            description="Optionnel, frais à créer",
+        )
 
     Output = MissionValidationOutput
 
@@ -290,6 +301,8 @@ class ValidateMission(AuthenticatedMutation):
         user_id=None,
         creation_time=None,
         activity_items=[],
+        expenditures_cancel_ids=[],
+        expenditures_inputs=[],
     ):
         with atomic_transaction(commit_at_end=True):
 

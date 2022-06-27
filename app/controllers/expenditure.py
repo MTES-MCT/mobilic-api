@@ -51,6 +51,10 @@ class ExpenditureInput:
     )
 
 
+class BulkExpenditureItem(graphene.InputObjectType, ExpenditureInput):
+    pass
+
+
 class LogExpenditure(AuthenticatedMutation):
     """
     Enregistrement d'un frais.
