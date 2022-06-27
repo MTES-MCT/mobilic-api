@@ -325,28 +325,22 @@ class BulkActivityItem(graphene.InputObjectType):
     cancel = graphene.Argument(BulkActivityCancelItem, required=False)
 
 
-class BulkResponse(graphene.Union):
-    class Meta:
-        types = (ActivityOutput, Void)
-
-    @classmethod
-    def resolve_type(cls, instance, info):
-        if instance.get("type"):
-            return ActivityOutput
-        return Void
-
-
 class BulkActivity(AuthenticatedMutation):
+    """
+    Valide une série de création/modification d'activités sans les sauvegarder en base.
+
+    Retourne la dernière activité enregistrée ou modifiée.
+    """
+
     class Arguments:
         items = graphene.List(BulkActivityItem)
-        virtual = graphene.Boolean()
 
     Output = ActivityOutput
 
     @classmethod
     @with_authorization_policy(active)
-    def mutate(cls, _, info, items=[], virtual=True):
-        with atomic_transaction(commit_at_end=not virtual):
+    def mutate(cls, _, info, items=[]):
+        with atomic_transaction(commit_at_end=False):
             for item in items:
                 if item.get("log"):
                     input = item.get("log")
