@@ -353,10 +353,13 @@ class BulkActivity(graphene.ObjectType):
     class Arguments:
         items = graphene.List(BulkActivityItem)
 
-    Output = ActivityOutput
+    output = graphene.Field(
+        ActivityOutput,
+        description="Résultat de la dernière activité enregistrée ou modifiée",
+    )
 
     @classmethod
     @with_authorization_policy(active)
-    def mutate(cls, _, info, items=[]):
+    def resolve_output(cls, _, info, items=[]):
         with atomic_transaction(commit_at_end=False):
             return play_bulk_activity_items(items)
