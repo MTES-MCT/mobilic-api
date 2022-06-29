@@ -343,7 +343,7 @@ class BulkActivityItem(graphene.InputObjectType):
     cancel = graphene.Argument(BulkActivityCancelItem, required=False)
 
 
-class BulkActivity(AuthenticatedMutation):
+class BulkActivity(graphene.ObjectType):
     """
     Valide une série de création/modification d'activités sans les sauvegarder en base.
 

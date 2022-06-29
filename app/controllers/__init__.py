@@ -76,7 +76,7 @@ class Activities(graphene.ObjectType):
     log_comment = LogComment.Field()
     cancel_comment = CancelComment.Field()
     cancel_activity = CancelActivity.Field()
-    bulk_activities = BulkActivity.Field()
+    bulk_activity = BulkActivity.Field()
     edit_activity = EditActivity.Field()
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
