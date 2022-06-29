@@ -350,11 +350,9 @@ class BulkActivity(graphene.ObjectType):
     Retourne la dernière activité enregistrée ou modifiée.
     """
 
-    class Arguments:
-        items = graphene.List(BulkActivityItem)
-
     output = graphene.Field(
         ActivityOutput,
+        items=graphene.List(BulkActivityItem),
         description="Résultat de la dernière activité enregistrée ou modifiée",
     )
 

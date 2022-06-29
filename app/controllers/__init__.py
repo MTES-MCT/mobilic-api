@@ -57,7 +57,7 @@ from app.controllers.activity import (
     LogActivity,
     EditActivity,
     CancelActivity,
-    BulkActivity,
+    BulkActivity as BulkActivityQuery,
 )
 from app.models.address import AddressOutput, Address
 
@@ -76,7 +76,6 @@ class Activities(graphene.ObjectType):
     log_comment = LogComment.Field()
     cancel_comment = CancelComment.Field()
     cancel_activity = CancelActivity.Field()
-    bulk_activity = BulkActivity.Field()
     edit_activity = EditActivity.Field()
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
@@ -167,7 +166,12 @@ class PrivateMutations(graphene.ObjectType):
 
 
 class Queries(
-    UserQuery, CheckQuery, CompanyQuery, MissionQuery, graphene.ObjectType
+    UserQuery,
+    CheckQuery,
+    CompanyQuery,
+    MissionQuery,
+    BulkActivityQuery,
+    graphene.ObjectType,
 ):
     """
     Requêtes de consultation qui ne modifient pas l'état du système
