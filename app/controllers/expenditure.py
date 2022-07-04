@@ -116,7 +116,7 @@ def cancel_expenditure(expenditure_id):
         current_user,
         mission,
         for_user=expenditure_to_dismiss.user,
-        at=expenditure_to_dismiss.reception_time,
+        at=expenditure_to_dismiss.spending_date,
     )
 
     if expenditure_to_dismiss.is_dismissed:
