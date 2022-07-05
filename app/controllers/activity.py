@@ -322,6 +322,7 @@ def play_bulk_activity_items(items):
                 cancel=True,
                 context=item.get("cancel").get("context"),
             )
+        db.session.flush()
     return res
 
 
