@@ -22,6 +22,8 @@ class Vehicle(BaseModel):
 
     terminated_at = db.Column(DateTimeStoredAsUTC, nullable=True)
 
+    last_kilometer_reading = db.Column(db.Integer, nullable=True)
+
     __table_args__ = (
         db.UniqueConstraint(
             "company_id",
