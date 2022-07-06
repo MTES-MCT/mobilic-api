@@ -323,6 +323,9 @@ def play_bulk_activity_items(items):
                 context=item.get("cancel").get("context"),
             )
         db.session.flush()
+    db.session().execute(
+        "SET CONSTRAINTS no_overlapping_acknowledged_activities IMMEDIATE"
+    )
     return res
 
 
