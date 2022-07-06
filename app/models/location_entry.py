@@ -1,4 +1,5 @@
 import graphene
+from sqlalchemy import event
 from sqlalchemy.orm import backref
 from enum import Enum
 from datetime import datetime
@@ -7,6 +8,7 @@ from app import db
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import InvalidParamsError
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.models import Mission, Vehicle
 from app.models.address import BaseAddressOutput
 from app.models.event import EventBaseModel
 from app.models.utils import enum_column
@@ -127,3 +129,19 @@ class LocationEntryOutput(BaseSQLAlchemyObjectType):
         required=True,
         description="Horodatage de création de l'entité",
     )
+
+
+@event.listens_for(LocationEntry, "after_insert")
+@event.listens_for(LocationEntry, "after_update")
+def set_last_kilometer_vehicle(mapper, connect, target):
+    if (
+        target.type == LocationEntryType.MISSION_END_LOCATION
+        and target.kilometer_reading
+    ):
+        mission = Mission.query.get(target.mission_id)
+        vehicle = Vehicle.query.get(mission.vehicle_id)
+        connect.execute(
+            Vehicle.__table__.update()
+            .where(Vehicle.id == vehicle.id)
+            .values(last_kilometer_reading=target.kilometer_reading)
+        )
