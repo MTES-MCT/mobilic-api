@@ -35,7 +35,7 @@ def log_expenditure(
 ):
     # 1. Check permissions
     check_actor_can_write_on_mission(
-        submitter, mission, user, at=reception_time
+        submitter, mission, user, at=spending_date
     )
     if not mission.company.require_expenditures:
         raise AuthorizationError(

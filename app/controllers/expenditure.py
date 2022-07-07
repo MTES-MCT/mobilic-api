@@ -51,6 +51,38 @@ class ExpenditureInput:
     )
 
 
+class BulkExpenditureItem(graphene.InputObjectType, ExpenditureInput):
+    pass
+
+
+def log_expenditure_(expenditure_input):
+    reception_time = datetime.now()
+    mission_id = expenditure_input.get("mission_id")
+    mission = Mission.query.get(mission_id)
+
+    user_id = expenditure_input.get("user_id")
+
+    spending_date = expenditure_input.get("spending_date")
+
+    if user_id:
+        user = User.query.get(user_id)
+        if not user:
+            raise AuthorizationError("Forbidden access")
+    else:
+        user = current_user
+
+    expenditure = log_expenditure(
+        submitter=current_user,
+        user=user,
+        mission=mission,
+        type=expenditure_input["type"],
+        reception_time=reception_time,
+        spending_date=spending_date,
+        creation_time=expenditure_input.get("creation_time"),
+    )
+    return expenditure
+
+
 class LogExpenditure(AuthenticatedMutation):
     """
     Enregistrement d'un frais.
@@ -66,32 +98,32 @@ class LogExpenditure(AuthenticatedMutation):
     @with_authorization_policy(active)
     def mutate(cls, _, info, **expenditure_input):
         with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
-            mission_id = expenditure_input.get("mission_id")
-            mission = Mission.query.get(mission_id)
+            return log_expenditure_(expenditure_input)
 
-            user_id = expenditure_input.get("user_id")
 
-            spending_date = expenditure_input.get("spending_date")
+def cancel_expenditure(expenditure_id):
+    reception_time = datetime.now()
+    expenditure_to_dismiss = Expenditure.query.get(expenditure_id)
 
-            if user_id:
-                user = User.query.get(user_id)
-                if not user:
-                    raise AuthorizationError("Forbidden access")
-            else:
-                user = current_user
+    if not expenditure_to_dismiss:
+        raise AuthorizationError(
+            "Actor is not authorized to dismiss the expenditure"
+        )
 
-            expenditure = log_expenditure(
-                submitter=current_user,
-                user=user,
-                mission=mission,
-                type=expenditure_input["type"],
-                reception_time=reception_time,
-                spending_date=spending_date,
-                creation_time=expenditure_input.get("creation_time"),
-            )
+    mission = Mission.query.get(expenditure_to_dismiss.mission_id)
 
-        return expenditure
+    check_actor_can_write_on_mission(
+        current_user,
+        mission,
+        for_user=expenditure_to_dismiss.user,
+        at=expenditure_to_dismiss.spending_date,
+    )
+
+    if expenditure_to_dismiss.is_dismissed:
+        raise ResourceAlreadyDismissedError("Expenditure already dismissed")
+
+    db.session.add(expenditure_to_dismiss)
+    expenditure_to_dismiss.dismiss(reception_time)
 
 
 class CancelExpenditure(AuthenticatedMutation):
@@ -114,29 +146,6 @@ class CancelExpenditure(AuthenticatedMutation):
     @with_authorization_policy(active)
     def mutate(cls, _, info, expenditure_id):
         with atomic_transaction(commit_at_end=True):
-            reception_time = datetime.now()
-            expenditure_to_dismiss = Expenditure.query.get(expenditure_id)
-
-            if not expenditure_to_dismiss:
-                raise AuthorizationError(
-                    "Actor is not authorized to dismiss the expenditure"
-                )
-
-            mission = Mission.query.get(expenditure_to_dismiss.mission_id)
-
-            check_actor_can_write_on_mission(
-                current_user,
-                mission,
-                for_user=expenditure_to_dismiss.user,
-                at=expenditure_to_dismiss.reception_time,
-            )
-
-            if expenditure_to_dismiss.is_dismissed:
-                raise ResourceAlreadyDismissedError(
-                    "Expenditure already dismissed"
-                )
-
-            db.session.add(expenditure_to_dismiss)
-            expenditure_to_dismiss.dismiss(reception_time)
+            cancel_expenditure(expenditure_id)
 
         return Void(success=True)

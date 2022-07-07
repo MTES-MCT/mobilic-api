@@ -59,6 +59,7 @@ from app.controllers.activity import (
     LogActivity,
     EditActivity,
     CancelActivity,
+    BulkActivity as BulkActivityQuery,
 )
 from app.models.address import AddressOutput, Address
 
@@ -167,7 +168,12 @@ class PrivateMutations(graphene.ObjectType):
 
 
 class Queries(
-    UserQuery, CheckQuery, CompanyQuery, MissionQuery, graphene.ObjectType
+    UserQuery,
+    CheckQuery,
+    CompanyQuery,
+    MissionQuery,
+    BulkActivityQuery,
+    graphene.ObjectType,
 ):
     """
     Requêtes de consultation qui ne modifient pas l'état du système

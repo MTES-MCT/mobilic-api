@@ -162,7 +162,7 @@ class TestActivityOverlaps(BaseTest):
         self.create_mission_with_work_activity(
             datetime(2021, 1, 1, 17),
             datetime(2021, 1, 1, 19),
-            should_raise=OverlappingActivitiesError,
+            should_raise=OverlappingMissionsError,
         )
 
         mission_before = self.create_mission_with_work_activity(
