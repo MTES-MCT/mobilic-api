@@ -1,23 +1,21 @@
-from flask import Flask, jsonify
-from flask_apispec import FlaskApiSpec
-from flask_migrate import Migrate
-from flask_cors import CORS
-from werkzeug.exceptions import HTTPException
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
-from apispec import APISpec
-from apispec.ext.marshmallow import MarshmallowPlugin
-
-import config
-from config import MOBILIC_ENV
-from app.helpers.db import SQLAlchemyWithStrongRefSession
-from app.helpers.errors import MobilicError
-from app.helpers.siren import SirenAPIClient
-from app.helpers.request_parser import CustomRequestParser
-from app.templates.filters import JINJA_CUSTOM_FILTERS
-from elasticapm.contrib.flask import ElasticAPM
 import logging
 
+from apispec import APISpec
+from apispec.ext.marshmallow import MarshmallowPlugin
+from elasticapm.contrib.flask import ElasticAPM
+from flask import Flask
+from flask_apispec import FlaskApiSpec
+from flask_cors import CORS
+from flask_migrate import Migrate
+from werkzeug.exceptions import HTTPException
+
+import config
+from app.helpers.db import SQLAlchemyWithStrongRefSession
+from app.helpers.errors import MobilicError
+from app.helpers.request_parser import CustomRequestParser
+from app.helpers.siren import SirenAPIClient
+from app.templates.filters import JINJA_CUSTOM_FILTERS
+from config import MOBILIC_ENV
 
 app = Flask(__name__)
 app.config.update(
@@ -58,8 +56,6 @@ if app.config["ECHO_DB_QUERIES"]:
     db.engine.echo = True
 
 Migrate(app, db)
-
-CORS(app)
 
 from app.helpers.graphql import CustomGraphQLView
 from app.controllers import graphql_schema, private_graphql_schema

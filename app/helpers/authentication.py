@@ -10,6 +10,7 @@ from flask_jwt_extended import (
     get_raw_jwt,
     get_jwt_identity,
     JWTManager,
+    get_csrf_token,
 )
 from datetime import date, datetime
 import graphene
@@ -190,11 +191,30 @@ def set_auth_cookies(
         samesite="Strict",
     )
     response.set_cookie(
+        app.config["JWT_ACCESS_CSRF_COOKIE_NAME"],
+        value=get_csrf_token(access_token),
+        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=False,
+        path=app.config["JWT_ACCESS_CSRF_COOKIE_PATH"],
+        samesite="Strict",
+    )
+    response.set_cookie(
+        app.config["JWT_REFRESH_CSRF_COOKIE_NAME"],
+        value=get_csrf_token(refresh_token),
+        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        secure=app.config["JWT_COOKIE_SECURE"],
+        httponly=False,
+        path=app.config["JWT_REFRESH_CSRF_COOKIE_PATH"],
+        samesite="Strict",
+    )
+    response.set_cookie(
         "userId",
         value=str(user_id),
         expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
+        samesite="Strict",
     )
     response.set_cookie(
         "atEat",
@@ -208,6 +228,7 @@ def set_auth_cookies(
         expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
+        samesite="Strict",
     )
     if fc_token:
         response.set_cookie(
@@ -225,6 +246,7 @@ def set_auth_cookies(
             expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
+            samesite="Strict",
         )
 
 
