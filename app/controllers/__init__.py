@@ -99,6 +99,7 @@ class SignUp(graphene.ObjectType):
 
 class PrivateAuth(graphene.ObjectType):
     france_connect_login = FranceConnectLogin.Field()
+    agent_connect_login = AgentConnectLogin.Field()
 
 
 class Account(graphene.ObjectType):

@@ -6,15 +6,11 @@ import requests
 from app import app
 from app.helpers.errors import AgentConnectAuthenticationError
 
-# This is the second part of the OAuth protocol for FranceConnect, after the user logged in and we get an authorization code from FranceConnect.
-# Whole flow is detailed here : https://partenaires.franceconnect.gouv.fr/fcp/fournisseur-service
-from app.models import User
-
 
 def get_agent_connect_user_info(authorization_code, original_redirect_uri):
     data = {
         "code": authorization_code,
-        # "grant_type": "authorization_code",
+        "grant_type": "authorization_code",
         "client_id": app.config["AC_CLIENT_ID"],
         "client_secret": app.config["AC_CLIENT_SECRET"],
         "redirect_uri": original_redirect_uri,
@@ -49,11 +45,3 @@ def get_agent_connect_user_info(authorization_code, original_redirect_uri):
 
     user_info["acr"] = jwt.decode(id_token, verify=False).get("acr")
     return user_info, id_token
-
-
-def get_controller_from_ac_info(ac_info):
-    france_connect_id = ac_info.get("sub")
-
-    return User.query.filter(
-        User.france_connect_id == france_connect_id
-    ).one_or_none()

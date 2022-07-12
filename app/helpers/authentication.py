@@ -170,6 +170,7 @@ def set_auth_cookies(
     refresh_token=None,
     user_id=None,
     fc_token=None,
+    ac_token=None,
 ):
     response.set_cookie(
         app.config["JWT_ACCESS_COOKIE_NAME"],
@@ -226,6 +227,23 @@ def set_auth_cookies(
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
         )
+    if ac_token:
+        response.set_cookie(
+            "act",
+            value=ac_token,
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=True,
+            path="/api/ac/logout",
+            samesite="Strict",
+        )
+        response.set_cookie(
+            "hasAc",
+            value="true",
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=False,
+        )
 
 
 def unset_auth_cookies(response):
@@ -246,6 +264,11 @@ def unset_fc_auth_cookies(response):
     response.delete_cookie("hasFc", path="/")
 
 
+def unset_ac_auth_cookies(response):
+    response.delete_cookie("act", path="/api/ac/logout")
+    response.delete_cookie("hasAc", path="/")
+
+
 class UserTokens(graphene.ObjectType):
     access_token = graphene.String(description="Jeton d'accès")
     refresh_token = graphene.String(description="Jeton de rafraichissement")
@@ -253,6 +276,10 @@ class UserTokens(graphene.ObjectType):
 
 class UserTokensWithFC(UserTokens, graphene.ObjectType):
     fc_token = graphene.String(description="Jeton d'accès")
+
+
+class UserTokensWithAC(UserTokens, graphene.ObjectType):
+    ac_token = graphene.String(description="Jeton d'accès")
 
 
 def require_auth_with_write_access(f):
