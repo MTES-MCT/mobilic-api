@@ -18,5 +18,4 @@ from .email import Email
 from app.helpers.tachograph.rsa_keys import C1BSigningKey
 from .naf_code import NafCode
 from .regulation_check import RegulationCheck
-from .regulation_day import RegulationDay
-from .regulation_week import RegulationWeek
+from .regulatory_alert import RegulatoryAlert

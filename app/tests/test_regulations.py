@@ -9,12 +9,12 @@ from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission, MissionEnd
 from app.models.activity import ActivityType
-from app.models.regulation_day import RegulationDay
+from app.models.regulatory_alert import RegulatoryAlert
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
-from app.models.regulation_week import RegulationWeek
 from app.models.user import User
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
 from app.seed.helpers import AuthenticatedUserContext, get_date, get_time
+from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import BaseTest
 
 ADMIN_EMAIL = "admin@email.com"
@@ -24,6 +24,39 @@ EMPLOYEE_EMAIL = "employee@email.com"
 class TestRegulations(BaseTest):
     def setUp(self):
         super().setUp()
+
+        regulation_checks = get_regulation_checks()
+        for r in regulation_checks:
+            db.session.execute(
+                """
+            INSERT INTO regulation_check(
+              creation_time,
+              type,
+              label,
+              description,
+              date_application_start,
+              regulation_rule,
+              variables
+            )
+            VALUES
+            (
+              NOW(),
+              :type,
+              :label,
+              :description,
+              TIMESTAMP '2019-11-01',
+              :regulation_rule,
+              :variables
+            )
+            """,
+                dict(
+                    type=r.type,
+                    label=r.label,
+                    description=r.description,
+                    regulation_rule=r.regulation_rule,
+                    variables=r.variables,
+                ),
+            )
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True
@@ -106,16 +139,15 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, True)
+        self.assertIsNone(regulatory_alert)
 
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
@@ -163,16 +195,15 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, False)
+        self.assertIsNotNone(regulatory_alert)
 
     def test_max_work_day_time_by_employee_success(self):
         company = self.company
@@ -231,20 +262,16 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, True)
-        extra_info = json.loads(regulation_day.extra)
-        self.assertEqual(extra_info["night_work"], False)
-        self.assertIsNotNone(extra_info["max_time_in_hours"])
+        self.assertIsNone(regulatory_alert)
 
     def test_max_work_day_time_by_employee_failure(self):
         company = self.company
@@ -303,18 +330,17 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, False)
-        extra_info = json.loads(regulation_day.extra)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_time_in_hours"])
 
@@ -381,18 +407,17 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.ADMIN,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, False)
-        extra_info = json.loads(regulation_day.extra)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_time_in_hours"])
 
@@ -417,9 +442,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23, minute=15),
+                reception_time=get_time(how_many_days_ago, hour=23, minute=14),
                 start_time=get_time(how_many_days_ago, hour=17),
-                end_time=get_time(how_many_days_ago, hour=23, minute=15),
+                end_time=get_time(how_many_days_ago, hour=23, minute=14),
             )
 
             log_activity(
@@ -453,17 +478,16 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, True)
+        self.assertIsNone(regulatory_alert)
 
     def test_min_work_day_break_by_employee_failure(self):
         company = self.company
@@ -522,17 +546,16 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, False)
+        self.assertIsNotNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_success(self):
         company = self.company
@@ -591,17 +614,16 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, True)
+        self.assertIsNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_failure(self):
         company = self.company
@@ -660,14 +682,13 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        regulation_day = RegulationDay.query.filter(
-            RegulationDay.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulationDay.regulation_check.has(
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
             ),
-            RegulationDay.day == day_start,
-            RegulationDay.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNotNone(regulation_day)
-        self.assertEqual(regulation_day.success, False)
+        self.assertIsNotNone(regulatory_alert)

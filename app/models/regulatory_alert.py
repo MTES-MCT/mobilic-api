@@ -7,18 +7,17 @@ from app.models.base import BaseModel
 from app.models.utils import enum_column
 
 
-class RegulationDay(BaseModel):
-    backref_base_name = "regulation_day"
+class RegulatoryAlert(BaseModel):
+    backref_base_name = "regulatory_alert"
 
     day = db.Column(db.Date, nullable=False)
-    success = db.Column(db.Boolean, nullable=False)
     extra = db.Column(JSONB(none_as_null=True), nullable=True)
     submitter_type = enum_column(SubmitterType, nullable=False)
 
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), index=False, nullable=False
     )
-    user = db.relationship("User", backref="regulation_days")
+    user = db.relationship("User", backref="regulatory_alerts")
 
     regulation_check_id = db.Column(
         db.Integer,
