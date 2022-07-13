@@ -6,6 +6,7 @@ from flask import redirect, request, after_this_request
 
 from app import app
 from app.controllers.utils import atomic_transaction
+from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
@@ -16,11 +17,18 @@ from app.helpers.agent_connect import (
 from app.helpers.authentication import (
     unset_ac_auth_cookies,
     UserTokensWithAC,
+    current_user,
 )
 from app.helpers.authentication_controller import (
     create_access_tokens_for_controller,
     set_controller_auth_cookies,
 )
+from app.helpers.authorization import (
+    with_authorization_policy,
+    controller_only,
+)
+from app.helpers.errors import AuthorizationError
+from app.models.controller_user import ControllerUser
 
 
 @app.route("/ac/authorize")
@@ -97,8 +105,33 @@ class AgentConnectLogin(graphene.Mutation):
         @after_this_request
         def set_cookies(response):
             set_controller_auth_cookies(
-                response, user_id=controller.id, **tokens, ac_token=ac_token
+                response,
+                controller_user_id=controller.id,
+                **tokens,
+                ac_token=ac_token,
             )
             return response
 
         return UserTokensWithAC(**tokens, ac_token=ac_token)
+
+
+class Query(graphene.ObjectType):
+    controller_user = graphene.Field(
+        ControllerUserOutput,
+        id=graphene.Int(required=True),
+        description="Consultation des informations d'un contrôleur",
+    )
+
+    @with_authorization_policy(
+        controller_only,
+        get_target_from_args=lambda *args, **kwargs: ControllerUser.query.get(
+            kwargs["id"]
+        ),
+    )
+    def resolve_controller_user(self, info, id):
+        controller_user = ControllerUser.query.get(id)
+        if not controller_user:
+            raise AuthorizationError("Unknown controller id")
+        if current_user.id != id:
+            raise AuthorizationError("Can not view info of other Controller")
+        return controller_user

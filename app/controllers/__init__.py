@@ -61,6 +61,9 @@ from app.controllers.activity import (
     CancelActivity,
     BulkActivity as BulkActivityQuery,
 )
+from app.controllers.controller import (
+    Query as ControllerUserQuery,
+)
 from app.models.address import AddressOutput, Address
 
 
@@ -187,6 +190,7 @@ class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    ControllerUserQuery,
     graphene.ObjectType,
 ):
     pass

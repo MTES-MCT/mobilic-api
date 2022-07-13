@@ -1,18 +1,47 @@
 from calendar import timegm
 from datetime import datetime
+from functools import wraps
 
-from flask_jwt_extended import create_access_token, create_refresh_token
+from flask import after_this_request
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_refresh_token_required,
+    get_jwt_identity,
+    current_user as current_actor,
+)
+from flask_jwt_extended.exceptions import (
+    NoAuthorizationError,
+    InvalidHeaderError,
+    JWTExtendedException,
+)
+from jwt import PyJWTError
 
 from app import app, db
-from app.models.controller_refresh_token import ControllerRefreshToken
+from app.helpers.errors import AuthenticationError
+
+
+def wrap_jwt_errors(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except (NoAuthorizationError, InvalidHeaderError):
+            raise AuthenticationError(
+                "Unable to find a valid cookie or authorization header"
+            )
+        except (JWTExtendedException, PyJWTError):
+            raise AuthenticationError("Invalid token")
+
+    return wrapper
 
 
 def set_controller_auth_cookies(
     response,
     access_token,
     refresh_token,
-    user_id,
-    ac_token,
+    controller_user_id,
+    ac_token=None,
 ):
     response.set_cookie(
         app.config["JWT_ACCESS_COOKIE_NAME"],
@@ -34,7 +63,7 @@ def set_controller_auth_cookies(
     )
     response.set_cookie(
         "controllerId",
-        value=str(user_id),
+        value=str(controller_user_id),
         expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
@@ -52,15 +81,16 @@ def set_controller_auth_cookies(
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
     )
-    response.set_cookie(
-        "act",
-        value=ac_token,
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=True,
-        path="/api/ac/logout",
-        samesite="Strict",
-    )
+    if ac_token:
+        response.set_cookie(
+            "act",
+            value=ac_token,
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=True,
+            path="/api/ac/logout",
+            samesite="Strict",
+        )
     response.set_cookie(
         "hasAc",
         value="true",
@@ -73,20 +103,53 @@ def set_controller_auth_cookies(
 def create_access_tokens_for_controller(
     controller_user,
 ):
+    from app.models import ControllerRefreshToken
+
     tokens = {
         "access_token": create_access_token(
-            {"id": controller_user.id, "controller": True},
+            {"controllerUserId": controller_user.id, "controller": True},
             expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
         ),
         "refresh_token": create_refresh_token(
             {
-                "id": controller_user.id,
+                "controllerUserId": controller_user.id,
                 "token": ControllerRefreshToken.create_controller_refresh_token(
                     controller_user
                 ),
+                "controller": True,
             },
             expires_delta=False,
         ),
     }
     db.session.commit()
     return tokens
+
+
+@wrap_jwt_errors
+@jwt_refresh_token_required
+def _refresh_controller_token():
+    delete_controller_refresh_token()
+    tokens = create_access_tokens_for_controller(current_actor)
+
+    @after_this_request
+    def set_cookies(response):
+        set_controller_auth_cookies(
+            response, controller_user_id=current_actor.id, **tokens
+        )
+        return response
+
+    return tokens
+
+
+@jwt_refresh_token_required
+def delete_controller_refresh_token():
+    from app.models.controller_refresh_token import ControllerRefreshToken
+
+    identity = get_jwt_identity()
+    matching_refresh_token = ControllerRefreshToken.get_token(
+        token=identity.get("token"),
+        controller_user_id=identity.get("controllerUserId"),
+    )
+    if not matching_refresh_token:
+        raise AuthenticationError("Refresh token is invalid")
+    db.session.delete(matching_refresh_token)

@@ -19,6 +19,12 @@ def admin_only(user):
     return user.admin
 
 
+def controller_only(controller_user):
+    if not controller_user:
+        return False
+    return True
+
+
 def with_authorization_policy(
     authorization_rule,
     get_target_from_args=None,

@@ -25,10 +25,12 @@ from functools import wraps
 from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
+from app.helpers.authentication_controller import _refresh_controller_token
 
 current_user = LocalProxy(lambda: g.get("user") or current_actor)
 
 
+from app.models.controller_user import ControllerUser
 from app.models.user import User
 from app import app, db
 from app.helpers.errors import AuthenticationError, AuthorizationError
@@ -124,6 +126,11 @@ def raise_expired_token_error(token_data):
 
 @jwt.user_loader_callback_loader
 def get_user_from_token_identity(identity):
+    if identity.get("controller"):
+        controller_user = ControllerUser.query.get(
+            identity["controllerUserId"]
+        )
+        return controller_user
     user = User.query.get(identity["id"])
     if not user:
         return None
@@ -256,6 +263,7 @@ def unset_auth_cookies(response):
         path=app.config["JWT_REFRESH_COOKIE_PATH"],
     )
     response.delete_cookie("userId", path="/")
+    response.delete_cookie("controllerId", path="/")
     response.delete_cookie("atEat", path="/")
 
 
@@ -394,6 +402,7 @@ class Auth(graphene.ObjectType):
 
 
 @wrap_jwt_errors
+@jwt_refresh_token_required
 def _refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
@@ -409,9 +418,15 @@ def _refresh_token():
 
 
 @app.route("/token/refresh", methods=["POST"])
+@wrap_jwt_errors
+@jwt_refresh_token_required
 def rest_refresh_token():
     try:
-        tokens = _refresh_token()
+        identity = get_jwt_identity()
+        if identity and identity.get("controller"):
+            tokens = _refresh_controller_token()
+        else:
+            tokens = _refresh_token()
         return jsonify(tokens), 200
     except AuthenticationError as e:
 
@@ -443,11 +458,18 @@ def rest_logout():
 @jwt_refresh_token_required
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
+    from app.models.controller_refresh_token import ControllerRefreshToken
 
     identity = get_jwt_identity()
-    matching_refresh_token = RefreshToken.get_token(
-        token=identity.get("token"), user_id=identity.get("id")
-    )
+    if identity.get("controller"):
+        matching_refresh_token = ControllerRefreshToken.get_token(
+            token=identity.get("token"),
+            controller_user_id=identity.get("controllerUserId"),
+        )
+    else:
+        matching_refresh_token = RefreshToken.get_token(
+            token=identity.get("token"), user_id=identity.get("id")
+        )
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")
     db.session.delete(matching_refresh_token)
