@@ -35,7 +35,6 @@ def upgrade():
         sa.Column("id", sa.Integer(), autoincrement=False, nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("agent_connect_id"),
-        sa.UniqueConstraint("organizational_unit"),
     )
     op.create_table(
         "controller_refresh_token",
