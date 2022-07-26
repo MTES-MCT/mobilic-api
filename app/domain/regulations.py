@@ -12,6 +12,8 @@ from app.models import RegulationCheck
 from app import db
 import json
 
+from app.seed.helpers import get_dates_range
+
 DAY = 86400
 HOUR = 3600
 MINUTE = 60
@@ -23,8 +25,11 @@ ComputationResult = namedtuple(
 
 
 def compute_regulations(user, period_start, period_end, submitter_type):
-    # foreach day between period_start & period_end
-    #  compute_regulation_per_day(user, day, submitter_type)
+
+    # Compute daily rules for each day
+    for day in get_dates_range(period_start, period_end):
+        compute_regulations_per_day(user, day, submitter_type)
+
     # foreach week between period_start & period_end
     #  compute_regulations_per_week(user, week, submitter_type)
     return
