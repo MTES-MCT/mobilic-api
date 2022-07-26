@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta
-from flask.ctx import AppContext
 import json
+from datetime import datetime, timedelta
 
 from app import app, db
 from app.domain import regulations
@@ -9,32 +8,33 @@ from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission, MissionEnd
 from app.models.activity import ActivityType
-from app.models.regulatory_alert import RegulatoryAlert
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
+from app.models.regulatory_alert import RegulatoryAlert
 from app.models.user import User
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
 from app.seed.helpers import AuthenticatedUserContext, get_date, get_time
-from app.services.get_regulation_checks import get_regulation_checks
+from app.services.get_regulation_checks import (
+    RegulationCheckData,
+    get_regulation_checks,
+)
 from app.tests import BaseTest
+from flask.ctx import AppContext
+from sqlalchemy import insert
 
 ADMIN_EMAIL = "admin@email.com"
 EMPLOYEE_EMAIL = "employee@email.com"
 
 
-class TestRegulations(BaseTest):
-    def setUp(self):
-        super().setUp()
-
-        regulation_checks = get_regulation_checks()
-        for r in regulation_checks:
-            db.session.execute(
-                """
+def insert_regulation_check(regulation_data):
+    db.session.execute(
+        """
             INSERT INTO regulation_check(
               creation_time,
               type,
               label,
               description,
               date_application_start,
+              date_application_end,
               regulation_rule,
               variables
             )
@@ -44,19 +44,31 @@ class TestRegulations(BaseTest):
               :type,
               :label,
               :description,
-              TIMESTAMP '2019-11-01',
+              :date_application_start,
+              :date_application_end,
               :regulation_rule,
               :variables
             )
             """,
-                dict(
-                    type=r.type,
-                    label=r.label,
-                    description=r.description,
-                    regulation_rule=r.regulation_rule,
-                    variables=r.variables,
-                ),
-            )
+        dict(
+            type=regulation_data.type,
+            label=regulation_data.label,
+            description=regulation_data.description,
+            date_application_start=regulation_data.date_application_start,
+            date_application_end=regulation_data.date_application_end,
+            regulation_rule=regulation_data.regulation_rule,
+            variables=regulation_data.variables,
+        ),
+    )
+
+
+class TestRegulations(BaseTest):
+    def setUp(self):
+        super().setUp()
+
+        regulation_checks = get_regulation_checks()
+        for r in regulation_checks:
+            insert_regulation_check(r)
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True
@@ -96,16 +108,24 @@ class TestRegulations(BaseTest):
     def test_min_daily_rest_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 10
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
-            name="6h drive",
+            name="8h drive J",
             company=company,
             reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
+
+        mission_next_day = Mission(
+            name="8h drive J+1",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission_next_day)
 
         with AuthenticatedUserContext(user=employee):
             log_activity(
@@ -114,21 +134,44 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=13),
+                reception_time=get_time(how_many_days_ago, hour=15),
                 start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=13),
+                end_time=get_time(how_many_days_ago, hour=15),
             )
 
             db.session.add(
                 MissionEnd(
                     submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=13),
+                    reception_time=get_time(how_many_days_ago, hour=15),
                     user=employee,
                     mission=mission,
                 )
             )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
+            )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission_next_day,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 1, hour=15),
+                start_time=get_time(how_many_days_ago - 1, hour=7),
+                end_time=get_time(how_many_days_ago - 1, hour=15),
+            )
+
+            db.session.add(
+                MissionEnd(
+                    submitter=employee,
+                    reception_time=get_time(how_many_days_ago - 1, hour=15),
+                    user=employee,
+                    mission=mission_next_day,
+                )
+            )
+            validate_mission(
+                submitter=employee, mission=mission_next_day, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
@@ -152,11 +195,11 @@ class TestRegulations(BaseTest):
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 12
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
-            name="16h drive",
+            name="15h drive with 2 groups",
             company=company,
             reception_time=datetime.now(),
             submitter=employee,
@@ -170,15 +213,26 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=1),
-                start_time=get_time(how_many_days_ago, hour=9),
-                end_time=get_time(how_many_days_ago - 1, hour=1),
+                reception_time=get_time(how_many_days_ago, hour=19),
+                start_time=get_time(how_many_days_ago, hour=13),
+                end_time=get_time(how_many_days_ago, hour=19),
+            )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 1, hour=5),
+                start_time=get_time(how_many_days_ago, hour=20),
+                end_time=get_time(how_many_days_ago - 1, hour=5),
             )
 
             db.session.add(
                 MissionEnd(
                     submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=1),
+                    reception_time=get_time(how_many_days_ago - 1, hour=5),
                     user=employee,
                     mission=mission,
                 )
@@ -208,7 +262,7 @@ class TestRegulations(BaseTest):
     def test_max_work_day_time_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 14
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -276,7 +330,7 @@ class TestRegulations(BaseTest):
     def test_max_work_day_time_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 16
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -348,7 +402,7 @@ class TestRegulations(BaseTest):
         company = self.company
         employee = self.employee
         admin = self.admin
-        how_many_days_ago = 18
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -424,7 +478,7 @@ class TestRegulations(BaseTest):
     def test_min_work_day_break_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 22
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -492,7 +546,7 @@ class TestRegulations(BaseTest):
     def test_min_work_day_break_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 22
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -556,11 +610,13 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_time_in_minutes"], 45)
 
     def test_max_uninterrupted_work_time_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 24
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -628,7 +684,7 @@ class TestRegulations(BaseTest):
     def test_max_uninterrupted_work_time_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 26
+        how_many_days_ago = 1
 
         # GIVEN
         mission = Mission(
@@ -692,3 +748,73 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
+    def test_use_latest_regulation_check_by_type(self):
+        company = self.company
+        employee = self.employee
+        how_many_days_ago = 1
+
+        # GIVEN
+        expired_regulation_data = RegulationCheckData(
+            type="minimumDailyRest",
+            label="Non-respect(s) du repos quotidien",
+            description="Règlementation expirée",
+            date_application_start=datetime(2018, 1, 1),
+            date_application_end=datetime(2019, 11, 1),
+            regulation_rule="dailyRest",
+            variables=None,
+        )
+        insert_regulation_check(expired_regulation_data)
+
+        mission = Mission(
+            name="any mission",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago, hour=19),
+                start_time=get_time(how_many_days_ago, hour=4),
+                end_time=get_time(how_many_days_ago, hour=19),
+            )
+
+            db.session.add(
+                MissionEnd(
+                    submitter=employee,
+                    reception_time=get_time(how_many_days_ago, hour=19),
+                    user=employee,
+                    mission=mission,
+                )
+            )
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+        day_start = get_date(how_many_days_ago)
+
+        # WHEN
+        regulations.compute_regulations_per_day(
+            employee, day_start, SubmitterType.EMPLOYEE
+        )
+
+        # THEN
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(regulatory_alert), 1)
+        self.assertIsNone(
+            regulatory_alert[0].regulation_check.date_application_end
+        )

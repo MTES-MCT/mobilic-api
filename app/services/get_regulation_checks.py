@@ -1,11 +1,20 @@
-from collections import namedtuple
 import json
+from dataclasses import dataclass
+from datetime import date, datetime
+from typing import Optional
+
+from app.models.regulation_check import RegulationCheckType, RegulationRule
 
 
-RegulationCheckData = namedtuple(
-    "RegulationCheckData",
-    ["type", "label", "description", "regulation_rule", "variables"],
-)
+@dataclass
+class RegulationCheckData:
+    type: RegulationCheckType
+    label: str
+    description: str
+    regulation_rule: RegulationRule
+    variables: str
+    date_application_start: date = datetime(2019, 11, 1)
+    date_application_end: Optional[date] = None
 
 
 def get_regulation_checks():

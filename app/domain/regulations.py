@@ -61,6 +61,7 @@ def compute_regulations_per_day(user, day_start, submitter_type):
     }
 
     for type, computation in regulatory_checks.items():
+        # IMPROVE: instead of using the latest, use the one valid for the day target
         regulation_check = (
             RegulationCheck.query.filter(RegulationCheck.type == type)
             .order_by(desc(RegulationCheck.date_application_start))
@@ -88,8 +89,6 @@ def compute_regulations_per_day(user, day_start, submitter_type):
             )
             db.session.add(regulatory_alert)
 
-    return
-
 
 def compute_regulations_per_week(user, week, submitter_type):
     # get activities from missions of user validated by submitter_type with week included in activity date
@@ -101,12 +100,14 @@ def check_min_daily_rest(activity_groups, regulation_check):
     LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
-    # FIXME: create test with 2 groups and check (maybe sum before)
-    success = all(
-        group.end_time - group.start_time
-        <= timedelta(hours=24 - LONG_BREAK_DURATION_IN_HOURS)
-        for group in activity_groups
-    )
+
+    total_work_duration = 0
+    for group in activity_groups:
+        total_work_duration += (
+            group.end_time - group.start_time
+        ).total_seconds()
+
+    success = total_work_duration <= (24 - LONG_BREAK_DURATION_IN_HOURS) * HOUR
     return ComputationResult(success=success)
 
 
@@ -152,11 +153,11 @@ def check_min_work_day_break(activity_groups, regulation_check):
     ]
     # IMPROVE: we may store a map key-value for these period values
 
-    total_work_duration = 0
+    total_work_duration_s = 0
     total_break_time_s = 0
     latest_work_time = None
     for group in activity_groups:
-        total_work_duration += group.total_work_duration
+        total_work_duration_s += group.total_work_duration
         for activity in group.activities:
             if (
                 latest_work_time is not None
@@ -168,17 +169,27 @@ def check_min_work_day_break(activity_groups, regulation_check):
                 ).total_seconds()
             latest_work_time = activity.end_time
 
-    if total_work_duration > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
+    if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
         if (
-            total_work_duration <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
+            total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
         ):
-            return ComputationResult(success=False)
+            return ComputationResult(
+                success=False,
+                extra=dict(
+                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_1
+                ),
+            )
         elif (
-            total_work_duration > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
+            total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
         ):
-            return ComputationResult(success=False)
+            return ComputationResult(
+                success=False,
+                extra=dict(
+                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_2
+                ),
+            )
 
     return ComputationResult(success=True)
 

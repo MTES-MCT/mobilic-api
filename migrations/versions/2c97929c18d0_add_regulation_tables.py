@@ -5,9 +5,6 @@ Revises: 420dbfec0b28
 Create Date: 2022-07-12 15:13:46.326828
 
 """
-import json
-from collections import namedtuple
-
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
