@@ -35,9 +35,9 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     return
 
 
-def compute_regulations_per_day(user, day_start, submitter_type):
-    previous_day = day_start - timedelta(1)
-    next_day = day_start + timedelta(2)
+def compute_regulations_per_day(user, day, submitter_type):
+    previous_day = day - timedelta(1)
+    next_day = day + timedelta(2)
     # FIXME handle submitter correctly
     (
         work_days_over_current_past_and_next_days,
@@ -48,7 +48,7 @@ def compute_regulations_per_day(user, day_start, submitter_type):
         until_date=next_day,
     )
 
-    day_start_time = to_datetime(day_start, tz_for_date=tz)
+    day_start_time = to_datetime(day, tz_for_date=tz)
     day_end_time = day_start_time + timedelta(1)
     activity_groups_to_take_into_account = list(
         filter(
@@ -86,7 +86,7 @@ def compute_regulations_per_day(user, day_start, submitter_type):
             if extra is not None:
                 extra_json = json.dumps(extra)
             regulatory_alert = RegulatoryAlert(
-                day=day_start,
+                day=day,
                 extra=extra_json,
                 submitter_type=submitter_type,
                 user=user,
