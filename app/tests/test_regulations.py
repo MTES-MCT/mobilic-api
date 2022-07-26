@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from app import app, db
 from app.domain import regulations
@@ -818,3 +819,20 @@ class TestRegulations(BaseTest):
         self.assertIsNone(
             regulatory_alert[0].regulation_check.date_application_end
         )
+
+    @patch("app.domain.regulations.compute_regulations_per_day")
+    def test_compute_regulations_calls_daily_regulations_for_all_days(
+        self, mock_compute_regulations_per_day
+    ):
+        ## GIVEN
+        employee = self.employee
+        period_start = get_date(how_many_days_ago=18)
+        period_end = get_date(how_many_days_ago=3)
+
+        ## WHEN
+        regulations.compute_regulations(
+            employee, period_start, period_end, SubmitterType.EMPLOYEE
+        )
+
+        ## THEN
+        self.assertEqual(mock_compute_regulations_per_day.call_count, 16)
