@@ -105,6 +105,7 @@ def write_work_days_sheet(
             columns_in_main_sheet,
             user_starting_row_idx,
             row_idx - 1,
+            wday.user.display_name,
         )
         row_idx += 4
     if has_one_bank_holiday:
@@ -117,6 +118,7 @@ def write_user_recap(
     columns_in_main_sheet,
     user_starting_row_idx,
     user_ending_row_idx,
+    user_display_name,
 ):
     recap_col_idx = 0
     previous_has_to_be_summed = False
@@ -126,7 +128,7 @@ def write_user_recap(
                 sheet.write(
                     user_ending_row_idx + 2,
                     recap_col_idx - 1,
-                    "Total",
+                    f"Total {user_display_name}",
                     wb.add_format(
                         {
                             "bg_color": green_hex,
