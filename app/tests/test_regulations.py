@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime
 from unittest.mock import patch
 
 from app import app, db
@@ -824,15 +824,274 @@ class TestRegulations(BaseTest):
     def test_compute_regulations_calls_daily_regulations_for_all_days(
         self, mock_compute_regulations_per_day
     ):
-        ## GIVEN
+        # GIVEN
         employee = self.employee
         period_start = get_date(how_many_days_ago=18)
         period_end = get_date(how_many_days_ago=3)
 
-        ## WHEN
+        # WHEN
         regulations.compute_regulations(
             employee, period_start, period_end, SubmitterType.EMPLOYEE
         )
 
-        ## THEN
+        # THEN
         self.assertEqual(mock_compute_regulations_per_day.call_count, 16)
+
+    def test_compute_regulations_per_week_success(self):
+        # GIVEN
+        company = self.company
+        employee = self.employee
+
+        NB_WEEKS = 3
+        missions = []
+        for i in range(NB_WEEKS):
+            mission = Mission(
+                name=f"mission #{i}",
+                company=company,
+                reception_time=datetime.now(),
+                submitter=employee,
+            )
+            db.session.add(mission)
+            missions.append(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            for i in range(NB_WEEKS):
+                how_many_days_ago = 3 + i * 7
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=get_time(
+                        how_many_days_ago, hour=23, minute=15
+                    ),
+                    start_time=get_time(how_many_days_ago, hour=17),
+                    end_time=get_time(how_many_days_ago, hour=23, minute=15),
+                )
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.WORK,
+                    switch_mode=False,
+                    reception_time=get_time(how_many_days_ago - 1, hour=2),
+                    start_time=get_time(how_many_days_ago, hour=23, minute=45),
+                    end_time=get_time(how_many_days_ago - 1, hour=2),
+                )
+
+                db.session.add(
+                    MissionEnd(
+                        submitter=employee,
+                        reception_time=get_time(how_many_days_ago - 1, hour=2),
+                        user=employee,
+                        mission=missions[i],
+                    )
+                )
+                validate_mission(
+                    submitter=employee, mission=missions[i], for_user=employee
+                )
+        period_start = get_date(how_many_days_ago=3 + NB_WEEKS * 7)
+        period_end = get_date(how_many_days_ago=3)
+
+        # WHEN
+        regulations.compute_regulations(
+            employee, period_start, period_end, SubmitterType.EMPLOYEE
+        )
+
+        # THEN
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(regulatory_alert), 0)
+
+    def test_compute_regulations_per_week_too_many_days(self):
+        # GIVEN
+        company = self.company
+        employee = self.employee
+
+        missions = []
+        for i in range(14):
+            mission = Mission(
+                name=f"Day #{i}",
+                company=company,
+                reception_time=datetime.now(),
+                submitter=employee,
+            )
+            db.session.add(mission)
+            missions.append(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            for i in range(14):
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=datetime(2022, 7, 6 + i, 12),
+                    start_time=datetime(2022, 7, 6 + i, 7),
+                    end_time=datetime(2022, 7, 6 + i, 12),
+                )
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=datetime(2022, 7, 6 + i, 17),
+                    start_time=datetime(2022, 7, 6 + i, 13),
+                    end_time=datetime(2022, 7, 6 + i, 17),
+                )
+
+                db.session.add(
+                    MissionEnd(
+                        submitter=employee,
+                        reception_time=datetime(2022, 7, 6 + i, 17),
+                        user=employee,
+                        mission=missions[i],
+                    )
+                )
+                validate_mission(
+                    submitter=employee, mission=missions[i], for_user=employee
+                )
+        period_start = date(2022, 7, 6)
+        period_end = date(2022, 7, 20)
+
+        # WHEN
+        regulations.compute_regulations(
+            employee, period_start, period_end, SubmitterType.EMPLOYEE
+        )
+
+        # THEN
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(regulatory_alert), 1)
+        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 11))
+        extra_info = json.loads(regulatory_alert[0].extra)
+        self.assertEqual(extra_info["too_many_days"], True)
+
+    def test_compute_regulations_per_week_not_enough_break(self):
+        # GIVEN
+        company = self.company
+        employee = self.employee
+
+        missions = []
+        for i in range(6):
+            mission = Mission(
+                name=f"Day #{i}",
+                company=company,
+                reception_time=datetime.now(),
+                submitter=employee,
+            )
+            db.session.add(mission)
+            missions.append(mission)
+
+        mission_final = Mission(
+            name=f"Final day",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission_final)
+
+        with AuthenticatedUserContext(user=employee):
+            for i in range(6):
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=datetime(2022, 7, 18 + i, 12),
+                    start_time=datetime(2022, 7, 18 + i, 7),
+                    end_time=datetime(2022, 7, 18 + i, 12),
+                )
+                log_activity(
+                    submitter=employee,
+                    user=employee,
+                    mission=missions[i],
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=datetime(2022, 7, 18 + i, 17),
+                    start_time=datetime(2022, 7, 18 + i, 13),
+                    end_time=datetime(2022, 7, 18 + i, 17),
+                )
+
+                db.session.add(
+                    MissionEnd(
+                        submitter=employee,
+                        reception_time=datetime(2022, 7, 18 + i, 17),
+                        user=employee,
+                        mission=missions[i],
+                    )
+                )
+                validate_mission(
+                    submitter=employee, mission=missions[i], for_user=employee
+                )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission_final,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=datetime(2022, 7, 25, 12),
+                start_time=datetime(2022, 7, 25, 7),
+                end_time=datetime(2022, 7, 25, 12),
+            )
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission_final,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=datetime(2022, 7, 25, 17),
+                start_time=datetime(2022, 7, 25, 13),
+                end_time=datetime(2022, 7, 25, 17),
+            )
+
+            db.session.add(
+                MissionEnd(
+                    submitter=employee,
+                    reception_time=datetime(2022, 7, 25, 17),
+                    user=employee,
+                    mission=mission_final,
+                )
+            )
+            validate_mission(
+                submitter=employee, mission=mission_final, for_user=employee
+            )
+
+        period_start = date(2022, 7, 18)
+        period_end = date(2022, 7, 25)
+
+        # WHEN
+        regulations.compute_regulations(
+            employee, period_start, period_end, SubmitterType.EMPLOYEE
+        )
+
+        # THEN
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(regulatory_alert), 1)
+        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
+        extra_info = json.loads(regulatory_alert[0].extra)
+        self.assertEqual(extra_info["rest_duration_s"], 111600)

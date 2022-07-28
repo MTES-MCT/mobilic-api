@@ -72,6 +72,11 @@ def get_regulation_checks():
             label="Non-respect(s) du repos hebdomadaire",
             description="Il est interdit de travailler plus de six jours dans la semaine (article L. 3132-1 du code du travail). Le repos hebdomadaire doit durer au minimum 34h (article L. 3132-2 du code du travail)",
             regulation_rule="weeklyRest",
-            variables=json.dumps(dict()),
+            variables=json.dumps(
+                dict(
+                    MINIMUM_WEEKLY_BREAK_IN_HOURS=34,
+                    MAXIMUM_DAY_WORKED_BY_WEEK=6,
+                )
+            ),
         ),
     ]

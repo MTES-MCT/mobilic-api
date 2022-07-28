@@ -37,8 +37,3 @@ def get_time(how_many_days_ago, hour, minute=0):
 def get_date(how_many_days_ago):
     today = datetime.date.today()
     return today - datetime.timedelta(days=how_many_days_ago)
-
-
-def get_dates_range(start_date, end_date):
-    for n in range(int((end_date - start_date).days) + 1):
-        yield start_date + datetime.timedelta(n)
