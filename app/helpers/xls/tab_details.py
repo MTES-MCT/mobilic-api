@@ -122,7 +122,7 @@ def write_day_details_sheet(
             user_starting_row_idx,
             row_idx,
             0,
-            wday.user.display_name,
+            f"{wday.user.display_name}\nIdentifiant : {wday.user.id}",
             formats.get("merged_top"),
         )
         for col_to_format in range(col_idx):
