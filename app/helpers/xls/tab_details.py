@@ -63,11 +63,12 @@ def write_day_details_sheet(
                         mission.history, key=lambda ev: ev.time
                     ):
                         col_idx = 0
-                        additional_format = (
-                            {"top": 1}
-                            if mission_starting_row_idx == row_idx
-                            else None
-                        )
+                        additional_format = {
+                            "text_wrap": True,
+                            "valign": "top",
+                        }
+                        if mission_starting_row_idx == row_idx:
+                            additional_format["top"] = 1
                         col_idx = write_cells(
                             wb,
                             sheet,

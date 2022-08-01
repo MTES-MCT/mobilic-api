@@ -41,7 +41,7 @@ formats = dict(
     bold={"bold": True},
     wrap={"text_wrap": True},
     center={"align": "center"},
-    merged_top={"bold": True, "valign": "top", "border": 1},
+    merged_top={"bold": True, "valign": "top", "border": 1, "text_wrap": True},
     merged_center={"valign": "vcenter", "align": "center", "border": 1},
     **date_formats,
 )

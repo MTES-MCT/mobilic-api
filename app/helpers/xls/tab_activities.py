@@ -125,10 +125,14 @@ def write_user_recap(
     for (_, _, style, _, _, has_to_be_summed) in columns_in_main_sheet:
         if has_to_be_summed:
             if not previous_has_to_be_summed:
+                text_to_write = f"Total {user_display_name}"
+                width_needed = len(text_to_write) + 4
+                row_ = user_ending_row_idx + 2
+                col_ = recap_col_idx - 1
                 sheet.write(
-                    user_ending_row_idx + 2,
-                    recap_col_idx - 1,
-                    f"Total {user_display_name}",
+                    row_,
+                    col_,
+                    text_to_write,
                     wb.add_format(
                         {
                             "bg_color": green_hex,
@@ -138,6 +142,7 @@ def write_user_recap(
                         }
                     ),
                 )
+                sheet.set_column(row_, col_, width_needed)
             sheet.write_formula(
                 user_ending_row_idx + 2,
                 recap_col_idx,
