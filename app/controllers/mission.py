@@ -4,6 +4,12 @@ from datetime import datetime
 from sqlalchemy.orm import selectinload
 
 from app import app, db
+from app.controllers.activity import BulkActivityItem, play_bulk_activity_items
+from app.controllers.expenditure import (
+    BulkExpenditureItem,
+    cancel_expenditure,
+    log_expenditure_,
+)
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -265,6 +271,21 @@ class ValidateMission(AuthenticatedMutation):
             required=False,
             description="Optionnel, date de saisie de la validation",
         )
+        activity_items = graphene.List(
+            BulkActivityItem,
+            required=False,
+            description="Optionnel, liste de modifications/créations d'activités à jouer avant validation",
+        )
+        expenditures_cancel_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Optionnel, identifiants des frais à annuler",
+        )
+        expenditures_inputs = graphene.List(
+            BulkExpenditureItem,
+            required=False,
+            description="Optionnel, frais à créer",
+        )
 
     Output = MissionValidationOutput
 
@@ -276,8 +297,26 @@ class ValidateMission(AuthenticatedMutation):
         ).get(kwargs["mission_id"]),
         error_message="Actor is not authorized to validate the mission",
     )
-    def mutate(cls, _, info, mission_id, user_id=None, creation_time=None):
+    def mutate(
+        cls,
+        _,
+        info,
+        mission_id,
+        user_id=None,
+        creation_time=None,
+        activity_items=[],
+        expenditures_cancel_ids=[],
+        expenditures_inputs=[],
+    ):
         with atomic_transaction(commit_at_end=True):
+            play_bulk_activity_items(activity_items)
+
+            for expenditure_cancel_id in expenditures_cancel_ids:
+                cancel_expenditure(expenditure_cancel_id)
+
+            for expenditure_input in expenditures_inputs:
+                log_expenditure_(expenditure_input)
+
             mission = Mission.query.get(mission_id)
 
             user = None
