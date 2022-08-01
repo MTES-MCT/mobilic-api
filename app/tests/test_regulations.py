@@ -196,7 +196,7 @@ class TestRegulations(BaseTest):
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -263,7 +263,7 @@ class TestRegulations(BaseTest):
     def test_max_work_day_time_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -331,7 +331,7 @@ class TestRegulations(BaseTest):
     def test_max_work_day_time_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -403,7 +403,7 @@ class TestRegulations(BaseTest):
         company = self.company
         employee = self.employee
         admin = self.admin
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -425,7 +425,7 @@ class TestRegulations(BaseTest):
                 start_time=get_time(how_many_days_ago, hour=4),
                 end_time=get_time(how_many_days_ago, hour=7),
             )
-
+            print(f"{get_time(how_many_days_ago, hour=4)}")
             log_activity(
                 submitter=employee,
                 user=employee,
@@ -479,7 +479,7 @@ class TestRegulations(BaseTest):
     def test_min_work_day_break_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -547,7 +547,7 @@ class TestRegulations(BaseTest):
     def test_min_work_day_break_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -617,7 +617,7 @@ class TestRegulations(BaseTest):
     def test_max_uninterrupted_work_time_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -680,12 +680,13 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.day == day_start,
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
+        print(f"{regulatory_alert}")
         self.assertIsNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_failure(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         mission = Mission(
@@ -753,7 +754,7 @@ class TestRegulations(BaseTest):
     def test_use_latest_regulation_check_by_type(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 1
+        how_many_days_ago = 2
 
         # GIVEN
         expired_regulation_data = RegulationCheckData(
