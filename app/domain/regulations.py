@@ -6,7 +6,6 @@ from app import db
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.errors import InvalidResourceError
 from app.helpers.time import (
-    FR_TIMEZONE,
     get_dates_range,
     get_first_day_of_week,
     get_last_day_of_week,
@@ -21,7 +20,6 @@ from sqlalchemy import desc
 DAY = 86400
 HOUR = 3600
 MINUTE = 60
-tz = FR_TIMEZONE  # TODO dynamic tz?
 
 ComputationResult = namedtuple(
     "ComputationResult", ["success", "extra"], defaults=(False, None)
@@ -60,7 +58,7 @@ def compute_regulations_per_day(user, day, submitter_type):
         until_date=next_day,
     )
 
-    day_start_time = to_datetime(day, tz_for_date=tz)
+    day_start_time = to_datetime(day)
     day_end_time = day_start_time + timedelta(1)
     activity_groups_to_take_into_account = list(
         filter(
@@ -339,7 +337,7 @@ def compute_weekly_rest_duration(week):
         else:
 
             if day["overlap_previous_day"] is False:
-                current_day_time = to_datetime(current_day, tz_for_date=tz)
+                current_day_time = to_datetime(current_day)
                 current_outer_break += (
                     day["start_time"] - current_day_time
                 ).total_seconds()
