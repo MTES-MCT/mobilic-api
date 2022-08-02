@@ -33,13 +33,12 @@ from app.helpers.authentication_controller import _refresh_controller_token
 def current_flask_user():
     try:
         verify_jwt_in_request()
-    except (NoAuthorizationError, InvalidHeaderError):
+    except:
         return None
     return current_actor
 
 
 current_user = LocalProxy(lambda: g.get("user") or current_flask_user())
-
 
 from app.models.controller_user import ControllerUser
 from app.models.user import User
