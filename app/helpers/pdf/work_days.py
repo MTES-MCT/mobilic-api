@@ -161,7 +161,7 @@ def _get_detail_columns(
             ),
             Column(
                 name="night_hours",
-                label="Dont heures de travail de nuit",
+                label="Dont heures au tarif nuit",
                 color="#C9CBFF",
                 format=format_seconds_duration,
                 secondary=True,
