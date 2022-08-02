@@ -50,7 +50,7 @@ def get_agent_connect_user_info(authorization_code, original_redirect_uri):
             jwt_token_response,
             signing_key.key,
             algorithms=["ES256"],
-            audience=app.config["AC_AUDIENCE"],
+            audience=app.config["AC_CLIENT_ID"],
         )
     except json.decoder.JSONDecodeError:
         raise AgentConnectAuthenticationError("Unable to parse user info")

@@ -45,7 +45,6 @@ class Config:
     AC_TOKEN_URL = os.environ.get("AC_TOKEN_URL")
     AC_LOGOUT_URL = os.environ.get("AC_LOGOUT_URL")
     AC_USER_INFO_URL = os.environ.get("AC_USER_INFO_URL")
-    AC_AUDIENCE = os.environ.get("AC_AUDIENCE")
     AC_JWKS_INFO = os.environ.get("AC_JWKS_INFO")
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
     MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
