@@ -6,9 +6,9 @@ from flask import after_this_request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
-    jwt_refresh_token_required,
     get_jwt_identity,
     current_user as current_actor,
+    jwt_required,
 )
 from flask_jwt_extended.exceptions import (
     NoAuthorizationError,
@@ -118,7 +118,7 @@ def create_access_tokens_for_controller(
                 ),
                 "controller": True,
             },
-            expires_delta=False,
+            expires_delta=None,
         ),
     }
     db.session.commit()
@@ -126,7 +126,7 @@ def create_access_tokens_for_controller(
 
 
 @wrap_jwt_errors
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def _refresh_controller_token():
     delete_controller_refresh_token()
     tokens = create_access_tokens_for_controller(current_actor)
@@ -141,7 +141,7 @@ def _refresh_controller_token():
     return tokens
 
 
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def delete_controller_refresh_token():
     from app.models.controller_refresh_token import ControllerRefreshToken
 

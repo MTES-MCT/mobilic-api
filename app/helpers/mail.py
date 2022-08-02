@@ -409,7 +409,7 @@ class Mailer:
             },
             app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
-        ).decode("utf-8")
+        )
         activation_link = (
             f"{app.config['FRONTEND_URL']}/activate_email?token={token}"
         )
@@ -480,7 +480,7 @@ class Mailer:
             },
             app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
-        ).decode("utf-8")
+        )
         reset_link = (
             f"{app.config['FRONTEND_URL']}/reset_password?token={token}"
         )

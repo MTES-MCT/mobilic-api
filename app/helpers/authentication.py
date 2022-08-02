@@ -1,33 +1,44 @@
 from calendar import timegm
+from datetime import datetime
+from functools import wraps
 
+import graphene
 from flask import g, after_this_request, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
     verify_jwt_in_request,
-    jwt_refresh_token_required,
     current_user as current_actor,
-    get_raw_jwt,
     get_jwt_identity,
     JWTManager,
+    get_jwt,
 )
-from datetime import date, datetime
-import graphene
 from flask_jwt_extended.exceptions import (
     JWTExtendedException,
     NoAuthorizationError,
     InvalidHeaderError,
-    UserLoadError,
+    UserLookupError,
 )
-from flask_jwt_extended.view_decorators import _decode_jwt_from_headers
+from flask_jwt_extended.view_decorators import (
+    _decode_jwt_from_headers,
+    jwt_required,
+)
 from jwt import PyJWTError
-from functools import wraps
 from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
 from app.helpers.authentication_controller import _refresh_controller_token
 
-current_user = LocalProxy(lambda: g.get("user") or current_actor)
+
+def current_flask_user():
+    try:
+        verify_jwt_in_request()
+    except (NoAuthorizationError, InvalidHeaderError):
+        return None
+    return current_actor
+
+
+current_user = LocalProxy(lambda: g.get("user") or current_flask_user())
 
 
 from app.models.controller_user import ControllerUser
@@ -78,7 +89,7 @@ def check_auth():
         raise AuthenticationError(
             "Unable to find a valid cookie or authorization header"
         )
-    except UserLoadError:
+    except UserLookupError:
         raise AuthenticationError("Invalid token")
     except (JWTExtendedException, PyJWTError):
         verify_oauth_token_in_request()
@@ -120,27 +131,27 @@ def wrap_jwt_errors(f):
 
 
 @jwt.expired_token_loader
-def raise_expired_token_error(token_data):
-    raise AuthenticationError(f"Expired {token_data['type']} token")
+def raise_expired_token_error(jwt_header, jwt_payload):
+    raise AuthenticationError(f"Expired {jwt_payload['type']} token")
 
 
-@jwt.user_loader_callback_loader
-def get_user_from_token_identity(identity):
-    if identity.get("controller"):
+@jwt.user_lookup_loader
+def get_user_from_token_identity(jwt_header, jwt_payload):
+    if jwt_payload["sub"].get("controller"):
         controller_user = ControllerUser.query.get(
-            identity["controllerUserId"]
+            jwt_payload["sub"]["controllerUserId"]
         )
         return controller_user
-    user = User.query.get(identity["id"])
+    user = User.query.get(jwt_payload["sub"]["id"])
     if not user:
         return None
     # Check that token is not revoked
-    token_issued_at = get_raw_jwt()["iat"]
+    token_issued_at = jwt_payload["iat"]
     if user.latest_token_revocation_time and token_issued_at < int(
         user.latest_token_revocation_time.timestamp()
     ):
         return None
-    g.client_id = identity.get("client_id")
+    g.client_id = jwt_payload["sub"].get("client_id")
     return user
 
 
@@ -164,7 +175,7 @@ def create_access_tokens_for(
                 "token": RefreshToken.create_refresh_token(user),
                 "client_id": client_id,
             },
-            expires_delta=False,
+            expires_delta=None,
         ),
     }
     db.session.commit()
@@ -402,7 +413,7 @@ class Auth(graphene.ObjectType):
 
 
 @wrap_jwt_errors
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def _refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
@@ -419,7 +430,7 @@ def _refresh_token():
 
 @app.route("/token/refresh", methods=["POST"])
 @wrap_jwt_errors
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def rest_refresh_token():
     try:
         identity = get_jwt_identity()
@@ -455,7 +466,7 @@ def rest_logout():
     return jsonify({"success": True}), 200
 
 
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
     from app.models.controller_refresh_token import ControllerRefreshToken

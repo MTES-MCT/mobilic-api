@@ -11,7 +11,7 @@ def create_controller_user(ac_info):
         last_name=ac_info.get("usual_name"),
         email=ac_info.get("email"),
         agent_connect_info=ac_info,
-        organizational_unit="mobilic",
+        organizational_unit=ac_info.get("organizational_unit"),
     )
     db.session.add(controller)
     db.session.flush()

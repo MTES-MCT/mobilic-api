@@ -87,12 +87,12 @@ def get_or_create_token(client, grant_type, user=None, **kwargs):
 authorization.generate_token = get_or_create_token
 authorization.register_grant(AuthorizationCodeGrant)
 
-oauth_blueprint = Blueprint(__name__, "app.helpers.oauth")
+oauth_blueprint = Blueprint("oauth", __name__)
 
 
 @oauth_blueprint.route("/authorize", methods=["GET"])
 @wrap_jwt_errors
-@jwt_required
+@jwt_required()
 def authorize():
     response = authorization.create_authorization_response(
         grant_user=current_user if not request.args.get("deny") else None
