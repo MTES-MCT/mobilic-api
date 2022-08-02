@@ -449,7 +449,12 @@ class Mailer:
                 user=user,
                 type_=EmailType.COMPANY_CREATION,
                 first_name=user.first_name,
-                website_link=Markup(app.config["FRONTEND_URL"]),
+                website_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/login?next=/admin/company"
+                ),
+                documentation_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/resources/admin"
+                ),
                 company_name=company.name,
                 company_siren=Markup(company.siren),
                 contact_email=Markup(SENDER_ADDRESS),
