@@ -13,9 +13,10 @@ from app.helpers.time import (
 )
 from app.models import RegulationCheck
 from app.models.activity import ActivityType
-from app.models.regulation_check import RegulationCheckType
+from app.models.regulation_check import RegulationCheckType, UnitType
 from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
+from sqlalchemy.orm import selectinload
 
 DAY = 86400
 HOUR = 3600
@@ -28,6 +29,9 @@ ComputationResult = namedtuple(
 
 def compute_regulations(user, period_start, period_end, submitter_type):
 
+    # Clean current alerts
+    clean_current_alerts(user, period_start, period_end, submitter_type)
+
     # Compute daily rules for each day
     (
         work_days_over_current_past_and_next_days,
@@ -35,7 +39,6 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     ) = group_user_events_by_day_with_limit(
         user, from_date=period_start, until_date=period_end
     )
-
     for day in get_dates_range(period_start, period_end):
         compute_regulations_per_day(
             user,
@@ -56,6 +59,37 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         compute_regulations_per_week(user, week, submitter_type)
 
 
+def clean_current_alerts(user, period_start, period_end, submitter_type):
+    db.session.query(RegulatoryAlert).filter(
+        RegulatoryAlert.user == user,
+        RegulatoryAlert.submitter_type == submitter_type,
+        RegulatoryAlert.day >= period_start,
+        RegulatoryAlert.day <= period_end,
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.unit == UnitType.DAY
+        ),
+    ).delete(
+        synchronize_session=False
+    )  # https://docs.sqlalchemy.org/en/14/orm/session_basics.html#selecting-a-synchronization-strategy
+
+    first_day_first_week = get_first_day_of_week(period_start)
+    first_day_last_week = get_first_day_of_week(period_end)
+    db.session.query(RegulatoryAlert).options(
+        selectinload(RegulatoryAlert.regulation_check)
+    ).filter(
+        RegulatoryAlert.user == user,
+        RegulatoryAlert.submitter_type == submitter_type,
+        RegulatoryAlert.day >= first_day_first_week,
+        RegulatoryAlert.day <= first_day_last_week,
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.unit == UnitType.WEEK
+        ),
+    ).delete(
+        synchronize_session=False
+    )
+    # db.session.commit()
+
+
 def compute_regulations_per_day(
     user, day, submitter_type, work_days_over_current_past_and_next_days
 ):
@@ -69,14 +103,7 @@ def compute_regulations_per_day(
         )
     )
 
-    regulatory_checks = {
-        RegulationCheckType.MINIMUM_DAILY_REST: check_min_daily_rest,
-        RegulationCheckType.MAXIMUM_WORK_DAY_TIME: check_max_work_day_time,
-        RegulationCheckType.MINIMUM_WORK_DAY_BREAK: check_min_work_day_break,
-        RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: check_max_uninterrupted_work_time,
-    }
-
-    for type, computation in regulatory_checks.items():
+    for type, computation in DAILY_REGULATION_CHECKS.items():
         # IMPROVE: instead of using the latest, use the one valid for the day target
         regulation_check = (
             RegulationCheck.query.filter(RegulationCheck.type == type)
@@ -107,11 +134,8 @@ def compute_regulations_per_day(
 
 
 def compute_regulations_per_week(user, week, submitter_type):
-    regulatory_checks = {
-        RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK: check_max_worked_day_in_week,
-    }
 
-    for type, computation in regulatory_checks.items():
+    for type, computation in WEEKLY_REGULATION_CHECKS.items():
         # IMPROVE: instead of using the latest, use the one valid for the day target
         regulation_check = (
             RegulationCheck.query.filter(RegulationCheck.type == type)
@@ -377,3 +401,15 @@ def check_max_worked_day_in_week(week, regulation_check):
         )
 
     return ComputationResult(success=True)
+
+
+DAILY_REGULATION_CHECKS = {
+    RegulationCheckType.MINIMUM_DAILY_REST: check_min_daily_rest,
+    RegulationCheckType.MAXIMUM_WORK_DAY_TIME: check_max_work_day_time,
+    RegulationCheckType.MINIMUM_WORK_DAY_BREAK: check_min_work_day_break,
+    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: check_max_uninterrupted_work_time,
+}
+
+WEEKLY_REGULATION_CHECKS = {
+    RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK: check_max_worked_day_in_week,
+}

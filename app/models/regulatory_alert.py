@@ -36,3 +36,10 @@ class RegulatoryAlert(BaseModel):
             name="only_one_entry_per_user_day_check_and_submitter_type",
         ),
     )
+
+    def __repr__(self):
+        return f"<RegulatoryAlert [{self.id}] : \
+          User {self.user}, \
+          SubmitterType {self.submitter_type}, \
+          RegulationCheck {self.regulation_check}, \
+          Day {self.day}>"

@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
-from app.models.regulation_check import RegulationCheckType, RegulationRule
+from app.models.regulation_check import (
+    RegulationCheckType,
+    RegulationRule,
+    UnitType,
+)
 
 
 @dataclass
@@ -13,6 +17,7 @@ class RegulationCheckData:
     description: str
     regulation_rule: RegulationRule
     variables: str
+    unit: UnitType
     date_application_start: date = datetime(2019, 11, 1)
     date_application_end: Optional[date] = None
 
@@ -20,7 +25,7 @@ class RegulationCheckData:
 def get_regulation_checks():
     return [
         RegulationCheckData(
-            type="minimumDailyRest",
+            type="minimumDailyRest",  # TODO use enum
             label="Non-respect(s) du repos quotidien",
             description="La durée du repos quotidien est d'au-moins 10h toutes les 24h (article R. 3312-53, 2° du code des transports)",
             regulation_rule="dailyRest",
@@ -29,6 +34,7 @@ def get_regulation_checks():
                     LONG_BREAK_DURATION_IN_HOURS=10,
                 )
             ),
+            unit=UnitType.DAY,
         ),
         RegulationCheckData(
             type="maximumWorkDayTime",
@@ -42,6 +48,7 @@ def get_regulation_checks():
                     # START_DAY_WORK_HOUR=5,
                 )
             ),
+            unit=UnitType.DAY,
         ),
         RegulationCheckData(
             type="minimumWorkDayBreak",
@@ -57,6 +64,7 @@ def get_regulation_checks():
                     MINIMUM_DURATION_BREAK_IN_MIN_2=45,
                 )
             ),
+            unit=UnitType.DAY,
         ),
         RegulationCheckData(
             type="maximumUninterruptedWorkTime",
@@ -66,6 +74,7 @@ def get_regulation_checks():
             variables=json.dumps(
                 dict(MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS=6)
             ),
+            unit=UnitType.DAY,
         ),
         RegulationCheckData(
             type="maximumWorkedDaysInWeek",
@@ -78,5 +87,6 @@ def get_regulation_checks():
                     MAXIMUM_DAY_WORKED_BY_WEEK=6,
                 )
             ),
+            unit=UnitType.WEEK,
         ),
     ]

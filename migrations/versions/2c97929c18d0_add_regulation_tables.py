@@ -33,7 +33,8 @@ def fill_regulation_checks():
               description,
               date_application_start,
               regulation_rule,
-              variables
+              variables,
+              unit
             )
             VALUES
             (
@@ -43,7 +44,8 @@ def fill_regulation_checks():
               :description,
               TIMESTAMP '2019-11-01',
               :regulation_rule,
-              :variables
+              :variables,
+              :unit
             )
             """
             ),
@@ -53,6 +55,7 @@ def fill_regulation_checks():
                 description=r.description,
                 regulation_rule=r.regulation_rule,
                 variables=r.variables,
+                unit=r.unit,
             ),
         )
 
@@ -70,6 +73,16 @@ def upgrade():
                 "maximumUninterruptedWorkTime",
                 "maximumWorkedDaysInWeek",
                 name="regulationchecktype",
+                native_enum=False,
+            ),
+            nullable=False,
+        ),
+        sa.Column(
+            "unit",
+            sa.Enum(
+                "day",
+                "week",
+                name="unittype",
                 native_enum=False,
             ),
             nullable=False,

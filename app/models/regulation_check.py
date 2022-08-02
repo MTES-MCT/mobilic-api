@@ -20,6 +20,16 @@ Enumération des valeurs suivantes.
 """
 
 
+class UnitType(str, Enum):
+    DAY = "day"
+    WEEK = "week"
+    __description__ = """
+Enumération des valeurs suivantes.
+- "day" : règle journalière
+- "week" : règle hebdomadaire
+"""
+
+
 class RegulationCheckType(str, Enum):
     MINIMUM_DAILY_REST = "minimumDailyRest"
     MAXIMUM_WORK_DAY_TIME = "maximumWorkDayTime"
@@ -46,6 +56,7 @@ class RegulationCheck(BaseModel):
     date_application_end = db.Column(db.Date, nullable=True)
     regulation_rule = enum_column(RegulationRule, nullable=False)
     variables = db.Column(JSONB(none_as_null=True), nullable=True)
+    unit = enum_column(UnitType, nullable=False)
 
     def __repr__(self):
         return f"<RegulationCheck [{self.id}] : {self.type}>"

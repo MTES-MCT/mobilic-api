@@ -7,9 +7,13 @@ from app.domain import regulations
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
-from app.models import Mission, MissionEnd
+from app.models import Mission
 from app.models.activity import ActivityType
-from app.models.regulation_check import RegulationCheck, RegulationCheckType
+from app.models.regulation_check import (
+    RegulationCheck,
+    RegulationCheckType,
+    UnitType,
+)
 from app.models.regulatory_alert import RegulatoryAlert
 from app.models.user import User
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
@@ -37,7 +41,8 @@ def insert_regulation_check(regulation_data):
               date_application_start,
               date_application_end,
               regulation_rule,
-              variables
+              variables,
+              unit
             )
             VALUES
             (
@@ -48,7 +53,8 @@ def insert_regulation_check(regulation_data):
               :date_application_start,
               :date_application_end,
               :regulation_rule,
-              :variables
+              :variables,
+              :unit
             )
             """,
         dict(
@@ -59,6 +65,7 @@ def insert_regulation_check(regulation_data):
             date_application_end=regulation_data.date_application_end,
             regulation_rule=regulation_data.regulation_rule,
             variables=regulation_data.variables,
+            unit=regulation_data.unit,
         ),
     )
 
@@ -131,7 +138,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="8h drive J",
             company=company,
@@ -160,14 +166,6 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago, hour=15),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=15),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
@@ -183,27 +181,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=15),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=15),
-                    user=employee,
-                    mission=mission_next_day,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission_next_day, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -251,27 +234,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=5),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=5),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -287,7 +255,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="3h transfer + 10h drive (day)",
             company=company,
@@ -319,27 +286,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago, hour=17),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=17),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -356,7 +308,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="3h work (night) + 8h drive",
             company=company,
@@ -388,27 +339,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago, hour=15),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=15),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -429,7 +365,6 @@ class TestRegulations(BaseTest):
         admin = self.admin
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="3h work (night) + 10h drive",
             company=company,
@@ -460,14 +395,6 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago, hour=17),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=17),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
@@ -478,14 +405,7 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.ADMIN
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -505,7 +425,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="8h30 work with 30m break",
             company=company,
@@ -537,27 +456,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=2),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=2),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -574,7 +478,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="9h30 work with 30m break",
             company=company,
@@ -606,27 +509,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=2),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=2),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -645,7 +533,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="5h15 drive - 30m pause - 2h15 work",
             company=company,
@@ -677,27 +564,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=2),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=2),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -714,7 +586,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         mission = Mission(
             name="6h15 drive - 30m pause - 2h15 work",
             company=company,
@@ -746,27 +617,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago - 1, hour=2),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago - 1, hour=2),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -783,7 +639,6 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
         expired_regulation_data = RegulationCheckData(
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
@@ -792,6 +647,7 @@ class TestRegulations(BaseTest):
             date_application_end=datetime(2019, 11, 1),
             regulation_rule="dailyRest",
             variables=None,
+            unit=UnitType.DAY,
         )
         insert_regulation_check(expired_regulation_data)
 
@@ -815,27 +671,12 @@ class TestRegulations(BaseTest):
                 end_time=get_time(how_many_days_ago, hour=19),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=get_time(how_many_days_ago, hour=19),
-                    user=employee,
-                    mission=mission,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission, for_user=employee
             )
 
         day_start = get_date(how_many_days_ago)
-        day_end = get_date(how_many_days_ago - 1)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, day_start, day_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -867,7 +708,6 @@ class TestRegulations(BaseTest):
         self.assertEqual(mock_compute_regulations_per_day.call_count, 16)
 
     def test_compute_regulations_per_week_success(self):
-        # GIVEN
         company = self.company
         employee = self.employee
 
@@ -909,26 +749,10 @@ class TestRegulations(BaseTest):
                     end_time=get_time(how_many_days_ago - 1, hour=2),
                 )
 
-                db.session.add(
-                    MissionEnd(
-                        submitter=employee,
-                        reception_time=get_time(how_many_days_ago - 1, hour=2),
-                        user=employee,
-                        mission=missions[i],
-                    )
-                )
                 validate_mission(
                     submitter=employee, mission=missions[i], for_user=employee
                 )
-        period_start = get_date(how_many_days_ago=3 + NB_WEEKS * 7)
-        period_end = get_date(how_many_days_ago=3)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, period_start, period_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -940,7 +764,6 @@ class TestRegulations(BaseTest):
         self.assertEqual(len(regulatory_alert), 0)
 
     def test_compute_regulations_per_week_too_many_days(self):
-        # GIVEN
         company = self.company
         employee = self.employee
 
@@ -978,26 +801,10 @@ class TestRegulations(BaseTest):
                     end_time=datetime(2022, 7, 6 + i, 17),
                 )
 
-                db.session.add(
-                    MissionEnd(
-                        submitter=employee,
-                        reception_time=datetime(2022, 7, 6 + i, 17),
-                        user=employee,
-                        mission=missions[i],
-                    )
-                )
                 validate_mission(
                     submitter=employee, mission=missions[i], for_user=employee
                 )
-        period_start = date(2022, 7, 6)
-        period_end = date(2022, 7, 20)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, period_start, period_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -1012,7 +819,6 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["too_many_days"], True)
 
     def test_compute_regulations_per_week_not_enough_break(self):
-        # GIVEN
         company = self.company
         employee = self.employee
 
@@ -1058,14 +864,6 @@ class TestRegulations(BaseTest):
                     end_time=datetime(2022, 7, 18 + i, 17),
                 )
 
-                db.session.add(
-                    MissionEnd(
-                        submitter=employee,
-                        reception_time=datetime(2022, 7, 18 + i, 17),
-                        user=employee,
-                        mission=missions[i],
-                    )
-                )
                 validate_mission(
                     submitter=employee, mission=missions[i], for_user=employee
                 )
@@ -1091,27 +889,10 @@ class TestRegulations(BaseTest):
                 end_time=datetime(2022, 7, 25, 17),
             )
 
-            db.session.add(
-                MissionEnd(
-                    submitter=employee,
-                    reception_time=datetime(2022, 7, 25, 17),
-                    user=employee,
-                    mission=mission_final,
-                )
-            )
             validate_mission(
                 submitter=employee, mission=mission_final, for_user=employee
             )
 
-        period_start = date(2022, 7, 18)
-        period_end = date(2022, 7, 25)
-
-        # WHEN
-        regulations.compute_regulations(
-            employee, period_start, period_end, SubmitterType.EMPLOYEE
-        )
-
-        # THEN
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -1124,3 +905,5 @@ class TestRegulations(BaseTest):
         self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
         extra_info = json.loads(regulatory_alert[0].extra)
         self.assertEqual(extra_info["rest_duration_s"], 111600)
+
+    # TODO #613: add test at the end of the month
