@@ -106,6 +106,26 @@ class TestRegulations(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
+    def test_no_activity_all_success(self):
+        employee = self.employee
+        how_many_days_ago = 2
+
+        day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
+
+        # WHEN
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
+        )
+
+        # THEN
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
+
     def test_min_daily_rest_by_employee_success(self):
         company = self.company
         employee = self.employee
@@ -176,10 +196,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -243,10 +264,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -310,10 +332,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -378,10 +401,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -425,7 +449,6 @@ class TestRegulations(BaseTest):
                 start_time=get_time(how_many_days_ago, hour=4),
                 end_time=get_time(how_many_days_ago, hour=7),
             )
-            print(f"{get_time(how_many_days_ago, hour=4)}")
             log_activity(
                 submitter=employee,
                 user=employee,
@@ -455,10 +478,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.ADMIN
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.ADMIN
         )
 
         # THEN
@@ -526,10 +550,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -594,10 +619,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -664,10 +690,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -680,7 +707,6 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.day == day_start,
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        print(f"{regulatory_alert}")
         self.assertIsNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_failure(self):
@@ -733,10 +759,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN
@@ -801,10 +828,11 @@ class TestRegulations(BaseTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        day_end = get_date(how_many_days_ago - 1)
 
         # WHEN
-        regulations.compute_regulations_per_day(
-            employee, day_start, SubmitterType.EMPLOYEE
+        regulations.compute_regulations(
+            employee, day_start, day_end, SubmitterType.EMPLOYEE
         )
 
         # THEN

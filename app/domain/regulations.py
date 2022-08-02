@@ -29,13 +29,24 @@ ComputationResult = namedtuple(
 def compute_regulations(user, period_start, period_end, submitter_type):
 
     # Compute daily rules for each day
+    (
+        work_days_over_current_past_and_next_days,
+        _,
+    ) = group_user_events_by_day_with_limit(
+        user, from_date=period_start, until_date=period_end
+    )
+
     for day in get_dates_range(period_start, period_end):
-        compute_regulations_per_day(user, day, submitter_type)
+        compute_regulations_per_day(
+            user,
+            day,
+            submitter_type,
+            work_days_over_current_past_and_next_days,
+        )
 
     # Compute weekly rules
     from_date = get_first_day_of_week(period_start)
     until_date = get_last_day_of_week(period_end)
-
     work_days, _ = group_user_events_by_day_with_limit(
         user, from_date=from_date, until_date=until_date
     )
@@ -45,19 +56,9 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         compute_regulations_per_week(user, week, submitter_type)
 
 
-def compute_regulations_per_day(user, day, submitter_type):
-    previous_day = day - timedelta(1)
-    next_day = day + timedelta(2)
-    # FIXME handle submitter correctly
-    (
-        work_days_over_current_past_and_next_days,
-        _,
-    ) = group_user_events_by_day_with_limit(
-        user,
-        from_date=previous_day,
-        until_date=next_day,
-    )
-
+def compute_regulations_per_day(
+    user, day, submitter_type, work_days_over_current_past_and_next_days
+):
     day_start_time = to_datetime(day)
     day_end_time = day_start_time + timedelta(1)
     activity_groups_to_take_into_account = list(
@@ -309,6 +310,7 @@ def group_user_events_by_week(
                 "date": wd.day,
                 "start_time": wd.start_time,
                 "end_time": wd.end_time or wd.end_of_day,
+                "end_day": wd.end_of_day,
                 "overlap_previous_day": wd.is_first_mission_overlapping_with_previous_day,
                 "overlap_next_day": wd.is_last_mission_overlapping_with_next_day,
             }
@@ -346,11 +348,7 @@ def compute_weekly_rest_duration(week):
                     current_outer_break = 0
 
             if day["overlap_next_day"] is False:
-                end_of_day = datetime(
-                    day["start_time"].year,
-                    day["start_time"].month,
-                    day["start_time"].day + 1,
-                )
+                end_of_day = day["end_day"]
                 current_outer_break = (
                     end_of_day - day["end_time"]
                 ).total_seconds()
