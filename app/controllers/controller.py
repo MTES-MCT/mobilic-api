@@ -2,7 +2,7 @@ from urllib.parse import quote, urlencode, unquote
 from uuid import uuid4
 
 import graphene
-from flask import redirect, request, after_this_request
+from flask import redirect, request, after_this_request, url_for
 
 from app import app
 from app.controllers.utils import atomic_transaction
@@ -64,7 +64,7 @@ def redirect_to_ac_logout():
 
         redirect_uri = request.args.get("post_logout_redirect_uri")
         if redirect_uri.endswith(authorized_logout_redirect_urls):
-            return redirect(unquote(redirect_uri), code=302)
+            return redirect(url_for(unquote(redirect_uri)), code=302)
         else:
             return redirect(unquote("/"), code=302)
 

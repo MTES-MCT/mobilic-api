@@ -1,7 +1,7 @@
 import graphene
 import jwt
 from enum import Enum
-from flask import redirect, request, after_this_request, send_file, g
+from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
 from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode, unquote
@@ -377,7 +377,7 @@ def redirect_to_fc_logout():
         )
 
         redirect_uri = request.args.get("post_logout_redirect_uri")
-        return redirect(unquote(redirect_uri), code=302)
+        return redirect(url_for(unquote(redirect_uri)), code=302)
 
     query_params = {"state": uuid4().hex, "id_token_hint": fc_token_hint}
 
