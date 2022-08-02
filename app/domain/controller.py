@@ -8,7 +8,7 @@ def create_controller_user(ac_info):
     controller = ControllerUser(
         agent_connect_id=ac_info.get("sub"),
         first_name=ac_info.get("given_name"),
-        last_name=ac_info.get("family_name"),
+        last_name=ac_info.get("usual_name"),
         email=ac_info.get("email"),
         agent_connect_info=ac_info,
         organizational_unit="mobilic",
