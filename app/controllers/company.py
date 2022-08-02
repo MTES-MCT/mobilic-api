@@ -72,17 +72,12 @@ class CompanySignUp(AuthenticatedMutation):
         siren = graphene.Int(
             required=True, description="Numéro SIREN de l'entreprise"
         )
-        sirets = graphene.List(
-            graphene.String,
-            required=False,
-            description="Liste des SIRET des établissements associés à l'entreprise",
-        )
 
     Output = CompanySignUpOutput
 
     @classmethod
-    def mutate(cls, _, info, usual_name, siren, sirets):
-        return sign_up_company(usual_name, siren, sirets)
+    def mutate(cls, _, info, usual_name, siren):
+        return sign_up_company(usual_name, siren)
 
 
 class CompanySiret(graphene.InputObjectType):
@@ -119,7 +114,7 @@ class CompaniesSignUp(AuthenticatedMutation):
         ]
 
 
-def sign_up_company(usual_name, siren, sirets=None):
+def sign_up_company(usual_name, siren, sirets=[]):
     with atomic_transaction(commit_at_end=True):
         siren_api_info = None
         registration_status, _ = get_siren_registration_status(siren)
