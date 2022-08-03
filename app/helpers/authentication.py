@@ -136,12 +136,12 @@ def raise_expired_token_error(jwt_header, jwt_payload):
 
 @jwt.user_lookup_loader
 def get_user_from_token_identity(jwt_header, jwt_payload):
-    if jwt_payload["sub"].get("controller"):
+    if jwt_payload["identity"].get("controller"):
         controller_user = ControllerUser.query.get(
-            jwt_payload["sub"]["controllerUserId"]
+            jwt_payload["identity"]["controllerUserId"]
         )
         return controller_user
-    user = User.query.get(jwt_payload["sub"]["id"])
+    user = User.query.get(jwt_payload["identity"]["id"])
     if not user:
         return None
     # Check that token is not revoked
@@ -150,7 +150,7 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
         user.latest_token_revocation_time.timestamp()
     ):
         return None
-    g.client_id = jwt_payload["sub"].get("client_id")
+    g.client_id = jwt_payload["identity"].get("client_id")
     return user
 
 

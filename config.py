@@ -60,6 +60,7 @@ class Config:
     JWT_REFRESH_COOKIE_NAME = "rt"
     JWT_REFRESH_COOKIE_PATH = "/api/token"
     JWT_COOKIE_SECURE = True
+    JWT_IDENTITY_CLAIM = "identity"
     SESSION_COOKIE_LIFETIME = timedelta(days=365)
     RESET_PASSWORD_TOKEN_EXPIRATION = timedelta(days=1)
     INTEGROMAT_COMPANY_SIGNUP_WEBHOOK = os.environ.get(
