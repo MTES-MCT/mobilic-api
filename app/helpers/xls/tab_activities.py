@@ -95,7 +95,7 @@ def write_work_days_sheet(
             user_starting_row_idx,
             row_idx,
             0,
-            wday.user.display_name,
+            f"{wday.user.display_name}\nIdentifiant : {wday.user.id}",
             formats.get("merged_top"),
         )
 
@@ -105,6 +105,7 @@ def write_work_days_sheet(
             columns_in_main_sheet,
             user_starting_row_idx,
             row_idx - 1,
+            wday.user.display_name,
         )
         row_idx += 4
     if has_one_bank_holiday:
@@ -117,16 +118,21 @@ def write_user_recap(
     columns_in_main_sheet,
     user_starting_row_idx,
     user_ending_row_idx,
+    user_display_name,
 ):
     recap_col_idx = 0
     previous_has_to_be_summed = False
     for (_, _, style, _, _, has_to_be_summed) in columns_in_main_sheet:
         if has_to_be_summed:
             if not previous_has_to_be_summed:
+                text_to_write = f"Total {user_display_name}"
+                width_needed = len(text_to_write) + 4
+                row_ = user_ending_row_idx + 2
+                col_ = recap_col_idx - 1
                 sheet.write(
-                    user_ending_row_idx + 2,
-                    recap_col_idx - 1,
-                    "Total",
+                    row_,
+                    col_,
+                    text_to_write,
                     wb.add_format(
                         {
                             "bg_color": green_hex,
@@ -136,6 +142,7 @@ def write_user_recap(
                         }
                     ),
                 )
+                sheet.set_column(row_, col_, width_needed)
             sheet.write_formula(
                 user_ending_row_idx + 2,
                 recap_col_idx,
@@ -280,7 +287,7 @@ def get_columns_in_main_sheet(
                 True,
             ),
             (
-                "Total travail de nuit",
+                "Heures au tarif nuit",
                 lambda wday: timedelta(seconds=wday.total_night_work_duration),
                 lambda _: "duration_format",
                 13,
