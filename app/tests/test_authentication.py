@@ -4,7 +4,6 @@ from time import sleep
 
 from app.tests import BaseTest, test_post_graphql
 from app import app, db
-from app.helpers.authentication import current_user
 from app.seed import UserFactory
 
 

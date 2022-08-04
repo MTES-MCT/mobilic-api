@@ -6,6 +6,8 @@ from app.controllers.company import (
     Query as CompanyQuery,
     EditCompanySettings,
 )
+from app.controllers.controller import AgentConnectLogin
+
 from app.controllers.user_read import Query as UserReadTokenQuery
 from app.controllers.employment import (
     CreateEmployment,
@@ -59,6 +61,9 @@ from app.controllers.activity import (
     CancelActivity,
     BulkActivity as BulkActivityQuery,
 )
+from app.controllers.controller import (
+    Query as ControllerUserQuery,
+)
 from app.models.address import AddressOutput, Address
 
 
@@ -97,6 +102,7 @@ class SignUp(graphene.ObjectType):
 
 class PrivateAuth(graphene.ObjectType):
     france_connect_login = FranceConnectLogin.Field()
+    agent_connect_login = AgentConnectLogin.Field()
 
 
 class Account(graphene.ObjectType):
@@ -184,6 +190,7 @@ class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    ControllerUserQuery,
     graphene.ObjectType,
 ):
     pass

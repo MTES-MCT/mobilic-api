@@ -1,34 +1,46 @@
 from calendar import timegm
+from datetime import datetime
+from functools import wraps
 
+import graphene
 from flask import g, after_this_request, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
     verify_jwt_in_request,
-    jwt_refresh_token_required,
     current_user as current_actor,
-    get_raw_jwt,
     get_jwt_identity,
     JWTManager,
+    get_jwt,
 )
-from datetime import date, datetime
-import graphene
 from flask_jwt_extended.exceptions import (
     JWTExtendedException,
     NoAuthorizationError,
     InvalidHeaderError,
-    UserLoadError,
+    UserLookupError,
 )
-from flask_jwt_extended.view_decorators import _decode_jwt_from_headers
+from flask_jwt_extended.view_decorators import (
+    _decode_jwt_from_headers,
+    jwt_required,
+)
 from jwt import PyJWTError
-from functools import wraps
 from werkzeug.local import LocalProxy
 
 from app.controllers.utils import Void
+from app.helpers.authentication_controller import _refresh_controller_token
 
-current_user = LocalProxy(lambda: g.get("user") or current_actor)
+
+def current_flask_user():
+    try:
+        verify_jwt_in_request()
+    except:
+        return None
+    return current_actor
 
 
+current_user = LocalProxy(lambda: g.get("user") or current_flask_user())
+
+from app.models.controller_user import ControllerUser
 from app.models.user import User
 from app import app, db
 from app.helpers.errors import AuthenticationError, AuthorizationError
@@ -76,7 +88,7 @@ def check_auth():
         raise AuthenticationError(
             "Unable to find a valid cookie or authorization header"
         )
-    except UserLoadError:
+    except UserLookupError:
         raise AuthenticationError("Invalid token")
     except (JWTExtendedException, PyJWTError):
         verify_oauth_token_in_request()
@@ -118,22 +130,27 @@ def wrap_jwt_errors(f):
 
 
 @jwt.expired_token_loader
-def raise_expired_token_error(token_data):
-    raise AuthenticationError(f"Expired {token_data['type']} token")
+def raise_expired_token_error(jwt_header, jwt_payload):
+    raise AuthenticationError(f"Expired {jwt_payload['type']} token")
 
 
-@jwt.user_loader_callback_loader
-def get_user_from_token_identity(identity):
-    user = User.query.get(identity["id"])
+@jwt.user_lookup_loader
+def get_user_from_token_identity(jwt_header, jwt_payload):
+    if jwt_payload["identity"].get("controller"):
+        controller_user = ControllerUser.query.get(
+            jwt_payload["identity"]["controllerUserId"]
+        )
+        return controller_user
+    user = User.query.get(jwt_payload["identity"]["id"])
     if not user:
         return None
     # Check that token is not revoked
-    token_issued_at = get_raw_jwt()["iat"]
+    token_issued_at = jwt_payload["iat"]
     if user.latest_token_revocation_time and token_issued_at < int(
         user.latest_token_revocation_time.timestamp()
     ):
         return None
-    g.client_id = identity.get("client_id")
+    g.client_id = jwt_payload["identity"].get("client_id")
     return user
 
 
@@ -157,7 +174,7 @@ def create_access_tokens_for(
                 "token": RefreshToken.create_refresh_token(user),
                 "client_id": client_id,
             },
-            expires_delta=False,
+            expires_delta=None,
         ),
     }
     db.session.commit()
@@ -170,6 +187,7 @@ def set_auth_cookies(
     refresh_token=None,
     user_id=None,
     fc_token=None,
+    ac_token=None,
 ):
     response.set_cookie(
         app.config["JWT_ACCESS_COOKIE_NAME"],
@@ -226,6 +244,23 @@ def set_auth_cookies(
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
         )
+    if ac_token:
+        response.set_cookie(
+            "act",
+            value=ac_token,
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=True,
+            path="/api/ac/logout",
+            samesite="Strict",
+        )
+        response.set_cookie(
+            "hasAc",
+            value="true",
+            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            secure=app.config["JWT_COOKIE_SECURE"],
+            httponly=False,
+        )
 
 
 def unset_auth_cookies(response):
@@ -238,12 +273,18 @@ def unset_auth_cookies(response):
         path=app.config["JWT_REFRESH_COOKIE_PATH"],
     )
     response.delete_cookie("userId", path="/")
+    response.delete_cookie("controllerId", path="/")
     response.delete_cookie("atEat", path="/")
 
 
 def unset_fc_auth_cookies(response):
     response.delete_cookie("fct", path="/api/fc/logout")
     response.delete_cookie("hasFc", path="/")
+
+
+def unset_ac_auth_cookies(response):
+    response.delete_cookie("act", path="/api/ac/logout")
+    response.delete_cookie("hasAc", path="/")
 
 
 class UserTokens(graphene.ObjectType):
@@ -253,6 +294,10 @@ class UserTokens(graphene.ObjectType):
 
 class UserTokensWithFC(UserTokens, graphene.ObjectType):
     fc_token = graphene.String(description="Jeton d'accès")
+
+
+class UserTokensWithAC(UserTokens, graphene.ObjectType):
+    ac_token = graphene.String(description="Jeton d'accès")
 
 
 def require_auth_with_write_access(f):
@@ -367,6 +412,7 @@ class Auth(graphene.ObjectType):
 
 
 @wrap_jwt_errors
+@jwt_required(refresh=True)
 def _refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
@@ -382,9 +428,15 @@ def _refresh_token():
 
 
 @app.route("/token/refresh", methods=["POST"])
+@wrap_jwt_errors
+@jwt_required(refresh=True)
 def rest_refresh_token():
     try:
-        tokens = _refresh_token()
+        identity = get_jwt_identity()
+        if identity and identity.get("controller"):
+            tokens = _refresh_controller_token()
+        else:
+            tokens = _refresh_token()
         return jsonify(tokens), 200
     except AuthenticationError as e:
 
@@ -413,14 +465,21 @@ def rest_logout():
     return jsonify({"success": True}), 200
 
 
-@jwt_refresh_token_required
+@jwt_required(refresh=True)
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
+    from app.models.controller_refresh_token import ControllerRefreshToken
 
     identity = get_jwt_identity()
-    matching_refresh_token = RefreshToken.get_token(
-        token=identity.get("token"), user_id=identity.get("id")
-    )
+    if identity.get("controller"):
+        matching_refresh_token = ControllerRefreshToken.get_token(
+            token=identity.get("token"),
+            controller_user_id=identity.get("controllerUserId"),
+        )
+    else:
+        matching_refresh_token = RefreshToken.get_token(
+            token=identity.get("token"), user_id=identity.get("id")
+        )
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")
     db.session.delete(matching_refresh_token)

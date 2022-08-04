@@ -80,6 +80,10 @@ class FranceConnectAuthenticationError(MobilicError):
     code = "FRANCE_CONNECT_ERROR"
 
 
+class AgentConnectAuthenticationError(MobilicError):
+    code = "AGENT_CONNECT_ERROR"
+
+
 class InvalidTokenError(MobilicError):
     code = "INVALID_TOKEN"
     default_should_alert_team = False
