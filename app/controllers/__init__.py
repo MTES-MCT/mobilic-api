@@ -5,6 +5,7 @@ from app.controllers.company import (
     CompanySignUp,
     Query as CompanyQuery,
     EditCompanySettings,
+    CompaniesSignUp,
 )
 from app.controllers.controller import AgentConnectLogin
 
@@ -97,6 +98,7 @@ class SignUp(graphene.ObjectType):
     confirm_fc_email = ConfirmFranceConnectEmail.Field()
     activate_email = ActivateEmail.Field()
     company = CompanySignUp.Field()
+    companies = CompaniesSignUp.Field()
     redeem_invite = RedeemInvitation.Field()
 
 
