@@ -38,8 +38,10 @@ class RegulatoryAlert(BaseModel):
     )
 
     def __repr__(self):
-        return f"<RegulatoryAlert [{self.id}] : \
-          User {self.user}, \
-          SubmitterType {self.submitter_type}, \
-          RegulationCheck {self.regulation_check}, \
-          Day {self.day}>"
+        return "<RegulatoryAlert [{}] : {}, {}, {}, {}>".format(
+            self.id,
+            self.user,
+            self.submitter_type,
+            self.regulation_check,
+            self.day,
+        )

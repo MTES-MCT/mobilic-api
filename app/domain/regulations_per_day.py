@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from app import db
 from app.helpers.errors import InvalidResourceError
 from app.helpers.regulations_utils import HOUR, MINUTE, ComputationResult
-from app.helpers.time import to_datetime
+from app.helpers.time import seconds_between, to_datetime
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
@@ -61,9 +61,9 @@ def check_min_daily_rest(activity_groups, regulation_check):
 
     total_work_duration = 0
     for group in activity_groups:
-        total_work_duration += (
-            group.end_time - group.start_time
-        ).total_seconds()
+        total_work_duration += seconds_between(
+            group.end_time, group.start_time
+        )
 
     success = total_work_duration <= (24 - LONG_BREAK_DURATION_IN_HOURS) * HOUR
     return ComputationResult(success=success)
@@ -122,9 +122,9 @@ def check_min_work_day_break(activity_groups, regulation_check):
                 and activity.start_time - latest_work_time
                 >= timedelta(minutes=MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN)
             ):
-                total_break_time_s += (
-                    activity.start_time - latest_work_time
-                ).total_seconds()
+                total_break_time_s += seconds_between(
+                    activity.start_time, latest_work_time
+                )
             latest_work_time = activity.end_time
 
     if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
@@ -176,9 +176,9 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
             end_time = (
                 activity.end_time if activity.end_time is not None else now
             )
-            current_uninterrupted_work_duration += (
-                end_time - activity.start_time
-            ).total_seconds()
+            current_uninterrupted_work_duration += seconds_between(
+                end_time, activity.start_time
+            )
             if (
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
