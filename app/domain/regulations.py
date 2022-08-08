@@ -6,6 +6,7 @@ from app.domain.regulations_per_week import compute_regulations_per_week
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.regulations_utils import DAY
 from app.helpers.time import (
+    FR_TIMEZONE,
     get_dates_range,
     get_first_day_of_week,
     get_last_day_of_week,
@@ -17,7 +18,9 @@ from app.models.regulation_check import UnitType
 from app.models.regulatory_alert import RegulatoryAlert
 
 
-def compute_regulations(user, period_start, period_end, submitter_type):
+def compute_regulations(
+    user, period_start, period_end, submitter_type, tz=FR_TIMEZONE
+):
 
     # Clean current alerts
     clean_current_alerts(user, period_start, period_end, submitter_type)
@@ -27,7 +30,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         work_days_over_current_past_and_next_days,
         _,
     ) = group_user_events_by_day_with_limit(
-        user, from_date=period_start, until_date=period_end
+        user, from_date=period_start, until_date=period_end, tz=tz
     )
     for day in get_dates_range(period_start, period_end):
         compute_regulations_per_day(
@@ -35,15 +38,16 @@ def compute_regulations(user, period_start, period_end, submitter_type):
             day,
             submitter_type,
             work_days_over_current_past_and_next_days,
+            tz=tz,
         )
 
     # Compute weekly rules
     from_date = get_first_day_of_week(period_start)
     until_date = get_last_day_of_week(period_end)
     work_days, _ = group_user_events_by_day_with_limit(
-        user, from_date=from_date, until_date=until_date
+        user, from_date=from_date, until_date=until_date, tz=tz
     )
-    weeks = group_user_events_by_week(work_days, from_date, until_date)
+    weeks = group_user_events_by_week(work_days, from_date, until_date, tz=tz)
 
     for week in weeks:
         compute_regulations_per_week(user, week, submitter_type)
@@ -80,6 +84,7 @@ def group_user_events_by_week(
     work_days,
     start_date,
     end_date,
+    tz,
 ):
     # build weeks
     weeks = []
@@ -119,12 +124,12 @@ def group_user_events_by_week(
 
     # compute rest duration for each week
     for week in weeks:
-        week["rest_duration_s"] = compute_weekly_rest_duration(week)
+        week["rest_duration_s"] = compute_weekly_rest_duration(week, tz)
 
     return weeks
 
 
-def compute_weekly_rest_duration(week):
+def compute_weekly_rest_duration(week, tz):
     current_outer_break = 0
     max_outer_break = 0
     current_day = week["start"]
@@ -140,7 +145,7 @@ def compute_weekly_rest_duration(week):
         else:
 
             if day["overlap_previous_day"] is False:
-                current_day_time = to_datetime(current_day)
+                current_day_time = to_datetime(current_day, tz_for_date=tz)
                 current_outer_break += seconds_between(
                     day["start_time"], current_day_time
                 )

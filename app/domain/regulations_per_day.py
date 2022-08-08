@@ -12,9 +12,9 @@ from sqlalchemy import desc
 
 
 def compute_regulations_per_day(
-    user, day, submitter_type, work_days_over_current_past_and_next_days
+    user, day, submitter_type, work_days_over_current_past_and_next_days, tz
 ):
-    day_start_time = to_datetime(day)
+    day_start_time = to_datetime(day, tz_for_date=tz)
     day_end_time = day_start_time + timedelta(1)
     activity_groups_to_take_into_account = list(
         filter(
