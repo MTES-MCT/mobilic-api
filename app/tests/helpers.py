@@ -98,6 +98,29 @@ class ApiRequests:
             }
         }
     """
+    cancel_mission = """
+        mutation ($missionId: Int!, $userId: Int!) {
+            activities {
+                cancelMission (missionId: $missionId, userId: $userId) {
+                    activities {
+                      id
+                      type
+                      missionId
+                      startTime
+                      endTime
+                      userId
+                      submitterId
+                      lastSubmitterId
+                      user {
+                        id
+                        firstName
+                        lastName
+                      }
+                    }
+                }
+            }
+        }
+    """
     cancel_activity = """
         mutation ($activityId: Int!, $context: GenericScalar) {
             activities {

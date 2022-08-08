@@ -37,6 +37,7 @@ from app.controllers.mission import (
     Query as MissionQuery,
     UpdateMissionVehicle,
     ChangeMissionName,
+    CancelMission,
 )
 from app.controllers.user import (
     UserSignUp,
@@ -86,6 +87,7 @@ class Activities(graphene.ObjectType):
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
     change_mission_name = ChangeMissionName.Field()
+    cancel_mission = CancelMission.Field()
     register_kilometer_at_location = RegisterKilometerAtLocation.Field()
 
 
