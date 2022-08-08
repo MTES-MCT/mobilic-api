@@ -256,7 +256,7 @@ class TestRegulations(BaseTest):
         how_many_days_ago = 2
 
         mission = Mission(
-            name="3h transfer + 10h drive (day)",
+            name="Transfer & night work tarification but not legislation",
             company=company,
             reception_time=datetime.now(),
             submitter=employee,
@@ -270,9 +270,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.TRANSFER,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=7),
-                start_time=get_time(how_many_days_ago, hour=4),
-                end_time=get_time(how_many_days_ago, hour=7),
+                reception_time=get_time(how_many_days_ago, hour=5),
+                start_time=get_time(how_many_days_ago, hour=3),
+                end_time=get_time(how_many_days_ago, hour=5),
             )
 
             log_activity(
@@ -281,9 +281,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=17),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=17),
+                reception_time=get_time(how_many_days_ago, hour=16),
+                start_time=get_time(how_many_days_ago, hour=5),
+                end_time=get_time(how_many_days_ago, hour=16),
             )
 
             validate_mission(

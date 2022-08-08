@@ -78,7 +78,7 @@ def check_max_work_day_time(activity_groups, regulation_check):
     ]
     extra = None
     for group in activity_groups:
-        night_work = group.total_night_work_duration > 0
+        night_work = group.total_night_work_legislation_duration > 0
         max_time_in_hours = (
             MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
             if night_work

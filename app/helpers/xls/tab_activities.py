@@ -288,7 +288,9 @@ def get_columns_in_main_sheet(
             ),
             (
                 "Heures au tarif nuit",
-                lambda wday: timedelta(seconds=wday.total_night_work_duration),
+                lambda wday: timedelta(
+                    seconds=wday.total_night_work_tarification_duration
+                ),
                 lambda _: "duration_format",
                 13,
                 light_green_hex,

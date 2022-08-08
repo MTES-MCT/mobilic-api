@@ -40,13 +40,24 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         )
         timers[period.type] += total_duration
         if period.type != ActivityType.TRANSFER and min_time:
-            day_duration = int(
+            day_duration_tarification = int(
                 period.duration_over(
                     from_tz(to_fr_tz(min_time).replace(hour=6, minute=0), tz),
                     from_tz(to_fr_tz(min_time).replace(hour=21, minute=0), tz),
                 ).total_seconds()
             )
-            timers["night_work"] += total_duration - day_duration
+            timers["night_work_tarification"] += (
+                total_duration - day_duration_tarification
+            )
+            day_duration_legislation = int(
+                period.duration_over(
+                    from_tz(to_fr_tz(min_time).replace(hour=5, minute=0), tz),
+                    from_tz(to_fr_tz(min_time).replace(hour=22, minute=0), tz),
+                ).total_seconds()
+            )
+            timers["night_work_legislation"] += (
+                total_duration - day_duration_legislation
+            )
 
     timers["total_work"] = reduce(
         lambda a, b: a + b,
@@ -182,8 +193,12 @@ class WorkDay:
         return self._activity_timers["total_work"]
 
     @property
-    def total_night_work_duration(self):
-        return self._activity_timers["night_work"]
+    def total_night_work_tarification_duration(self):
+        return self._activity_timers["night_work_tarification"]
+
+    @property
+    def total_night_work_legislation_duration(self):
+        return self._activity_timers["night_work_legislation"]
 
     @property
     def activity_durations(self):
