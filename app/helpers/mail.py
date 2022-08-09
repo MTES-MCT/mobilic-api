@@ -459,6 +459,28 @@ class Mailer:
             )
         )
 
+    def send_companies_creation_email(self, companies, siren, user):
+        subject = (
+            f"{len(companies)} entreprises ont bien été créées sur Mobilic !"
+        )
+        self._send_single(
+            self._create_message_from_flask_template(
+                "companies_creation_email.html",
+                subject=subject,
+                user=user,
+                type_=EmailType.COMPANY_CREATION,
+                first_name=user.first_name,
+                website_link=Markup(f"{app.config['FRONTEND_URL']}"),
+                documentation_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/resources/admin"
+                ),
+                companies=companies,
+                nb_companies=len(companies),
+                companies_siren=Markup(siren),
+                contact_email=Markup(SENDER_ADDRESS),
+            )
+        )
+
     def send_employment_validation_email(self, employment):
         self._send_single(
             self._create_message_from_flask_template(

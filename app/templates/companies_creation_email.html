@@ -1,0 +1,25 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+{{ subject }}
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour{% if first_name %} {{first_name | capitalize}}{% endif %},</p>
+    <p>Les {{ nb_companies }} entreprises associées au numéro SIREN <strong>{{companies_siren}}</strong> suivantes ont bien été créées sur Mobilic 🎉 :</p>
+    <ul>
+        {% for company in companies %}
+        <li>{{company.get("usual_name")}}</li>
+        {% endfor %}
+    </ul>
+<p>Vous pouvez dès à présent inviter vos salariés à rejoindre Mobilic depuis votre <a href="{{website_link}}">interface gestionnaire</a>.</p>
+    <p>Pour vous aider à mettre en place Mobilic, vous trouverez sur notre <a href="{{documentation_link}}">page documentation</a> les documents suivants :</p>
+    <ul>
+        <li>une notice de prise en main de Mobilic par les travailleurs mobiles</li>
+        <li>une notice de prise en main de Mobilic par le gestionnaire</li>
+        <li>des tutoriels à destination du gestionnaire et des salariés</li>
+    </ul>
+    <p>Si, toutefois, vous aviez des questions sur l’utilisation de Mobilic ou son déploiement, nous sommes à votre disposition pour y répondre au cours d'une visioconférence. N’hésitez pas à nous contacter : <a href="mailto:{{contact_email}}">{{contact_email}}</a>.</p>
+    <p>Cordialement,</p>
+    <strong>L'équipe Mobilic</strong>
+{% endblock %}
