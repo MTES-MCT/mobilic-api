@@ -409,12 +409,13 @@ def group_user_missions_by_day(
             if acknowledged_mission_activities
             else None
         ) or datetime.now()
+        mission_end_day = to_tz(mission_end_time, tz).date()
 
         if not current_date:
             current_date = mission_start_day
 
         mission_running_day = mission_start_day
-        while mission_running_day <= to_tz(mission_end_time, tz).date():
+        while mission_running_day <= mission_end_day:
             if (
                 not current_work_day
                 or current_work_day.day != mission_running_day

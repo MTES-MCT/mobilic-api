@@ -125,13 +125,3 @@ def get_first_day_of_week(day):
 def get_last_day_of_week(day):
     day_of_week = day.weekday()
     return day + datetime.timedelta(days=SUNDAY_WEEKDAY - day_of_week)
-
-
-def seconds_between(end_time, start_time):
-    print(f">> seconds_between({end_time},{start_time})")
-    end_time_utc = to_tz(end_time, datetime.timezone.utc)
-    start_time_utc = to_tz(start_time, datetime.timezone.utc)
-    print(f"to_utc({end_time_utc},{start_time_utc})")
-    between_time = (end_time_utc - start_time_utc).total_seconds()
-    print(f"between_time({between_time})")
-    return between_time

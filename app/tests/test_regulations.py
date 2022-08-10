@@ -17,14 +17,18 @@ from app.models.regulation_check import (
 from app.models.regulatory_alert import RegulatoryAlert
 from app.models.user import User
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
-from app.seed.helpers import AuthenticatedUserContext, get_date, get_time
+from app.seed.helpers import (
+    AuthenticatedUserContext,
+    get_date,
+    get_datetime_tz,
+    get_time,
+)
 from app.services.get_regulation_checks import (
     RegulationCheckData,
     get_regulation_checks,
 )
 from app.tests import BaseTest
 from flask.ctx import AppContext
-from sqlalchemy import insert
 
 ADMIN_EMAIL = "admin@email.com"
 EMPLOYEE_EMAIL = "employee@email.com"
@@ -643,8 +647,8 @@ class TestRegulations(BaseTest):
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
             description="Règlementation expirée",
-            date_application_start=datetime(2018, 1, 1),
-            date_application_end=datetime(2019, 11, 1),
+            date_application_start=get_datetime_tz(2018, 1, 1),
+            date_application_end=get_datetime_tz(2019, 11, 1),
             regulation_rule="dailyRest",
             variables=None,
             unit=UnitType.DAY,
@@ -786,9 +790,9 @@ class TestRegulations(BaseTest):
                     mission=missions[i],
                     type=ActivityType.DRIVE,
                     switch_mode=False,
-                    reception_time=datetime(2022, 7, 6 + i, 12),
-                    start_time=datetime(2022, 7, 6 + i, 7),
-                    end_time=datetime(2022, 7, 6 + i, 12),
+                    reception_time=get_datetime_tz(2022, 7, 6 + i, 12),
+                    start_time=get_datetime_tz(2022, 7, 6 + i, 7),
+                    end_time=get_datetime_tz(2022, 7, 6 + i, 12),
                 )
                 log_activity(
                     submitter=employee,
@@ -796,9 +800,9 @@ class TestRegulations(BaseTest):
                     mission=missions[i],
                     type=ActivityType.DRIVE,
                     switch_mode=False,
-                    reception_time=datetime(2022, 7, 6 + i, 17),
-                    start_time=datetime(2022, 7, 6 + i, 13),
-                    end_time=datetime(2022, 7, 6 + i, 17),
+                    reception_time=get_datetime_tz(2022, 7, 6 + i, 17),
+                    start_time=get_datetime_tz(2022, 7, 6 + i, 13),
+                    end_time=get_datetime_tz(2022, 7, 6 + i, 17),
                 )
 
                 validate_mission(
@@ -849,9 +853,9 @@ class TestRegulations(BaseTest):
                     mission=missions[i],
                     type=ActivityType.DRIVE,
                     switch_mode=False,
-                    reception_time=datetime(2022, 7, 18 + i, 12),
-                    start_time=datetime(2022, 7, 18 + i, 7),
-                    end_time=datetime(2022, 7, 18 + i, 12),
+                    reception_time=get_datetime_tz(2022, 7, 18 + i, 12),
+                    start_time=get_datetime_tz(2022, 7, 18 + i, 7),
+                    end_time=get_datetime_tz(2022, 7, 18 + i, 12),
                 )
                 log_activity(
                     submitter=employee,
@@ -859,9 +863,9 @@ class TestRegulations(BaseTest):
                     mission=missions[i],
                     type=ActivityType.DRIVE,
                     switch_mode=False,
-                    reception_time=datetime(2022, 7, 18 + i, 17),
-                    start_time=datetime(2022, 7, 18 + i, 13),
-                    end_time=datetime(2022, 7, 18 + i, 17),
+                    reception_time=get_datetime_tz(2022, 7, 18 + i, 17),
+                    start_time=get_datetime_tz(2022, 7, 18 + i, 13),
+                    end_time=get_datetime_tz(2022, 7, 18 + i, 17),
                 )
 
                 validate_mission(
@@ -874,9 +878,9 @@ class TestRegulations(BaseTest):
                 mission=mission_final,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=datetime(2022, 7, 25, 12),
-                start_time=datetime(2022, 7, 25, 7),
-                end_time=datetime(2022, 7, 25, 12),
+                reception_time=get_datetime_tz(2022, 7, 25, 12),
+                start_time=get_datetime_tz(2022, 7, 25, 7),
+                end_time=get_datetime_tz(2022, 7, 25, 12),
             )
             log_activity(
                 submitter=employee,
@@ -884,9 +888,9 @@ class TestRegulations(BaseTest):
                 mission=mission_final,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=datetime(2022, 7, 25, 17),
-                start_time=datetime(2022, 7, 25, 13),
-                end_time=datetime(2022, 7, 25, 17),
+                reception_time=get_datetime_tz(2022, 7, 25, 17),
+                start_time=get_datetime_tz(2022, 7, 25, 13),
+                end_time=get_datetime_tz(2022, 7, 25, 17),
             )
 
             validate_mission(
@@ -905,5 +909,3 @@ class TestRegulations(BaseTest):
         self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
         extra_info = json.loads(regulatory_alert[0].extra)
         self.assertEqual(extra_info["rest_duration_s"], 111600)
-
-    # TODO #613: add test at the end of the month

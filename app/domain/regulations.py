@@ -10,7 +10,6 @@ from app.helpers.time import (
     get_dates_range,
     get_first_day_of_week,
     get_last_day_of_week,
-    seconds_between,
     to_datetime,
 )
 from app.models import RegulationCheck
@@ -146,18 +145,18 @@ def compute_weekly_rest_duration(week, tz):
 
             if day["overlap_previous_day"] is False:
                 current_day_time = to_datetime(current_day, tz_for_date=tz)
-                current_outer_break += seconds_between(
-                    day["start_time"], current_day_time
-                )
+                current_outer_break += (
+                    day["start_time"] - current_day_time
+                ).total_seconds()
+
                 if current_outer_break > max_outer_break:
                     max_outer_break = current_outer_break
                     current_outer_break = 0
 
             if day["overlap_next_day"] is False:
-                end_of_day = day["end_day"]
-                current_outer_break = seconds_between(
-                    end_of_day, day["end_time"]
-                )
+                current_outer_break = (
+                    day["end_day"] - day["end_time"]
+                ).total_seconds()
 
         current_day += timedelta(days=1)
 
