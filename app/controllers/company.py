@@ -106,15 +106,32 @@ class CompaniesSignUp(AuthenticatedMutation):
 
     @classmethod
     def mutate(cls, _, info, siren, companies):
-        return [
-            sign_up_company(
-                company.get("usual_name"), siren, [company.get("siret")]
+        return sign_up_companies(siren, companies)
+
+
+def sign_up_companies(siren, companies):
+    created_companies = [
+        sign_up_company(
+            company.get("usual_name"),
+            siren,
+            [company.get("siret")],
+            send_email=len(companies) == 1,
+        )
+        for company in companies
+    ]
+
+    try:
+        if len(companies) > 1:
+            mailer.send_companies_creation_email(
+                companies, siren, current_user
             )
-            for company in companies
-        ]
+    except Exception as e:
+        app.logger.exception(e)
+
+    return created_companies
 
 
-def sign_up_company(usual_name, siren, sirets=[]):
+def sign_up_company(usual_name, siren, sirets=[], send_email=True):
     with atomic_transaction(commit_at_end=True):
         siren_api_info = None
         registration_status, _ = get_siren_registration_status(siren)
@@ -181,10 +198,11 @@ def sign_up_company(usual_name, siren, sirets=[]):
         },
     )
 
-    try:
-        mailer.send_company_creation_email(company, current_user)
-    except Exception as e:
-        app.logger.exception(e)
+    if send_email:
+        try:
+            mailer.send_company_creation_email(company, current_user)
+        except Exception as e:
+            app.logger.exception(e)
 
     if current_user.subscribed_mailing_lists:
         try:
