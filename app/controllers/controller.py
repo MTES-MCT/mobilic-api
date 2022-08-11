@@ -1,3 +1,4 @@
+from datetime import datetime
 from urllib.parse import quote, urlencode, unquote
 from uuid import uuid4
 
@@ -91,25 +92,22 @@ class ControllerScanCode(graphene.Mutation):
     @classmethod
     @with_authorization_policy(controller_only)
     def mutate(cls, _, info, jwt_token):
-        with atomic_transaction(commit_at_end=True):
-            try:
-                decoded_token = jwt.decode(
-                    jwt_token,
-                    app.config["CONTROL_SIGNING_KEY"],
-                    algorithms="HS256",
-                )
-            except:
-                raise InvalidControlToken
-
-            new_control = ControllerControl(
-                valid_from=decoded_token["dateStartControl"],
-                user_id=decoded_token["user_id"],
-                control_type=ControlType.mobilic,
+        try:
+            decoded_token = jwt.decode(
+                jwt_token,
+                app.config["CONTROL_SIGNING_KEY"],
+                algorithms="HS256",
             )
-            db.session.add(new_control)
-            db.session.commit()
-
-            return new_control
+        except:
+            raise InvalidControlToken
+        control = ControllerControl.get_or_create_mobilic_control(
+            controller_id=current_user.id,
+            user_id=decoded_token["userId"],
+            valid_from=datetime.fromtimestamp(
+                decoded_token["dateStartControl"]
+            ),
+        )
+        return control
 
 
 class AgentConnectLogin(graphene.Mutation):
