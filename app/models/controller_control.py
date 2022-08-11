@@ -5,7 +5,7 @@ from sqlalchemy import Enum
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
-from app.helpers.graphene_types import TimeStamp, BaseSQLAlchemyObjectType
+from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.base import BaseModel, RandomNineIntId
 
 
@@ -56,8 +56,4 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
 
-    creation_time = graphene.Field(TimeStamp, required=True)
-    creation_day = graphene.Field(graphene.Date, required=True)
-    valid_until = graphene.Field(TimeStamp, required=True)
-
-    history_start_day = graphene.Field(graphene.Date, required=True)
+    valid_from = graphene.Field(TimeStamp, required=True)
