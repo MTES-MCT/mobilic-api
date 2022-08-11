@@ -3,6 +3,7 @@ from functools import wraps
 
 from app.helpers.authentication import current_user, require_auth
 from app.helpers.errors import AuthorizationError
+from app.models import ControllerUser
 
 
 def active(user):
@@ -20,9 +21,7 @@ def admin_only(user):
 
 
 def controller_only(controller_user):
-    if not controller_user:
-        return False
-    return True
+    return isinstance(controller_user, ControllerUser)
 
 
 def with_authorization_policy(

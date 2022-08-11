@@ -2,9 +2,10 @@ from urllib.parse import quote, urlencode, unquote
 from uuid import uuid4
 
 import graphene
+import jwt
 from flask import redirect, request, after_this_request, url_for
 
-from app import app
+from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
@@ -27,7 +28,12 @@ from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
 )
-from app.helpers.errors import AuthorizationError
+from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.models.controller_control import (
+    ControllerControl,
+    ControlType,
+    ControllerControlOutput,
+)
 from app.models.controller_user import ControllerUser
 
 
@@ -74,6 +80,36 @@ def redirect_to_ac_logout():
         f"{app.config['AC_LOGOUT_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
+
+
+class ControllerScanCode(graphene.Mutation):
+    class Arguments:
+        jwt_token = graphene.String(required=True)
+
+    Output = ControllerControlOutput
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(cls, _, info, jwt_token):
+        with atomic_transaction(commit_at_end=True):
+            try:
+                decoded_token = jwt.decode(
+                    jwt_token,
+                    app.config["CONTROL_SIGNING_KEY"],
+                    algorithms="HS256",
+                )
+            except:
+                raise InvalidControlToken
+
+            new_control = ControllerControl(
+                valid_from=decoded_token["dateStartControl"],
+                user_id=decoded_token["user_id"],
+                control_type=ControlType.mobilic,
+            )
+            db.session.add(new_control)
+            db.session.commit()
+
+            return new_control
 
 
 class AgentConnectLogin(graphene.Mutation):
@@ -125,12 +161,7 @@ class Query(graphene.ObjectType):
         description="Consultation des informations d'un contrôleur",
     )
 
-    @with_authorization_policy(
-        controller_only,
-        get_target_from_args=lambda *args, **kwargs: ControllerUser.query.get(
-            kwargs["id"]
-        ),
-    )
+    @with_authorization_policy(controller_only)
     def resolve_controller_user(self, info, id):
         controller_user = ControllerUser.query.get(id)
         if not controller_user:
