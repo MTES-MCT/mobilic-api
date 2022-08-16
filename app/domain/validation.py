@@ -36,6 +36,15 @@ def validate_mission(mission, submitter, creation_time=None, for_user=None):
     if any([not a.end_time for a in activities_to_validate]):
         raise MissionStillRunningError()
 
+    mission_start = activities_to_validate[0].start_time.date()
+    mission_end = (
+        activities_to_validate[-1].end_time.date()
+        if activities_to_validate[-1].end_time
+        else None
+    )
+    submitter_type = (
+        SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
+    )
     users = set([a.user for a in activities_to_validate])
 
     for u in users:
@@ -50,22 +59,12 @@ def validate_mission(mission, submitter, creation_time=None, for_user=None):
                 )
             )
 
-    mission_start = activities_to_validate[0].start_time.date()
-    mission_end = (
-        activities_to_validate[-1].end_time.date()
-        if activities_to_validate[-1].end_time
-        else None
-    )
-    submitter_type = (
-        SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
-    )
-
-    compute_regulations(
-        user=for_user,
-        period_start=mission_start,
-        period_end=mission_end,
-        submitter_type=submitter_type,
-    )
+        compute_regulations(
+            user=u,
+            period_start=mission_start,
+            period_end=mission_end,
+            submitter_type=submitter_type,
+        )
 
     return _get_or_create_validation(
         mission,
