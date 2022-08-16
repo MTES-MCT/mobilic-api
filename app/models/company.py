@@ -9,7 +9,7 @@ from app import db
 class Company(BaseModel, WithEmploymentHistory):
     usual_name = db.Column(db.String(255), nullable=False)
 
-    siren = db.Column(db.Integer, unique=False, nullable=True)
+    siren = db.Column(db.String(9), unique=False, nullable=True)
 
     short_sirets = db.Column(db.ARRAY(db.Integer), nullable=True)
 

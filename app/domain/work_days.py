@@ -42,8 +42,8 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         if period.type != ActivityType.TRANSFER and min_time:
             day_duration = int(
                 period.duration_over(
-                    from_tz(to_fr_tz(min_time).replace(hour=5, minute=0), tz),
-                    from_tz(to_fr_tz(min_time).replace(hour=22, minute=0), tz),
+                    from_tz(to_fr_tz(min_time).replace(hour=6, minute=0), tz),
+                    from_tz(to_fr_tz(min_time).replace(hour=21, minute=0), tz),
                 ).total_seconds()
             )
             timers["night_work"] += total_duration - day_duration

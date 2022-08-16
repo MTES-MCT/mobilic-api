@@ -53,6 +53,11 @@ from app.services.update_companies_spreadsheet import (
 )
 
 
+class CompanySignUpOutput(graphene.ObjectType):
+    company = graphene.Field(CompanyOutput)
+    employment = graphene.Field(EmploymentOutput)
+
+
 class CompanySignUp(AuthenticatedMutation):
     """
     Inscription d'une nouvelle entreprise.
@@ -64,123 +69,171 @@ class CompanySignUp(AuthenticatedMutation):
         usual_name = graphene.String(
             required=True, description="Nom usuel de l'entreprise"
         )
-        siren = graphene.Int(
+        siren = graphene.String(
             required=True, description="Numéro SIREN de l'entreprise"
         )
-        sirets = graphene.List(
-            graphene.String,
-            required=False,
-            description="Liste des SIRET des établissements associés à l'entreprise",
-        )
 
-    company = graphene.Field(CompanyOutput)
-    employment = graphene.Field(EmploymentOutput)
+    Output = CompanySignUpOutput
 
     @classmethod
-    def mutate(cls, _, info, usual_name, siren, sirets):
-        with atomic_transaction(commit_at_end=True):
-            siren_api_info = None
-            registration_status, _ = get_siren_registration_status(siren)
+    def mutate(cls, _, info, usual_name, siren):
+        return sign_up_company(usual_name, siren)
 
-            if (
-                registration_status != SirenRegistrationStatus.UNREGISTERED
-                and not sirets
-            ):
-                raise SirenAlreadySignedUpError()
-            try:
-                siren_api_info = siren_api_client.get_siren_info(siren)
-                (
-                    legal_unit,
-                    open_facilities,
-                ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
-                    siren_api_info
-                )
-            except Exception as e:
-                app.logger.warning(
-                    f"Could not add SIREN API info for company of SIREN {siren} : {e}"
-                )
 
-            require_kilometer_data = True
-            require_support_activity = False
-            if siren_api_info:
-                # For déménagement companies disable kilometer data by default, and enable support activity
-                if legal_unit.activity_code == "49.42Z":
-                    require_kilometer_data = False
-                    require_support_activity = True
+class CompanySiret(graphene.InputObjectType):
+    siret = graphene.String()
+    usual_name = graphene.String()
 
-            now = datetime.now()
-            company = Company(
-                usual_name=usual_name,
-                siren=siren,
-                short_sirets=[int(siret[9:]) for siret in sirets],
-                siren_api_info=siren_api_info,
-                allow_team_mode=True,
-                allow_transfers=False,
-                require_kilometer_data=require_kilometer_data,
-                require_support_activity=require_support_activity,
-                require_mission_name=True,
-            )
-            db.session.add(company)
-            db.session.flush()  # Early check for SIRET duplication
 
-            admin_employment = Employment(
-                user_id=current_user.id,
-                company=company,
-                start_date=now.date(),
-                validation_time=now,
-                validation_status=EmploymentRequestValidationStatus.APPROVED,
-                has_admin_rights=True,
-                reception_time=now,
-                submitter_id=current_user.id,
-            )
-            db.session.add(admin_employment)
+class CompaniesSignUp(AuthenticatedMutation):
+    """
+    Inscription de plusieurs nouvelles entreprises distinctes
 
-        app.logger.info(
-            f"Signed up new company {company}",
-            extra={
-                "post_to_mattermost": True,
-                "log_title": "New company signup",
-                "emoji": ":tada:",
-            },
+    Retourne la liste des entreprises créées
+    """
+
+    class Arguments:
+        siren = graphene.String(
+            required=True, description="Numéro SIREN des entreprises"
+        )
+        companies = graphene.List(
+            CompanySiret,
+            required=True,
+            description="Liste des informations relatives aux entreprises à créer",
         )
 
+    Output = graphene.List(CompanySignUpOutput)
+
+    @classmethod
+    def mutate(cls, _, info, siren, companies):
+        return sign_up_companies(siren, companies)
+
+
+def sign_up_companies(siren, companies):
+    created_companies = [
+        sign_up_company(
+            company.get("usual_name"),
+            siren,
+            [company.get("siret")],
+            send_email=len(companies) == 1,
+        )
+        for company in companies
+    ]
+
+    try:
+        if len(companies) > 1:
+            mailer.send_companies_creation_email(
+                companies, siren, current_user
+            )
+    except Exception as e:
+        app.logger.exception(e)
+
+    return created_companies
+
+
+def sign_up_company(usual_name, siren, sirets=[], send_email=True):
+    with atomic_transaction(commit_at_end=True):
+        siren_api_info = None
+        registration_status, _ = get_siren_registration_status(siren)
+
+        if (
+            registration_status != SirenRegistrationStatus.UNREGISTERED
+            and not sirets
+        ):
+            raise SirenAlreadySignedUpError()
+        try:
+            siren_api_info = siren_api_client.get_siren_info(siren)
+            (
+                legal_unit,
+                open_facilities,
+            ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
+                siren_api_info
+            )
+        except Exception as e:
+            app.logger.warning(
+                f"Could not add SIREN API info for company of SIREN {siren} : {e}"
+            )
+
+        require_kilometer_data = True
+        require_support_activity = False
+        if siren_api_info:
+            # For déménagement companies disable kilometer data by default, and enable support activity
+            if legal_unit.activity_code == "49.42Z":
+                require_kilometer_data = False
+                require_support_activity = True
+
+        now = datetime.now()
+        company = Company(
+            usual_name=usual_name,
+            siren=siren,
+            short_sirets=[int(siret[9:]) for siret in sirets],
+            siren_api_info=siren_api_info,
+            allow_team_mode=True,
+            allow_transfers=False,
+            require_kilometer_data=require_kilometer_data,
+            require_support_activity=require_support_activity,
+            require_mission_name=True,
+        )
+        db.session.add(company)
+        db.session.flush()  # Early check for SIRET duplication
+
+        admin_employment = Employment(
+            user_id=current_user.id,
+            company=company,
+            start_date=now.date(),
+            validation_time=now,
+            validation_status=EmploymentRequestValidationStatus.APPROVED,
+            has_admin_rights=True,
+            reception_time=now,
+            submitter_id=current_user.id,
+        )
+        db.session.add(admin_employment)
+
+    app.logger.info(
+        f"Signed up new company {company}",
+        extra={
+            "post_to_mattermost": True,
+            "log_title": "New company signup",
+            "emoji": ":tada:",
+        },
+    )
+
+    if send_email:
         try:
             mailer.send_company_creation_email(company, current_user)
         except Exception as e:
             app.logger.exception(e)
 
-        if current_user.subscribed_mailing_lists:
-            try:
-                current_user.unsubscribe_from_contact_list(
-                    MailingContactList.EMPLOYEES, remove=True
-                )
-                current_user.subscribe_to_contact_list(
-                    MailingContactList.ADMINS
-                )
-            except Exception as e:
-                app.logger.exception(e)
+    if current_user.subscribed_mailing_lists:
+        try:
+            current_user.unsubscribe_from_contact_list(
+                MailingContactList.EMPLOYEES, remove=True
+            )
+            current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
+        except Exception as e:
+            app.logger.exception(e)
 
-        if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
-            # Call Integromat for Trello card creation
-            try:
-                call_integromat_webhook(
-                    company, legal_unit, open_facilities, current_user
-                )
-            except Exception as e:
-                app.logger.warning(
-                    f"Creation of Trello card for {company} failed with error : {e}"
-                )
+    if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
+        # Call Integromat for Trello card creation
+        try:
+            call_integromat_webhook(
+                company, legal_unit, open_facilities, current_user
+            )
+        except Exception as e:
+            app.logger.warning(
+                f"Creation of Trello card for {company} failed with error : {e}"
+            )
 
-        if app.config["GOOGLE_PRIVATE_KEY"]:
-            # Add new company to spreadsheet
-            try:
-                add_company_to_spreadsheet(company, current_user)
-            except Exception as e:
-                app.logger.warning(
-                    f"Could not add {company} to spreadsheet because : {e}"
-                )
+    if app.config["GOOGLE_PRIVATE_KEY"]:
+        # Add new company to spreadsheet
+        try:
+            add_company_to_spreadsheet(company, current_user)
+        except Exception as e:
+            app.logger.warning(
+                f"Could not add {company} to spreadsheet because : {e}"
+            )
 
-        return CompanySignUp(company=company, employment=admin_employment)
+    return CompanySignUpOutput(company=company, employment=admin_employment)
 
 
 class SirenInfo(graphene.ObjectType):
@@ -194,7 +247,9 @@ class SirenInfo(graphene.ObjectType):
 class NonPublicQuery(graphene.ObjectType):
     siren_info = graphene.Field(
         SirenInfo,
-        siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
+        siren=graphene.String(
+            required=True, description="SIREN de l'entreprise"
+        ),
         description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
     )
 

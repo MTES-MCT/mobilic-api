@@ -409,7 +409,7 @@ class Mailer:
             },
             app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
-        ).decode("utf-8")
+        )
         activation_link = (
             f"{app.config['FRONTEND_URL']}/activate_email?token={token}"
         )
@@ -449,9 +449,34 @@ class Mailer:
                 user=user,
                 type_=EmailType.COMPANY_CREATION,
                 first_name=user.first_name,
-                website_link=Markup(app.config["FRONTEND_URL"]),
+                website_link=Markup(f"{app.config['FRONTEND_URL']}"),
+                documentation_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/resources/admin"
+                ),
                 company_name=company.name,
                 company_siren=Markup(company.siren),
+                contact_email=Markup(SENDER_ADDRESS),
+            )
+        )
+
+    def send_companies_creation_email(self, companies, siren, user):
+        subject = (
+            f"{len(companies)} entreprises ont bien été créées sur Mobilic !"
+        )
+        self._send_single(
+            self._create_message_from_flask_template(
+                "companies_creation_email.html",
+                subject=subject,
+                user=user,
+                type_=EmailType.COMPANY_CREATION,
+                first_name=user.first_name,
+                website_link=Markup(f"{app.config['FRONTEND_URL']}"),
+                documentation_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/resources/admin"
+                ),
+                companies=companies,
+                nb_companies=len(companies),
+                companies_siren=Markup(siren),
                 contact_email=Markup(SENDER_ADDRESS),
             )
         )
@@ -480,7 +505,7 @@ class Mailer:
             },
             app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
-        ).decode("utf-8")
+        )
         reset_link = (
             f"{app.config['FRONTEND_URL']}/reset_password?token={token}"
         )
