@@ -93,7 +93,7 @@ class CompaniesSignUp(AuthenticatedMutation):
     """
 
     class Arguments:
-        siren = graphene.Int(
+        siren = graphene.String(
             required=True, description="Numéro SIREN des entreprises"
         )
         companies = graphene.List(
