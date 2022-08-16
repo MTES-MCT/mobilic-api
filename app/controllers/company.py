@@ -69,7 +69,7 @@ class CompanySignUp(AuthenticatedMutation):
         usual_name = graphene.String(
             required=True, description="Nom usuel de l'entreprise"
         )
-        siren = graphene.Int(
+        siren = graphene.String(
             required=True, description="Numéro SIREN de l'entreprise"
         )
 
@@ -247,7 +247,9 @@ class SirenInfo(graphene.ObjectType):
 class NonPublicQuery(graphene.ObjectType):
     siren_info = graphene.Field(
         SirenInfo,
-        siren=graphene.Int(required=True, description="SIREN de l'entreprise"),
+        siren=graphene.String(
+            required=True, description="SIREN de l'entreprise"
+        ),
         description="Interrogation de l'API SIRENE pour récupérer la liste des établissements associés à un SIREN",
     )
 
