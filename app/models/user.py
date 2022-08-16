@@ -56,11 +56,11 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     @password.setter
     def password(self, plain_text):
         if plain_text:
-            password_hash = generate_password_hash(plain_text.encode("utf8"))
+            password_hash = generate_password_hash(plain_text)
             self._password = password_hash
 
     def check_password(self, plain_text):
-        return check_password_hash(self.password, plain_text.encode("utf-8"))
+        return check_password_hash(self.password, plain_text)
 
     password = synonym("_password", descriptor=password)
 

@@ -15,7 +15,7 @@ from app.models import UserReadToken
 
 FILE_NAME = "xlsx-to-check"
 
-control_blueprint = Blueprint(__name__, "app.controllers.control")
+control_blueprint = Blueprint("control", __name__)
 
 
 @control_blueprint.route("/generate-user-read-token", methods=["POST"])

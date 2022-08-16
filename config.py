@@ -39,6 +39,13 @@ class Config:
     FC_URL = os.environ.get(
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
+    AC_CLIENT_ID = os.environ.get("AC_CLIENT_ID")
+    AC_CLIENT_SECRET = os.environ.get("AC_CLIENT_SECRET")
+    AC_AUTHORIZE_URL = os.environ.get("AC_AUTHORIZE_URL")
+    AC_TOKEN_URL = os.environ.get("AC_TOKEN_URL")
+    AC_LOGOUT_URL = os.environ.get("AC_LOGOUT_URL")
+    AC_USER_INFO_URL = os.environ.get("AC_USER_INFO_URL")
+    AC_JWKS_INFO = os.environ.get("AC_JWKS_INFO")
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
     MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
         "MATTERMOST_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
@@ -53,6 +60,7 @@ class Config:
     JWT_REFRESH_COOKIE_NAME = "rt"
     JWT_REFRESH_COOKIE_PATH = "/api/token"
     JWT_COOKIE_SECURE = True
+    JWT_IDENTITY_CLAIM = "identity"
     SESSION_COOKIE_LIFETIME = timedelta(days=365)
     RESET_PASSWORD_TOKEN_EXPIRATION = timedelta(days=1)
     INTEGROMAT_COMPANY_SIGNUP_WEBHOOK = os.environ.get(

@@ -32,6 +32,7 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     can_actor_read_mission,
     company_admin,
+    check_actor_can_write_on_mission_for_user,
 )
 from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.errors import (
@@ -427,6 +428,42 @@ class ChangeMissionName(AuthenticatedMutation):
             mission = Mission.query.get(mission_id)
             mission.name = name
 
+        return mission
+
+
+class CancelMission(AuthenticatedMutation):
+    class Arguments:
+        mission_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de la mission dont les activités sont à annuler",
+        )
+        user_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de l'utilisateur dont les activités sont à annuler",
+        )
+
+    Output = MissionOutput
+
+    @classmethod
+    @with_authorization_policy(
+        check_actor_can_write_on_mission_for_user,
+        get_target_from_args=lambda *args, **kwargs: {
+            "mission": Mission.query.options(
+                selectinload(Mission.activities)
+            ).get(kwargs["mission_id"]),
+            "for_user": User.query.get(kwargs["user_id"]),
+        },
+        error_message="Actor is not authorized to cancel the mission",
+    )
+    def mutate(cls, _, info, mission_id, user_id):
+        with atomic_transaction(commit_at_end=True):
+            mission = Mission.query.get(mission_id)
+            user = User.query.get(user_id)
+            activities_to_update = mission.activities_for(user)
+            for activity in activities_to_update:
+                activity.dismiss()
         return mission
 
 

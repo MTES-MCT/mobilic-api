@@ -5,7 +5,10 @@ from app.controllers.company import (
     CompanySignUp,
     Query as CompanyQuery,
     EditCompanySettings,
+    CompaniesSignUp,
 )
+from app.controllers.controller import AgentConnectLogin
+
 from app.controllers.user_read import Query as UserReadTokenQuery
 from app.controllers.employment import (
     CreateEmployment,
@@ -34,6 +37,7 @@ from app.controllers.mission import (
     Query as MissionQuery,
     UpdateMissionVehicle,
     ChangeMissionName,
+    CancelMission,
 )
 from app.controllers.user import (
     UserSignUp,
@@ -59,6 +63,9 @@ from app.controllers.activity import (
     CancelActivity,
     BulkActivity as BulkActivityQuery,
 )
+from app.controllers.controller import (
+    Query as ControllerUserQuery,
+)
 from app.models.address import AddressOutput, Address
 
 
@@ -80,6 +87,7 @@ class Activities(graphene.ObjectType):
     log_location = LogMissionLocation.Field()
     update_mission_vehicle = UpdateMissionVehicle.Field()
     change_mission_name = ChangeMissionName.Field()
+    cancel_mission = CancelMission.Field()
     register_kilometer_at_location = RegisterKilometerAtLocation.Field()
 
 
@@ -92,11 +100,13 @@ class SignUp(graphene.ObjectType):
     confirm_fc_email = ConfirmFranceConnectEmail.Field()
     activate_email = ActivateEmail.Field()
     company = CompanySignUp.Field()
+    companies = CompaniesSignUp.Field()
     redeem_invite = RedeemInvitation.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
     france_connect_login = FranceConnectLogin.Field()
+    agent_connect_login = AgentConnectLogin.Field()
 
 
 class Account(graphene.ObjectType):
@@ -184,6 +194,7 @@ class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    ControllerUserQuery,
     graphene.ObjectType,
 ):
     pass

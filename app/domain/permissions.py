@@ -188,6 +188,14 @@ def check_actor_can_write_on_mission_over_period(
     return True
 
 
+def check_actor_can_write_on_mission_for_user(actor, mission_user_tuple):
+    return check_actor_can_write_on_mission_over_period(
+        actor,
+        mission=mission_user_tuple.get("mission"),
+        for_user=mission_user_tuple.get("for_user"),
+    )
+
+
 def check_actor_can_write_on_mission(actor, mission, for_user=None, at=None):
     return check_actor_can_write_on_mission_over_period(
         actor, mission, for_user, start=at, end=at
