@@ -1,7 +1,7 @@
 """add_regulation_tables
 
 Revision ID: 2c97929c18d0
-Revises: 420dbfec0b28
+Revises: d2da23a44a8b
 Create Date: 2022-07-12 15:13:46.326828
 
 """
@@ -14,7 +14,7 @@ from app.services.get_regulation_checks import get_regulation_checks
 
 # revision identifiers, used by Alembic.
 revision = "2c97929c18d0"
-down_revision = "420dbfec0b28"
+down_revision = "d2da23a44a8b"
 branch_labels = None
 depends_on = None
 
