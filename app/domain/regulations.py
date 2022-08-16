@@ -20,17 +20,32 @@ from app.models.regulatory_alert import RegulatoryAlert
 def compute_regulations(
     user, period_start, period_end, submitter_type, tz=FR_TIMEZONE
 ):
+    week_period_start = get_first_day_of_week(period_start)
+    week_period_end = get_last_day_of_week(period_end)
 
     # Clean current alerts
-    clean_current_alerts(user, period_start, period_end, submitter_type)
+    clean_current_alerts(
+        user,
+        period_start,
+        period_end,
+        week_period_start,
+        week_period_end,
+        submitter_type,
+    )
 
-    # Compute daily rules for each day
+    # Get work days data
+
+    day_after_period_end = period_end + timedelta(1)
+    # Next day is needed for some computation rules
+    until_date = min(week_period_end, day_after_period_end)
     (
         work_days_over_current_past_and_next_days,
         _,
     ) = group_user_events_by_day_with_limit(
-        user, from_date=period_start, until_date=period_end, tz=tz
+        user, from_date=week_period_start, until_date=until_date, tz=tz
     )
+
+    # Compute daily rules for each day
     for day in get_dates_range(period_start, period_end):
         compute_regulations_per_day(
             user,
@@ -41,23 +56,29 @@ def compute_regulations(
         )
 
     # Compute weekly rules
-    from_date = get_first_day_of_week(period_start)
-    until_date = get_last_day_of_week(period_end)
-    work_days, _ = group_user_events_by_day_with_limit(
-        user, from_date=from_date, until_date=until_date, tz=tz
+    weeks = group_user_events_by_week(
+        work_days_over_current_past_and_next_days,
+        week_period_start,
+        week_period_end,
+        tz=tz,
     )
-    weeks = group_user_events_by_week(work_days, from_date, until_date, tz=tz)
-
     for week in weeks:
         compute_regulations_per_week(user, week, submitter_type)
 
 
-def clean_current_alerts(user, period_start, period_end, submitter_type):
+def clean_current_alerts(
+    user,
+    day_compute_start,
+    day_compute_end,
+    week_compute_start,
+    week_compute_end,
+    submitter_type,
+):
     db.session.query(RegulatoryAlert).filter(
         RegulatoryAlert.user == user,
         RegulatoryAlert.submitter_type == submitter_type,
-        RegulatoryAlert.day >= period_start,
-        RegulatoryAlert.day <= period_end,
+        RegulatoryAlert.day >= day_compute_start,
+        RegulatoryAlert.day <= day_compute_end,
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.DAY
         ),
@@ -65,13 +86,11 @@ def clean_current_alerts(user, period_start, period_end, submitter_type):
         synchronize_session=False
     )  # https://docs.sqlalchemy.org/en/14/orm/session_basics.html#selecting-a-synchronization-strategy
 
-    first_day_first_week = get_first_day_of_week(period_start)
-    first_day_last_week = get_first_day_of_week(period_end)
     db.session.query(RegulatoryAlert).filter(
         RegulatoryAlert.user == user,
         RegulatoryAlert.submitter_type == submitter_type,
-        RegulatoryAlert.day >= first_day_first_week,
-        RegulatoryAlert.day <= first_day_last_week,
+        RegulatoryAlert.day >= week_compute_start,
+        RegulatoryAlert.day <= week_compute_end,
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.WEEK
         ),

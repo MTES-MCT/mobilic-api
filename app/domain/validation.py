@@ -59,7 +59,7 @@ def validate_mission(mission, submitter, creation_time=None, for_user=None):
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )
-    # TODO #613 should we add previous and next day to period?
+
     compute_regulations(
         user=for_user,
         period_start=mission_start,
