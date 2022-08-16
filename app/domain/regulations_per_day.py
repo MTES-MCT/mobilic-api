@@ -19,6 +19,7 @@ def compute_regulations_per_day(
     activity_groups_to_take_into_account = list(
         filter(
             lambda x: x.start_time <= day_end_time
+            and x.end_time
             and x.end_time > day_start_time,
             work_days_over_current_past_and_next_days,
         )
