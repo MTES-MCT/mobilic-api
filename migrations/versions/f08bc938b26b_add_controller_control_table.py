@@ -27,7 +27,7 @@ def upgrade():
             nullable=True,
         ),
         sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("valid_from", sa.DateTime(), nullable=False),
+        sa.Column("qr_code_generation_time", sa.DateTime(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
             ["controller_id"],
@@ -38,6 +38,12 @@ def upgrade():
             ["user.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "controller_id",
+            "user_id",
+            "qr_code_generation_time",
+            name="only_one_control_per_controller_user_date",
+        ),
     )
     op.create_index(
         op.f("ix_controller_control_controller_id"),

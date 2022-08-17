@@ -28,7 +28,7 @@ control_blueprint = Blueprint("control", __name__)
 def generate_read_token():
     token = UserReadToken.get_or_create(current_user)
     jwt_token = jwt.encode(
-        {"userId": current_user.id, "dateStartControl": time.time()},
+        {"userId": current_user.id, "dateCodeGeneration": time.time()},
         app.config["CONTROL_SIGNING_KEY"],
         algorithm="HS256",
     )

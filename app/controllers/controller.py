@@ -103,8 +103,8 @@ class ControllerScanCode(graphene.Mutation):
         control = ControllerControl.get_or_create_mobilic_control(
             controller_id=current_user.id,
             user_id=decoded_token["userId"],
-            valid_from=datetime.fromtimestamp(
-                decoded_token["dateStartControl"]
+            qr_code_generation_time=datetime.fromtimestamp(
+                decoded_token["dateCodeGeneration"]
             ),
         )
         return control

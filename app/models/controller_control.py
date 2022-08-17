@@ -16,7 +16,7 @@ class ControlType(enum.Enum):
 
 
 class ControllerControl(BaseModel, RandomNineIntId):
-    valid_from = db.Column(DateTimeStoredAsUTC, nullable=False)
+    qr_code_generation_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
@@ -32,17 +32,20 @@ class ControllerControl(BaseModel, RandomNineIntId):
     controller_user = db.relationship("ControllerUser")
 
     @staticmethod
-    def get_or_create_mobilic_control(controller_id, user_id, valid_from):
-        existing_controls = ControllerControl.query.filter(
+    def get_or_create_mobilic_control(
+        controller_id, user_id, qr_code_generation_time
+    ):
+        existing_control = ControllerControl.query.filter(
             ControllerControl.controller_id == controller_id,
             ControllerControl.user_id == user_id,
-            ControllerControl.valid_from == valid_from,
-        ).all()
-        if existing_controls:
-            return existing_controls[0]
+            ControllerControl.qr_code_generation_time
+            == qr_code_generation_time,
+        ).one_or_none()
+        if existing_control:
+            return existing_control
         else:
             new_control = ControllerControl(
-                valid_from=valid_from,
+                qr_code_generation_time=qr_code_generation_time,
                 user_id=user_id,
                 control_type=ControlType.mobilic,
                 controller_id=controller_id,
@@ -56,4 +59,4 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
 
-    valid_from = graphene.Field(TimeStamp, required=True)
+    qr_code_generation_time = graphene.Field(TimeStamp, required=True)
