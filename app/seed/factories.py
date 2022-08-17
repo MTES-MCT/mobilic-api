@@ -3,7 +3,7 @@ from datetime import datetime, date
 import factory
 
 from app import db
-from app.models import User, Employment, Company
+from app.models import User, Employment, Company, ControllerUser
 from app.models.employment import EmploymentRequestValidationStatus
 
 
@@ -44,6 +44,16 @@ class UserFactory(BaseFactory):
                 start_date=kwargs.get("start_date", date(2000, 1, 1)),
                 end_date=kwargs.get("end_date", None),
             )
+
+
+class ControllerFactory(BaseFactory):
+    class Meta:
+        model = ControllerUser
+
+    first_name = "Comte"
+    last_name = "Roller"
+    agent_connect_id = "#001"
+    organizational_unit = "mobilic_test"
 
 
 class CompanyFactory(BaseFactory):
