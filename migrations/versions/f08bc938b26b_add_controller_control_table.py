@@ -1,7 +1,7 @@
 """add controller control table
 
 Revision ID: f08bc938b26b
-Revises: b29f8f5e455b
+Revises: d2da23a44a8b
 Create Date: 2022-08-11 16:26:33.678499
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "f08bc938b26b"
-down_revision = "b29f8f5e455b"
+down_revision = "d2da23a44a8b"
 branch_labels = None
 depends_on = None
 
