@@ -96,6 +96,7 @@ class Config:
     APISPEC_FORMAT_RESPONSE = lambda x: x
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     EMAIL_ENABLED = os.environ.get("EMAIL_ENABLED", True)
+    CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
 
 
 class DevConfig(Config):

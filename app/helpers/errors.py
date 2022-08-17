@@ -278,6 +278,11 @@ class DuplicateExpendituresError(MobilicError):
     default_should_alert_team = False
 
 
+class InvalidControlToken(MobilicError):
+    code = "INVALID_CONTROL_TOKEN"
+    default_message = "The Control QR Code can not be read"
+
+
 class OverlappingEmploymentsError(MobilicError):
     code = "OVERLAPPING_EMPLOYMENTS"
 
