@@ -53,10 +53,3 @@ class ControllerControl(BaseModel, RandomNineIntId):
             db.session.add(new_control)
             db.session.commit()
             return new_control
-
-
-class ControllerControlOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = ControllerControl
-
-    qr_code_generation_time = graphene.Field(TimeStamp, required=True)

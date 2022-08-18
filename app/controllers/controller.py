@@ -8,6 +8,7 @@ from flask import redirect, request, after_this_request, url_for
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
+from app.data_access.control import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
@@ -33,7 +34,6 @@ from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.models.controller_control import (
     ControllerControl,
     ControlType,
-    ControllerControlOutput,
 )
 from app.models.controller_user import ControllerUser
 
