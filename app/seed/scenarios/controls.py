@@ -6,6 +6,7 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
+from app.seed.helpers import get_time
 
 
 def run_scenario_controls():
@@ -33,3 +34,9 @@ def run_scenario_controls():
         user_id=employee.id,
         qr_code_generation_time=datetime.datetime.now(),
     )
+    for i in range(10):
+        ControllerControl.get_or_create_mobilic_control(
+            controller_id=controller_user.id,
+            user_id=employee.id,
+            qr_code_generation_time=get_time(how_many_days_ago=i + 1, hour=8),
+        )
