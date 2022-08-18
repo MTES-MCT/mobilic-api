@@ -5,6 +5,7 @@ from app.domain.regulations_per_day import compute_regulations_per_day
 from app.domain.regulations_per_week import compute_regulations_per_week
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.regulations_utils import DAY
+from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import (
     FR_TIMEZONE,
     get_dates_range,
@@ -183,3 +184,22 @@ def compute_weekly_rest_duration(week, tz):
         max_outer_break = current_outer_break
 
     return max_outer_break
+
+
+def compute_regulation_for_mission(validated_mission):
+    mission_activities = validated_mission.mission.acknowledged_activities
+    if mission_activities:
+        mission_start = mission_activities[0].start_time.date()
+        mission_end = (
+            mission_activities[-1].end_time.date()
+            if mission_activities[-1].end_time
+            else None
+        )
+        submitter_type = (
+            SubmitterType.ADMIN
+            if validated_mission.is_admin
+            else SubmitterType.EMPLOYEE
+        )
+        users = set([a.user for a in mission_activities])
+        for u in users:
+            compute_regulations(u, mission_start, mission_end, submitter_type)

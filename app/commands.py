@@ -2,11 +2,12 @@ import os
 import sys
 from unittest import TestLoader, TextTestRunner
 
+import progressbar
 from config import TestConfig
 
 from app import app
-from app.domain.regulations import compute_regulations
-from app.helpers.submitter_type import SubmitterType
+from app.controllers.utils import atomic_transaction
+from app.domain.regulations import compute_regulation_for_mission
 from app.models.mission_validation import MissionValidation
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
@@ -42,23 +43,14 @@ def seed():
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 def init_regulation_alerts():
     """Initialize alerts for all validated missions"""
+    widgets = [progressbar.Percentage(), progressbar.Bar()]
     validated_missions = MissionValidation.query.all()
+    max_value = len(validated_missions) if validated_missions else 0
+    bar = progressbar.ProgressBar(widgets=widgets, max_value=max_value).start()
+    i = 0
     for validated_mission in validated_missions:
-        mission_activities = validated_mission.mission.acknowledged_activities
-        if mission_activities:
-            mission_start = mission_activities[0].start_time.date()
-            mission_end = (
-                mission_activities[-1].end_time.date()
-                if mission_activities[-1].end_time
-                else None
-            )
-            submitter_type = (
-                SubmitterType.ADMIN
-                if validated_mission.is_admin
-                else SubmitterType.EMPLOYEE
-            )
-            users = set([a.user for a in mission_activities])
-            for u in users:
-                compute_regulations(
-                    u, mission_start, mission_end, submitter_type
-                )
+        with atomic_transaction(commit_at_end=True):
+            compute_regulation_for_mission(validated_mission)
+        i += 1
+        bar.update(i)
+    bar.finish()
