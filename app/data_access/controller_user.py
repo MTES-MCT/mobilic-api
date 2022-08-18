@@ -42,5 +42,4 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'controls' of controller_user object. The field is only accessible to the controller_user himself."
     )
     def resolve_controls(self, info, consultation_scope):
-        all_controls = ControllerControl.query.all()
-        return all_controls
+        return ControllerControl.query.all()
