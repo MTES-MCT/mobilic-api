@@ -52,8 +52,11 @@ class ControllerControl(BaseModel, RandomNineIntId):
             current_activities = [
                 a
                 for a in controlled_user.activities
-                if a.start_time <= qr_code_generation_time
-                and a.end_time >= qr_code_generation_time
+                if a.end_time is None
+                or (
+                    a.start_time <= qr_code_generation_time
+                    and a.end_time >= qr_code_generation_time
+                )
             ]
             company_name = ""
             vehicle_registration_number = ""
