@@ -30,6 +30,8 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_type = db.Column(Enum(ControlType))
     user = db.relationship("User")
     controller_user = db.relationship("ControllerUser")
+    company_name = db.Column(db.String(255), nullable=True)
+    vehicule_registration_number = db.Column(db.TEXT, nullable=True)
 
     @staticmethod
     def get_or_create_mobilic_control(
