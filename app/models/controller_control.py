@@ -1,11 +1,9 @@
 import enum
 
-import graphene
 from sqlalchemy import Enum
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.base import BaseModel, RandomNineIntId
 
 
@@ -53,10 +51,3 @@ class ControllerControl(BaseModel, RandomNineIntId):
             db.session.add(new_control)
             db.session.commit()
             return new_control
-
-
-class ControllerControlOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = ControllerControl
-
-    qr_code_generation_time = graphene.Field(TimeStamp, required=True)

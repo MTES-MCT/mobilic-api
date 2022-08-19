@@ -6,13 +6,15 @@ import graphene
 import jwt
 from flask import redirect, request, after_this_request, url_for
 
-from app import app, db
+from app import app
 from app.controllers.utils import atomic_transaction
+from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
 )
+from app.domain.permissions import controller_can_see_control
 from app.helpers.agent_connect import (
     get_agent_connect_user_info,
 )
@@ -32,8 +34,6 @@ from app.helpers.authorization import (
 from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.models.controller_control import (
     ControllerControl,
-    ControlType,
-    ControllerControlOutput,
 )
 from app.models.controller_user import ControllerUser
 
@@ -159,6 +159,12 @@ class Query(graphene.ObjectType):
         description="Consultation des informations d'un contrôleur",
     )
 
+    control_data = graphene.Field(
+        ControllerControlOutput,
+        control_id=graphene.Int(required=True),
+        description="Identifiant du contrôle à récupérer",
+    )
+
     @with_authorization_policy(controller_only)
     def resolve_controller_user(self, info, id):
         controller_user = ControllerUser.query.get(id)
@@ -167,3 +173,11 @@ class Query(graphene.ObjectType):
         if current_user.id != id:
             raise AuthorizationError("Can not view info of other Controller")
         return controller_user
+
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def resolve_control_data(self, info, control_id):
+        controller_control = ControllerControl.query.get(control_id)
+        return controller_control

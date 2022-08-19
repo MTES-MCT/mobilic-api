@@ -1,18 +1,20 @@
-from typing import List, Optional
 from dataclasses import dataclass, field
-from functools import wraps
 from datetime import date
+from functools import wraps
+from typing import List, Optional
+
 from flask import g
 
-from app.helpers.authorization import active
+from app.helpers.authentication import current_user
+from app.helpers.authorization import active, controller_only
 from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyValidatedByAdminError,
     MissionAlreadyValidatedByUserError,
 )
 from app.helpers.time import get_date_or_today
-from app.helpers.authentication import current_user
 from app.models import Company, User
+from app.models.controller_control import ControllerControl
 
 
 def company_admin(actor, company_obj_or_id):
@@ -67,7 +69,9 @@ def is_employed_by_company_over_period(
     return True
 
 
-def has_any_employment_with_company(actor, company_obj_or_id):
+def has_any_employment_with_company_or_controller(actor, company_obj_or_id):
+    if controller_only(actor):
+        return True
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
@@ -256,3 +260,14 @@ def user_resolver_with_consultation_scope(error_message="Forbidden access"):
         return wrapper
 
     return decorator
+
+
+def controller_can_see_control(controller_user, control_id):
+    if not controller_only(controller_user):
+        raise AuthorizationError("Accessible only for Controller")
+    controller_control = ControllerControl.query.get(control_id)
+    if not controller_control:
+        raise AuthorizationError("Unknown control id")
+    if controller_user.id != controller_control.controller_id:
+        raise AuthorizationError("Can not view control of other Controller")
+    return True
