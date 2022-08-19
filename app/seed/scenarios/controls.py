@@ -32,7 +32,7 @@ def run_scenario_controls():
     )
     db.session.add(vehicle)
 
-    employees = [UserFactory.create() for i in range(2)]
+    employees = [UserFactory.create() for _ in range(2)]
     for e in employees:
         EmploymentFactory.create(
             company=company,

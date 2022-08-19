@@ -48,7 +48,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
             return existing_control
         else:
             controlled_user = User.query.get(user_id)
-            # TODO enhance this, what if no end time ? what's best to determine current activity
             current_activities = [
                 a
                 for a in controlled_user.activities
@@ -62,13 +61,12 @@ class ControllerControl(BaseModel, RandomNineIntId):
             vehicle_registration_number = ""
             if len(current_activities) == 1:
                 current_mission = current_activities[0].mission
-                if current_mission:
-                    if current_mission.company:
-                        company_name = current_mission.company.usual_name
-                    if current_mission.vehicle:
-                        vehicle_registration_number = (
-                            current_mission.vehicle.registration_number
-                        )
+                if current_mission and current_mission.company:
+                    company_name = current_mission.company.usual_name
+                if current_mission and current_mission.vehicle:
+                    vehicle_registration_number = (
+                        current_mission.vehicle.registration_number
+                    )
             new_control = ControllerControl(
                 qr_code_generation_time=qr_code_generation_time,
                 user_id=user_id,
