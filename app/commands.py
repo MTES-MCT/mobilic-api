@@ -3,11 +3,12 @@ import sys
 from unittest import TestLoader, TextTestRunner
 
 import progressbar
+from app.models.user import User
 from config import TestConfig
 
 from app import app
 from app.controllers.utils import atomic_transaction
-from app.domain.regulations import compute_regulation_for_mission
+from app.domain.regulations import compute_regulation_for_user
 from app.models.mission_validation import MissionValidation
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
@@ -42,15 +43,19 @@ def seed():
 
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 def init_regulation_alerts():
-    """Initialize alerts for all validated missions"""
+    """Initialize alerts for all users"""
     widgets = [progressbar.Percentage(), progressbar.Bar()]
-    validated_missions = MissionValidation.query.all()
-    max_value = len(validated_missions) if validated_missions else 0
+    users = User.query.all()
+    max_value = len(users) if users else 0
     bar = progressbar.ProgressBar(widgets=widgets, max_value=max_value).start()
     i = 0
-    for validated_mission in validated_missions:
+    for user in users:
         with atomic_transaction(commit_at_end=True):
-            compute_regulation_for_mission(validated_mission)
+            # start = time.time()
+            compute_regulation_for_user(user)
+            # end = time.time()
+            # execution_time = end - start
+            # print('--- %0.3fms. --- ' % ( execution_time*1000.))
         i += 1
         bar.update(i)
     bar.finish()

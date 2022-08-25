@@ -332,6 +332,7 @@ def group_user_events_by_day_with_limit(
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
+    only_missions_validated_by_user=False,
     first=None,
     after=None,
 ):
@@ -364,7 +365,9 @@ def group_user_events_by_day_with_limit(
     )
 
     if only_missions_validated_by_admin:
-        missions = [m for m in missions if not m.validated_by_admin_for(user)]
+        missions = [m for m in missions if m.validated_by_admin_for(user)]
+    elif only_missions_validated_by_user:
+        missions = [m for m in missions if m.validation_of(user)]
 
     work_days = group_user_missions_by_day(
         user,

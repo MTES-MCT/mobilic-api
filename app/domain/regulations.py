@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app import db
 from app.domain.regulations_per_day import compute_regulations_per_day
@@ -35,15 +35,20 @@ def compute_regulations(
     )
 
     # Get work days data
-
-    day_after_period_end = period_end + timedelta(1)
-    # Next day is needed for some computation rules
-    until_date = min(week_period_end, day_after_period_end)
+    day_after_period_end = period_end + timedelta(
+        1
+    )  # Next day is needed for some computation rules
     (
         work_days_over_current_past_and_next_days,
         _,
     ) = group_user_events_by_day_with_limit(
-        user, from_date=week_period_start, until_date=until_date, tz=tz
+        user,
+        from_date=week_period_start,
+        until_date=min(week_period_end, day_after_period_end),
+        tz=tz,
+        only_missions_validated_by_admin=submitter_type == SubmitterType.ADMIN,
+        only_missions_validated_by_user=submitter_type
+        == SubmitterType.EMPLOYEE,
     )
 
     # Compute daily rules for each day
@@ -186,20 +191,20 @@ def compute_weekly_rest_duration(week, tz):
     return max_outer_break
 
 
-def compute_regulation_for_mission(validated_mission):
-    mission_activities = validated_mission.mission.acknowledged_activities
-    if mission_activities:
-        mission_start = mission_activities[0].start_time.date()
-        mission_end = (
-            mission_activities[-1].end_time.date()
-            if mission_activities[-1].end_time
-            else None
+def compute_regulation_for_user(user):
+    first_user_activity = user.first_activity_after(None)
+    if first_user_activity:
+        today = date.today()
+        last_user_activity = user.latest_activity_before(to_datetime(today))
+        period_start = first_user_activity.start_time.date()
+        period_end = (
+            last_user_activity.end_time.date()
+            if last_user_activity.end_time
+            else today
         )
-        submitter_type = (
-            SubmitterType.ADMIN
-            if validated_mission.is_admin
-            else SubmitterType.EMPLOYEE
+        compute_regulations(
+            user, period_start, period_end, SubmitterType.ADMIN
         )
-        users = set([a.user for a in mission_activities])
-        for u in users:
-            compute_regulations(u, mission_start, mission_end, submitter_type)
+        compute_regulations(
+            user, period_start, period_end, SubmitterType.EMPLOYEE
+        )
