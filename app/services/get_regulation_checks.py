@@ -25,7 +25,7 @@ class RegulationCheckData:
 def get_regulation_checks():
     return [
         RegulationCheckData(
-            type="minimumDailyRest",  # TODO use enum
+            type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
             description="La durée du repos quotidien est d'au-moins 10h toutes les 24h (article R. 3312-53, 2° du code des transports)",
             regulation_rule="dailyRest",
@@ -45,7 +45,6 @@ def get_regulation_checks():
                 dict(
                     MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS=10,
                     MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS=12,
-                    # START_DAY_WORK_HOUR=5,
                 )
             ),
             unit=UnitType.DAY,

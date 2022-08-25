@@ -51,11 +51,7 @@ def init_regulation_alerts():
     i = 0
     for user in users:
         with atomic_transaction(commit_at_end=True):
-            # start = time.time()
             compute_regulation_for_user(user)
-            # end = time.time()
-            # execution_time = end - start
-            # print('--- %0.3fms. --- ' % ( execution_time*1000.))
         i += 1
         bar.update(i)
     bar.finish()
