@@ -146,6 +146,16 @@ class EmptyActivityDurationError(MobilicError):
     )
 
 
+class ActivityBeforeEmploymentByEmployeeError(MobilicError):
+    code = "ACTIVITY_BEFORE_EMPLOYMENT_EMPLOYEE"
+    default_message = "Activity can't be added before employment"
+
+
+class ActivityBeforeEmploymentByAdminError(MobilicError):
+    code = "ACTIVITY_BEFORE_EMPLOYMENT_ADMIN"
+    default_message = "Activity can't be added before employment"
+
+
 class ActivityInFutureError(MobilicError):
     code = "ACTIVITY_TIME_IN_FUTURE"
 
