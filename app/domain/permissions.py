@@ -6,6 +6,8 @@ from flask import g
 
 from app.helpers.authorization import active
 from app.helpers.errors import (
+    ActivityOutsideEmploymentByAdminError,
+    ActivityOutsideEmploymentByEmployeeError,
     AuthorizationError,
     MissionAlreadyValidatedByAdminError,
     MissionAlreadyValidatedByUserError,
@@ -149,7 +151,10 @@ def check_actor_can_write_on_mission_over_period(
         end=end,
         include_pending_invite=False,
     ):
-        _raise_authorization_error()
+        if for_user == actor:
+            raise ActivityOutsideEmploymentByEmployeeError()
+        else:
+            raise ActivityOutsideEmploymentByAdminError()
 
     is_actor_company_admin = company_admin(actor, mission.company_id)
     # 4. Check that actor can log for the eventual user (must be either a company admin, the user himself or the team leader)
