@@ -146,14 +146,14 @@ class EmptyActivityDurationError(MobilicError):
     )
 
 
-class ActivityBeforeEmploymentByEmployeeError(MobilicError):
-    code = "ACTIVITY_BEFORE_EMPLOYMENT_EMPLOYEE"
-    default_message = "Activity can't be added before employment"
+class ActivityOutsideEmploymentByEmployeeError(MobilicError):
+    code = "ACTIVITY_OUTSIDE_EMPLOYMENT_EMPLOYEE"
+    default_message = "Activity can't be added outside employment period"
 
 
-class ActivityBeforeEmploymentByAdminError(MobilicError):
-    code = "ACTIVITY_BEFORE_EMPLOYMENT_ADMIN"
-    default_message = "Activity can't be added before employment"
+class ActivityOutsideEmploymentByAdminError(MobilicError):
+    code = "ACTIVITY_OUTSIDE_EMPLOYMENT_ADMIN"
+    default_message = "Activity can't be added outside employment period"
 
 
 class ActivityInFutureError(MobilicError):
