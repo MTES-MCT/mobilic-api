@@ -269,5 +269,5 @@ def controller_can_see_control(controller_user, control_id):
     if not controller_control:
         raise AuthorizationError("Unknown control id")
     if controller_user.id != controller_control.controller_id:
-        raise AuthorizationError("Can not view control of other Controller")
+        raise AuthorizationError("Can not view control of another Controller")
     return True
