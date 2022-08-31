@@ -10,8 +10,8 @@ import re
 
 from app import app, db
 from app.helpers.time import to_timestamp
-from app.models import User
-from app.tests import test_post_graphql
+from app.models import User, ControllerUser
+from app.tests import test_post_graphql, test_post_graphql_unexposed
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
@@ -191,6 +191,13 @@ class ApiRequests:
             }
         }
     """
+    read_control_data = """
+      query readControlData($controlId: Int!) {
+        controlData(controlId: $controlId) {
+          id
+        }
+      }
+    """
 
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
@@ -311,17 +318,34 @@ def test_db_changes(expected_changes, watch_models):
 
 
 def make_authenticated_request(
-    time, submitter_id, query, variables, request_should_fail_with=None
+    time,
+    submitter_id,
+    query,
+    variables,
+    request_should_fail_with=None,
+    request_by_controller_user=False,
+    unexposed_query=False,
 ):
     formatted_variables = _snake_to_camel(
         _convert_date_time_to_timestamps(variables)
     )
     with freeze_time(time):
-        response = test_post_graphql(
-            query=query,
-            mock_authentication_with_user=User.query.get(submitter_id),
-            variables=formatted_variables,
-        )
+        if request_by_controller_user:
+            authenticated_user = ControllerUser.query.get(submitter_id)
+        else:
+            authenticated_user = User.query.get(submitter_id)
+        if unexposed_query:
+            response = test_post_graphql_unexposed(
+                query=query,
+                mock_authentication_with_user=authenticated_user,
+                variables=formatted_variables,
+            )
+        else:
+            response = test_post_graphql(
+                query=query,
+                mock_authentication_with_user=authenticated_user,
+                variables=formatted_variables,
+            )
     # print(response.json)
     db.session.rollback()
 
