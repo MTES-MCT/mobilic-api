@@ -94,11 +94,21 @@ def query_activities(
     end_time=None,
     user_id=None,
     company_ids=None,
+    max_reception_time=None,
+    mission_id=None,
 ):
     base_query = Activity.query
 
     if user_id:
         base_query = base_query.filter(Activity.user_id == user_id)
+
+    if max_reception_time:
+        base_query = base_query.filter(
+            Activity.reception_time <= max_reception_time
+        )
+
+    if mission_id:
+        base_query = base_query.filter(Activity.mission_id == mission_id)
 
     if not include_dismissed_activities:
         base_query = base_query.filter(~Activity.is_dismissed)
