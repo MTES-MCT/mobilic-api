@@ -7,7 +7,6 @@ from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.regulations_utils import DAY
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import (
-    FR_TIMEZONE,
     get_dates_range,
     get_first_day_of_week,
     get_last_day_of_week,
@@ -16,15 +15,13 @@ from app.helpers.time import (
 from app.models import RegulationCheck
 from app.models.regulation_check import UnitType
 from app.models.regulatory_alert import RegulatoryAlert
+from dateutil.tz import gettz
 
 
-def compute_regulations(
-    user, period_start, period_end, submitter_type, tz=FR_TIMEZONE
-):
+def compute_regulations(user, period_start, period_end, submitter_type):
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
 
-    # Clean current alerts
     clean_current_alerts(
         user,
         period_start,
@@ -34,18 +31,18 @@ def compute_regulations(
         submitter_type,
     )
 
-    # Get work days data
-    day_after_period_end = period_end + timedelta(
-        1
-    )  # Next day is needed for some computation rules
+    user_timezone = gettz(user.timezone_name)
+
+    # Next day is needed for some computation rules
+    day_after_period_end = period_end + timedelta(1)
     (
         work_days_over_current_past_and_next_days,
         _,
     ) = group_user_events_by_day_with_limit(
         user,
         from_date=week_period_start,
-        until_date=max(week_period_end, day_after_period_end),
-        tz=tz,
+        until_date=min(week_period_end, day_after_period_end),
+        tz=user_timezone,
         only_missions_validated_by_admin=submitter_type == SubmitterType.ADMIN,
         only_missions_validated_by_user=submitter_type
         == SubmitterType.EMPLOYEE,
@@ -58,7 +55,7 @@ def compute_regulations(
             day,
             submitter_type,
             work_days_over_current_past_and_next_days,
-            tz=tz,
+            tz=user_timezone,
         )
 
     # Compute weekly rules
@@ -66,7 +63,7 @@ def compute_regulations(
         work_days_over_current_past_and_next_days,
         week_period_start,
         week_period_end,
-        tz=tz,
+        tz=user_timezone,
     )
     for week in weeks:
         compute_regulations_per_week(user, week, submitter_type)

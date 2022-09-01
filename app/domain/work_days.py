@@ -1,24 +1,24 @@
-from collections import defaultdict
-from cached_property import cached_property
-from dataclasses import dataclass
-from typing import List, Set
-from datetime import datetime, date, timedelta, timezone
-from functools import reduce
 from base64 import b64decode
-from sqlalchemy import desc
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from functools import reduce
+from typing import List, Set
 
 from app.domain.history import actions_history
 from app.helpers.errors import InvalidParamsError
 from app.helpers.time import (
-    to_timestamp,
     FR_TIMEZONE,
-    to_tz,
     from_tz,
     to_datetime,
-    to_fr_tz,
+    to_timestamp,
+    to_tz,
 )
-from app.models import Activity, User, Mission, Company, Comment
+from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
+from cached_property import cached_property
+from dateutil.tz import gettz
+from sqlalchemy import desc
 
 
 def compute_aggregate_durations(periods, min_time=None, tz=None):
@@ -40,10 +40,21 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         )
         timers[period.type] += total_duration
         if period.type != ActivityType.TRANSFER and min_time:
+            user_timezone = gettz(period.user.timezone_name)
             day_duration_tarification = int(
                 period.duration_over(
-                    from_tz(to_fr_tz(min_time).replace(hour=6, minute=0), tz),
-                    from_tz(to_fr_tz(min_time).replace(hour=21, minute=0), tz),
+                    from_tz(
+                        to_tz(min_time, user_timezone).replace(
+                            hour=6, minute=0
+                        ),
+                        tz,
+                    ),
+                    from_tz(
+                        to_tz(min_time, user_timezone).replace(
+                            hour=21, minute=0
+                        ),
+                        tz,
+                    ),
                 ).total_seconds()
             )
             timers["night_work_tarification"] += (
@@ -51,8 +62,18 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
             )
             day_duration_legislation = int(
                 period.duration_over(
-                    from_tz(to_fr_tz(min_time).replace(hour=5, minute=0), tz),
-                    from_tz(to_fr_tz(min_time).replace(hour=22, minute=0), tz),
+                    from_tz(
+                        to_tz(min_time, user_timezone).replace(
+                            hour=5, minute=0
+                        ),
+                        tz,
+                    ),
+                    from_tz(
+                        to_tz(min_time, user_timezone).replace(
+                            hour=22, minute=0
+                        ),
+                        tz,
+                    ),
                 ).total_seconds()
             )
             timers["night_work_legislation"] += (
