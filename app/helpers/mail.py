@@ -1,17 +1,17 @@
-from mailjet_rest import Client
 from contextlib import contextmanager
-import jwt
+from datetime import datetime
 from enum import Enum
-import os
-from cached_property import cached_property
-from flask import render_template
-from datetime import datetime, date
-from markupsafe import Markup
 
+import jwt
 from app import app
 from app.helpers.errors import MobilicError
-from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
+from app.helpers.time import to_tz
+from cached_property import cached_property
+from dateutil.tz import gettz
+from flask import render_template
+from mailjet_rest import Client
+from markupsafe import Markup
 
 SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
@@ -168,8 +168,8 @@ class Mailer:
         )
 
     def _send_batch(self, messages, _disable_commit=False):
-        from app.models import Email
         from app import db
+        from app.models import Email
 
         if not app.config["EMAIL_ENABLED"]:
             app.logger.info(
@@ -532,10 +532,10 @@ class Mailer:
         old_timers,
         new_timers,
     ):
-        old_start_time = to_fr_tz(old_start_time)
-        old_end_time = to_fr_tz(old_end_time)
-        new_start_time = to_fr_tz(new_start_time)
-        new_end_time = to_fr_tz(new_end_time)
+        old_start_time = to_tz(old_start_time, gettz(user.timezone_name))
+        old_end_time = to_tz(old_end_time, gettz(user.timezone_name))
+        new_start_time = to_tz(new_start_time, gettz(user.timezone_name))
+        new_end_time = to_tz(new_end_time, gettz(user.timezone_name))
         self._send_single(
             self._create_message_from_flask_template(
                 "mission_changes_warning_email.html",
@@ -582,8 +582,8 @@ class Mailer:
     def send_information_email_about_new_mission(
         self, user, admin, mission, start_time, end_time, timers
     ):
-        start_time = to_fr_tz(start_time)
-        end_time = to_fr_tz(end_time)
+        start_time = to_tz(start_time, gettz(user.timezone_name))
+        end_time = to_tz(end_time, gettz(user.timezone_name))
         mission_day = start_time.strftime("%d/%m")
         self._send_single(
             self._create_message_from_flask_template(
