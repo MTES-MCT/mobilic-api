@@ -6,7 +6,7 @@ from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
-    ControllerFactory,
+    ControllerUserFactory,
 )
 from app.seed.helpers import get_time
 from app.tests import BaseTest
@@ -51,7 +51,7 @@ class TestControls(BaseTest):
         )
         db.session.add(self.vehicle2)
         db.session.add(self.vehicle1)
-        self.controller_user = ControllerFactory.create(
+        self.controller_user = ControllerUserFactory.create(
             email="controller@test.com"
         )
         db.session.commit()

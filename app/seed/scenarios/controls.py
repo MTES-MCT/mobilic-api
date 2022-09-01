@@ -7,9 +7,9 @@ from app.models.activity import ActivityType
 from app.models.controller_control import ControllerControl
 from app.seed import (
     CompanyFactory,
-    ControllerFactory,
     UserFactory,
     EmploymentFactory,
+    ControllerUserFactory,
 )
 from app.seed.helpers import get_time, AuthenticatedUserContext
 
@@ -32,7 +32,12 @@ def run_scenario_controls():
     )
     db.session.add(vehicle)
 
-    employees = [UserFactory.create() for _ in range(2)]
+    employees = [
+        UserFactory.create(
+            first_name=f"Michel {i + 1}", last_name=f"Pickford {i + 1}"
+        )
+        for i in range(2)
+    ]
     for e in employees:
         EmploymentFactory.create(
             company=company,
@@ -40,7 +45,7 @@ def run_scenario_controls():
             user=e,
             has_admin_rights=False,
         )
-    controller_user = ControllerFactory.create(email="controller@test.com")
+    controller_user = ControllerUserFactory.create(email="controller@test.com")
 
     for days_ago in range(10, -1, -1):
         for e in employees:

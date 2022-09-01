@@ -4,6 +4,7 @@ import factory
 
 from app import db
 from app.models import User, Employment, Company, ControllerUser
+from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
 
 
@@ -46,16 +47,6 @@ class UserFactory(BaseFactory):
             )
 
 
-class ControllerFactory(BaseFactory):
-    class Meta:
-        model = ControllerUser
-
-    first_name = "Comte"
-    last_name = "Roller"
-    agent_connect_id = "#001"
-    organizational_unit = "mobilic_test"
-
-
 class CompanyFactory(BaseFactory):
     class Meta:
         model = Company
@@ -78,3 +69,21 @@ class EmploymentFactory(BaseFactory):
 
     user = factory.SubFactory(UserFactory)
     has_admin_rights = False
+
+
+class ControllerUserFactory(BaseFactory):
+    class Meta:
+        model = ControllerUser
+
+    email = factory.Sequence(lambda n: f"test{n}@test.test")
+    organizational_unit = "CTT"
+    first_name = "Kont"
+    last_name = "Roller"
+    agent_connect_id = factory.Sequence(lambda n: f"AC_ID_{n}")
+
+
+class ControllerControlFactory(BaseFactory):
+    class Meta:
+        model = ControllerControl
+
+    qr_code_generation_time = datetime.now()

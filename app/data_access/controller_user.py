@@ -1,6 +1,6 @@
 import graphene
 
-from app.data_access.control import ControllerControlOutput
+from app.data_access.control_data import ControllerControlOutput
 from app.domain.permissions import user_resolver_with_consultation_scope
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import ControllerUser
@@ -35,7 +35,7 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
     )
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),
-        description="Liste des contrôles réalisés par le controlleur",
+        description="Liste des contrôles réalisés par le contrôleur",
     )
 
     @user_resolver_with_consultation_scope(

@@ -26,7 +26,7 @@ from app.seed.factories import (
     UserFactory,
     CompanyFactory,
     EmploymentFactory,
-    ControllerFactory,
+    ControllerUserFactory,
 )
 from app.seed.helpers import AuthenticatedUserContext
 from app.seed.scenarios import run_scenario_busy_admin
