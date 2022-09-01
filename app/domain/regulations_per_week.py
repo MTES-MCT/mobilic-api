@@ -43,14 +43,22 @@ def check_max_worked_day_in_week(week, regulation_check):
         "MAXIMUM_DAY_WORKED_BY_WEEK"
     ]
     if week["worked_days"] > MAXIMUM_DAY_WORKED_BY_WEEK:
-        return ComputationResult(success=False, extra=dict(too_many_days=True))
+        return ComputationResult(
+            success=False,
+            extra=dict(
+                too_many_days=True, rest_duration_s=week["rest_duration_s"]
+            ),
+        )
 
     MINIMUM_WEEKLY_BREAK_IN_HOURS = regulation_check.variables[
         "MINIMUM_WEEKLY_BREAK_IN_HOURS"
     ]
     if week["rest_duration_s"] < MINIMUM_WEEKLY_BREAK_IN_HOURS * HOUR:
         return ComputationResult(
-            success=False, extra=dict(rest_duration_s=week["rest_duration_s"])
+            success=False,
+            extra=dict(
+                too_many_days=False, rest_duration_s=week["rest_duration_s"]
+            ),
         )
 
     return ComputationResult(success=True)

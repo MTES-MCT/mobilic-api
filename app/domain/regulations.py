@@ -44,7 +44,7 @@ def compute_regulations(
     ) = group_user_events_by_day_with_limit(
         user,
         from_date=week_period_start,
-        until_date=min(week_period_end, day_after_period_end),
+        until_date=max(week_period_end, day_after_period_end),
         tz=tz,
         only_missions_validated_by_admin=submitter_type == SubmitterType.ADMIN,
         only_missions_validated_by_user=submitter_type
@@ -176,7 +176,8 @@ def compute_weekly_rest_duration(week, tz):
 
                 if current_outer_break > max_outer_break:
                     max_outer_break = current_outer_break
-                    current_outer_break = 0
+
+                current_outer_break = 0
 
             if day["overlap_next_day"] is False:
                 current_outer_break = (
