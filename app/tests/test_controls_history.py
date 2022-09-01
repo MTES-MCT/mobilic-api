@@ -14,11 +14,19 @@ class TestControllerReadControl(BaseTest):
         super().setUp()
         self.controller_user_1 = ControllerUserFactory.create()
         self.controller_user_2 = ControllerUserFactory.create()
-        self.controlled_user = UserFactory.create()
+        self.controlled_user_1 = UserFactory.create()
+        self.controlled_user_2 = UserFactory.create()
 
-    def create_controller_control(self, controller_user):
+    def create_controller_control(
+        self,
+        controller_user,
+        controlled_user,
+        qr_code_generation_time=datetime.now(),
+    ):
         controller_control = ControllerControlFactory.create(
-            user_id=self.controlled_user.id, controller_id=controller_user.id
+            user_id=controlled_user.id,
+            controller_id=controller_user.id,
+            qr_code_generation_time=qr_code_generation_time,
         )
         return controller_control.id
 
@@ -43,15 +51,35 @@ class TestControllerReadControl(BaseTest):
         self.assertIsNotNone(response_data)
 
         self.assertEqual(response_data["id"], self.controller_user_1.id)
-        self.assertIsNone(response_data["controls"])
+        self.assertEquals(len(response_data["controls"]), 0)
 
-    def test_load_controller_info_one_control(self):
-        ControllerControl.get_or_create_mobilic_control(
-            controller_id=self.controller_user_1.id,
-            user_id=self.controlled_user.id,
-            qr_code_generation_time=get_time(how_many_days_ago=1, hour=11),
+    def test_load_controller_info_controls(self):
+        self.create_controller_control(
+            self.controller_user_1, self.controlled_user_1
+        )
+        self.create_controller_control(
+            self.controller_user_1,
+            self.controlled_user_1,
+            get_time(how_many_days_ago=2, hour=10),
+        )
+        self.create_controller_control(
+            self.controller_user_1, self.controlled_user_2
         )
 
         response_data = self.query_controller_info(self.controller_user_1)
 
-        self.assertIsNone(response_data["controls"])
+        self.assertIsNotNone(response_data["controls"])
+        self.assertEquals(len(response_data["controls"]), 3)
+
+    def test_retrieves_only_own_controls(self):
+        self.create_controller_control(
+            self.controller_user_1, self.controlled_user_1
+        )
+        self.create_controller_control(
+            self.controller_user_2, self.controlled_user_1
+        )
+
+        response_data = self.query_controller_info(self.controller_user_1)
+
+        self.assertIsNotNone(response_data["controls"])
+        self.assertEquals(len(response_data["controls"]), 1)
