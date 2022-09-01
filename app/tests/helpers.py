@@ -199,6 +199,28 @@ class ApiRequests:
       }
     """
 
+    get_controller_user_info = """
+        query controllerUser($id: Int!) {
+        controllerUser(id: $id) {
+          id
+          firstName
+          lastName
+          email
+          controls {
+            id
+            controlType
+            user {
+              firstName
+              lastName
+            }
+            qrCodeGenerationTime
+            companyName
+            vehicleRegistrationNumber
+          }
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
