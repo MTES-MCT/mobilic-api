@@ -86,6 +86,9 @@ class UserSignUp(graphene.Mutation):
             required=False,
             description="Précise si le nouvel utilisateur est un travailleur mobile ou bien un gestionnaire. Vrai par défaut.",
         )
+        timezone_name = graphene.String(
+            required=False, description="Fuseau horaire de l'utilisateur"
+        )
 
     Output = UserTokens
 
