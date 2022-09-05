@@ -40,9 +40,6 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         ),
     )
 
-    # @user_resolver_with_consultation_scope(
-    #     error_message="Forbidden access to field 'controls' of controller_user object. The field is only accessible to the controller_user himself."
-    # )
     def resolve_controls(self, info, from_date=None):
         print("")
         print(from_date)
