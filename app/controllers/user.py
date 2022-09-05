@@ -164,6 +164,24 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
         return current_user
 
 
+class ChangeTimezone(AuthenticatedMutation):
+    class Arguments:
+        timezone_name = graphene.String(
+            required=True,
+            description="Fuseau horaire de l'utilisateur",
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    def mutate(cls, _, info, timezone_name):
+        old_timezone_name = current_user.timezone_name
+        if old_timezone_name != timezone_name:
+            with atomic_transaction(commit_at_end=True):
+                current_user.timezone_name = timezone_name
+        return current_user
+
+
 class ChangeEmail(AuthenticatedMutation):
     class Arguments:
         email = graphene.String(

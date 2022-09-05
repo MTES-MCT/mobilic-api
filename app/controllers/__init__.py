@@ -45,6 +45,7 @@ from app.controllers.user import (
     Query as UserQuery,
     ConfirmFranceConnectEmail,
     ChangeEmail,
+    ChangeTimezone,
     ActivateEmail,
     ResetPassword,
     RequestPasswordReset,
@@ -111,6 +112,7 @@ class PrivateAuth(graphene.ObjectType):
 
 class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
+    change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
     request_reset_password = RequestPasswordReset.Field()
     resend_activation_email = ResendActivationEmail.Field()
