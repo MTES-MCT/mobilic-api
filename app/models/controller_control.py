@@ -48,19 +48,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
             return existing_control
         else:
             controlled_user = User.query.get(user_id)
-            current_activities = [
-                a
-                for a in controlled_user.activities
-                if a.end_time is None
-                or (
-                    a.start_time <= qr_code_generation_time
-                    and a.end_time >= qr_code_generation_time
-                )
-            ]
+            current_activity = controlled_user.activity_at(
+                qr_code_generation_time
+            )
             company_name = ""
             vehicle_registration_number = ""
-            if len(current_activities) == 1:
-                current_mission = current_activities[0].mission
+            if current_activity:
+                current_mission = current_activity.mission
                 if current_mission and current_mission.company:
                     company_name = current_mission.company.usual_name
                 if current_mission and current_mission.vehicle:
