@@ -4,7 +4,7 @@ from app import db
 from app.models.controller_control import ControllerControl
 from app.seed import ControllerUserFactory, UserFactory
 from app.seed.factories import ControllerControlFactory
-from app.seed.helpers import get_time
+from app.seed.helpers import get_time, get_date
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
@@ -30,14 +30,12 @@ class TestControllerReadControl(BaseTest):
         )
         return controller_control.id
 
-    def query_controller_info(self, controller):
+    def query_controller_info(self, controller, from_date=None):
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=controller.id,
             query=ApiRequests.get_controller_user_info,
-            variables=dict(
-                id=controller.id,
-            ),
+            variables=dict(id=controller.id, from_date=from_date),
             request_by_controller_user=True,
             unexposed_query=True,
         )
@@ -83,3 +81,18 @@ class TestControllerReadControl(BaseTest):
 
         self.assertIsNotNone(response_data["controls"])
         self.assertEquals(len(response_data["controls"]), 1)
+
+    def test_retrieves_only_controls_after_from_date(self):
+        for days_ago in range(1, 20):
+            self.create_controller_control(
+                self.controller_user_1,
+                self.controlled_user_1,
+                get_time(how_many_days_ago=days_ago, hour=9),
+            )
+        response_data = self.query_controller_info(
+            self.controller_user_1,
+            get_date(how_many_days_ago=5).strftime("%Y-%m-%d"),
+        )
+
+        self.assertIsNotNone(response_data["controls"])
+        self.assertEquals(len(response_data["controls"]), 5)

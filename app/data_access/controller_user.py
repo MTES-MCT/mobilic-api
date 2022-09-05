@@ -35,10 +35,15 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),
         description="Liste des contrôles réalisés par le contrôleur",
+        from_date=graphene.Date(
+            required=False, description="Date de début de l'historique"
+        ),
     )
 
-    @user_resolver_with_consultation_scope(
-        error_message="Forbidden access to field 'controls' of controller_user object. The field is only accessible to the controller_user himself."
-    )
-    def resolve_controls(self, info, consultation_scope):
-        return self.query_controls()
+    # @user_resolver_with_consultation_scope(
+    #     error_message="Forbidden access to field 'controls' of controller_user object. The field is only accessible to the controller_user himself."
+    # )
+    def resolve_controls(self, info, from_date=None):
+        print("")
+        print(from_date)
+        return self.query_controls(from_date=from_date)

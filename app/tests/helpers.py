@@ -200,13 +200,13 @@ class ApiRequests:
     """
 
     get_controller_user_info = """
-        query controllerUser($id: Int!) {
+        query controllerUser($id: Int!, $fromDate: Date) {
         controllerUser(id: $id) {
           id
           firstName
           lastName
           email
-          controls {
+          controls(fromDate: $fromDate) {
             id
             controlType
             user {

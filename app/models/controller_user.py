@@ -2,7 +2,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
 from app.models.base import BaseModel, RandomNineIntId
-from app.models.controller_control import ControllerControl
 
 
 class ControllerUser(BaseModel, RandomNineIntId):
@@ -17,9 +16,11 @@ class ControllerUser(BaseModel, RandomNineIntId):
     def display_name(self):
         return f"{self.first_name} {self.last_name}".lower().title()
 
-    def query_controls(self):
-        return ControllerControl.query.filter(
-            ControllerControl.controller_id == self.id
+    def query_controls(self, from_date=None):
+        from app.models.queries import query_controls
+
+        return query_controls(
+            start_time=from_date, end_time=None, controller_user_id=self.id
         ).all()
 
     def __repr__(self):
