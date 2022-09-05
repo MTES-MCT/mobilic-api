@@ -41,6 +41,4 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_controls(self, info, from_date=None):
-        print("")
-        print(from_date)
         return self.query_controls(from_date=from_date)
