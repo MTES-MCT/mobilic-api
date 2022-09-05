@@ -135,17 +135,23 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
         password = graphene.String(required=False, description="Mot de passe")
+        timezone_name = graphene.String(
+            required=False, description="Fuseau horaire de l'utilisateur"
+        )
 
     Output = UserOutput
 
     @classmethod
-    def mutate(cls, _, info, email, password=None):
+    def mutate(
+        cls, _, info, email, password=None, timezone_name="Europe/Paris"
+    ):
         with atomic_transaction(commit_at_end=True):
             if not current_user.france_connect_id or current_user.password:
                 raise AuthorizationError("Actor has already a login")
 
             current_user.email = email
             current_user.has_confirmed_email = True
+            current_user.timezone_name = timezone_name
             current_user.create_activation_link()
             if password:
                 current_user.password = password
