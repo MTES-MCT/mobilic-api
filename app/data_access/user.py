@@ -61,6 +61,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Adresse email, qui sert également d'identifiant de connexion",
     )
+    timezone_name = graphene.Field(
+        graphene.String,
+        required=False,
+        description="Fuseau horaire de l'utlisateur",
+    )
     activities = graphene.Field(
         ActivityConnection,
         description="Liste des activités de l'utilisateur, triées par id (pas forcément par récence).",
