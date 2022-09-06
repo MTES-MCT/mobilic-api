@@ -1,7 +1,6 @@
 import graphene
 
 from app.data_access.control_data import ControllerControlOutput
-from app.domain.permissions import user_resolver_with_consultation_scope
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import ControllerUser
 
