@@ -79,9 +79,9 @@ class ApiRequests:
         }
     """
     create_mission = """
-        mutation ($name: String, $companyId: Int!, $context: GenericScalar) {
+        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
             activities {
-                createMission (name: $name, companyId: $companyId, context: $context) {
+                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId) {
                     id
                     name
                 }
@@ -195,6 +195,28 @@ class ApiRequests:
       query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
           id
+        }
+      }
+    """
+
+    get_controller_user_info = """
+        query controllerUser($id: Int!, $fromDate: Date) {
+        controllerUser(id: $id) {
+          id
+          firstName
+          lastName
+          email
+          controls(fromDate: $fromDate) {
+            id
+            controlType
+            user {
+              firstName
+              lastName
+            }
+            qrCodeGenerationTime
+            companyName
+            vehicleRegistrationNumber
+          }
         }
       }
     """
