@@ -532,21 +532,18 @@ class Mailer:
         old_timers,
         new_timers,
     ):
-        old_start_time = to_fr_tz(old_start_time)
-        old_end_time = to_fr_tz(old_end_time)
-        new_start_time = to_fr_tz(new_start_time)
-        new_end_time = to_fr_tz(new_end_time)
+        mission_day = to_fr_tz(old_start_time).strftime("%d/%m")
         self._send_single(
             self._create_message_from_flask_template(
                 "mission_changes_warning_email.html",
-                subject=f"Modifications sur votre mission {mission.name} du {old_start_time.strftime('%d/%m')}",
+                subject=f"Modifications sur votre mission {mission.name} du {mission_day}",
                 user=user,
                 type_=EmailType.MISSION_CHANGES_WARNING,
                 first_name=user.first_name,
                 mission_name=mission.name,
                 company_name=mission.company.name,
                 admin_full_name=admin.display_name,
-                mission_day=Markup(old_start_time.strftime("%d/%m")),
+                mission_day=Markup(mission_day),
                 mission_link=Markup(
                     f"{app.config['FRONTEND_URL']}/app/history?mission={mission.id}"
                 ),
@@ -567,10 +564,10 @@ class Mailer:
                         [
                             dt.date()
                             for dt in [
-                                new_end_time,
-                                new_start_time,
-                                old_start_time,
-                                old_end_time,
+                                to_fr_tz(new_end_time),
+                                to_fr_tz(new_start_time),
+                                to_fr_tz(old_start_time),
+                                to_fr_tz(old_end_time),
                             ]
                         ]
                     )
