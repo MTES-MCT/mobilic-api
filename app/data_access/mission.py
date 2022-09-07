@@ -84,14 +84,17 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         # TODO à discuter en review
         # if info.context.view_args["max_reception_time"]:
 
-        if info.path[0] == "controlData":
+        if (
+            info.path[0] == "controlData"
+            or info.path[0] == "readMissionControlData"
+        ):
             controller_control = ControllerControl.query.get(
                 info.variable_values["controlId"]
             )
             max_reception_time = controller_control.qr_code_generation_time
             frozen_activities = list(
                 map(
-                    lambda a: a.rewind_activity_at(max_reception_time),
+                    lambda a: a.freeze_activity_at(max_reception_time),
                     self.activities,
                 )
             )

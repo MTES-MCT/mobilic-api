@@ -134,6 +134,18 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         description="Identifiant de la personne qui a effectué la dernière modification sur l'activité",
     )
 
+    def resolve_end_time(self, info):
+        if self.use_frozen_version:
+            return self.frozen_end_time
+        else:
+            return self.end_time
+
+    def resolve_start_time(self, info):
+        if self.use_frozen_version:
+            return self.frozen_start_time
+        else:
+            return self.start_time
+
 
 class ActivityConnection(graphene.Connection):
     class Meta:

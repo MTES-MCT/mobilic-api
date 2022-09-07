@@ -73,6 +73,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         db.Constraint(name="no_successive_activities_with_same_type"),
     )
 
+    use_frozen_version = False
+
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 
@@ -104,15 +106,18 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 key=lambda r: r.version_number,
             )
 
-    def rewind_activity_at(self, at_time):
-        with atomic_transaction(commit_at_end=False):
-            frozen_version = self.version_at(at_time)
-            if frozen_version:
-                self.start_time = frozen_version.start_time
-                self.end_time = frozen_version.end_time
-                return self
+    def freeze_activity_at(self, at_time):
+        frozen_version = self.version_at(at_time)
+        if frozen_version:
+            self.use_frozen_version = True
+            self.frozen_start_time = frozen_version.start_time
+            if frozen_version.end_time:
+                self.frozen_end_time = frozen_version.end_time
             else:
-                return None
+                self.frozen_end_time = at_time
+            return self
+        else:
+            return None
 
     def latest_modification_time_by(self, user):
         if self.dismiss_author_id == user.id:
