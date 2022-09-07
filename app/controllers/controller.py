@@ -1,16 +1,20 @@
+from datetime import datetime
 from urllib.parse import quote, urlencode, unquote
 from uuid import uuid4
 
 import graphene
+import jwt
 from flask import redirect, request, after_this_request, url_for
 
 from app import app
 from app.controllers.utils import atomic_transaction
+from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
 )
+from app.domain.permissions import controller_can_see_control
 from app.helpers.agent_connect import (
     get_agent_connect_user_info,
 )
@@ -27,7 +31,10 @@ from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
 )
-from app.helpers.errors import AuthorizationError
+from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.models.controller_control import (
+    ControllerControl,
+)
 from app.models.controller_user import ControllerUser
 
 
@@ -74,6 +81,33 @@ def redirect_to_ac_logout():
         f"{app.config['AC_LOGOUT_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
+
+
+class ControllerScanCode(graphene.Mutation):
+    class Arguments:
+        jwt_token = graphene.String(required=True)
+
+    Output = ControllerControlOutput
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(cls, _, info, jwt_token):
+        try:
+            decoded_token = jwt.decode(
+                jwt_token,
+                app.config["CONTROL_SIGNING_KEY"],
+                algorithms="HS256",
+            )
+        except:
+            raise InvalidControlToken
+        control = ControllerControl.get_or_create_mobilic_control(
+            controller_id=current_user.id,
+            user_id=decoded_token["userId"],
+            qr_code_generation_time=datetime.fromtimestamp(
+                decoded_token["dateCodeGeneration"]
+            ),
+        )
+        return control
 
 
 class AgentConnectLogin(graphene.Mutation):
@@ -125,12 +159,13 @@ class Query(graphene.ObjectType):
         description="Consultation des informations d'un contrôleur",
     )
 
-    @with_authorization_policy(
-        controller_only,
-        get_target_from_args=lambda *args, **kwargs: ControllerUser.query.get(
-            kwargs["id"]
-        ),
+    control_data = graphene.Field(
+        ControllerControlOutput,
+        control_id=graphene.Int(required=True),
+        description="Identifiant du contrôle à récupérer",
     )
+
+    @with_authorization_policy(controller_only)
     def resolve_controller_user(self, info, id):
         controller_user = ControllerUser.query.get(id)
         if not controller_user:
@@ -138,3 +173,11 @@ class Query(graphene.ObjectType):
         if current_user.id != id:
             raise AuthorizationError("Can not view info of other Controller")
         return controller_user
+
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def resolve_control_data(self, info, control_id):
+        controller_control = ControllerControl.query.get(control_id)
+        return controller_control

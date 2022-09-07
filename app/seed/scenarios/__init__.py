@@ -20,6 +20,7 @@ from app.seed.scenarios.export_excel import (
     ADMIN_EMAIL as ADMIN_EXPORT,
     run_scenario_export_excel,
 )
+from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 
 
@@ -64,5 +65,11 @@ scenarios = [
         "Creates one admin, two companies, to test excel export",
         [ADMIN_EXPORT],
         run_scenario_export_excel,
+    ),
+    SeedScenario(
+        "Controls",
+        "Creates one controller user",
+        [],
+        run_scenario_controls,
     ),
 ]

@@ -30,6 +30,7 @@ from app.models import (
     MissionEnd,
 )
 from app.models.activity import ActivityType
+from app.models.controller_control import ControllerControl
 from app.models.expenditure import ExpenditureType
 from app.models.location_entry import LocationEntry
 
@@ -506,3 +507,24 @@ def query_work_day_stats(
             has_next_page = True
 
     return results, has_next_page
+
+
+def query_controls(start_time=None, end_time=None, controller_user_id=None):
+    base_query = ControllerControl.query
+    if controller_user_id:
+        base_query = base_query.filter(
+            ControllerControl.controller_id == controller_user_id
+        )
+
+    if start_time:
+        base_query = base_query.filter(
+            ControllerControl.qr_code_generation_time
+            >= to_datetime(start_time)
+        )
+
+    if end_time:
+        base_query = base_query.filter(
+            ControllerControl.qr_code_generation_time <= to_datetime(end_time)
+        )
+
+    return base_query
