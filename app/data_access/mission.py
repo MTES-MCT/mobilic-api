@@ -12,6 +12,20 @@ from app.models.location_entry import LocationEntryType, LocationEntryOutput
 from app.models.mission_validation import MissionValidationOutput
 
 
+def retrieve_max_reception_time(info):
+    # TODO à discuter en review
+    # if info.context.view_args["max_reception_time"]:
+    if (
+        info.path[0] == "controlData"
+        or info.path[0] == "readMissionControlData"
+    ):
+        controller_control = ControllerControl.query.get(
+            info.variable_values["controlId"]
+        )
+        return controller_control.qr_code_generation_time
+    return None
+
+
 class MissionOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Mission
@@ -81,17 +95,8 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     is_ended_for_self = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info, include_dismissed_activities=False):
-        # TODO à discuter en review
-        # if info.context.view_args["max_reception_time"]:
-
-        if (
-            info.path[0] == "controlData"
-            or info.path[0] == "readMissionControlData"
-        ):
-            controller_control = ControllerControl.query.get(
-                info.variable_values["controlId"]
-            )
-            max_reception_time = controller_control.qr_code_generation_time
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
             frozen_activities = list(
                 map(
                     lambda a: a.freeze_activity_at(max_reception_time),
@@ -109,6 +114,15 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_expenditures(self, info, include_dismissed_expenditures=False):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return list(
+                filter(
+                    lambda expenditure: expenditure.reception_time
+                    <= max_reception_time,
+                    iter(self.expenditures),
+                )
+            )
         return (
             self.expenditures
             if include_dismissed_expenditures
@@ -116,9 +130,27 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_validations(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return list(
+                filter(
+                    lambda validation: validation.reception_time
+                    <= max_reception_time,
+                    iter(self.validations),
+                )
+            )
         return self.validations
 
     def resolve_comments(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return list(
+                filter(
+                    lambda comment: comment.reception_time
+                    <= max_reception_time,
+                    iter(self.acknowledged_comments),
+                )
+            )
         return self.acknowledged_comments
 
     def resolve_start_location(self, info):
