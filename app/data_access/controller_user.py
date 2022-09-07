@@ -1,5 +1,6 @@
 import graphene
 
+from app.data_access.control_data import ControllerControlOutput
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import ControllerUser
 
@@ -30,3 +31,13 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Adresse email",
     )
+    controls = graphene.Field(
+        graphene.List(ControllerControlOutput),
+        description="Liste des contrôles réalisés par le contrôleur",
+        from_date=graphene.Date(
+            required=False, description="Date de début de l'historique"
+        ),
+    )
+
+    def resolve_controls(self, info, from_date=None):
+        return self.query_controls(from_date=from_date)
