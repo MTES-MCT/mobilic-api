@@ -6,6 +6,7 @@ from app.models import Mission
 from app.data_access.activity import ActivityOutput
 from app.helpers.authentication import current_user
 from app.models.comment import CommentOutput
+from app.models.controller_control import ControllerControl
 from app.models.expenditure import ExpenditureOutput
 from app.models.location_entry import LocationEntryType, LocationEntryOutput
 from app.models.mission_validation import MissionValidationOutput
@@ -80,6 +81,24 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     is_ended_for_self = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info, include_dismissed_activities=False):
+        # TODO à discuter en review
+        # if info.context.view_args["max_reception_time"]:
+
+        if info.path[0] == "controlData":
+            controller_control = ControllerControl.query.get(
+                info.variable_values["controlId"]
+            )
+            max_reception_time = controller_control.qr_code_generation_time
+            frozen_activities = list(
+                map(
+                    lambda a: a.rewind_activity_at(max_reception_time),
+                    self.activities,
+                )
+            )
+            return list(
+                filter(lambda item: item is not None, frozen_activities)
+            )
+
         return (
             self.activities
             if include_dismissed_activities

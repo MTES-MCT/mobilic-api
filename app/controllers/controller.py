@@ -71,7 +71,7 @@ def redirect_to_ac_logout():
 
         redirect_uri = request.args.get("post_logout_redirect_uri")
         if redirect_uri.endswith(authorized_logout_redirect_urls):
-            return redirect(url_for(unquote(redirect_uri)), code=302)
+            return redirect(unquote(redirect_uri), code=302)
         else:
             return redirect(unquote("/"), code=302)
 
@@ -180,4 +180,8 @@ class Query(graphene.ObjectType):
     )
     def resolve_control_data(self, info, control_id):
         controller_control = ControllerControl.query.get(control_id)
+        # TODO à discuter en review
+        info.context.view_args[
+            "max_reception_time"
+        ] = controller_control.qr_code_generation_time
         return controller_control

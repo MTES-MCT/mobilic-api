@@ -59,9 +59,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         )
         return employments
 
-    def resolve_missions(
-        self, info, mission_id=None, include_dismissed_activities=False
-    ):
+    def resolve_missions(self, info, mission_id=None):
         from_date = compute_history_start_date(
             self.qr_code_generation_time.date()
         )
@@ -73,7 +71,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             limit_fetch_activities=2000,
             max_reception_time=self.qr_code_generation_time,
             mission_id=mission_id,
-            include_dismissed_activities=include_dismissed_activities,
+            include_dismissed_activities=True,
         )
         return missions
 

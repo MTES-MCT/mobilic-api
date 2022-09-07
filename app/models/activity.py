@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import event
 
+from app.controllers.utils import atomic_transaction
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
@@ -102,6 +103,16 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 default=None,
                 key=lambda r: r.version_number,
             )
+
+    def rewind_activity_at(self, at_time):
+        with atomic_transaction(commit_at_end=False):
+            frozen_version = self.version_at(at_time)
+            if frozen_version:
+                self.start_time = frozen_version.start_time
+                self.end_time = frozen_version.end_time
+                return self
+            else:
+                return None
 
     def latest_modification_time_by(self, user):
         if self.dismiss_author_id == user.id:
