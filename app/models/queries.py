@@ -526,7 +526,8 @@ def query_controls(
 
     if end_time:
         base_query = base_query.filter(
-            ControllerControl.qr_code_generation_time <= to_datetime(end_time)
+            ControllerControl.qr_code_generation_time
+            <= to_datetime(end_time, date_as_end_of_day=True)
         )
 
     if controls_type:
