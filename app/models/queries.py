@@ -509,7 +509,9 @@ def query_work_day_stats(
     return results, has_next_page
 
 
-def query_controls(start_time=None, end_time=None, controller_user_id=None):
+def query_controls(
+    start_time=None, end_time=None, controls_type=None, controller_user_id=None
+):
     base_query = ControllerControl.query
     if controller_user_id:
         base_query = base_query.filter(
@@ -525,6 +527,11 @@ def query_controls(start_time=None, end_time=None, controller_user_id=None):
     if end_time:
         base_query = base_query.filter(
             ControllerControl.qr_code_generation_time <= to_datetime(end_time)
+        )
+
+    if controls_type:
+        base_query = base_query.filter(
+            ControllerControl.control_type == controls_type
         )
 
     return base_query
