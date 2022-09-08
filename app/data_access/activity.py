@@ -1,6 +1,7 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.helpers.frozen_version_utils import retrieve_max_reception_time
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -145,6 +146,18 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
             return self.frozen_start_time
         else:
             return self.start_time
+
+    def resolve_versions(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return list(
+                filter(
+                    lambda validation: validation.reception_time
+                    <= max_reception_time,
+                    iter(self.versions),
+                )
+            )
+        return self.versions
 
 
 class ActivityConnection(graphene.Connection):
