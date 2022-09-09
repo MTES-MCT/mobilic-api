@@ -3,13 +3,13 @@ from datetime import datetime
 
 from sqlalchemy import event
 
-from app.controllers.utils import atomic_transaction
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
 
 from app import db, app
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import ResourceAlreadyDismissedError
+from app.helpers.frozen_version_utils import filter_out_future_events
 from app.models.event import UserEventBaseModel, Dismissable
 from app.models.activity_version import ActivityVersion, Period
 from app.models.utils import enum_column
@@ -73,7 +73,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         db.Constraint(name="no_successive_activities_with_same_type"),
     )
 
-    use_frozen_version = False
+    frozen_time = None
 
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
@@ -109,12 +109,12 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     def freeze_activity_at(self, at_time):
         frozen_version = self.version_at(at_time)
         if frozen_version:
-            self.use_frozen_version = True
-            self.frozen_start_time = frozen_version.start_time
+            self.frozen_time = at_time
+            self.start_time = frozen_version.start_time
             if frozen_version.end_time:
-                self.frozen_end_time = frozen_version.end_time
+                self.end_time = frozen_version.end_time
             else:
-                self.frozen_end_time = at_time
+                self.end_time = at_time
             return self
         else:
             return None
@@ -210,8 +210,14 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
 
+    def potentially_frozen_versions(self):
+        if self.frozen_time:
+            return filter_out_future_events(self.versions, self.frozen_time)
+        else:
+            return self.versions
 
-@event.listens_for(Activity, "before_insert")
-@event.listens_for(Activity, "before_update")
+
+@event.listens_for(Activity, "after_insert")
+@event.listens_for(Activity, "after_update")
 def set_last_submitter_id(mapper, connect, target):
     target.last_submitter_id = current_user.id

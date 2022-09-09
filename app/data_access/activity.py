@@ -135,29 +135,8 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         description="Identifiant de la personne qui a effectué la dernière modification sur l'activité",
     )
 
-    def resolve_end_time(self, info):
-        if self.use_frozen_version:
-            return self.frozen_end_time
-        else:
-            return self.end_time
-
-    def resolve_start_time(self, info):
-        if self.use_frozen_version:
-            return self.frozen_start_time
-        else:
-            return self.start_time
-
     def resolve_versions(self, info):
-        max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return list(
-                filter(
-                    lambda validation: validation.reception_time
-                    <= max_reception_time,
-                    iter(self.versions),
-                )
-            )
-        return self.versions
+        return self.potentially_frozen_versions()
 
 
 class ActivityConnection(graphene.Connection):

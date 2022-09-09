@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from app.domain.history import actions_history
+from app.helpers.frozen_version_utils import freeze_activities
 from app.helpers.pdf import generate_pdf_from_template, Column
 from app.helpers.time import max_or_none
 from app.models.activity import ActivityType, is_activity_considered_work
@@ -122,7 +123,10 @@ def sort_and_fill_with_breaks(activities):
 
 
 def generate_mission_details_pdf(
-    mission, user, show_history_before_employee_validation=True
+    mission,
+    user,
+    show_history_before_employee_validation=True,
+    max_reception_time=None,
 ):
     mission_name = mission.name
     mission_subtitle = None
@@ -131,9 +135,21 @@ def generate_mission_details_pdf(
     all_user_activities = mission.activities_for(
         user, include_dismissed_activities=True
     )
+    if max_reception_time:
+        activities = freeze_activities(activities, max_reception_time)
+        all_user_activities = freeze_activities(
+            all_user_activities, max_reception_time
+        )
+
     max_end_time = max_or_none(
         *[
-            max_or_none(*[v.end_time for v in a.versions if v.end_time])
+            max_or_none(
+                *[
+                    v.end_time
+                    for v in a.potentially_frozen_versions()
+                    if v.end_time
+                ]
+            )
             for a in all_user_activities
         ]
     )
@@ -142,7 +158,7 @@ def generate_mission_details_pdf(
         not max_end_time
         or min(
             [
-                min([v.start_time for v in a.versions])
+                min([v.start_time for v in a.potentially_frozen_versions()])
                 for a in all_user_activities
             ]
         ).date()
@@ -201,6 +217,9 @@ def generate_mission_details_pdf(
             key=lambda c: c.reception_time,
         ),
         actions=actions_history(
-            mission, user, show_history_before_employee_validation
+            mission,
+            user,
+            show_history_before_employee_validation,
+            max_reception_time,
         ),
     )

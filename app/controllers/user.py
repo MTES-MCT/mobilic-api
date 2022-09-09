@@ -16,6 +16,7 @@ from app.data_access.user import UserOutput
 from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
+    controller_can_see_control,
 )
 from app.domain.user import create_user, get_user_from_fc_info
 from app.helpers.authentication import (
@@ -31,6 +32,8 @@ from app.helpers.authentication import (
 )
 from app.helpers.authorization import (
     AuthorizationError,
+    controller_only,
+    with_authorization_policy,
 )
 from app.helpers.errors import (
     InvalidTokenError,

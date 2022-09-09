@@ -2,6 +2,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
 
 from app import db
+from app.helpers.frozen_version_utils import filter_out_future_events
 from app.helpers.time import max_or_none
 from app.models.event import EventBaseModel
 
@@ -98,13 +99,17 @@ class Mission(EventBaseModel):
         ]
         return end_location_entry[0] if end_location_entry else None
 
-    def validation_of(self, user):
+    def validation_of(self, user, max_reception_time=None):
         validations_of_user_for_himself_or_all = [
             v
             for v in self.validations
             if v.submitter_id == user.id
             and (v.user_id is None or v.user_id == user.id)
         ]
+        if max_reception_time:
+            validations_of_user_for_himself_or_all = filter_out_future_events(
+                validations_of_user_for_himself_or_all, max_reception_time
+            )
         if len(validations_of_user_for_himself_or_all) == 2:
             return [
                 v for v in validations_of_user_for_himself_or_all if v.user_id
