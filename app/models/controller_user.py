@@ -16,15 +16,5 @@ class ControllerUser(BaseModel, RandomNineIntId):
     def display_name(self):
         return f"{self.first_name} {self.last_name}".lower().title()
 
-    def query_controls(self, from_date=None, to_date=None, controls_type=None):
-        from app.models.queries import query_controls
-
-        return query_controls(
-            start_time=from_date,
-            end_time=to_date,
-            controls_type=controls_type,
-            controller_user_id=self.id,
-        ).all()
-
     def __repr__(self):
         return f"<Controller [{self.id}] : {self.display_name}>"

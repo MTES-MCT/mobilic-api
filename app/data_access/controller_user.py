@@ -48,6 +48,11 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
     def resolve_controls(
         self, info, from_date=None, to_date=None, controls_type=None
     ):
-        return self.query_controls(
-            from_date=from_date, to_date=to_date, controls_type=controls_type
-        )
+        from app.models.queries import query_controls
+
+        return query_controls(
+            controller_user_id=self.id,
+            start_time=from_date,
+            end_time=to_date,
+            controls_type=controls_type,
+        ).all()
