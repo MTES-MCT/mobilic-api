@@ -510,13 +510,11 @@ def query_work_day_stats(
 
 
 def query_controls(
-    start_time=None, end_time=None, controls_type=None, controller_user_id=None
+    controller_user_id, start_time=None, end_time=None, controls_type=None
 ):
-    base_query = ControllerControl.query
-    if controller_user_id:
-        base_query = base_query.filter(
-            ControllerControl.controller_id == controller_user_id
-        )
+    base_query = ControllerControl.query.filter(
+        ControllerControl.controller_id == controller_user_id
+    )
 
     if start_time:
         base_query = base_query.filter(
