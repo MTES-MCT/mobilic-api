@@ -193,7 +193,7 @@ class TestControls(BaseTest):
         mission_id = self.create_mission(
             self.employee, self.company1, self.vehicle1
         )
-        start_time = get_time(how_many_days_ago=4, hour=22)
+        start_time = get_time(how_many_days_ago=4, hour=20)
         end_time = get_time(how_many_days_ago=3, hour=5)
         self.log_drive_in_mission(
             mission_id, self.employee, start_time, end_time
