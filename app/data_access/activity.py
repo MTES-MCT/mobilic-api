@@ -1,7 +1,6 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
-from app.helpers.frozen_version_utils import retrieve_max_reception_time
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,

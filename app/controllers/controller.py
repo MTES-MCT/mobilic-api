@@ -70,16 +70,10 @@ def redirect_to_ac_logout():
         return response
 
     if not ac_token_hint:
-        authorized_logout_redirect_urls = ("/", "/logout")
         app.logger.warning(
             "Attempt do disconnect from AgentConnect a user who is not logged in"
         )
-
-        redirect_uri = request.args.get("post_logout_redirect_uri")
-        if redirect_uri.endswith(authorized_logout_redirect_urls):
-            return redirect(unquote(redirect_uri), code=302)
-        else:
-            return redirect(unquote("/"), code=302)
+        return redirect(unquote("/logout"), code=302)
 
     query_params = {"state": uuid4().hex, "id_token_hint": ac_token_hint}
 

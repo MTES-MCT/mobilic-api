@@ -27,7 +27,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         MissionOutput,
         mission_id=graphene.Int(
             required=False,
-            description="Filter the outputed mission ton only this mission id",
+            description="Filtre sur une mission à l'aide de son identifiant",
         ),
         include_dismissed_activities=graphene.Boolean(
             required=False,
