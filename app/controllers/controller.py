@@ -183,10 +183,6 @@ class Query(graphene.ObjectType):
             with db.session.no_autoflush:
                 db.session().execute("SET CONSTRAINTS ALL DEFERRED")
                 controller_control = ControllerControl.query.get(control_id)
-                # TODO à discuter en review
-                info.context.view_args[
-                    "max_reception_time"
-                ] = controller_control.qr_code_generation_time
                 return controller_control
 
 

@@ -21,7 +21,7 @@ def upgrade():
         "activity_last_submitter_id_fkey", "activity", type_="foreignkey"
     )
     op.create_foreign_key(
-        None,
+        "activity_last_submitter_id_fkey",
         "activity",
         "user",
         ["last_submitter_id"],

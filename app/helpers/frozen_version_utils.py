@@ -2,8 +2,6 @@ from app.models.controller_control import ControllerControl
 
 
 def retrieve_max_reception_time(info):
-    # TODO à discuter en review
-    # if info.context.view_args["max_reception_time"]:
     if (
         info.path[0] == "controlData"
         or info.path[0] == "readMissionControlData"
