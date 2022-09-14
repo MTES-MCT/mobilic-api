@@ -1,6 +1,10 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.helpers.frozen_version_utils import (
+    retrieve_max_reception_time,
+    filter_out_future_events,
+)
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -135,7 +139,10 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_versions(self, info):
-        return self.potentially_frozen_versions()
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return filter_out_future_events(self.versions, max_reception_time)
+        return self.versions
 
 
 class ActivityConnection(graphene.Connection):

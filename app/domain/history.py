@@ -83,27 +83,18 @@ def actions_history(
     max_reception_time=None,
 ):
     activities_for_user = mission.activities_for(
-        user, include_dismissed_activities=True
+        user,
+        include_dismissed_activities=True,
+        max_reception_time=max_reception_time,
     )
     expenditures_for_user = mission.expenditures_for(
-        user, include_dismissed_expenditures=True
+        user,
+        include_dismissed_expenditures=True,
+        max_reception_time=max_reception_time,
     )
-    mission_validations = [
-        v
-        for v in mission.validations
-        if v.user_id == user.id or (not v.user_id and v.is_admin)
-    ]
-
-    if max_reception_time:
-        activities_for_user = freeze_activities(
-            activities_for_user, max_reception_time
-        )
-        expenditures_for_user = filter_out_future_events(
-            expenditures_for_user, max_reception_time
-        )
-        mission_validations = filter_out_future_events(
-            mission_validations, max_reception_time
-        )
+    mission_validations = mission.validations_for(
+        user, max_reception_time=max_reception_time
+    )
 
     relevant_resources = [
         mission.start_location,
@@ -157,7 +148,9 @@ def actions_history(
             if isinstance(resource, Activity):
                 revisions = [
                     v
-                    for v in resource.potentially_frozen_versions()
+                    for v in resource.retrieve_all_versions(
+                        max_reception_time=max_reception_time
+                    )
                     if v.version_number > 1
                 ]
                 for revision in revisions:

@@ -31,11 +31,17 @@ class Mission(EventBaseModel):
     )
     vehicle = db.relationship("Vehicle", backref="missions")
 
-    def activities_for(self, user, include_dismissed_activities=False):
+    def activities_for(
+        self, user, include_dismissed_activities=False, max_reception_time=None
+    ):
         all_activities_for_user = sorted(
             [a for a in self.activities if a.user_id == user.id],
             key=lambda a: a.start_time,
         )
+        if max_reception_time:
+            all_activities_for_user = filter_out_future_events(
+                all_activities_for_user, max_reception_time
+            )
         if not include_dismissed_activities:
             return [a for a in all_activities_for_user if not a.is_dismissed]
         return all_activities_for_user
@@ -48,13 +54,39 @@ class Mission(EventBaseModel):
                 return activity
         return None
 
-    def expenditures_for(self, user, include_dismissed_expenditures=False):
-        return [
+    def expenditures_for(
+        self,
+        user,
+        include_dismissed_expenditures=False,
+        max_reception_time=None,
+    ):
+        expenditures_for_user = [
             e
             for e in self.expenditures
             if e.user_id == user.id
             and (include_dismissed_expenditures or not e.is_dismissed)
         ]
+        if max_reception_time:
+            return filter_out_future_events(
+                expenditures_for_user, max_reception_time
+            )
+        return expenditures_for_user
+
+    def validations_for(self, user, max_reception_time=None):
+        validations_for_user = [
+            v
+            for v in self.validations
+            if v.user_id == user.id or (not v.user_id and v.is_admin)
+        ]
+        if max_reception_time:
+            return filter_out_future_events(
+                validations_for_user, max_reception_time
+            )
+
+    def retrieve_all_comments(self, max_reception_time=None):
+        if max_reception_time:
+            return filter_out_future_events(self.comments, max_reception_time)
+        return self.comments
 
     @property
     def acknowledged_activities(self):

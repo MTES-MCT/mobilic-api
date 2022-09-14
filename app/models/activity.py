@@ -73,8 +73,6 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         db.Constraint(name="no_successive_activities_with_same_type"),
     )
 
-    frozen_time = None
-
     def __repr__(self):
         return f"<Activity [{self.id}] : {self.type.value}>"
 
@@ -109,7 +107,6 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     def freeze_activity_at(self, at_time):
         frozen_version = self.version_at(at_time)
         if frozen_version:
-            self.frozen_time = at_time
             self.start_time = frozen_version.start_time
             if frozen_version.end_time:
                 self.end_time = frozen_version.end_time
@@ -210,9 +207,9 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
 
-    def potentially_frozen_versions(self):
-        if self.frozen_time:
-            return filter_out_future_events(self.versions, self.frozen_time)
+    def retrieve_all_versions(self, max_reception_time=None):
+        if max_reception_time:
+            return filter_out_future_events(self.versions, max_reception_time)
         else:
             return self.versions
 
