@@ -17,6 +17,11 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     qr_code_generation_time = graphene.Field(TimeStamp, required=True)
     creation_time = graphene.Field(TimeStamp, required=True)
+    nb_controlled_days = graphene.Field(
+        graphene.Int,
+        required=False,
+        description="Nombre de jours de travail sur lesquels porte le contrôle",
+    )
 
     employments = graphene.List(
         EmploymentOutput,
