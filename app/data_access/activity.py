@@ -1,8 +1,8 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
 from app.helpers.frozen_version_utils import (
-    retrieve_max_reception_time,
     filter_out_future_events,
 )
 from app.helpers.graphene_types import (
