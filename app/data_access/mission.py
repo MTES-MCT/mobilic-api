@@ -1,13 +1,18 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.helpers.frozen_version_utils import (
+    retrieve_max_reception_time,
+    freeze_activities,
+    filter_out_future_events,
+)
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission
 from app.data_access.activity import ActivityOutput
 from app.helpers.authentication import current_user
 from app.models.comment import CommentOutput
 from app.models.expenditure import ExpenditureOutput
-from app.models.location_entry import LocationEntryType, LocationEntryOutput
+from app.models.location_entry import LocationEntryOutput
 from app.models.mission_validation import MissionValidationOutput
 
 
@@ -80,6 +85,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     is_ended_for_self = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info, include_dismissed_activities=False):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return freeze_activities(self.activities, max_reception_time)
         return (
             self.activities
             if include_dismissed_activities
@@ -87,6 +95,11 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_expenditures(self, info, include_dismissed_expenditures=False):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return filter_out_future_events(
+                self.expenditures, max_reception_time
+            )
         return (
             self.expenditures
             if include_dismissed_expenditures
@@ -94,9 +107,19 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_validations(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return filter_out_future_events(
+                self.validations, max_reception_time
+            )
         return self.validations
 
     def resolve_comments(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return filter_out_future_events(
+                self.acknowledged_comments, max_reception_time
+            )
         return self.acknowledged_comments
 
     def resolve_start_location(self, info):

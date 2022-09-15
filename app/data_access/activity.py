@@ -1,6 +1,10 @@
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app.helpers.frozen_version_utils import (
+    retrieve_max_reception_time,
+    filter_out_future_events,
+)
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -133,6 +137,12 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         graphene.Int,
         description="Identifiant de la personne qui a effectué la dernière modification sur l'activité",
     )
+
+    def resolve_versions(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return filter_out_future_events(self.versions, max_reception_time)
+        return self.versions
 
 
 class ActivityConnection(graphene.Connection):

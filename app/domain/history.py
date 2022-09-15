@@ -2,6 +2,10 @@ from typing import NamedTuple, Optional
 from datetime import datetime
 from enum import Enum
 
+from app.helpers.frozen_version_utils import (
+    freeze_activities,
+    filter_out_future_events,
+)
 from app.models import (
     User,
     Activity,
@@ -73,21 +77,34 @@ class LogAction(NamedTuple):
 
 
 def actions_history(
-    mission, user, show_history_before_employee_validation=True
+    mission,
+    user,
+    show_history_before_employee_validation=True,
+    max_reception_time=None,
 ):
+    activities_for_user = mission.activities_for(
+        user,
+        include_dismissed_activities=True,
+        max_reception_time=max_reception_time,
+    )
+    expenditures_for_user = mission.expenditures_for(
+        user,
+        include_dismissed_expenditures=True,
+        max_reception_time=max_reception_time,
+    )
+    mission_validations = mission.validations_for(
+        user, max_reception_time=max_reception_time
+    )
+
     relevant_resources = [
         mission.start_location,
         mission.end_location,
-        *mission.activities_for(user, include_dismissed_activities=True),
-        *mission.expenditures_for(user, include_dismissed_expenditures=True),
-        *[
-            v
-            for v in mission.validations
-            if v.user_id == user.id or (not v.user_id and v.is_admin)
-        ],
+        *activities_for_user,
+        *expenditures_for_user,
+        *mission_validations,
     ]
 
-    user_validation = mission.validation_of(user)
+    user_validation = mission.validation_of(user, max_reception_time)
 
     actions = []
     for resource in relevant_resources:
@@ -130,7 +147,11 @@ def actions_history(
 
             if isinstance(resource, Activity):
                 revisions = [
-                    v for v in resource.versions if v.version_number > 1
+                    v
+                    for v in resource.retrieve_all_versions(
+                        max_reception_time=max_reception_time
+                    )
+                    if v.version_number > 1
                 ]
                 for revision in revisions:
                     actions.append(
