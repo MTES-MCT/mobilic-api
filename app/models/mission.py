@@ -82,6 +82,7 @@ class Mission(EventBaseModel):
             return filter_out_future_events(
                 validations_for_user, max_reception_time
             )
+        return validations_for_user
 
     def retrieve_all_comments(self, max_reception_time=None):
         if max_reception_time:
