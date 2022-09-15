@@ -21,7 +21,6 @@ def upgrade():
         "controller_control",
         sa.Column("nb_controlled_days", sa.Integer(), nullable=True),
     )
-    op.execute("UPDATE public.controller_control SET nb_controlled_days = 0")
 
 
 def downgrade():
