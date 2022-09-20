@@ -13,10 +13,14 @@ from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 
+COMPANY_NAME_1 = "Company 1"
+VEHICLE_ID_1 = "Company 1"
+
+
 class TestControls(BaseTest):
     def setUp(self):
         super().setUp()
-        self.company1 = CompanyFactory.create(usual_name="Company 1")
+        self.company1 = CompanyFactory.create(usual_name=COMPANY_NAME_1)
         self.company2 = CompanyFactory.create(usual_name="Company 2")
         self.admin1 = UserFactory.create(
             post__company=self.company1, post__has_admin_rights=True
@@ -38,7 +42,7 @@ class TestControls(BaseTest):
             has_admin_rights=False,
         )
         self.vehicle1 = Vehicle(
-            registration_number=f"XXX-001-ABC",
+            registration_number=VEHICLE_ID_1,
             alias=f"Vehicule 1",
             submitter=self.admin1,
             company_id=self.company1.id,
@@ -88,6 +92,18 @@ class TestControls(BaseTest):
             request_should_fail_with=None,
         )
 
+    def end_mission(self, mission_id, end_time, user_id):
+        make_authenticated_request(
+            time=end_time,
+            submitter_id=user_id,
+            query=ApiRequests.end_mission,
+            variables=dict(
+                end_time=end_time,
+                mission_id=mission_id,
+                user_id=user_id,
+            ),
+        )
+
     def test_control_current_mission(self):
 
         ## GIVEN an employee has a current activity
@@ -108,10 +124,8 @@ class TestControls(BaseTest):
         # THEN a control is created with correct vehicle name and company name
         controls = ControllerControl.query.all()
         self.assertEqual(len(controls), 1)
-        self.assertEqual(controls[0].company_name, "Company 1")
-        self.assertEqual(
-            controls[0].vehicle_registration_number, "XXX-001-ABC"
-        )
+        self.assertEqual(controls[0].company_name, COMPANY_NAME_1)
+        self.assertEqual(controls[0].vehicle_registration_number, VEHICLE_ID_1)
 
     def test_control_has_correct_nb_controlled_days(self):
         ## GIVEN an employee has worked 3 different days in the past 28 days
@@ -210,3 +224,60 @@ class TestControls(BaseTest):
         controls = ControllerControl.query.all()
         self.assertEqual(len(controls), 1)
         self.assertEqual(controls[0].nb_controlled_days, 2)
+
+    def test_control_company_name_vehicle_id_while_in_break(self):
+
+        ## GIVEN an employee is in break
+        mission_id = self.create_mission(
+            self.employee, self.company1, self.vehicle1
+        )
+
+        start_time = get_time(how_many_days_ago=1, hour=10)
+        end_time = get_time(how_many_days_ago=1, hour=11)
+        self.log_drive_in_mission(
+            mission_id, self.employee, start_time, end_time=end_time
+        )
+
+        # WHEN he gets controlled
+        ControllerControl.get_or_create_mobilic_control(
+            controller_id=self.controller_user.id,
+            user_id=self.employee.id,
+            qr_code_generation_time=get_time(how_many_days_ago=1, hour=14),
+        )
+
+        # THEN a control is created with correct vehicle name and company name
+        controls = ControllerControl.query.all()
+        self.assertEqual(len(controls), 1)
+        self.assertEqual(controls[0].company_name, COMPANY_NAME_1)
+        self.assertEqual(controls[0].vehicle_registration_number, VEHICLE_ID_1)
+
+    def test_control_company_name_vehicle_id_empty_if_mission_ended(self):
+
+        ## GIVEN an employee has ended his mission for the day
+        mission_id = self.create_mission(
+            self.employee, self.company1, self.vehicle1
+        )
+
+        start_time = get_time(how_many_days_ago=1, hour=10)
+        end_time = get_time(how_many_days_ago=1, hour=11)
+        self.log_drive_in_mission(
+            mission_id, self.employee, start_time, end_time=end_time
+        )
+        self.end_mission(
+            mission_id,
+            get_time(how_many_days_ago=1, hour=13),
+            self.employee.id,
+        )
+
+        # WHEN he gets controlled
+        ControllerControl.get_or_create_mobilic_control(
+            controller_id=self.controller_user.id,
+            user_id=self.employee.id,
+            qr_code_generation_time=get_time(how_many_days_ago=1, hour=14),
+        )
+
+        # THEN a control is created with correct vehicle name and company name
+        controls = ControllerControl.query.all()
+        self.assertEqual(len(controls), 1)
+        self.assertEqual(controls[0].company_name, "")
+        self.assertEqual(controls[0].vehicle_registration_number, "")

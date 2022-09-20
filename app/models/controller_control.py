@@ -50,19 +50,24 @@ class ControllerControl(BaseModel, RandomNineIntId):
             return existing_control
         else:
             controlled_user = User.query.get(user_id)
-            current_activity = controlled_user.activity_at(
-                qr_code_generation_time
-            )
             company_name = ""
             vehicle_registration_number = ""
-            if current_activity:
-                current_mission = current_activity.mission
-                if current_mission and current_mission.company:
-                    company_name = current_mission.company.usual_name
-                if current_mission and current_mission.vehicle:
-                    vehicle_registration_number = (
-                        current_mission.vehicle.registration_number
-                    )
+
+            latest_activity_before = controlled_user.latest_activity_before(
+                qr_code_generation_time
+            )
+            if latest_activity_before:
+                latest_mission = latest_activity_before.mission
+                is_latest_mission_ended = (
+                    latest_mission.ended_for(controlled_user)
+                    and latest_activity_before.end_time
+                )
+                if not is_latest_mission_ended:
+                    company_name = latest_mission.company.usual_name
+                    if latest_mission.vehicle:
+                        vehicle_registration_number = (
+                            latest_mission.vehicle.registration_number
+                        )
             work_days = group_user_events_by_day_with_limit(
                 user=controlled_user,
                 from_date=compute_history_start_date(
