@@ -88,6 +88,18 @@ class TestControls(BaseTest):
             request_should_fail_with=None,
         )
 
+    def end_mission(self, mission_id, end_time, user_id):
+        make_authenticated_request(
+            time=end_time,
+            submitter_id=user_id,
+            query=ApiRequests.end_mission,
+            variables=dict(
+                end_time=end_time,
+                mission_id=mission_id,
+                user_id=user_id,
+            ),
+        )
+
     def test_control_current_mission(self):
 
         ## GIVEN an employee has a current activity
@@ -210,3 +222,62 @@ class TestControls(BaseTest):
         controls = ControllerControl.query.all()
         self.assertEqual(len(controls), 1)
         self.assertEqual(controls[0].nb_controlled_days, 2)
+
+    def test_control_company_name_vehicle_id_while_in_break(self):
+
+        ## GIVEN an employee is in break
+        mission_id = self.create_mission(
+            self.employee, self.company1, self.vehicle1
+        )
+
+        start_time = get_time(how_many_days_ago=1, hour=10)
+        end_time = get_time(how_many_days_ago=1, hour=11)
+        self.log_drive_in_mission(
+            mission_id, self.employee, start_time, end_time=end_time
+        )
+
+        # WHEN he gets controlled
+        ControllerControl.get_or_create_mobilic_control(
+            controller_id=self.controller_user.id,
+            user_id=self.employee.id,
+            qr_code_generation_time=get_time(how_many_days_ago=1, hour=14),
+        )
+
+        # THEN a control is created with correct vehicle name and company name
+        controls = ControllerControl.query.all()
+        self.assertEqual(len(controls), 1)
+        self.assertEqual(controls[0].company_name, "Company 1")
+        self.assertEqual(
+            controls[0].vehicle_registration_number, "XXX-001-ABC"
+        )
+
+    def test_control_company_name_vehicle_id_empty_if_mission_ended(self):
+
+        ## GIVEN an employee has ended his mission for the day
+        mission_id = self.create_mission(
+            self.employee, self.company1, self.vehicle1
+        )
+
+        start_time = get_time(how_many_days_ago=1, hour=10)
+        end_time = get_time(how_many_days_ago=1, hour=11)
+        self.log_drive_in_mission(
+            mission_id, self.employee, start_time, end_time=end_time
+        )
+        self.end_mission(
+            mission_id,
+            get_time(how_many_days_ago=1, hour=13),
+            self.employee.id,
+        )
+
+        # WHEN he gets controlled
+        ControllerControl.get_or_create_mobilic_control(
+            controller_id=self.controller_user.id,
+            user_id=self.employee.id,
+            qr_code_generation_time=get_time(how_many_days_ago=1, hour=14),
+        )
+
+        # THEN a control is created with correct vehicle name and company name
+        controls = ControllerControl.query.all()
+        self.assertEqual(len(controls), 1)
+        self.assertEqual(controls[0].company_name, "")
+        self.assertEqual(controls[0].vehicle_registration_number, "")
