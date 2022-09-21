@@ -34,7 +34,7 @@ def upgrade():
             WHEN cp = '988' THEN 'Pacific/Noumea'
             WHEN cp = '971' THEN 'America/Guadeloupe'
             WHEN cp = '972' THEN 'America/Martinique'
-            WHEN cp = '973' THEN 'America/Guyana'
+            WHEN cp = '973' THEN 'America/Cayenne'
             WHEN cp = '974' THEN 'Indian/Reunion'
             WHEN cp = '975' THEN 'America/Miquelon'
             WHEN cp = '976' THEN 'Indian/Mayotte'

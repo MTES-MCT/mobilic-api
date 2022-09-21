@@ -916,7 +916,7 @@ class TestRegulations(BaseTest):
         admin = self.admin
         how_many_days_ago = 2
 
-        GY_TZ_NAME = "America/Guyana"
+        GY_TZ_NAME = "America/Cayenne"
         GY_TIMEZONE = gettz(GY_TZ_NAME)
 
         employee = UserFactory.create(
