@@ -195,6 +195,15 @@ class ApiRequests:
       query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
           id
+          missions {
+            activities {
+              id
+              type
+              startTime
+              endTime
+              userId
+            }
+          }
         }
       }
     """

@@ -4,9 +4,12 @@ from uuid import uuid4
 
 import graphene
 import jwt
-from flask import redirect, request, after_this_request, url_for
+from flask import redirect, request, after_this_request, send_file
+from flask_apispec import use_kwargs
+from marshmallow import Schema
+from webargs import fields
 
-from app import app
+from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
@@ -32,10 +35,13 @@ from app.helpers.authorization import (
     controller_only,
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.pdf.mission_details import generate_mission_details_pdf
+from app.models import Mission
 from app.models.controller_control import (
     ControllerControl,
 )
 from app.models.controller_user import ControllerUser
+from app.models.queries import add_mission_relations
 
 
 @app.route("/ac/authorize")
@@ -64,16 +70,10 @@ def redirect_to_ac_logout():
         return response
 
     if not ac_token_hint:
-        authorized_logout_redirect_urls = ("/", "/logout")
         app.logger.warning(
             "Attempt do disconnect from AgentConnect a user who is not logged in"
         )
-
-        redirect_uri = request.args.get("post_logout_redirect_uri")
-        if redirect_uri.endswith(authorized_logout_redirect_urls):
-            return redirect(url_for(unquote(redirect_uri)), code=302)
-        else:
-            return redirect(unquote("/"), code=302)
+        return redirect(unquote("/logout"), code=302)
 
     query_params = {"state": uuid4().hex, "id_token_hint": ac_token_hint}
 
@@ -179,5 +179,40 @@ class Query(graphene.ObjectType):
         get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
     )
     def resolve_control_data(self, info, control_id):
+        with atomic_transaction(commit_at_end=False):
+            with db.session.no_autoflush:
+                db.session().execute("SET CONSTRAINTS ALL DEFERRED")
+                controller_control = ControllerControl.query.get(control_id)
+                return controller_control
+
+
+class MissionControlExportSchema(Schema):
+    mission_id = fields.Int(required=True)
+    control_id = fields.Int(required=True)
+
+
+@app.route("/users/generate_mission_control_export", methods=["POST"])
+@use_kwargs(MissionControlExportSchema, apply=True)
+@with_authorization_policy(
+    controller_can_see_control,
+    get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+)
+def generate_mission_control_export(mission_id, control_id):
+    with atomic_transaction(commit_at_end=False):
+        db.session().execute("SET CONSTRAINTS ALL DEFERRED")
+        mission = add_mission_relations(Mission.query).get(mission_id)
         controller_control = ControllerControl.query.get(control_id)
-        return controller_control
+
+        pdf = generate_mission_details_pdf(
+            mission,
+            controller_control.user,
+            max_reception_time=controller_control.qr_code_generation_time,
+        )
+
+        return send_file(
+            pdf,
+            mimetype="application/pdf",
+            as_attachment=True,
+            cache_timeout=0,
+            attachment_filename=f"Détails de la mission {mission.name or mission.id} pour {controller_control.user.display_name}",
+        )

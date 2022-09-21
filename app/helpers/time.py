@@ -38,9 +38,9 @@ def get_date_or_today(date=None):
 def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
     if not dt_or_date:
         return dt_or_date
-    if type(dt_or_date) is datetime.datetime:
+    if isinstance(dt_or_date, datetime.datetime):
         return dt_or_date
-    if type(dt_or_date) is datetime.date:
+    if isinstance(dt_or_date, datetime.date) or isinstance(dt_or_date):
         dt = datetime.datetime(
             dt_or_date.year, dt_or_date.month, dt_or_date.day
         )
@@ -52,7 +52,7 @@ def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
             dt = from_tz(dt, tz_for_date)
         return dt
 
-    if type(dt_or_date) is str:
+    if isinstance(dt_or_date, str):
         return datetime.datetime.fromisoformat(dt_or_date)
     return dt_or_date
 
