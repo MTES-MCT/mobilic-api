@@ -56,6 +56,8 @@ from app.models import User, Mission
 from app import app, db, mailer
 from app.models.email import Email
 
+TIMEZONE_DESC = "Fuseau horaire de l'utilisateur"
+
 
 class UserSignUp(graphene.Mutation):
     """
@@ -87,7 +89,7 @@ class UserSignUp(graphene.Mutation):
             description="Précise si le nouvel utilisateur est un travailleur mobile ou bien un gestionnaire. Vrai par défaut.",
         )
         timezone_name = graphene.String(
-            required=False, description="Fuseau horaire de l'utilisateur"
+            required=False, description=TIMEZONE_DESC
         )
 
     Output = UserTokens
@@ -136,7 +138,7 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
         )
         password = graphene.String(required=False, description="Mot de passe")
         timezone_name = graphene.String(
-            required=False, description="Fuseau horaire de l'utilisateur"
+            required=False, description=TIMEZONE_DESC
         )
 
     Output = UserOutput
@@ -168,7 +170,7 @@ class ChangeTimezone(AuthenticatedMutation):
     class Arguments:
         timezone_name = graphene.String(
             required=True,
-            description="Fuseau horaire de l'utilisateur",
+            description=TIMEZONE_DESC,
         )
 
     Output = UserOutput
