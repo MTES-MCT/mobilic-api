@@ -1,5 +1,4 @@
 from flask import g
-from app.models import User, Employment
 from sqlalchemy import func
 
 from app import app, db
@@ -49,13 +48,7 @@ def create_user(
 
     # in case we don't have an invite_token, let's try to find an employment based on the user email
     else:
-        employments_to_attach = Employment.query.filter(
-            func.lower(Employment.email) == func.lower(email),
-            Employment.user_id.is_(None),
-        ).all()
-
-        for employment in employments_to_attach:
-            employment.bind(user)
+        bind_user_to_pending_employments(user)
 
     message = f"Signed up new user {user}"
     if company:
@@ -80,3 +73,13 @@ def get_user_from_fc_info(fc_info):
     return User.query.filter(
         User.france_connect_id == france_connect_id
     ).one_or_none()
+
+
+def bind_user_to_pending_employments(user):
+    employments_to_attach = Employment.query.filter(
+        func.lower(Employment.email) == func.lower(user.email),
+        Employment.user_id.is_(None),
+    ).all()
+
+    for employment in employments_to_attach:
+        employment.bind(user)
