@@ -30,6 +30,7 @@ from app.models import (
     MissionEnd,
 )
 from app.models.activity import ActivityType
+from app.models.controller_control import ControllerControl
 from app.models.expenditure import ExpenditureType
 from app.models.location_entry import LocationEntry
 
@@ -94,11 +95,21 @@ def query_activities(
     end_time=None,
     user_id=None,
     company_ids=None,
+    max_reception_time=None,
+    mission_id=None,
 ):
     base_query = Activity.query
 
     if user_id:
         base_query = base_query.filter(Activity.user_id == user_id)
+
+    if max_reception_time:
+        base_query = base_query.filter(
+            Activity.reception_time <= max_reception_time
+        )
+
+    if mission_id:
+        base_query = base_query.filter(Activity.mission_id == mission_id)
 
     if not include_dismissed_activities:
         base_query = base_query.filter(~Activity.is_dismissed)
@@ -506,3 +517,30 @@ def query_work_day_stats(
             has_next_page = True
 
     return results, has_next_page
+
+
+def query_controls(
+    controller_user_id, start_time=None, end_time=None, controls_type=None
+):
+    base_query = ControllerControl.query.filter(
+        ControllerControl.controller_id == controller_user_id
+    )
+
+    if start_time:
+        base_query = base_query.filter(
+            ControllerControl.qr_code_generation_time
+            >= to_datetime(start_time)
+        )
+
+    if end_time:
+        base_query = base_query.filter(
+            ControllerControl.qr_code_generation_time
+            <= to_datetime(end_time, date_as_end_of_day=True)
+        )
+
+    if controls_type:
+        base_query = base_query.filter(
+            ControllerControl.control_type == controls_type
+        )
+
+    return base_query

@@ -122,18 +122,34 @@ def sort_and_fill_with_breaks(activities):
 
 
 def generate_mission_details_pdf(
-    mission, user, show_history_before_employee_validation=True
+    mission,
+    user,
+    show_history_before_employee_validation=True,
+    max_reception_time=None,
 ):
     mission_name = mission.name
     mission_subtitle = None
 
-    activities = mission.activities_for(user)
-    all_user_activities = mission.activities_for(
-        user, include_dismissed_activities=True
+    activities = mission.activities_for(
+        user, max_reception_time=max_reception_time
     )
+    all_user_activities = mission.activities_for(
+        user,
+        include_dismissed_activities=True,
+        max_reception_time=max_reception_time,
+    )
+
     max_end_time = max_or_none(
         *[
-            max_or_none(*[v.end_time for v in a.versions if v.end_time])
+            max_or_none(
+                *[
+                    v.end_time
+                    for v in a.retrieve_all_versions(
+                        max_reception_time=max_reception_time
+                    )
+                    if v.end_time
+                ]
+            )
             for a in all_user_activities
         ]
     )
@@ -142,7 +158,14 @@ def generate_mission_details_pdf(
         not max_end_time
         or min(
             [
-                min([v.start_time for v in a.versions])
+                min(
+                    [
+                        v.start_time
+                        for v in a.retrieve_all_versions(
+                            max_reception_time=max_reception_time
+                        )
+                    ]
+                )
                 for a in all_user_activities
             ]
         ).date()
@@ -165,7 +188,9 @@ def generate_mission_details_pdf(
             stats["total_work"] += activity_or_break.duration
 
     stats["expenditures"] = defaultdict(lambda: 0)
-    for expenditure in mission.expenditures_for(user):
+    for expenditure in mission.expenditures_for(
+        user, max_reception_time=max_reception_time
+    ):
         stats["expenditures"][expenditure.type] += 1
 
     return generate_pdf_from_template(
@@ -197,10 +222,17 @@ def generate_mission_details_pdf(
         activities=sort_and_fill_with_breaks(activities),
         show_history_before_employee_validation=show_history_before_employee_validation,
         comments=sorted(
-            [c for c in mission.comments if not c.is_dismissed],
+            [
+                c
+                for c in mission.retrieve_all_comments(max_reception_time)
+                if not c.is_dismissed
+            ],
             key=lambda c: c.reception_time,
         ),
         actions=actions_history(
-            mission, user, show_history_before_employee_validation
+            mission,
+            user,
+            show_history_before_employee_validation,
+            max_reception_time,
         ),
     )
