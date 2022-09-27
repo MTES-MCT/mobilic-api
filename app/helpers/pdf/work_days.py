@@ -284,7 +284,9 @@ def _generate_work_days_pdf(
 
             accumulator["total_work"] += wd.total_work_duration
             if "night_hours" in accumulator:
-                accumulator["night_hours"] += wd.total_night_work_duration
+                accumulator[
+                    "night_hours"
+                ] += wd.total_night_work_tarification_duration
 
             for type_ in ActivityType:
                 accumulator[type_.value] += wd.activity_durations[type_]
@@ -332,7 +334,7 @@ def _generate_work_days_pdf(
                     type_.value: wd.expenditures.get(type_, 0)
                     for type_ in ExpenditureType
                 },
-                "night_hours": wd.total_night_work_duration,
+                "night_hours": wd.total_night_work_tarification_duration,
                 "not_validated_by_self": show_not_validated_by_self_alert,
                 "not_validated_by_admin": show_not_validated_by_admin_alert,
                 "modified_after_self_validation": show_modifications_after_validation_alert,

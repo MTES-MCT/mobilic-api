@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock, patch
 import datetime
 
+from app.helpers.time import FR_TIMEZONE, from_tz
+
 
 class AuthenticatedUserContext:
     def __init__(self, user=None):
@@ -28,12 +30,15 @@ class AuthenticatedUserContext:
             self.mocked_token_verification.__exit__(*args)
 
 
-def get_time(how_many_days_ago, hour, minute=0):
-    day = datetime.date.today() - datetime.timedelta(days=how_many_days_ago)
-    hour = datetime.time(hour=hour, minute=minute)
-    return datetime.datetime.combine(day, hour)
-
-
 def get_date(how_many_days_ago):
     today = datetime.date.today()
     return today - datetime.timedelta(days=how_many_days_ago)
+
+
+def get_time(how_many_days_ago, hour, minute=0, tz=FR_TIMEZONE):
+    day = get_date(how_many_days_ago)
+    return get_datetime_tz(day.year, day.month, day.day, hour, minute, tz)
+
+
+def get_datetime_tz(year, month=1, day=1, hour=0, minutes=0, tz=FR_TIMEZONE):
+    return from_tz(datetime.datetime(year, month, day, hour, minutes), tz)

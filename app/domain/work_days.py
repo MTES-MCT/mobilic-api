@@ -40,13 +40,24 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         )
         timers[period.type] += total_duration
         if period.type != ActivityType.TRANSFER and min_time:
-            day_duration = int(
+            day_duration_tarification = int(
                 period.duration_over(
                     from_tz(to_fr_tz(min_time).replace(hour=6, minute=0), tz),
                     from_tz(to_fr_tz(min_time).replace(hour=21, minute=0), tz),
                 ).total_seconds()
             )
-            timers["night_work"] += total_duration - day_duration
+            timers["night_work_tarification"] += (
+                total_duration - day_duration_tarification
+            )
+            day_duration_legislation = int(
+                period.duration_over(
+                    from_tz(to_fr_tz(min_time).replace(hour=5, minute=0), tz),
+                    from_tz(to_fr_tz(min_time).replace(hour=22, minute=0), tz),
+                ).total_seconds()
+            )
+            timers["night_work_legislation"] += (
+                total_duration - day_duration_legislation
+            )
 
     timers["total_work"] = reduce(
         lambda a, b: a + b,
@@ -182,8 +193,12 @@ class WorkDay:
         return self._activity_timers["total_work"]
 
     @property
-    def total_night_work_duration(self):
-        return self._activity_timers["night_work"]
+    def total_night_work_tarification_duration(self):
+        return self._activity_timers["night_work_tarification"]
+
+    @property
+    def total_night_work_legislation_duration(self):
+        return self._activity_timers["night_work_legislation"]
 
     @property
     def activity_durations(self):
@@ -317,6 +332,7 @@ def group_user_events_by_day_with_limit(
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
+    only_missions_validated_by_user=False,
     first=None,
     after=None,
 ):
@@ -349,7 +365,9 @@ def group_user_events_by_day_with_limit(
     )
 
     if only_missions_validated_by_admin:
-        missions = [m for m in missions if not m.validated_by_admin_for(user)]
+        missions = [m for m in missions if m.validated_by_admin_for(user)]
+    elif only_missions_validated_by_user:
+        missions = [m for m in missions if m.validation_of(user)]
 
     work_days = group_user_missions_by_day(
         user,
@@ -394,12 +412,13 @@ def group_user_missions_by_day(
             if acknowledged_mission_activities
             else None
         ) or datetime.now()
+        mission_end_day = to_tz(mission_end_time, tz).date()
 
         if not current_date:
             current_date = mission_start_day
 
         mission_running_day = mission_start_day
-        while mission_running_day <= to_tz(mission_end_time, tz).date():
+        while mission_running_day <= mission_end_day:
             if (
                 not current_work_day
                 or current_work_day.day != mission_running_day

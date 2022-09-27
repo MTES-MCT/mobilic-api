@@ -2,12 +2,16 @@ import os
 import sys
 from unittest import TestLoader, TextTestRunner
 
-from app import app
+import progressbar
+from app.models.user import User
+from config import TestConfig
 
+from app import app
+from app.controllers.utils import atomic_transaction
+from app.domain.regulations import compute_regulation_for_user
+from app.models.mission_validation import MissionValidation
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
-
-from config import TestConfig
 
 
 @app.cli.command(with_appcontext=False)
@@ -35,3 +39,19 @@ def clean():
 def seed():
     """Inject tests data in database."""
     seed_seed()
+
+
+@app.cli.command("init_regulation_alerts", with_appcontext=True)
+def init_regulation_alerts():
+    """Initialize alerts for all users"""
+    widgets = [progressbar.Percentage(), progressbar.Bar()]
+    users = User.query.all()
+    max_value = len(users) if users else 0
+    bar = progressbar.ProgressBar(widgets=widgets, max_value=max_value).start()
+    i = 0
+    for user in users:
+        with atomic_transaction(commit_at_end=True):
+            compute_regulation_for_user(user)
+        i += 1
+        bar.update(i)
+    bar.finish()
