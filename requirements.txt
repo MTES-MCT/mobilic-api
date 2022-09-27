@@ -89,7 +89,7 @@ prometheus-client==0.12.0
 prometheus-flask-exporter==0.18.6
 promise==2.3
 prompt-toolkit==3.0.3
-protobuf==4.21.1
+protobuf==4.21.6
 psycopg2==2.8.4
 ptyprocess==0.6.0
 pyasn1==0.4.8
