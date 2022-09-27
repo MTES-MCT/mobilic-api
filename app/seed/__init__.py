@@ -19,6 +19,7 @@ from app.models import (
     Comment,
     ControllerRefreshToken,
     ControllerUser,
+    RegulatoryAlert,
 )
 from app.models.activity import Activity
 from app.models.controller_control import ControllerControl
@@ -65,6 +66,7 @@ def clean():
     RefreshToken.query.delete()
     UserReadToken.query.delete()
     Email.query.delete()
+    RegulatoryAlert.query.delete()
     User.query.delete()
 
     ControllerRefreshToken.query.delete()
