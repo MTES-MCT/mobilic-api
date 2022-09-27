@@ -28,6 +28,7 @@ from app.services.get_regulation_checks import (
     get_regulation_checks,
 )
 from app.tests import BaseTest
+from dateutil.tz import gettz
 from flask.ctx import AppContext
 
 ADMIN_EMAIL = "admin@email.com"
@@ -909,3 +910,66 @@ class TestRegulations(BaseTest):
         self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
         extra_info = json.loads(regulatory_alert[0].extra)
         self.assertEqual(extra_info["rest_duration_s"], 111600)
+
+    def test_max_work_day_time_in_guyana_success(self):
+        company = self.company
+        admin = self.admin
+        how_many_days_ago = 2
+
+        GY_TZ_NAME = "America/Cayenne"
+        GY_TIMEZONE = gettz(GY_TZ_NAME)
+
+        employee = UserFactory.create(
+            email="employee-guyana@email.com",
+            password="password",
+            timezone_name=GY_TZ_NAME,
+        )
+        EmploymentFactory.create(
+            company=company,
+            submitter=admin,
+            user=employee,
+            has_admin_rights=False,
+        )
+
+        mission = Mission(
+            name="11h drive in Guyana with night work",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(
+                    how_many_days_ago, hour=17, tz=GY_TIMEZONE
+                ),
+                start_time=get_time(how_many_days_ago, hour=6, tz=GY_TIMEZONE),
+                end_time=get_time(how_many_days_ago, hour=17, tz=GY_TIMEZONE),
+            )
+
+            # Guyana UTC-4 = France UTC+2
+            # Guyana: 6h -> 17h (day)
+            # France: 12h -> 23h (night)
+
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+        day_start = get_date(how_many_days_ago)
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)

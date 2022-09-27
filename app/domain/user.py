@@ -9,6 +9,7 @@ from app.models import User, Employment
 def create_user(
     first_name,
     last_name,
+    timezone_name=None,
     email=None,
     password=None,
     invite_token=None,
@@ -21,6 +22,7 @@ def create_user(
         email=email,
         password=password,
         ssn=ssn,
+        timezone_name=timezone_name,
         has_confirmed_email=True if not fc_info else False,
         france_connect_info=fc_info,
         france_connect_id=fc_info.get("sub") if fc_info else None,

@@ -47,6 +47,10 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         db.ARRAY(db.TEXT), nullable=False, default=[]
     )
 
+    timezone_name = db.Column(
+        db.String(255), default="Europe/Paris", nullable=False
+    )
+
     db.validates("email")(validate_email_field_in_db)
 
     @property
