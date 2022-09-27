@@ -133,10 +133,6 @@ def group_user_events_by_week(
             ),
             None,
         )
-        if not week:
-            app.logger.warning("Week not found")
-            continue
-
         week["worked_days"] += 1
         week["days"].append(
             {
