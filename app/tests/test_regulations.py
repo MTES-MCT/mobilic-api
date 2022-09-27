@@ -14,6 +14,7 @@ from app.models.regulation_check import (
     RegulationCheckType,
     UnitType,
 )
+from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 from app.models.user import User
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
@@ -137,6 +138,13 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
+
+        computation_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == day_start,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(computation_done)
 
     def test_min_daily_rest_by_employee_success(self):
         company = self.company
@@ -711,6 +719,12 @@ class TestRegulations(BaseTest):
 
         # THEN
         self.assertEqual(mock_compute_regulations_per_day.call_count, 16)
+
+        computations_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(computations_done), 16)
 
     def test_compute_regulations_per_week_success(self):
         company = self.company
