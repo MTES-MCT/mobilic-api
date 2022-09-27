@@ -88,6 +88,8 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         end_time=None,
         use_subqueries=False,
         restrict_to_company_ids=None,
+        max_reception_time=None,
+        mission_id=None,
     ):
         from app.models import Activity, Mission
         from app.models.queries import query_activities, add_mission_relations
@@ -97,6 +99,8 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             start_time=start_time,
             end_time=end_time,
             user_id=self.id,
+            max_reception_time=max_reception_time,
+            mission_id=mission_id,
         )
 
         if restrict_to_company_ids:
@@ -196,6 +200,8 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         additional_activity_filters=None,
         sort_activities=True,
         limit_fetch_activities=None,
+        max_reception_time=None,
+        mission_id=None,
     ):
         sorted_missions = []
         missions = set()
@@ -213,6 +219,8 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             start_time=start_time,
             end_time=end_time,
             use_subqueries=not small_query,
+            max_reception_time=max_reception_time,
+            mission_id=mission_id,
         )
         if additional_activity_filters:
             activity_query = additional_activity_filters(activity_query)

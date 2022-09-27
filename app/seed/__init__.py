@@ -17,12 +17,17 @@ from app.models import (
     CompanyKnownAddress,
     Expenditure,
     Comment,
+    ControllerRefreshToken,
+    ControllerUser,
+    RegulatoryAlert,
 )
 from app.models.activity import Activity
+from app.models.controller_control import ControllerControl
 from app.seed.factories import (
     UserFactory,
     CompanyFactory,
     EmploymentFactory,
+    ControllerUserFactory,
 )
 from app.seed.helpers import AuthenticatedUserContext
 from app.seed.scenarios import run_scenario_busy_admin
@@ -56,10 +61,16 @@ def clean():
     Vehicle.query.delete()
     Company.query.delete()
 
+    ControllerControl.query.delete()
+
     RefreshToken.query.delete()
     UserReadToken.query.delete()
     Email.query.delete()
+    RegulatoryAlert.query.delete()
     User.query.delete()
+
+    ControllerRefreshToken.query.delete()
+    ControllerUser.query.delete()
     db.session.commit()
 
 

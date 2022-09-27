@@ -166,7 +166,6 @@ def edit_activity_(input):
         start_time=input.get("start_time"),
         end_time=input.get("end_time"),
         remove_end_time=input.get("remove_end_time"),
-        creation_time=input.get("start_time"),
         context=input.get("context"),
     )
 

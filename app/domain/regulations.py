@@ -1,6 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 
-from app import db
+from app import app, db
 from app.domain.regulations_per_day import compute_regulations_per_day
 from app.domain.regulations_per_week import compute_regulations_per_week
 from app.domain.work_days import group_user_events_by_day_with_limit
@@ -131,6 +131,10 @@ def group_user_events_by_week(
             ),
             None,
         )
+        if not week:
+            app.logger.warning("Week not found")
+            continue
+
         week["worked_days"] += 1
         week["days"].append(
             {

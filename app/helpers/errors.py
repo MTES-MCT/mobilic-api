@@ -146,6 +146,16 @@ class EmptyActivityDurationError(MobilicError):
     )
 
 
+class ActivityOutsideEmploymentByEmployeeError(MobilicError):
+    code = "ACTIVITY_OUTSIDE_EMPLOYMENT_EMPLOYEE"
+    default_message = "Activity can't be added outside employment period"
+
+
+class ActivityOutsideEmploymentByAdminError(MobilicError):
+    code = "ACTIVITY_OUTSIDE_EMPLOYMENT_ADMIN"
+    default_message = "Activity can't be added outside employment period"
+
+
 class ActivityInFutureError(MobilicError):
     code = "ACTIVITY_TIME_IN_FUTURE"
 
@@ -276,6 +286,11 @@ class ResourceAlreadyDismissedError(InvalidResourceError):
 class DuplicateExpendituresError(MobilicError):
     code = "DUPLICATE_EXPENDITURES"
     default_should_alert_team = False
+
+
+class InvalidControlToken(MobilicError):
+    code = "INVALID_CONTROL_TOKEN"
+    default_message = "The Control QR Code can not be read"
 
 
 class OverlappingEmploymentsError(MobilicError):

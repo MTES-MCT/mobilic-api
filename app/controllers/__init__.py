@@ -39,6 +39,9 @@ from app.controllers.mission import (
     ChangeMissionName,
     CancelMission,
 )
+
+from app.controllers.controller import ControllerScanCode
+
 from app.controllers.user import (
     UserSignUp,
     FranceConnectLogin,
@@ -175,6 +178,8 @@ class PrivateMutations(graphene.ObjectType):
         Locations, resolver=lambda root, info: Locations()
     )
     edit_company_settings = EditCompanySettings.Field()
+
+    controller_scan_code = ControllerScanCode.Field()
 
 
 class Queries(

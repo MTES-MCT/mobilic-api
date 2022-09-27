@@ -1,5 +1,9 @@
-from flask import Blueprint, jsonify, request
+import time
 
+from flask import Blueprint, jsonify, request
+import jwt
+
+from app import app
 from app.helpers.authentication import require_auth_with_write_access
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -23,7 +27,12 @@ control_blueprint = Blueprint("control", __name__)
 @require_auth_with_write_access
 def generate_read_token():
     token = UserReadToken.get_or_create(current_user)
-    return jsonify({"token": token.token})
+    jwt_token = jwt.encode(
+        {"userId": current_user.id, "dateCodeGeneration": time.time()},
+        app.config["CONTROL_SIGNING_KEY"],
+        algorithm="HS256",
+    )
+    return jsonify({"token": token.token, "controlToken": jwt_token})
 
 
 @control_blueprint.route("/verify-xlsx-signature", methods=["POST"])
