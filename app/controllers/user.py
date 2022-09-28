@@ -17,7 +17,11 @@ from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
 )
-from app.domain.user import create_user, get_user_from_fc_info
+from app.domain.user import (
+    create_user,
+    get_user_from_fc_info,
+    bind_user_to_pending_employments,
+)
 from app.helpers.authentication import (
     current_user,
     create_access_tokens_for,
@@ -213,8 +217,10 @@ class ChangeEmail(AuthenticatedMutation):
                     )
                     mailer.subscribe_email_to_contact_list(email, mailing_list)
                 db.session.commit()
-
+                bind_user_to_pending_employments(current_user)
+                db.session.commit()
             except Exception as e:
+                db.session.rollback()
                 app.logger.exception(e)
 
         return current_user
