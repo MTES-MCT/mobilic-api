@@ -141,7 +141,7 @@ class TestRegulations(BaseTest):
     def test_min_daily_rest_by_employee_success(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 2
+        how_many_days_ago = 3
 
         mission = Mission(
             name="8h drive J",
@@ -159,6 +159,14 @@ class TestRegulations(BaseTest):
         )
         db.session.add(mission_next_day)
 
+        mission_last_day = Mission(
+            name="8h drive J+2",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission_last_day)
+
         with AuthenticatedUserContext(user=employee):
             log_activity(
                 submitter=employee,
@@ -166,9 +174,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=15),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=15),
+                reception_time=get_time(how_many_days_ago, hour=23),
+                start_time=get_time(how_many_days_ago, hour=18),
+                end_time=get_time(how_many_days_ago, hour=23),
             )
 
             validate_mission(
@@ -181,16 +189,31 @@ class TestRegulations(BaseTest):
                 mission=mission_next_day,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=15),
-                start_time=get_time(how_many_days_ago - 1, hour=7),
-                end_time=get_time(how_many_days_ago - 1, hour=15),
+                reception_time=get_time(how_many_days_ago - 2, hour=15),
+                start_time=get_time(how_many_days_ago - 2, hour=4),
+                end_time=get_time(how_many_days_ago - 2, hour=10),
             )
 
             validate_mission(
                 submitter=employee, mission=mission_next_day, for_user=employee
             )
 
-        day_start = get_date(how_many_days_ago)
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission_last_day,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 1, hour=15),
+                start_time=get_time(how_many_days_ago - 1, hour=4),
+                end_time=get_time(how_many_days_ago - 1, hour=10),
+            )
+
+            validate_mission(
+                submitter=employee, mission=mission_last_day, for_user=employee
+            )
+
+        day_start = get_date(how_many_days_ago - 2)
 
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),

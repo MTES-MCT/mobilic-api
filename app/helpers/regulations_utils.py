@@ -7,3 +7,5 @@ MINUTE = 60
 ComputationResult = namedtuple(
     "ComputationResult", ["success", "extra"], defaults=(False, None)
 )
+
+Break = namedtuple("Break", ["start_time", "end_time"])
