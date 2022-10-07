@@ -89,32 +89,34 @@ def check_min_daily_rest(activity_groups, regulation_check):
     for group in activity_groups:
         all_activities = all_activities + group.activities
 
-    long_breaks = get_long_breaks(all_activities, regulation_check)
+    if len(all_activities) == 0:
+        success = True
+    else:
+        long_breaks = get_long_breaks(all_activities, regulation_check)
 
-    for long_break in long_breaks:
-        all_activities = list(
-            filter(
-                lambda activity: activity.start_time
-                < long_break.start_time
-                + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
-                - timedelta(days=1)
-                or activity.start_time >= long_break.end_time,
-                all_activities,
+        # We consider the end of the last period as the beginning of a long break.
+        long_breaks.append(
+            Break(
+                start_time=activity_groups[-1].end_time,
+                end_time=activity_groups[-1].end_time
+                + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS),
             )
         )
 
-    all_activities = list(
-        filter(
-            lambda activity: activity.start_time
-            < activity_groups[-1].end_time
-            + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
-            - timedelta(days=1),
-            all_activities,
-        )
-    )
+        # We remove all the activities covered by long breaks
+        for long_break in long_breaks:
+            all_activities = list(
+                filter(
+                    lambda activity: activity.start_time
+                    < long_break.start_time
+                    + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
+                    - timedelta(days=1)
+                    or activity.start_time >= long_break.end_time,
+                    all_activities,
+                )
+            )
 
-    success = len(all_activities) == 0
-    # success = total_work_duration <= (24 - LONG_BREAK_DURATION_IN_HOURS) * HOUR
+        success = len(all_activities) == 0
     return ComputationResult(success=success)
 
 
