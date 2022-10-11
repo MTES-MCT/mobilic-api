@@ -79,12 +79,6 @@ def check_min_daily_rest(activity_groups, regulation_check):
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
 
-    total_work_duration = 0
-    for group in activity_groups:
-        total_work_duration += (
-            group.end_time - group.start_time
-        ).total_seconds()
-
     all_activities = []
     for group in activity_groups:
         all_activities = all_activities + group.activities
