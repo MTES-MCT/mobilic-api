@@ -1,10 +1,12 @@
 import datetime
+
 from dateutil.tz import gettz
 from jours_feries_france import JoursFeries
 
 FR_TIMEZONE = gettz("Europe/Paris")
 VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
 VERY_FAR_AHEAD = datetime.datetime(2100, 1, 1)
+SUNDAY_WEEKDAY = 6
 
 
 def from_timestamp(ts):
@@ -107,4 +109,19 @@ def min_or_none(*args):
 
 
 def is_sunday_or_bank_holiday(day):
-    return JoursFeries.is_bank_holiday(day) or day.weekday() == 6
+    return JoursFeries.is_bank_holiday(day) or day.weekday() == SUNDAY_WEEKDAY
+
+
+def get_dates_range(start_date, end_date):
+    for n in range(int((end_date - start_date).days) + 1):
+        yield start_date + datetime.timedelta(n)
+
+
+def get_first_day_of_week(day):
+    day_of_week = day.weekday()
+    return day - datetime.timedelta(days=day_of_week)
+
+
+def get_last_day_of_week(day):
+    day_of_week = day.weekday()
+    return day + datetime.timedelta(days=SUNDAY_WEEKDAY - day_of_week)

@@ -17,7 +17,11 @@ from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
 )
-from app.domain.user import create_user, get_user_from_fc_info
+from app.domain.user import (
+    create_user,
+    get_user_from_fc_info,
+    bind_user_to_pending_employments,
+)
 from app.helpers.authentication import (
     current_user,
     create_access_tokens_for,
@@ -56,6 +60,8 @@ from app.models import User, Mission
 from app import app, db, mailer
 from app.models.email import Email
 
+TIMEZONE_DESC = "Fuseau horaire de l'utilisateur"
+
 
 class UserSignUp(graphene.Mutation):
     """
@@ -85,6 +91,9 @@ class UserSignUp(graphene.Mutation):
         is_employee = graphene.Boolean(
             required=False,
             description="Précise si le nouvel utilisateur est un travailleur mobile ou bien un gestionnaire. Vrai par défaut.",
+        )
+        timezone_name = graphene.String(
+            required=False, description=TIMEZONE_DESC
         )
 
     Output = UserTokens
@@ -132,17 +141,23 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
         password = graphene.String(required=False, description="Mot de passe")
+        timezone_name = graphene.String(
+            required=False, description=TIMEZONE_DESC
+        )
 
     Output = UserOutput
 
     @classmethod
-    def mutate(cls, _, info, email, password=None):
+    def mutate(
+        cls, _, info, email, password=None, timezone_name="Europe/Paris"
+    ):
         with atomic_transaction(commit_at_end=True):
             if not current_user.france_connect_id or current_user.password:
                 raise AuthorizationError("Actor has already a login")
 
             current_user.email = email
             current_user.has_confirmed_email = True
+            current_user.timezone_name = timezone_name
             current_user.create_activation_link()
             if password:
                 current_user.password = password
@@ -152,6 +167,24 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
         except Exception as e:
             app.logger.exception(e)
 
+        return current_user
+
+
+class ChangeTimezone(AuthenticatedMutation):
+    class Arguments:
+        timezone_name = graphene.String(
+            required=True,
+            description=TIMEZONE_DESC,
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    def mutate(cls, _, info, timezone_name):
+        old_timezone_name = current_user.timezone_name
+        if old_timezone_name != timezone_name:
+            with atomic_transaction(commit_at_end=True):
+                current_user.timezone_name = timezone_name
         return current_user
 
 
@@ -184,8 +217,10 @@ class ChangeEmail(AuthenticatedMutation):
                     )
                     mailer.subscribe_email_to_contact_list(email, mailing_list)
                 db.session.commit()
-
+                bind_user_to_pending_employments(current_user)
+                db.session.commit()
             except Exception as e:
+                db.session.rollback()
                 app.logger.exception(e)
 
         return current_user
