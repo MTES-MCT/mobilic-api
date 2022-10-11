@@ -340,7 +340,67 @@ class TestRegulations(BaseTest):
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(regulatory_alert), 2)
+        self.assertEqual(len(regulatory_alert), 1)
+
+    def test_min_daily_rest_by_employee_failure_only_one_day(self):
+        company = self.company
+        employee = self.employee
+        how_many_days_ago = 3
+
+        mission = Mission(
+            name="8h drive J",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 1, hour=12),
+                start_time=get_time(how_many_days_ago - 1, hour=6),
+                end_time=get_time(how_many_days_ago - 1, hour=12),
+            )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 1, hour=21),
+                start_time=get_time(how_many_days_ago - 1, hour=14),
+                end_time=get_time(how_many_days_ago - 1, hour=21),
+            )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago - 2, hour=20),
+                start_time=get_time(how_many_days_ago - 2, hour=8),
+                end_time=get_time(how_many_days_ago - 2, hour=20),
+            )
+
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(regulatory_alert), 1)
 
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
@@ -850,7 +910,7 @@ class TestRegulations(BaseTest):
         )
 
         # THEN
-        self.assertEqual(mock_compute_regulations_per_day.call_count, 16)
+        self.assertEqual(mock_compute_regulations_per_day.call_count, 17)
 
     def test_compute_regulations_per_week_success(self):
         company = self.company

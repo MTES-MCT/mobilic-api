@@ -27,15 +27,24 @@ def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
     )
 
 
-def filter_work_days_to_current_and_next_days(work_days, *_):
-    return work_days
+def filter_work_days_to_current_and_next_day(
+    work_days, day_start_time, day_end_time
+):
+    return list(
+        filter(
+            lambda x: x.start_time <= day_end_time + timedelta(days=1)
+            and x.end_time
+            and x.end_time > day_start_time,
+            work_days,
+        )
+    )
 
 
 def compute_regulations_per_day(
     user, day, submitter_type, work_days_over_current_past_and_next_days, tz
 ):
     day_start_time = to_datetime(day, tz_for_date=tz)
-    day_end_time = day_start_time + timedelta(1)
+    day_end_time = day_start_time + timedelta(days=1)
     for type, regulation_functions in DAILY_REGULATION_CHECKS.items():
         work_days_filter = regulation_functions[1]
         computation = regulation_functions[0]
@@ -258,7 +267,7 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
 DAILY_REGULATION_CHECKS = {
     RegulationCheckType.MINIMUM_DAILY_REST: [
         check_min_daily_rest,
-        filter_work_days_to_current_and_next_days,
+        filter_work_days_to_current_and_next_day,
     ],
     RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
         check_max_work_day_time,
