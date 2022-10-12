@@ -38,13 +38,24 @@ class CreateVehicle(AuthenticatedMutation):
     )
     def mutate(cls, _, info, registration_number, company_id, alias=None):
         with atomic_transaction(commit_at_end=True):
-            vehicle = Vehicle(
-                registration_number=registration_number,
-                alias=alias,
-                submitter=current_user,
-                company_id=company_id,
-            )
-            db.session.add(vehicle)
+
+            vehicle = Vehicle.query.filter(
+                Vehicle.company_id == company_id,
+                Vehicle.registration_number == registration_number,
+                Vehicle.terminated_at is not None,
+            ).one_or_none()
+
+            if not vehicle:
+                vehicle = Vehicle(
+                    registration_number=registration_number,
+                    alias=alias,
+                    submitter=current_user,
+                    company_id=company_id,
+                )
+                db.session.add(vehicle)
+            else:
+                vehicle.terminated_at = None
+                vehicle.alias = alias
         return vehicle
 
 
