@@ -66,7 +66,9 @@ def compute_regulations_per_day(
         )
 
         success, extra = computation(
-            activity_groups_to_take_into_account, regulation_check
+            activity_groups_to_take_into_account,
+            regulation_check,
+            day_start_time,
         )
 
         if not success:
@@ -83,7 +85,9 @@ def compute_regulations_per_day(
             db.session.add(regulatory_alert)
 
 
-def check_min_daily_rest(activity_groups, regulation_check):
+def check_min_daily_rest(
+    activity_groups, regulation_check, day_to_check_start_time
+):
     LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
@@ -118,6 +122,17 @@ def check_min_daily_rest(activity_groups, regulation_check):
                     all_activities,
                 )
             )
+
+        # We remove activities that are not included in the day to check.
+        day_to_check_end_time = day_to_check_start_time + timedelta(days=1)
+        all_activities = list(
+            filter(
+                lambda activity: activity.start_time < day_to_check_end_time
+                and activity.end_time
+                and activity.end_time >= day_to_check_start_time,
+                all_activities,
+            )
+        )
 
         success = len(all_activities) == 0
     return ComputationResult(success=success)
@@ -270,15 +285,21 @@ DAILY_REGULATION_CHECKS = {
         filter_work_days_to_current_and_next_day,
     ],
     RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
-        check_max_work_day_time,
+        lambda activity_groups, regulation_check, _: check_max_work_day_time(
+            activity_groups, regulation_check
+        ),
         filter_work_days_to_current_day,
     ],
     RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
-        check_min_work_day_break,
+        lambda activity_groups, regulation_check, _: check_min_work_day_break(
+            activity_groups, regulation_check
+        ),
         filter_work_days_to_current_day,
     ],
     RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
-        check_max_uninterrupted_work_time,
+        lambda activity_groups, regulation_check, _: check_max_uninterrupted_work_time(
+            activity_groups, regulation_check
+        ),
         filter_work_days_to_current_day,
     ],
 }

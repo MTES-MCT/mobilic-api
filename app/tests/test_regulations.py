@@ -400,7 +400,7 @@ class TestRegulations(BaseTest):
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(regulatory_alert), 1)
+        self.assertEqual(1, len(regulatory_alert))
 
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
