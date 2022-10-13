@@ -3,7 +3,12 @@ from datetime import datetime, timedelta
 
 from app import db
 from app.helpers.errors import InvalidResourceError
-from app.helpers.regulations_utils import HOUR, MINUTE, ComputationResult
+from app.helpers.regulations_utils import (
+    HOUR,
+    MINUTE,
+    ComputationResult,
+    Break,
+)
 from app.helpers.time import to_datetime
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
@@ -11,21 +16,38 @@ from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
 
-def compute_regulations_per_day(
-    user, day, submitter_type, work_days_over_current_past_and_next_days, tz
-):
-    day_start_time = to_datetime(day, tz_for_date=tz)
-    day_end_time = day_start_time + timedelta(1)
-    activity_groups_to_take_into_account = list(
+def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
+    return list(
         filter(
             lambda x: x.start_time <= day_end_time
             and x.end_time
             and x.end_time > day_start_time,
-            work_days_over_current_past_and_next_days,
+            work_days,
         )
     )
 
-    for type, computation in DAILY_REGULATION_CHECKS.items():
+
+def filter_work_days_to_current_and_next_day(
+    work_days, day_start_time, day_end_time
+):
+    return list(
+        filter(
+            lambda x: x.start_time <= day_end_time + timedelta(days=1)
+            and x.end_time
+            and x.end_time > day_start_time,
+            work_days,
+        )
+    )
+
+
+def compute_regulations_per_day(
+    user, day, submitter_type, work_days_over_current_past_and_next_days, tz
+):
+    day_start_time = to_datetime(day, tz_for_date=tz)
+    day_end_time = day_start_time + timedelta(days=1)
+    for type, regulation_functions in DAILY_REGULATION_CHECKS.items():
+        work_days_filter = regulation_functions[1]
+        computation = regulation_functions[0]
         # IMPROVE: instead of using the latest, use the one valid for the day target
         regulation_check = (
             RegulationCheck.query.filter(RegulationCheck.type == type)
@@ -37,8 +59,16 @@ def compute_regulations_per_day(
                 f"Missing regulation check of type {type}"
             )
 
+        activity_groups_to_take_into_account = work_days_filter(
+            work_days_over_current_past_and_next_days,
+            day_start_time,
+            day_end_time,
+        )
+
         success, extra = computation(
-            activity_groups_to_take_into_account, regulation_check
+            activity_groups_to_take_into_account,
+            regulation_check,
+            day_start_time,
         )
 
         if not success:
@@ -55,19 +85,78 @@ def compute_regulations_per_day(
             db.session.add(regulatory_alert)
 
 
-def check_min_daily_rest(activity_groups, regulation_check):
+def check_min_daily_rest(
+    activity_groups, regulation_check, day_to_check_start_time
+):
     LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
 
-    total_work_duration = 0
+    all_activities = []
     for group in activity_groups:
-        total_work_duration += (
-            group.end_time - group.start_time
-        ).total_seconds()
+        all_activities = all_activities + group.activities
 
-    success = total_work_duration <= (24 - LONG_BREAK_DURATION_IN_HOURS) * HOUR
+    if len(all_activities) == 0:
+        success = True
+    else:
+        long_breaks = get_long_breaks(all_activities, regulation_check)
+
+        # We consider the end of the last period as the beginning of a long break.
+        long_breaks.append(
+            Break(
+                start_time=activity_groups[-1].end_time,
+                end_time=activity_groups[-1].end_time
+                + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS),
+            )
+        )
+
+        # We remove all the activities covered by long breaks
+        for long_break in long_breaks:
+            all_activities = list(
+                filter(
+                    lambda activity: activity.start_time
+                    < long_break.start_time
+                    + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
+                    - timedelta(days=1)
+                    or activity.start_time >= long_break.end_time,
+                    all_activities,
+                )
+            )
+
+        # We remove activities that are not included in the day to check.
+        day_to_check_end_time = day_to_check_start_time + timedelta(days=1)
+        all_activities = list(
+            filter(
+                lambda activity: activity.start_time < day_to_check_end_time
+                and activity.end_time
+                and activity.end_time >= day_to_check_start_time,
+                all_activities,
+            )
+        )
+
+        success = len(all_activities) == 0
     return ComputationResult(success=success)
+
+
+def get_long_breaks(activities, regulation_check):
+    LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
+        "LONG_BREAK_DURATION_IN_HOURS"
+    ]
+    previous_activity = None
+    long_breaks = []
+    for activity in activities:
+        if previous_activity:
+            if (
+                activity.start_time - previous_activity.end_time
+            ).total_seconds() >= LONG_BREAK_DURATION_IN_HOURS * HOUR:
+                long_breaks.append(
+                    Break(
+                        start_time=previous_activity.end_time,
+                        end_time=activity.start_time,
+                    )
+                )
+        previous_activity = activity
+    return long_breaks
 
 
 def check_max_work_day_time(activity_groups, regulation_check):
@@ -191,8 +280,26 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
 
 
 DAILY_REGULATION_CHECKS = {
-    RegulationCheckType.MINIMUM_DAILY_REST: check_min_daily_rest,
-    RegulationCheckType.MAXIMUM_WORK_DAY_TIME: check_max_work_day_time,
-    RegulationCheckType.MINIMUM_WORK_DAY_BREAK: check_min_work_day_break,
-    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: check_max_uninterrupted_work_time,
+    RegulationCheckType.MINIMUM_DAILY_REST: [
+        check_min_daily_rest,
+        filter_work_days_to_current_and_next_day,
+    ],
+    RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
+        lambda activity_groups, regulation_check, _: check_max_work_day_time(
+            activity_groups, regulation_check
+        ),
+        filter_work_days_to_current_day,
+    ],
+    RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
+        lambda activity_groups, regulation_check, _: check_min_work_day_break(
+            activity_groups, regulation_check
+        ),
+        filter_work_days_to_current_day,
+    ],
+    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
+        lambda activity_groups, regulation_check, _: check_max_uninterrupted_work_time(
+            activity_groups, regulation_check
+        ),
+        filter_work_days_to_current_day,
+    ],
 }

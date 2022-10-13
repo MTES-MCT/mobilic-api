@@ -20,6 +20,7 @@ from dateutil.tz import gettz
 
 
 def compute_regulations(user, period_start, period_end, submitter_type):
+    period_start = period_start - timedelta(days=1)
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
 
@@ -35,7 +36,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     user_timezone = gettz(user.timezone_name)
 
     # Next day is needed for some computation rules
-    day_after_period_end = period_end + timedelta(1)
+    day_after_period_end = period_end + timedelta(days=1)
     (
         work_days_over_current_past_and_next_days,
         _,
