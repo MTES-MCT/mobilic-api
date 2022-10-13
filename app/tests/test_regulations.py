@@ -924,7 +924,7 @@ class TestRegulations(BaseTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(computations_done), 16)
+        self.assertEqual(len(computations_done), 17)
 
     def test_compute_regulations_per_week_success(self):
         company = self.company
