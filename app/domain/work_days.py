@@ -356,6 +356,7 @@ def group_user_events_by_day_with_limit(
     only_missions_validated_by_user=False,
     first=None,
     after=None,
+    max_reception_time=None,
 ):
     if after:
         try:
@@ -383,6 +384,7 @@ def group_user_events_by_day_with_limit(
             desc(Activity.start_time), desc(Activity.id)
         ),
         limit_fetch_activities=max(first * 5, 200) if first else None,
+        max_reception_time=max_reception_time,
     )
 
     if only_missions_validated_by_admin:

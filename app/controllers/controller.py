@@ -239,6 +239,7 @@ def download_control_report(control_id):
         from_date=min_date,
         until_date=max_date,
         include_dismissed_or_empty_days=True,
+        max_reception_time=control.qr_code_generation_time,
     )[0]
     return send_control_as_one_excel_file(
         control, work_days_data, min_date, max_date
