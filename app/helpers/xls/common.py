@@ -1,4 +1,9 @@
-from datetime import datetime
+from io import BytesIO
+
+from flask import send_file
+from xlsxwriter import Workbook
+
+from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 light_brown_hex = "#ffe599"
 light_yellow_hex = "#fdffbc"
@@ -9,6 +14,10 @@ light_orange_hex = "#fff0e4"
 light_red_hex = "#d9d2e9"
 green_hex = "#a8d08d"
 very_light_red_hex = "#fcb4b4"
+
+EXCEL_MIMETYPE = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 date_formats = dict(
     date_format={"num_format": "dd/mm/yyyy"},
@@ -47,65 +56,18 @@ formats = dict(
 )
 
 
-def write_sheet_header(wb, sheet, companies, max_date, min_date):
-    sheet.write(
-        0,
-        0,
-        "Entreprise : {0}".format(", ".join(c.name for c in companies)),
-        wb.add_format({"bold": True}),
-    )
-    sheet.write(
-        1,
-        0,
-        "Date des données exportées : du {0} au {1}".format(
-            min_date.strftime("%d/%m/%Y"), max_date.strftime("%d/%m/%Y")
-        ),
-        wb.add_format({"bold": True}),
-    )
-
-
-def write_sheet_legend(wb, sheet):
-    sheet.write(
-        0,
-        4,
-        "Légende :",
-        wb.add_format({"bold": True}),
-    )
-    sheet.write_datetime(
-        1,
-        4,
-        datetime(2022, 1, 1, 0, 0),
-        wb.add_format(
-            {**formats.get("bank_holiday_date_format"), "border": 1}
-        ),
-    )
-    sheet.write(
-        1,
-        5,
-        "Dimanches ou jours fériés : jours de travail majorés",
-        wb.add_format({"bold": True}),
-    )
-
-
-def write_tab_headers(wb, sheet, row_idx, columns_in_main_sheet):
+def write_tab_headers(wb, sheet, row_idx, columns):
     col_idx = 0
     column_base_formats = []
-    for (
-        col_name,
-        _,
-        _,
-        column_width,
-        color,
-        *_,
-    ) in columns_in_main_sheet:
+    for column in columns:
         sheet.write(
             row_idx,
             col_idx,
-            col_name,
+            column.label,
             wb.add_format(
                 {
                     "bold": True,
-                    "bg_color": color,
+                    "bg_color": column.color,
                     "border": 1,
                     "align": "center",
                     "valign": "vcenter",
@@ -113,7 +75,7 @@ def write_tab_headers(wb, sheet, row_idx, columns_in_main_sheet):
                 }
             ),
         )
-        sheet.set_column(col_idx, col_idx, column_width)
+        sheet.set_column(col_idx, col_idx, column.width)
         column_base_formats.append({"right": 1})
         col_idx += 1
     sheet.set_row(row_idx, 40)
@@ -129,33 +91,27 @@ def write_cells(
     columns,
     resource_for_resolver,
     additional_format=None,
+    with_border=False,
 ):
-    for (
-        col_name,
-        resolver,
-        style,
-        *_,
-    ) in columns:
+    for column in columns:
+        style = column.lambda_style(resource_for_resolver)
+        value = column.lambda_value(resource_for_resolver)
         row_style = {
             **column_base_formats[col_idx],
             **(formats.get(style) or {}),
         }
+        if with_border:
+            row_style["border"] = 1
+
         if additional_format:
             row_style.update(additional_format)
-        if style in date_formats:
-            sheet.write_datetime(
-                row_idx,
-                col_idx,
-                resolver(resource_for_resolver),
-                wb.add_format(row_style),
-            )
-        else:
-            sheet.write(
-                row_idx,
-                col_idx,
-                resolver(resource_for_resolver),
-                wb.add_format(row_style),
-            )
+        write_method = "write_datetime" if style in date_formats else "write"
+        getattr(sheet, write_method)(
+            row_idx,
+            col_idx,
+            value,
+            wb.add_format(row_style),
+        )
         col_idx += 1
     return col_idx
 
@@ -172,3 +128,90 @@ def merge_cells_if_needed(
             cell_text,
             workbook.add_format(cell_format),
         )
+
+
+def write_user_recap(
+    wb,
+    sheet,
+    columns,
+    user_starting_row_idx,
+    user_ending_row_idx,
+    user_display_name,
+):
+    recap_col_idx = 0
+    previous_has_to_be_summed = False
+    for column in columns:
+        if column.is_to_be_summed:
+            if not previous_has_to_be_summed:
+                text_to_write = f"Total {user_display_name}"
+                row_ = user_ending_row_idx + 2
+                col_ = recap_col_idx - 1
+                # Merge with left cell to match figma
+                sheet.merge_range(
+                    row_,
+                    col_ - 1,
+                    row_,
+                    col_,
+                    text_to_write,
+                    wb.add_format(
+                        {
+                            "bg_color": green_hex,
+                            "align": "center",
+                            "bold": True,
+                            "border": 1,
+                        }
+                    ),
+                )
+            sheet.write_formula(
+                user_ending_row_idx + 2,
+                recap_col_idx,
+                compute_excel_sum_col_range(
+                    recap_col_idx, user_starting_row_idx, user_ending_row_idx
+                ),
+                wb.add_format(
+                    {
+                        **(formats.get(column.lambda_style(None)) or {}),
+                        "border": 1,
+                    }
+                ),
+            )
+        previous_has_to_be_summed = column.is_to_be_summed
+        recap_col_idx += 1
+
+
+def compute_excel_sum_col_range(col_idx, row_start, row_end):
+    return "{{=SUM({0}{1}:{2}{3})}}".format(
+        chr(col_idx + 65), row_start + 1, chr(col_idx + 65), row_end + 1
+    )
+
+
+def clean_string(s):
+    return "".join(filter(str.isalnum, s))
+
+
+class ExcelWriter:
+    def __init__(self):
+        self.output = None
+        self.wb = None
+
+    def __enter__(self):
+        self.output = BytesIO()
+        self.wb = Workbook(self.output)
+        self.wb.set_custom_property(HMAC_PROP_NAME, "a")
+        return self.wb, self.output
+
+    def __exit__(self, *a):
+        self.wb.close()
+        self.output.seek(0)
+        self.output = add_signature(self.output)
+        self.output.seek(0)
+
+
+def send_excel_file(file, name):
+    return send_file(
+        file,
+        mimetype=EXCEL_MIMETYPE,
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename=name,
+    )

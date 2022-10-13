@@ -41,7 +41,7 @@ from app.helpers.tachograph import (
     write_tachograph_archive,
     generate_tachograph_file_name,
 )
-from app.helpers.xls import send_work_days_as_excel
+from app.helpers.xls.companies import send_work_days_as_excel
 from app.models import Company, Employment
 from app.models.employment import (
     EmploymentRequestValidationStatus,
