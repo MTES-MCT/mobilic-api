@@ -5,19 +5,23 @@ from uuid import uuid4
 import graphene
 import jwt
 from flask import redirect, request, after_this_request, send_file
-from flask_apispec import use_kwargs
+from flask_apispec import use_kwargs, doc
 from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
-from app.data_access.control_data import ControllerControlOutput
+from app.data_access.control_data import (
+    ControllerControlOutput,
+    compute_history_start_date,
+)
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
 )
 from app.domain.permissions import controller_can_see_control
+from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.agent_connect import (
     get_agent_connect_user_info,
 )
@@ -36,7 +40,8 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
-from app.models import Mission
+from app.helpers.xls.controllers import send_control_as_one_excel_file
+from app.models import Mission, Company
 from app.models.controller_control import (
     ControllerControl,
 )
@@ -216,3 +221,25 @@ def generate_mission_control_export(mission_id, control_id):
             cache_timeout=0,
             attachment_filename=f"Détails de la mission {mission.name or mission.id} pour {controller_control.user.display_name}",
         )
+
+
+@app.route("/controllers/download_control_report", methods=["POST"])
+@doc(description="Téléchargement du contrôle au format Excel")
+@use_kwargs({"control_id": fields.Int(required=True)}, apply=True)
+@with_authorization_policy(
+    controller_can_see_control,
+    get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+)
+def download_control_report(control_id):
+    control = ControllerControl.query.get(control_id)
+    max_date = control.qr_code_generation_time.date()
+    min_date = compute_history_start_date(max_date)
+    work_days_data = group_user_events_by_day_with_limit(
+        control.user,
+        from_date=min_date,
+        until_date=max_date,
+        include_dismissed_or_empty_days=True,
+    )[0]
+    return send_control_as_one_excel_file(
+        control, work_days_data, min_date, max_date
+    )
