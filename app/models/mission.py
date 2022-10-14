@@ -2,7 +2,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
 
 from app import db
-from app.helpers.frozen_version_utils import filter_out_future_events
+from app.helpers.frozen_version_utils import (
+    filter_out_future_events,
+    freeze_activities,
+)
 from app.helpers.time import max_or_none
 from app.models.event import EventBaseModel
 
@@ -39,11 +42,21 @@ class Mission(EventBaseModel):
             key=lambda a: a.start_time,
         )
         if max_reception_time:
-            all_activities_for_user = filter_out_future_events(
+            all_activities_for_user = freeze_activities(
                 all_activities_for_user, max_reception_time
             )
         if not include_dismissed_activities:
-            return [a for a in all_activities_for_user if not a.is_dismissed]
+            if max_reception_time:
+                return [
+                    a
+                    for a in all_activities_for_user
+                    if not a.is_dismissed
+                    or a.dismissed_at > max_reception_time
+                ]
+            else:
+                return [
+                    a for a in all_activities_for_user if not a.is_dismissed
+                ]
         return all_activities_for_user
 
     def current_activity_at_time_for_user(self, user, date_time):
