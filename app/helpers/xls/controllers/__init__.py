@@ -7,7 +7,16 @@ def send_control_as_one_excel_file(
     control, work_days_data, min_date, max_date
 ):
     with ExcelWriter() as (wb, output):
-        write_main_sheet(wb, control, work_days_data, min_date, max_date)
-        write_details_sheet(wb, control, work_days_data, min_date, max_date)
+        wdays_with_activities = list(
+            filter(lambda wd: len(wd.activities) > 0, work_days_data)
+        )
+        write_main_sheet(
+            wb, control, wdays_with_activities, min_date, max_date
+        )
+        write_details_sheet(
+            wb, control, wdays_with_activities, min_date, max_date
+        )
 
-    return send_excel_file(file=output, name=f"Contrôle #{control.id}.xlsx")
+    return send_excel_file(
+        file=output, name=f"Contrôle_Mobilic_#{control.id}.xlsx"
+    )
