@@ -11,6 +11,7 @@ from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import with_authorization_policy, current_user
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
+from app.helpers.siren import SirenAPIClient
 from app.helpers.time import to_datetime
 from app.models import Company, User
 from app.models.activity import ActivityType
@@ -63,6 +64,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         description="Numéro SIREN de l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
+    legal_name = graphene.Field(
+        graphene.String, description="Nom légal de l'entreprise"
+    )
     users = graphene.List(
         lambda: UserOutput,
         description="Liste des utilisateurs rattachés à l'entreprise",
@@ -136,6 +140,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_name(self, info):
         return self.name
+
+    def resolve_legal_name(self, info):
+        if self.siren_api_info:
+            legal_unit_dict = self.siren_api_info["uniteLegale"]
+            return SirenAPIClient._get_legal_unit_name(legal_unit_dict)
+        return ""
 
     @with_authorization_policy(
         is_employed_by_company_over_period,
