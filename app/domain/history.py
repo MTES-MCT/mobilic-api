@@ -128,7 +128,14 @@ def actions_history(
                 )
             )
 
-            if isinstance(resource, Dismissable) and resource.dismissed_at:
+            if (
+                isinstance(resource, Dismissable)
+                and resource.dismissed_at
+                and (
+                    not max_reception_time
+                    or resource.dismissed_at <= max_reception_time
+                )
+            ):
                 actions.append(
                     LogAction(
                         time=resource.dismissed_at,

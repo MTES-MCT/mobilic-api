@@ -118,7 +118,9 @@ class WorkDay:
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
-        mission.history = actions_history(mission, self.user)
+        mission.history = actions_history(
+            mission, self.user, max_reception_time=self.max_reception_time
+        )
         self.missions.append(mission)
         activities = mission.activities_for(
             self.user,
