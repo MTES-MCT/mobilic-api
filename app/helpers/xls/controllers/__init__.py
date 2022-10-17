@@ -1,6 +1,10 @@
 from app.helpers.xls.common import ExcelWriter, send_excel_file
-from app.helpers.xls.controllers.tab_details import write_details_sheet
-from app.helpers.xls.controllers.tab_main import write_main_sheet
+from app.helpers.xls.controllers.tab_details_single_control import (
+    write_details_sheet,
+)
+from app.helpers.xls.controllers.tab_main_single_control import (
+    write_main_sheet,
+)
 
 
 def send_control_as_one_excel_file(

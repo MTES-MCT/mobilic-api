@@ -35,9 +35,7 @@ COLUMNS_MAIN = [
 ]
 
 
-def write_main_sheet(
-    wb, control, work_days_data, min_date, max_date, column_base_formats=None
-):
+def write_main_sheet(wb, control, work_days_data, min_date, max_date):
     sheet = wb.add_worksheet(f"Contrôle #{control.id}")
     sheet.protect()
     write_header(wb, sheet, control, min_date, max_date)
