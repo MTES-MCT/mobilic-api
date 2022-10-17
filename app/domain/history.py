@@ -2,10 +2,6 @@ from typing import NamedTuple, Optional
 from datetime import datetime
 from enum import Enum
 
-from app.helpers.frozen_version_utils import (
-    freeze_activities,
-    filter_out_future_events,
-)
 from app.models import (
     User,
     Activity,
@@ -98,7 +94,7 @@ def actions_history(
 
     relevant_resources = [
         mission.start_location,
-        mission.end_location,
+        mission.end_location_at(max_reception_time),
         *activities_for_user,
         *expenditures_for_user,
         *mission_validations,
@@ -128,14 +124,7 @@ def actions_history(
                 )
             )
 
-            if (
-                isinstance(resource, Dismissable)
-                and resource.dismissed_at
-                and (
-                    not max_reception_time
-                    or resource.dismissed_at <= max_reception_time
-                )
-            ):
+            if isinstance(resource, Dismissable) and resource.dismissed_at:
                 actions.append(
                     LogAction(
                         time=resource.dismissed_at,

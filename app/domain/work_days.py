@@ -312,7 +312,9 @@ class WorkDay:
             or self.is_last_mission_overlapping_with_next_day
         ):
             return None
-        return self.activities[-1].mission.end_location
+        return self.activities[-1].mission.end_location_at(
+            self.max_reception_time
+        )
 
 
 class WorkDayStatsOnly:

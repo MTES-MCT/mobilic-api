@@ -193,6 +193,8 @@ def generate_mission_details_pdf(
     ):
         stats["expenditures"][expenditure.type] += 1
 
+    end_location = mission.end_location_at(max_reception_time)
+
     return generate_pdf_from_template(
         "mission_details_pdf.html",
         mission_name=mission_name,
@@ -208,14 +210,12 @@ def generate_mission_details_pdf(
         start_location=mission.start_location.address.format()
         if mission.start_location
         else None,
-        end_location=mission.end_location.address.format()
-        if mission.end_location
-        else None,
+        end_location=end_location.address.format() if end_location else None,
         start_kilometer_reading=mission.start_location.kilometer_reading
         if mission.start_location
         else None,
-        end_kilometer_reading=mission.end_location.kilometer_reading
-        if mission.end_location
+        end_kilometer_reading=end_location.kilometer_reading
+        if end_location
         else None,
         columns=_get_summary_columns(mission),
         stats=stats,

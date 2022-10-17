@@ -134,6 +134,21 @@ class Mission(EventBaseModel):
         ]
         return start_location_entry[0] if start_location_entry else None
 
+    def end_location_at(self, max_reception_time):
+        from app.models.location_entry import LocationEntryType
+
+        location_entries = (
+            filter_out_future_events(self.location_entries, max_reception_time)
+            if max_reception_time
+            else self.location_entries
+        )
+        end_location_entry = [
+            l
+            for l in location_entries
+            if l.type == LocationEntryType.MISSION_END_LOCATION
+        ]
+        return end_location_entry[0] if end_location_entry else None
+
     @property
     def end_location(self):
         from app.models.location_entry import LocationEntryType
