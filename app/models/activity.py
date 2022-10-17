@@ -71,6 +71,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         db.Constraint(name="activity_start_time_before_update_time"),
         db.Constraint(name="activity_end_time_before_update_time"),
         db.Constraint(name="no_successive_activities_with_same_type"),
+        db.Constraint(name="activity_last_submitter_id_fkey"),
     )
 
     def __repr__(self):
