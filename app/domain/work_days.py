@@ -131,8 +131,10 @@ class WorkDay:
             [
                 a
                 for a in activities
-                if not a.is_dismissed
-                or a.dismissed_at > self.max_reception_time
+                if (
+                    not a.is_dismissed
+                    or a.dismissed_at > self.max_reception_time
+                )
                 and a.start_time < self.end_of_day
                 and (not a.end_time or a.end_time > self.start_of_day)
                 and a.start_time != a.end_time
@@ -449,8 +451,7 @@ def group_user_missions_by_day(
                 a
                 for a in all_mission_activities
                 if not a.is_dismissed
-                or max_reception_time
-                and a.dismissed_at > max_reception_time
+                or (max_reception_time and a.dismissed_at > max_reception_time)
             ]
             mission_start_time = (
                 acknowledged_mission_activities[0].start_time
