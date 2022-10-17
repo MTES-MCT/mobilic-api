@@ -2,24 +2,25 @@ import sys
 
 from app import db
 from app.models import (
-    User,
-    Employment,
-    Company,
-    RefreshToken,
-    Mission,
     ActivityVersion,
-    MissionValidation,
-    MissionEnd,
-    LocationEntry,
-    Vehicle,
-    Email,
-    UserReadToken,
-    CompanyKnownAddress,
-    Expenditure,
     Comment,
+    Company,
+    CompanyKnownAddress,
     ControllerRefreshToken,
     ControllerUser,
+    Email,
+    Employment,
+    Expenditure,
+    LocationEntry,
+    Mission,
+    MissionEnd,
+    MissionValidation,
+    RefreshToken,
+    RegulationComputation,
     RegulatoryAlert,
+    User,
+    UserReadToken,
+    Vehicle,
 )
 from app.models.activity import Activity
 from app.models.controller_control import ControllerControl
@@ -67,6 +68,7 @@ def clean():
     UserReadToken.query.delete()
     Email.query.delete()
     RegulatoryAlert.query.delete()
+    RegulationComputation.query.delete()
     User.query.delete()
 
     ControllerRefreshToken.query.delete()

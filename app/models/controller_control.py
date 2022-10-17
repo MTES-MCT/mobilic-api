@@ -34,6 +34,15 @@ class ControllerControl(BaseModel, RandomNineIntId):
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
 
+    __table_args__ = (
+        db.UniqueConstraint(
+            "controller_id",
+            "user_id",
+            "qr_code_generation_time",
+            name="only_one_control_per_controller_user_date",
+        ),
+    )
+
     @staticmethod
     def get_or_create_mobilic_control(
         controller_id, user_id, qr_code_generation_time

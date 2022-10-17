@@ -14,11 +14,13 @@ from app.helpers.time import (
 )
 from app.models import RegulationCheck
 from app.models.regulation_check import UnitType
+from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 from dateutil.tz import gettz
 
 
 def compute_regulations(user, period_start, period_end, submitter_type):
+    period_start = period_start - timedelta(days=1)
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
 
@@ -34,7 +36,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     user_timezone = gettz(user.timezone_name)
 
     # Next day is needed for some computation rules
-    day_after_period_end = period_end + timedelta(1)
+    day_after_period_end = period_end + timedelta(days=1)
     (
         work_days_over_current_past_and_next_days,
         _,
@@ -57,6 +59,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
             work_days_over_current_past_and_next_days,
             tz=user_timezone,
         )
+        mark_day_as_computed(user, day, submitter_type)
 
     # Compute weekly rules
     weeks = group_user_events_by_week(
@@ -131,10 +134,6 @@ def group_user_events_by_week(
             ),
             None,
         )
-        if not week:
-            app.logger.warning("Week not found")
-            continue
-
         week["worked_days"] += 1
         week["days"].append(
             {
@@ -210,3 +209,19 @@ def compute_regulation_for_user(user):
         compute_regulations(
             user, period_start, period_end, SubmitterType.EMPLOYEE
         )
+
+
+def mark_day_as_computed(user, day, submitter_type):
+    already_computed = RegulationComputation.query.filter(
+        RegulationComputation.user_id == user.id,
+        RegulationComputation.day == day,
+        RegulationComputation.submitter_type == submitter_type,
+    ).one_or_none()
+
+    if not already_computed:
+        regulation_computation = RegulationComputation(
+            day=day,
+            user=user,
+            submitter_type=submitter_type,
+        )
+        db.session.add(regulation_computation)
