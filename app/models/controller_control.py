@@ -72,7 +72,10 @@ class ControllerControl(BaseModel, RandomNineIntId):
                     and latest_activity_before.end_time
                 )
                 if not is_latest_mission_ended:
-                    company_name = latest_mission.company.usual_name
+                    company_name = (
+                        latest_mission.company.legal_name
+                        or latest_mission.company.usual_name
+                    )
                     if latest_mission.vehicle:
                         vehicle_registration_number = (
                             latest_mission.vehicle.registration_number

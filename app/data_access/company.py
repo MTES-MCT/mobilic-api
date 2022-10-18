@@ -141,12 +141,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_name(self, info):
         return self.name
 
-    def resolve_legal_name(self, info):
-        if self.siren_api_info:
-            legal_unit_dict = self.siren_api_info["uniteLegale"]
-            return SirenAPIClient._get_legal_unit_name(legal_unit_dict)
-        return ""
-
     @with_authorization_policy(
         is_employed_by_company_over_period,
         get_target_from_args=lambda self, info, **kwargs: self,

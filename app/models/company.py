@@ -1,7 +1,9 @@
 from datetime import date
+from cached_property import cached_property
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.employment import WithEmploymentHistory
+from app.helpers.siren import SirenAPIClient
 from app.models.base import BaseModel
 from app import db
 
@@ -43,6 +45,13 @@ class Company(BaseModel, WithEmploymentHistory):
     def users(self):
         today = date.today()
         return [e.user for e in self.active_employments_at(today)]
+
+    @cached_property
+    def legal_name(self):
+        if self.siren_api_info:
+            legal_unit_dict = self.siren_api_info["uniteLegale"]
+            return SirenAPIClient._get_legal_unit_name(legal_unit_dict)
+        return ""
 
     def users_between(self, start, end):
         return [e.user for e in self.active_employments_between(start, end)]
