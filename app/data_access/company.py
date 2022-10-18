@@ -141,9 +141,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_name(self, info):
         return self.name
 
-    def resolve_legal_name(self, info):
-        return self.legal_name()
-
     @with_authorization_policy(
         is_employed_by_company_over_period,
         get_target_from_args=lambda self, info, **kwargs: self,
