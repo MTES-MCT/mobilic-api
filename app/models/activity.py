@@ -106,6 +106,9 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             )
 
     def freeze_activity_at(self, at_time):
+        if self.dismissed_at and self.dismissed_at > at_time:
+            self.dismissed_at = None
+            self.dismiss_author_id = None
         frozen_version = self.version_at(at_time)
         if frozen_version:
             self.start_time = frozen_version.start_time

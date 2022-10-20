@@ -1,19 +1,11 @@
-from app.domain.history import LogActionType
-from app.helpers.time import to_fr_tz
+from app.helpers.xls.columns import *
 from app.helpers.xls.common import (
-    write_sheet_header,
-    light_grey_hex,
-    light_yellow_hex,
-    light_blue_hex,
-    light_green_hex,
-    light_red_hex,
     formats,
     write_tab_headers,
     write_cells,
     merge_cells_if_needed,
 )
-from app.models.activity import Activity
-from app.templates.filters import format_activity_type
+from app.helpers.xls.companies.headers import write_sheet_header
 
 
 def write_day_details_sheet(
@@ -139,89 +131,23 @@ def write_day_details_sheet(
 
 
 workday_columns = [
-    (
-        "Employé",
-        lambda wday: wday.user.display_name,
-        "bold",
-        30,
-        light_grey_hex,
-    ),
-    (
-        "Jour",
-        lambda a: to_fr_tz(a.start_time),
-        "date_format",
-        20,
-        light_yellow_hex,
-    ),
+    COLUMN_EMPLOYEE,
+    COLUMN_DETAILS_DAY,
 ]
 
 
 def get_mission_columns(require_mission_name):
     mission_columns = []
     if require_mission_name:
-        mission_columns.extend(
-            [
-                (
-                    "Mission",
-                    lambda mission: mission.name,
-                    None,
-                    20,
-                    light_blue_hex,
-                )
-            ]
-        )
+        mission_columns.extend([COLUMN_MISSION])
     return mission_columns
 
 
 event_columns = [
-    (
-        "Date et heure de l'enregistrement",
-        lambda event: to_fr_tz(event.time),
-        "date_and_time_format",
-        20,
-        light_green_hex,
-    ),
-    (
-        "Auteur de l'enregistrement",
-        lambda event: event.submitter.display_name,
-        "center",
-        30,
-        light_green_hex,
-    ),
-    (
-        "Statut de l'auteur",
-        lambda event: "Administrateur"
-        if event.submitter_has_admin_rights
-        else "Travailleur mobile",
-        "center",
-        30,
-        light_green_hex,
-    ),
-    (
-        "Description de l'enregistrement",
-        lambda event: event.text(False),
-        None,
-        60,
-        light_green_hex,
-    ),
-    (
-        "Activités effectuées",
-        lambda event: format_activity_type(event.resource.type)
-        if type(event.resource) is Activity
-        and event.type == LogActionType.CREATE
-        and not event.resource.dismissed_at
-        else None,
-        None,
-        15,
-        light_blue_hex,
-    ),
-    (
-        "Observations",
-        lambda event: event.version.context.get("userComment")
-        if event.version and event.version.context
-        else None,
-        "wrap",
-        60,
-        light_red_hex,
-    ),
+    COLUMN_EVENT_TIME,
+    COLUMN_EVENT_AUTHOR,
+    COLUMN_EVENT_AUTHOR_STATUS,
+    COLUMN_EVENT_DESC,
+    COLUMN_EVENT_ACTIVITIES,
+    COLUMN_EVENT_OBSERVATIONS,
 ]

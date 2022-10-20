@@ -2,7 +2,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum
 
 from app import db
-from app.helpers.frozen_version_utils import filter_out_future_events
+from app.helpers.frozen_version_utils import (
+    filter_out_future_events,
+    freeze_activities,
+)
 from app.helpers.time import max_or_none
 from app.models.event import EventBaseModel
 
@@ -39,11 +42,21 @@ class Mission(EventBaseModel):
             key=lambda a: a.start_time,
         )
         if max_reception_time:
-            all_activities_for_user = filter_out_future_events(
+            all_activities_for_user = freeze_activities(
                 all_activities_for_user, max_reception_time
             )
         if not include_dismissed_activities:
-            return [a for a in all_activities_for_user if not a.is_dismissed]
+            if max_reception_time:
+                return [
+                    a
+                    for a in all_activities_for_user
+                    if not a.is_dismissed
+                    or a.dismissed_at > max_reception_time
+                ]
+            else:
+                return [
+                    a for a in all_activities_for_user if not a.is_dismissed
+                ]
         return all_activities_for_user
 
     def current_activity_at_time_for_user(self, user, date_time):
@@ -120,6 +133,21 @@ class Mission(EventBaseModel):
             if l.type == LocationEntryType.MISSION_START_LOCATION
         ]
         return start_location_entry[0] if start_location_entry else None
+
+    def end_location_at(self, max_reception_time):
+        from app.models.location_entry import LocationEntryType
+
+        location_entries = (
+            filter_out_future_events(self.location_entries, max_reception_time)
+            if max_reception_time
+            else self.location_entries
+        )
+        end_location_entry = [
+            l
+            for l in location_entries
+            if l.type == LocationEntryType.MISSION_END_LOCATION
+        ]
+        return end_location_entry[0] if end_location_entry else None
 
     @property
     def end_location(self):

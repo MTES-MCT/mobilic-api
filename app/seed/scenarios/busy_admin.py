@@ -10,9 +10,11 @@ from app.models import (
     Vehicle,
     CompanyKnownAddress,
     Address,
+    LocationEntry,
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
+from app.models.location_entry import LocationEntryType
 from app.seed import (
     CompanyFactory,
     UserFactory,
@@ -23,9 +25,32 @@ from app.seed.helpers import get_time, get_date
 
 NB_COMPANIES = 2
 NB_EMPLOYEES = 2
-NB_HISTORY = 4
-INTERVAL_HISTORY = 15
+NB_HISTORY = 7
+INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
+
+
+def create_mission(name, company, time, submitter, vehicle, address):
+    mission = Mission(
+        name=name,
+        company=company,
+        reception_time=time,
+        submitter=submitter,
+        vehicle=vehicle,
+    )
+    db.session.add(mission)
+    location_entry = LocationEntry(
+        _address=address.address,
+        mission=mission,
+        reception_time=datetime.datetime.now(),
+        submitter=submitter,
+        _company_known_address=address,
+        type=LocationEntryType.MISSION_START_LOCATION,
+        creation_time=datetime.datetime.now(),
+    )
+    location_entry.register_kilometer_reading(2500, datetime.datetime.now())
+    db.session.add(location_entry)
+    return mission
 
 
 def run_scenario_busy_admin():
@@ -50,6 +75,7 @@ def run_scenario_busy_admin():
         )
 
         ## Vehicles
+        vehicles = []
         for idx_vehicle in range(1, 3):
             vehicle = Vehicle(
                 registration_number=f"XXX-00{idx_vehicle}-CORP{idx_company + 1}",
@@ -58,8 +84,10 @@ def run_scenario_busy_admin():
                 company_id=company.id,
             )
             db.session.add(vehicle)
+            vehicles.append(vehicle)
 
         ## Addresses
+        addresses = []
         address = CompanyKnownAddress(
             alias=f"Entrepot Corp {idx_company + 1}",
             address=Address.get_or_create(
@@ -68,6 +96,7 @@ def run_scenario_busy_admin():
             company_id=company.id,
         )
         db.session.add(address)
+        addresses.append(address)
 
         for i in range(NB_EMPLOYEES):
             employee = UserFactory.create(
@@ -84,35 +113,37 @@ def run_scenario_busy_admin():
             )
 
             # TODAY: a mission still pending
-            today_mission = Mission(
+            today_mission = create_mission(
                 name=f"Mission Pending {idx_company + 1}:{i + 1}",
                 company=company,
-                reception_time=datetime.datetime.now(),
+                time=datetime.datetime.now(),
                 submitter=employee,
+                vehicle=vehicles[0],
+                address=addresses[0],
             )
-            db.session.add(today_mission)
 
             # YESTERDAY: a mission to validate
-            yesterday_mission = Mission(
+            yesterday_mission = create_mission(
                 name=f"Mission To Validate {idx_company + 1}:{i + 1}",
                 company=company,
-                reception_time=get_time(how_many_days_ago=2, hour=8),
+                time=get_time(how_many_days_ago=2, hour=8),
                 submitter=employee,
+                vehicle=vehicles[0],
+                address=addresses[0],
             )
-            db.session.add(yesterday_mission)
 
             # CREATES HISTORY MISSIONS
             history_missions = {}
             for idx_history in range(NB_HISTORY):
-                tmp_mission = Mission(
-                    name=f"Mission Past {idx_history + 1} {idx_company + 1}:{i + 1}",
+                how_many_days_ago = 3 + idx_history * INTERVAL_HISTORY
+                tmp_mission = create_mission(
+                    name=f"Mission Past {how_many_days_ago} {idx_company + 1}:{i + 1}",
                     company=company,
-                    reception_time=get_time(
-                        how_many_days_ago=((idx_history + 1) * 30), hour=8
-                    ),
+                    time=get_time(how_many_days_ago=how_many_days_ago, hour=8),
                     submitter=employee,
+                    vehicle=vehicles[0],
+                    address=addresses[0],
                 )
-                db.session.add(tmp_mission)
                 history_missions[idx_history] = tmp_mission
             db.session.commit()
 
@@ -160,6 +191,7 @@ def run_scenario_busy_admin():
                 )
 
             for idx_history, history_mission in history_missions.items():
+                how_many_days_ago = 3 + idx_history * INTERVAL_HISTORY
                 with AuthenticatedUserContext(user=employee):
                     log_activity(
                         submitter=employee,
@@ -168,21 +200,15 @@ def run_scenario_busy_admin():
                         type=ActivityType.DRIVE,
                         switch_mode=False,
                         reception_time=get_time(
-                            how_many_days_ago=(
-                                (idx_history + 1) * INTERVAL_HISTORY
-                            ),
+                            how_many_days_ago=(how_many_days_ago),
                             hour=15,
                         ),
                         start_time=get_time(
-                            how_many_days_ago=(
-                                (idx_history + 1) * INTERVAL_HISTORY
-                            ),
+                            how_many_days_ago=(how_many_days_ago),
                             hour=14,
                         ),
                         end_time=get_time(
-                            how_many_days_ago=(
-                                (idx_history + 1) * INTERVAL_HISTORY
-                            ),
+                            how_many_days_ago=(how_many_days_ago),
                             hour=15,
                         ),
                     )
@@ -190,9 +216,7 @@ def run_scenario_busy_admin():
                         MissionEnd(
                             submitter=employee,
                             reception_time=get_time(
-                                how_many_days_ago=(
-                                    (idx_history + 1) * INTERVAL_HISTORY
-                                ),
+                                how_many_days_ago=(how_many_days_ago),
                                 hour=15,
                             ),
                             user=employee,
@@ -206,13 +230,11 @@ def run_scenario_busy_admin():
                             mission=history_mission,
                             type=expenditure_type,
                             reception_time=get_time(
-                                how_many_days_ago=(idx_history + 1)
-                                * INTERVAL_HISTORY,
+                                how_many_days_ago=how_many_days_ago,
                                 hour=15,
                             ),
                             spending_date=get_date(
-                                how_many_days_ago=(idx_history + 1)
-                                * INTERVAL_HISTORY
+                                how_many_days_ago=how_many_days_ago
                             ),
                         )
                     validate_mission(

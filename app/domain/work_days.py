@@ -103,7 +103,7 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user, day, tz=FR_TIMEZONE):
+    def __init__(self, user, day, tz=FR_TIMEZONE, max_reception_time=None):
         self.day = day
         self.tz = tz
         self._are_activities_sorted = True
@@ -114,19 +114,27 @@ class WorkDay:
         self._all_activities = []
         self.comments = []
         self._is_complete = True
+        self.max_reception_time = max_reception_time
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
-        mission.history = actions_history(mission, self.user)
+        mission.history = actions_history(
+            mission, self.user, max_reception_time=self.max_reception_time
+        )
         self.missions.append(mission)
         activities = mission.activities_for(
-            self.user, include_dismissed_activities=True
+            self.user,
+            include_dismissed_activities=True,
+            max_reception_time=self.max_reception_time,
         )
         self.activities.extend(
             [
                 a
                 for a in activities
-                if not a.is_dismissed
+                if (
+                    not a.is_dismissed
+                    or a.dismissed_at > self.max_reception_time
+                )
                 and a.start_time < self.end_of_day
                 and (not a.end_time or a.end_time > self.start_of_day)
                 and a.start_time != a.end_time
@@ -141,7 +149,11 @@ class WorkDay:
                 and (not a.end_time or a.end_time >= self.start_of_day)
             ]
         )
-        self.comments.extend(mission.acknowledged_comments)
+        self.comments.extend(
+            mission.retrieve_all_comments(
+                max_reception_time=self.max_reception_time
+            )
+        )
 
     def _sort_activities(self):
         if not self._are_activities_sorted:
@@ -200,7 +212,9 @@ class WorkDay:
     def expenditures(self):
         expenditures = defaultdict(lambda: 0)
         for mission in self.missions:
-            for expenditure in mission.expenditures_for(self.user):
+            for expenditure in mission.expenditures_for(
+                self.user, max_reception_time=self.max_reception_time
+            ):
                 if expenditure.spending_date == self.day:
                     expenditures[expenditure.type] += 1
         return dict(expenditures)
@@ -268,9 +282,9 @@ class WorkDay:
         if not self.activities:
             return False
         first_mission = self.activities[0].mission
-        first_mission_start = first_mission.activities_for(self.user)[
-            0
-        ].start_time
+        first_mission_start = first_mission.activities_for(
+            self.user, max_reception_time=self.max_reception_time
+        )[0].start_time
         return first_mission_start < self.start_of_day
 
     @cached_property
@@ -279,7 +293,9 @@ class WorkDay:
         if not self.activities:
             return False
         last_mission = self.activities[-1].mission
-        last_mission_end = last_mission.activities_for(self.user)[-1].end_time
+        last_mission_end = last_mission.activities_for(
+            self.user, max_reception_time=self.max_reception_time
+        )[-1].end_time
         return not last_mission_end or last_mission_end > self.end_of_day
 
     @cached_property
@@ -298,7 +314,9 @@ class WorkDay:
             or self.is_last_mission_overlapping_with_next_day
         ):
             return None
-        return self.activities[-1].mission.end_location
+        return self.activities[-1].mission.end_location_at(
+            self.max_reception_time
+        )
 
 
 class WorkDayStatsOnly:
@@ -356,6 +374,7 @@ def group_user_events_by_day_with_limit(
     only_missions_validated_by_user=False,
     first=None,
     after=None,
+    max_reception_time=None,
 ):
     if after:
         try:
@@ -383,12 +402,17 @@ def group_user_events_by_day_with_limit(
             desc(Activity.start_time), desc(Activity.id)
         ),
         limit_fetch_activities=max(first * 5, 200) if first else None,
+        max_reception_time=max_reception_time,
     )
 
     if only_missions_validated_by_admin:
         missions = [m for m in missions if m.validated_by_admin_for(user)]
     elif only_missions_validated_by_user:
-        missions = [m for m in missions if m.validation_of(user)]
+        missions = [
+            m
+            for m in missions
+            if m.validation_of(user, max_reception_time=max_reception_time)
+        ]
 
     work_days = group_user_missions_by_day(
         user,
@@ -397,6 +421,7 @@ def group_user_events_by_day_with_limit(
         until_date=until_date,
         tz=tz,
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
     )
     if first and has_next:
         work_days = work_days[1:]
@@ -410,46 +435,56 @@ def group_user_missions_by_day(
     until_date=None,
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
+    max_reception_time=None,
 ):
     work_days = []
     current_work_day = None
     current_date = None
     for mission in missions:
         all_mission_activities = mission.activities_for(
-            user, include_dismissed_activities=True
+            user,
+            include_dismissed_activities=True,
+            max_reception_time=max_reception_time,
         )
-        acknowledged_mission_activities = [
-            a for a in all_mission_activities if not a.is_dismissed
-        ]
-        mission_start_time = (
-            acknowledged_mission_activities[0].start_time
-            if acknowledged_mission_activities
-            else all_mission_activities[0].start_time
-        )
-        mission_start_day = to_tz(mission_start_time, tz).date()
+        if all_mission_activities:
+            acknowledged_mission_activities = [
+                a
+                for a in all_mission_activities
+                if not a.is_dismissed
+                or (max_reception_time and a.dismissed_at > max_reception_time)
+            ]
+            mission_start_time = (
+                acknowledged_mission_activities[0].start_time
+                if acknowledged_mission_activities
+                else all_mission_activities[0].start_time
+            )
+            mission_start_day = to_tz(mission_start_time, tz).date()
 
-        mission_end_time = (
-            acknowledged_mission_activities[-1].end_time
-            if acknowledged_mission_activities
-            else None
-        ) or datetime.now()
-        mission_end_day = to_tz(mission_end_time, tz).date()
+            mission_end_time = (
+                acknowledged_mission_activities[-1].end_time
+                if acknowledged_mission_activities
+                else None
+            ) or datetime.now()
+            mission_end_day = to_tz(mission_end_time, tz).date()
 
-        if not current_date:
-            current_date = mission_start_day
+            if not current_date:
+                current_date = mission_start_day
 
-        mission_running_day = mission_start_day
-        while mission_running_day <= mission_end_day:
-            if (
-                not current_work_day
-                or current_work_day.day != mission_running_day
-            ):
-                current_work_day = WorkDay(
-                    user=user, day=mission_running_day, tz=tz
-                )
-                work_days.append(current_work_day)
-            current_work_day.add_mission(mission)
-            mission_running_day += timedelta(days=1)
+            mission_running_day = mission_start_day
+            while mission_running_day <= mission_end_day:
+                if (
+                    not current_work_day
+                    or current_work_day.day != mission_running_day
+                ):
+                    current_work_day = WorkDay(
+                        user=user,
+                        day=mission_running_day,
+                        tz=tz,
+                        max_reception_time=max_reception_time,
+                    )
+                    work_days.append(current_work_day)
+                current_work_day.add_mission(mission)
+                mission_running_day += timedelta(days=1)
 
     if from_date:
         work_days = [w for w in work_days if w.day >= from_date]
