@@ -133,7 +133,10 @@ class WorkDay:
                 for a in activities
                 if (
                     not a.is_dismissed
-                    or a.dismissed_at > self.max_reception_time
+                    or (
+                        self.max_reception_time
+                        and a.dismissed_at > self.max_reception_time
+                    )
                 )
                 and a.start_time < self.end_of_day
                 and (not a.end_time or a.end_time > self.start_of_day)
