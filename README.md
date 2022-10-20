@@ -57,7 +57,7 @@ ELASTIC_APM_SERVER_URL=
 ELASTIC_APM_ENVIRONMENT=
 
 # disable sending emails
-EMAIL_ENABLED=false
+DISABLE_EMAIL=true
 ```
 
 Lancer le serveur de développement qui recompile à la volée :
