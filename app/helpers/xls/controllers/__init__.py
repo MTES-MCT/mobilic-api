@@ -10,7 +10,7 @@ from app.helpers.xls.controllers.tab_main_single_control import (
 def send_control_as_one_excel_file(
     control, work_days_data, min_date, max_date
 ):
-    with ExcelWriter() as (wb, output):
+    with ExcelWriter(add_signature=False) as (wb, output):
         wdays_with_activities = list(
             filter(lambda wd: len(wd.activities) > 0, work_days_data)
         )

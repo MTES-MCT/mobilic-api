@@ -190,9 +190,10 @@ def clean_string(s):
 
 
 class ExcelWriter:
-    def __init__(self):
+    def __init__(self, add_signature=True):
         self.output = None
         self.wb = None
+        self.add_signature = add_signature
 
     def __enter__(self):
         self.output = BytesIO()
@@ -203,8 +204,9 @@ class ExcelWriter:
     def __exit__(self, *a):
         self.wb.close()
         self.output.seek(0)
-        self.output = add_signature(self.output)
-        self.output.seek(0)
+        if self.add_signature:
+            self.output = add_signature(self.output)
+            self.output.seek(0)
 
 
 def send_excel_file(file, name):
