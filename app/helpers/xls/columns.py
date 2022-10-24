@@ -48,14 +48,6 @@ COLUMN_SIREN = ExcelColumn(
     light_grey_hex,
     False,
 )
-COLUMN_BREACHED_RULES = ExcelColumn(
-    "Seuils réglementaires dépassés",
-    lambda wday: "",
-    lambda _: "bold",
-    30,
-    light_brown_hex,
-    False,
-)
 COLUMN_EMPLOYEE = ExcelColumn(
     "Employé",
     lambda wday: wday.user.display_name,
