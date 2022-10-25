@@ -126,6 +126,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return self.start_location
 
     def resolve_end_location(self, info):
+        max_reception_time = retrieve_max_reception_time(info)
+        if max_reception_time:
+            return self.end_location_at(max_reception_time)
         return self.end_location
 
     def resolve_is_ended_for_self(self, info):

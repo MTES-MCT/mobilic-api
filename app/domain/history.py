@@ -129,7 +129,7 @@ def actions_history(
 
     relevant_resources = [
         mission.start_location,
-        mission.end_location,
+        mission.end_location_at(max_reception_time),
         *activities_for_user,
         *expenditures_for_user,
         *mission_validations,

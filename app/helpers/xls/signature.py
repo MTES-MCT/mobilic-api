@@ -6,6 +6,13 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from defusedxml.ElementTree import parse
 
 from app import app
+from app.helpers.xls.errors import (
+    UnavailableService,
+    MissingSignature,
+    SignatureDoesNotMatch,
+    IntegrityVerificationError,
+    InvalidXlsxFormat,
+)
 
 HMAC_KEY = (
     app.config["HMAC_SIGNING_KEY"].encode()
@@ -67,3 +74,29 @@ def extract_signature_node_from_xml(xml):
             hmac_prop_value = child[0]
             break
     return hmac_prop_value
+
+
+def retrieve_and_verify_signature(fp):
+    if not HMAC_KEY:
+        raise UnavailableService()
+    try:
+        with ZipFile(fp, "r") as archive:
+            if "docProps/custom.xml" not in archive.namelist():
+                raise MissingSignature()
+            with archive.open("docProps/custom.xml", "r") as f:
+                xml = parse(f)
+                existing_signature_node = extract_signature_node_from_xml(xml)
+                if existing_signature_node is None:
+                    raise MissingSignature()
+                existing_signature = existing_signature_node.text
+            if not existing_signature or len(existing_signature) <= 1:
+                raise MissingSignature()
+            actual_signature = compute_hmac(archive, HMAC_KEY)
+        if not hmac.compare_digest(existing_signature, actual_signature):
+            raise SignatureDoesNotMatch()
+
+    except IntegrityVerificationError as e:
+        raise e
+    except Exception as e:
+        app.logger.exception(e)
+        raise InvalidXlsxFormat()

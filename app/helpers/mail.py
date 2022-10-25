@@ -171,9 +171,9 @@ class Mailer:
         from app.models import Email
         from app import db
 
-        if not app.config["EMAIL_ENABLED"]:
+        if app.config["DISABLE_EMAIL"]:
             app.logger.info(
-                f"Email not sent because EMAIL_ENABLED is set to false"
+                f"Email not sent because DISABLE_EMAIL is set to true"
             )
             return
 
