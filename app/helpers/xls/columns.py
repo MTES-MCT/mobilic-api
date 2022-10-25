@@ -5,7 +5,6 @@ from app.domain.history import LogActionType
 from app.helpers.time import is_sunday_or_bank_holiday, to_fr_tz
 from app.helpers.xls.common import (
     light_grey_hex,
-    light_brown_hex,
     light_yellow_hex,
     light_blue_hex,
     light_green_hex,

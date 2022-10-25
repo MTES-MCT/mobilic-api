@@ -69,6 +69,7 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
         recap_start_row,
         row_idx - 1,
         wday.user.display_name,
+        control.user.display_name,
     )
 
     if has_one_bank_holiday:
