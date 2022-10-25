@@ -31,7 +31,6 @@ COLUMNS_MAIN = [
     COLUMN_EXPENDITURE_SLEEP_OVER,
     COLUMN_EXPENDITURE_SNACK,
     COLUMN_OBSERVATIONS,
-    COLUMN_BREACHED_RULES,
 ]
 
 
@@ -69,7 +68,7 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
         COLUMNS_MAIN,
         recap_start_row,
         row_idx - 1,
-        wday.user.display_name,
+        control.user.display_name,
     )
 
     if has_one_bank_holiday:
