@@ -697,6 +697,8 @@ def generate_tachograph_parts(
     only_activities_validated_by_admin=False,
     with_signatures=True,
     do_not_generate_if_empty=False,
+    is_control=False,
+    max_reception_time=None,
 ):
     now = datetime.utcnow()
     first_user_activity = user.first_activity_after(None)
@@ -706,14 +708,24 @@ def generate_tachograph_parts(
         first_user_activity_date = first_user_activity.start_time.astimezone(
             timezone.utc
         ).date()
-    work_days, _ = group_user_events_by_day_with_limit(
-        user,
-        from_date=start_date,
-        until_date=end_date,
-        tz=timezone.utc,
-        only_missions_validated_by_admin=only_activities_validated_by_admin,
-        consultation_scope=consultation_scope,
-    )
+
+    if is_control:
+        work_days, _ = group_user_events_by_day_with_limit(
+            user,
+            from_date=start_date,
+            until_date=end_date,
+            include_dismissed_or_empty_days=True,
+            max_reception_time=max_reception_time,
+        )
+    else:
+        work_days, _ = group_user_events_by_day_with_limit(
+            user,
+            from_date=start_date,
+            until_date=end_date,
+            tz=timezone.utc,
+            only_missions_validated_by_admin=only_activities_validated_by_admin,
+            consultation_scope=consultation_scope,
+        )
 
     if not work_days and do_not_generate_if_empty:
         return None
@@ -781,6 +793,10 @@ def generate_tachograph_parts(
 def generate_tachograph_file_name(user):
     now = datetime.utcnow()
     return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
+
+
+def generate_tachograph_file_name_control(control):
+    return f"RO_{_card_like_id(control.user)}_{control.id}.C1B"
 
 
 def generate_and_export_tachograph_file(
