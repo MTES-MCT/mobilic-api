@@ -3,10 +3,12 @@ from collections import defaultdict
 from io import BytesIO
 
 from flask import after_this_request, send_file
+from xlsxwriter import Workbook
 
-from app.helpers.xls.common import clean_string, send_excel_file, ExcelWriter
+from app.helpers.xls.common import clean_string, send_excel_file
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
+from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 
 def send_work_days_as_excel(user_wdays_batches, companies, min_date, max_date):
@@ -70,24 +72,32 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
     require_kilometer_data = any([c.require_kilometer_data for c in companies])
     allow_transfers = any([c.allow_transfers for c in companies])
 
-    with ExcelWriter() as (wb, output):
-        write_work_days_sheet(
-            wb,
-            wdays_by_user,
-            require_expenditures=require_expenditures,
-            require_mission_name=require_mission_name,
-            allow_transfers=allow_transfers,
-            require_kilometer_data=require_kilometer_data,
-            companies=companies,
-            min_date=min_date,
-            max_date=max_date,
-        )
-        write_day_details_sheet(
-            wb,
-            wdays_by_user,
-            require_mission_name=require_mission_name,
-            companies=companies,
-            min_date=min_date,
-            max_date=max_date,
-        )
+    output = BytesIO()
+    wb = Workbook(output)
+    wb.set_custom_property(HMAC_PROP_NAME, "a")
+
+    write_work_days_sheet(
+        wb,
+        wdays_by_user,
+        require_expenditures=require_expenditures,
+        require_mission_name=require_mission_name,
+        allow_transfers=allow_transfers,
+        require_kilometer_data=require_kilometer_data,
+        companies=companies,
+        min_date=min_date,
+        max_date=max_date,
+    )
+    write_day_details_sheet(
+        wb,
+        wdays_by_user,
+        require_mission_name=require_mission_name,
+        companies=companies,
+        min_date=min_date,
+        max_date=max_date,
+    )
+    wb.close()
+
+    output.seek(0)
+    output = add_signature(output)
+    output.seek(0)
     return output
