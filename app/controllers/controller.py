@@ -1,8 +1,6 @@
 from datetime import datetime
-from io import BytesIO
 from urllib.parse import quote, urlencode, unquote
 from uuid import uuid4
-from zipfile import ZipFile, ZIP_DEFLATED
 
 import graphene
 import jwt
@@ -44,9 +42,7 @@ from app.helpers.authorization import (
 from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import (
-    generate_tachograph_parts,
-    write_tachograph_archive,
-    generate_tachograph_file_name_control,
+    get_tachograph_archive_controller,
 )
 from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.models import Mission
@@ -259,6 +255,7 @@ def download_control_report(control_id):
 @doc(
     description="Génération de fichiers C1B contenant les données d'activité des salariés liés aux contrôles"
 )
+@with_authorization_policy(controller_only)
 @use_kwargs(TachographBaseOptionsSchema(), apply=True)
 def controller_download_tachograph_files(min_date, max_date):
 
@@ -269,26 +266,9 @@ def controller_download_tachograph_files(min_date, max_date):
         controls_type=ControlType.mobilic,
     ).all()
 
-    archive = BytesIO()
-    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
-        for control in controls:
-            control_max_date = control.qr_code_generation_time.date()
-            control_min_date = compute_history_start_date(control_max_date)
-            tachograph_data = generate_tachograph_parts(
-                control.user,
-                start_date=control_min_date,
-                end_date=control_max_date,
-                only_activities_validated_by_admin=False,
-                do_not_generate_if_empty=False,
-                is_control=True,
-                max_reception_time=control.qr_code_generation_time,
-            )
-            f.writestr(
-                generate_tachograph_file_name_control(control),
-                write_tachograph_archive(tachograph_data),
-            )
-
-    archive.seek(0)
+    archive = get_tachograph_archive_controller(
+        controls=controls, with_signatures=False
+    )
     return send_file(
         archive,
         mimetype="application/zip",

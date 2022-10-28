@@ -1,7 +1,10 @@
+from io import BytesIO
 from typing import NamedTuple, Optional
 from datetime import datetime, timezone, date, timedelta
 import os
+from zipfile import ZIP_DEFLATED, ZipFile
 
+from app.data_access.control_data import compute_history_start_date
 from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
 from app.helpers.time import to_datetime
 from app.models.activity import ActivityType
@@ -846,3 +849,50 @@ def parse_tachograph_file(fp, check_signatures=True):
             print("Signatures are correct.")
 
     return files
+
+
+def get_tachograph_archive_controller(controls, with_signatures):
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        for control in controls:
+            control_max_date = control.qr_code_generation_time.date()
+            control_min_date = compute_history_start_date(control_max_date)
+            tachograph_data = generate_tachograph_parts(
+                control.user,
+                start_date=control_min_date,
+                end_date=control_max_date,
+                only_activities_validated_by_admin=False,
+                do_not_generate_if_empty=False,
+                is_control=True,
+                max_reception_time=control.qr_code_generation_time,
+                with_signatures=with_signatures,
+            )
+            f.writestr(
+                generate_tachograph_file_name_control(control),
+                write_tachograph_archive(tachograph_data),
+            )
+    archive.seek(0)
+    return archive
+
+
+def get_tachograph_archive_company(
+    users, min_date, max_date, scope, with_signatures
+):
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        for user in users:
+            tachograph_data = generate_tachograph_parts(
+                user,
+                start_date=min_date,
+                end_date=max_date,
+                consultation_scope=scope,
+                only_activities_validated_by_admin=False,
+                with_signatures=with_signatures,
+                do_not_generate_if_empty=False,
+            )
+            f.writestr(
+                generate_tachograph_file_name(user),
+                write_tachograph_archive(tachograph_data),
+            )
+    archive.seek(0)
+    return archive

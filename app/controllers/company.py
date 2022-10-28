@@ -1,14 +1,14 @@
+from datetime import datetime
+
 import graphene
 from flask import send_file
-from datetime import datetime
+from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
-from zipfile import ZipFile, ZIP_DEFLATED
-from io import BytesIO
-
 from webargs import fields
-from flask_apispec import use_kwargs, doc
 
+from app import db, app
+from app import siren_api_client, mailer
 from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
@@ -22,24 +22,21 @@ from app.domain.permissions import (
     company_admin,
     AuthorizationError,
 )
+from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authentication import (
     require_auth,
     AuthenticatedMutation,
 )
-from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
     current_user,
 )
-from app import siren_api_client, mailer
 from app.helpers.errors import SirenAlreadySignedUpError
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.integromat import call_integromat_webhook
 from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
-    generate_tachograph_parts,
-    write_tachograph_archive,
-    generate_tachograph_file_name,
+    get_tachograph_archive_company,
 )
 from app.helpers.xls.companies import send_work_days_as_excel
 from app.models import Company, Employment
@@ -47,7 +44,6 @@ from app.models.employment import (
     EmploymentRequestValidationStatus,
     EmploymentOutput,
 )
-from app import db, app
 from app.services.update_companies_spreadsheet import (
     add_company_to_spreadsheet,
 )
@@ -470,24 +466,13 @@ def download_tachograph_files(
     )
     scope = ConsultationScope(company_ids=company_ids)
 
-    archive = BytesIO()
-    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
-        for user in users:
-            tachograph_data = generate_tachograph_parts(
-                user,
-                start_date=min_date,
-                end_date=max_date,
-                consultation_scope=scope,
-                only_activities_validated_by_admin=False,
-                with_signatures=with_digital_signatures,
-                do_not_generate_if_empty=False,
-            )
-            f.writestr(
-                generate_tachograph_file_name(user),
-                write_tachograph_archive(tachograph_data),
-            )
-
-    archive.seek(0)
+    archive = get_tachograph_archive_company(
+        users=users,
+        min_date=min_date,
+        max_date=max_date,
+        scope=scope,
+        with_signatures=with_digital_signatures,
+    )
     return send_file(
         archive,
         mimetype="application/zip",
