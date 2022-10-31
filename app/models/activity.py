@@ -1,5 +1,5 @@
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import event
 
@@ -115,7 +115,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             if frozen_version.end_time:
                 self.end_time = frozen_version.end_time
             else:
-                self.end_time = at_time
+                self.end_time = at_time + timedelta(minutes=1)
             return self
         else:
             return None
