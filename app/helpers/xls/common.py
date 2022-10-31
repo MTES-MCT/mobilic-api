@@ -1,9 +1,4 @@
-from io import BytesIO
-
 from flask import send_file
-from xlsxwriter import Workbook
-
-from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 light_brown_hex = "#ffe599"
 light_yellow_hex = "#fdffbc"
@@ -187,26 +182,6 @@ def compute_excel_sum_col_range(col_idx, row_start, row_end):
 
 def clean_string(s):
     return "".join(filter(str.isalnum, s))
-
-
-class ExcelWriter:
-    def __init__(self, add_signature=True):
-        self.output = None
-        self.wb = None
-        self.add_signature = add_signature
-
-    def __enter__(self):
-        self.output = BytesIO()
-        self.wb = Workbook(self.output)
-        self.wb.set_custom_property(HMAC_PROP_NAME, "a")
-        return self.wb, self.output
-
-    def __exit__(self, *a):
-        self.wb.close()
-        self.output.seek(0)
-        if self.add_signature:
-            self.output = add_signature(self.output)
-            self.output.seek(0)
 
 
 def send_excel_file(file, name):
