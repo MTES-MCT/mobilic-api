@@ -116,9 +116,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 self.end_time = frozen_version.end_time
             else:
                 # 1mn added to comply with "activity_start_time_before_end_time" constraint
-                self.end_time = at_time + timedelta(minutes=1)
                 # last_update_time updated to comply with "activity_end_time_before_update_time" constraint
-                self.last_update_time = at_time
+                self.last_update_time = self.end_time = at_time + timedelta(
+                    minutes=1
+                )
                 # these changes will not be commited see app/controllers/controller.py
             return self
         else:
