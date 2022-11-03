@@ -257,7 +257,9 @@ def download_control_report(control_id):
 )
 @with_authorization_policy(controller_only)
 @use_kwargs(TachographBaseOptionsSchema(), apply=True)
-def controller_download_tachograph_files(min_date, max_date):
+def controller_download_tachograph_files(
+    min_date, max_date, with_digital_signatures=False
+):
 
     controls = query_controls(
         controller_user_id=current_user.id,
@@ -267,7 +269,7 @@ def controller_download_tachograph_files(min_date, max_date):
     ).all()
 
     archive = get_tachograph_archive_controller(
-        controls=controls, with_signatures=False
+        controls=controls, with_signatures=with_digital_signatures
     )
     return send_file(
         archive,
