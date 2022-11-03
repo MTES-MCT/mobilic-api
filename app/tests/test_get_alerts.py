@@ -7,8 +7,10 @@ from app.seed.factories import (
     RegulatoryAlertFactory,
 )
 from app.seed.helpers import get_date
+from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import BaseTest, test_post_graphql
 from app.tests.helpers import ApiRequests
+from app.tests.test_regulations import insert_regulation_check
 
 ADMIN_EMAIL = "admin@email.com"
 EMPLOYEE_EMAIL = "employee@email.com"
@@ -17,6 +19,13 @@ EMPLOYEE_EMAIL = "employee@email.com"
 class TestGetAlerts(BaseTest):
     def setUp(self):
         super().setUp()
+
+        regulation_check = RegulationCheck.query.first()
+        if not regulation_check:
+            regulation_checks = get_regulation_checks()
+            for r in regulation_checks:
+                insert_regulation_check(r)
+            regulation_check = RegulationCheck.query.first()
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True
@@ -55,7 +64,6 @@ class TestGetAlerts(BaseTest):
             user=employee,
         )
 
-        regulation_check = RegulationCheck.query.first()
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),
             submitter_type=SubmitterType.EMPLOYEE,
