@@ -704,7 +704,11 @@ def generate_tachograph_parts(
     max_reception_time=None,
 ):
     now = datetime.utcnow()
-    first_user_activity = user.first_activity_after(None)
+    first_user_activity = (
+        user.first_activity_after(max_reception_time)
+        if is_control
+        else user.first_activity_after(None)
+    )
     if not first_user_activity:
         first_user_activity_date = start_date
     else:
@@ -717,6 +721,7 @@ def generate_tachograph_parts(
             user,
             from_date=start_date,
             until_date=end_date,
+            tz=timezone.utc,
             include_dismissed_or_empty_days=True,
             max_reception_time=max_reception_time,
         )
