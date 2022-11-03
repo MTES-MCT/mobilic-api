@@ -700,15 +700,12 @@ def generate_tachograph_parts(
     only_activities_validated_by_admin=False,
     with_signatures=True,
     do_not_generate_if_empty=False,
-    is_control=False,
     max_reception_time=None,
+    min_reception_time=None,
+    include_dismissed_or_empty_days=False,
 ):
     now = datetime.utcnow()
-    first_user_activity = (
-        user.first_activity_after(max_reception_time)
-        if is_control
-        else user.first_activity_after(None)
-    )
+    first_user_activity = user.first_activity_after(min_reception_time)
     if not first_user_activity:
         first_user_activity_date = start_date
     else:
@@ -716,24 +713,16 @@ def generate_tachograph_parts(
             timezone.utc
         ).date()
 
-    if is_control:
-        work_days, _ = group_user_events_by_day_with_limit(
-            user,
-            from_date=start_date,
-            until_date=end_date,
-            tz=timezone.utc,
-            include_dismissed_or_empty_days=True,
-            max_reception_time=max_reception_time,
-        )
-    else:
-        work_days, _ = group_user_events_by_day_with_limit(
-            user,
-            from_date=start_date,
-            until_date=end_date,
-            tz=timezone.utc,
-            only_missions_validated_by_admin=only_activities_validated_by_admin,
-            consultation_scope=consultation_scope,
-        )
+    work_days, _ = group_user_events_by_day_with_limit(
+        user,
+        from_date=start_date,
+        until_date=end_date,
+        tz=timezone.utc,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
+        only_missions_validated_by_admin=only_activities_validated_by_admin,
+        consultation_scope=consultation_scope,
+    )
 
     if not work_days and do_not_generate_if_empty:
         return None
@@ -868,9 +857,10 @@ def get_tachograph_archive_controller(controls, with_signatures):
                 end_date=control_max_date,
                 only_activities_validated_by_admin=False,
                 do_not_generate_if_empty=False,
-                is_control=True,
                 max_reception_time=control.qr_code_generation_time,
+                min_reception_time=control_min_date,
                 with_signatures=with_signatures,
+                include_dismissed_or_empty_days=True,
             )
             f.writestr(
                 generate_tachograph_file_name_control(control),
