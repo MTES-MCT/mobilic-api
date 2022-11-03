@@ -24,6 +24,25 @@ class TestReadActivities(BaseTest):
         self.workers = [
             UserFactory.create(post__company=self.company) for i in range(0, 2)
         ]
+        self.first_worker = self.workers[0]
+        with app.app_context():
+            for user in self.workers:
+                with AuthenticatedUserContext(user=user):
+                    mission = Mission.create(
+                        submitter=user,
+                        company=self.company,
+                        reception_time=datetime.now(),
+                    )
+                    activity = log_activity(
+                        submitter=user,
+                        user=user,
+                        mission=mission,
+                        type=ActivityType.WORK,
+                        switch_mode=True,
+                        reception_time=datetime.now(),
+                        start_time=datetime(2022, 1, 1, 1),
+                    )
+                    activity.dismiss(dismiss_time=datetime(2022, 1, 1, 1, 1))
         with app.app_context():
             for day in range(1, 30):
                 for user in self.workers:
@@ -51,52 +70,12 @@ class TestReadActivities(BaseTest):
     def tearDown(self):
         super().tearDown()
 
-    def _log_activity_and_check(
-        self, mission, start_time, end_time=None, should_raise=None
-    ):
-        expected_changes = []
-        if not should_raise:
-            expected_changes.append(
-                DBEntryUpdate(
-                    model=Activity,
-                    before=None,
-                    after=dict(
-                        type=ActivityType.WORK,
-                        start_time=start_time,
-                        end_time=end_time,
-                        user_id=self.current_user.id,
-                        mission_id=mission.id,
-                        submitter_id=self.current_user.id,
-                    ),
-                )
-            )
-
-        def action():
-            with test_db_changes(expected_changes, watch_models=[Activity]):
-                with atomic_transaction(commit_at_end=True):
-                    return log_activity(
-                        submitter=self.current_user,
-                        user=self.current_user,
-                        mission=mission,
-                        type=ActivityType.WORK,
-                        reception_time=datetime.now(),
-                        start_time=start_time,
-                        end_time=end_time,
-                    )
-
-        if should_raise:
-            with self.assertRaises(should_raise):
-                action()
-        else:
-            action()
-
     def test_simple_read_activities(self):
-        user1 = self.workers[0]
-        activities = query_activities(user_id=user1.id).all()
+        activities = query_activities(user_id=self.first_worker.id).all()
         self.assertEqual(len(activities), 29 * 4)
 
     def test_read_activities_with_time_boundaries(self):
-        user1 = self.workers[0]
+        user1 = self.first_worker
         activities = query_activities(
             user_id=user1.id, start_time=datetime(2021, 1, 2)
         ).all()
@@ -120,3 +99,11 @@ class TestReadActivities(BaseTest):
             end_time=datetime(2021, 1, 28, 16),
         ).all()
         self.assertEqual(len(activities), 27 * 4)
+
+    def test_dismissed_activity_with_no_end_time(self):
+        activities = query_activities(
+            user_id=self.first_worker.id,
+            start_time=datetime(2022, 2, 1, 0),
+            include_dismissed_activities=True,
+        ).all()
+        self.assertEqual(0, len(activities))

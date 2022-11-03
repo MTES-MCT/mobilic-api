@@ -75,9 +75,11 @@ def _apply_time_range_filters_to_activity_query(query, start_time, end_time):
     end_time = to_datetime(end_time, date_as_end_of_day=True)
     if start_time or end_time:
         return query.filter(
-            func.tsrange(Activity.start_time, Activity.end_time, "[]").op(
-                "&&"
-            )(
+            func.tsrange(
+                Activity.start_time,
+                func.coalesce(Activity.end_time, Activity.dismissed_at),
+                "[]",
+            ).op("&&")(
                 DateTimeRange(
                     to_tz(start_time, timezone.utc) if start_time else None,
                     to_tz(end_time, timezone.utc) if end_time else None,
