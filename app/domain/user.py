@@ -14,6 +14,7 @@ def create_user(
     invite_token=None,
     ssn=None,
     fc_info=None,
+    way_heard_of_mobilic=None,
 ):
     user = User(
         first_name=first_name,
@@ -25,6 +26,7 @@ def create_user(
         has_confirmed_email=True if not fc_info else False,
         france_connect_info=fc_info,
         france_connect_id=fc_info.get("sub") if fc_info else None,
+        way_heard_of_mobilic=way_heard_of_mobilic,
     )
     db.session.add(user)
     db.session.flush()
