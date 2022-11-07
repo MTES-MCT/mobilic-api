@@ -38,9 +38,6 @@ from app.controllers.mission import (
 )
 from app.controllers.mission import Query as MissionQuery
 from app.controllers.mission import UpdateMissionVehicle, ValidateMission
-from app.controllers.regulation_computation import (
-    Query as RegulationComputationQuery,
-)
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
@@ -181,7 +178,6 @@ class Queries(
     CompanyQuery,
     MissionQuery,
     BulkActivityQuery,
-    RegulationComputationQuery,
     graphene.ObjectType,
 ):
     """

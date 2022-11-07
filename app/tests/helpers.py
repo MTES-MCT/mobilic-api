@@ -200,12 +200,26 @@ class ApiRequests:
               userId
             }
           }
+          regulationComputations {
+            day
+            submitterType
+            alerts {
+              regulationCheck {
+                type
+                label
+                description
+                regulationRule
+                unit
+              }
+              extra
+            }
+          }
         }
       }
     """
 
     get_controller_user_info = """
-        query controllerUser($id: Int!, $fromDate: Date) {
+      query controllerUser($id: Int!, $fromDate: Date) {
         controllerUser(id: $id) {
           id
           firstName
@@ -224,25 +238,6 @@ class ApiRequests:
           }
         }
       }
-    """
-
-    get_alerts = """
-        query getAlerts($userId: Int!, $day: Date!, $submitterType: SubmitterTypeEnum!, $unit: UnitTypeEnum) {
-            regulationComputation(userId: $userId, day: $day, submitterType: $submitterType) {
-              userId,
-              day,
-              submitterType,
-              checks(unit: $unit) {
-                id,
-                type,
-                unit,
-                regulationRule,
-                alerts(userId: $userId, day: $day, submitterType: $submitterType) {
-                  extra,
-                }
-              }
-            }
-        }
     """
 
 

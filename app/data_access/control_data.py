@@ -2,9 +2,16 @@ import graphene
 
 from app import app
 from app.data_access.mission import MissionOutput
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.data_access.regulation_computation import RegulationComputationOutput
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    TimeStamp,
+    graphene_enum_type,
+)
+from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentOutput
+from app.models.regulation_computation import RegulationComputation
 
 
 def compute_history_start_date(qr_code_generation_time):
@@ -40,10 +47,20 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         ),
         description="Liste des missions de l'utilisateur pendant la période de contrôle.",
     )
+
     history_start_date = graphene.Field(
         graphene.Date,
         required=True,
         description="Date de début de l'historique pouvant être contrôlé",
+    )
+
+    regulation_computations = graphene.List(
+        RegulationComputationOutput,
+        submitter_type=graphene_enum_type(SubmitterType)(
+            required=False,
+            description="Version utilisée pour le calcul des dépassements de seuil",
+        ),
+        description="Résultats de calcul de seuils règlementaires",
     )
 
     def resolve_employments(
@@ -82,3 +99,21 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     def resolve_history_start_date(self, info):
         return compute_history_start_date(self.qr_code_generation_time.date())
+
+    def resolve_regulation_computations(self, info, submitter_type=None):
+        from_date = compute_history_start_date(
+            self.qr_code_generation_time.date()
+        )
+        until_date = self.qr_code_generation_time.date()
+
+        base_query = RegulationComputation.query.filter(
+            RegulationComputation.user_id == self.user.id,
+            RegulationComputation.day >= from_date,
+            RegulationComputation.day <= until_date,
+        )
+        if submitter_type:
+            base_query = base_query.filter(
+                RegulationComputation.submitter_type == submitter_type
+            )
+        print(base_query)
+        return base_query.order_by(RegulationComputation.day).all()
