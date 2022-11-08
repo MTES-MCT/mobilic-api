@@ -115,5 +115,4 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             base_query = base_query.filter(
                 RegulationComputation.submitter_type == submitter_type
             )
-        print(base_query)
         return base_query.order_by(RegulationComputation.day).all()

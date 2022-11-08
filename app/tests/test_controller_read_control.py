@@ -10,11 +10,13 @@ from app.seed.factories import (
     RegulatoryAlertFactory,
 )
 from app.seed.helpers import get_date
+from app.services import get_regulation_checks
 from app.tests import BaseTest
 from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
+from app.tests.test_regulations import insert_regulation_check
 
 
 class TestControllerReadControl(BaseTest):
@@ -74,6 +76,11 @@ class TestControllerReadControl(BaseTest):
         )
 
         regulation_check = RegulationCheck.query.first()
+        if not regulation_check:
+            regulation_checks = get_regulation_checks()
+            for r in regulation_checks:
+                insert_regulation_check(r)
+
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),
             submitter_type=SubmitterType.EMPLOYEE,
