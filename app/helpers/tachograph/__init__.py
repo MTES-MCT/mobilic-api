@@ -1,20 +1,19 @@
+import os
+from datetime import datetime, timezone, timedelta, time
 from io import BytesIO
 from typing import NamedTuple, Optional
-from datetime import datetime, timezone, date, timedelta
-import os
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from app.data_access.control_data import compute_history_start_date
 from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
-from app.helpers.time import to_datetime
-from app.models.activity import ActivityType
+from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
 from app.helpers.tachograph.signature import (
     verify_signature,
     verify_signatures,
     sign_file,
 )
-from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
-
+from app.helpers.time import to_datetime
+from app.models.activity import ActivityType
 
 # Comprehensive documentation : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN
 # Summary : https://docs.google.com/document/d/16q6slqW2SIcpaBjhziVVO_Jb_bcZtLWWbX6ne_SFNrE/edit
@@ -701,11 +700,11 @@ def generate_tachograph_parts(
     with_signatures=True,
     do_not_generate_if_empty=False,
     max_reception_time=None,
-    min_reception_time=None,
+    min_reception_datetime=None,
     include_dismissed_or_empty_days=False,
 ):
     now = datetime.utcnow()
-    first_user_activity = user.first_activity_after(min_reception_time)
+    first_user_activity = user.first_activity_after(min_reception_datetime)
     if not first_user_activity:
         first_user_activity_date = start_date
     else:
@@ -858,7 +857,9 @@ def get_tachograph_archive_controller(controls, with_signatures):
                 only_activities_validated_by_admin=False,
                 do_not_generate_if_empty=False,
                 max_reception_time=control.qr_code_generation_time,
-                min_reception_time=control_min_date,
+                min_reception_datetime=datetime.combine(
+                    control_min_date, time()
+                ),
                 with_signatures=with_signatures,
                 include_dismissed_or_empty_days=True,
             )
