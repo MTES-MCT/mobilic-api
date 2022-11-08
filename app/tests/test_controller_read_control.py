@@ -1,21 +1,18 @@
 from datetime import datetime
+
 from app.helpers.submitter_type import SubmitterType
 from app.models.regulation_check import RegulationCheck
-
 from app.seed import UserFactory
 from app.seed.factories import (
-    ControllerUserFactory,
     ControllerControlFactory,
+    ControllerUserFactory,
     RegulationComputationFactory,
     RegulatoryAlertFactory,
 )
 from app.seed.helpers import get_date
-from app.services import get_regulation_checks
+from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import BaseTest
-from app.tests.helpers import (
-    make_authenticated_request,
-    ApiRequests,
-)
+from app.tests.helpers import ApiRequests, make_authenticated_request
 from app.tests.test_regulations import insert_regulation_check
 
 
