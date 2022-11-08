@@ -77,6 +77,7 @@ class TestControllerReadControl(BaseTest):
             regulation_checks = get_regulation_checks()
             for r in regulation_checks:
                 insert_regulation_check(r)
+            regulation_check = RegulationCheck.query.first()
 
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),
