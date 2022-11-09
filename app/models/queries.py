@@ -77,7 +77,20 @@ def _apply_time_range_filters_to_activity_query(query, start_time, end_time):
         return query.filter(
             func.tsrange(
                 Activity.start_time,
-                func.coalesce(Activity.end_time, Activity.dismissed_at),
+                case(
+                    [
+                        (
+                            Activity.is_dismissed,
+                            func.coalesce(
+                                Activity.end_time,
+                                func.greatest(
+                                    Activity.start_time, Activity.dismissed_at
+                                ),
+                            ),
+                        )
+                    ],
+                    else_=Activity.end_time,
+                ),
                 "[]",
             ).op("&&")(
                 DateTimeRange(

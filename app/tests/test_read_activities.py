@@ -42,7 +42,7 @@ class TestReadActivities(BaseTest):
                         reception_time=datetime.now(),
                         start_time=datetime(2022, 1, 1, 1),
                     )
-                    activity.dismiss(dismiss_time=datetime(2022, 1, 1, 1, 1))
+                    activity.dismiss(dismiss_time=datetime(2022, 1, 1, 0, 59))
         with app.app_context():
             for day in range(1, 30):
                 for user in self.workers:
@@ -107,3 +107,11 @@ class TestReadActivities(BaseTest):
             include_dismissed_activities=True,
         ).all()
         self.assertEqual(0, len(activities))
+
+    def test_dismissed_at_before_start_time(self):
+        activities = query_activities(
+            user_id=self.first_worker.id,
+            start_time=datetime(2022, 1, 1, 0),
+            include_dismissed_activities=True,
+        ).all()
+        self.assertEqual(1, len(activities))
