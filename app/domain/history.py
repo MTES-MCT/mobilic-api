@@ -89,22 +89,22 @@ class LogAction(NamedTuple):
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
                 if self.version.end_time:
-                    return f"a ajouté l'activité {format_activity_type(self.resource.type)} de {format_time(self.version.start_time, show_dates)} à {format_time(self.version.end_time, show_dates)}"
-                return f"s'est mis en {format_activity_type(self.resource.type)} à {format_time(self.version.start_time, show_dates)}"
+                    return f"a ajouté l'activité {format_activity_type(self.resource.type)} du {format_time(self.version.start_time, True)} au {format_time(self.version.end_time, True)}"
+                return f"s'est mis en {format_activity_type(self.resource.type)} le {format_time(self.version.start_time, True)}"
 
             if self.type == LogActionType.DELETE:
                 if self.resource.end_time:
-                    return f"a supprimé l'activité {format_activity_type(self.resource.type)} de {format_time(self.resource.start_time, show_dates)} à {format_time(self.resource.end_time, show_dates)}"
-                return f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée à {format_time(self.resource.start_time, show_dates)}"
+                    return f"a supprimé l'activité {format_activity_type(self.resource.type)} du {format_time(self.resource.start_time, True)} au {format_time(self.resource.end_time, True)}"
+                return f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée le {format_time(self.resource.start_time, True)}"
 
             previous_version = self.version.previous_version
             if not self.version.end_time and not previous_version.end_time:
-                return f"a décalé l'heure de début de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, show_dates)} à {format_time(self.version.start_time, show_dates)}"
+                return f"a décalé le début de l'activité {format_activity_type(self.resource.type)} du {format_time(previous_version.start_time, True)} au {format_time(self.version.start_time, True)}"
             if not self.version.end_time and previous_version.end_time:
                 return f"a repris l'activité {format_activity_type(self.resource.type)}"
             if self.version.end_time and not previous_version.end_time:
-                return f"a mis fin à l'activité {format_activity_type(self.resource.type)} à {format_time(self.version.end_time, show_dates)}"
-            return f"a modifié la période de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, show_dates)} - {format_time(previous_version.end_time, show_dates)} à {format_time(self.version.start_time, show_dates)} - {format_time(self.version.end_time, show_dates)}"
+                return f"a mis fin à l'activité {format_activity_type(self.resource.type)} le {format_time(self.version.end_time, True)}"
+            return f"a modifié la période de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, True)} - {format_time(previous_version.end_time, True)} à {format_time(self.version.start_time, True)} - {format_time(self.version.end_time, True)}"
 
 
 def actions_history(

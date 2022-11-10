@@ -30,7 +30,7 @@ MONTHS = [
 
 def format_time(value, show_dates):
     if show_dates:
-        return to_fr_tz(value).strftime("%d/%m/%y %H:%M")
+        return to_fr_tz(value).strftime(f"%d/%m à %H:%M")
     return to_fr_tz(value).strftime("%H:%M")
 
 
@@ -63,14 +63,14 @@ def format_activity_type(activity_or_break_type):
     from app.models.activity import ActivityType
 
     if activity_or_break_type == ActivityType.WORK:
-        return "autre tâche"
+        return "Autre tâche"
     if activity_or_break_type == ActivityType.DRIVE:
-        return "conduite"
+        return "Déplacement"
     if activity_or_break_type == ActivityType.SUPPORT:
-        return "accompagnement"
+        return "Accompagnement"
     if activity_or_break_type == ActivityType.TRANSFER:
-        return "liaison"
-    return "pause"
+        return "Liaison"
+    return "Pause"
 
 
 def format_expenditure_label(expenditure_type):
