@@ -1,6 +1,5 @@
 import graphene
 
-from app import app
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import RegulationComputationOutput
 from app.helpers.graphene_types import (
@@ -12,10 +11,6 @@ from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentOutput
 from app.models.regulation_computation import RegulationComputation
-
-
-def compute_history_start_date(qr_code_generation_time):
-    return qr_code_generation_time - app.config["USER_CONTROL_HISTORY_DEPTH"]
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -67,14 +62,11 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         self,
         info,
     ):
-        from_date = compute_history_start_date(
-            self.qr_code_generation_time.date()
-        )
-        until_date = self.qr_code_generation_time.date()
-
         employments = sorted(
             self.user.active_employments_between(
-                from_date, until_date, include_pending_ones=False
+                self.history_start_date,
+                self.history_end_date,
+                include_pending_ones=False,
             ),
             key=lambda e: e.start_date,
             reverse=True,
@@ -82,14 +74,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return employments
 
     def resolve_missions(self, info, mission_id=None):
-        from_date = compute_history_start_date(
-            self.qr_code_generation_time.date()
-        )
-        until_date = self.qr_code_generation_time.date()
-
         missions, has_next_page = self.user.query_missions_with_limit(
-            start_time=from_date,
-            end_time=until_date,
+            start_time=self.history_start_date,
+            end_time=self.history_end_date,
             limit_fetch_activities=2000,
             max_reception_time=self.qr_code_generation_time,
             mission_id=mission_id,
@@ -98,18 +85,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return missions
 
     def resolve_history_start_date(self, info):
-        return compute_history_start_date(self.qr_code_generation_time.date())
+        return self.history_start_date
 
     def resolve_regulation_computations(self, info, submitter_type=None):
-        from_date = compute_history_start_date(
-            self.qr_code_generation_time.date()
-        )
-        until_date = self.qr_code_generation_time.date()
-
         base_query = RegulationComputation.query.filter(
             RegulationComputation.user_id == self.user.id,
-            RegulationComputation.day >= from_date,
-            RegulationComputation.day <= until_date,
+            RegulationComputation.day >= self.history_start_date,
+            RegulationComputation.day <= self.history_end_date,
         )
         if submitter_type:
             base_query = base_query.filter(

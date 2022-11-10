@@ -1,7 +1,6 @@
 import graphene
 from app.data_access.regulation_check import RegulationCheckOutput
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
-from app.models.regulation_check import RegulationCheck
 from app.models.regulatory_alert import RegulatoryAlert
 from graphene.types.generic import GenericScalar
 
@@ -9,7 +8,10 @@ from graphene.types.generic import GenericScalar
 class RegulatoryAlertOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = RegulatoryAlert
-        only_fields = "extra"
+        only_fields = (
+            "extra",
+            "regulation_check",
+        )
 
     extra = GenericScalar(
         required=False,
