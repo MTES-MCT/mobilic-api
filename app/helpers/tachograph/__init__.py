@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import NamedTuple, Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
-from app.data_access.control_data import compute_history_start_date
 from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
 from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
 from app.helpers.tachograph.signature import (
@@ -848,8 +847,8 @@ def get_tachograph_archive_controller(controls, with_signatures):
     archive = BytesIO()
     with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
         for control in controls:
-            control_max_date = control.qr_code_generation_time.date()
-            control_min_date = compute_history_start_date(control_max_date)
+            control_max_date = control.history_end_date
+            control_min_date = control.history_start_date
             tachograph_data = generate_tachograph_parts(
                 control.user,
                 start_date=control_min_date,
