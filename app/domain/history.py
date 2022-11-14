@@ -75,7 +75,7 @@ class LogAction(NamedTuple):
                 return Picto.ACTIVITY_TRANSFER
         return Picto.MODIFICATION
 
-    def text(self, show_dates):
+    def text(self):
         if self.is_validation:
             return "a validé la mission"
 
