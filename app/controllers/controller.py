@@ -260,21 +260,23 @@ def download_control_report(control_id):
 def controller_download_tachograph_files(
     min_date, max_date, with_digital_signatures=False
 ):
+    with atomic_transaction(commit_at_end=False):
+        with db.session.no_autoflush:
+            db.session().execute("SET CONSTRAINTS ALL DEFERRED")
+            controls = query_controls(
+                controller_user_id=current_user.id,
+                start_time=min_date,
+                end_time=max_date,
+                controls_type=ControlType.mobilic,
+            ).all()
 
-    controls = query_controls(
-        controller_user_id=current_user.id,
-        start_time=min_date,
-        end_time=max_date,
-        controls_type=ControlType.mobilic,
-    ).all()
-
-    archive = get_tachograph_archive_controller(
-        controls=controls, with_signatures=with_digital_signatures
-    )
-    return send_file(
-        archive,
-        mimetype="application/zip",
-        as_attachment=True,
-        cache_timeout=0,
-        attachment_filename="fichiers_C1B.zip",
-    )
+            archive = get_tachograph_archive_controller(
+                controls=controls, with_signatures=with_digital_signatures
+            )
+            return send_file(
+                archive,
+                mimetype="application/zip",
+                as_attachment=True,
+                cache_timeout=0,
+                attachment_filename="fichiers_C1B.zip",
+            )
