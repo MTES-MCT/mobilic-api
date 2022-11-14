@@ -1,20 +1,18 @@
 from datetime import datetime
-from urllib.parse import quote, urlencode, unquote
+from urllib.parse import quote, unquote, urlencode
 from uuid import uuid4
 
 import graphene
 import jwt
-from flask import redirect, request, after_this_request, send_file
-from flask_apispec import use_kwargs, doc
+from flask import after_this_request, redirect, request, send_file
+from flask_apispec import doc, use_kwargs
 from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
+from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
-from app.data_access.control_data import (
-    ControllerControlOutput,
-    compute_history_start_date,
-)
+from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.controller import (
     create_controller_user,
@@ -22,31 +20,28 @@ from app.domain.controller import (
 )
 from app.domain.permissions import controller_can_see_control
 from app.domain.work_days import group_user_events_by_day_with_limit
-from app.helpers.agent_connect import (
-    get_agent_connect_user_info,
-)
+from app.helpers.agent_connect import get_agent_connect_user_info
 from app.helpers.authentication import (
-    unset_ac_auth_cookies,
     UserTokensWithAC,
     current_user,
+    unset_ac_auth_cookies,
 )
 from app.helpers.authentication_controller import (
     create_access_tokens_for_controller,
     set_controller_auth_cookies,
 )
 from app.helpers.authorization import (
-    with_authorization_policy,
     controller_only,
+    with_authorization_policy,
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
+from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
-from app.models import Mission, Company
-from app.models.controller_control import (
-    ControllerControl,
-)
+from app.models import Mission
+from app.models.controller_control import ControllerControl, ControlType
 from app.models.controller_user import ControllerUser
-from app.models.queries import add_mission_relations
+from app.models.queries import add_mission_relations, query_controls
 
 
 @app.route("/ac/authorize")
@@ -232,8 +227,8 @@ def generate_mission_control_export(mission_id, control_id):
 )
 def download_control_report(control_id):
     control = ControllerControl.query.get(control_id)
-    max_date = control.qr_code_generation_time.date()
-    min_date = compute_history_start_date(max_date)
+    max_date = control.history_end_date
+    min_date = control.history_start_date
     work_days_data = group_user_events_by_day_with_limit(
         control.user,
         from_date=min_date,
@@ -244,3 +239,34 @@ def download_control_report(control_id):
     return send_control_as_one_excel_file(
         control, work_days_data, min_date, max_date
     )
+
+
+@app.route("/controllers/generate_tachograph_files", methods=["POST"])
+@doc(
+    description="Génération de fichiers C1B contenant les données d'activité des salariés liés aux contrôles"
+)
+@with_authorization_policy(controller_only)
+@use_kwargs(TachographBaseOptionsSchema(), apply=True)
+def controller_download_tachograph_files(
+    min_date, max_date, with_digital_signatures=False
+):
+    with atomic_transaction(commit_at_end=False):
+        with db.session.no_autoflush:
+            db.session().execute("SET CONSTRAINTS ALL DEFERRED")
+            controls = query_controls(
+                controller_user_id=current_user.id,
+                start_time=min_date,
+                end_time=max_date,
+                controls_type=ControlType.mobilic,
+            ).all()
+
+            archive = get_tachograph_archive_controller(
+                controls=controls, with_signatures=with_digital_signatures
+            )
+            return send_file(
+                archive,
+                mimetype="application/zip",
+                as_attachment=True,
+                cache_timeout=0,
+                attachment_filename="fichiers_C1B.zip",
+            )

@@ -1,76 +1,66 @@
 import graphene
-
-from app.controllers.comment import LogComment, CancelComment
+from app.controllers.activity import BulkActivity as BulkActivityQuery
+from app.controllers.activity import CancelActivity, EditActivity, LogActivity
+from app.controllers.comment import CancelComment, LogComment
 from app.controllers.company import (
-    CompanySignUp,
-    Query as CompanyQuery,
-    EditCompanySettings,
     CompaniesSignUp,
+    CompanySignUp,
+    EditCompanySettings,
 )
-from app.controllers.controller import AgentConnectLogin
-
-from app.controllers.user_read import Query as UserReadTokenQuery
+from app.controllers.company import Query as CompanyQuery
+from app.controllers.controller import AgentConnectLogin, ControllerScanCode
+from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
+    CancelEmployment,
+    ChangeEmployeeRole,
     CreateEmployment,
-    ValidateEmployment,
-    RejectEmployment,
+    CreateWorkerEmploymentsFromEmails,
     GetInvitation,
     RedeemInvitation,
-    TerminateEmployment,
-    CancelEmployment,
+    RejectEmployment,
     SendInvitationReminder,
-    CreateWorkerEmploymentsFromEmails,
-    ChangeEmployeeRole,
+    TerminateEmployment,
+    ValidateEmployment,
 )
-from app.controllers.expenditure import LogExpenditure, CancelExpenditure
+from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
     CreateCompanyKnownAddress,
     EditCompanyKnownAddress,
-    TerminateCompanyKnownAddress,
     LogMissionLocation,
     RegisterKilometerAtLocation,
+    TerminateCompanyKnownAddress,
 )
 from app.controllers.mission import (
+    CancelMission,
+    ChangeMissionName,
     CreateMission,
     EndMission,
-    ValidateMission,
-    Query as MissionQuery,
-    UpdateMissionVehicle,
-    ChangeMissionName,
-    CancelMission,
 )
-
-from app.controllers.controller import ControllerScanCode
-
+from app.controllers.mission import Query as MissionQuery
+from app.controllers.mission import UpdateMissionVehicle, ValidateMission
 from app.controllers.user import (
-    UserSignUp,
-    FranceConnectLogin,
-    Query as UserQuery,
-    ConfirmFranceConnectEmail,
+    ActivateEmail,
     ChangeEmail,
     ChangeTimezone,
-    ActivateEmail,
-    ResetPassword,
-    RequestPasswordReset,
+    ConfirmFranceConnectEmail,
     DisableWarning,
-    ResendActivationEmail,
+    FranceConnectLogin,
 )
+from app.controllers.user import Query as UserQuery
+from app.controllers.user import (
+    RequestPasswordReset,
+    ResendActivationEmail,
+    ResetPassword,
+    UserSignUp,
+)
+from app.controllers.user_read import Query as UserReadTokenQuery
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
     TerminateVehicle,
 )
 from app.helpers.authentication import Auth, CheckQuery
-from app.controllers.activity import (
-    LogActivity,
-    EditActivity,
-    CancelActivity,
-    BulkActivity as BulkActivityQuery,
-)
-from app.controllers.controller import (
-    Query as ControllerUserQuery,
-)
-from app.models.address import AddressOutput, Address
+from app.models.address import Address, AddressOutput
 
 
 class Activities(graphene.ObjectType):

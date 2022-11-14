@@ -1,17 +1,13 @@
-from collections import namedtuple
-from unittest.mock import patch, MagicMock
-
-from flask.testing import FlaskClient
-from freezegun import freeze_time
-from datetime import datetime
-from contextlib import contextmanager
-
 import re
+from collections import namedtuple
+from contextlib import contextmanager
+from datetime import datetime
 
-from app import app, db
+from app import db
 from app.helpers.time import to_timestamp
-from app.models import User, ControllerUser
+from app.models import ControllerUser, User
 from app.tests import test_post_graphql, test_post_graphql_unexposed
+from freezegun import freeze_time
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
@@ -204,12 +200,26 @@ class ApiRequests:
               userId
             }
           }
+          regulationComputations {
+            day
+            submitterType
+            alerts {
+              regulationCheck {
+                type
+                label
+                description
+                regulationRule
+                unit
+              }
+              extra
+            }
+          }
         }
       }
     """
 
     get_controller_user_info = """
-        query controllerUser($id: Int!, $fromDate: Date) {
+      query controllerUser($id: Int!, $fromDate: Date) {
         controllerUser(id: $id) {
           id
           firstName

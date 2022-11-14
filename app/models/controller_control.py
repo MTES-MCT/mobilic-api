@@ -2,7 +2,7 @@ import enum
 
 from sqlalchemy import Enum
 
-from app import db
+from app import db, app
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
 from app.models import User
@@ -13,6 +13,10 @@ class ControlType(enum.Enum):
     mobilic = "Mobilic"
     lic_papier = "LIC papier"
     sans_lic = "Sans LIC"
+
+
+def compute_history_start_date(history_end_date):
+    return history_end_date - app.config["USER_CONTROL_HISTORY_DEPTH"]
 
 
 class ControllerControl(BaseModel, RandomNineIntId):
@@ -43,12 +47,18 @@ class ControllerControl(BaseModel, RandomNineIntId):
         ),
     )
 
+    @property
+    def history_end_date(self):
+        return self.qr_code_generation_time.date()
+
+    @property
+    def history_start_date(self):
+        return compute_history_start_date(self.history_end_date)
+
     @staticmethod
     def get_or_create_mobilic_control(
         controller_id, user_id, qr_code_generation_time
     ):
-        from app.data_access.control_data import compute_history_start_date
-
         existing_control = ControllerControl.query.filter(
             ControllerControl.controller_id == controller_id,
             ControllerControl.user_id == user_id,

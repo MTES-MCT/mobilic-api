@@ -1,17 +1,18 @@
-from typing import NamedTuple, Optional
-from datetime import datetime, timezone, date, timedelta
 import os
+from datetime import datetime, timezone, timedelta, time
+from io import BytesIO
+from typing import NamedTuple, Optional
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from app.domain.work_days import WorkDay, group_user_events_by_day_with_limit
-from app.helpers.time import to_datetime
-from app.models.activity import ActivityType
+from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
 from app.helpers.tachograph.signature import (
     verify_signature,
     verify_signatures,
     sign_file,
 )
-from app.helpers.tachograph.rsa_keys import C1BSigningKey, MOBILIC_ROOT_KEY
-
+from app.helpers.time import to_datetime
+from app.models.activity import ActivityType
 
 # Comprehensive documentation : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN
 # Summary : https://docs.google.com/document/d/16q6slqW2SIcpaBjhziVVO_Jb_bcZtLWWbX6ne_SFNrE/edit
@@ -697,20 +698,26 @@ def generate_tachograph_parts(
     only_activities_validated_by_admin=False,
     with_signatures=True,
     do_not_generate_if_empty=False,
+    max_reception_time=None,
+    min_reception_datetime=None,
+    include_dismissed_or_empty_days=False,
 ):
     now = datetime.utcnow()
-    first_user_activity = user.first_activity_after(None)
+    first_user_activity = user.first_activity_after(min_reception_datetime)
     if not first_user_activity:
         first_user_activity_date = start_date
     else:
         first_user_activity_date = first_user_activity.start_time.astimezone(
             timezone.utc
         ).date()
+
     work_days, _ = group_user_events_by_day_with_limit(
         user,
         from_date=start_date,
         until_date=end_date,
         tz=timezone.utc,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
         only_missions_validated_by_admin=only_activities_validated_by_admin,
         consultation_scope=consultation_scope,
     )
@@ -783,6 +790,10 @@ def generate_tachograph_file_name(user):
     return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
 
 
+def generate_tachograph_file_name_control(control):
+    return f"RO_{_card_like_id(control.user)}_{control.id}.C1B"
+
+
 def generate_and_export_tachograph_file(
     user, output_dir, start_date=None, end_date=None
 ):
@@ -830,3 +841,53 @@ def parse_tachograph_file(fp, check_signatures=True):
             print("Signatures are correct.")
 
     return files
+
+
+def get_tachograph_archive_controller(controls, with_signatures):
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        for control in controls:
+            control_max_date = control.history_end_date
+            control_min_date = control.history_start_date
+            tachograph_data = generate_tachograph_parts(
+                control.user,
+                start_date=control_min_date,
+                end_date=control_max_date,
+                only_activities_validated_by_admin=False,
+                do_not_generate_if_empty=False,
+                max_reception_time=control.qr_code_generation_time,
+                min_reception_datetime=datetime.combine(
+                    control_min_date, time()
+                ),
+                with_signatures=with_signatures,
+                include_dismissed_or_empty_days=True,
+            )
+            f.writestr(
+                generate_tachograph_file_name_control(control),
+                write_tachograph_archive(tachograph_data),
+            )
+    archive.seek(0)
+    return archive
+
+
+def get_tachograph_archive_company(
+    users, min_date, max_date, scope, with_signatures
+):
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        for user in users:
+            tachograph_data = generate_tachograph_parts(
+                user,
+                start_date=min_date,
+                end_date=max_date,
+                consultation_scope=scope,
+                only_activities_validated_by_admin=False,
+                with_signatures=with_signatures,
+                do_not_generate_if_empty=False,
+            )
+            f.writestr(
+                generate_tachograph_file_name(user),
+                write_tachograph_archive(tachograph_data),
+            )
+    archive.seek(0)
+    return archive
