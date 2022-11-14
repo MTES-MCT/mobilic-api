@@ -227,8 +227,8 @@ def generate_mission_control_export(mission_id, control_id):
 )
 def download_control_report(control_id):
     control = ControllerControl.query.get(control_id)
-    max_date = control.history_start_date
-    min_date = control.history_end_date
+    max_date = control.history_end_date
+    min_date = control.history_start_date
     work_days_data = group_user_events_by_day_with_limit(
         control.user,
         from_date=min_date,
