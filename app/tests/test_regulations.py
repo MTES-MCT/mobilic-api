@@ -80,9 +80,10 @@ class TestRegulations(BaseTest):
     def setUp(self):
         super().setUp()
 
-        regulation_checks = get_regulation_checks()
-        for r in regulation_checks:
-            insert_regulation_check(r)
+        if not RegulationCheck.query.first():
+            regulation_checks = get_regulation_checks()
+            for r in regulation_checks:
+                insert_regulation_check(r)
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True

@@ -6,6 +6,8 @@ from app import db
 from app.models import User, Employment, Company, ControllerUser
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
+from app.models.regulation_computation import RegulationComputation
+from app.models.regulatory_alert import RegulatoryAlert
 
 
 class BaseFactory(factory.alchemy.SQLAlchemyModelFactory):
@@ -87,3 +89,13 @@ class ControllerControlFactory(BaseFactory):
         model = ControllerControl
 
     qr_code_generation_time = datetime.now()
+
+
+class RegulatoryAlertFactory(BaseFactory):
+    class Meta:
+        model = RegulatoryAlert
+
+
+class RegulationComputationFactory(BaseFactory):
+    class Meta:
+        model = RegulationComputation
