@@ -81,7 +81,7 @@ class LogAction(NamedTuple):
 
         if type(self.resource) is LocationEntry:
             # Only creations
-            return f"a renseigné le lieu de {'début' if self.resource.type == LocationEntryType.MISSION_START_LOCATION else 'fin'} de service : {self.resource.address.format()}"
+            return f"a indiqué comme lieu de {'début' if self.resource.type == LocationEntryType.MISSION_START_LOCATION else 'fin'} de service : {self.resource.address.format()}"
 
         if type(self.resource) is Expenditure:
             return f"a {'ajouté' if self.type == LogActionType.CREATE else 'supprimé'} le frais {format_expenditure_label(self.resource.type)}"
