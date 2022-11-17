@@ -59,7 +59,7 @@ def _check_inter_mission_overlaps(user, mission):
     for activity in other_mission_activities_in_potential_conflict:
         if not (
             (activity.end_time and activity.end_time <= mission_start)
-            or (activity.start_time >= mission_end)
+            or (mission_end and activity.start_time >= mission_end)
         ):
             raise OverlappingMissionsError(
                 f"Mission cannot overlap with mission {activity.mission_id} for the user.",
