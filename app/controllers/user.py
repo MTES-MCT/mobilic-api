@@ -96,6 +96,11 @@ class UserSignUp(graphene.Mutation):
             required=False, description=TIMEZONE_DESC
         )
 
+        way_heard_of_mobilic = graphene.String(
+            required=False,
+            description="Façon dont l'utilisateur a connu Mobilic.",
+        )
+
     Output = UserTokens
 
     @classmethod
@@ -144,12 +149,22 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
         timezone_name = graphene.String(
             required=False, description=TIMEZONE_DESC
         )
+        way_heard_of_mobilic = graphene.String(
+            required=False,
+            description="Façon dont l'utilisateur a connu Mobilic.",
+        )
 
     Output = UserOutput
 
     @classmethod
     def mutate(
-        cls, _, info, email, password=None, timezone_name="Europe/Paris"
+        cls,
+        _,
+        info,
+        email,
+        password=None,
+        timezone_name="Europe/Paris",
+        way_heard_of_mobilic=None,
     ):
         with atomic_transaction(commit_at_end=True):
             if not current_user.france_connect_id or current_user.password:
@@ -158,6 +173,7 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
             current_user.email = email
             current_user.has_confirmed_email = True
             current_user.timezone_name = timezone_name
+            current_user.way_heard_of_mobilic = way_heard_of_mobilic
             current_user.create_activation_link()
             if password:
                 current_user.password = password
