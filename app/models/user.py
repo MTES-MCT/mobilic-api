@@ -174,7 +174,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
                 ~Activity.is_dismissed,
                 Activity.start_time < date_time,
                 or_(
-                    Activity.end_time.is_(None), Activity.end_time < date_time
+                    Activity.end_time.is_(None), Activity.end_time <= date_time
                 ),
             )
             .order_by(desc(Activity.start_time))
