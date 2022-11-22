@@ -103,8 +103,13 @@ class TestControllerReadControl(BaseTest):
         self.assertEqual(
             len(
                 response["data"]["controlData"]["regulationComputations"][0][
-                    "alerts"
+                    "regulationChecks"
                 ]
             ),
-            1,
+            5,
+        )
+        self.assertIsNotNone(
+            response["data"]["controlData"]["regulationComputations"][0][
+                "regulationChecks"
+            ][0]["alert"]
         )

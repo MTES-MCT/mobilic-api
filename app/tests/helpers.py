@@ -203,16 +203,19 @@ class ApiRequests:
           regulationComputations {
             day
             submitterType
-            alerts {
-              regulationCheck {
-                type
-                label
-                description
-                regulationRule
-                unit
+            regulationChecks {
+                regulationCheck {
+                  type
+                  label
+                  description
+                  regulationRule
+                  unit
+                }
+                alert {
+                  extra
+                }
               }
-              extra
-            }
+
           }
         }
       }
@@ -387,7 +390,7 @@ def make_authenticated_request(
                 mock_authentication_with_user=authenticated_user,
                 variables=formatted_variables,
             )
-    # print(response.json)
+    print(response.json)
     db.session.rollback()
 
     if request_should_fail_with:
