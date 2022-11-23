@@ -10,8 +10,5 @@ class TestOAuth2(BaseTest):
         oauth2_client = OAuth2Client.create_client(
             name="test", redirect_uris="http://localhost:3000"
         )
+        # print(oauth2_client)
         self.assertIsNotNone(oauth2_client)
-
-        secret = oauth2_client.secret
-        # print(secret)
-        self.assertIsNotNone(secret)
