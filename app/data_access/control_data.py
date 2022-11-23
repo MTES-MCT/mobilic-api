@@ -1,7 +1,11 @@
+from itertools import groupby
+
 import graphene
 
 from app.data_access.mission import MissionOutput
-from app.data_access.regulation_computation import RegulationComputationOutput
+from app.data_access.regulation_computation import (
+    RegulationComputationByDayOutput,
+)
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -49,13 +53,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Date de début de l'historique pouvant être contrôlé",
     )
 
-    regulation_computations = graphene.List(
-        RegulationComputationOutput,
+    regulation_computations_by_day = graphene.List(
+        RegulationComputationByDayOutput,
         submitter_type=graphene_enum_type(SubmitterType)(
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        description="Résultats de calcul de seuils règlementaires",
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_employments(
@@ -87,7 +91,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_history_start_date(self, info):
         return self.history_start_date
 
-    def resolve_regulation_computations(self, info, submitter_type=None):
+    def resolve_regulation_computations_by_day(
+        self, info, submitter_type=None
+    ):
         base_query = RegulationComputation.query.filter(
             RegulationComputation.user_id == self.user.id,
             RegulationComputation.day >= self.history_start_date,
@@ -97,4 +103,16 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             base_query = base_query.filter(
                 RegulationComputation.submitter_type == submitter_type
             )
-        return base_query.order_by(RegulationComputation.day).all()
+        regulation_computations = base_query.order_by(
+            RegulationComputation.day
+        ).all()
+        regulation_computations_by_day = [
+            RegulationComputationByDayOutput(
+                day=day_, regulation_computations=list(computations_)
+            )
+            for day_, computations_ in groupby(
+                regulation_computations, lambda x: x.day
+            )
+        ]
+
+        return regulation_computations_by_day

@@ -188,7 +188,7 @@ class ApiRequests:
         }
     """
     read_control_data = """
-      query readControlData($controlId: Int!) {
+    query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
           id
           missions {
@@ -200,10 +200,12 @@ class ApiRequests:
               userId
             }
           }
-          regulationComputations {
+          regulationComputationsByDay {
             day
-            submitterType
-            regulationChecks {
+            regulationComputations {
+              day
+              submitterType
+              regulationChecks {
                 regulationCheck {
                   type
                   label
@@ -215,10 +217,10 @@ class ApiRequests:
                   extra
                 }
               }
-
+            }
           }
         }
-      }
+    }
     """
 
     get_controller_user_info = """

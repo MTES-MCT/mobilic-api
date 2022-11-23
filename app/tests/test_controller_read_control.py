@@ -97,19 +97,16 @@ class TestControllerReadControl(BaseTest):
             request_by_controller_user=True,
             unexposed_query=True,
         )
+        regulations_by_day = response["data"]["controlData"][
+            "regulationComputationsByDay"
+        ]
+        self.assertEqual(len(regulations_by_day), 1)
+
+        first_day_regulations = regulations_by_day[0]["regulationComputations"]
         self.assertEqual(
-            len(response["data"]["controlData"]["regulationComputations"]), 1
-        )
-        self.assertEqual(
-            len(
-                response["data"]["controlData"]["regulationComputations"][0][
-                    "regulationChecks"
-                ]
-            ),
+            len(first_day_regulations[0]["regulationChecks"]),
             5,
         )
         self.assertIsNotNone(
-            response["data"]["controlData"]["regulationComputations"][0][
-                "regulationChecks"
-            ][0]["alert"]
+            first_day_regulations[0]["regulationChecks"][0]["alert"]
         )

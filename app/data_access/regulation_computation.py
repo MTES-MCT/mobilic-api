@@ -19,11 +19,11 @@ class RegulationCheckExtendedOutput(graphene.ObjectType):
 
     regulation_check = graphene.Field(
         RegulationCheckOutput,
-        description="Liste des seuils calculés",
+        description="Seuil calculé",
     )
     alert = graphene.Field(
         RegulatoryAlertOutput,
-        description="Liste des alertes remontées par ce calcul",
+        description="Alertes remontée par ce calcul",
     )
 
 
@@ -83,3 +83,22 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
             )
 
         return regulation_checks_extended
+
+
+class RegulationComputationByDayOutput(graphene.ObjectType):
+    def __init__(self, day, regulation_computations):
+        self.day = day
+        self.regulation_computations = regulation_computations
+
+    day = graphene.Field(
+        graphene.Date,
+        description="Journée du groupe",
+    )
+
+    regulation_computations = graphene.List(
+        RegulationComputationOutput,
+        description="Liste des résultats de calcul de seuils règlementaires pour ce jour",
+    )
+
+    def __repr__(self):
+        return f"Day {self.day} - #{len(self.regulation_computations)}"
