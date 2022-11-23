@@ -12,21 +12,6 @@ from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 
 
-class RegulationCheckExtendedOutput(graphene.ObjectType):
-    def __init__(self, regulation_check, alert):
-        self.regulation_check = regulation_check
-        self.alert = alert
-
-    regulation_check = graphene.Field(
-        RegulationCheckOutput,
-        description="Seuil calculé",
-    )
-    alert = graphene.Field(
-        RegulatoryAlertOutput,
-        description="Alertes remontée par ce calcul",
-    )
-
-
 class RegulationComputationOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = RegulationComputation
@@ -48,7 +33,7 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
     )
 
     regulation_checks = graphene.List(
-        RegulationCheckExtendedOutput,
+        RegulationCheckOutput,
         description="Liste des seuils règlementaires calculés",
         unit=graphene_enum_type(UnitType)(
             required=False,
@@ -76,11 +61,8 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
             regulatory_alert = regulatory_alerts.filter(
                 RegulatoryAlert.regulation_check_id == regulation_check.id
             ).one_or_none()
-            regulation_checks_extended.append(
-                RegulationCheckExtendedOutput(
-                    regulation_check, regulatory_alert
-                )
-            )
+            setattr(regulation_check, "alert", regulatory_alert)
+            regulation_checks_extended.append(regulation_check)
 
         return regulation_checks_extended
 

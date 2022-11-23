@@ -110,3 +110,6 @@ class TestControllerReadControl(BaseTest):
         self.assertIsNotNone(
             first_day_regulations[0]["regulationChecks"][0]["alert"]
         )
+        self.assertIsNone(
+            first_day_regulations[0]["regulationChecks"][1]["alert"]
+        )

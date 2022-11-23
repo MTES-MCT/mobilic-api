@@ -206,13 +206,11 @@ class ApiRequests:
               day
               submitterType
               regulationChecks {
-                regulationCheck {
-                  type
-                  label
-                  description
-                  regulationRule
-                  unit
-                }
+                type
+                label
+                description
+                regulationRule
+                unit
                 alert {
                   extra
                 }
