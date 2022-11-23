@@ -115,4 +115,5 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             )
         ]
 
+        ## Should we returns something for every day ? Even if empty day ?
         return regulation_computations_by_day

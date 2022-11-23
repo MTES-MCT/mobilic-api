@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from typing import Callable, List
 
+from app.seed.scenarios.breach_rules import (
+    run_scenario_breach_rules,
+    EMPLOYEE_EMAIL as BREACH_EMPLOYEE_EMAIL,
+)
 from app.seed.scenarios.busy_admin import (
     NB_COMPANIES,
     NB_EMPLOYEES,
@@ -42,6 +46,12 @@ class SeedScenario:
 
 
 scenarios = [
+    SeedScenario(
+        "Rules breachers",
+        f"Creates a company where everybody break rules !",
+        [BREACH_EMPLOYEE_EMAIL],
+        run_scenario_breach_rules,
+    ),
     SeedScenario(
         "Busy Admin",
         f"Creates an admin managing {NB_COMPANIES} companies with {NB_EMPLOYEES} employees each, logging some time in missions",
