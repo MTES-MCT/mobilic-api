@@ -15,6 +15,7 @@ from app.seed import (
 )
 from app.seed.helpers import get_time
 
+ADMIN_EMAIL = "breach.boss@test.com"
 EMPLOYEE_EMAIL = "breach@test.com"
 
 
@@ -72,7 +73,13 @@ def run_scenario_breach_rules():
         usual_name=f"Rules Breaching Ltd", siren=f"00000404"
     )
 
-    admin = UserFactory.create()
+    admin = UserFactory.create(
+        email=ADMIN_EMAIL,
+        password="password",
+        first_name="Breach",
+        last_name="Boss",
+    )
+
     EmploymentFactory.create(
         company=company, submitter=admin, user=admin, has_admin_rights=True
     )
@@ -103,12 +110,12 @@ def run_scenario_breach_rules():
         mission_name="Mission 1",
         work_periods=[
             [
-                get_time(how_many_days_ago=6, hour=8),
-                get_time(how_many_days_ago=6, hour=10),
+                get_time(how_many_days_ago=8, hour=8),
+                get_time(how_many_days_ago=8, hour=10),
             ],
             [
-                get_time(how_many_days_ago=6, hour=12),
-                get_time(how_many_days_ago=6, hour=14),
+                get_time(how_many_days_ago=8, hour=12),
+                get_time(how_many_days_ago=8, hour=14),
             ],
         ],
         vehicle=vehicle,
@@ -120,8 +127,8 @@ def run_scenario_breach_rules():
         mission_name="Mission 2",
         work_periods=[
             [
-                get_time(how_many_days_ago=5, hour=8),
-                get_time(how_many_days_ago=5, hour=14, minute=5),
+                get_time(how_many_days_ago=7, hour=8),
+                get_time(how_many_days_ago=7, hour=14, minute=5),
             ],
         ],
         vehicle=vehicle,
@@ -131,6 +138,36 @@ def run_scenario_breach_rules():
     ## MISSION 3
     log_mission(
         mission_name="Mission 3",
+        work_periods=[
+            [
+                get_time(how_many_days_ago=6, hour=4),
+                get_time(how_many_days_ago=6, hour=8),
+            ],
+            [
+                get_time(how_many_days_ago=6, hour=16),
+                get_time(how_many_days_ago=6, hour=20),
+            ],
+        ],
+        vehicle=vehicle,
+        company=company,
+        employee=employee,
+    )
+    ## MISSION 4
+    log_mission(
+        mission_name="Mission 4",
+        work_periods=[
+            [
+                get_time(how_many_days_ago=6, hour=22),
+                get_time(how_many_days_ago=5, hour=3, minute=55),
+            ],
+        ],
+        vehicle=vehicle,
+        company=company,
+        employee=employee,
+    )
+    ## MISSION 5
+    log_mission(
+        mission_name="Mission 5",
         work_periods=[
             [
                 get_time(how_many_days_ago=4, hour=4),
@@ -145,9 +182,9 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 4
+    ## MISSION 6
     log_mission(
-        mission_name="Mission 4",
+        mission_name="Mission 6",
         work_periods=[
             [
                 get_time(how_many_days_ago=4, hour=22),
@@ -158,9 +195,9 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 5
+    ## MISSION 7
     log_mission(
-        mission_name="Mission 5",
+        mission_name="Mission 7",
         work_periods=[
             [
                 get_time(how_many_days_ago=2, hour=8),
@@ -179,9 +216,9 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 6
+    ## MISSION 8
     log_mission(
-        mission_name="Mission 6",
+        mission_name="Mission 8",
         work_periods=[
             [
                 get_time(how_many_days_ago=1, hour=1),
