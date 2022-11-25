@@ -105,6 +105,25 @@ def run_scenario_breach_rules():
         has_admin_rights=False,
     )
 
+    ## works 5 days before:
+    for i in range(5):
+        log_mission(
+            mission_name=f"Mission Before {i}",
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=9 + i, hour=8),
+                    get_time(how_many_days_ago=9 + i, hour=10),
+                ],
+                [
+                    get_time(how_many_days_ago=9 + i, hour=12),
+                    get_time(how_many_days_ago=9 + i, hour=14),
+                ],
+            ],
+            vehicle=vehicle,
+            company=company,
+            employee=employee,
+        )
+
     ## MISSION 1
     log_mission(
         mission_name="Mission 1",
