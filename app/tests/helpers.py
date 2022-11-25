@@ -200,8 +200,41 @@ class ApiRequests:
               userId
             }
           }
+        }
+    }
+    """
+    read_control_data_with_alerts = """
+    query readControlData($controlId: Int!) {
+        controlData(controlId: $controlId) {
+          id
+          missions {
+            activities {
+              id
+              type
+              startTime
+              endTime
+              userId
+            }
+          }
           regulationComputationsByDay {
             day
+            regulationComputations {
+              day
+              submitterType
+              regulationChecks {
+                type
+                label
+                description
+                regulationRule
+                unit
+                alert {
+                  extra
+                }
+              }
+            }
+          }
+          regulationComputationsByWeek {
+            startOfWeek
             regulationComputations {
               day
               submitterType

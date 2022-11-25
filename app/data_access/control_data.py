@@ -1,10 +1,12 @@
 from itertools import groupby
 
 import graphene
+from sqlalchemy import func
 
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
+    RegulationComputationByWeekOutput,
 )
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
@@ -62,6 +64,15 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
+    regulation_computations_by_week = graphene.List(
+        RegulationComputationByWeekOutput,
+        submitter_type=graphene_enum_type(SubmitterType)(
+            required=False,
+            description="Version utilisée pour le calcul des dépassements de seuil",
+        ),
+        description="Résultats de calcul de seuils règlementaires groupés par semaine",
+    )
+
     def resolve_employments(
         self,
         info,
@@ -114,6 +125,32 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                 regulation_computations, lambda x: x.day
             )
         ]
+        return regulation_computations_by_day
 
-        ## Should we returns something for every day ? Even if empty day ?
+    def resolve_regulation_computations_by_week(
+        self, info, submitter_type=None
+    ):
+        base_query = RegulationComputation.query.filter(
+            RegulationComputation.user_id == self.user.id,
+            RegulationComputation.day >= self.history_start_date,
+            RegulationComputation.day <= self.history_end_date,
+            # 1 = Sunday, 2 = Monday, ..., 7 = Saturday.
+            func.dayofweek(RegulationComputation.day) == 2,
+        )
+        if submitter_type:
+            base_query = base_query.filter(
+                RegulationComputation.submitter_type == submitter_type
+            )
+        regulation_computations = base_query.order_by(
+            RegulationComputation.day
+        ).all()
+        regulation_computations_by_day = [
+            RegulationComputationByWeekOutput(
+                start_of_week=start_of_week_,
+                regulation_computations=list(computations_),
+            )
+            for start_of_week_, computations_ in groupby(
+                regulation_computations, lambda x: x.day
+            )
+        ]
         return regulation_computations_by_day
