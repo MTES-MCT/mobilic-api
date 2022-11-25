@@ -1,13 +1,10 @@
-from itertools import groupby
-
 import graphene
-from sqlalchemy import func
 
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
-    RegulationComputationByDayOutput,
-    RegulationComputationByWeekOutput,
+    RegulationComputationByUnitOutput,
 )
+from app.domain.regulation_computations import get_regulation_computations
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -16,7 +13,7 @@ from app.helpers.graphene_types import (
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentOutput
-from app.models.regulation_computation import RegulationComputation
+from app.models.regulation_check import UnitType
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -55,22 +52,17 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Date de début de l'historique pouvant être contrôlé",
     )
 
-    regulation_computations_by_day = graphene.List(
-        RegulationComputationByDayOutput,
+    regulation_computations_by_unit = graphene.List(
+        RegulationComputationByUnitOutput,
         submitter_type=graphene_enum_type(SubmitterType)(
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        description="Résultats de calcul de seuils règlementaires groupés par jour",
-    )
-
-    regulation_computations_by_week = graphene.List(
-        RegulationComputationByWeekOutput,
-        submitter_type=graphene_enum_type(SubmitterType)(
+        unit=graphene_enum_type(UnitType)(
             required=False,
-            description="Version utilisée pour le calcul des dépassements de seuil",
+            description="Unité de temps pour le groupement des seuils règlementaires",
         ),
-        description="Résultats de calcul de seuils règlementaires groupés par semaine",
+        description="Résultats de calcul de seuils règlementaires groupés par jour ou par semaine",
     )
 
     def resolve_employments(
@@ -102,55 +94,19 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_history_start_date(self, info):
         return self.history_start_date
 
-    def resolve_regulation_computations_by_day(
-        self, info, submitter_type=None
+    def resolve_regulation_computations_by_unit(
+        self, info, unit=UnitType.DAY, submitter_type=None
     ):
-        base_query = RegulationComputation.query.filter(
-            RegulationComputation.user_id == self.user.id,
-            RegulationComputation.day >= self.history_start_date,
-            RegulationComputation.day <= self.history_end_date,
+        regulation_computations_by_unit = get_regulation_computations(
+            user_id=self.user.id,
+            start_date=self.history_start_date,
+            end_date=self.history_end_date,
+            submitter_type=submitter_type,
+            grouped_by_unit=unit,
         )
-        if submitter_type:
-            base_query = base_query.filter(
-                RegulationComputation.submitter_type == submitter_type
+        return [
+            RegulationComputationByUnitOutput(
+                day=day_, regulation_computations=computations_
             )
-        regulation_computations = base_query.order_by(
-            RegulationComputation.day
-        ).all()
-        regulation_computations_by_day = [
-            RegulationComputationByDayOutput(
-                day=day_, regulation_computations=list(computations_)
-            )
-            for day_, computations_ in groupby(
-                regulation_computations, lambda x: x.day
-            )
+            for day_, computations_ in regulation_computations_by_unit.items()
         ]
-        return regulation_computations_by_day
-
-    def resolve_regulation_computations_by_week(
-        self, info, submitter_type=None
-    ):
-        base_query = RegulationComputation.query.filter(
-            RegulationComputation.user_id == self.user.id,
-            RegulationComputation.day >= self.history_start_date,
-            RegulationComputation.day <= self.history_end_date,
-            # 1 = Sunday, 2 = Monday, ..., 7 = Saturday.
-            func.dayofweek(RegulationComputation.day) == 2,
-        )
-        if submitter_type:
-            base_query = base_query.filter(
-                RegulationComputation.submitter_type == submitter_type
-            )
-        regulation_computations = base_query.order_by(
-            RegulationComputation.day
-        ).all()
-        regulation_computations_by_day = [
-            RegulationComputationByWeekOutput(
-                start_of_week=start_of_week_,
-                regulation_computations=list(computations_),
-            )
-            for start_of_week_, computations_ in groupby(
-                regulation_computations, lambda x: x.day
-            )
-        ]
-        return regulation_computations_by_day

@@ -67,7 +67,7 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
         return regulation_checks_extended
 
 
-class RegulationComputationByDayOutput(graphene.ObjectType):
+class RegulationComputationByUnitOutput(graphene.ObjectType):
     def __init__(self, day, regulation_computations):
         self.day = day
         self.regulation_computations = regulation_computations
@@ -80,34 +80,7 @@ class RegulationComputationByDayOutput(graphene.ObjectType):
     regulation_computations = graphene.List(
         RegulationComputationOutput,
         description="Liste des résultats de calcul de seuils règlementaires pour ce jour",
-        resolver=lambda root, info: RegulationComputationOutput(
-            unit=UnitType.DAY
-        ),
     )
 
     def __repr__(self):
         return f"Day {self.day} - #{len(self.regulation_computations)}"
-
-
-class RegulationComputationByWeekOutput(graphene.ObjectType):
-    def __init__(self, start_of_week, regulation_computations):
-        self.start_of_week = start_of_week
-        self.regulation_computations = regulation_computations
-
-    start_of_week = graphene.Field(
-        graphene.Date,
-        description="Premier jour de la semaine du groupe",
-    )
-
-    regulation_computations = graphene.List(
-        RegulationComputationOutput,
-        description="Liste des résultats de calcul de seuils règlementaires pour ce jour",
-        resolver=lambda root, info: RegulationComputationOutput(
-            unit=UnitType.WEEK
-        ),
-    )
-
-    def __repr__(self):
-        return (
-            f"Week {self.start_of_week} - #{len(self.regulation_computations)}"
-        )
