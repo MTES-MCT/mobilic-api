@@ -2,7 +2,7 @@ import graphene
 
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
-    RegulationComputationByUnitOutput,
+    RegulationComputationByDayOutput,
 )
 from app.domain.regulation_computations import get_regulation_computations
 from app.helpers.graphene_types import (
@@ -13,7 +13,6 @@ from app.helpers.graphene_types import (
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentOutput
-from app.models.regulation_check import UnitType
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -52,17 +51,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Date de début de l'historique pouvant être contrôlé",
     )
 
-    regulation_computations_by_unit = graphene.List(
-        RegulationComputationByUnitOutput,
+    regulation_computations_by_day = graphene.List(
+        RegulationComputationByDayOutput,
         submitter_type=graphene_enum_type(SubmitterType)(
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        unit=graphene_enum_type(UnitType)(
-            required=False,
-            description="Unité de temps pour le groupement des seuils règlementaires",
-        ),
-        description="Résultats de calcul de seuils règlementaires groupés par jour ou par semaine",
+        description="Résultats de calcul de seuils règlementaires groupés par jours",
     )
 
     def resolve_employments(
@@ -94,19 +89,19 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_history_start_date(self, info):
         return self.history_start_date
 
-    def resolve_regulation_computations_by_unit(
-        self, info, unit=UnitType.DAY, submitter_type=None
+    def resolve_regulation_computations_by_day(
+        self, info, submitter_type=None
     ):
-        regulation_computations_by_unit = get_regulation_computations(
+        regulation_computations_by_day = get_regulation_computations(
             user_id=self.user.id,
             start_date=self.history_start_date,
             end_date=self.history_end_date,
             submitter_type=submitter_type,
-            grouped_by_unit=unit,
+            grouped_by_day=True,
         )
         return [
-            RegulationComputationByUnitOutput(
+            RegulationComputationByDayOutput(
                 day=day_, regulation_computations=computations_
             )
-            for day_, computations_ in regulation_computations_by_unit.items()
+            for day_, computations_ in regulation_computations_by_day.items()
         ]

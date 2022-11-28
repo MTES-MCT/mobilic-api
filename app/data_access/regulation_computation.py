@@ -67,7 +67,7 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
         return regulation_checks_extended
 
 
-class RegulationComputationByUnitOutput(graphene.ObjectType):
+class RegulationComputationByDayOutput(graphene.ObjectType):
     def __init__(self, day, regulation_computations):
         self.day = day
         self.regulation_computations = regulation_computations

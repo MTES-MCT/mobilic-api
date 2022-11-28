@@ -216,12 +216,12 @@ class ApiRequests:
               userId
             }
           }
-          regulationComputationsByUnit(unit: "day") {
+          regulationComputationsByDay {
             day
             regulationComputations {
               day
               submitterType
-              regulationChecks(unit: "day") {
+              regulationChecks {
                 type
                 label
                 description
