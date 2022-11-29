@@ -74,7 +74,7 @@ class RegulationComputationByDayOutput(graphene.ObjectType):
 
     day = graphene.Field(
         graphene.Date,
-        description="Journée du groupe",
+        description="Journée pour laquelle les seuils sont calculés (pour les calculs hebdomadaires, il s'agit du premier jour de la semaine en considérant qu'elle commence le lundi)",
     )
 
     regulation_computations = graphene.List(
