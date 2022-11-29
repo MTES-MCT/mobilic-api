@@ -252,13 +252,3 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-
-    # with AuthenticatedUserContext(user=admin):
-    #     validate_mission(
-    #         submitter=admin,
-    #         mission=history_mission,
-    #         for_user=employee,
-    #     )
-    # db.session.commit()
-
-    # db.session.commit()
