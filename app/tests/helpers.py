@@ -406,7 +406,6 @@ def make_authenticated_request(
                 mock_authentication_with_user=authenticated_user,
                 variables=formatted_variables,
             )
-    print(response.json)
     db.session.rollback()
 
     if request_should_fail_with:
