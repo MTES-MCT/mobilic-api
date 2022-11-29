@@ -57,7 +57,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        description="Résultats de calcul de seuils règlementaires groupés par jours",
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_employments(
