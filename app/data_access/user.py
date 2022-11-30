@@ -160,11 +160,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        from_date=TimeStamp(
+        from_date=graphene.Date(
             required=False,
             description="Date de début de l'historique des alertes",
         ),
-        to_date=TimeStamp(
+        to_date=graphene.Date(
             required=False,
             description="Date de fin de l'historique des alertes",
         ),
