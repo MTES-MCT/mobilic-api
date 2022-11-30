@@ -1,30 +1,40 @@
-import graphene
 from datetime import date, datetime
+
+import graphene
 from sqlalchemy import desc, or_, and_
 
+from app.data_access.activity import ActivityConnection
 from app.data_access.mission import MissionConnection
+from app.data_access.regulation_computation import (
+    RegulationComputationByDayOutput,
+)
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
 )
+from app.domain.regulation_computations import get_regulation_computations
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.authorization import (
     with_authorization_policy,
 )
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    TimeStamp,
+    graphene_enum_type,
+)
 from app.helpers.pagination import (
     paginate_query,
     parse_datetime_plus_id_cursor,
     to_connection,
 )
+from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import (
     get_max_datetime,
     get_min_datetime,
     max_or_none,
     min_or_none,
 )
-from app.models import User, Company, Activity, Mission
-from app.data_access.activity import ActivityConnection
+from app.models import User, Company, Activity
 from app.models.employment import EmploymentOutput
 
 
@@ -142,6 +152,19 @@ class UserOutput(BaseSQLAlchemyObjectType):
     disabled_warnings = graphene.List(
         graphene.String,
         description="Liste des avertissements que l'utilisateur a demandé à masquer dans son interface.",
+    )
+
+    regulation_computations_by_day = graphene.List(
+        lambda: RegulationComputationByDayOutput,
+        submitter_type=graphene_enum_type(SubmitterType)(
+            required=False,
+            description="Version utilisée pour le calcul des dépassements de seuil",
+        ),
+        from_date=TimeStamp(
+            required=False,
+            description="Date de début de l'historique des alertes",
+        ),
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     @user_resolver_with_consultation_scope(
@@ -356,6 +379,29 @@ class UserOutput(BaseSQLAlchemyObjectType):
             if self.france_connect_info
             else None
         )
+
+    @user_resolver_with_consultation_scope(
+        error_message="Forbidden access to field 'regulation_computations_by_day' of user object. The field is only accessible to the user himself of company admins."
+    )
+    def resolve_regulation_computations_by_day(
+        self, info, consultation_scope, submitter_type=None, from_date=None
+    ):
+        from_date = max_or_none(
+            from_date, consultation_scope.user_data_min_date
+        )
+
+        regulation_computations_by_day = get_regulation_computations(
+            user_id=self.id,
+            start_date=from_date,
+            submitter_type=submitter_type,
+            grouped_by_day=True,
+        )
+        return [
+            RegulationComputationByDayOutput(
+                day=day_, regulation_computations=computations_
+            )
+            for day_, computations_ in regulation_computations_by_day.items()
+        ]
 
 
 from app.data_access.company import CompanyOutput
