@@ -164,6 +164,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Date de début de l'historique des alertes",
         ),
+        to_date=TimeStamp(
+            required=False,
+            description="Date de fin de l'historique des alertes",
+        ),
         description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
@@ -384,15 +388,22 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'regulation_computations_by_day' of user object. The field is only accessible to the user himself of company admins."
     )
     def resolve_regulation_computations_by_day(
-        self, info, consultation_scope, submitter_type=None, from_date=None
+        self,
+        info,
+        consultation_scope,
+        submitter_type=None,
+        from_date=None,
+        to_date=None,
     ):
         from_date = max_or_none(
             from_date, consultation_scope.user_data_min_date
         )
+        to_date = min_or_none(to_date, consultation_scope.user_data_max_date)
 
         regulation_computations_by_day = get_regulation_computations(
             user_id=self.id,
             start_date=from_date,
+            end_date=to_date,
             submitter_type=submitter_type,
             grouped_by_day=True,
         )
