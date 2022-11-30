@@ -4,13 +4,19 @@ from app.models import RegulationComputation
 
 
 def get_regulation_computations(
-    user_id, start_date, end_date, submitter_type=None, grouped_by_day=False
+    user_id,
+    start_date=None,
+    end_date=None,
+    submitter_type=None,
+    grouped_by_day=False,
 ):
     base_query = RegulationComputation.query.filter(
-        RegulationComputation.user_id == user_id,
-        RegulationComputation.day >= start_date,
-        RegulationComputation.day <= end_date,
+        RegulationComputation.user_id == user_id
     )
+    if start_date:
+        base_query = base_query.filter(RegulationComputation.day >= start_date)
+    if end_date:
+        base_query = base_query.filter(RegulationComputation.day <= end_date)
     if submitter_type:
         base_query = base_query.filter(
             RegulationComputation.submitter_type == submitter_type
