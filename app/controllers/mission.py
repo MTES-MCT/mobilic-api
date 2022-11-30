@@ -262,10 +262,10 @@ class ValidateMission(AuthenticatedMutation):
         mission_id = graphene.Int(
             required=True, description="Identifiant de la mission à valider"
         )
-        user_id = graphene.Int(
-            required=False,
-            description="Optionnel, dans le cas d'une validation gestionnaire il est possible de "
-            "restreindre les informations validées à un travailleur spécifique.",
+        users_ids = graphene.List(
+            graphene.Int,
+            required=True,
+            description="Identifiants des utilisateurs dont on veut valider les saisies.",
         )
         creation_time = graphene.Argument(
             TimeStamp,
@@ -288,7 +288,7 @@ class ValidateMission(AuthenticatedMutation):
             description="Optionnel, frais à créer",
         )
 
-    Output = MissionValidationOutput
+    Output = MissionOutput
 
     @classmethod
     @with_authorization_policy(
@@ -303,7 +303,7 @@ class ValidateMission(AuthenticatedMutation):
         _,
         info,
         mission_id,
-        user_id=None,
+        users_ids=None,
         creation_time=None,
         activity_items=[],
         expenditures_cancel_ids=[],
@@ -320,35 +320,34 @@ class ValidateMission(AuthenticatedMutation):
 
             mission = Mission.query.get(mission_id)
 
-            user = None
-            if user_id:
+            for user_id in users_ids:
                 user = User.query.get(user_id)
-                if not user and not company_admin(user, mission.company_id):
+                if not user:
                     raise AuthorizationError(
                         "Actor is not authorized to validate the mission for the user"
                     )
+                mission_validation = validate_mission(
+                    submitter=current_user,
+                    mission=mission,
+                    creation_time=creation_time,
+                    for_user=user,
+                )
+                try:
+                    if mission_validation.is_admin:
+                        if user:
+                            concerned_users = [user]
+                        else:
+                            concerned_users = set(
+                                [a.user for a in mission.activities]
+                            )
+                        for u in concerned_users:
+                            warn_if_mission_changes_since_latest_user_action(
+                                mission, u
+                            )
+                except Exception as e:
+                    app.logger.exception(e)
 
-            mission_validation = validate_mission(
-                submitter=current_user,
-                mission=mission,
-                creation_time=creation_time,
-                for_user=user,
-            )
-
-        try:
-            if mission_validation.is_admin:
-                if user:
-                    concerned_users = [user]
-                else:
-                    concerned_users = set([a.user for a in mission.activities])
-                for u in concerned_users:
-                    warn_if_mission_changes_since_latest_user_action(
-                        mission, u
-                    )
-        except Exception as e:
-            app.logger.exception(e)
-
-        return mission_validation
+        return mission
 
 
 class UpdateMissionVehicle(AuthenticatedMutation):

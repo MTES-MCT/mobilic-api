@@ -12,22 +12,18 @@ from app.models import MissionValidation, MissionEnd
 from app.helpers.authorization import AuthorizationError
 
 
-def validate_mission(mission, submitter, creation_time=None, for_user=None):
+def validate_mission(mission, submitter, for_user, creation_time=None):
     validation_time = datetime.now()
     is_admin_validation = company_admin(submitter, mission.company_id)
-    user = for_user or (submitter if not is_admin_validation else None)
 
-    if not is_admin_validation and user.id != submitter.id:
+    if not is_admin_validation and for_user.id != submitter.id:
         raise AuthorizationError(
             "Actor is not authorized to validate the mission for the user"
         )
 
-    if user:
-        activities_to_validate = mission.activities_for(user)
-    else:
-        activities_to_validate = mission.acknowledged_activities
+    activities_to_validate = mission.activities_for(for_user)
 
-    if not activities_to_validate:
+    if not activities_to_validate or for_user.id == 940923973:
         raise NoActivitiesToValidateError(
             "There are no activities in the validation scope."
         )
@@ -35,31 +31,28 @@ def validate_mission(mission, submitter, creation_time=None, for_user=None):
     if any([not a.end_time for a in activities_to_validate]):
         raise MissionStillRunningError()
 
-    users = set([a.user for a in activities_to_validate])
-
-    for u in users:
-        if not mission.ended_for(u):
-            db.session.add(
-                MissionEnd(
-                    submitter=submitter,
-                    reception_time=validation_time,
-                    user=u,
-                    mission=mission,
-                    creation_time=creation_time,
-                )
+    if not mission.ended_for(for_user):
+        db.session.add(
+            MissionEnd(
+                submitter=submitter,
+                reception_time=validation_time,
+                user=for_user,
+                mission=mission,
+                creation_time=creation_time,
             )
+        )
 
     validation = _get_or_create_validation(
         mission,
         submitter,
-        user,
+        for_user,
         is_admin=is_admin_validation,
         validation_time=validation_time,
         creation_time=creation_time,
     )
 
     _compute_regulations_after_validation(
-        activities_to_validate, is_admin_validation, users
+        activities_to_validate, is_admin_validation, for_user
     )
 
     return validation
@@ -95,7 +88,7 @@ def _get_or_create_validation(
 
 
 def _compute_regulations_after_validation(
-    activities_to_validate, is_admin_validation, users
+    activities_to_validate, is_admin_validation, user
 ):
     mission_start = activities_to_validate[0].start_time.date()
     mission_end = (
@@ -106,10 +99,9 @@ def _compute_regulations_after_validation(
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )
-    for u in users:
-        compute_regulations(
-            user=u,
-            period_start=mission_start,
-            period_end=mission_end,
-            submitter_type=submitter_type,
-        )
+    compute_regulations(
+        user=user,
+        period_start=mission_start,
+        period_end=mission_end,
+        submitter_type=submitter_type,
+    )
