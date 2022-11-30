@@ -23,7 +23,7 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
 
     activities_to_validate = mission.activities_for(for_user)
 
-    if not activities_to_validate or for_user.id == 940923973:
+    if not activities_to_validate:
         raise NoActivitiesToValidateError(
             "There are no activities in the validation scope."
         )
