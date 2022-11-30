@@ -1,7 +1,6 @@
 import graphene
+
 from app.data_access.regulation_check import RegulationCheckOutput
-from app.data_access.regulatory_alert import RegulatoryAlertOutput
-from app.data_access.user import UserOutput
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
@@ -22,9 +21,9 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
         description="Journée concernée par le calcul de dépassement de seuil (pour les dépassements hebdomadaires, il s'agit du lundi de la semaine)",
     )
 
-    user = graphene.Field(
-        UserOutput,
-        description="Utilisateur concerné par le calcul de dépassement de seuil",
+    user_id = graphene.Field(
+        graphene.Int,
+        description="Identifiant de l'utilisateur concerné par le calcul de dépassement de seuil",
     )
 
     submitter_type = graphene_enum_type(SubmitterType)(
