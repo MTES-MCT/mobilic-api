@@ -215,9 +215,13 @@
                                             height="20pt"
                                             width="20pt"                                    >
                                 </td>
-                                <td class="mission-start-end-info-table-value">
-                                    {{ end_time | format_time(show_dates) }}
-                                </td>
+                                    <td class="mission-start-end-info-table-value">
+                                        {% if end_time %}
+                                            {{ end_time | format_time(show_dates) }}
+                                        {% else %}
+                                            En cours
+                                        {% endif %}
+                                    </td>
                             </tr>
                             <tr>
                                 <td class="mission-start-end-info-table-icon">
@@ -354,7 +358,11 @@
                             <td
                                 align="left"
                             >
-                                {{ activity.end_time | format_time(show_dates) }}
+                                {% if activity.end_time %}
+                                    {{ activity.end_time | format_time(show_dates) }}
+                                {% else %}
+                                    En cours
+                                {% endif %}
                             </td>
                             <td
                             >
