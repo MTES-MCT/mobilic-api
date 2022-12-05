@@ -51,6 +51,10 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         db.String(255), default="Europe/Paris", nullable=False
     )
 
+    way_heard_of_mobilic = db.Column(
+        db.String(255), default=None, nullable=True, index=True
+    )
+
     db.validates("email")(validate_email_field_in_db)
 
     @property
@@ -170,7 +174,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
                 ~Activity.is_dismissed,
                 Activity.start_time < date_time,
                 or_(
-                    Activity.end_time.is_(None), Activity.end_time < date_time
+                    Activity.end_time.is_(None), Activity.end_time <= date_time
                 ),
             )
             .order_by(desc(Activity.start_time))

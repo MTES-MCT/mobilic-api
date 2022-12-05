@@ -312,7 +312,7 @@ COLUMN_EVENT_AUTHOR_STATUS = ExcelColumn(
 )
 COLUMN_EVENT_DESC = ExcelColumn(
     "Description de l'enregistrement",
-    lambda event: event.text(False),
+    lambda event: event.text,
     lambda _: None,
     60,
     light_green_hex,

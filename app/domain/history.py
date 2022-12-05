@@ -37,7 +37,7 @@ class Picto(str, Enum):
     VALIDATION = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHhQTFRFLn0y////9/n6mL+ck7uWL30zSI1LqMmq0uPT2ujbg7KF7/XvM4A33uvfO4U/xdvHh7SJpMamYZ1kj7mRjbeQeqx95/DnUJJUbqVwN4M7WZhcdqp5aaJsrMyuVJVY6/LroMSiwdnCn8OiibWNg7KHWZhdw9nGXZpg6BhrdAAAAqBJREFUeJy92td2qzAQBdABQq827j3l3vz/H2YoXjFBCGmE5ryGaC8wSKMCjmLu5ao6nIIi8/2sCE6HalXeVf8XVC7Kw3MAggTnMF8Gieq9CHhmX0emSPq4yYQut0dqgMSJP0808ZOYiMRbNaHLVsJMImmlQzSpJh/aFBIWugZAEWoh+UWfaHIRv9FC5JrRDIDsqookVKJJooTs1iYGwHo3j0TCDkQnwagL+IuUR1MD4FjKkXfFT1we/12GlIsYqJTTSLTAs+pyjKaQnfFv/ptgN4EYvrvDrMWI0Tc4TiJCrssaANcxkpP7q6lk+Qgh9ruyXP4i4fIGQDhEUsIYNZ8iHSDaY61aqlcktmMAxC+IVl2ik+0vYu1G+lsBC9/6a5Inki7UwYvipz3ysGcAPHpEoaam59YhkU0DIGqR2rgd71Pyx7pFpHMcJcN1Jcq+QfIFDKmSI2La/7aG635PXhAicl7EeJu+4oyIWYkyb0DgwN22AUiU1g0kVtYNJAzGREUDiYN1A4mTdQMJ6husbiBBrIU0DCRo1amOgQRp6NUykJhBvkTfkZ6BhPxxfbnuWNE0kJD+8J9NYx+GBhKyV/hf19xQ0TaQkH6Mm7GibyAh71ZGCsFAYqaD7BXPwEBirqsfKCQDidlB60WhGUjMD7+bZ9NEAwmFQqLuGv9PNAK1kqi/F5rRlkQqxd3GwGiLO6Uy9Y1utGWqWsHtkY29xtTBIxr91EFxEuTRjH4SpDqdo6253TgnpixTbJbFAp5lD5YFHJ6lKJZFNZ7lQZaFTp4lW57FZ5ZldJ4NAZ6tDZ5NGpbtJp6NM54tQJ7NTJ5tWZ4NZodlq9zh2fTnOb7gsBzEcHiOlDgsh2Naxv4xnyYMB5ba2D961cX+IbI+JsfhfgBlqCGe+vgzUwAAAABJRU5ErkJggg=="
 
 
-class LogAction(NamedTuple):
+class UserChange(NamedTuple):
     time: datetime
     submitter: User
     submitter_has_admin_rights: bool
@@ -75,36 +75,69 @@ class LogAction(NamedTuple):
                 return Picto.ACTIVITY_TRANSFER
         return Picto.MODIFICATION
 
-    def text(self, show_dates):
+    def texts(self):
         if self.is_validation:
-            return "a validé la mission"
+            return ["a validé la mission"]
 
         if type(self.resource) is LocationEntry:
             # Only creations
-            return f"a renseigné le lieu de {'début' if self.resource.type == LocationEntryType.MISSION_START_LOCATION else 'fin'} de service : {self.resource.address.format()}"
+            return [
+                f"a indiqué comme lieu de {'début' if self.resource.type == LocationEntryType.MISSION_START_LOCATION else 'fin'} de service : {self.resource.address.format()}"
+            ]
 
         if type(self.resource) is Expenditure:
-            return f"a {'ajouté' if self.type == LogActionType.CREATE else 'supprimé'} le frais {format_expenditure_label(self.resource.type)}"
+            return [
+                f"a {'ajouté' if self.type == LogActionType.CREATE else 'supprimé'} le frais {format_expenditure_label(self.resource.type)}"
+            ]
 
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
                 if self.version.end_time:
-                    return f"a ajouté l'activité {format_activity_type(self.resource.type)} de {format_time(self.version.start_time, show_dates)} à {format_time(self.version.end_time, show_dates)}"
-                return f"s'est mis en {format_activity_type(self.resource.type)} à {format_time(self.version.start_time, show_dates)}"
+                    return [
+                        f"a ajouté l'activité {format_activity_type(self.resource.type)} du {format_time(self.version.start_time, True)} au {format_time(self.version.end_time, True)}"
+                    ]
+                return [
+                    f"s'est mis en {format_activity_type(self.resource.type)} le {format_time(self.version.start_time, True)}"
+                ]
 
             if self.type == LogActionType.DELETE:
-                if self.resource.end_time:
-                    return f"a supprimé l'activité {format_activity_type(self.resource.type)} de {format_time(self.resource.start_time, show_dates)} à {format_time(self.resource.end_time, show_dates)}"
-                return f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée à {format_time(self.resource.start_time, show_dates)}"
+                return [
+                    f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée le {format_time(self.resource.start_time, True)}"
+                ]
 
             previous_version = self.version.previous_version
-            if not self.version.end_time and not previous_version.end_time:
-                return f"a décalé l'heure de début de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, show_dates)} à {format_time(self.version.start_time, show_dates)}"
-            if not self.version.end_time and previous_version.end_time:
-                return f"a repris l'activité {format_activity_type(self.resource.type)}"
-            if self.version.end_time and not previous_version.end_time:
-                return f"a mis fin à l'activité {format_activity_type(self.resource.type)} à {format_time(self.version.end_time, show_dates)}"
-            return f"a modifié la période de l'activité {format_activity_type(self.resource.type)} de {format_time(previous_version.start_time, show_dates)} - {format_time(previous_version.end_time, show_dates)} à {format_time(self.version.start_time, show_dates)} - {format_time(self.version.end_time, show_dates)}"
+            texts = []
+            if self.version.end_time != previous_version.end_time:
+                if not self.version.end_time:
+                    texts.append(
+                        f"a repris l'activité {format_activity_type(self.resource.type)} le {format_time(self.time, True)}"
+                    )
+                elif not previous_version.end_time:
+                    texts.append(
+                        f"a mis fin à l'activité {format_activity_type(self.resource.type)} le {format_time(self.version.end_time, True)}"
+                    )
+                else:
+                    texts.append(
+                        f"a décalé la fin de l'activité {format_activity_type(self.resource.type)} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
+                    )
+
+            if self.version.start_time != previous_version.start_time:
+                texts.append(
+                    f"a décalé le début de l'activité {format_activity_type(self.resource.type)} du {format_time(previous_version.start_time, True)} au {format_time(self.version.start_time, True)}"
+                )
+            return texts
+
+
+class LogAction(NamedTuple):
+    time: datetime
+    submitter: User
+    submitter_has_admin_rights: bool
+    is_after_employee_validation: bool
+    resource: any
+    type: LogActionType
+    text: str
+    picto: str
+    version: any = None
 
 
 def actions_history(
@@ -137,11 +170,11 @@ def actions_history(
 
     user_validation = mission.validation_of(user, max_reception_time)
 
-    actions = []
+    user_changes = []
     for resource in relevant_resources:
         if resource is not None:
-            actions.append(
-                LogAction(
+            user_changes.append(
+                UserChange(
                     time=resource.reception_time,
                     submitter=resource.submitter,
                     submitter_has_admin_rights=resource.submitter.has_admin_rights(
@@ -160,8 +193,8 @@ def actions_history(
             )
 
             if isinstance(resource, Dismissable) and resource.dismissed_at:
-                actions.append(
-                    LogAction(
+                user_changes.append(
+                    UserChange(
                         time=resource.dismissed_at,
                         submitter=resource.dismiss_author,
                         submitter_has_admin_rights=resource.dismiss_author.has_admin_rights(
@@ -185,8 +218,8 @@ def actions_history(
                     if v.version_number > 1
                 ]
                 for revision in revisions:
-                    actions.append(
-                        LogAction(
+                    user_changes.append(
+                        UserChange(
                             time=revision.reception_time,
                             submitter=revision.submitter,
                             submitter_has_admin_rights=revision.submitter.has_admin_rights(
@@ -203,5 +236,24 @@ def actions_history(
                     )
 
     if not show_history_before_employee_validation:
-        actions = [a for a in actions if a.is_after_employee_validation]
+        user_changes = [
+            a for a in user_changes if a.is_after_employee_validation
+        ]
+
+    actions = []
+    for user_change in user_changes:
+        for text in user_change.texts():
+            actions.append(
+                LogAction(
+                    time=user_change.time,
+                    submitter=user_change.submitter,
+                    submitter_has_admin_rights=user_change.submitter_has_admin_rights,
+                    resource=user_change.resource,
+                    type=user_change.type,
+                    is_after_employee_validation=user_change.is_after_employee_validation,
+                    version=user_change.version,
+                    text=text,
+                    picto=user_change.picto(),
+                )
+            )
     return sorted(actions, key=lambda a: (a.time, a.type))
