@@ -101,10 +101,6 @@ class UserChange(NamedTuple):
                 ]
 
             if self.type == LogActionType.DELETE:
-                if self.resource.end_time:
-                    return [
-                        f"a supprimé l'activité {format_activity_type(self.resource.type)} du {format_time(self.resource.start_time, True)} au {format_time(self.resource.end_time, True)}"
-                    ]
                 return [
                     f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée le {format_time(self.resource.start_time, True)}"
                 ]
@@ -114,7 +110,7 @@ class UserChange(NamedTuple):
             if self.version.end_time != previous_version.end_time:
                 if not self.version.end_time:
                     texts.append(
-                        f"a repris l'activité {format_activity_type(self.resource.type)}"
+                        f"a repris l'activité {format_activity_type(self.resource.type)} le {format_time(self.time, True)}"
                     )
                 elif not previous_version.end_time:
                     texts.append(
