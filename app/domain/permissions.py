@@ -205,6 +205,22 @@ def check_actor_can_write_on_mission_for_user(actor, mission_user_tuple):
     )
 
 
+def check_actor_can_edit_activity(actor, activity):
+    return activity and (
+        actor.id == activity.submitter_id or actor.id == activity.user_id
+    )
+
+
+def check_actor_can_log_without_mission_validation(actor, mission_user_tuple):
+    mission = mission_user_tuple.get("mission")
+    user = mission_user_tuple.get("user")
+    return (
+        mission
+        and user
+        and (actor.id == mission.submitter_id or actor.id == user.id)
+    )
+
+
 def check_actor_can_write_on_mission(actor, mission, for_user=None, at=None):
     return check_actor_can_write_on_mission_over_period(
         actor, mission, for_user, start=at, end=at
