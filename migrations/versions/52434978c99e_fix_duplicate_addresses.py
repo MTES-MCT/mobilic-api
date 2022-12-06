@@ -24,7 +24,7 @@ def upgrade():
 
         UPDATE address a SET new_address_id = r.new_address_id
         FROM (
-          SELECT geo_api_id, min(id) AS new_address_id FROM address 
+          SELECT geo_api_id, max(id) AS new_address_id FROM address 
           WHERE geo_api_id IS NOT NULL 
           GROUP BY geo_api_id 
           HAVING COUNT(*) > 1
@@ -80,6 +80,9 @@ def upgrade():
         ALTER TABLE company_known_address
         DROP COLUMN new_address_id,
         DROP COLUMN new_company_known_address_id;
+
+        REINDEX TABLE address;
+        REINDEX TABLE company_known_address;
         """
     )
 
