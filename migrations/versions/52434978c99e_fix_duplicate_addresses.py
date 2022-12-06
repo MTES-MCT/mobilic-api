@@ -19,68 +19,68 @@ depends_on = None
 def upgrade():
     op.execute(
         """
-      alter table address 
-      add column new_address_id int4;
+        ALTER TABLE address 
+        ADD COLUMN new_address_id int4;
 
-      update address a set new_address_id = r.new_address_id
-      from (
-        select geo_api_id, min(id) as new_address_id from address 
-        where geo_api_id is not null 
-        group by geo_api_id 
-        having count(*) > 1
-      ) as r 
-      where a.geo_api_id is not null 
-      and a.geo_api_id = r.geo_api_id
-      and a.id <> r.new_address_id;
+        UPDATE address a SET new_address_id = r.new_address_id
+        FROM (
+          SELECT geo_api_id, min(id) AS new_address_id FROM address 
+          WHERE geo_api_id IS NOT NULL 
+          GROUP BY geo_api_id 
+          HAVING COUNT(*) > 1
+        ) AS r 
+        WHERE a.geo_api_id IS NOT NULL 
+        AND a.geo_api_id = r.geo_api_id
+        AND a.id <> r.new_address_id;
 
-      alter table company_known_address
-      add column new_address_id int4,
-      add column new_company_known_address_id int4;
+        ALTER TABLE company_known_address
+        ADD COLUMN new_address_id int4,
+        ADD COLUMN new_company_known_address_id int4;
 
-      update company_known_address set new_address_id = a.new_address_id
-      from address a 
-      where a.id = address_id and a.new_address_id is not null;
+        UPDATE company_known_address SET new_address_id = a.new_address_id
+        FROM address a 
+        WHERE a.id = address_id AND a.new_address_id IS NOT NULL;
 
-      update company_known_address set new_address_id = address_id 
-      where new_address_id is null;
+        UPDATE company_known_address SET new_address_id = address_id 
+        WHERE new_address_id IS NULL;
 
-      update company_known_address cka set new_company_known_address_id = r.new_company_known_address_id
-      from (
-      select company_id, new_address_id, max(id) as new_company_known_address_id from company_known_address 
-      group by company_id, new_address_id 
-      having count(*) > 1
-      ) as r 
-      where cka.new_address_id = r.new_address_id
-      and cka.company_id = r.company_id
-      and r.new_company_known_address_id <> cka.id;
+        UPDATE company_known_address cka SET new_company_known_address_id = r.new_company_known_address_id
+        FROM (
+        SELECT company_id, new_address_id, max(id) AS new_company_known_address_id FROM company_known_address 
+        GROUP BY company_id, new_address_id 
+        HAVING COUNT(*) > 1
+        ) AS r 
+        WHERE cka.new_address_id = r.new_address_id
+        AND cka.company_id = r.company_id
+        AND r.new_company_known_address_id <> cka.id;
 
-      update location_entry set address_id = a.new_address_id
-      from address a 
-      where a.id = address_id 
-      and a.new_address_id is not null;
+        UPDATE location_entry SET address_id = a.new_address_id
+        FROM address a 
+        WHERE a.id = address_id 
+        AND a.new_address_id IS NOT NULL;
 
-      update location_entry set company_known_address_id  = cka.new_company_known_address_id
-      from company_known_address cka 
-      where cka.id = company_known_address_id 
-      and cka.new_company_known_address_id is not null 
-      and cka.new_company_known_address_id <> company_known_address_id;
+        UPDATE location_entry SET company_known_address_id  = cka.new_company_known_address_id
+        FROM company_known_address cka 
+        WHERE cka.id = company_known_address_id 
+        AND cka.new_company_known_address_id IS NOT NULL 
+        AND cka.new_company_known_address_id <> company_known_address_id;
 
-      delete from company_known_address 
-      where new_company_known_address_id is not null;
+        DELETE FROM company_known_address 
+        WHERE new_company_known_address_id IS NOT NULL;
 
-      update company_known_address set address_id = new_address_id 
-      where new_address_id <> address_id;
+        UPDATE company_known_address SET address_id = new_address_id 
+        WHERE new_address_id <> address_id;
 
-      delete from address 
-      where new_address_id is not null;
+        DELETE FROM address 
+        WHERE new_address_id IS NOT NULL;
 
-      alter table address 
-      drop column new_address_id;
+        ALTER TABLE address 
+        DROP COLUMN new_address_id;
 
-      alter table company_known_address
-      drop column new_address_id,
-      drop column new_company_known_address_id;
-      """
+        ALTER TABLE company_known_address
+        DROP COLUMN new_address_id,
+        DROP COLUMN new_company_known_address_id;
+        """
     )
 
 
