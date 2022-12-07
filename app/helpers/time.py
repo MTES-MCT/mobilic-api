@@ -125,3 +125,25 @@ def get_first_day_of_week(day):
 def get_last_day_of_week(day):
     day_of_week = day.weekday()
     return day + datetime.timedelta(days=SUNDAY_WEEKDAY - day_of_week)
+
+
+# array_datetime: a list of datetime [d1, d2, d3, ..., dn]
+# return: [[s_0, e_0], [s_1, e_1], ..., [s_n, e_n]] a list of date ranges covering the input dates
+def get_uninterrupted_datetime_ranges(array_datetime):
+    if len(array_datetime) == 0:
+        return []
+
+    array_datetime.sort()
+
+    ranges = []
+    tmp_start = array_datetime[0]
+    tmp_date = array_datetime[0]
+    for d in array_datetime[1::]:
+        is_day_following = (d - tmp_date).days == 1
+        if not is_day_following:
+            ranges.append([tmp_start, tmp_date])
+            tmp_start = d
+        tmp_date = d
+
+    ranges.append([tmp_start, tmp_date])
+    return ranges
