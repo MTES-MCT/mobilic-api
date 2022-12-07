@@ -102,6 +102,15 @@ def clean_current_alerts(
         ),
     ).delete(synchronize_session=False)
 
+    ## Delete RegulationComputations on day where we delete alerts
+    ## Should we do the same on week_period_start ?
+    db.session.query(RegulationComputation).filter(
+        RegulationComputation.user == user,
+        RegulationComputation.submitter_type == submitter_type,
+        RegulationComputation.day >= day_compute_start,
+        RegulationComputation.day <= day_compute_end,
+    ).delete(synchronize_session=False)
+
 
 # Inspired from app/helpers/pdf/work_days.py _generate_work_days_pdf
 def group_user_events_by_week(
