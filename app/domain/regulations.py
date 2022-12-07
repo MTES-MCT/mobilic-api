@@ -11,6 +11,7 @@ from app.helpers.time import (
     get_first_day_of_week,
     get_last_day_of_week,
     to_datetime,
+    get_uninterrupted_datetime_ranges,
 )
 from app.models import RegulationCheck
 from app.models.regulation_check import UnitType
@@ -202,21 +203,66 @@ def compute_weekly_rest_duration(week, tz):
 
 
 def compute_regulation_for_user(user):
+    ## on pourrait ajouter un PERIOD_START et un period_END
+
+    ## Determine period start and end to clear previous alerts
     first_user_activity = user.first_activity_after(None)
-    if first_user_activity:
-        today = date.today()
-        last_user_activity = user.latest_activity_before(to_datetime(today))
-        period_start = first_user_activity.start_time.date()
-        period_end = (
-            last_user_activity.end_time.date()
-            if last_user_activity.end_time
-            else today
-        )
+    today = date.today()
+    last_user_activity = user.latest_activity_before(to_datetime(today))
+    period_start = first_user_activity.start_time.date()
+    period_end = (
+        last_user_activity.end_time.date()
+        if last_user_activity.end_time
+        else today
+    )
+    period_start = period_start - timedelta(days=1)
+    week_period_start = get_first_day_of_week(period_start)
+    week_period_end = get_last_day_of_week(period_end)
+
+    ## ADMIN
+    clean_current_alerts(
+        user,
+        period_start,
+        period_end,
+        week_period_start,
+        week_period_end,
+        SubmitterType.ADMIN,
+    )
+    (admin_work_days, _) = group_user_events_by_day_with_limit(
+        user=user,
+        include_dismissed_or_empty_days=False,
+        only_missions_validated_by_admin=True,
+        only_missions_validated_by_user=False,
+    )
+    admin_ranges = get_uninterrupted_datetime_ranges(
+        [wd.day for wd in admin_work_days]
+    )
+    for admin_range in admin_ranges:
         compute_regulations(
-            user, period_start, period_end, SubmitterType.ADMIN
+            user, admin_range[0], admin_range[1], SubmitterType.ADMIN
         )
+
+    ## EMPLOYEE
+    clean_current_alerts(
+        user,
+        period_start,
+        period_end,
+        week_period_start,
+        week_period_end,
+        SubmitterType.EMPLOYEE,
+    )
+    (employee_work_days, _) = group_user_events_by_day_with_limit(
+        user=user,
+        include_dismissed_or_empty_days=False,
+        only_missions_validated_by_admin=False,
+        only_missions_validated_by_user=True,
+    )
+    employee_ranges = get_uninterrupted_datetime_ranges(
+        [wd.day for wd in employee_work_days]
+    )
+    for employee_range in employee_ranges:
         compute_regulations(
-            user, period_start, period_end, SubmitterType.EMPLOYEE
+            user, employee_range[0], employee_range[1], SubmitterType.EMPLOYEE
         )
 
 
