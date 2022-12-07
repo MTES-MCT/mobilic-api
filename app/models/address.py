@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.dialects.postgresql import JSONB
 import graphene
 
@@ -50,7 +51,17 @@ class Address(BaseModel):
         for addr in existing_addresses:
             are_addresses_equal = True
             for key, value in properties.items():
-                if value != getattr(addr, key):
+                if key == "coords":
+                    # example:
+                    # value = [2.412745, 47.107928]
+                    # existing_coords = [Decimal('2.412745'), Decimal('47.107928')]
+                    existing_coords = getattr(addr, key)
+                    if not existing_coords[0].compare(
+                        Decimal(value[0])
+                    ) or not existing_coords[1].compare(Decimal(value[1])):
+                        are_addresses_equal = False
+                        break
+                elif value != getattr(addr, key):
                     are_addresses_equal = False
                     break
             if are_addresses_equal:
