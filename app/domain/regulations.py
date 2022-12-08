@@ -194,9 +194,15 @@ def compute_weekly_rest_duration(week, tz):
 
 
 def compute_regulation_for_user(user):
-    ## on pourrait ajouter un PERIOD_START et un period_END
+    # on pourrait ajouter un PERIOD_START et un period_END
 
-    ## Determine period start and end to clear previous alerts
+    #####
+    # CLEAN previous data
+    # This is mainly done to remove wrongly computed data
+    # This could be optional ?
+    ####
+
+    # Determine period start and end to clear previous alerts
     first_user_activity = user.first_activity_after(None)
     today = date.today()
     last_user_activity = user.latest_activity_before(to_datetime(today))
