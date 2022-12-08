@@ -213,7 +213,7 @@ def check_actor_can_edit_activity(actor, activity):
 
 def check_actor_can_log_without_mission_validation(actor, mission_user_tuple):
     mission = mission_user_tuple.get("mission")
-    user = mission_user_tuple.get("user")
+    user = mission_user_tuple.get("user") or actor
     return (
         mission
         and user
