@@ -210,51 +210,45 @@ def compute_regulation_for_user(user):
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
 
-    ## ADMIN
-    clean_current_alerts(
-        user,
-        period_start,
-        period_end,
-        week_period_start,
-        week_period_end,
-        SubmitterType.ADMIN,
-    )
-    (admin_work_days, _) = group_user_events_by_day_with_limit(
-        user=user,
-        include_dismissed_or_empty_days=False,
-        only_missions_validated_by_admin=True,
-        only_missions_validated_by_user=False,
-    )
-    admin_ranges = get_uninterrupted_datetime_ranges(
-        [wd.day for wd in admin_work_days]
-    )
-    for admin_range in admin_ranges:
-        compute_regulations(
-            user, admin_range[0], admin_range[1], SubmitterType.ADMIN
-        )
+    # Maybe we flagged some day as Computed by mistake before ?
+    db.session.query(RegulationComputation).filter(
+        RegulationComputation.user == user,
+        RegulationComputation.day >= period_start,
+        RegulationComputation.day <= period_end,
+    ).delete(synchronize_session=False)
 
-    ## EMPLOYEE
-    clean_current_alerts(
-        user,
-        period_start,
-        period_end,
-        week_period_start,
-        week_period_end,
-        SubmitterType.EMPLOYEE,
-    )
-    (employee_work_days, _) = group_user_events_by_day_with_limit(
-        user=user,
-        include_dismissed_or_empty_days=False,
-        only_missions_validated_by_admin=False,
-        only_missions_validated_by_user=True,
-    )
-    employee_ranges = get_uninterrupted_datetime_ranges(
-        [wd.day for wd in employee_work_days]
-    )
-    for employee_range in employee_ranges:
-        compute_regulations(
-            user, employee_range[0], employee_range[1], SubmitterType.EMPLOYEE
+    # If we don't recompute on same time periods later, some alerts wouldn't be removed
+    for submitter_type in [SubmitterType.ADMIN, SubmitterType.EMPLOYEE]:
+        clean_current_alerts(
+            user,
+            period_start,
+            period_end,
+            week_period_start,
+            week_period_end,
+            submitter_type,
         )
+    ######
+
+    #####
+    # Compute alerts
+    #####
+    for submitter_type in [SubmitterType.ADMIN, SubmitterType.EMPLOYEE]:
+        (work_days, _) = group_user_events_by_day_with_limit(
+            user=user,
+            include_dismissed_or_empty_days=False,
+            only_missions_validated_by_admin=submitter_type
+            == SubmitterType.ADMIN,
+            only_missions_validated_by_user=submitter_type
+            == SubmitterType.EMPLOYEE,
+        )
+        time_ranges = get_uninterrupted_datetime_ranges(
+            [wd.day for wd in work_days]
+        )
+        for time_range in time_ranges:
+            compute_regulations(
+                user, time_range[0], time_range[1], submitter_type
+            )
+    ######
 
 
 def mark_day_as_computed(user, day, submitter_type):
