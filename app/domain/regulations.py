@@ -204,6 +204,10 @@ def compute_regulation_for_user(user):
 
     # Determine period start and end to clear previous alerts
     first_user_activity = user.first_activity_after(None)
+
+    if not first_user_activity:
+        return
+
     today = date.today()
     last_user_activity = user.latest_activity_before(to_datetime(today))
     period_start = first_user_activity.start_time.date()
