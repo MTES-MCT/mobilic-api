@@ -122,7 +122,9 @@ class LogActivity(AuthenticatedMutation):
             "mission": Mission.query.options(
                 selectinload(Mission.activities)
             ).get(kwargs["mission_id"]),
-            "user": User.query.get(kwargs["user_id"]),
+            "user": User.query.get(kwargs["user_id"])
+            if "user_id" in kwargs
+            else None,
         },
         error_message="Actor is not authorized to log in the mission",
     )
