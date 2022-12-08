@@ -573,7 +573,8 @@ class Mailer:
                     )
                 )
                 > 1,
-            )
+            ),
+            _disable_commit=True,
         )
 
     def send_information_email_about_new_mission(
@@ -600,7 +601,8 @@ class Mailer:
                 end_time=end_time,
                 work_duration=timers["total_work"],
                 show_dates=start_time.date() != end_time.date(),
-            )
+            ),
+            _disable_commit=True,
         )
 
     def send_worker_onboarding_first_email(self, user):
