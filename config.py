@@ -97,6 +97,7 @@ class Config:
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
+    API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_live_")
 
 
 class DevConfig(Config):
@@ -107,6 +108,7 @@ class DevConfig(Config):
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get("MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 2)
     )
+    API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_dev_")
 
 
 class StagingConfig(Config):

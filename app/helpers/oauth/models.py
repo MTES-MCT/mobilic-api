@@ -14,6 +14,7 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
     name = db.Column(db.String(255), nullable=False)
     secret = db.Column(db.String(120), nullable=False)
     redirect_uris = db.Column(db.ARRAY(db.String))
+    whitelist_ips = db.Column(db.ARRAY(db.String))
 
     def get_client_id(self):
         return self.id
@@ -113,3 +114,15 @@ class OAuth2AuthorizationCode(BaseModel, OAuth2AuthorizationCodeMixin):
         nullable=False,
     )
     client = db.relationship("OAuth2Client", backref="authorization_codes")
+
+
+class OAuth2ApiKey(BaseModel):
+    __tablename__ = "oauth2_api_key"
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    client = db.relationship("OAuth2Client", backref="client")
+    api_key = db.Column(db.String(255), nullable=False)

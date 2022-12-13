@@ -1,15 +1,18 @@
 import os
+import secrets
 import sys
 from unittest import TestLoader, TextTestRunner
 
 import click
 import progressbar
+from argon2 import PasswordHasher
+
+from app.helpers.oauth.models import OAuth2ApiKey
 from config import TestConfig
 
-from app import app
+from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.regulations import compute_regulation_for_user
-from app.models.mission_validation import MissionValidation
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
@@ -70,3 +73,31 @@ def init_regulation_alerts(part):
         i += 1
         bar.update(i)
     bar.finish()
+
+
+@app.cli.command("create_api_key", with_appcontext=True)
+@click.argument("client_id", type=click.INT)
+def create_api_key(client_id):
+    """
+    Create an API Key for a given OAuth client
+
+    BEWARE : The outputed API KEY will be encrypted in DB, the one that has to be given the client
+    is outputed by this function, and can not be retrieved later.
+
+    """
+
+    token = secrets.token_hex(60)
+    print("*****************************************************************")
+    print("************* TOKEN TO COMMUNICATE TO THE CLIENT ****************")
+    print("*************** DO NOT FORGET TO ADD THE PREFIX *****************")
+    print("*****************************************************************")
+    print(token)
+    print("*****************************************************************")
+    print("*****************************************************************")
+
+    ph = PasswordHasher()
+    token_hash = ph.hash(token)
+
+    db_model = OAuth2ApiKey(client_id=client_id, api_key=token_hash)
+    db.session.add(db_model)
+    db.session.commit()
