@@ -7,7 +7,7 @@ import click
 import progressbar
 from argon2 import PasswordHasher
 
-from app.helpers.oauth.models import OAuth2ApiKey
+from app.helpers.oauth.models import ThirdPartyApiKey
 from config import TestConfig
 
 from app import app, db
@@ -98,6 +98,6 @@ def create_api_key(client_id):
     ph = PasswordHasher()
     token_hash = ph.hash(token)
 
-    db_model = OAuth2ApiKey(client_id=client_id, api_key=token_hash)
+    db_model = ThirdPartyApiKey(client_id=client_id, api_key=token_hash)
     db.session.add(db_model)
     db.session.commit()

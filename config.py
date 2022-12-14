@@ -63,9 +63,6 @@ class Config:
     JWT_IDENTITY_CLAIM = "identity"
     SESSION_COOKIE_LIFETIME = timedelta(days=365)
     RESET_PASSWORD_TOKEN_EXPIRATION = timedelta(days=1)
-    INTEGROMAT_COMPANY_SIGNUP_WEBHOOK = os.environ.get(
-        "INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"
-    )
     METABASE_COMPANY_DASHBOARD_BASE_URL = os.environ.get(
         "METABASE_COMPANY_DASHBOARD_BASE_URL",
         "https://metabase.mobilic.beta.gouv.fr/dashboard/3?id=",

@@ -6,6 +6,7 @@ from app.controllers.company import (
     CompaniesSignUp,
     CompanySignUp,
     EditCompanySettings,
+    CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
@@ -96,6 +97,10 @@ class SignUp(graphene.ObjectType):
     company = CompanySignUp.Field()
     companies = CompaniesSignUp.Field()
     redeem_invite = RedeemInvitation.Field()
+
+
+class ProtectedMutation(graphene.ObjectType):
+    company = CompanySoftwareRegistration.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
@@ -203,6 +208,10 @@ graphql_schema = graphene.Schema(
 
 private_graphql_schema = graphene.Schema(
     query=PrivateQueries, mutation=PrivateMutations, types=[AddressOutput]
+)
+
+protected_graphql_schema = graphene.Schema(
+    query=None, mutation=ProtectedMutation
 )
 
 from app.controllers.contacts import *

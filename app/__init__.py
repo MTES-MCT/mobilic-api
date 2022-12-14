@@ -62,7 +62,11 @@ Migrate(app, db)
 CORS(app)
 
 from app.helpers.graphql import CustomGraphQLView
-from app.controllers import graphql_schema, private_graphql_schema
+from app.controllers import (
+    graphql_schema,
+    private_graphql_schema,
+    protected_graphql_schema,
+)
 from app.helpers import logging
 
 from . import commands
@@ -76,6 +80,7 @@ def configure_app():
 
 graphql_api_path = "/graphql"
 graphql_private_api_path = "/unexposed"
+graphql_protected_api_path = "/protected"
 
 
 app.add_url_rule(
@@ -91,6 +96,14 @@ app.add_url_rule(
         "unexposed", schema=private_graphql_schema, graphiql=False
     ),
 )
+
+app.add_url_rule(
+    graphql_protected_api_path,
+    view_func=CustomGraphQLView.as_view(
+        "protected", schema=protected_graphql_schema, graphiql=True
+    ),
+)
+
 
 from app.helpers.oauth import oauth_blueprint
 
