@@ -2,7 +2,6 @@ import time
 from secrets import token_hex
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
-from sqlalchemy.orm import backref
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
@@ -132,6 +131,7 @@ class ThirdPartyApiKey(BaseModel):
 
 class ThirdPartyClientCompany(BaseModel, Dismissable):
     __tablename__ = "third_party_client_company"
+    backref_base_name = "third_party_client_company"
     client_id = db.Column(
         db.Integer,
         db.ForeignKey("oauth2_client.id"),
@@ -144,5 +144,5 @@ class ThirdPartyClientCompany(BaseModel, Dismissable):
         index=True,
         nullable=False,
     )
-    # client = db.relationship("OAuth2Client", backref="accessible_companies")
-    # company = db.relationship("Company", backref="authorized_clients")
+    client = db.relationship("OAuth2Client", backref="accessible_companies")
+    company = db.relationship("Company", backref="authorized_clients")

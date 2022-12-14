@@ -24,6 +24,38 @@ def controller_only(controller_user):
     return isinstance(controller_user, ControllerUser)
 
 
+def with_protected_authorization_policy(
+    authorization_rule,
+    get_target_from_args=None,
+    error_message="Forbidden operation",
+):
+    rule_requires_target = len(signature(authorization_rule).parameters) > 0
+    if rule_requires_target and get_target_from_args is None:
+        raise ValueError(
+            f"The authorization rule {authorization_rule} needs a target to be applied to. "
+            f"You must set exactly get_target_from_args"
+        )
+
+    def decorator(resolver):
+        @wraps(resolver)
+        def decorated_resolver(*args, **kwargs):
+            if not rule_requires_target and not authorization_rule():
+                raise AuthorizationError(error_message)
+            elif rule_requires_target and get_target_from_args:
+                try:
+                    target = get_target_from_args(*args, **kwargs)
+                except:
+                    raise AuthorizationError(error_message)
+                if not authorization_rule(target):
+                    raise AuthorizationError(error_message)
+
+            return resolver(*args, **kwargs)
+
+        return decorated_resolver
+
+    return decorator
+
+
 def with_authorization_policy(
     authorization_rule,
     get_target_from_args=None,

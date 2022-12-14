@@ -1,7 +1,6 @@
 from enum import Enum
 
 from app import db
-from app.helpers.oauth.models import ThirdPartyClientCompany
 from app.models import Company
 
 
@@ -30,6 +29,8 @@ def get_siren_registration_status(siren):
 
 
 def link_company_to_software(company_id, client_id):
+    from app.helpers.oauth.models import ThirdPartyClientCompany
+
     existing_link = ThirdPartyClientCompany.query.filter(
         ThirdPartyClientCompany.company_id == company_id,
         ThirdPartyClientCompany.client_id == client_id,

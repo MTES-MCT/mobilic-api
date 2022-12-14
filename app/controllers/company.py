@@ -35,6 +35,7 @@ from app.helpers.authentication import (
 from app.helpers.authorization import (
     with_authorization_policy,
     current_user,
+    with_protected_authorization_policy,
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
@@ -68,7 +69,7 @@ class CompanySoftwareRegistration(ProtectedMutation):
     """
 
     class Arguments:
-        client_id = graphene.String(
+        client_id = graphene.Int(
             required=True, description="Client id du logiciel"
         )
         usual_name = graphene.String(
@@ -84,16 +85,16 @@ class CompanySoftwareRegistration(ProtectedMutation):
     Output = CompanyOutput
 
     @classmethod
-    @with_authorization_policy(
+    @with_protected_authorization_policy(
         authorization_rule=check_protected_client_id,
         get_target_from_args=lambda *args, **kwargs: kwargs["client_id"],
         error_message="You do not have access to the provided client id",
     )
-    def mutate(cls, _, info, client_id, usual_name, siren, siret):
+    def mutate(cls, _, info, client_id, usual_name, siren, siret=None):
         with atomic_transaction(commit_at_end=True):
             company = create_company_by_third_party(usual_name, siren, siret)
             link_company_to_software(company.id, client_id)
-            return company
+        return company
 
 
 class CompanySignUp(AuthenticatedMutation):
@@ -170,25 +171,14 @@ def sign_up_companies(siren, companies):
 
 
 def create_company_by_third_party(usual_name, siren, siret):
-    query = Company.query.filter(Company.siren == siren)
-    if siret:
-        query.filter(Company.short_sirets.any(siret))
-    existing_company = query.one_or_none()
-    if existing_company:
-        raise SiretAlreadySignedUpError()
-    created_company = store_company(siren, list(siret), usual_name)
+    created_company = store_company(
+        siren, [siret] if siret else None, usual_name
+    )
     return created_company
 
 
 def sign_up_company(usual_name, siren, sirets=[], send_email=True):
     with atomic_transaction(commit_at_end=True):
-        registration_status, _ = get_siren_registration_status(siren)
-
-        if (
-            registration_status != SirenRegistrationStatus.UNREGISTERED
-            and not sirets
-        ):
-            raise SirenAlreadySignedUpError()
         company = store_company(siren, sirets, usual_name)
 
         now = datetime.now()
@@ -241,6 +231,13 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
 
 
 def store_company(siren, sirets, usual_name):
+    registration_status, _ = get_siren_registration_status(siren)
+
+    if (
+        registration_status != SirenRegistrationStatus.UNREGISTERED
+        and not sirets
+    ):
+        raise SirenAlreadySignedUpError()
     siren_api_info = None
     try:
         siren_api_info = siren_api_client.get_siren_info(siren)

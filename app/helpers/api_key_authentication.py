@@ -6,7 +6,6 @@ from flask import request
 
 from app import app
 from app.helpers.errors import AuthenticationError
-from app.helpers.oauth.models import ThirdPartyApiKey
 
 
 def require_api_key_decorator(func):
@@ -14,14 +13,18 @@ def require_api_key_decorator(func):
     def inner(*args, **kwargs):
         if not check_api_key():
             raise AuthenticationError("Invalid API Key")
-        func(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return inner
 
 
 def check_api_key():
+    from app.helpers.oauth.models import ThirdPartyApiKey
+
     api_key_parameter = request.headers.get("X-API-KEY")
     client_id = request.headers.get("X-CLIENT_ID")
+    if not api_key_parameter or not client_id:
+        return False
     api_key_prefix = api_key_parameter[0 : len(app.config["API_KEY_PREFIX"])]
     api_key = api_key_parameter[len(app.config["API_KEY_PREFIX"]) :]
     if (
@@ -46,6 +49,6 @@ class ProtectedMutation(graphene.Mutation, abstract=True):
         super(ProtectedMutation, cls).__init_subclass__(**kwargs)
 
 
-def check_protected_client_id(_, client_id):
+def check_protected_client_id(client_id):
     request_client_id = request.headers.get("X-CLIENT_ID")
-    return client_id == request_client_id
+    return str(client_id) == str(request_client_id)
