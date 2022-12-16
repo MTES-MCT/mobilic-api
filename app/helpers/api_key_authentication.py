@@ -39,7 +39,7 @@ def check_api_key():
         for db_api_key in db_api_keys:
             if ph.verify(db_api_key.api_key, api_key):
                 return True
-    raise False
+    return False
 
 
 class ProtectedMutation(graphene.Mutation, abstract=True):
