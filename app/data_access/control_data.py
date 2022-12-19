@@ -1,7 +1,10 @@
 import graphene
 
 from app.data_access.mission import MissionOutput
-from app.data_access.regulation_computation import RegulationComputationOutput
+from app.data_access.regulation_computation import (
+    RegulationComputationByDayOutput,
+)
+from app.domain.regulation_computations import get_regulation_computations
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -10,7 +13,6 @@ from app.helpers.graphene_types import (
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentOutput
-from app.models.regulation_computation import RegulationComputation
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -49,13 +51,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Date de début de l'historique pouvant être contrôlé",
     )
 
-    regulation_computations = graphene.List(
-        RegulationComputationOutput,
+    regulation_computations_by_day = graphene.List(
+        RegulationComputationByDayOutput,
         submitter_type=graphene_enum_type(SubmitterType)(
             required=False,
             description="Version utilisée pour le calcul des dépassements de seuil",
         ),
-        description="Résultats de calcul de seuils règlementaires",
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_employments(
@@ -87,14 +89,19 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_history_start_date(self, info):
         return self.history_start_date
 
-    def resolve_regulation_computations(self, info, submitter_type=None):
-        base_query = RegulationComputation.query.filter(
-            RegulationComputation.user_id == self.user.id,
-            RegulationComputation.day >= self.history_start_date,
-            RegulationComputation.day <= self.history_end_date,
+    def resolve_regulation_computations_by_day(
+        self, info, submitter_type=None
+    ):
+        regulation_computations_by_day = get_regulation_computations(
+            user_id=self.user.id,
+            start_date=self.history_start_date,
+            end_date=self.history_end_date,
+            submitter_type=submitter_type,
+            grouped_by_day=True,
         )
-        if submitter_type:
-            base_query = base_query.filter(
-                RegulationComputation.submitter_type == submitter_type
+        return [
+            RegulationComputationByDayOutput(
+                day=day_, regulation_computations=computations_
             )
-        return base_query.order_by(RegulationComputation.day).all()
+            for day_, computations_ in regulation_computations_by_day.items()
+        ]

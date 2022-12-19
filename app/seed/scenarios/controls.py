@@ -61,7 +61,7 @@ def run_scenario_controls():
             has_admin_rights=False,
         )
 
-    for days_ago in range(30, -1, -1):
+    for days_ago in range(3, -1, -1):
         for e in employees:
             temp_mission = Mission(
                 name=f"Mission",
