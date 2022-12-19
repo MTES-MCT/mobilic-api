@@ -24,8 +24,13 @@ from app.seed.scenarios.export_excel import (
     ADMIN_EMAIL as ADMIN_EXPORT,
     run_scenario_export_excel,
 )
+from app.seed.scenarios.two_weeks import (
+    ADMIN_EMAIL as ADMIN_TWO_WEEKS,
+    EMPLOYEE_EMAIL as EMPLOYEE_TWO_WEEKS,
+)
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
+from app.seed.scenarios.two_weeks import run_scenario_non_stop
 
 
 @dataclass
@@ -51,6 +56,12 @@ scenarios = [
         f"Creates a company where everybody break rules !",
         [BREACH_EMPLOYEE_EMAIL],
         run_scenario_breach_rules,
+    ),
+    SeedScenario(
+        "Non Stop",
+        "Creates a mission non stop for two weeks",
+        [ADMIN_TWO_WEEKS, EMPLOYEE_TWO_WEEKS],
+        run_scenario_non_stop,
     ),
     SeedScenario(
         "Busy Admin",

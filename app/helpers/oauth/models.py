@@ -51,6 +51,14 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
             name=name, redirect_uris=redirect_uris, secret=token_hex(60)
         )
 
+    def __repr__(self):
+        return "<OAuth2Client [{}] : {}, {}, {}>".format(
+            self.id,
+            self.name,
+            self.secret,
+            self.redirect_uris,
+        )
+
 
 class OAuth2Token(BaseModel, TokenMixin):
     __tablename__ = "oauth2_token"

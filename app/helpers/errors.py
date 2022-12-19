@@ -316,6 +316,12 @@ class MissionLocationAlreadySetError(MobilicError):
     default_should_alert_team = False
 
 
+class CompanyAddressAlreadyRegisteredError(MobilicError):
+    code = "COMPANY_ADDRESS_ALREADY_REGISTERED"
+    default_message = "The address already exists"
+    default_should_alert_team = False
+
+
 CONFLICTING_ROW_ID_RE = re.compile(r", (\d+)\)\.$")
 
 
@@ -381,6 +387,7 @@ CONSTRAINTS_TO_ERRORS_MAP = {
         mission_end=_get_conflicting_mission_end(error)
     ),
     "unique_registration_numbers_among_company": lambda _: VehicleAlreadyRegisteredError(),
+    "only_one_entry_per_company_and_address": lambda _: CompanyAddressAlreadyRegisteredError(),
 }
 
 

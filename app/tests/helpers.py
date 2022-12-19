@@ -74,6 +74,29 @@ class ApiRequests:
             }
         }
     """
+    log_location = """
+        mutation logLocation(
+            $type: LocationEntryTypeEnum!
+            $missionId: Int!
+            $geoApiData: GenericScalar
+            $manualAddress: String
+        ) {
+            activities {
+                logLocation(
+                    missionId: $missionId
+                    type: $type
+                    geoApiData: $geoApiData
+                    manualAddress: $manualAddress
+                ) {
+                    id
+                    name
+                    alias
+                    postalCode
+                    city
+                }
+            }
+        }
+    """
     create_mission = """
         mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
             activities {

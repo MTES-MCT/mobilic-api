@@ -83,15 +83,16 @@ class CreateCompanyKnownAddress(AuthenticatedMutation):
             raise InvalidParamsError(
                 "Exactly one of geoApiData or manualAddress should be set"
             )
-        company_known_address = CompanyKnownAddress(
-            alias=alias,
-            address=Address.get_or_create(
-                geo_api_data=geo_api_data, manual_address=manual_address
-            ),
-            company_id=company_id,
-        )
-        db.session.add(company_known_address)
-        db.session.commit()
+
+        with atomic_transaction(commit_at_end=True):
+            company_known_address = CompanyKnownAddress(
+                alias=alias,
+                address=Address.get_or_create(
+                    geo_api_data=geo_api_data, manual_address=manual_address
+                ),
+                company_id=company_id,
+            )
+            db.session.add(company_known_address)
         return company_known_address
 
 

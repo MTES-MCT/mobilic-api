@@ -1,21 +1,27 @@
-import graphene
 from datetime import datetime
+
+import graphene
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
 
 from app import db
 from app.controllers.utils import atomic_transaction, Void
-from app.domain.permissions import check_actor_can_write_on_mission_over_period
-from app.helpers.authentication import current_user, AuthenticatedMutation
+from app.data_access.activity import ActivityOutput
 from app.domain.log_activities import log_activity
+from app.domain.permissions import (
+    check_actor_can_write_on_mission_over_period,
+    check_actor_can_edit_activity,
+    check_actor_can_log_without_mission_validation,
+)
+from app.helpers.authentication import current_user, AuthenticatedMutation
+from app.helpers.authorization import (
+    with_authorization_policy,
+    active,
+)
 from app.helpers.errors import (
     AuthorizationError,
     ResourceAlreadyDismissedError,
     InvalidParamsError,
-)
-from app.helpers.authorization import (
-    with_authorization_policy,
-    active,
 )
 from app.helpers.graphene_types import (
     graphene_enum_type,
@@ -23,7 +29,6 @@ from app.helpers.graphene_types import (
 )
 from app.models import User, Mission
 from app.models.activity import Activity, ActivityType
-from app.data_access.activity import ActivityOutput
 
 
 class ActivityLogInput:
@@ -111,6 +116,18 @@ class LogActivity(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
+    @with_authorization_policy(
+        check_actor_can_log_without_mission_validation,
+        get_target_from_args=lambda *args, **kwargs: {
+            "mission": Mission.query.options(
+                selectinload(Mission.activities)
+            ).get(kwargs["mission_id"]),
+            "user": User.query.get(kwargs["user_id"])
+            if "user_id" in kwargs
+            else None,
+        },
+        error_message="Actor is not authorized to log in the mission",
+    )
     def mutate(cls, _, info, **activity_input):
         with atomic_transaction(commit_at_end=True):
             return log_activity_(input=activity_input)
@@ -253,6 +270,13 @@ class CancelActivity(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
+    @with_authorization_policy(
+        check_actor_can_edit_activity,
+        get_target_from_args=lambda *args, **kwargs: Activity.query.get(
+            kwargs["activity_id"]
+        ),
+        error_message="Actor is not authorized to edit the activity",
+    )
     def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
             edit_activity(
@@ -277,6 +301,13 @@ class EditActivity(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
+    @with_authorization_policy(
+        check_actor_can_edit_activity,
+        get_target_from_args=lambda *args, **kwargs: Activity.query.get(
+            kwargs["activity_id"]
+        ),
+        error_message="Actor is not authorized to edit the activity",
+    )
     def mutate(cls, _, info, **edit_input):
         with atomic_transaction(commit_at_end=True):
             if (
