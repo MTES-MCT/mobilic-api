@@ -1,4 +1,5 @@
 import time
+from datetime import datetime
 from secrets import token_hex
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
@@ -146,3 +147,27 @@ class ThirdPartyClientCompany(BaseModel, Dismissable):
     )
     client = db.relationship("OAuth2Client", backref="accessible_companies")
     company = db.relationship("Company", backref="authorized_clients")
+
+
+class ThirdPartyClientEmployment(BaseModel, Dismissable):
+    __tablename__ = "third_party_client_employment"
+    backref_base_name = "third_party_client_employment"
+    employment_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employment.id"),
+        index=True,
+        nullable=False,
+    )
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    access_token = db.Column(db.String(255))
+    invitation_token = db.Column(db.String(255), nullable=False)
+    invitation_token_creation_time = db.Column(
+        DateTimeStoredAsUTC, nullable=False, default=datetime.now
+    )
+    employment = db.relationship("Employment", backref="client_ids")
+    client = db.relationship("OAuth2Client", backref="accessible_employments")

@@ -5,6 +5,26 @@ from app import app, db
 from app.models import User, Employment
 
 
+def create_user_by_third_party_if_needed(
+    email,
+    first_name,
+    last_name,
+    timezone_name=None,
+):
+    existing_user = User.query.filter(User.email == email).one_or_none()
+    if existing_user:
+        return existing_user
+    user = User(
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        timezone_name=timezone_name,
+    )
+    db.session.add(user)
+    db.session.flush()
+    return user
+
+
 def create_user(
     first_name,
     last_name,

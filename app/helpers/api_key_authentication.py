@@ -6,6 +6,14 @@ from flask import request
 
 from app import app
 from app.helpers.errors import AuthenticationError
+from app.helpers.oauth.models import ThirdPartyClientCompany
+
+
+def request_client_id():
+    try:
+        return request.headers.get("X-CLIENT_ID")
+    except Exception as e:
+        return None
 
 
 def require_api_key_decorator(func):
@@ -50,5 +58,13 @@ class ProtectedMutation(graphene.Mutation, abstract=True):
 
 
 def check_protected_client_id(client_id):
-    request_client_id = request.headers.get("X-CLIENT_ID")
-    return str(client_id) == str(request_client_id)
+    return str(client_id) == str(request_client_id())
+
+
+def check_protected_client_id_company_id(company_id):
+    client_company_link = ThirdPartyClientCompany.query.filter(
+        ThirdPartyClientCompany.client_id == request_client_id(),
+        ThirdPartyClientCompany.company_id == company_id,
+        ~ThirdPartyClientCompany.is_dismissed,
+    ).one_or_none()
+    return client_company_link is not None
