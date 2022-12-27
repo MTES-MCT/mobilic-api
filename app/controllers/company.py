@@ -25,7 +25,6 @@ from app.domain.permissions import (
 )
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.api_key_authentication import (
-    ProtectedMutation,
     check_protected_client_id,
 )
 from app.helpers.authentication import (
@@ -39,7 +38,6 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
-    SiretAlreadySignedUpError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
@@ -62,7 +60,7 @@ class CompanySignUpOutput(graphene.ObjectType):
     employment = graphene.Field(EmploymentOutput)
 
 
-class CompanySoftwareRegistration(ProtectedMutation):
+class CompanySoftwareRegistration(graphene.Mutation):
     """
     Enregistrement d'une nouvelle liaison entre un logiciel tiers et une entreprise.
     Si besoin, l'entreprise va être créée.
