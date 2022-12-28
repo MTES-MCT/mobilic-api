@@ -12,6 +12,7 @@ from app.controllers.company import Query as CompanyQuery
 from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentQuery,
     ThirdPartyClientEmploymentOutput,
+    GenerateEmploymentToken,
 )
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
 from app.controllers.controller import Query as ControllerUserQuery
@@ -187,6 +188,8 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_settings = EditCompanySettings.Field()
 
     controller_scan_code = ControllerScanCode.Field()
+
+    generate_employment_token = GenerateEmploymentToken.Field()
 
 
 class Queries(
