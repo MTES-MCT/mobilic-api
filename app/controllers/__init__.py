@@ -6,6 +6,7 @@ from app.controllers.company import (
     CompaniesSignUp,
     CompanySignUp,
     EditCompanySettings,
+    CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
@@ -60,7 +61,7 @@ from app.controllers.vehicle import (
     TerminateVehicle,
 )
 from app.helpers.authentication import Auth, CheckQuery
-from app.models.address import Address, AddressOutput
+from app.models.address import AddressOutput
 
 
 class Activities(graphene.ObjectType):
@@ -96,6 +97,10 @@ class SignUp(graphene.ObjectType):
     company = CompanySignUp.Field()
     companies = CompaniesSignUp.Field()
     redeem_invite = RedeemInvitation.Field()
+
+
+class ProtectedCompanies(graphene.ObjectType):
+    softwareRegistration = CompanySoftwareRegistration.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
@@ -157,6 +162,12 @@ class Mutations(graphene.ObjectType):
     )
 
 
+class ProtectedMutations(graphene.ObjectType):
+    company = graphene.Field(
+        ProtectedCompanies, resolver=lambda root, info: ProtectedCompanies()
+    )
+
+
 class PrivateMutations(graphene.ObjectType):
     auth = graphene.Field(
         PrivateAuth, resolver=lambda root, info: PrivateAuth()
@@ -203,6 +214,10 @@ graphql_schema = graphene.Schema(
 
 private_graphql_schema = graphene.Schema(
     query=PrivateQueries, mutation=PrivateMutations, types=[AddressOutput]
+)
+
+protected_graphql_schema = graphene.Schema(
+    query=None, mutation=ProtectedMutations
 )
 
 from app.controllers.contacts import *

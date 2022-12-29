@@ -15,6 +15,7 @@ from app.data_access.company import CompanyOutput
 from app.domain.company import (
     SirenRegistrationStatus,
     get_siren_registration_status,
+    link_company_to_software,
 )
 from app.domain.permissions import (
     is_employed_by_company_over_period,
@@ -23,6 +24,10 @@ from app.domain.permissions import (
     AuthorizationError,
 )
 from app.domain.work_days import group_user_events_by_day_with_limit
+from app.helpers.api_key_authentication import (
+    ProtectedMutation,
+    check_protected_client_id,
+)
 from app.helpers.authentication import (
     require_auth,
     AuthenticatedMutation,
@@ -30,10 +35,12 @@ from app.helpers.authentication import (
 from app.helpers.authorization import (
     with_authorization_policy,
     current_user,
+    with_protected_authorization_policy,
 )
-from app.helpers.errors import SirenAlreadySignedUpError
+from app.helpers.errors import (
+    SirenAlreadySignedUpError,
+)
 from app.helpers.graphene_types import graphene_enum_type
-from app.helpers.integromat import call_integromat_webhook
 from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
@@ -52,6 +59,41 @@ from app.services.update_companies_spreadsheet import (
 class CompanySignUpOutput(graphene.ObjectType):
     company = graphene.Field(CompanyOutput)
     employment = graphene.Field(EmploymentOutput)
+
+
+class CompanySoftwareRegistration(ProtectedMutation):
+    """
+    Enregistrement d'une nouvelle liaison entre un logiciel tiers et une entreprise.
+    Si besoin, l'entreprise va être créée.
+    """
+
+    class Arguments:
+        client_id = graphene.Int(
+            required=True, description="Client id du logiciel"
+        )
+        usual_name = graphene.String(
+            required=True, description="Nom usuel de l'entreprise"
+        )
+        siren = graphene.String(
+            required=True, description="Numéro SIREN de l'entreprise"
+        )
+        siret = graphene.String(
+            required=False, description="Numéro de Siret de l'établissement"
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_protected_authorization_policy(
+        authorization_rule=check_protected_client_id,
+        get_target_from_args=lambda *args, **kwargs: kwargs["client_id"],
+        error_message="You do not have access to the provided client id",
+    )
+    def mutate(cls, _, info, client_id, usual_name, siren, siret=None):
+        with atomic_transaction(commit_at_end=True):
+            company = create_company_by_third_party(usual_name, siren, siret)
+            link_company_to_software(company.id, client_id)
+        return company
 
 
 class CompanySignUp(AuthenticatedMutation):
@@ -127,52 +169,18 @@ def sign_up_companies(siren, companies):
     return created_companies
 
 
+def create_company_by_third_party(usual_name, siren, siret):
+    created_company = store_company(
+        siren, [siret] if siret else [], usual_name
+    )
+    return created_company
+
+
 def sign_up_company(usual_name, siren, sirets=[], send_email=True):
     with atomic_transaction(commit_at_end=True):
-        siren_api_info = None
-        registration_status, _ = get_siren_registration_status(siren)
-
-        if (
-            registration_status != SirenRegistrationStatus.UNREGISTERED
-            and not sirets
-        ):
-            raise SirenAlreadySignedUpError()
-        try:
-            siren_api_info = siren_api_client.get_siren_info(siren)
-            (
-                legal_unit,
-                open_facilities,
-            ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
-                siren_api_info
-            )
-        except Exception as e:
-            app.logger.warning(
-                f"Could not add SIREN API info for company of SIREN {siren} : {e}"
-            )
-
-        require_kilometer_data = True
-        require_support_activity = False
-        if siren_api_info:
-            # For déménagement companies disable kilometer data by default, and enable support activity
-            if legal_unit.activity_code == "49.42Z":
-                require_kilometer_data = False
-                require_support_activity = True
+        company = store_company(siren, sirets, usual_name)
 
         now = datetime.now()
-        company = Company(
-            usual_name=usual_name,
-            siren=siren,
-            short_sirets=[int(siret[9:]) for siret in sirets],
-            siren_api_info=siren_api_info,
-            allow_team_mode=True,
-            allow_transfers=False,
-            require_kilometer_data=require_kilometer_data,
-            require_support_activity=require_support_activity,
-            require_mission_name=True,
-        )
-        db.session.add(company)
-        db.session.flush()  # Early check for SIRET duplication
-
         admin_employment = Employment(
             user_id=current_user.id,
             company=company,
@@ -209,17 +217,6 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
         except Exception as e:
             app.logger.exception(e)
 
-    if app.config["INTEGROMAT_COMPANY_SIGNUP_WEBHOOK"]:
-        # Call Integromat for Trello card creation
-        try:
-            call_integromat_webhook(
-                company, legal_unit, open_facilities, current_user
-            )
-        except Exception as e:
-            app.logger.warning(
-                f"Creation of Trello card for {company} failed with error : {e}"
-            )
-
     if app.config["GOOGLE_PRIVATE_KEY"]:
         # Add new company to spreadsheet
         try:
@@ -230,6 +227,50 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
             )
 
     return CompanySignUpOutput(company=company, employment=admin_employment)
+
+
+def store_company(siren, sirets, usual_name):
+    registration_status, _ = get_siren_registration_status(siren)
+
+    if (
+        registration_status != SirenRegistrationStatus.UNREGISTERED
+        and not sirets
+    ):
+        raise SirenAlreadySignedUpError()
+    siren_api_info = None
+    try:
+        siren_api_info = siren_api_client.get_siren_info(siren)
+        (
+            legal_unit,
+            open_facilities,
+        ) = siren_api_client.parse_legal_unit_and_open_facilities_info_from_dict(
+            siren_api_info
+        )
+    except Exception as e:
+        app.logger.warning(
+            f"Could not add SIREN API info for company of SIREN {siren} : {e}"
+        )
+    require_kilometer_data = True
+    require_support_activity = False
+    if siren_api_info:
+        # For déménagement companies disable kilometer data by default, and enable support activity
+        if legal_unit.activity_code == "49.42Z":
+            require_kilometer_data = False
+            require_support_activity = True
+    company = Company(
+        usual_name=usual_name,
+        siren=siren,
+        short_sirets=[int(siret[9:]) for siret in sirets],
+        siren_api_info=siren_api_info,
+        allow_team_mode=True,
+        allow_transfers=False,
+        require_kilometer_data=require_kilometer_data,
+        require_support_activity=require_support_activity,
+        require_mission_name=True,
+    )
+    db.session.add(company)
+    db.session.flush()  # Early check for SIRET duplication
+    return company
 
 
 class SirenInfo(graphene.ObjectType):
