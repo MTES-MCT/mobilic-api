@@ -22,7 +22,7 @@ def check_api_key():
     from app.helpers.oauth.models import ThirdPartyApiKey
 
     api_key_parameter = request.headers.get("X-API-KEY")
-    client_id = request.headers.get("X-CLIENT_ID")
+    client_id = request.headers.get("X-CLIENT-ID")
     if not api_key_parameter or not client_id:
         return False
     api_key_prefix = api_key_parameter[0 : len(app.config["API_KEY_PREFIX"])]
@@ -50,5 +50,5 @@ class ProtectedMutation(graphene.Mutation, abstract=True):
 
 
 def check_protected_client_id(client_id):
-    request_client_id = request.headers.get("X-CLIENT_ID")
+    request_client_id = request.headers.get("X-CLIENT-ID")
     return str(client_id) == str(request_client_id)
