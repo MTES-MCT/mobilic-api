@@ -42,6 +42,7 @@ from app.helpers.errors import (
     ActivityExistAfterEmploymentEndDate,
     EmploymentAlreadyTerminated,
 )
+from app.helpers.graphene_types import Email
 from app.helpers.mail import MailjetError
 from app.helpers.oauth.models import ThirdPartyClientEmployment
 from app.models import Company, User
@@ -57,7 +58,7 @@ MAILJET_BATCH_SEND_LIMIT = 50
 
 
 class ThirdPartyEmployee(graphene.InputObjectType):
-    email = graphene.String(required=True, description="Adresse email")
+    email = graphene.Field(Email, required=True, description="Adresse email")
     first_name = graphene.String(required=True, description="Prénom")
     last_name = graphene.String(required=True, description="Nom")
     external_id = graphene.String(
