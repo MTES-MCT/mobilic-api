@@ -11,7 +11,7 @@ from app.helpers.oauth.models import ThirdPartyClientCompany
 
 def request_client_id():
     try:
-        return request.headers.get("X-CLIENT_ID")
+        return request.headers.get("X-CLIENT-ID")
     except Exception as e:
         return None
 
@@ -30,7 +30,7 @@ def check_api_key():
     from app.helpers.oauth.models import ThirdPartyApiKey
 
     api_key_parameter = request.headers.get("X-API-KEY")
-    client_id = request.headers.get("X-CLIENT_ID")
+    client_id = request.headers.get("X-CLIENT-ID")
     if not api_key_parameter or not client_id:
         return False
     api_key_prefix = api_key_parameter[0 : len(app.config["API_KEY_PREFIX"])]
