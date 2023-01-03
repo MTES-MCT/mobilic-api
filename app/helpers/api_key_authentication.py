@@ -50,13 +50,6 @@ def check_api_key():
     return False
 
 
-class ProtectedMutation(graphene.Mutation, abstract=True):
-    @classmethod
-    def __init_subclass__(cls, **kwargs):
-        cls.mutate = require_api_key_decorator(cls.mutate)
-        super(ProtectedMutation, cls).__init_subclass__(**kwargs)
-
-
 def check_protected_client_id(client_id):
     return str(client_id) == str(request_client_id())
 

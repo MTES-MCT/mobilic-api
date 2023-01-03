@@ -16,7 +16,6 @@ from app.domain.third_party_employment import (
 )
 from app.domain.user import create_user_by_third_party_if_needed
 from app.helpers.api_key_authentication import (
-    ProtectedMutation,
     check_protected_client_id_company_id,
     request_client_id,
 )
@@ -61,10 +60,6 @@ class ThirdPartyEmployee(graphene.InputObjectType):
     email = graphene.Field(Email, required=True, description="Adresse email")
     first_name = graphene.String(required=True, description="Prénom")
     last_name = graphene.String(required=True, description="Nom")
-    external_id = graphene.String(
-        required=False,
-        description="Identifiant du salarié dans le logiciel tiers",
-    )
     has_admin_rights = graphene.Argument(
         graphene.Boolean,
         required=False,
@@ -79,7 +74,7 @@ class ThirdPartyEmployee(graphene.InputObjectType):
     )
 
 
-class SyncThirdPartyEmployees(ProtectedMutation):
+class SyncThirdPartyEmployees(graphene.Mutation):
     """
     Permet qu'un logiciel tiers puisse synchroniser sa base salarié avec les employment dans Mobilic.
     Les salariés vont recevoir plusieurs mails :
@@ -122,7 +117,6 @@ class SyncThirdPartyEmployees(ProtectedMutation):
                     company_id,
                     employee.email,
                     employee.has_admin_rights,
-                    employee.external_id,
                 )
 
                 create_third_party_employment_link_if_needed(

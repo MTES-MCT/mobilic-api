@@ -1,6 +1,7 @@
 from inspect import signature
 from functools import wraps
 
+from app.helpers.api_key_authentication import require_api_key_decorator
 from app.helpers.authentication import current_user, require_auth
 from app.helpers.errors import AuthorizationError
 from app.models import ControllerUser
@@ -51,7 +52,7 @@ def with_protected_authorization_policy(
 
             return resolver(*args, **kwargs)
 
-        return decorated_resolver
+        return require_api_key_decorator(decorated_resolver)
 
     return decorator
 
