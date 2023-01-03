@@ -56,6 +56,8 @@ from app.controllers.user import (
     UserSignUp,
 )
 from app.controllers.user_read import Query as UserReadTokenQuery
+from app.controllers.oauth_token import Query as UserOAuthTokenQuery
+from app.controllers.oauth_client import Query as UserOAuthClientQuery
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -204,6 +206,8 @@ class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    UserOAuthTokenQuery,
+    UserOAuthClientQuery,
     ControllerUserQuery,
     graphene.ObjectType,
 ):
