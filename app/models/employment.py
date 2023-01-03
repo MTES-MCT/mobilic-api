@@ -9,6 +9,7 @@ from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
 )
+from app.helpers.oauth.models import OAuth2Client
 from app.helpers.validation import validate_email_field_in_db
 from app.models.event import UserEventBaseModel, Dismissable
 from app.models.utils import enum_column
@@ -105,6 +106,25 @@ class Employment(UserEventBaseModel, Dismissable):
         return max([e.creation_time for e in invite_emails])
 
 
+class OAuth2ClientOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = OAuth2Client
+        only_fields = (
+            "id",
+            "name",
+        )
+
+    id = graphene.Field(
+        graphene.Int, required=True, description="Identifiant du logiciel"
+    )
+
+    name = graphene.Field(
+        graphene.String,
+        required=True,
+        description="Nom du logiciel",
+    )
+
+
 class EmploymentOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Employment
@@ -172,6 +192,19 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Horodatage d'envoi du dernier email d'invitation",
     )
+    authorized_clients = graphene.List(
+        OAuth2ClientOutput,
+        description="Logiciels authorisés à accéder aux données de ce rattachement",
+    )
 
     def resolve_is_acknowledged(self, info):
         return self.is_acknowledged
+
+    # TODO add access rights
+    def resolve_authorized_clients(self, info):
+        return [
+            client_id.client
+            for client_id in self.client_ids
+            if not client_id.is_dismissed
+            and client_id.access_token is not None
+        ]
