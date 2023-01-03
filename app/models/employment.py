@@ -44,7 +44,6 @@ class Employment(UserEventBaseModel, Dismissable):
     )
     email = db.Column(db.String(255), nullable=True)
     invite_token = db.Column(db.String(255), nullable=True, unique=True)
-    external_id = db.Column(db.String(255), nullable=True)
 
     db.validates("email")(validate_email_field_in_db)
 
@@ -123,7 +122,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "has_admin_rights",
             "email",
             "latest_invite_email_time",
-            "external_id",
         )
 
     id = graphene.Field(
@@ -173,10 +171,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         TimeStamp,
         required=False,
         description="Horodatage d'envoi du dernier email d'invitation",
-    )
-    external_id = graphene.Field(
-        graphene.String,
-        description="Identifiant du salarié dans le logiciel tiers",
     )
 
     def resolve_is_acknowledged(self, info):

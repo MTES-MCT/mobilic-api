@@ -60,10 +60,6 @@ class ThirdPartyEmployee(graphene.InputObjectType):
     email = graphene.Field(Email, required=True, description="Adresse email")
     first_name = graphene.String(required=True, description="Prénom")
     last_name = graphene.String(required=True, description="Nom")
-    external_id = graphene.String(
-        required=False,
-        description="Identifiant du salarié dans le logiciel tiers",
-    )
     has_admin_rights = graphene.Argument(
         graphene.Boolean,
         required=False,
@@ -121,7 +117,6 @@ class SyncThirdPartyEmployees(graphene.Mutation):
                     company_id,
                     employee.email,
                     employee.has_admin_rights,
-                    employee.external_id,
                 )
 
                 create_third_party_employment_link_if_needed(
