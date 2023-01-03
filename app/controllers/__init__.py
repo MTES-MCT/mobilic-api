@@ -22,6 +22,7 @@ from app.controllers.employment import (
     SendInvitationReminder,
     TerminateEmployment,
     ValidateEmployment,
+    SyncThirdPartyEmployees,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -101,6 +102,7 @@ class SignUp(graphene.ObjectType):
 
 class ProtectedCompanies(graphene.ObjectType):
     softwareRegistration = CompanySoftwareRegistration.Field()
+    syncEmployees = SyncThirdPartyEmployees.Field()
 
 
 class PrivateAuth(graphene.ObjectType):

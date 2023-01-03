@@ -1,7 +1,9 @@
+import re
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 from graphene.types import DateTime
+from graphql import GraphQLError
 from graphql.language import ast
 from werkzeug.local import LocalProxy
 import datetime
@@ -109,3 +111,19 @@ class BaseSQLAlchemyObjectType(SQLAlchemyObjectType):
         if isinstance(root, LocalProxy):
             return cls.is_type_of(root._get_current_object(), info)
         return super().is_type_of(root, info)
+
+
+def is_valid_email(email):
+    regex_email = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+    if re.fullmatch(regex_email, email):
+        return True
+    return False
+
+
+class Email(graphene.String):
+    @staticmethod
+    def parse_literal(node):
+        if isinstance(node, ast.StringValue):
+            if is_valid_email(node.value):
+                return node.value
+        raise GraphQLError(f"Invalid Email {node.value}")

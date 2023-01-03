@@ -44,6 +44,7 @@ class Employment(UserEventBaseModel, Dismissable):
     )
     email = db.Column(db.String(255), nullable=True)
     invite_token = db.Column(db.String(255), nullable=True, unique=True)
+    external_id = db.Column(db.String(255), nullable=True)
 
     db.validates("email")(validate_email_field_in_db)
 
