@@ -165,7 +165,7 @@ class ThirdPartyClientEmployment(BaseModel, Dismissable):
         nullable=False,
     )
     access_token = db.Column(db.String(255))
-    invitation_token = db.Column(db.String(255), nullable=False)
+    invitation_token = db.Column(db.String(255), nullable=True)
     invitation_token_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=False, default=datetime.now
     )
