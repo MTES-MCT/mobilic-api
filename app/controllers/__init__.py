@@ -9,6 +9,11 @@ from app.controllers.company import (
     CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
+from app.controllers.third_party_employment import (
+    Query as ThirdPartyEmploymentQuery,
+    ThirdPartyClientEmploymentOutput,
+    GenerateEmploymentToken,
+)
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
@@ -104,7 +109,7 @@ class SignUp(graphene.ObjectType):
 
 class ProtectedCompanies(graphene.ObjectType):
     softwareRegistration = CompanySoftwareRegistration.Field()
-    syncEmployees = SyncThirdPartyEmployees.Field()
+    syncEmployment = SyncThirdPartyEmployees.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
@@ -186,6 +191,8 @@ class PrivateMutations(graphene.ObjectType):
 
     controller_scan_code = ControllerScanCode.Field()
 
+    generate_employment_token = GenerateEmploymentToken.Field()
+
 
 class Queries(
     UserQuery,
@@ -199,6 +206,12 @@ class Queries(
     Requêtes de consultation qui ne modifient pas l'état du système
     """
 
+    pass
+
+
+class ProtectedQueries(
+    ThirdPartyEmploymentQuery,
+):
     pass
 
 
@@ -223,7 +236,7 @@ private_graphql_schema = graphene.Schema(
 )
 
 protected_graphql_schema = graphene.Schema(
-    query=None, mutation=ProtectedMutations
+    query=ProtectedQueries, mutation=ProtectedMutations
 )
 
 from app.controllers.contacts import *
