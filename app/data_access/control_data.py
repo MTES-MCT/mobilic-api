@@ -12,7 +12,7 @@ from app.helpers.graphene_types import (
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl
-from app.models.employment import EmploymentOutput
+from app.data_access.employment import EmploymentOutput
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):

@@ -35,7 +35,7 @@ from app.helpers.time import (
     min_or_none,
 )
 from app.models import User, Company, Activity
-from app.models.employment import EmploymentOutput
+from app.data_access.employment import EmploymentOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
