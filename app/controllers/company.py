@@ -77,7 +77,7 @@ class CompanySoftwareRegistration(graphene.Mutation):
             required=True, description="Numéro SIREN de l'entreprise"
         )
         siret = graphene.String(
-            required=False, description="Numéros de Siret de l'établissement"
+            required=False, description="Numéro de Siret de l'établissement"
         )
 
     Output = CompanyOutput
@@ -170,7 +170,7 @@ def sign_up_companies(siren, companies):
 
 def create_company_by_third_party(usual_name, siren, siret):
     created_company = store_company(
-        siren, [siret] if siret else None, usual_name
+        siren, [siret] if siret else [], usual_name
     )
     return created_company
 

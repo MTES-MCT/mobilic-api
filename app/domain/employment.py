@@ -6,7 +6,7 @@ from app.models.employment import EmploymentRequestValidationStatus
 
 
 def create_employment_by_third_party_if_needed(
-    user_id, company_id, email, has_admin_rights, external_id
+    user_id, company_id, email, has_admin_rights
 ):
     existing_employment = Employment.query.filter(
         Employment.user_id == user_id,
@@ -14,7 +14,6 @@ def create_employment_by_third_party_if_needed(
         ~Employment.is_dismissed,
     ).one_or_none()
     if existing_employment:
-        existing_employment.external_id = external_id
         existing_employment.has_admin_rights = has_admin_rights
         return existing_employment
 
@@ -27,7 +26,6 @@ def create_employment_by_third_party_if_needed(
         has_admin_rights=has_admin_rights,
         email=email,
         validation_status=EmploymentRequestValidationStatus.PENDING,
-        external_id=external_id,
     )
     db.session.add(employment)
     db.session.flush()

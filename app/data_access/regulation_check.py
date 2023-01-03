@@ -1,4 +1,6 @@
 import graphene
+
+from app.data_access.regulatory_alert import RegulatoryAlertOutput
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
@@ -46,4 +48,9 @@ class RegulationCheckOutput(BaseSQLAlchemyObjectType):
     unit = graphene_enum_type(UnitType)(
         required=True,
         description="Unité de temps d'application de ce seuil règlementaire",
+    )
+
+    alert = graphene.Field(
+        RegulatoryAlertOutput,
+        description="Alerte remontée par ce calcul",
     )
