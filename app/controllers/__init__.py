@@ -61,8 +61,11 @@ from app.controllers.user import (
     UserSignUp,
 )
 from app.controllers.user_read import Query as UserReadTokenQuery
-from app.controllers.oauth_token import Query as UserOAuthTokenQuery
-from app.controllers.oauth_client import Query as UserOAuthClientQuery
+from app.controllers.oauth_token import (
+    Query as UserOAuthTokenQuery,
+    CreateOauthToken,
+    RevokeOauthToken,
+)
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -193,6 +196,9 @@ class PrivateMutations(graphene.ObjectType):
 
     generate_employment_token = GenerateEmploymentToken.Field()
 
+    create_oauth_token = CreateOauthToken.Field()
+    revoke_oauth_token = RevokeOauthToken.Field()
+
 
 class Queries(
     UserQuery,
@@ -220,7 +226,6 @@ class PrivateQueries(
     GetInvitation,
     UserReadTokenQuery,
     UserOAuthTokenQuery,
-    UserOAuthClientQuery,
     ControllerUserQuery,
     graphene.ObjectType,
 ):
