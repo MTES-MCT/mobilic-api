@@ -1,16 +1,11 @@
-from enum import Enum
 from datetime import datetime
-import graphene
+from enum import Enum
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import AuthorizationError, InvalidResourceError
-from app.helpers.graphene_types import (
-    BaseSQLAlchemyObjectType,
-    TimeStamp,
-)
 from app.helpers.validation import validate_email_field_in_db
-from app.models.event import UserEventBaseModel, Dismissable
+from app.models.event import Dismissable, UserEventBaseModel
 from app.models.utils import enum_column
 
 
@@ -103,75 +98,3 @@ class Employment(UserEventBaseModel, Dismissable):
         if not invite_emails:
             return None
         return max([e.creation_time for e in invite_emails])
-
-
-class EmploymentOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = Employment
-        only_fields = (
-            "id",
-            "reception_time",
-            "start_date",
-            "end_date",
-            "user_id",
-            "user",
-            "submitter_id",
-            "submitter",
-            "company_id",
-            "company",
-            "has_admin_rights",
-            "email",
-            "latest_invite_email_time",
-        )
-
-    id = graphene.Field(
-        graphene.Int, required=True, description="Identifiant du rattachement"
-    )
-    reception_time = graphene.Field(
-        TimeStamp,
-        required=True,
-        description="Horodatage de création de l'entité",
-    )
-    user_id = graphene.Field(
-        graphene.Int,
-        description="Identifiant de l'utilisateur concerné par le rattachement. Peut être manquant dans le cas d'une invitation par email",
-    )
-    submitter_id = graphene.Field(
-        graphene.Int,
-        description="Identifiant de la personne qui a créé le rattachement",
-    )
-    start_date = graphene.Field(
-        graphene.String,
-        required=True,
-        description="Date de début du rattachement au format AAAA-MM-JJ",
-    )
-    end_date = graphene.Field(
-        graphene.String,
-        description="Date de fin du rattachement au format AAAA-MM-JJ, si présente.",
-    )
-    company_id = graphene.Field(
-        graphene.Int,
-        required=True,
-        description="Identifiant de l'entreprise de rattachement",
-    )
-    has_admin_rights = graphene.Field(
-        graphene.Boolean,
-        description="Précise si le rattachement confère un accès gestionnaire ou non. Une valeur manquante équivaut à non.",
-    )
-    email = graphene.Field(
-        graphene.String,
-        description="Email éventuel vers lequel est envoyée l'invitation.",
-    )
-
-    is_acknowledged = graphene.Field(
-        graphene.Boolean,
-        description="Précise si le rattachement a été approuvé par l'utilisateur concerné ou s'il est en attente de validation. Un rattachement non validé ne peut pas être actif.",
-    )
-    latest_invite_email_time = graphene.Field(
-        TimeStamp,
-        required=False,
-        description="Horodatage d'envoi du dernier email d'invitation",
-    )
-
-    def resolve_is_acknowledged(self, info):
-        return self.is_acknowledged

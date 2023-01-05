@@ -31,6 +31,7 @@ from app.seed.scenarios.two_weeks import (
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 from app.seed.scenarios.two_weeks import run_scenario_non_stop
+from app.seed.scenarios.third_party import run_scenario_third_party
 
 
 @dataclass
@@ -92,5 +93,11 @@ scenarios = [
         "Creates one controller user",
         [],
         run_scenario_controls,
+    ),
+    SeedScenario(
+        "Third party",
+        "Creates one company with client and 4 employees",
+        [],
+        run_scenario_third_party,
     ),
 ]

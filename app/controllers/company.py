@@ -12,6 +12,7 @@ from app import siren_api_client, mailer
 from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
+from app.data_access.employment import EmploymentOutput
 from app.domain.company import (
     SirenRegistrationStatus,
     get_siren_registration_status,
@@ -48,7 +49,6 @@ from app.helpers.xls.companies import send_work_days_as_excel
 from app.models import Company, Employment
 from app.models.employment import (
     EmploymentRequestValidationStatus,
-    EmploymentOutput,
 )
 from app.services.update_companies_spreadsheet import (
     add_company_to_spreadsheet,

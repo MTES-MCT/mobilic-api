@@ -3,7 +3,13 @@ import graphene
 from app.controllers.utils import Void, atomic_transaction
 from app.domain.third_party_employment import generate_employment_token
 from app.helpers.api_key_authentication import check_protected_client_id
-from app.helpers.authorization import with_protected_authorization_policy
+from app.helpers.authentication import AuthenticatedMutation
+from app.domain.permissions import only_self_employment
+from app.helpers.authorization import (
+    active,
+    with_authorization_policy,
+    with_protected_authorization_policy,
+)
 from app.helpers.errors import (
     EmploymentLinkNotFound,
     EmploymentLinkAlreadyAccepted,
@@ -44,6 +50,39 @@ class GenerateEmploymentToken(graphene.Mutation):
                 raise AuthorizationError
 
             generate_employment_token(existing_link)
+            return Void(success=True)
+
+
+class DismissEmploymentToken(AuthenticatedMutation):
+    """
+    Suppression d'un token lié au logiciel tiers et à l'employment
+    """
+
+    class Arguments:
+        employment_id = graphene.Int(required=True)
+        client_id = graphene.Int(required=True)
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(active)
+    @with_authorization_policy(
+        only_self_employment,
+        get_target_from_args=lambda *args, **kwargs: kwargs["employment_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, employment_id, client_id):
+        with atomic_transaction(commit_at_end=True):
+            existing_link = ThirdPartyClientEmployment.query.filter(
+                ThirdPartyClientEmployment.employment_id == employment_id,
+                ThirdPartyClientEmployment.client_id == client_id,
+                ~ThirdPartyClientEmployment.is_dismissed,
+            ).one_or_none()
+
+            if not existing_link:
+                raise EmploymentLinkNotFound
+
+            existing_link.dismiss()
             return Void(success=True)
 
 

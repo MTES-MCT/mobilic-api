@@ -13,6 +13,7 @@ from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentQuery,
     ThirdPartyClientEmploymentOutput,
     GenerateEmploymentToken,
+    DismissEmploymentToken,
 )
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
 from app.controllers.controller import Query as ControllerUserQuery
@@ -198,6 +199,8 @@ class PrivateMutations(graphene.ObjectType):
 
     create_oauth_token = CreateOauthToken.Field()
     revoke_oauth_token = RevokeOauthToken.Field()
+
+    dismiss_employment_token = DismissEmploymentToken.Field()
 
 
 class Queries(
