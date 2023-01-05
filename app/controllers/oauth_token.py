@@ -33,9 +33,7 @@ class Query(graphene.ObjectType):
 
     @with_authorization_policy(
         only_self,
-        get_target_from_args=lambda *args, **kwargs: User.query.get(
-            kwargs["user_id"]
-        ),
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
         error_message="Forbidden access",
     )
     def resolve_oauth_access_tokens(self, info, user_id):
@@ -58,9 +56,7 @@ class CreateOauthToken(AuthenticatedMutation):
     @classmethod
     @with_authorization_policy(
         only_self,
-        get_target_from_args=lambda *args, **kwargs: User.query.get(
-            kwargs["user_id"]
-        ),
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
         error_message="Forbidden access",
     )
     def mutate(cls, _, info, user_id, client_id):
@@ -76,11 +72,10 @@ class RevokeOauthToken(AuthenticatedMutation):
     """
     Revocation d'un token pour un user et un client_id
 
-    Retourne la liste des tokens existants pour le user
+    Retourne la liste des tokens existants pour le user associé au token supprimé
     """
 
     class Arguments:
-        user_id = graphene.Int(required=True)
         token_id = graphene.Int(required=True)
 
     Output = graphene.List(OAuth2TokenOutput)
@@ -93,14 +88,10 @@ class RevokeOauthToken(AuthenticatedMutation):
         ).user,
         error_message="Forbidden access",
     )
-    def mutate(cls, _, info, user_id, token_id):
+    def mutate(cls, _, info, token_id):
         with atomic_transaction(commit_at_end=True):
             existing_token = OAuth2Token.query.get(token_id)
-            if (
-                not existing_token
-                or existing_token.revoked
-                or existing_token.user.id != user_id
-            ):
+            if not existing_token or existing_token.revoked:
                 raise InvalidParamsError("Forbidden access")
             revoke_oauth_token(existing_token)
-        return get_active_oauth_token_for_user(user_id)
+        return get_active_oauth_token_for_user(existing_token.user_id)
