@@ -17,10 +17,10 @@ from app.models import Company, User
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
-    EmploymentOutput,
     Employment,
     EmploymentRequestValidationStatus,
 )
+from app.data_access.employment import EmploymentOutput
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
 from app.models.vehicle import VehicleOutput

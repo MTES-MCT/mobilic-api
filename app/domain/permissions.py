@@ -15,7 +15,7 @@ from app.helpers.errors import (
     MissionAlreadyValidatedByUserError,
 )
 from app.helpers.time import get_date_or_today
-from app.models import Company, User
+from app.models import Company, User, Employment
 from app.models.controller_control import ControllerControl
 
 
@@ -113,6 +113,15 @@ def only_self(actor, user_obj_or_id):
     if not user:
         return False
     return actor.id == user.id
+
+
+def only_self_employment(actor, employment_obj_or_id):
+    employment = employment_obj_or_id
+    if type(employment_obj_or_id) is int:
+        employment = Employment.query.get(employment_obj_or_id)
+    if not employment:
+        return False
+    return actor.id == employment.user_id
 
 
 def _is_actor_allowed_to_access_mission(actor, mission):

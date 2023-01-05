@@ -46,10 +46,10 @@ from app.helpers.mail import MailjetError
 from app.helpers.oauth.models import ThirdPartyClientEmployment
 from app.models import Company, User
 from app.models.employment import (
-    EmploymentOutput,
     Employment,
     EmploymentRequestValidationStatus,
 )
+from app.data_access.employment import EmploymentOutput
 from app.models.queries import query_activities
 
 MAX_SIZE_OF_INVITATION_BATCH = 100

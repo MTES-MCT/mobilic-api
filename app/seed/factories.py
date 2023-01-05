@@ -8,6 +8,11 @@ from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
+from app.helpers.oauth.models import (
+    OAuth2Client,
+    ThirdPartyClientCompany,
+    ThirdPartyClientEmployment,
+)
 
 
 class BaseFactory(factory.alchemy.SQLAlchemyModelFactory):
@@ -99,3 +104,18 @@ class RegulatoryAlertFactory(BaseFactory):
 class RegulationComputationFactory(BaseFactory):
     class Meta:
         model = RegulationComputation
+
+
+class OAuth2ClientFactory(BaseFactory):
+    class Meta:
+        model = OAuth2Client
+
+
+class ThirdPartyClientCompanyFactory(BaseFactory):
+    class Meta:
+        model = ThirdPartyClientCompany
+
+
+class ThirdPartyClientEmploymentFactory(BaseFactory):
+    class Meta:
+        model = ThirdPartyClientEmployment
