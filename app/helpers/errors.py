@@ -116,6 +116,11 @@ class EmploymentLinkNotFound(MobilicError):
     default_should_alert_team = False
 
 
+class CompanyLinkNotFound(MobilicError):
+    code = "COMPANY_CLIENT_LINK_NOT_FOUND"
+    default_should_alert_team = False
+
+
 class EmploymentLinkAlreadyAccepted(MobilicError):
     code = "EMPLOYMENT_CLIENT_LINK_ALREADY_ACCEPTED"
     default_should_alert_team = False

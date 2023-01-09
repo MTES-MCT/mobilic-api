@@ -9,6 +9,7 @@ from app.controllers.company import (
     CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
+from app.controllers.third_party_company import DismissCompanyToken
 from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentQuery,
     ThirdPartyClientEmploymentOutput,
@@ -201,6 +202,7 @@ class PrivateMutations(graphene.ObjectType):
     revoke_oauth_token = RevokeOauthToken.Field()
 
     dismiss_employment_token = DismissEmploymentToken.Field()
+    dismiss_company_token = DismissCompanyToken.Field()
 
 
 class Queries(

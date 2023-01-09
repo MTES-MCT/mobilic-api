@@ -63,3 +63,15 @@ class Company(BaseModel, WithEmploymentHistory):
 
         user_ids = [e.user_id for e in self.active_employments_at(today)]
         return User.query.filter(User.id.in_(user_ids))
+
+    @cached_property
+    def retrieve_authorized_clients(self):
+        return list(
+            map(
+                lambda filtered_client: filtered_client.client,
+                filter(
+                    lambda client: not client.is_dismissed,
+                    self.authorized_clients_link,
+                ),
+            )
+        )
