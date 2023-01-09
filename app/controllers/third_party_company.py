@@ -2,6 +2,7 @@ import graphene
 
 from app.controllers.utils import atomic_transaction
 from app.data_access.employment import OAuth2ClientOutput
+from app.domain.company import link_company_to_software
 from app.domain.permissions import company_admin
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import (
@@ -11,6 +12,7 @@ from app.helpers.errors import (
     CompanyLinkNotFound,
 )
 from app.helpers.oauth.models import ThirdPartyClientCompany
+from app.models import Company
 
 
 class GenerateCompanyToken(graphene.Mutation):
@@ -25,9 +27,18 @@ class GenerateCompanyToken(graphene.Mutation):
     Output = graphene.List(OAuth2ClientOutput)
 
     @classmethod
-    def mutate(cls, _, info, employment_id, client_id, invitation_token):
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda cls, _, info, **kwargs: kwargs[
+            "company_id"
+        ],
+        error_message="You need to be a company admin",
+    )
+    def mutate(cls, _, info, company_id, client_id):
         with atomic_transaction(commit_at_end=True):
-            return []
+            link_company_to_software(company_id, client_id)
+        company = Company.query.get(company_id)
+        return company.retrieve_authorized_clients
 
 
 class DismissCompanyToken(AuthenticatedMutation):
