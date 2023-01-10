@@ -9,7 +9,10 @@ from app.controllers.company import (
     CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
-from app.controllers.third_party_company import DismissCompanyToken
+from app.controllers.third_party_company import (
+    DismissCompanyToken,
+    GenerateCompanyToken,
+)
 from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentQuery,
     ThirdPartyClientEmploymentOutput,
@@ -68,6 +71,7 @@ from app.controllers.oauth_token import (
     CreateOauthToken,
     RevokeOauthToken,
 )
+from app.controllers.oauth_client import Query as OAuthClientQuery
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -203,6 +207,7 @@ class PrivateMutations(graphene.ObjectType):
 
     dismiss_employment_token = DismissEmploymentToken.Field()
     dismiss_company_token = DismissCompanyToken.Field()
+    generate_company_token = GenerateCompanyToken.Field()
 
 
 class Queries(
@@ -231,6 +236,7 @@ class PrivateQueries(
     GetInvitation,
     UserReadTokenQuery,
     UserOAuthTokenQuery,
+    OAuthClientQuery,
     ControllerUserQuery,
     graphene.ObjectType,
 ):

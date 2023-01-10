@@ -1,29 +1,10 @@
 import graphene
 
+from app.controllers.oauth_client import OAuth2ClientOutput
 from app.domain.permissions import only_self_employment
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.helpers.oauth.models import OAuth2Client
 from app.models.employment import Employment
-
-
-class OAuth2ClientOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = OAuth2Client
-        only_fields = (
-            "id",
-            "name",
-        )
-
-    id = graphene.Field(
-        graphene.Int, required=True, description="Identifiant du logiciel"
-    )
-
-    name = graphene.Field(
-        graphene.String,
-        required=True,
-        description="Nom du logiciel",
-    )
 
 
 class EmploymentOutput(BaseSQLAlchemyObjectType):
