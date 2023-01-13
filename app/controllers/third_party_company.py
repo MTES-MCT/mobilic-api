@@ -17,7 +17,7 @@ from app.models import Company
 
 class GenerateCompanyToken(graphene.Mutation):
     """
-    Création d'un token lié au logiciel tiers et à la company
+    Création d'un token lié au logiciel tiers et à l'entreprise
     """
 
     class Arguments:
