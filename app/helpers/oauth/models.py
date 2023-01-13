@@ -146,7 +146,7 @@ class ThirdPartyClientCompany(BaseModel, Dismissable):
         nullable=False,
     )
     client = db.relationship("OAuth2Client", backref="accessible_companies")
-    company = db.relationship("Company", backref="authorized_clients")
+    company = db.relationship("Company", backref="authorized_clients_link")
 
 
 class ThirdPartyClientEmployment(BaseModel, Dismissable):
