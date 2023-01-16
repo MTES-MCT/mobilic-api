@@ -18,6 +18,7 @@ from app.domain.validation import validate_mission
 from app.helpers.authorization import (
     with_authorization_policy,
     active,
+    check_company_against_scope_wrapper,
 )
 from app.helpers.graphene_types import TimeStamp
 from app.models.mission import Mission
@@ -114,6 +115,9 @@ class CreateMission(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
+    @check_company_against_scope_wrapper(
+        company_id_resolver=lambda *args, **kwargs: kwargs["company_id"]
+    )
     def mutate(cls, _, info, **mission_input):
         with atomic_transaction(commit_at_end=True):
             # Preload resources
@@ -186,6 +190,11 @@ class EndMission(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
+    @check_company_against_scope_wrapper(
+        company_id_resolver=lambda *args, **kwargs: Mission.query.get(
+            kwargs["mission_id"]
+        ).company.id
+    )
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
@@ -477,6 +486,11 @@ class Query(graphene.ObjectType):
         can_actor_read_mission,
         get_target_from_args=lambda self, info, id: Mission.query.get(id),
         error_message="Forbidden access",
+    )
+    @check_company_against_scope_wrapper(
+        company_id_resolver=lambda self, info, id: Mission.query.get(
+            id
+        ).company.id
     )
     def resolve_mission(self, info, id):
         mission = Mission.query.get(id)

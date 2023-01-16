@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import graphene
 
 from app.controllers.utils import Void, atomic_transaction
@@ -17,6 +19,7 @@ from app.helpers.errors import (
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.helpers.oauth.models import ThirdPartyClientEmployment
+from app.models.employment import EmploymentRequestValidationStatus
 
 
 class GenerateEmploymentToken(graphene.Mutation):
@@ -50,6 +53,14 @@ class GenerateEmploymentToken(graphene.Mutation):
                 raise AuthorizationError
 
             generate_employment_token(existing_link)
+
+            user = existing_link.employment.user
+            user.has_confirmed_email = True
+            user.has_activated_email = True
+            existing_link.employment.validation_status = (
+                EmploymentRequestValidationStatus.APPROVED
+            )
+            existing_link.employment.validation_time = datetime.now()
             return Void(success=True)
 
 

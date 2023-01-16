@@ -1,5 +1,7 @@
 from datetime import date
 
+from flask import g
+
 from app.helpers.time import VERY_LONG_AGO, VERY_FAR_AHEAD
 
 
@@ -17,6 +19,11 @@ class WithEmploymentHistory:
             and e.start_date <= end_
             and (e.end_date or VERY_FAR_AHEAD.date()) >= start_
         ]
+        if g.get("company"):
+            employments = list(
+                filter(lambda e: e.company_id == g.company.id, employments)
+            )
+
         if not include_pending_ones:
             return [e for e in employments if e.is_acknowledged]
         return employments
