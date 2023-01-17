@@ -108,10 +108,7 @@ def check_company_against_scope_wrapper(company_id_resolver):
         @wraps(resolver)
         def decorated_resolver(*args, **kwargs):
             company_id = company_id_resolver(*args, **kwargs)
-            if g.get("company") and g.company.id != company_id:
-                raise AuthorizationError(
-                    "Dont have access to this company with this token"
-                )
+            check_company_id_against_scope(company_id)
             return resolver(*args, **kwargs)
 
         return decorated_resolver

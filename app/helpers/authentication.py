@@ -29,6 +29,9 @@ from werkzeug.local import LocalProxy
 from app.controllers.utils import Void
 from app.helpers.authentication_controller import _refresh_controller_token
 
+CLIENT_ID_HTTP_HEADER_NAME = "X-CLIENT-ID"
+EMPLOYMENT_TOKEN_HTTP_HEADER_NAME = "X-EMPLOYMENT-TOKEN"
+
 
 def current_flask_user():
     try:
@@ -70,8 +73,8 @@ def check_employment_token():
         check_protected_client_id_company_id,
     )
 
-    client_id = request.headers.get("X-CLIENT-ID")
-    token = request.headers.get("X-EMPLOYMENT-TOKEN")
+    client_id = request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
+    token = request.headers.get(EMPLOYMENT_TOKEN_HTTP_HEADER_NAME)
     if not client_id or not token:
         return
 

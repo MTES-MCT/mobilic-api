@@ -1,17 +1,19 @@
 from functools import wraps
 
-import graphene
 from argon2 import PasswordHasher
 from flask import request
 
 from app import app
+from app.helpers.authentication import CLIENT_ID_HTTP_HEADER_NAME
 from app.helpers.errors import AuthenticationError
 from app.helpers.oauth.models import ThirdPartyClientCompany
+
+API_KEY_HTTP_HEADER_NAME = "X-API-KEY"
 
 
 def request_client_id():
     try:
-        return request.headers.get("X-CLIENT-ID")
+        return request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
     except Exception as e:
         return None
 
@@ -29,8 +31,8 @@ def require_api_key_decorator(func):
 def check_api_key():
     from app.helpers.oauth.models import ThirdPartyApiKey
 
-    api_key_parameter = request.headers.get("X-API-KEY")
-    client_id = request.headers.get("X-CLIENT-ID")
+    api_key_parameter = request.headers.get(API_KEY_HTTP_HEADER_NAME)
+    client_id = request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
     if not api_key_parameter or not client_id:
         return False
     api_key_prefix = api_key_parameter[0 : len(app.config["API_KEY_PREFIX"])]
