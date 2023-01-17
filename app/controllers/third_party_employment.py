@@ -130,8 +130,11 @@ class Query(graphene.ObjectType):
             ~ThirdPartyClientEmployment.is_dismissed,
         ).one_or_none()
 
-        if client_employment_link and not check_protected_client_id_company_id(
-            client_employment_link.employment.company_id
+        if (
+            client_employment_link
+            and not check_protected_client_id_company_id(
+                client_employment_link.employment.company_id
+            )
         ):
             raise AuthenticationError("Company token has been revoked")
 
