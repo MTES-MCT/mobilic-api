@@ -1,6 +1,8 @@
 from inspect import signature
 from functools import wraps
 
+from flask import g
+
 from app.helpers.api_key_authentication import require_api_key_decorator
 from app.helpers.authentication import current_user, require_auth
 from app.helpers.errors import AuthorizationError
@@ -99,3 +101,32 @@ def with_authorization_policy(
         return require_auth(decorated_resolver)
 
     return decorator
+
+
+def check_company_against_scope_wrapper(company_id_resolver):
+    def decorator(resolver):
+        @wraps(resolver)
+        def decorated_resolver(*args, **kwargs):
+            company_id = company_id_resolver(*args, **kwargs)
+            check_company_id_against_scope(company_id)
+            return resolver(*args, **kwargs)
+
+        return decorated_resolver
+
+    return decorator
+
+
+def check_company_id_against_scope(company_id):
+    if g.get("company") and g.company.id != company_id:
+        raise AuthorizationError(
+            "Actor is not authorized to perform the operation"
+        )
+
+
+def check_company_ids_against_scope(company_ids):
+    if g.get("company") and (
+        len(company_ids) > 1 or g.company.id != company_ids[0]
+    ):
+        raise AuthorizationError(
+            "Actor is not authorized to perform the operation"
+        )

@@ -107,3 +107,8 @@ def bind_user_to_pending_employments(user):
 
     for employment in employments_to_attach:
         employment.bind(user)
+
+
+def activate_user(user):
+    user.has_confirmed_email = True
+    user.has_activated_email = True

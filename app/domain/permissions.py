@@ -6,7 +6,11 @@ from typing import List, Optional
 from flask import g
 
 from app.helpers.authentication import current_user
-from app.helpers.authorization import active, controller_only
+from app.helpers.authorization import (
+    active,
+    controller_only,
+    check_company_id_against_scope,
+)
 from app.helpers.errors import (
     ActivityOutsideEmploymentByAdminError,
     ActivityOutsideEmploymentByEmployeeError,
@@ -30,6 +34,7 @@ def company_admin(actor, company_obj_or_id):
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
 
+    check_company_id_against_scope(company_id)
     return any(
         [
             e.company_id == company_id and e.has_admin_rights
@@ -53,6 +58,8 @@ def is_employed_by_company_over_period(
     company_id = company_obj_or_id
     if type(company_obj_or_id) is Company:
         company_id = company_obj_or_id.id
+
+    check_company_id_against_scope(company_id)
 
     company_employments_on_period = sorted(
         [e for e in actor_employments_on_period if e.company_id == company_id],
@@ -136,6 +143,7 @@ def _is_actor_allowed_to_access_mission(actor, mission):
 
 
 def can_actor_read_mission(actor, mission):
+    check_company_id_against_scope(mission.company_id)
     return _is_actor_allowed_to_access_mission(actor, mission)
 
 
@@ -215,6 +223,7 @@ def check_actor_can_write_on_mission_for_user(actor, mission_user_tuple):
 
 
 def check_actor_can_edit_activity(actor, activity):
+    check_company_id_against_scope(activity.mission.company_id)
     return activity and (
         actor.id == activity.submitter_id or actor.id == activity.user_id
     )
@@ -223,6 +232,7 @@ def check_actor_can_edit_activity(actor, activity):
 def check_actor_can_log_without_mission_validation(actor, mission_user_tuple):
     mission = mission_user_tuple.get("mission")
     user = mission_user_tuple.get("user") or actor
+    check_company_id_against_scope(mission.company_id)
     return (
         mission
         and user
@@ -231,6 +241,7 @@ def check_actor_can_log_without_mission_validation(actor, mission_user_tuple):
 
 
 def check_actor_can_write_on_mission(actor, mission, for_user=None, at=None):
+    check_company_id_against_scope(mission.company_id)
     return check_actor_can_write_on_mission_over_period(
         actor, mission, for_user, start=at, end=at
     )
@@ -263,7 +274,9 @@ def user_resolver_with_consultation_scope(error_message="Forbidden access"):
             company_further_scoping = getattr(
                 info.context, "company_ids_scope", None
             )
-            if company_further_scoping:
+            if g.get("company"):
+                consultation_scope.company_ids = [g.company.id]
+            elif company_further_scoping:
                 consultation_scope.company_ids = [
                     cid
                     for cid in consultation_scope.company_ids

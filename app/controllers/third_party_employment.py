@@ -1,8 +1,15 @@
+from datetime import datetime
+
 import graphene
 
 from app.controllers.utils import Void, atomic_transaction
+from app.domain.employment import validate_employment
 from app.domain.third_party_employment import generate_employment_token
-from app.helpers.api_key_authentication import check_protected_client_id
+from app.domain.user import activate_user
+from app.helpers.api_key_authentication import (
+    check_protected_client_id,
+    check_protected_client_id_company_id,
+)
 from app.helpers.authentication import AuthenticatedMutation
 from app.domain.permissions import only_self_employment
 from app.helpers.authorization import (
@@ -14,6 +21,7 @@ from app.helpers.errors import (
     EmploymentLinkNotFound,
     EmploymentLinkAlreadyAccepted,
     AuthorizationError,
+    AuthenticationError,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.helpers.oauth.models import ThirdPartyClientEmployment
@@ -50,6 +58,9 @@ class GenerateEmploymentToken(graphene.Mutation):
                 raise AuthorizationError
 
             generate_employment_token(existing_link)
+            activate_user(existing_link.employment.user)
+            validate_employment(existing_link.employment)
+
             return Void(success=True)
 
 
@@ -118,4 +129,13 @@ class Query(graphene.ObjectType):
             ThirdPartyClientEmployment.client_id == client_id,
             ~ThirdPartyClientEmployment.is_dismissed,
         ).one_or_none()
+
+        if (
+            client_employment_link
+            and not check_protected_client_id_company_id(
+                client_employment_link.employment.company_id
+            )
+        ):
+            raise AuthenticationError("Company token has been revoked")
+
         return client_employment_link

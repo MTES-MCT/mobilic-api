@@ -36,6 +36,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
     current_user,
     with_protected_authorization_policy,
+    check_company_ids_against_scope,
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
@@ -402,6 +403,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
     ):
         raise AuthorizationError("Forbidden access")
 
+    check_company_ids_against_scope(company_ids)
     companies = (
         Company.query.options(
             selectinload(Company.employments).selectinload(Employment.user)
