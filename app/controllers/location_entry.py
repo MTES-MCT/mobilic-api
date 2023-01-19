@@ -85,14 +85,28 @@ class CreateCompanyKnownAddress(AuthenticatedMutation):
             )
 
         with atomic_transaction(commit_at_end=True):
-            company_known_address = CompanyKnownAddress(
-                alias=alias,
-                address=Address.get_or_create(
-                    geo_api_data=geo_api_data, manual_address=manual_address
-                ),
-                company_id=company_id,
+            address = Address.get_or_create(
+                geo_api_data=geo_api_data, manual_address=manual_address
             )
-            db.session.add(company_known_address)
+
+            company_known_address = CompanyKnownAddress.query.filter(
+                CompanyKnownAddress.address_id == address.id,
+                CompanyKnownAddress.company_id == company_id,
+                CompanyKnownAddress.is_dismissed,
+            ).one_or_none()
+
+            if not company_known_address:
+                company_known_address = CompanyKnownAddress(
+                    alias=alias,
+                    address=address,
+                    company_id=company_id,
+                )
+                db.session.add(company_known_address)
+            else:
+                company_known_address.alias = alias
+                company_known_address.dismissed_at = None
+                company_known_address.dismiss_author_id = None
+
         return company_known_address
 
 
