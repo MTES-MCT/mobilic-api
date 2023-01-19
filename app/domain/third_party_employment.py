@@ -17,7 +17,7 @@ def create_third_party_employment_link_if_needed(employment_id, client_id):
         ~ThirdPartyClientEmployment.is_dismissed,
     ).one_or_none()
     if existing_link:
-        return existing_link
+        return existing_link, False
 
     invitation_token = secrets.token_hex(60)
     new_link = ThirdPartyClientEmployment(
@@ -25,6 +25,5 @@ def create_third_party_employment_link_if_needed(employment_id, client_id):
         client_id=client_id,
         invitation_token=invitation_token,
     )
-    # TODO : Envoyer mail pour que le salarié puisse générer son token
     db.session.add(new_link)
-    return new_link
+    return new_link, True
