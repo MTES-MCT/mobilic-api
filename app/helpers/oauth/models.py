@@ -4,7 +4,7 @@ from secrets import token_hex
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
-from app import db
+from app import db, app
 from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel, RandomNineIntId
 from app.models.event import Dismissable
@@ -171,3 +171,10 @@ class ThirdPartyClientEmployment(BaseModel, Dismissable):
     )
     employment = db.relationship("Employment", backref="client_ids")
     client = db.relationship("OAuth2Client", backref="accessible_employments")
+
+    @property
+    def is_expired(self):
+        return (
+            self.invitation_token_creation_time
+            < datetime.now() - app.config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
+        )

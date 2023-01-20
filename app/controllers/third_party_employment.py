@@ -1,17 +1,18 @@
-from datetime import datetime
-
 import graphene
 
 from app.controllers.utils import Void, atomic_transaction
 from app.domain.employment import validate_employment
-from app.domain.third_party_employment import generate_employment_token
+from app.domain.permissions import only_self_employment
+from app.domain.third_party_employment import (
+    generate_employment_token,
+    fetch_third_party_employment_link,
+)
 from app.domain.user import activate_user
 from app.helpers.api_key_authentication import (
     check_protected_client_id,
     check_protected_client_id_company_id,
 )
 from app.helpers.authentication import AuthenticatedMutation
-from app.domain.permissions import only_self_employment
 from app.helpers.authorization import (
     active,
     with_authorization_policy,
@@ -19,12 +20,26 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import (
     EmploymentLinkNotFound,
-    EmploymentLinkAlreadyAccepted,
-    AuthorizationError,
     AuthenticationError,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.helpers.oauth.models import ThirdPartyClientEmployment
+
+
+class ThirdPartyClientEmploymentOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = ThirdPartyClientEmployment
+        only_fields = (
+            "employment_id",
+            "client_id",
+            "access_token",
+            "employment",
+        )
+
+    client_name = graphene.String()
+
+    def resolve_client_name(self, info):
+        return self.client.name
 
 
 class GenerateEmploymentToken(graphene.Mutation):
@@ -42,20 +57,9 @@ class GenerateEmploymentToken(graphene.Mutation):
     @classmethod
     def mutate(cls, _, info, employment_id, client_id, invitation_token):
         with atomic_transaction(commit_at_end=True):
-            existing_link = ThirdPartyClientEmployment.query.filter(
-                ThirdPartyClientEmployment.employment_id == employment_id,
-                ThirdPartyClientEmployment.client_id == client_id,
-                ~ThirdPartyClientEmployment.is_dismissed,
-            ).one_or_none()
-
-            if not existing_link:
-                raise EmploymentLinkNotFound
-
-            if existing_link.access_token is not None:
-                raise EmploymentLinkAlreadyAccepted
-
-            if existing_link.invitation_token != invitation_token:
-                raise AuthorizationError
+            existing_link = fetch_third_party_employment_link(
+                client_id, employment_id, invitation_token
+            )
 
             generate_employment_token(existing_link)
             activate_user(existing_link.employment.user)
@@ -97,17 +101,6 @@ class DismissEmploymentToken(AuthenticatedMutation):
             return Void(success=True)
 
 
-class ThirdPartyClientEmploymentOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = ThirdPartyClientEmployment
-        only_fields = (
-            "employment_id",
-            "client_id",
-            "access_token",
-            "employment",
-        )
-
-
 class Query(graphene.ObjectType):
 
     employment_token = graphene.Field(
@@ -137,5 +130,25 @@ class Query(graphene.ObjectType):
             )
         ):
             raise AuthenticationError("Company token has been revoked")
+
+        return client_employment_link
+
+
+class PrivateQuery(graphene.ObjectType):
+
+    client_employment_link = graphene.Field(
+        ThirdPartyClientEmploymentOutput,
+        client_id=graphene.Int(required=True),
+        employment_id=graphene.Int(required=True),
+        invitation_token=graphene.String(required=True),
+    )
+
+    @classmethod
+    def resolve_client_employment_link(
+        self, info, _, client_id, employment_id, invitation_token
+    ):
+        client_employment_link = fetch_third_party_employment_link(
+            client_id, employment_id, invitation_token
+        )
 
         return client_employment_link

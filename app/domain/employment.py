@@ -34,5 +34,11 @@ def create_employment_by_third_party_if_needed(
 
 
 def validate_employment(employment):
-    employment.validation_status = EmploymentRequestValidationStatus.APPROVED
-    employment.validation_time = datetime.now()
+    if (
+        employment.validation_status
+        != EmploymentRequestValidationStatus.APPROVED
+    ):
+        employment.validation_status = (
+            EmploymentRequestValidationStatus.APPROVED
+        )
+        employment.validation_time = datetime.now()

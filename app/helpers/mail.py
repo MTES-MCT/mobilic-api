@@ -521,9 +521,9 @@ class Mailer:
         )
 
     def _generate_third_party_software_account_email(
-        self, third_party_client_employment, **kwargs
+        self, third_party_client_employment, client_id, employment_id, **kwargs
     ):
-        validation_link = f"{app.config['FRONTEND_URL']}/validate_third_party_sync?token={third_party_client_employment.invitation_token}"
+        validation_link = f"{app.config['FRONTEND_URL']}/sync_employee?token={third_party_client_employment.invitation_token}&client_id={client_id}&employment_id={employment_id}"
         return self._create_message_from_flask_template(
             validation_link=Markup(validation_link), **kwargs
         )
@@ -532,7 +532,9 @@ class Mailer:
         self, third_party_client_employment, employment, client, user
     ):
         return self._generate_third_party_software_account_email(
-            third_party_client_employment,
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
             first_name=user.first_name,
             company_name=employment.company.name,
             software_name=client.name,
@@ -546,7 +548,9 @@ class Mailer:
         self, third_party_client_employment, employment, client, user
     ):
         return self._generate_third_party_software_account_email(
-            third_party_client_employment,
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
             first_name=user.first_name,
             company_name=employment.company.name,
             software_name=client.name,
@@ -561,7 +565,9 @@ class Mailer:
         self, third_party_client_employment, employment, client, user
     ):
         return self._generate_third_party_software_account_email(
-            third_party_client_employment,
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
             first_name=user.first_name,
             company_name=employment.company.name,
             software_name=client.name,
