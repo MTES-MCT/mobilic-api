@@ -14,10 +14,11 @@ from app.controllers.third_party_company import (
     GenerateCompanyToken,
 )
 from app.controllers.third_party_employment import (
-    Query as ThirdPartyEmploymentQuery,
+    Query as ThirdPartyEmploymentProtectedQuery,
     ThirdPartyClientEmploymentOutput,
     GenerateEmploymentToken,
     DismissEmploymentToken,
+    PrivateQuery as ThirdPartyEmploymentPrivateQuery,
 )
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
 from app.controllers.controller import Query as ControllerUserQuery
@@ -226,7 +227,7 @@ class Queries(
 
 
 class ProtectedQueries(
-    ThirdPartyEmploymentQuery,
+    ThirdPartyEmploymentProtectedQuery,
 ):
     pass
 
@@ -238,6 +239,7 @@ class PrivateQueries(
     UserOAuthTokenQuery,
     OAuthClientQuery,
     ControllerUserQuery,
+    ThirdPartyEmploymentPrivateQuery,
     graphene.ObjectType,
 ):
     pass

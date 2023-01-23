@@ -13,3 +13,6 @@ class EmailType(str, Enum):
     WORKER_ONBOARDING_SECOND_INFO = "worker_onboarding_second_info"
     MANAGER_ONBOARDING_FIRST_INFO = "manager_onboarding_first_info"
     MANAGER_ONBOARDING_SECOND_INFO = "manager_onboarding_second_info"
+    THIRD_PARTY_ACCOUNT_CREATION = "third_party_account_creation"
+    THIRD_PARTY_EMPLOYMENT_CREATION = "third_party_employment_creation"
+    THIRD_PARTY_EMPLOYMENT_ACCESS = "third_party_employment_access"

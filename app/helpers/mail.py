@@ -167,7 +167,7 @@ class Mailer:
             version="v3.1",
         )
 
-    def _send_batch(self, messages, _disable_commit=False):
+    def send_batch(self, messages, _disable_commit=False):
         from app.models import Email
         from app import db
 
@@ -208,7 +208,7 @@ class Mailer:
         message,
         _disable_commit=False,
     ):
-        self._send_batch([message], _disable_commit=_disable_commit)
+        self.send_batch([message], _disable_commit=_disable_commit)
         if isinstance(message.response, MailjetError):
             raise message.response
 
@@ -377,7 +377,7 @@ class Mailer:
             self.generate_employee_invite(e, reminder=reminder)
             for e in employments
         ]
-        self._send_batch(messages, _disable_commit=True)
+        self.send_batch(messages, _disable_commit=True)
         return messages
 
     def send_activation_email(
@@ -518,6 +518,64 @@ class Mailer:
                 first_name=user.first_name,
                 reset_link=Markup(reset_link),
             )
+        )
+
+    def _generate_third_party_software_account_email(
+        self, third_party_client_employment, client_id, employment_id, **kwargs
+    ):
+        validation_link = f"{app.config['FRONTEND_URL']}/sync_employee?token={third_party_client_employment.invitation_token}&client_id={client_id}&employment_id={employment_id}"
+        return self._create_message_from_flask_template(
+            validation_link=Markup(validation_link), **kwargs
+        )
+
+    def generate_third_party_software_account_creation_email(
+        self, third_party_client_employment, employment, client, user
+    ):
+        return self._generate_third_party_software_account_email(
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
+            first_name=user.first_name,
+            company_name=employment.company.name,
+            software_name=client.name,
+            user=user,
+            type_=EmailType.THIRD_PARTY_ACCOUNT_CREATION,
+            template="third_party_software_account_creation.html",
+            subject="Valider votre compte Mobilic",
+        )
+
+    def generate_third_party_software_employment_creation_email(
+        self, third_party_client_employment, employment, client, user
+    ):
+        return self._generate_third_party_software_account_email(
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
+            first_name=user.first_name,
+            company_name=employment.company.name,
+            software_name=client.name,
+            user=user,
+            type_=EmailType.THIRD_PARTY_EMPLOYMENT_CREATION,
+            template="third_party_software_employment.html",
+            subject="Ouverture d'accès à votre compte Mobilic",
+            employment_already_exists=False,
+        )
+
+    def generate_third_party_software_employment_access_email(
+        self, third_party_client_employment, employment, client, user
+    ):
+        return self._generate_third_party_software_account_email(
+            third_party_client_employment=third_party_client_employment,
+            client_id=client.id,
+            employment_id=employment.id,
+            first_name=user.first_name,
+            company_name=employment.company.name,
+            software_name=client.name,
+            user=user,
+            type_=EmailType.THIRD_PARTY_EMPLOYMENT_ACCESS,
+            template="third_party_software_employment.html",
+            subject="Ouverture d'accès à votre compte Mobilic",
+            employment_already_exists=True,
         )
 
     def send_warning_email_about_mission_changes(

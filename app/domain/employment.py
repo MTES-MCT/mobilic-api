@@ -15,7 +15,7 @@ def create_employment_by_third_party_if_needed(
     ).one_or_none()
     if existing_employment:
         existing_employment.has_admin_rights = has_admin_rights
-        return existing_employment
+        return existing_employment, False
 
     employment = Employment(
         user_id=user_id,
@@ -30,9 +30,15 @@ def create_employment_by_third_party_if_needed(
     db.session.add(employment)
     db.session.flush()
 
-    return employment
+    return employment, True
 
 
 def validate_employment(employment):
-    employment.validation_status = EmploymentRequestValidationStatus.APPROVED
-    employment.validation_time = datetime.now()
+    if (
+        employment.validation_status
+        != EmploymentRequestValidationStatus.APPROVED
+    ):
+        employment.validation_status = (
+            EmploymentRequestValidationStatus.APPROVED
+        )
+        employment.validation_time = datetime.now()

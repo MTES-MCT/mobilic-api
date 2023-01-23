@@ -43,6 +43,7 @@ from app.helpers.errors import (
 )
 from app.helpers.graphene_types import Email
 from app.helpers.mail import MailjetError
+from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
 from app.models import Company, User
 from app.models.employment import (
@@ -104,24 +105,57 @@ class SyncThirdPartyEmployees(graphene.Mutation):
     )
     def mutate(cls, _, info, company_id, employees):
         with atomic_transaction(commit_at_end=True):
+            client = OAuth2Client.query.get(request_client_id())
+            mail_to_send = []
             for employee in employees:
-                user = create_user_by_third_party_if_needed(
+                (
+                    user,
+                    newly_created_user,
+                ) = create_user_by_third_party_if_needed(
                     employee.email,
                     employee.first_name,
                     employee.last_name,
                     employee.timezone_name,
                 )
 
-                employment = create_employment_by_third_party_if_needed(
+                (
+                    employment,
+                    newly_created_employment,
+                ) = create_employment_by_third_party_if_needed(
                     user.id,
                     company_id,
                     employee.email,
                     employee.has_admin_rights,
                 )
 
-                create_third_party_employment_link_if_needed(
-                    employment.id, client_id=request_client_id()
+                (
+                    link,
+                    newly_created_link,
+                ) = create_third_party_employment_link_if_needed(
+                    employment.id, client_id=client.id
                 )
+
+                if newly_created_user:
+                    mail_to_send.append(
+                        mailer.generate_third_party_software_account_creation_email(
+                            link, employment, client, user
+                        )
+                    )
+                elif newly_created_employment:
+                    mail_to_send.append(
+                        mailer.generate_third_party_software_employment_creation_email(
+                            link, employment, client, user
+                        )
+                    )
+                elif newly_created_link:
+                    mail_to_send.append(
+                        mailer.generate_third_party_software_employment_access_email(
+                            link, employment, client, user
+                        )
+                    )
+
+            if len(mail_to_send) > 0:
+                mailer.send_batch(mail_to_send, _disable_commit=True)
 
         list_to_return = (
             Employment.query.filter(

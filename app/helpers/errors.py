@@ -126,6 +126,11 @@ class EmploymentLinkAlreadyAccepted(MobilicError):
     default_should_alert_team = False
 
 
+class EmploymentLinkExpired(MobilicError):
+    code = "EMPLOYMENT_CLIENT_LINK_EXPIRED"
+    default_should_alert_team = False
+
+
 class OverlappingMissionsError(MobilicError):
     code = "OVERLAPPING_MISSIONS"
 
