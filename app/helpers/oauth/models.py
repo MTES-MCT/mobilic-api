@@ -1,11 +1,13 @@
 import time
+from datetime import datetime
 from secrets import token_hex
 from authlib.oauth2.rfc6749 import ClientMixin, TokenMixin
 from authlib.integrations.sqla_oauth2 import OAuth2AuthorizationCodeMixin
 
-from app import db
+from app import db, app
 from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel, RandomNineIntId
+from app.models.event import Dismissable
 
 
 class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
@@ -14,6 +16,7 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
     name = db.Column(db.String(255), nullable=False)
     secret = db.Column(db.String(120), nullable=False)
     redirect_uris = db.Column(db.ARRAY(db.String))
+    whitelist_ips = db.Column(db.ARRAY(db.String))
 
     def get_client_id(self):
         return self.id
@@ -113,3 +116,65 @@ class OAuth2AuthorizationCode(BaseModel, OAuth2AuthorizationCodeMixin):
         nullable=False,
     )
     client = db.relationship("OAuth2Client", backref="authorization_codes")
+
+
+class ThirdPartyApiKey(BaseModel):
+    __tablename__ = "third_party_api_key"
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    client = db.relationship("OAuth2Client", backref="client")
+    api_key = db.Column(db.String(255), nullable=False)
+
+
+class ThirdPartyClientCompany(BaseModel, Dismissable):
+    __tablename__ = "third_party_client_company"
+    backref_base_name = "third_party_client_company"
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    company_id = db.Column(
+        db.Integer,
+        db.ForeignKey("company.id"),
+        index=True,
+        nullable=False,
+    )
+    client = db.relationship("OAuth2Client", backref="accessible_companies")
+    company = db.relationship("Company", backref="authorized_clients_link")
+
+
+class ThirdPartyClientEmployment(BaseModel, Dismissable):
+    __tablename__ = "third_party_client_employment"
+    backref_base_name = "third_party_client_employment"
+    employment_id = db.Column(
+        db.Integer,
+        db.ForeignKey("employment.id"),
+        index=True,
+        nullable=False,
+    )
+    client_id = db.Column(
+        db.Integer,
+        db.ForeignKey("oauth2_client.id"),
+        index=True,
+        nullable=False,
+    )
+    access_token = db.Column(db.String(255))
+    invitation_token = db.Column(db.String(255), nullable=True)
+    invitation_token_creation_time = db.Column(
+        DateTimeStoredAsUTC, nullable=False, default=datetime.now
+    )
+    employment = db.relationship("Employment", backref="client_ids")
+    client = db.relationship("OAuth2Client", backref="accessible_employments")
+
+    @property
+    def is_expired(self):
+        return (
+            self.invitation_token_creation_time
+            < datetime.now() - app.config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
+        )

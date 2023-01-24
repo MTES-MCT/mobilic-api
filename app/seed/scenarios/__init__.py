@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from typing import Callable, List
 
+from app.seed.scenarios.breach_rules import (
+    run_scenario_breach_rules,
+    EMPLOYEE_EMAIL as BREACH_EMPLOYEE_EMAIL,
+)
 from app.seed.scenarios.busy_admin import (
     NB_COMPANIES,
     NB_EMPLOYEES,
@@ -20,8 +24,14 @@ from app.seed.scenarios.export_excel import (
     ADMIN_EMAIL as ADMIN_EXPORT,
     run_scenario_export_excel,
 )
+from app.seed.scenarios.two_weeks import (
+    ADMIN_EMAIL as ADMIN_TWO_WEEKS,
+    EMPLOYEE_EMAIL as EMPLOYEE_TWO_WEEKS,
+)
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
+from app.seed.scenarios.two_weeks import run_scenario_non_stop
+from app.seed.scenarios.third_party import run_scenario_third_party
 
 
 @dataclass
@@ -42,6 +52,18 @@ class SeedScenario:
 
 
 scenarios = [
+    SeedScenario(
+        "Rules breachers",
+        f"Creates a company where everybody break rules !",
+        [BREACH_EMPLOYEE_EMAIL],
+        run_scenario_breach_rules,
+    ),
+    SeedScenario(
+        "Non Stop",
+        "Creates a mission non stop for two weeks",
+        [ADMIN_TWO_WEEKS, EMPLOYEE_TWO_WEEKS],
+        run_scenario_non_stop,
+    ),
     SeedScenario(
         "Busy Admin",
         f"Creates an admin managing {NB_COMPANIES} companies with {NB_EMPLOYEES} employees each, logging some time in missions",
@@ -71,5 +93,11 @@ scenarios = [
         "Creates one controller user",
         [],
         run_scenario_controls,
+    ),
+    SeedScenario(
+        "Third party",
+        "Creates one company with client and 4 employees",
+        [],
+        run_scenario_third_party,
     ),
 ]

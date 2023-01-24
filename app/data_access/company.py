@@ -1,6 +1,7 @@
 import graphene
 from sqlalchemy.orm import selectinload
 
+from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
 from app.domain.permissions import (
     company_admin,
@@ -8,16 +9,14 @@ from app.domain.permissions import (
     has_any_employment_with_company_or_controller,
 )
 from app.domain.work_days import WorkDayStatsOnly
-from app.helpers.authorization import with_authorization_policy, current_user
+from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
-from app.helpers.siren import SirenAPIClient
 from app.helpers.time import to_datetime
 from app.models import Company, User
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
-    EmploymentOutput,
     Employment,
     EmploymentRequestValidationStatus,
 )
@@ -137,6 +136,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         description="Liste des SIRETS des établissements regroupés dans cette entreprise",
     )
+    authorized_clients = graphene.List(OAuth2ClientOutput)
 
     def resolve_name(self, info):
         return self.name
@@ -301,6 +301,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             if self.short_sirets
             else ""
         )
+
+    def resolve_authorized_clients(self, info):
+        return self.retrieve_authorized_clients
 
 
 from app.data_access.user import UserOutput

@@ -1,6 +1,11 @@
 import sys
 
 from app import db
+from app.helpers.oauth.models import (
+    OAuth2Client,
+    ThirdPartyClientCompany,
+    ThirdPartyClientEmployment,
+)
 from app.models import (
     ActivityVersion,
     Comment,
@@ -46,6 +51,10 @@ def clean():
     exit_if_prod()
 
     print("------ CLEANING DATA -------")
+
+    ThirdPartyClientEmployment.query.delete()
+    ThirdPartyClientCompany.query.delete()
+    OAuth2Client.query.delete()
 
     Expenditure.query.delete()
     ActivityVersion.query.delete()

@@ -211,7 +211,7 @@ class ApiRequests:
         }
     """
     read_control_data = """
-      query readControlData($controlId: Int!) {
+    query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
           id
           missions {
@@ -223,22 +223,41 @@ class ApiRequests:
               userId
             }
           }
-          regulationComputations {
+        }
+    }
+    """
+    read_control_data_with_alerts = """
+    query readControlData($controlId: Int!) {
+        controlData(controlId: $controlId) {
+          id
+          missions {
+            activities {
+              id
+              type
+              startTime
+              endTime
+              userId
+            }
+          }
+          regulationComputationsByDay {
             day
-            submitterType
-            alerts {
-              regulationCheck {
+            regulationComputations {
+              day
+              submitterType
+              regulationChecks {
                 type
                 label
                 description
                 regulationRule
                 unit
+                alert {
+                  extra
+                }
               }
-              extra
             }
           }
         }
-      }
+    }
     """
 
     get_controller_user_info = """
@@ -410,7 +429,6 @@ def make_authenticated_request(
                 mock_authentication_with_user=authenticated_user,
                 variables=formatted_variables,
             )
-    # print(response.json)
     db.session.rollback()
 
     if request_should_fail_with:

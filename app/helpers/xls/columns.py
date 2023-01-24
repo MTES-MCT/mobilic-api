@@ -40,7 +40,13 @@ COLUMN_ENTREPRISE = ExcelColumn(
 COLUMN_SIREN = ExcelColumn(
     "SIREN",
     lambda wday: ", ".join(
-        set([m.company.siren for m in wday.missions if m.company is not None])
+        set(
+            [
+                m.company.siren
+                for m in wday.missions
+                if m.company is not None and m.company.siren is not None
+            ]
+        )
     ),
     lambda _: "bold",
     30,

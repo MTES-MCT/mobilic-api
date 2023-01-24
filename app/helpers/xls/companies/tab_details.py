@@ -90,15 +90,16 @@ def write_day_details_sheet(
                             additional_format,
                         )
                         row_idx += 1
-                merge_cells_if_needed(
-                    wb,
-                    sheet,
-                    mission_starting_row_idx,
-                    row_idx,
-                    2,
-                    mission.name,
-                    formats.get("merged_center"),
-                )
+                if require_mission_name:
+                    merge_cells_if_needed(
+                        wb,
+                        sheet,
+                        mission_starting_row_idx,
+                        row_idx,
+                        2,
+                        mission.name,
+                        formats.get("merged_center"),
+                    )
 
             merge_cells_if_needed(
                 wb,

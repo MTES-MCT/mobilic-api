@@ -6,8 +6,20 @@ from app.controllers.company import (
     CompaniesSignUp,
     CompanySignUp,
     EditCompanySettings,
+    CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
+from app.controllers.third_party_company import (
+    DismissCompanyToken,
+    GenerateCompanyToken,
+)
+from app.controllers.third_party_employment import (
+    Query as ThirdPartyEmploymentProtectedQuery,
+    ThirdPartyClientEmploymentOutput,
+    GenerateEmploymentToken,
+    DismissEmploymentToken,
+    PrivateQuery as ThirdPartyEmploymentPrivateQuery,
+)
 from app.controllers.controller import AgentConnectLogin, ControllerScanCode
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
@@ -21,6 +33,7 @@ from app.controllers.employment import (
     SendInvitationReminder,
     TerminateEmployment,
     ValidateEmployment,
+    SyncThirdPartyEmployees,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -54,13 +67,19 @@ from app.controllers.user import (
     UserSignUp,
 )
 from app.controllers.user_read import Query as UserReadTokenQuery
+from app.controllers.oauth_token import (
+    Query as UserOAuthTokenQuery,
+    CreateOauthToken,
+    RevokeOauthToken,
+)
+from app.controllers.oauth_client import Query as OAuthClientQuery
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
     TerminateVehicle,
 )
 from app.helpers.authentication import Auth, CheckQuery
-from app.models.address import Address, AddressOutput
+from app.models.address import AddressOutput
 
 
 class Activities(graphene.ObjectType):
@@ -96,6 +115,11 @@ class SignUp(graphene.ObjectType):
     company = CompanySignUp.Field()
     companies = CompaniesSignUp.Field()
     redeem_invite = RedeemInvitation.Field()
+
+
+class ProtectedCompanies(graphene.ObjectType):
+    softwareRegistration = CompanySoftwareRegistration.Field()
+    syncEmployment = SyncThirdPartyEmployees.Field()
 
 
 class PrivateAuth(graphene.ObjectType):
@@ -157,6 +181,12 @@ class Mutations(graphene.ObjectType):
     )
 
 
+class ProtectedMutations(graphene.ObjectType):
+    company = graphene.Field(
+        ProtectedCompanies, resolver=lambda root, info: ProtectedCompanies()
+    )
+
+
 class PrivateMutations(graphene.ObjectType):
     auth = graphene.Field(
         PrivateAuth, resolver=lambda root, info: PrivateAuth()
@@ -170,6 +200,15 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_settings = EditCompanySettings.Field()
 
     controller_scan_code = ControllerScanCode.Field()
+
+    generate_employment_token = GenerateEmploymentToken.Field()
+
+    create_oauth_token = CreateOauthToken.Field()
+    revoke_oauth_token = RevokeOauthToken.Field()
+
+    dismiss_employment_token = DismissEmploymentToken.Field()
+    dismiss_company_token = DismissCompanyToken.Field()
+    generate_company_token = GenerateCompanyToken.Field()
 
 
 class Queries(
@@ -187,11 +226,20 @@ class Queries(
     pass
 
 
+class ProtectedQueries(
+    ThirdPartyEmploymentProtectedQuery,
+):
+    pass
+
+
 class PrivateQueries(
     company.NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    UserOAuthTokenQuery,
+    OAuthClientQuery,
     ControllerUserQuery,
+    ThirdPartyEmploymentPrivateQuery,
     graphene.ObjectType,
 ):
     pass
@@ -203,6 +251,10 @@ graphql_schema = graphene.Schema(
 
 private_graphql_schema = graphene.Schema(
     query=PrivateQueries, mutation=PrivateMutations, types=[AddressOutput]
+)
+
+protected_graphql_schema = graphene.Schema(
+    query=ProtectedQueries, mutation=ProtectedMutations
 )
 
 from app.controllers.contacts import *

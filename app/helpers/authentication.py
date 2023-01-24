@@ -29,6 +29,9 @@ from werkzeug.local import LocalProxy
 from app.controllers.utils import Void
 from app.helpers.authentication_controller import _refresh_controller_token
 
+CLIENT_ID_HTTP_HEADER_NAME = "X-CLIENT-ID"
+EMPLOYMENT_TOKEN_HTTP_HEADER_NAME = "X-EMPLOYMENT-TOKEN"
+
 
 def current_flask_user():
     try:
@@ -64,6 +67,34 @@ def verify_oauth_token_in_request():
     g.user = matching_token.user
 
 
+def check_employment_token():
+    from app.helpers.oauth.models import ThirdPartyClientEmployment
+    from app.helpers.api_key_authentication import (
+        check_protected_client_id_company_id,
+    )
+
+    client_id = request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
+    token = request.headers.get(EMPLOYMENT_TOKEN_HTTP_HEADER_NAME)
+    if not client_id or not token:
+        return
+
+    matching_token = ThirdPartyClientEmployment.query.filter(
+        ThirdPartyClientEmployment.client_id == client_id,
+        ThirdPartyClientEmployment.access_token == token,
+        ~ThirdPartyClientEmployment.is_dismissed,
+    ).one_or_none()
+    if not matching_token:
+        raise AuthenticationError("Invalid token")
+
+    if not check_protected_client_id_company_id(
+        matching_token.employment.company_id
+    ):
+        raise AuthenticationError("Company token has been revoked")
+
+    g.user = matching_token.employment.user
+    g.company = matching_token.employment.company
+
+
 def check_impersonate_user():
     from app.models import UserReadToken
 
@@ -79,6 +110,7 @@ def check_impersonate_user():
 def check_auth():
     if current_user:
         return
+    check_employment_token()
     check_impersonate_user()
     if g.get("user"):
         return

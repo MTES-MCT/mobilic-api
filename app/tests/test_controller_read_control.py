@@ -90,21 +90,26 @@ class TestControllerReadControl(BaseTest):
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.controller_user_1.id,
-            query=ApiRequests.read_control_data,
+            query=ApiRequests.read_control_data_with_alerts,
             variables=dict(
                 control_id=control_id,
             ),
             request_by_controller_user=True,
             unexposed_query=True,
         )
+        regulations_by_day = response["data"]["controlData"][
+            "regulationComputationsByDay"
+        ]
+        self.assertEqual(len(regulations_by_day), 1)
+
+        first_day_regulations = regulations_by_day[0]["regulationComputations"]
         self.assertEqual(
-            len(response["data"]["controlData"]["regulationComputations"]), 1
+            len(first_day_regulations[0]["regulationChecks"]),
+            5,
         )
-        self.assertEqual(
-            len(
-                response["data"]["controlData"]["regulationComputations"][0][
-                    "alerts"
-                ]
-            ),
-            1,
+        self.assertIsNotNone(
+            first_day_regulations[0]["regulationChecks"][0]["alert"]
+        )
+        self.assertIsNone(
+            first_day_regulations[0]["regulationChecks"][1]["alert"]
         )
