@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import g
 from sqlalchemy import func
 
@@ -42,6 +44,7 @@ def create_user(
         last_name=last_name,
         email=email,
         password=password,
+        password_update_time=datetime.now(),
         ssn=ssn,
         timezone_name=timezone_name,
         has_confirmed_email=True if not fc_info else False,

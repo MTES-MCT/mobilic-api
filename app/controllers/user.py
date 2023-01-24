@@ -386,6 +386,7 @@ class ResetPassword(graphene.Mutation):
 
             user.revoke_all_tokens()
             user.password = password
+            user.password_update_time = datetime.now()
 
         @after_this_request
         def set_cookies(response):
