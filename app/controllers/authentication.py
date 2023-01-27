@@ -102,7 +102,7 @@ class RefreshMutation(graphene.Mutation):
 
     @classmethod
     def mutate(cls, _, info):
-        return UserTokens(*refresh_token())
+        return UserTokens(**refresh_token())
 
 
 @app.route("/token/refresh", methods=["POST"])
