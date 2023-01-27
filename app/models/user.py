@@ -1,4 +1,6 @@
 from datetime import date, datetime, timedelta
+from enum import Enum
+
 from sqlalchemy.orm import (
     synonym,
     joinedload,
@@ -17,6 +19,13 @@ from app.helpers.time import VERY_LONG_AGO
 from app.helpers.validation import validate_email_field_in_db
 from app.models.base import BaseModel, RandomNineIntId
 from app import db, mailer
+from app.models.utils import enum_column
+
+
+class UserAccountStatus(str, Enum):
+    ACTIVE = "active"
+    BLOCKED_BAD_PASSWORD = "blocked_bad_password"
+    THIRD_PARTY_PENDING_APPROVAL = "third_party_pending_approval"
 
 
 class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
@@ -53,6 +62,14 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
 
     way_heard_of_mobilic = db.Column(
         db.String(255), default=None, nullable=True, index=True
+    )
+
+    nb_bad_password_tries = db.Column(
+        db.Integer, default=0, nullable=True, index=False
+    )
+
+    status = enum_column(
+        UserAccountStatus, nullable=False, default=UserAccountStatus.ACTIVE
     )
 
     db.validates("email")(validate_email_field_in_db)
