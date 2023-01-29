@@ -140,7 +140,7 @@ class TestInvitations(BaseTest):
         # new employee creates an account via the invite token
         new_employee = create_account_get_user(
             email=future_employee_email,
-            password="greatpassword",
+            password="greatpassword1@",
             first_name="Albert",
             last_name="Einstein",
             invite_token=invite_token,
@@ -157,7 +157,7 @@ class TestInvitations(BaseTest):
         # new employee creates an account without using invite token
         new_employee = create_account_get_user(
             email=future_employee_email,
-            password="fabulouspassword",
+            password="fabulouspassword1@",
             first_name="Magicien",
             last_name="Oz",
         )
@@ -218,7 +218,7 @@ class TestInvitations(BaseTest):
         # new employee creates an account without using invite token
         new_employee = create_account_get_user(
             email=future_employee_email,
-            password="greatpassword",
+            password="greatpassword1@",
             first_name="Albert",
             last_name="Einstein",
         )
