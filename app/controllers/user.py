@@ -42,7 +42,7 @@ from app.helpers.errors import (
     FCUserAlreadyRegisteredError,
     ActivationEmailDelayError,
 )
-from app.helpers.graphene_types import graphene_enum_type
+from app.helpers.graphene_types import graphene_enum_type, Password
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.mail_type import EmailType
@@ -75,7 +75,9 @@ class UserSignUp(graphene.Mutation):
             required=True,
             description="Adresse email, utilisée comme identifiant pour la connexion",
         )
-        password = graphene.String(required=True, description="Mot de passe")
+        password = graphene.Argument(
+            Password, required=True, description="Mot de passe"
+        )
         first_name = graphene.String(required=True, description="Prénom")
         last_name = graphene.String(required=True, description="Nom")
         invite_token = graphene.String(
@@ -145,7 +147,9 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
             required=True,
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
-        password = graphene.String(required=False, description="Mot de passe")
+        password = graphene.Argument(
+            Password, required=False, description="Mot de passe"
+        )
         timezone_name = graphene.String(
             required=False, description=TIMEZONE_DESC
         )
@@ -354,7 +358,9 @@ class ResendActivationEmail(AuthenticatedMutation):
 class ResetPassword(graphene.Mutation):
     class Arguments:
         token = graphene.String(required=True)
-        password = graphene.String(required=True)
+        password = graphene.Argument(
+            Password, required=True, description="Mot de passe"
+        )
 
     Output = UserOutput
 
