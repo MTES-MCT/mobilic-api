@@ -10,6 +10,7 @@ from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 from app.helpers.oauth.models import (
     OAuth2Client,
+    ThirdPartyApiKey,
     ThirdPartyClientCompany,
     ThirdPartyClientEmployment,
 )
@@ -109,6 +110,11 @@ class RegulationComputationFactory(BaseFactory):
 class OAuth2ClientFactory(BaseFactory):
     class Meta:
         model = OAuth2Client
+
+
+class ThirdPartyApiKeyFactory(BaseFactory):
+    class Meta:
+        model = ThirdPartyApiKey
 
 
 class ThirdPartyClientCompanyFactory(BaseFactory):

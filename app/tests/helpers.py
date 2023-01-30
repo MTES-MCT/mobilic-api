@@ -6,7 +6,11 @@ from datetime import datetime
 from app import db
 from app.helpers.time import to_timestamp
 from app.models import ControllerUser, User
-from app.tests import test_post_graphql, test_post_graphql_unexposed
+from app.tests import (
+    test_post_graphql,
+    test_post_graphql_protected,
+    test_post_graphql_unexposed,
+)
 from freezegun import freeze_time
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
@@ -282,6 +286,71 @@ class ApiRequests:
       }
     """
 
+    software_registration = """
+      mutation ($clientId: Int!, $usualName: String!, $siren: String!, $siret: String) {
+          company {
+              softwareRegistration (clientId: $clientId, usualName: $usualName, siren: $siren, siret: $siret) {
+                  id
+              }
+          }
+      }
+    """
+
+    sync_employment = """
+        mutation ($companyId: Int!, $employees: [ThirdPartyEmployee]!) {
+            company{
+                syncEmployment(companyId: $companyId, employees: $employees) {
+                    id
+                }
+            }
+       }
+    """
+
+    get_employment_token = """
+        query ($employmentId: Int!, $clientId: Int!) {
+            employmentToken(employmentId: $employmentId, clientId: $clientId){
+                accessToken
+                employment{
+                    id
+                    email
+                    user {
+                      id
+                    }
+                }
+            }
+        }
+    """
+
+    generate_employment_token = """
+        mutation generateEmploymentToken(
+          $clientId: Int!
+          $employmentId: Int!
+          $invitationToken: String!
+        ) {
+          generateEmploymentToken(
+            clientId: $clientId
+            employmentId: $employmentId
+            invitationToken: $invitationToken
+          ) {
+            success
+          }
+        }
+    """
+
+    dismiss_employment_token = """
+      mutation dismissEmploymentToken(
+          $employmentId: Int!, 
+          $clientId: Int!
+        ) {
+        dismissEmploymentToken(
+          employmentId: $employmentId, 
+          clientId: $clientId
+        ) {
+          success
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
@@ -430,6 +499,36 @@ def make_authenticated_request(
                 variables=formatted_variables,
             )
     db.session.rollback()
+
+    # print(f"{response.status_code} - {response.json}")
+
+    if request_should_fail_with:
+        if type(request_should_fail_with) is dict:
+            status = request_should_fail_with.get("status")
+            if status:
+                assert response.status_code == status
+    else:
+        assert response.status_code == 200
+
+    return response.json
+
+
+def make_protected_request(
+    query,
+    variables,
+    headers,
+    request_should_fail_with=None,
+):
+    formatted_variables = _snake_to_camel(
+        _convert_date_time_to_timestamps(variables)
+    )
+
+    response = test_post_graphql_protected(
+        query=query, variables=formatted_variables, headers=headers
+    )
+    db.session.rollback()
+
+    # print(f"{response.status_code} - {response.json}")
 
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:
