@@ -6,7 +6,7 @@ from app import app, db
 from app.controllers.utils import Void
 from app.domain.user import (
     increment_user_password_tries,
-    reinit_user_password_tries,
+    reset_user_password_tries,
 )
 from app.helpers.authentication import (
     create_access_tokens_for,
@@ -64,7 +64,7 @@ class LoginMutation(graphene.Mutation):
                 ],
             )
 
-        reinit_user_password_tries(user)
+        reset_user_password_tries(user)
         tokens = create_access_tokens_for(user)
 
         @after_this_request

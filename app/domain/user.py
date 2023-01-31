@@ -127,7 +127,7 @@ def increment_user_password_tries(user):
         mailer.send_blocked_account_email(user)
 
 
-def reinit_user_password_tries(user):
+def reset_user_password_tries(user):
     user.nb_bad_password_tries = 0
 
 
