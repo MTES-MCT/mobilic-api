@@ -7,7 +7,7 @@
 
 {% block body %}
     <p>Bonjour {{first_name | capitalize}},</p>
-    <p>Vous avez récemment fait {{nb_max_tries}} tentatives infructueuses de connexion à votre compte Mobilic. Pour des raisons de sécurité, votre compte est désormais bloqué.</p>
+    <p>Vous avez récemment réalisé {{nb_max_tries}} tentatives infructueuses de connexion à votre compte Mobilic. Pour des raisons de sécurité, votre compte est désormais bloqué.</p>
     <p>Afin de le débloquer, il est nécessaire de réinitialiser votre mot de passe.</p>
     {{button.button('Je réinitialise mon mot de passe', reset_link, 260)}}
     <br/>

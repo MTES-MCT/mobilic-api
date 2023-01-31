@@ -65,7 +65,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     )
 
     nb_bad_password_tries = db.Column(
-        db.Integer, default=0, nullable=True, index=False
+        db.Integer, default=0, nullable=False, index=False
     )
 
     status = enum_column(
