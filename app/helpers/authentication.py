@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 
 import graphene
-from flask import g, after_this_request, jsonify, request
+from flask import g, after_this_request, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -11,7 +11,6 @@ from flask_jwt_extended import (
     current_user as current_actor,
     get_jwt_identity,
     JWTManager,
-    get_jwt,
 )
 from flask_jwt_extended.exceptions import (
     JWTExtendedException,
@@ -25,9 +24,6 @@ from flask_jwt_extended.view_decorators import (
 )
 from jwt import PyJWTError
 from werkzeug.local import LocalProxy
-
-from app.controllers.utils import Void
-from app.helpers.authentication_controller import _refresh_controller_token
 
 CLIENT_ID_HTTP_HEADER_NAME = "X-CLIENT-ID"
 EMPLOYMENT_TOKEN_HTTP_HEADER_NAME = "X-EMPLOYMENT-TOKEN"
@@ -351,40 +347,6 @@ class AuthenticatedMutation(graphene.Mutation, abstract=True):
         super(AuthenticatedMutation, cls).__init_subclass__(**kwargs)
 
 
-class LoginMutation(graphene.Mutation):
-    """
-    Authentification par email/mot de passe.
-
-    Retourne un jeton d'accès avec une certaine durée de validité et un jeton de rafraichissement
-    """
-
-    class Arguments:
-        email = graphene.String(required=True)
-        password = graphene.String(required=True)
-
-    Output = UserTokens
-
-    @classmethod
-    def mutate(cls, _, info, email, password):
-        user = User.query.filter(User.email == email).one_or_none()
-        if not user or (
-            not app.config["DISABLE_PASSWORD_CHECK"]
-            and (not user.password or not user.check_password(password))
-        ):
-            raise AuthenticationError(
-                f"Wrong email/password combination for email {email}"
-            )
-
-        tokens = create_access_tokens_for(user)
-
-        @after_this_request
-        def set_cookies(response):
-            set_auth_cookies(response, user_id=user.id, **tokens)
-            return response
-
-        return UserTokens(**tokens)
-
-
 class CheckOutput(graphene.ObjectType):
     success = graphene.Boolean()
     user_id = graphene.Int()
@@ -403,49 +365,9 @@ class CheckQuery(graphene.ObjectType):
         return CheckOutput(success=True, user_id=current_user.id)
 
 
-class LogoutMutation(graphene.Mutation):
-    """
-    Invalidation du jeton existant de rafraichissement pour l'utilisateur.
-
-    """
-
-    Output = Void
-
-    @classmethod
-    def mutate(cls, _, info):
-        logout()
-        return Void(success=True)
-
-
-class RefreshMutation(graphene.Mutation):
-    """
-    Rafraichissement du jeton d'accès. La requête doit comporter l'en-tête "Authorization: Bearer <JETON_DE_RAFRAICHISSEMENT>"
-
-    Attention, un jeton de rafraichissement ne peut être utilisé qu'une seule fois
-
-    Retourne un nouveau jeton d'accès et un nouveau jeton de rafraichissement
-    """
-
-    Output = UserTokens
-
-    @classmethod
-    def mutate(cls, _, info):
-        return UserTokens(**_refresh_token())
-
-
-class Auth(graphene.ObjectType):
-    """
-    Authentification
-    """
-
-    login = LoginMutation.Field()
-    refresh = RefreshMutation.Field()
-    logout = LogoutMutation.Field()
-
-
 @wrap_jwt_errors
 @jwt_required(refresh=True)
-def _refresh_token():
+def refresh_token():
     delete_refresh_token()
     tokens = create_access_tokens_for(
         current_actor, client_id=g.get("client_id")
@@ -459,42 +381,10 @@ def _refresh_token():
     return tokens
 
 
-@app.route("/token/refresh", methods=["POST"])
-@wrap_jwt_errors
-@jwt_required(refresh=True)
-def rest_refresh_token():
-    try:
-        identity = get_jwt_identity()
-        if identity and identity.get("controller"):
-            tokens = _refresh_controller_token()
-        else:
-            tokens = _refresh_token()
-        return jsonify(tokens), 200
-    except AuthenticationError as e:
-
-        @after_this_request
-        def unset_cookies(response):
-            unset_auth_cookies(response)
-            return response
-
-        raise
-
-
 @wrap_jwt_errors
 def logout():
     delete_refresh_token()
     db.session.commit()
-
-
-@app.route("/token/logout", methods=["POST"])
-def rest_logout():
-    @after_this_request
-    def unset_cookies(response):
-        unset_auth_cookies(response)
-        return response
-
-    logout()
-    return jsonify({"success": True}), 200
 
 
 @jwt_required(refresh=True)

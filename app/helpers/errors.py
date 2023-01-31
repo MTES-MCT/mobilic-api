@@ -60,6 +60,34 @@ class AuthenticationError(MobilicError):
     http_status_code = 401
 
 
+class BlockedAccountError(MobilicError):
+    code = "BLOCKED_ACCOUNT_ERROR"
+    default_should_alert_team = False
+    http_status_code = 401
+
+
+class BadPasswordError(MobilicError):
+    code = "BAD_PASSWORD_ERROR"
+
+    def __init__(
+        self,
+        message,
+        nb_bad_tries,
+        max_possible_tries,
+        **kwargs,
+    ):
+        super().__init__(message, **kwargs)
+        self.extensions.update(
+            dict(
+                nb_bad_tries=nb_bad_tries,
+                max_possible_tries=max_possible_tries,
+            )
+        )
+
+    default_should_alert_team = False
+    http_status_code = 401
+
+
 class AuthorizationError(MobilicError):
     code = "AUTHORIZATION_ERROR"
     http_status_code = 403

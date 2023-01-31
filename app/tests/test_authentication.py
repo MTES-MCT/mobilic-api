@@ -289,3 +289,45 @@ class TestAuthentication(BaseTest):
         self.assertIsNone(
             wrong_refresh_response.json["data"]["auth"]["refresh"]
         )
+
+    def test_blocking_account(self):
+        for i in range(0, 10):
+            login_response = test_post_graphql(
+                self.login_query,
+                variables=dict(email=self.user.email, password="wrong_passwd"),
+            )
+        self.assertEqual(
+            "BLOCKED_ACCOUNT_ERROR",
+            login_response.json["errors"][0]["extensions"]["code"],
+        )
+        good_login_response = test_post_graphql(
+            self.login_query,
+            variables=dict(email=self.user.email, password="passwd"),
+        )
+        self.assertEqual(
+            "BLOCKED_ACCOUNT_ERROR",
+            good_login_response.json["errors"][0]["extensions"]["code"],
+        )
+
+    def test_reset_bad_password_counter(self):
+        for i in range(0, 8):
+            test_post_graphql(
+                self.login_query,
+                variables=dict(email=self.user.email, password="wrong_passwd"),
+            )
+        test_post_graphql(
+            self.login_query,
+            variables=dict(email=self.user.email, password="passwd"),
+        )
+        for i in range(0, 8):
+            test_post_graphql(
+                self.login_query,
+                variables=dict(email=self.user.email, password="wrong_passwd"),
+            )
+        good_login_response = test_post_graphql(
+            self.login_query,
+            variables=dict(email=self.user.email, password="passwd"),
+        )
+        self.assertIsNotNone(
+            good_login_response.json["data"]["auth"]["login"]["accessToken"]
+        )
