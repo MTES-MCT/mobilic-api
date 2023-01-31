@@ -1,7 +1,7 @@
 """Add password update time column in user
 
 Revision ID: c00e60380604
-Revises: e0834912bc9c
+Revises: 4daee978090a
 Create Date: 2023-01-24 10:29:26.478413
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "c00e60380604"
-down_revision = "e0834912bc9c"
+down_revision = "4daee978090a"
 branch_labels = None
 depends_on = None
 

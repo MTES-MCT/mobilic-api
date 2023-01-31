@@ -493,7 +493,8 @@ class Mailer:
             )
         )
 
-    def send_reset_password_email(self, user):
+    @staticmethod
+    def _generate_reset_password_link(user):
         token = jwt.encode(
             {
                 "user_id": user.id,
@@ -506,9 +507,10 @@ class Mailer:
             app.config["JWT_SECRET_KEY"],
             algorithm="HS256",
         )
-        reset_link = (
-            f"{app.config['FRONTEND_URL']}/reset_password?token={token}"
-        )
+        return f"{app.config['FRONTEND_URL']}/reset_password?token={token}"
+
+    def send_reset_password_email(self, user):
+        reset_link = self._generate_reset_password_link(user)
         self._send_single(
             self._create_message_from_flask_template(
                 "reset_password_email.html",
@@ -705,6 +707,22 @@ class Mailer:
                 user=user,
                 first_name=user.first_name,
                 cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
+            )
+        )
+
+    def send_blocked_account_email(self, user):
+        reset_link = self._generate_reset_password_link(user)
+        self._send_single(
+            self._create_message_from_flask_template(
+                "account_blocked_email.html",
+                subject="Débloquer votre compte Mobilic",
+                user=user,
+                type_=EmailType.BLOCKED_ACCOUNT,
+                first_name=user.first_name,
+                reset_link=Markup(reset_link),
+                nb_max_tries=app.config[
+                    "NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING"
+                ],
             )
         )
 

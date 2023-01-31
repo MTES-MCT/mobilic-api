@@ -21,6 +21,7 @@ from app.domain.user import (
     create_user,
     get_user_from_fc_info,
     bind_user_to_pending_employments,
+    change_user_password,
 )
 from app.helpers.authentication import (
     current_user,
@@ -390,9 +391,7 @@ class ResetPassword(graphene.Mutation):
                     "Token is no more valid because it has been redeemed or a new token exists"
                 )
 
-            user.revoke_all_tokens()
-            user.password = password
-            user.password_update_time = datetime.now()
+            change_user_password(user, password)
 
         @after_this_request
         def set_cookies(response):

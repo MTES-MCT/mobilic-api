@@ -95,6 +95,7 @@ class Config:
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
     API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_live_")
+    NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING = 10
 
 
 class DevConfig(Config):
