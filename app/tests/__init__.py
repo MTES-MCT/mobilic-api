@@ -65,7 +65,11 @@ def test_post_graphql(
 
 
 def test_post_graphql_unexposed(
-    query, mock_authentication_with_user=None, variables=None, **kwargs
+    query,
+    mock_authentication_with_user=None,
+    variables=None,
+    headers=None,
+    **kwargs,
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
@@ -73,6 +77,7 @@ def test_post_graphql_unexposed(
         return c.post(
             graphql_private_api_path,
             json=dict(query=query, variables=variables),
+            headers=headers,
             **kwargs,
         )
 
@@ -93,6 +98,11 @@ def test_post_graphql_protected(
             headers=headers,
             **kwargs,
         )
+
+
+def test_post_rest(url, json, headers):
+    with app.test_client() as c:
+        return c.post(url, json=json, headers=headers)
 
 
 class GraphQLTestClient(FlaskClient, AuthenticatedUserContext):

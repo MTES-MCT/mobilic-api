@@ -137,6 +137,34 @@ class TestApiEmploymentToken(BaseTest):
         ]["accessToken"]
         self.assertIsNone(access_token)
 
+    def test_cannot_generate_employment_token(self):
+        third_party_client_employment = (
+            ThirdPartyClientEmployment.query.filter(
+                ThirdPartyClientEmployment.employment_id == self.employment_id,
+                ThirdPartyClientEmployment.client_id == self.client_id,
+            ).one_or_none()
+        )
+        self.assertIsNotNone(third_party_client_employment)
+        invitation_token = third_party_client_employment.invitation_token
+
+        generate_employment_token_response = test_post_graphql_unexposed(
+            query=ApiRequests.generate_employment_token,
+            variables=dict(
+                clientId=self.client_id,
+                employmentId=self.employment_id,
+                invitationToken=invitation_token,
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+        self.assertEqual(generate_employment_token_response.status_code, 200)
+        if "errors" not in generate_employment_token_response.json:
+            self.fail(
+                "Generate employment token should return an error when called by client"
+            )
+
     def test_get_employment_token_after_access_granted(self):
         third_party_client_employment = (
             ThirdPartyClientEmployment.query.filter(

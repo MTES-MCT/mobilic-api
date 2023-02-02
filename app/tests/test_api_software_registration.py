@@ -33,7 +33,7 @@ class TestApiSoftwareRegistration(BaseTest):
             query=ApiRequests.software_registration,
             variables=dict(
                 client_id=self.client_id,
-                usual_name="TesKeyt",
+                usual_name="Test",
                 siren="123456789",
             ),
             headers={},
@@ -46,7 +46,7 @@ class TestApiSoftwareRegistration(BaseTest):
             query=ApiRequests.software_registration,
             variables=dict(
                 client_id=self.client_id,
-                usual_name="TesKeyt",
+                usual_name="Test",
                 siren="123456789",
             ),
             headers={

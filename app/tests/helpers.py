@@ -351,6 +351,102 @@ class ApiRequests:
       }
     """
 
+    log_expenditure = """
+      mutation logExpenditure(
+        $type: ExpenditureTypeEnum!
+        $missionId: Int!
+        $userId: Int
+        $spendingDate: Date!
+        $creationTime: TimeStamp
+      ) {
+        activities {
+          logExpenditure(
+            type: $type
+            missionId: $missionId
+            userId: $userId
+            spendingDate: $spendingDate
+            creationTime: $creationTime
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    cancel_expenditure = """
+      mutation cancelExpenditure($expenditureId: Int!) {
+        activities {
+          cancelExpenditure(expenditureId: $expenditureId) {
+            success
+          }
+        }
+      }
+    """
+
+    log_comment = """
+      mutation logComment($text: String!, $missionId: Int!) {
+        activities {
+          logComment(text: $text, missionId: $missionId) {
+            id
+          }
+        }
+      }
+    """
+
+    cancel_comment = """
+      mutation cancelComment($commentId: Int!) {
+        activities {
+          cancelComment(commentId: $commentId) {
+            success
+          }
+        }
+      }
+    """
+
+    validate_mission = """
+      mutation validateMission(
+        $missionId: Int!
+        $usersIds: [Int]!
+      ) {
+        activities {
+          validateMission(
+            missionId: $missionId
+            usersIds: $usersIds
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    update_mission_vehicle = """
+      mutation updateMissionVehicle(
+        $missionId: Int!
+        $vehicleId: Int
+        $vehicleRegistrationNumber: String
+      ) {
+        activities {
+          updateMissionVehicle(
+            missionId: $missionId
+            vehicleId: $vehicleId
+            vehicleRegistrationNumber: $vehicleRegistrationNumber
+          ) {
+            id
+          }
+        }
+      } 
+    """
+
+    change_mission_name = """
+      mutation changeMissionName($name: String!, $missionId: Int!) {
+        activities {
+          changeMissionName(name: $name, missionId: $missionId) {
+            id
+          }
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
