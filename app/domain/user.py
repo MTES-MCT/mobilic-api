@@ -134,8 +134,9 @@ def reset_user_password_tries(user):
     user.nb_bad_password_tries = 0
 
 
-def change_user_password(user, new_password):
-    user.revoke_all_tokens()
+def change_user_password(user, new_password, revoke_tokens=True):
+    if revoke_tokens:
+        user.revoke_all_tokens()
     user.password = new_password
     user.password_update_time = datetime.now()
     user.nb_bad_password_tries = 0

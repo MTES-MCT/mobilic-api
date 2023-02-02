@@ -403,6 +403,22 @@ class ResetPassword(graphene.Mutation):
         return user
 
 
+class ResetPasswordConnected(AuthenticatedMutation):
+    class Arguments:
+        password = graphene.Argument(
+            Password, required=True, description="Nouveau mot de passe"
+        )
+
+    Output = Void
+
+    @classmethod
+    def mutate(cls, _, info, password):
+        user = User.query.get(current_user.id)
+        with atomic_transaction(commit_at_end=True):
+            change_user_password(user, password, revoke_tokens=False)
+        return Void(success=True)
+
+
 @app.route("/fc/authorize")
 def redirect_to_fc_authorize():
     query_params = {
