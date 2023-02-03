@@ -31,6 +31,7 @@ class UserAccountStatus(str, Enum):
 class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     email = db.Column(db.String(255), unique=True, nullable=True, default=None)
     _password = db.Column("password", db.String(255), default=None)
+    password_update_time = db.Column(DateTimeStoredAsUTC, nullable=True)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)

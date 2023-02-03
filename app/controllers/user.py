@@ -16,6 +16,7 @@ from app.data_access.user import UserOutput
 from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
+    only_self,
 )
 from app.domain.user import (
     create_user,
@@ -36,14 +37,16 @@ from app.helpers.authentication import (
 )
 from app.helpers.authorization import (
     AuthorizationError,
+    with_authorization_policy,
 )
 from app.helpers.errors import (
     InvalidTokenError,
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
     ActivationEmailDelayError,
+    InvalidParamsError,
 )
-from app.helpers.graphene_types import graphene_enum_type
+from app.helpers.graphene_types import graphene_enum_type, Password
 from app.helpers.mail import MailjetError, MailingContactList
 from app.helpers.france_connect import get_fc_user_info
 from app.helpers.mail_type import EmailType
@@ -76,7 +79,9 @@ class UserSignUp(graphene.Mutation):
             required=True,
             description="Adresse email, utilisée comme identifiant pour la connexion",
         )
-        password = graphene.String(required=True, description="Mot de passe")
+        password = graphene.Argument(
+            Password, required=True, description="Mot de passe"
+        )
         first_name = graphene.String(required=True, description="Prénom")
         last_name = graphene.String(required=True, description="Nom")
         invite_token = graphene.String(
@@ -146,7 +151,9 @@ class ConfirmFranceConnectEmail(AuthenticatedMutation):
             required=True,
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
-        password = graphene.String(required=False, description="Mot de passe")
+        password = graphene.Argument(
+            Password, required=False, description="Mot de passe"
+        )
         timezone_name = graphene.String(
             required=False, description=TIMEZONE_DESC
         )
@@ -355,7 +362,9 @@ class ResendActivationEmail(AuthenticatedMutation):
 class ResetPassword(graphene.Mutation):
     class Arguments:
         token = graphene.String(required=True)
-        password = graphene.String(required=True)
+        password = graphene.Argument(
+            Password, required=True, description="Mot de passe"
+        )
 
     Output = UserOutput
 
@@ -395,6 +404,30 @@ class ResetPassword(graphene.Mutation):
             return response
 
         return user
+
+
+class ResetPasswordConnected(AuthenticatedMutation):
+    class Arguments:
+        password = graphene.Argument(
+            Password, required=True, description="Nouveau mot de passe"
+        )
+        user_id = graphene.Int(required=True)
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, password, user_id):
+        user = User.query.get(user_id)
+        if not user:
+            raise (InvalidParamsError("Invalid user"))
+        with atomic_transaction(commit_at_end=True):
+            change_user_password(user, password, revoke_tokens=False)
+        return Void(success=True)
 
 
 @app.route("/fc/authorize")

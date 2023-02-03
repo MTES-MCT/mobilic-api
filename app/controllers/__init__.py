@@ -63,6 +63,7 @@ from app.controllers.user import (
     ConfirmFranceConnectEmail,
     DisableWarning,
     FranceConnectLogin,
+    ResetPasswordConnected,
 )
 from app.controllers.user import Query as UserQuery
 from app.controllers.user import (
@@ -136,6 +137,7 @@ class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
+    reset_password_connected = ResetPasswordConnected.Field()
     request_reset_password = RequestPasswordReset.Field()
     resend_activation_email = ResendActivationEmail.Field()
     disable_warning = DisableWarning.Field()
