@@ -16,6 +16,7 @@ from app.data_access.user import UserOutput
 from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
+    only_self,
 )
 from app.domain.user import (
     create_user,
@@ -36,12 +37,14 @@ from app.helpers.authentication import (
 )
 from app.helpers.authorization import (
     AuthorizationError,
+    with_authorization_policy,
 )
 from app.helpers.errors import (
     InvalidTokenError,
     TokenExpiredError,
     FCUserAlreadyRegisteredError,
     ActivationEmailDelayError,
+    InvalidParamsError,
 )
 from app.helpers.graphene_types import graphene_enum_type, Password
 from app.helpers.mail import MailjetError, MailingContactList
@@ -408,12 +411,20 @@ class ResetPasswordConnected(AuthenticatedMutation):
         password = graphene.Argument(
             Password, required=True, description="Nouveau mot de passe"
         )
+        user_id = graphene.Int(required=True)
 
     Output = Void
 
     @classmethod
-    def mutate(cls, _, info, password):
-        user = User.query.get(current_user.id)
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, password, user_id):
+        user = User.query.get(user_id)
+        if not user:
+            raise (InvalidParamsError("Invalid user"))
         with atomic_transaction(commit_at_end=True):
             change_user_password(user, password, revoke_tokens=False)
         return Void(success=True)
