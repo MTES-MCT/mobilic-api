@@ -584,18 +584,22 @@ class ApiRequests:
               firstName
               lastName
               missions {
-                  name
-                  activities {
-                      id
-                      type
-                      startTime
-                      endTime
-                      userId
-                  }
-                  expenditures {
-                      id
-                      type
-                      userId
+                  edges {
+                      node {
+                          name
+                          activities {
+                              id
+                              type
+                              startTime
+                              endTime
+                              userId
+                          }
+                          expenditures {
+                              id
+                              type
+                              userId
+                          }
+                      }
                   }
               }
           }
@@ -627,20 +631,24 @@ class ApiRequests:
           company(id: $id) {
               name
               missions {
-                  id
-                  name
-                  activities {
-                      id
-                      type
-                      startTime
-                      endTime
-                      userId
+                  edges {
+                    node {
+                    id
+                    name
+                    activities {
+                        id
+                        type
+                        startTime
+                        endTime
+                        userId
+                    }
+                    expenditures {
+                        id
+                        type
+                        userId
+                    }
                   }
-                  expenditures {
-                      id
-                      type
-                      userId
-                  }
+                }
               }
           }
       }
