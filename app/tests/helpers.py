@@ -78,12 +78,14 @@ class ApiRequests:
             }
         }
     """
+
     log_location = """
         mutation logLocation(
             $type: LocationEntryTypeEnum!
             $missionId: Int!
             $geoApiData: GenericScalar
             $manualAddress: String
+            $companyKnownAddressId: Int
         ) {
             activities {
                 logLocation(
@@ -91,6 +93,7 @@ class ApiRequests:
                     type: $type
                     geoApiData: $geoApiData
                     manualAddress: $manualAddress
+                    companyKnownAddressId: $companyKnownAddressId
                 ) {
                     id
                     name
@@ -101,6 +104,7 @@ class ApiRequests:
             }
         }
     """
+
     create_mission = """
         mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
             activities {
@@ -111,6 +115,7 @@ class ApiRequests:
             }
         }
     """
+
     end_mission = """
         mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int) {
             activities {
@@ -121,6 +126,7 @@ class ApiRequests:
             }
         }
     """
+
     cancel_mission = """
         mutation ($missionId: Int!, $userId: Int!) {
             activities {
@@ -144,6 +150,7 @@ class ApiRequests:
             }
         }
     """
+
     cancel_activity = """
         mutation ($activityId: Int!, $context: GenericScalar) {
             activities {
@@ -153,6 +160,7 @@ class ApiRequests:
             }
         }
     """
+
     edit_activity = """
         mutation ($activityId: Int!, $startTime: TimeStamp, $endTime: TimeStamp, $context: GenericScalar) {
             activities {
@@ -163,6 +171,7 @@ class ApiRequests:
             }
         }
     """
+
     create_account = """
         mutation ($email: String!, $password: String!, $firstName: String!, $lastName: String!, $inviteToken: String) {
             signUp {
@@ -173,6 +182,7 @@ class ApiRequests:
             }
         }
     """
+
     invite = """
         mutation ($userId: Int, $companyId: Int!, $mail: String) {
             employments {
@@ -182,6 +192,7 @@ class ApiRequests:
             }
         }
     """
+
     redeem_invite = """
         mutation ($token: String!) {
             signUp {
@@ -191,6 +202,7 @@ class ApiRequests:
             }
         }
     """
+
     change_employee_role = """
         mutation changeEmployeeRole($employmentId: Int!, $hasAdminRights: Boolean!) {
             employments {
@@ -204,6 +216,7 @@ class ApiRequests:
             }
         }
     """
+
     terminate_employment = """
         mutation terminateEmployment($employmentId: Int!, $endDate: Date) {
             employments {
@@ -214,6 +227,7 @@ class ApiRequests:
             }
         }
     """
+
     read_control_data = """
     query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
@@ -230,6 +244,7 @@ class ApiRequests:
         }
     }
     """
+
     read_control_data_with_alerts = """
     query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
@@ -447,6 +462,190 @@ class ApiRequests:
       }
     """
 
+    create_vehicle = """
+      mutation createVehicle(
+        $registrationNumber: String!
+        $alias: String
+        $companyId: Int!
+      ) {
+        vehicles {
+          createVehicle(
+            registrationNumber: $registrationNumber
+            alias: $alias
+            companyId: $companyId
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    edit_vehicle = """
+      mutation($id: Int!, $alias: String) {
+        vehicles {
+          editVehicle(id: $id, alias: $alias) {
+            id
+          }
+        }
+      }
+    """
+
+    terminate_vehicle = """
+      mutation terminateVehicle($id: Int!) {
+        vehicles {
+          terminateVehicle(id: $id) {
+            success
+          }
+        }
+      }
+    """
+
+    create_address = """
+      mutation createKnownAddress(
+        $geoApiData: GenericScalar
+        $manualAddress: String
+        $alias: String
+        $companyId: Int!
+      ) {
+        locations {
+          createKnownAddress(
+            geoApiData: $geoApiData
+            manualAddress: $manualAddress
+            alias: $alias
+            companyId: $companyId
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    edit_address = """
+      mutation editKnownAddress($companyKnownAddressId: Int!, $alias: String) {
+        locations {
+          editKnownAddress(
+            companyKnownAddressId: $companyKnownAddressId
+            alias: $alias
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    terminate_address = """
+      mutation terminateKnownAddress($companyKnownAddressId: Int!) {
+        locations {
+          terminateKnownAddress(companyKnownAddressId: $companyKnownAddressId) {
+            success
+          }
+        }
+      }
+    """
+
+    edit_company_settings = """
+      mutation editCompanySettings(
+        $companyId: Int!
+        $allowTeamMode: Boolean
+        $requireKilometerData: Boolean
+        $requireExpenditures: Boolean
+        $requireSupportActivity: Boolean
+        $allowTransfers: Boolean
+        $requireMissionName: Boolean
+      ) {
+        editCompanySettings(
+          companyId: $companyId
+          allowTeamMode: $allowTeamMode
+          requireKilometerData: $requireKilometerData
+          requireExpenditures: $requireExpenditures
+          requireSupportActivity: $requireSupportActivity
+          allowTransfers: $allowTransfers
+          requireMissionName: $requireMissionName
+        ) {
+          id
+
+        }
+      }
+    """
+
+    send_invite_reminder = """
+      mutation sendInviteReminder($employmentId: Int!) {
+        employments {
+          sendInvitationReminder(employmentId: $employmentId) {
+            success
+          }
+        }
+      }
+    """
+
+    query_user = """
+      query user($id: Int!){
+          user(id: $id) {
+              firstName
+              lastName
+              missions {
+                  name
+                  activities {
+                      id
+                      type
+                      startTime
+                      endTime
+                      userId
+                  }
+                  expenditures {
+                      id
+                      type
+                      userId
+                  }
+              }
+          }
+      }
+    """
+
+    query_mission = """
+      query mission($id: Int!){
+          mission(id: $id) {
+              name
+              activities {
+                  id
+                  type
+                  startTime
+                  endTime
+                  userId
+              }
+              expenditures {
+                  id
+                  type
+                  userId
+              }
+          }
+      }
+    """
+
+    query_company = """
+      query company($id: Int!){
+          company(id: $id) {
+              name
+              missions {
+                  id
+                  name
+                  activities {
+                      id
+                      type
+                      startTime
+                      endTime
+                      userId
+                  }
+                  expenditures {
+                      id
+                      type
+                      userId
+                  }
+              }
+          }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
@@ -624,7 +823,7 @@ def make_protected_request(
     )
     db.session.rollback()
 
-    # print(f"{response.status_code} - {response.json}")
+    print(f"{response.status_code} - {response.json}")
 
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:

@@ -46,14 +46,21 @@ def _sync_employments(self):
             company_id=self.company_id,
             employees=[
                 {
-                    "firstName": "Prénom_test1",
-                    "lastName": "Nom_test1",
-                    "email": "email-salarie1@example.com",
+                    "firstName": "Admin_test",
+                    "lastName": "Admin_test",
+                    "email": "email-admin@example.com",
+                    "hasAdminRights": True,
                 },
                 {
-                    "firstName": "Prénom_test2",
-                    "lastName": "Nom_test2",
-                    "email": "email-salarie2@example.com",
+                    "firstName": "Employee_test",
+                    "lastName": "Employee_test",
+                    "email": "email-employee@example.com",
+                },
+                {
+                    "firstName": "Admin_dismissed",
+                    "lastName": "Admin_dismissed",
+                    "email": "email-admin-dismissed@example.com",
+                    "hasAdminRights": True,
                 },
             ],
         ),
@@ -65,9 +72,10 @@ def _sync_employments(self):
     employment_ids = sync_employment_response["data"]["company"][
         "syncEmployment"
     ]
-    self.assertEqual(len(employment_ids), 2)
-    self.employment_id = employment_ids[0]["id"]
-    self.employment_id_2 = employment_ids[1]["id"]
+    self.assertEqual(len(employment_ids), 3)
+    self.employment_admin_id = employment_ids[0]["id"]
+    self.employment_employee_id = employment_ids[1]["id"]
+    self.employment_admin_id_2 = employment_ids[2]["id"]
 
 
 def _get_user_id(self, employment_id):
@@ -138,6 +146,69 @@ def _dismiss_employment_token(self, employment_id, user_id):
     )
 
 
+def _create_vehicle_success(self):
+    create_vehicle_response = test_post_graphql_unexposed(
+        query=ApiRequests.create_vehicle,
+        variables={
+            "companyId": self.company_id,
+            "registrationNumber": "ABD123DEF",
+            "alias": "My Little Truck",
+        },
+        headers={
+            "X-CLIENT-ID": self.client_id,
+            "X-EMPLOYMENT-TOKEN": self.access_token,
+        },
+    )
+    self.assertEqual(create_vehicle_response.status_code, 200)
+    vehicle_id = create_vehicle_response.json["data"]["vehicles"][
+        "createVehicle"
+    ]["id"]
+    self.assertIsNotNone(vehicle_id)
+    return vehicle_id
+
+
+def _create_address_success(self):
+    create_address_response = test_post_graphql_unexposed(
+        query=ApiRequests.create_address,
+        variables={
+            "companyId": self.company_id,
+            "manualAddress": "1 rue du Pôle Nord",
+            "alias": "Père Noël",
+        },
+        headers={
+            "X-CLIENT-ID": self.client_id,
+            "X-EMPLOYMENT-TOKEN": self.access_token,
+        },
+    )
+    self.assertEqual(create_address_response.status_code, 200)
+    address_id = create_address_response.json["data"]["locations"][
+        "createKnownAddress"
+    ]["id"]
+    self.assertIsNotNone(address_id)
+    return address_id
+
+
+def _create_employment_success(self):
+    create_employment_response = test_post_graphql(
+        query=ApiRequests.invite,
+        variables={
+            "companyId": self.company_id,
+            "hasAdminRights": False,
+            "mail": "employee-invited@test.com",
+        },
+        headers={
+            "X-CLIENT-ID": self.client_id,
+            "X-EMPLOYMENT-TOKEN": self.access_token,
+        },
+    )
+    self.assertEqual(create_employment_response.status_code, 200)
+    employment_id = create_employment_response.json["data"]["employments"][
+        "createEmployment"
+    ]["id"]
+    self.assertIsNotNone(employment_id)
+    return employment_id
+
+
 def _create_mission(company_id, headers):
     return test_post_graphql(
         query=ApiRequests.create_mission,
@@ -176,10 +247,10 @@ def _log_activity(mission_id, user_id, headers):
     )
 
 
-def _log_activity_success(self, mission_id):
+def _log_activity_success(self, mission_id, user_id):
     log_activity_response = _log_activity(
         mission_id,
-        self.user_id,
+        user_id,
         {
             "X-CLIENT-ID": self.client_id,
             "X-EMPLOYMENT-TOKEN": self.access_token,
@@ -191,39 +262,6 @@ def _log_activity_success(self, mission_id):
     ]["id"]
     self.assertIsNotNone(activity_id)
     return activity_id
-
-
-def _log_location(mission_id, headers):
-    geo_api_data = {
-        "type": "Feature",
-        "geometry": {
-            "type": "Point",
-            "coordinates": [2.412745, 47.107928],
-        },
-        "properties": {
-            "label": "Avenue du Général de Gaulle 18000 Bourges",
-            "score": 0.8891745454545453,
-            "id": "18033_2461",
-            "name": "Avenue du Général de Gaulle",
-            "postcode": "18000",
-            "citycode": "18033",
-            "x": 655466.12,
-            "y": 6667684.16,
-            "city": "Bourges",
-            "context": "18, Cher, Centre-Val de Loire",
-            "type": "street",
-            "importance": 0.78092,
-        },
-    }
-    return test_post_graphql(
-        query=ApiRequests.log_location,
-        variables={
-            "missionId": mission_id,
-            "type": "mission_start_location",
-            "geoApiData": geo_api_data,
-        },
-        headers=headers,
-    )
 
 
 def _log_comment_success(self, mission_id):
@@ -243,13 +281,13 @@ def _log_comment_success(self, mission_id):
     return comment_id
 
 
-def _end_mission_success(self, mission_id):
+def _end_mission_success(self, mission_id, user_id):
     end_mission_response = test_post_graphql(
         query=ApiRequests.end_mission,
         variables={
             "missionId": mission_id,
             "endTime": to_timestamp(datetime.now()),
-            "userId": self.user_id,
+            "userId": user_id,
         },
         headers={
             "X-CLIENT-ID": self.client_id,
@@ -266,9 +304,9 @@ def _end_mission_success(self, mission_id):
 def _log_expenditure_success(self):
     with freeze_time(get_time(how_many_days_ago=0, hour=1)):
         mission_id = _create_mission_success(self)
-        _log_activity_success(self, mission_id)
+        _log_activity_success(self, mission_id, self.user_employee_id)
 
-    _end_mission_success(self, mission_id)
+    _end_mission_success(self, mission_id, self.user_employee_id)
     log_expenditure_response = test_post_graphql(
         query=ApiRequests.log_expenditure,
         variables={
@@ -288,7 +326,7 @@ def _log_expenditure_success(self):
     return expenditure_id
 
 
-class TestApiEmployeeQueries(BaseTest):
+class TestApiAdminQueries(BaseTest):
     def setUp(self):
         super().setUp()
 
@@ -313,300 +351,179 @@ class TestApiEmployeeQueries(BaseTest):
             self, usual_name="Test2", siren="987654321"
         )
         _sync_employments(self)
-        self.user_id = _get_user_id(self, self.employment_id)
-        self.user_id_2 = _get_user_id(self, self.employment_id_2)
-        self.access_token = _get_access_token(self, self.employment_id)
-        self.access_token_2 = _get_access_token(self, self.employment_id_2)
-        _dismiss_employment_token(self, self.employment_id_2, self.user_id_2)
+        self.user_admin_id = _get_user_id(self, self.employment_admin_id)
+        self.user_employee_id = _get_user_id(self, self.employment_employee_id)
+        self.access_token = _get_access_token(self, self.employment_admin_id)
 
         company_unlinked = CompanyFactory.create(
             usual_name=f"Another Comp", siren=f"00000404"
         )
         self.company_unlinked_id = company_unlinked.id
 
-    def test_create_mission_fails_with_no_client_id(self):
-        create_mission_response = _create_mission(
-            self.company_id, {"X-EMPLOYMENT-TOKEN": self.access_token}
-        )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+    def test_create_vehicle_success(self):
+        _create_vehicle_success(self)
 
-    def test_create_mission_fails_with_wrong_client_id(self):
-        create_mission_response = _create_mission(
-            self.company_id,
-            {
-                "X-CLIENT-ID": "mobilic_live_wrong",
-                "X-EMPLOYMENT-TOKEN": self.access_token,
+    def test_edit_vehicle_success(self):
+        vehicle_id = _create_vehicle_success(self)
+        edit_vehicle_response = test_post_graphql_unexposed(
+            query=ApiRequests.edit_vehicle,
+            variables={
+                "id": vehicle_id,
+                "alias": "My Little Pony",
             },
-        )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_create_mission_fails_with_no_token(self):
-        create_mission_response = _create_mission(
-            self.company_id, {"X-CLIENT-ID": self.client_id}
-        )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_create_mission_fails_with_wrong_token(self):
-        create_mission_response = _create_mission(
-            self.company_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": "wrong",
-            },
-        )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_create_mission_fails_with_dismissed_token(self):
-        create_mission_response = _create_mission(
-            self.company_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token_2,
-            },
-        )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_create_mission_fails_with_unlinked_company(self):
-        create_mission_response = _create_mission(
-            self.company_unlinked_id,
-            {
+            headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
+        self.assertEqual(edit_vehicle_response.status_code, 200)
+        if "errors" in edit_vehicle_response.json:
+            self.fail(
+                f"Edit vehicle returned an error: {edit_vehicle_response.json}"
+            )
 
-    def test_create_mission_fails_with_inconsistent_company(self):
-        create_mission_response = _create_mission(
-            self.company_id_2,
-            {
+    def test_terminate_vehicle_success(self):
+        vehicle_id = _create_vehicle_success(self)
+        terminate_vehicle_response = test_post_graphql_unexposed(
+            query=ApiRequests.terminate_vehicle,
+            variables={"id": vehicle_id},
+            headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
+        self.assertEqual(terminate_vehicle_response.status_code, 200)
+        if "errors" in terminate_vehicle_response.json:
+            self.fail(
+                f"Terminate vehicle returned an error: {terminate_vehicle_response.json}"
+            )
+
+    def test_create_address_success(self):
+        _create_address_success(self)
+
+    def test_edit_address_success(self):
+        address_id = _create_address_success(self)
+        edit_address_response = test_post_graphql_unexposed(
+            query=ApiRequests.edit_address,
+            variables={
+                "companyKnownAddressId": address_id,
+                "alias": "Santa Claus",
+            },
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
         )
+        self.assertEqual(edit_address_response.status_code, 200)
+        if "errors" in edit_address_response.json:
+            self.fail(
+                f"Edit address returned an error: {edit_address_response.json}"
+            )
+
+    def test_terminate_address_success(self):
+        address_id = _create_address_success(self)
+        terminate_address_response = test_post_graphql_unexposed(
+            query=ApiRequests.terminate_address,
+            variables={"companyKnownAddressId": address_id},
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        self.assertEqual(terminate_address_response.status_code, 200)
+        if "errors" in terminate_address_response.json:
+            self.fail(
+                f"Terminate address returned an error: {terminate_address_response.json}"
+            )
+
+    def test_edit_company_settings_success(self):
+        edit_company_settings_response = test_post_graphql_unexposed(
+            query=ApiRequests.edit_company_settings,
+            variables={"companyId": self.company_id, "allowTeamMode": True},
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        self.assertEqual(edit_company_settings_response.status_code, 200)
+        if "errors" in edit_company_settings_response.json:
+            self.fail(
+                f"Edit company settings returned an error: {edit_company_settings_response.json}"
+            )
+
+    def test_create_employment_success(self):
+        _create_employment_success(self)
+
+    def test_terminate_employment_success(self):
+        terminate_employment_response = test_post_graphql(
+            query=ApiRequests.terminate_employment,
+            variables={"employmentId": self.employment_admin_id_2},
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        print(terminate_employment_response.json)
+        self.assertEqual(terminate_employment_response.status_code, 200)
+        if "errors" in terminate_employment_response.json:
+            self.fail(
+                f"Terminate employment returned an error: {terminate_employment_response.json}"
+            )
+
+    def test_change_employee_role_success(self):
+        employment_id = _create_employment_success(self)
+
+        change_employee_role_response = test_post_graphql(
+            query=ApiRequests.change_employee_role,
+            variables={"employmentId": employment_id, "hasAdminRights": True},
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        self.assertEqual(change_employee_role_response.status_code, 200)
+        if "errors" in change_employee_role_response.json:
+            self.fail(
+                f"Change employee role returned an error: {change_employee_role_response.json}"
+            )
+
+    def test_send_invite_reminder_success(self):
+        employment_id = _create_employment_success(self)
+
+        send_reminder_response = test_post_graphql(
+            query=ApiRequests.send_invite_reminder,
+            variables={"employmentId": employment_id},
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        self.assertEqual(send_reminder_response.status_code, 200)
+        if "errors" in send_reminder_response.json:
+            self.fail(
+                f"Send invite reminder returned an error: {send_reminder_response.json}"
+            )
 
     def test_create_mission_success(self):
         _create_mission_success(self)
 
-    def test_log_activity_fails_with_no_client_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id,
-            {"X-EMPLOYMENT-TOKEN": self.access_token},
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_activity_fails_with_wrong_client_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id,
-            {
-                "X-CLIENT-ID": "wrong",
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_activity_fails_with_no_token(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id,
-            {"X-CLIENT-ID": self.client_id},
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_activity_fails_with_wrong_token(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": "wrong",
-            },
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_log_activity_fails_with_dismissed_token(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token_2,
-            },
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_log_activity_fails_with_inconsistent_user_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id_2,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
-
     def test_log_activity_success(self):
         mission_id = _create_mission_success(self)
 
-        _log_activity_success(self, mission_id)
-
-    def test_log_location_fails_no_client_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_location_response = _log_location(
-            mission_id,
-            {
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_location_fails_wrong_client_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_location_response = _log_location(
-            mission_id,
-            {
-                "X-CLIENT-ID": "wrong",
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_location_fails_no_token(self):
-        mission_id = _create_mission_success(self)
-        log_location_response = _log_location(
-            mission_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
-
-    def test_log_location_fails_wrong_token(self):
-        mission_id = _create_mission_success(self)
-        log_location_response = _log_location(
-            mission_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": "wrong",
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_log_location_fails_dismissed_token(self):
-        mission_id = _create_mission_success(self)
-        log_location_response = _log_location(
-            mission_id,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token_2,
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
-
-    def test_log_location_fails_inconsistent_mission(self):
-        create_mission_response = make_authenticated_request(
-            time=datetime.now(),
-            submitter_id=self.user_id_2,
-            query=ApiRequests.create_mission,
-            variables={"company_id": self.company_id},
-        )
-        mission_id_2 = create_mission_response["data"]["activities"][
-            "createMission"
-        ]["id"]
-
-        log_location_response = _log_location(
-            mission_id_2,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        self.assertEqual(log_location_response.status_code, 200)
-        error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
+        _log_activity_success(self, mission_id, self.user_employee_id)
 
     def test_log_location_success(self):
         mission_id = _create_mission_success(self)
+        address_id = _create_address_success(self)
 
-        log_location_response = _log_location(
-            mission_id,
-            {
+        log_location_response = test_post_graphql(
+            query=ApiRequests.log_location,
+            variables={
+                "missionId": mission_id,
+                "type": "mission_start_location",
+                "companyKnownAddressId": address_id,
+            },
+            headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
@@ -631,7 +548,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
             headers={
                 "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token,
+                "X-EMPLOYMENT-TOKEllN": self.access_token,
             },
         )
         self.assertEqual(cancel_expenditure_response.status_code, 200)
@@ -643,20 +560,20 @@ class TestApiEmployeeQueries(BaseTest):
     def test_end_mission_success(self):
         mission_id = _create_mission_success(self)
 
-        _end_mission_success(self, mission_id)
+        _end_mission_success(self, mission_id, self.user_employee_id)
 
     def test_validate_mission_success(self):
         with freeze_time(get_time(how_many_days_ago=0, hour=1)):
             mission_id = _create_mission_success(self)
-            _log_activity_success(self, mission_id)
+            _log_activity_success(self, mission_id, self.user_employee_id)
 
-        _end_mission_success(self, mission_id)
+        _end_mission_success(self, mission_id, self.user_employee_id)
 
         validate_mission_response = test_post_graphql(
             query=ApiRequests.validate_mission,
             variables={
                 "missionId": mission_id,
-                "usersIds": [self.user_id],
+                "usersIds": [self.user_employee_id],
             },
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -696,7 +613,9 @@ class TestApiEmployeeQueries(BaseTest):
 
     def test_cancel_activity_success(self):
         mission_id = _create_mission_success(self)
-        activity_id = _log_activity_success(self, mission_id)
+        activity_id = _log_activity_success(
+            self, mission_id, self.user_employee_id
+        )
 
         cancel_activity_response = test_post_graphql(
             query=ApiRequests.cancel_activity,
@@ -716,7 +635,9 @@ class TestApiEmployeeQueries(BaseTest):
 
     def test_edit_activity_success(self):
         mission_id = _create_mission_success(self)
-        activity_id = _log_activity_success(self, mission_id)
+        activity_id = _log_activity_success(
+            self, mission_id, self.user_employee_id
+        )
 
         edit_activity_response = test_post_graphql(
             query=ApiRequests.edit_activity,
@@ -782,7 +703,7 @@ class TestApiEmployeeQueries(BaseTest):
             query=ApiRequests.cancel_mission,
             variables={
                 "missionId": mission_id,
-                "userId": self.user_id,
+                "userId": self.user_employee_id,
             },
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -815,7 +736,7 @@ class TestApiEmployeeQueries(BaseTest):
     def test_query_user_info(self):
         query_user_response = test_post_graphql(
             query=ApiRequests.query_user,
-            variables={"id": self.user_id},
+            variables={"id": self.user_employee_id},
             headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
@@ -828,15 +749,35 @@ class TestApiEmployeeQueries(BaseTest):
                 f"Query user returned an error: {query_user_response.json}"
             )
 
-    def test_generate_qr_code_success(self):
-        generate_qr_code_response = test_post_rest(
-            "/control/generate-user-read-token",
-            json={},
+    def test_query_company_info(self):
+        query_company_response = test_post_graphql(
+            query=ApiRequests.query_company,
+            variables={"id": self.company_id},
             headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        self.assertEqual(generate_qr_code_response.status_code, 200)
-        self.assertIsNotNone(generate_qr_code_response.json["controlToken"])
-        self.assertIsNotNone(generate_qr_code_response.json["token"])
+        print(query_company_response.json)
+        self.assertEqual(query_company_response.status_code, 200)
+        if "errors" in query_company_response.json:
+            self.fail(
+                f"Query company returned an error: {query_company_response.json}"
+            )
+
+    def test_export_c1b(self):
+        export_c1b_response = test_post_rest(
+            "/companies/generate_tachograph_files",
+            json={
+                "company_ids": [self.company_id],
+                "user_ids": [self.user_employee_id],
+                "min_date": "2021-12-16",
+                "max_date": "2022-02-14",
+                "with_digital_signatures": False,
+            },
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+        self.assertEqual(export_c1b_response.status_code, 200)
