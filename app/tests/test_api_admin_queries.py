@@ -94,7 +94,7 @@ def _get_user_id(self, employment_id):
     return user_id
 
 
-def _get_access_token(self, employment_id):
+def _active_employment(self, employment_id):
     third_party_client_employment = ThirdPartyClientEmployment.query.filter(
         ThirdPartyClientEmployment.employment_id == employment_id,
         ThirdPartyClientEmployment.client_id == self.client_id,
@@ -117,6 +117,10 @@ def _get_access_token(self, employment_id):
             "generateEmploymentToken"
         ]["success"]
     )
+
+
+def _get_access_token(self, employment_id):
+    _active_employment(self, employment_id)
 
     get_employment_token_response = make_protected_request(
         query=ApiRequests.get_employment_token,
@@ -260,7 +264,11 @@ def _log_activity_success(self, mission_id, user_id):
     activity_id = log_activity_response.json["data"]["activities"][
         "logActivity"
     ]["id"]
+    user_id_response = log_activity_response.json["data"]["activities"][
+        "logActivity"
+    ]["userId"]
     self.assertIsNotNone(activity_id)
+    self.assertEqual(user_id_response, user_id)
     return activity_id
 
 
@@ -455,6 +463,8 @@ class TestApiAdminQueries(BaseTest):
         _create_employment_success(self)
 
     def test_terminate_employment_success(self):
+        _active_employment(self, self.employment_admin_id_2)
+
         terminate_employment_response = test_post_graphql(
             query=ApiRequests.terminate_employment,
             variables={"employmentId": self.employment_admin_id_2},
@@ -548,7 +558,7 @@ class TestApiAdminQueries(BaseTest):
             },
             headers={
                 "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEllN": self.access_token,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
         self.assertEqual(cancel_expenditure_response.status_code, 200)
@@ -559,7 +569,6 @@ class TestApiAdminQueries(BaseTest):
 
     def test_end_mission_success(self):
         mission_id = _create_mission_success(self)
-
         _end_mission_success(self, mission_id, self.user_employee_id)
 
     def test_validate_mission_success(self):
@@ -698,6 +707,7 @@ class TestApiAdminQueries(BaseTest):
 
     def test_cancel_mission_success(self):
         mission_id = _create_mission_success(self)
+        _active_employment(self, self.employment_employee_id)
 
         cancel_mission_response = test_post_graphql(
             query=ApiRequests.cancel_mission,

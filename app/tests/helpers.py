@@ -74,6 +74,7 @@ class ApiRequests:
                 logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context, switch: $switch) {
                     id
                     type
+                    userId
                 }
             }
         }
