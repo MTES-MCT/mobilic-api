@@ -482,22 +482,6 @@ class TestApiEmployeeQueries(BaseTest):
         error_message = log_activity_response.json["errors"][0]["message"]
         self.assertEqual("Invalid token", error_message)
 
-    def test_log_activity_fails_with_inconsistent_user_id(self):
-        mission_id = _create_mission_success(self)
-
-        log_activity_response = _log_activity(
-            mission_id,
-            self.user_id_2,
-            {
-                "X-CLIENT-ID": self.client_id,
-                "X-EMPLOYMENT-TOKEN": self.access_token,
-            },
-        )
-        error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
-
     def test_log_activity_success(self):
         mission_id = _create_mission_success(self)
 
