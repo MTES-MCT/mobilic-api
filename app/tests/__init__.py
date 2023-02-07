@@ -15,7 +15,6 @@ from app.seed import AuthenticatedUserContext
 from config import TestConfig
 
 MIGRATED_TEST_DB = {"value": False}
-STATIC_TABLES = ["public.regulation_check"]
 
 
 def migrate_test_db():
@@ -44,19 +43,7 @@ class BaseTest(TestCase):
             "public." + str(table)
             for table in reversed(db.metadata.sorted_tables)
         ]
-
-        table_to_truncate = [
-            table for table in all_tables if table not in STATIC_TABLES
-        ]
-        db.engine.execute(
-            "TRUNCATE {} CASCADE;".format(", ".join(table_to_truncate))
-        )
-
-    @classmethod
-    def tearDownClass(cls):
-        db.engine.execute(
-            "TRUNCATE {} CASCADE;".format(", ".join(STATIC_TABLES))
-        )
+        db.engine.execute("TRUNCATE {} CASCADE;".format(", ".join(all_tables)))
 
 
 def test_post_graphql(

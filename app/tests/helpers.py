@@ -5,7 +5,8 @@ from datetime import datetime
 
 from app import db
 from app.helpers.time import to_timestamp
-from app.models import ControllerUser, User
+from app.models import ControllerUser, User, RegulationCheck
+from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
     test_post_graphql,
     test_post_graphql_protected,
@@ -843,3 +844,53 @@ def make_protected_request(
         assert response.status_code == 200
 
     return response.json
+
+
+def init_regulation_checks_data():
+    regulation_check = RegulationCheck.query.first()
+    if not regulation_check:
+        regulation_checks = get_regulation_checks()
+        for r in regulation_checks:
+            insert_regulation_check(r)
+        regulation_check = RegulationCheck.query.first()
+    return regulation_check
+
+
+def insert_regulation_check(regulation_data):
+    db.session.execute(
+        """
+            INSERT INTO regulation_check(
+              creation_time,
+              type,
+              label,
+              description,
+              date_application_start,
+              date_application_end,
+              regulation_rule,
+              variables,
+              unit
+            )
+            VALUES
+            (
+              NOW(),
+              :type,
+              :label,
+              :description,
+              :date_application_start,
+              :date_application_end,
+              :regulation_rule,
+              :variables,
+              :unit
+            )
+            """,
+        dict(
+            type=regulation_data.type,
+            label=regulation_data.label,
+            description=regulation_data.description,
+            date_application_start=regulation_data.date_application_start,
+            date_application_end=regulation_data.date_application_end,
+            regulation_rule=regulation_data.regulation_rule,
+            variables=regulation_data.variables,
+            unit=regulation_data.unit,
+        ),
+    )
