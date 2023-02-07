@@ -324,6 +324,7 @@ def _log_expenditure_success(self):
             "type": "snack",
             "missionId": mission_id,
             "spendingDate": datetime.now().strftime("%Y-%m-%d"),
+            "userId": self.user_employee_id,
         },
         headers={
             "X-CLIENT-ID": self.client_id,
