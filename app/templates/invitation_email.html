@@ -1,4 +1,5 @@
 {% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
 
 {% block subject %}
 {{ company_name }} vous invite à rejoindre Mobilic
@@ -15,19 +16,7 @@
             {% endif %} à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
         <p>Mobilic est la plateforme gouvernementale qui simplifie <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement.</p>
         <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le bouton d'activation suivant :</p>
-
-        <div style="text-align:center;margin-bottom:20px"><!--[if mso]>
-            <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{invitation_link}}" style="height:35px;v-text-anchor:middle;width:185px;" arcsize="50%" stroke="f" fillcolor="#3184ff">
-                <w:anchorlock/>
-                <center>
-            <![endif]-->
-            <a href="{{invitation_link}}"
-               style="background-color:#3184ff;border-radius:20px;color:#ffffff;display:inline-block;font-family:sans-serif;font-size:14px;font-weight:bold;line-height:35px;text-align:center;text-decoration:none;width:185px;-webkit-text-size-adjust:none;" target="_blank" rel="noopener noreferrer">Activer mon compte</a>
-            <!--[if mso]>
-            </center>
-            </v:roundrect>
-        <![endif]--></div>
-
+        {{button.button('Activer mon compte', invitation_link)}}
     {% else %}
         <p>
             {% if reminder %}
@@ -37,19 +26,7 @@
             {% endif %} sur Mobilic.
         </p>
         <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le bouton d'activation suivant :</p>
-        <div style="text-align:center;margin-bottom:20px"><!--[if mso]>
-            <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{invitation_link}}" style="height:35px;v-text-anchor:middle;width:185px;" arcsize="50%" stroke="f" fillcolor="#3184ff">
-                <w:anchorlock/>
-                <center>
-            <![endif]-->
-            <a href="{{invitation_link}}"
-               style="background-color:#3184ff;border-radius:20px;color:#ffffff;display:inline-block;font-family:sans-serif;font-size:14px;font-weight:bold;line-height:35px;text-align:center;text-decoration:none;width:185px;-webkit-text-size-adjust:none;" target="_blank" rel="noopener noreferrer">Activer mon compte</a>
-            <!--[if mso]>
-            </center>
-            </v:roundrect>
-        <![endif]--></div>
-
-
+        {{button.button('Activer mon compte', invitation_link)}}
     {% endif %}
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>

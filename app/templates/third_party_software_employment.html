@@ -1,4 +1,5 @@
 {% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
 
 {% block subject %}
 Demande d'accès à votre compte Mobilic
@@ -12,17 +13,7 @@ Demande d'accès à votre compte Mobilic
         <p>Le logiciel {{software_name}} demande des droits d'accès à votre compte Mobilic, pour le compte de l'entreprise <strong>{{company_name | upper}}</strong>.</p>
     {% endif %}
     <p>Une validation de votre part est requise.</p>
-    <div style="text-align:center;margin-bottom:20px"><!--[if mso]>
-        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{activation_link}}" style="height:35px;v-text-anchor:middle;width:185px;" arcsize="50%" stroke="f" fillcolor="#3184ff">
-            <w:anchorlock/>
-            <center>
-        <![endif]-->
-        <a href="{{validation_link}}"
-           style="background-color:#3184ff;border-radius:20px;color:#ffffff;display:inline-block;font-family:sans-serif;font-size:14px;font-weight:bold;line-height:35px;text-align:center;text-decoration:none;width:185px;-webkit-text-size-adjust:none;" target="_blank" rel="noopener noreferrer">Valider l'accès</a>
-        <!--[if mso]>
-        </center>
-        </v:roundrect>
-    <![endif]--></div>
+    {{button.button('Valider l'accès', validation_link)}}
     <br/>
     <p>Bien à vous,</p>
     <strong>L'équipe Mobilic</strong>

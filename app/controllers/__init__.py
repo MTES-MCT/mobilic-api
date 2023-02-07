@@ -1,6 +1,11 @@
 import graphene
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
+from app.controllers.authentication import (
+    LoginMutation,
+    RefreshMutation,
+    LogoutMutation,
+)
 from app.controllers.comment import CancelComment, LogComment
 from app.controllers.company import (
     CompaniesSignUp,
@@ -58,6 +63,7 @@ from app.controllers.user import (
     ConfirmFranceConnectEmail,
     DisableWarning,
     FranceConnectLogin,
+    ResetPasswordConnected,
 )
 from app.controllers.user import Query as UserQuery
 from app.controllers.user import (
@@ -78,7 +84,7 @@ from app.controllers.vehicle import (
     EditVehicle,
     TerminateVehicle,
 )
-from app.helpers.authentication import Auth, CheckQuery
+from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
 
 
@@ -131,6 +137,7 @@ class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
+    reset_password_connected = ResetPasswordConnected.Field()
     request_reset_password = RequestPasswordReset.Field()
     resend_activation_email = ResendActivationEmail.Field()
     disable_warning = DisableWarning.Field()
@@ -165,6 +172,16 @@ class Locations(graphene.ObjectType):
     create_known_address = CreateCompanyKnownAddress.Field()
     edit_known_address = EditCompanyKnownAddress.Field()
     terminate_known_address = TerminateCompanyKnownAddress.Field()
+
+
+class Auth(graphene.ObjectType):
+    """
+    Authentification
+    """
+
+    login = LoginMutation.Field()
+    refresh = RefreshMutation.Field()
+    logout = LogoutMutation.Field()
 
 
 class Mutations(graphene.ObjectType):

@@ -76,6 +76,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Fuseau horaire de l'utlisateur",
     )
+    should_update_password = graphene.Field(
+        graphene.Boolean,
+        required=False,
+        description="Indique si l'utilisateur doit mettre à jour son mot de passe",
+    )
     activities = graphene.Field(
         ActivityConnection,
         description="Liste des activités de l'utilisateur, triées par id (pas forcément par récence).",
@@ -413,6 +418,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
             )
             for day_, computations_ in regulation_computations_by_day.items()
         ]
+
+    def resolve_should_update_password(self, info):
+        return self.password_update_time is None
 
 
 from app.data_access.company import CompanyOutput
