@@ -169,7 +169,7 @@ def _log_activity(mission_id, user_id, headers):
             "startTime": to_timestamp(datetime.now()),
             "missionId": mission_id,
             "type": ActivityType.WORK,
-            "user_id": user_id,
+            "userId": user_id,
             "switch": True,
         },
         headers=headers,

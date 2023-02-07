@@ -3,9 +3,12 @@ from datetime import datetime
 from argon2 import PasswordHasher
 from freezegun import freeze_time
 
+from app import db
 from app.helpers.oauth.models import OAuth2Client, ThirdPartyClientEmployment
 from app.helpers.time import to_timestamp
+from app.models import Employment
 from app.models.activity import ActivityType
+from app.models.employment import EmploymentRequestValidationStatus
 from app.seed.factories import CompanyFactory, ThirdPartyApiKeyFactory
 from app.seed.helpers import get_time
 from app.tests import (
@@ -244,7 +247,7 @@ def _log_activity(mission_id, user_id, headers):
             "startTime": to_timestamp(datetime.now()),
             "missionId": mission_id,
             "type": ActivityType.WORK,
-            "user_id": user_id,
+            "userId": user_id,
             "switch": True,
         },
         headers=headers,
@@ -361,6 +364,11 @@ class TestApiAdminQueries(BaseTest):
         _sync_employments(self)
         self.user_admin_id = _get_user_id(self, self.employment_admin_id)
         self.user_employee_id = _get_user_id(self, self.employment_employee_id)
+
+        Employment.query.update(
+            {"validation_status": EmploymentRequestValidationStatus.APPROVED}
+        )
+        db.session.commit()
         self.access_token = _get_access_token(self, self.employment_admin_id)
 
         company_unlinked = CompanyFactory.create(
