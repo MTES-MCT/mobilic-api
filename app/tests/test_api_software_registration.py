@@ -50,7 +50,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 siren="123456789",
             ),
             headers={
-                "X-CLIENT-ID": "wrong",
+                "X-CLIENT-ID": "123",
             },
         )
         error_message = software_registration_response["errors"][0]["message"]

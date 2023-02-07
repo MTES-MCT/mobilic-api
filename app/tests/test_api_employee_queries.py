@@ -338,15 +338,12 @@ class TestApiEmployeeQueries(BaseTest):
         create_mission_response = _create_mission(
             self.company_id,
             {
-                "X-CLIENT-ID": "mobilic_live_wrong",
+                "X-CLIENT-ID": "1234",
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual("Invalid token", error_message)
 
     def test_create_mission_fails_with_no_token(self):
         create_mission_response = _create_mission(
@@ -430,15 +427,12 @@ class TestApiEmployeeQueries(BaseTest):
             mission_id,
             self.user_id,
             {
-                "X-CLIENT-ID": "wrong",
+                "X-CLIENT-ID": "123",
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual("Invalid token", error_message)
 
     def test_log_activity_fails_with_no_token(self):
         mission_id = _create_mission_success(self)
@@ -509,16 +503,13 @@ class TestApiEmployeeQueries(BaseTest):
         log_location_response = _log_location(
             mission_id,
             {
-                "X-CLIENT-ID": "wrong",
+                "X-CLIENT-ID": "123",
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual("Invalid token", error_message)
 
     def test_log_location_fails_no_token(self):
         mission_id = _create_mission_success(self)

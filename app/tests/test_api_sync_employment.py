@@ -75,7 +75,7 @@ class TestApiSyncEmployment(BaseTest):
                 ],
             ),
             headers={
-                "X-CLIENT-ID": "wrong",
+                "X-CLIENT-ID": "123",
             },
         )
         error_message = sync_employment_response["errors"][0]["message"]

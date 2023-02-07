@@ -47,8 +47,11 @@ def check_api_key():
             ThirdPartyApiKey.client_id == client_id
         ).all()
         for db_api_key in db_api_keys:
-            if ph.verify(db_api_key.api_key, api_key):
-                return True
+            try:
+                if ph.verify(db_api_key.api_key, api_key):
+                    return True
+            except Exception as e:
+                continue
     return False
 
 

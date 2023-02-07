@@ -88,7 +88,7 @@ class TestApiEmploymentToken(BaseTest):
                 employment_id=self.employment_id, client_id=self.client_id
             ),
             headers={
-                "X-CLIENT-ID": "wrong",
+                "X-CLIENT-ID": "123",
             },
         )
         error_message = get_employment_token_response["errors"][0]["message"]
