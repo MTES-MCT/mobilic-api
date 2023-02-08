@@ -367,11 +367,8 @@ class TestApiAdminQueries(BaseTest):
         self.user_admin_id = _get_user_id(self, self.employment_admin_id)
         self.user_employee_id = _get_user_id(self, self.employment_employee_id)
 
-        Employment.query.update(
-            {"validation_status": EmploymentRequestValidationStatus.APPROVED}
-        )
-        db.session.commit()
         self.access_token = _get_access_token(self, self.employment_admin_id)
+        _active_employment(self, self.employment_employee_id)
 
         company_unlinked = CompanyFactory.create(
             usual_name=f"Another Comp", siren=f"00000404"
@@ -718,7 +715,6 @@ class TestApiAdminQueries(BaseTest):
 
     def test_cancel_mission_success(self):
         mission_id = _create_mission_success(self)
-        _active_employment(self, self.employment_employee_id)
 
         cancel_mission_response = test_post_graphql(
             query=ApiRequests.cancel_mission,
