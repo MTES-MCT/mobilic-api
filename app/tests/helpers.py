@@ -14,6 +14,11 @@ from app.tests import (
 )
 from freezegun import freeze_time
 
+INVALID_TOKEN = "Invalid token"
+INVALID_API_KEY_MESSAGE = "Invalid API Key"
+AUTHENTICATION_ERROR = "Unable to find a valid cookie or authorization header"
+AUTHORIZATION_ERROR = "Actor is not authorized to perform the operation"
+
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
     "MatchingExpectedChangesWithDbDiff",
@@ -805,8 +810,6 @@ def make_authenticated_request(
             )
     db.session.rollback()
 
-    # print(f"{response.status_code} - {response.json}")
-
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:
             status = request_should_fail_with.get("status")
@@ -832,8 +835,6 @@ def make_protected_request(
         query=query, variables=formatted_variables, headers=headers
     )
     db.session.rollback()
-
-    # print(f"{response.status_code} - {response.json}")
 
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:

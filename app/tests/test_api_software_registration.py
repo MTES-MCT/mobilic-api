@@ -3,9 +3,11 @@ from argon2 import PasswordHasher
 from app.helpers.oauth.models import OAuth2Client
 from app.seed.factories import ThirdPartyApiKeyFactory
 from app.tests import BaseTest
-from app.tests.helpers import ApiRequests, make_protected_request
-
-INVALID_API_KEY_MESSAGE = "Invalid API Key"
+from app.tests.helpers import (
+    INVALID_API_KEY_MESSAGE,
+    ApiRequests,
+    make_protected_request,
+)
 
 
 class TestApiSoftwareRegistration(BaseTest):

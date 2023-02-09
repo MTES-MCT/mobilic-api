@@ -50,7 +50,7 @@ def check_api_key():
             try:
                 if ph.verify(db_api_key.api_key, api_key):
                     return True
-            except Exception as e:
+            except Exception:
                 continue
     return False
 

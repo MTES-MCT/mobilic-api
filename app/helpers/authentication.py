@@ -473,7 +473,7 @@ def rest_refresh_token():
         else:
             tokens = _refresh_token()
         return jsonify(tokens), 200
-    except AuthenticationError as e:
+    except AuthenticationError:
 
         @after_this_request
         def unset_cookies(response):

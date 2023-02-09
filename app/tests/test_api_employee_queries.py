@@ -15,6 +15,9 @@ from app.tests import (
     test_post_rest,
 )
 from app.tests.helpers import (
+    AUTHENTICATION_ERROR,
+    AUTHORIZATION_ERROR,
+    INVALID_TOKEN,
     ApiRequests,
     make_authenticated_request,
     make_protected_request,
@@ -331,10 +334,7 @@ class TestApiEmployeeQueries(BaseTest):
             self.company_id, {"X-EMPLOYMENT-TOKEN": self.access_token}
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_create_mission_fails_with_wrong_client_id(self):
         create_mission_response = _create_mission(
@@ -345,17 +345,14 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_create_mission_fails_with_no_token(self):
         create_mission_response = _create_mission(
             self.company_id, {"X-CLIENT-ID": self.client_id}
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_create_mission_fails_with_wrong_token(self):
         create_mission_response = _create_mission(
@@ -366,7 +363,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_create_mission_fails_with_dismissed_token(self):
         create_mission_response = _create_mission(
@@ -377,7 +374,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_create_mission_fails_with_unlinked_company(self):
         create_mission_response = _create_mission(
@@ -388,9 +385,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
+        self.assertEqual(AUTHORIZATION_ERROR, error_message)
 
     def test_create_mission_fails_with_inconsistent_company(self):
         create_mission_response = _create_mission(
@@ -401,9 +396,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = create_mission_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
+        self.assertEqual(AUTHORIZATION_ERROR, error_message)
 
     def test_create_mission_success(self):
         _create_mission_success(self)
@@ -417,10 +410,7 @@ class TestApiEmployeeQueries(BaseTest):
             {"X-EMPLOYMENT-TOKEN": self.access_token},
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_log_activity_fails_with_wrong_client_id(self):
         mission_id = _create_mission_success(self)
@@ -434,7 +424,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_activity_fails_with_no_token(self):
         mission_id = _create_mission_success(self)
@@ -445,10 +435,7 @@ class TestApiEmployeeQueries(BaseTest):
             {"X-CLIENT-ID": self.client_id},
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_log_activity_fails_with_wrong_token(self):
         mission_id = _create_mission_success(self)
@@ -462,7 +449,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_activity_fails_with_dismissed_token(self):
         mission_id = _create_mission_success(self)
@@ -476,7 +463,7 @@ class TestApiEmployeeQueries(BaseTest):
             },
         )
         error_message = log_activity_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_activity_success(self):
         mission_id = _create_mission_success(self)
@@ -494,10 +481,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_log_location_fails_wrong_client_id(self):
         mission_id = _create_mission_success(self)
@@ -511,7 +495,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_location_fails_no_token(self):
         mission_id = _create_mission_success(self)
@@ -523,10 +507,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Unable to find a valid cookie or authorization header",
-            error_message,
-        )
+        self.assertEqual(AUTHENTICATION_ERROR, error_message)
 
     def test_log_location_fails_wrong_token(self):
         mission_id = _create_mission_success(self)
@@ -539,7 +520,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_location_fails_dismissed_token(self):
         mission_id = _create_mission_success(self)
@@ -552,7 +533,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual("Invalid token", error_message)
+        self.assertEqual(INVALID_TOKEN, error_message)
 
     def test_log_location_fails_inconsistent_mission(self):
         create_mission_response = make_authenticated_request(
@@ -574,9 +555,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.assertEqual(log_location_response.status_code, 200)
         error_message = log_location_response.json["errors"][0]["message"]
-        self.assertEqual(
-            "Actor is not authorized to perform the operation", error_message
-        )
+        self.assertEqual(AUTHORIZATION_ERROR, error_message)
 
     def test_log_location_success(self):
         mission_id = _create_mission_success(self)

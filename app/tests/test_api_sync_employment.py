@@ -3,9 +3,18 @@ from argon2 import PasswordHasher
 from app.helpers.oauth.models import OAuth2Client
 from app.seed.factories import ThirdPartyApiKeyFactory
 from app.tests import BaseTest
-from app.tests.helpers import ApiRequests, make_protected_request
+from app.tests.helpers import (
+    INVALID_API_KEY_MESSAGE,
+    ApiRequests,
+    make_protected_request,
+)
 
-INVALID_API_KEY_MESSAGE = "Invalid API Key"
+
+employee1 = {
+    "firstName": "Prénom_test1",
+    "lastName": "Nom_test1",
+    "email": "email-salarie1@example.com",
+}
 
 
 class TestApiSyncEmployment(BaseTest):
@@ -48,13 +57,7 @@ class TestApiSyncEmployment(BaseTest):
             query=ApiRequests.sync_employment,
             variables=dict(
                 company_id=self.company_id,
-                employees=[
-                    {
-                        "firstName": "Prénom_test1",
-                        "lastName": "Nom_test1",
-                        "email": "email-salarie1@example.com",
-                    }
-                ],
+                employees=[employee1],
             ),
             headers={},
         )
@@ -66,13 +69,7 @@ class TestApiSyncEmployment(BaseTest):
             query=ApiRequests.sync_employment,
             variables=dict(
                 company_id=self.company_id,
-                employees=[
-                    {
-                        "firstName": "Prénom_test1",
-                        "lastName": "Nom_test1",
-                        "email": "email-salarie1@example.com",
-                    }
-                ],
+                employees=[employee1],
             ),
             headers={
                 "X-CLIENT-ID": "123",
@@ -86,13 +83,7 @@ class TestApiSyncEmployment(BaseTest):
             query=ApiRequests.sync_employment,
             variables=dict(
                 company_id=self.company_id,
-                employees=[
-                    {
-                        "firstName": "Prénom_test1",
-                        "lastName": "Nom_test1",
-                        "email": "email-salarie1@example.com",
-                    }
-                ],
+                employees=[employee1],
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -107,13 +98,7 @@ class TestApiSyncEmployment(BaseTest):
             query=ApiRequests.sync_employment,
             variables=dict(
                 company_id=self.company_id,
-                employees=[
-                    {
-                        "firstName": "Prénom_test1",
-                        "lastName": "Nom_test1",
-                        "email": "email-salarie1@example.com",
-                    }
-                ],
+                employees=[employee1],
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -129,11 +114,7 @@ class TestApiSyncEmployment(BaseTest):
             variables=dict(
                 company_id=self.company_id,
                 employees=[
-                    {
-                        "firstName": "Prénom_test1",
-                        "lastName": "Nom_test1",
-                        "email": "email-salarie1@example.com",
-                    },
+                    employee1,
                     {
                         "firstName": "Prénom_test2",
                         "lastName": "Nom_test2",
