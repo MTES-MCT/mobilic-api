@@ -127,7 +127,7 @@ def create_access_tokens_for_controller(
 
 @wrap_jwt_errors
 @jwt_required(refresh=True)
-def _refresh_controller_token():
+def refresh_controller_token():
     delete_controller_refresh_token()
     tokens = create_access_tokens_for_controller(current_actor)
 

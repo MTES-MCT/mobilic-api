@@ -1,8 +1,11 @@
+from datetime import datetime
+
 from flask import g
 from sqlalchemy import func
 
-from app import app, db
+from app import app, db, mailer
 from app.models import User, Employment
+from app.models.user import UserAccountStatus
 
 
 def create_user_by_third_party_if_needed(
@@ -19,6 +22,7 @@ def create_user_by_third_party_if_needed(
         last_name=last_name,
         email=email,
         timezone_name=timezone_name,
+        status=UserAccountStatus.THIRD_PARTY_PENDING_APPROVAL,
     )
 
     db.session.add(user)
@@ -42,6 +46,7 @@ def create_user(
         last_name=last_name,
         email=email,
         password=password,
+        password_update_time=datetime.now(),
         ssn=ssn,
         timezone_name=timezone_name,
         has_confirmed_email=True if not fc_info else False,
@@ -113,3 +118,26 @@ def bind_user_to_pending_employments(user):
 def activate_user(user):
     user.has_confirmed_email = True
     user.has_activated_email = True
+
+
+def increment_user_password_tries(user):
+    user.nb_bad_password_tries = user.nb_bad_password_tries + 1
+    if (
+        user.nb_bad_password_tries
+        >= app.config["NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING"]
+    ):
+        user.status = UserAccountStatus.BLOCKED_BAD_PASSWORD
+        mailer.send_blocked_account_email(user)
+
+
+def reset_user_password_tries(user):
+    user.nb_bad_password_tries = 0
+
+
+def change_user_password(user, new_password, revoke_tokens=True):
+    if revoke_tokens:
+        user.revoke_all_tokens()
+    user.password = new_password
+    user.password_update_time = datetime.now()
+    user.nb_bad_password_tries = 0
+    user.status = UserAccountStatus.ACTIVE

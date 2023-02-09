@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_apispec import FlaskApiSpec
+from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
@@ -20,6 +21,9 @@ import logging
 
 
 app = Flask(__name__)
+Compress(app)
+# See list of possible settings at https://pypi.org/project/Flask-Compress/1.13/
+app.config.update({"COMPRESS_MIN_SIZE": 100})
 app.config.update(
     {
         "APISPEC_SPEC": APISpec(

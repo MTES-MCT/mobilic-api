@@ -9,6 +9,7 @@ from werkzeug.local import LocalProxy
 import datetime
 from sqlalchemy import types
 
+from app.helpers.password_policy import is_valid_password
 from app.helpers.time import to_timestamp, from_timestamp
 
 
@@ -126,4 +127,21 @@ class Email(graphene.String):
         if isinstance(node, ast.StringValue):
             if is_valid_email(node.value):
                 return node.value
-        raise GraphQLError(f"Invalid Email {node.value}")
+        raise GraphQLError(f"Invalid Email")
+
+
+class Password(graphene.Scalar):
+    @staticmethod
+    def serialize(value):
+        return value
+
+    @staticmethod
+    def parse_literal(node, _variables=None):
+        if isinstance(node, ast.StringValue):
+            return node.value
+
+    @staticmethod
+    def parse_value(value):
+        if is_valid_password(value):
+            return value
+        raise GraphQLError(f"Invalid Password")
