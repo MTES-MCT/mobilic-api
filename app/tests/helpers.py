@@ -833,7 +833,7 @@ def make_protected_request(
     )
     db.session.rollback()
 
-    print(f"{response.status_code} - {response.json}")
+    # print(f"{response.status_code} - {response.json}")
 
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:

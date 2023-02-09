@@ -798,7 +798,6 @@ class TestApiEmployeeQueries(BaseTest):
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        print(query_user_response.json)
         self.assertEqual(query_user_response.status_code, 200)
         if "errors" in query_user_response.json:
             self.fail(

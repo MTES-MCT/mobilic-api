@@ -481,7 +481,6 @@ class TestApiAdminQueries(BaseTest):
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        print(terminate_employment_response.json)
         self.assertEqual(terminate_employment_response.status_code, 200)
         if "errors" in terminate_employment_response.json:
             self.fail(
@@ -759,7 +758,6 @@ class TestApiAdminQueries(BaseTest):
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        print(query_user_response.json)
         self.assertEqual(query_user_response.status_code, 200)
         if "errors" in query_user_response.json:
             self.fail(
@@ -775,7 +773,6 @@ class TestApiAdminQueries(BaseTest):
                 "X-EMPLOYMENT-TOKEN": self.access_token,
             },
         )
-        print(query_company_response.json)
         self.assertEqual(query_company_response.status_code, 200)
         if "errors" in query_company_response.json:
             self.fail(
