@@ -204,6 +204,14 @@ class ActivityOutsideEmploymentByAdminError(MobilicError):
     default_message = "Activity can't be added outside employment period"
 
 
+class UserNotEmployedByCompanyAnymoreEmployeeError(MobilicError):
+    code = "USER_NOT_EMPLOYED_BY_COMPANY_ANYMORE_EMPLOYEE"
+
+
+class UserNotEmployedByCompanyAnymoreAdminError(MobilicError):
+    code = "USER_NOT_EMPLOYED_BY_COMPANY_ANYMORE_ADMIN"
+
+
 class ActivityInFutureError(MobilicError):
     code = "ACTIVITY_TIME_IN_FUTURE"
 
