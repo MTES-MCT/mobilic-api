@@ -5,9 +5,19 @@ from datetime import datetime
 
 from app import db
 from app.helpers.time import to_timestamp
-from app.models import ControllerUser, User
-from app.tests import test_post_graphql, test_post_graphql_unexposed
+from app.models import ControllerUser, User, RegulationCheck
+from app.services.get_regulation_checks import get_regulation_checks
+from app.tests import (
+    test_post_graphql,
+    test_post_graphql_protected,
+    test_post_graphql_unexposed,
+)
 from freezegun import freeze_time
+
+INVALID_TOKEN = "Invalid token"
+INVALID_API_KEY_MESSAGE = "Invalid API Key"
+AUTHENTICATION_ERROR = "Unable to find a valid cookie or authorization header"
+AUTHORIZATION_ERROR = "Actor is not authorized to perform the operation"
 
 DBEntryUpdate = namedtuple("DBUnitUpdate", ["model", "before", "after"])
 MatchingExpectedChangesWithDbDiff = namedtuple(
@@ -70,16 +80,19 @@ class ApiRequests:
                 logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context, switch: $switch) {
                     id
                     type
+                    userId
                 }
             }
         }
     """
+
     log_location = """
         mutation logLocation(
             $type: LocationEntryTypeEnum!
             $missionId: Int!
             $geoApiData: GenericScalar
             $manualAddress: String
+            $companyKnownAddressId: Int
         ) {
             activities {
                 logLocation(
@@ -87,6 +100,7 @@ class ApiRequests:
                     type: $type
                     geoApiData: $geoApiData
                     manualAddress: $manualAddress
+                    companyKnownAddressId: $companyKnownAddressId
                 ) {
                     id
                     name
@@ -97,6 +111,7 @@ class ApiRequests:
             }
         }
     """
+
     create_mission = """
         mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
             activities {
@@ -107,6 +122,7 @@ class ApiRequests:
             }
         }
     """
+
     end_mission = """
         mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int) {
             activities {
@@ -117,6 +133,7 @@ class ApiRequests:
             }
         }
     """
+
     cancel_mission = """
         mutation ($missionId: Int!, $userId: Int!) {
             activities {
@@ -140,6 +157,7 @@ class ApiRequests:
             }
         }
     """
+
     cancel_activity = """
         mutation ($activityId: Int!, $context: GenericScalar) {
             activities {
@@ -149,6 +167,7 @@ class ApiRequests:
             }
         }
     """
+
     edit_activity = """
         mutation ($activityId: Int!, $startTime: TimeStamp, $endTime: TimeStamp, $context: GenericScalar) {
             activities {
@@ -159,6 +178,7 @@ class ApiRequests:
             }
         }
     """
+
     create_account = """
         mutation ($email: String!, $password: Password!, $firstName: String!, $lastName: String!, $inviteToken: String) {
             signUp {
@@ -169,6 +189,7 @@ class ApiRequests:
             }
         }
     """
+
     invite = """
         mutation ($userId: Int, $companyId: Int!, $mail: String) {
             employments {
@@ -178,6 +199,7 @@ class ApiRequests:
             }
         }
     """
+
     redeem_invite = """
         mutation ($token: String!) {
             signUp {
@@ -187,6 +209,7 @@ class ApiRequests:
             }
         }
     """
+
     change_employee_role = """
         mutation changeEmployeeRole($employmentId: Int!, $hasAdminRights: Boolean!) {
             employments {
@@ -200,6 +223,7 @@ class ApiRequests:
             }
         }
     """
+
     terminate_employment = """
         mutation terminateEmployment($employmentId: Int!, $endDate: Date) {
             employments {
@@ -210,6 +234,7 @@ class ApiRequests:
             }
         }
     """
+
     read_control_data = """
     query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
@@ -226,6 +251,7 @@ class ApiRequests:
         }
     }
     """
+
     read_control_data_with_alerts = """
     query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
@@ -279,6 +305,359 @@ class ApiRequests:
             vehicleRegistrationNumber
           }
         }
+      }
+    """
+
+    software_registration = """
+      mutation ($clientId: Int!, $usualName: String!, $siren: String!, $siret: String) {
+          company {
+              softwareRegistration (clientId: $clientId, usualName: $usualName, siren: $siren, siret: $siret) {
+                  id
+              }
+          }
+      }
+    """
+
+    sync_employment = """
+        mutation ($companyId: Int!, $employees: [ThirdPartyEmployee]!) {
+            company{
+                syncEmployment(companyId: $companyId, employees: $employees) {
+                    id
+                }
+            }
+       }
+    """
+
+    get_employment_token = """
+        query ($employmentId: Int!, $clientId: Int!) {
+            employmentToken(employmentId: $employmentId, clientId: $clientId){
+                accessToken
+                employment{
+                    id
+                    email
+                    user {
+                      id
+                    }
+                }
+            }
+        }
+    """
+
+    generate_employment_token = """
+        mutation generateEmploymentToken(
+          $clientId: Int!
+          $employmentId: Int!
+          $invitationToken: String!
+        ) {
+          generateEmploymentToken(
+            clientId: $clientId
+            employmentId: $employmentId
+            invitationToken: $invitationToken
+          ) {
+            success
+          }
+        }
+    """
+
+    dismiss_employment_token = """
+      mutation dismissEmploymentToken(
+          $employmentId: Int!, 
+          $clientId: Int!
+        ) {
+        dismissEmploymentToken(
+          employmentId: $employmentId, 
+          clientId: $clientId
+        ) {
+          success
+        }
+      }
+    """
+
+    log_expenditure = """
+      mutation logExpenditure(
+        $type: ExpenditureTypeEnum!
+        $missionId: Int!
+        $userId: Int
+        $spendingDate: Date!
+        $creationTime: TimeStamp
+      ) {
+        activities {
+          logExpenditure(
+            type: $type
+            missionId: $missionId
+            userId: $userId
+            spendingDate: $spendingDate
+            creationTime: $creationTime
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    cancel_expenditure = """
+      mutation cancelExpenditure($expenditureId: Int!) {
+        activities {
+          cancelExpenditure(expenditureId: $expenditureId) {
+            success
+          }
+        }
+      }
+    """
+
+    log_comment = """
+      mutation logComment($text: String!, $missionId: Int!) {
+        activities {
+          logComment(text: $text, missionId: $missionId) {
+            id
+          }
+        }
+      }
+    """
+
+    cancel_comment = """
+      mutation cancelComment($commentId: Int!) {
+        activities {
+          cancelComment(commentId: $commentId) {
+            success
+          }
+        }
+      }
+    """
+
+    validate_mission = """
+      mutation validateMission(
+        $missionId: Int!
+        $usersIds: [Int]!
+      ) {
+        activities {
+          validateMission(
+            missionId: $missionId
+            usersIds: $usersIds
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    update_mission_vehicle = """
+      mutation updateMissionVehicle(
+        $missionId: Int!
+        $vehicleId: Int
+        $vehicleRegistrationNumber: String
+      ) {
+        activities {
+          updateMissionVehicle(
+            missionId: $missionId
+            vehicleId: $vehicleId
+            vehicleRegistrationNumber: $vehicleRegistrationNumber
+          ) {
+            id
+          }
+        }
+      } 
+    """
+
+    change_mission_name = """
+      mutation changeMissionName($name: String!, $missionId: Int!) {
+        activities {
+          changeMissionName(name: $name, missionId: $missionId) {
+            id
+          }
+        }
+      }
+    """
+
+    create_vehicle = """
+      mutation createVehicle(
+        $registrationNumber: String!
+        $alias: String
+        $companyId: Int!
+      ) {
+        vehicles {
+          createVehicle(
+            registrationNumber: $registrationNumber
+            alias: $alias
+            companyId: $companyId
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    edit_vehicle = """
+      mutation($id: Int!, $alias: String) {
+        vehicles {
+          editVehicle(id: $id, alias: $alias) {
+            id
+          }
+        }
+      }
+    """
+
+    terminate_vehicle = """
+      mutation terminateVehicle($id: Int!) {
+        vehicles {
+          terminateVehicle(id: $id) {
+            success
+          }
+        }
+      }
+    """
+
+    create_address = """
+      mutation createKnownAddress(
+        $geoApiData: GenericScalar
+        $manualAddress: String
+        $alias: String
+        $companyId: Int!
+      ) {
+        locations {
+          createKnownAddress(
+            geoApiData: $geoApiData
+            manualAddress: $manualAddress
+            alias: $alias
+            companyId: $companyId
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    edit_address = """
+      mutation editKnownAddress($companyKnownAddressId: Int!, $alias: String) {
+        locations {
+          editKnownAddress(
+            companyKnownAddressId: $companyKnownAddressId
+            alias: $alias
+          ) {
+            id
+          }
+        }
+      }
+    """
+
+    terminate_address = """
+      mutation terminateKnownAddress($companyKnownAddressId: Int!) {
+        locations {
+          terminateKnownAddress(companyKnownAddressId: $companyKnownAddressId) {
+            success
+          }
+        }
+      }
+    """
+
+    edit_company_settings = """
+      mutation editCompanySettings(
+        $companyId: Int!
+        $allowTeamMode: Boolean
+        $requireKilometerData: Boolean
+        $requireExpenditures: Boolean
+        $requireSupportActivity: Boolean
+        $allowTransfers: Boolean
+        $requireMissionName: Boolean
+      ) {
+        editCompanySettings(
+          companyId: $companyId
+          allowTeamMode: $allowTeamMode
+          requireKilometerData: $requireKilometerData
+          requireExpenditures: $requireExpenditures
+          requireSupportActivity: $requireSupportActivity
+          allowTransfers: $allowTransfers
+          requireMissionName: $requireMissionName
+        ) {
+          id
+
+        }
+      }
+    """
+
+    send_invite_reminder = """
+      mutation sendInviteReminder($employmentId: Int!) {
+        employments {
+          sendInvitationReminder(employmentId: $employmentId) {
+            success
+          }
+        }
+      }
+    """
+
+    query_user = """
+      query user($id: Int!){
+          user(id: $id) {
+              firstName
+              lastName
+              missions {
+                  edges {
+                      node {
+                          name
+                          activities {
+                              id
+                              type
+                              startTime
+                              endTime
+                              userId
+                          }
+                          expenditures {
+                              id
+                              type
+                              userId
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    """
+
+    query_mission = """
+      query mission($id: Int!){
+          mission(id: $id) {
+              name
+              activities {
+                  id
+                  type
+                  startTime
+                  endTime
+                  userId
+              }
+              expenditures {
+                  id
+                  type
+                  userId
+              }
+          }
+      }
+    """
+
+    query_company = """
+      query company($id: Int!){
+          company(id: $id) {
+              name
+              missions {
+                  edges {
+                    node {
+                    id
+                    name
+                    activities {
+                        id
+                        type
+                        startTime
+                        endTime
+                        userId
+                    }
+                    expenditures {
+                        id
+                        type
+                        userId
+                    }
+                  }
+                }
+              }
+          }
       }
     """
 
@@ -440,3 +819,79 @@ def make_authenticated_request(
         assert response.status_code == 200
 
     return response.json
+
+
+def make_protected_request(
+    query,
+    variables,
+    headers,
+    request_should_fail_with=None,
+):
+    formatted_variables = _snake_to_camel(
+        _convert_date_time_to_timestamps(variables)
+    )
+
+    response = test_post_graphql_protected(
+        query=query, variables=formatted_variables, headers=headers
+    )
+    db.session.rollback()
+
+    if request_should_fail_with:
+        if type(request_should_fail_with) is dict:
+            status = request_should_fail_with.get("status")
+            if status:
+                assert response.status_code == status
+    else:
+        assert response.status_code == 200
+
+    return response.json
+
+
+def init_regulation_checks_data():
+    regulation_check = RegulationCheck.query.first()
+    if not regulation_check:
+        regulation_checks = get_regulation_checks()
+        for r in regulation_checks:
+            insert_regulation_check(r)
+        regulation_check = RegulationCheck.query.first()
+    return regulation_check
+
+
+def insert_regulation_check(regulation_data):
+    db.session.execute(
+        """
+            INSERT INTO regulation_check(
+              creation_time,
+              type,
+              label,
+              description,
+              date_application_start,
+              date_application_end,
+              regulation_rule,
+              variables,
+              unit
+            )
+            VALUES
+            (
+              NOW(),
+              :type,
+              :label,
+              :description,
+              :date_application_start,
+              :date_application_end,
+              :regulation_rule,
+              :variables,
+              :unit
+            )
+            """,
+        dict(
+            type=regulation_data.type,
+            label=regulation_data.label,
+            description=regulation_data.description,
+            date_application_start=regulation_data.date_application_start,
+            date_application_end=regulation_data.date_application_end,
+            regulation_rule=regulation_data.regulation_rule,
+            variables=regulation_data.variables,
+            unit=regulation_data.unit,
+        ),
+    )

@@ -1,3 +1,4 @@
+from argon2 import PasswordHasher
 from app import db
 from app.seed import (
     CompanyFactory,
@@ -6,6 +7,7 @@ from app.seed import (
 )
 from app.seed.factories import (
     OAuth2ClientFactory,
+    ThirdPartyApiKeyFactory,
     ThirdPartyClientCompanyFactory,
     ThirdPartyClientEmploymentFactory,
 )
@@ -17,6 +19,7 @@ EMPLOYEE_NOT_INVITED_EMAIL = "empl-not-invited@3rdparty.com"
 EMPLOYEE_INVITED_EMAIL = "empl-invited@3rdparty.com"
 EMPLOYEE_CONFIRMED_EMAIL = "empl-confirmed@3rdparty.com"
 EMPLOYEE_DISMISSED_EMAIL = "empl-dismissed@3rdparty.com"
+API_KEY = "012345678901234567890123456789012345678901234567890123456789"
 
 
 def run_scenario_third_party():
@@ -25,6 +28,10 @@ def run_scenario_third_party():
     )
 
     client = OAuth2ClientFactory.create(name="Mob Software", secret="password")
+
+    ph = PasswordHasher()
+    token_hash = ph.hash(API_KEY)
+    ThirdPartyApiKeyFactory.create(client_id=client.id, api_key=token_hash)
 
     ThirdPartyClientCompanyFactory.create(
         company_id=company.id, client_id=client.id

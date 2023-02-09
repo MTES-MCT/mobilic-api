@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from app.helpers.submitter_type import SubmitterType
-from app.models.regulation_check import RegulationCheck
 from app.seed import UserFactory
 from app.seed.factories import (
     ControllerControlFactory,
@@ -10,10 +9,12 @@ from app.seed.factories import (
     RegulatoryAlertFactory,
 )
 from app.seed.helpers import get_date
-from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import BaseTest
-from app.tests.helpers import ApiRequests, make_authenticated_request
-from app.tests.test_regulations import insert_regulation_check
+from app.tests.helpers import (
+    ApiRequests,
+    make_authenticated_request,
+    init_regulation_checks_data,
+)
 
 
 class TestControllerReadControl(BaseTest):
@@ -72,12 +73,7 @@ class TestControllerReadControl(BaseTest):
             user=self.controlled_user,
         )
 
-        regulation_check = RegulationCheck.query.first()
-        if not regulation_check:
-            regulation_checks = get_regulation_checks()
-            for r in regulation_checks:
-                insert_regulation_check(r)
-            regulation_check = RegulationCheck.query.first()
+        regulation_check = init_regulation_checks_data()
 
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),

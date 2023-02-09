@@ -20,7 +20,6 @@ from app.controllers.third_party_company import (
 )
 from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentProtectedQuery,
-    ThirdPartyClientEmploymentOutput,
     GenerateEmploymentToken,
     DismissEmploymentToken,
     PrivateQuery as ThirdPartyEmploymentPrivateQuery,
