@@ -123,8 +123,8 @@ class TokenExpiredError(MobilicError):
 
 
 class EmailAlreadyRegisteredError(MobilicError):
-    code = "EMAIL_ALREADY_REGISTERED"
-    default_message = "A user is already registered for this email"
+    code = "ERROR_WHILE_REGISTERING_USER"
+    default_message = "An error occurred while registering user"
     default_should_alert_team = False
 
 
