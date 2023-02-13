@@ -661,6 +661,26 @@ class ApiRequests:
       }
     """
 
+    change_name = """
+      mutation changeName(
+        $userId: Int!
+        $newFirstName: String!
+        $newLastName: String!
+      ) {
+        account {
+          changeName(
+            userId: $userId
+            newFirstName: $newFirstName
+            newLastName: $newLastName
+          ) {
+            id
+            firstName
+            lastName
+          }
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
