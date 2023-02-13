@@ -721,17 +721,17 @@ class ChangeName(AuthenticatedMutation):
     class Arguments:
         user_id = graphene.Int(
             required=True,
-            description="Id of the user which name has to be changed",
+            description="Identifiant de l'utilisateur dont le nom doit être changé",
         )
 
         new_last_name = graphene.String(
             required=True,
-            description="New Lastname",
+            description="Nouveau nom",
         )
 
         new_first_name = graphene.String(
             required=True,
-            description="New Lastname",
+            description="Nouveau prénom",
         )
 
     Output = UserOutput
