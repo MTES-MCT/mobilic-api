@@ -533,14 +533,14 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_time_in_hours"])
-        self.assertEqual(extra_info["worked_time_in_seconds"], 11 * HOUR)
+        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
+        self.assertEqual(extra_info["work_range_in_seconds"], 11 * HOUR)
         self.assertEqual(
-            datetime.fromisoformat(extra_info["worked_period_start"]),
+            datetime.fromisoformat(extra_info["work_range_start"]),
             get_time(how_many_days_ago, hour=4),
         )
         self.assertEqual(
-            datetime.fromisoformat(extra_info["worked_period_end"]),
+            datetime.fromisoformat(extra_info["work_range_end"]),
             get_time(how_many_days_ago, hour=16),
         )
 
@@ -603,14 +603,14 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_time_in_hours"])
-        self.assertEqual(extra_info["worked_time_in_seconds"], 13 * HOUR)
+        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
+        self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
         self.assertEqual(
-            datetime.fromisoformat(extra_info["worked_period_start"]),
+            datetime.fromisoformat(extra_info["work_range_start"]),
             get_time(how_many_days_ago, hour=4),
         )
         self.assertEqual(
-            datetime.fromisoformat(extra_info["worked_period_end"]),
+            datetime.fromisoformat(extra_info["work_range_end"]),
             get_time(how_many_days_ago, hour=17),
         )
 

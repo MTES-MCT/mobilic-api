@@ -177,10 +177,10 @@ def check_max_work_day_time(activity_groups, regulation_check):
         worked_time_in_seconds = group.total_work_duration
         extra = dict(
             night_work=night_work,
-            max_time_in_hours=max_time_in_hours,
-            worked_time_in_seconds=worked_time_in_seconds,
-            worked_period_start=group.start_time.isoformat(),
-            worked_period_end=group.end_time.isoformat(),
+            max_work_range_in_hours=max_time_in_hours,
+            work_range_in_seconds=worked_time_in_seconds,
+            work_range_start=group.start_time.isoformat(),
+            work_range_end=group.end_time.isoformat(),
         )
         if worked_time_in_seconds > max_time_in_hours * HOUR:
             return ComputationResult(success=False, extra=extra)
