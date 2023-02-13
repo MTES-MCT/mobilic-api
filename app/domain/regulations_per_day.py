@@ -265,7 +265,11 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
     # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
     current_uninterrupted_work_duration = 0
+    current_uninterrupted_start = None
     latest_work_time = None
+    extra = dict(
+        max_uninterrupted_work_in_hours=MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS
+    )
 
     for group in activity_groups:
         for activity in group.activities:
@@ -276,6 +280,7 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                 or activity.start_time > latest_work_time
             ):
                 current_uninterrupted_work_duration = 0
+                current_uninterrupted_start = activity.start_time
             end_time = (
                 activity.end_time if activity.end_time is not None else now
             )
@@ -286,10 +291,17 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
             ):
-                return ComputationResult(success=False)
+                extra[
+                    "longest_uninterrupted_work_in_seconds"
+                ] = current_uninterrupted_work_duration
+                extra[
+                    "longest_uninterrupted_work_start"
+                ] = current_uninterrupted_start.isoformat()
+                extra["longest_uninterrupted_work_end"] = end_time.isoformat()
+                return ComputationResult(success=False, extra=extra)
             latest_work_time = activity.end_time
 
-    return ComputationResult(success=True)
+    return ComputationResult(success=True, extra=extra)
 
 
 DAILY_REGULATION_CHECKS = {

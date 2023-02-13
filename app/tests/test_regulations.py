@@ -841,6 +841,24 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["max_uninterrupted_work_in_hours"], 6)
+        self.assertEqual(
+            extra_info["longest_uninterrupted_work_in_seconds"],
+            6 * HOUR + 15 * MINUTE,
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_start"]
+            ),
+            get_time(how_many_days_ago, hour=17),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_end"]
+            ),
+            get_time(how_many_days_ago, hour=23, minute=15),
+        )
 
     def test_use_latest_regulation_check_by_type(self):
         company = self.company
