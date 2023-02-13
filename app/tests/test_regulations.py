@@ -6,6 +6,7 @@ from app import app, db
 from app.domain import regulations
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
+from app.helpers.regulations_utils import HOUR
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission
 from app.models.activity import ActivityType
@@ -509,9 +510,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=15),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=15),
+                reception_time=get_time(how_many_days_ago, hour=16),
+                start_time=get_time(how_many_days_ago, hour=8),
+                end_time=get_time(how_many_days_ago, hour=16),
             )
 
             validate_mission(
@@ -533,6 +534,15 @@ class TestRegulations(BaseTest):
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_time_in_hours"])
+        self.assertEqual(extra_info["worked_time_in_seconds"], 11 * HOUR)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["worked_period_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["worked_period_end"]),
+            get_time(how_many_days_ago, hour=16),
+        )
 
     def test_max_work_day_time_by_admin_failure(self):
         company = self.company
@@ -594,6 +604,15 @@ class TestRegulations(BaseTest):
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_time_in_hours"])
+        self.assertEqual(extra_info["worked_time_in_seconds"], 13 * HOUR)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["worked_period_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["worked_period_end"]),
+            get_time(how_many_days_ago, hour=17),
+        )
 
     def test_min_work_day_break_by_employee_success(self):
         company = self.company
