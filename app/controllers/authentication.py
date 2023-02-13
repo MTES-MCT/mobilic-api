@@ -49,22 +49,23 @@ class LoginMutation(graphene.Mutation):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )
-        elif user.status == UserAccountStatus.BLOCKED_BAD_PASSWORD:
-            raise BlockedAccountError
-        elif not user.check_password(password):
-            increment_user_password_tries(user)
-            db.session.commit()
+        elif not app.config["DISABLE_PASSWORD_CHECK"]:
             if user.status == UserAccountStatus.BLOCKED_BAD_PASSWORD:
                 raise BlockedAccountError
-            raise BadPasswordError(
-                f"Wrong email/password combination for email {email}",
-                nb_bad_tries=user.nb_bad_password_tries,
-                max_possible_tries=app.config[
-                    "NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING"
-                ],
-            )
+            elif not user.check_password(password):
+                increment_user_password_tries(user)
+                db.session.commit()
+                if user.status == UserAccountStatus.BLOCKED_BAD_PASSWORD:
+                    raise BlockedAccountError
+                raise BadPasswordError(
+                    f"Wrong email/password combination for email {email}",
+                    nb_bad_tries=user.nb_bad_password_tries,
+                    max_possible_tries=app.config[
+                        "NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING"
+                    ],
+                )
+            reset_user_password_tries(user)
 
-        reset_user_password_tries(user)
         tokens = create_access_tokens_for(user)
 
         @after_this_request
