@@ -6,7 +6,7 @@ from app import app, db
 from app.domain import regulations
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.helpers.regulations_utils import HOUR
+from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission
 from app.models.activity import ActivityType
@@ -720,7 +720,21 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
-        self.assertEqual(extra_info["min_time_in_minutes"], 45)
+        self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
+        self.assertEqual(
+            extra_info["total_break_time_in_seconds"], 30 * MINUTE
+        )
+        self.assertEqual(
+            extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_start"]),
+            get_time(how_many_days_ago, hour=16),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_end"]),
+            get_time(how_many_days_ago - 1, hour=2),
+        )
 
     def test_max_uninterrupted_work_time_by_employee_success(self):
         company = self.company

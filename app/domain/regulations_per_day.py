@@ -223,25 +223,33 @@ def check_min_work_day_break(activity_groups, regulation_check):
             latest_work_time = activity.end_time
 
     if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
+        extra = dict(
+            total_break_time_in_seconds=total_break_time_s,
+            work_range_in_seconds=total_work_duration_s,
+            work_range_start=activity_groups[0].start_time.isoformat(),
+            work_range_end=latest_work_time.isoformat(),
+        )
         if (
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
         ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
             return ComputationResult(
                 success=False,
-                extra=dict(
-                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_1
-                ),
+                extra=extra,
             )
         elif (
             total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
         ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
             return ComputationResult(
                 success=False,
-                extra=dict(
-                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_2
-                ),
+                extra=extra,
             )
 
     return ComputationResult(success=True)
