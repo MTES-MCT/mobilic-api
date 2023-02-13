@@ -17,6 +17,8 @@ from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyValidatedByAdminError,
     MissionAlreadyValidatedByUserError,
+    UserNotEmployedByCompanyAnymoreEmployeeError,
+    UserNotEmployedByCompanyAnymoreAdminError,
 )
 from app.helpers.time import get_date_or_today
 from app.models import Company, User, Employment
@@ -176,6 +178,17 @@ def check_actor_can_write_on_mission_over_period(
             raise ActivityOutsideEmploymentByEmployeeError()
         else:
             raise ActivityOutsideEmploymentByAdminError()
+
+    # 3bis. Check that the eventual user is currently employed in company
+    if for_user and not is_employed_by_company_over_period(
+        for_user,
+        mission.company_id,
+        include_pending_invite=False,
+    ):
+        if for_user == actor:
+            raise UserNotEmployedByCompanyAnymoreEmployeeError()
+        else:
+            raise UserNotEmployedByCompanyAnymoreAdminError()
 
     is_actor_company_admin = company_admin(actor, mission.company_id)
     # 4. Check that actor can log for the eventual user (must be either a company admin, the user himself or the team leader)
