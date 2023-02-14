@@ -74,6 +74,9 @@ def check_employment_token():
     if not client_id or not token:
         return
 
+    if not client_id.isnumeric():
+        raise AuthenticationError("Invalid token")
+
     matching_token = ThirdPartyClientEmployment.query.filter(
         ThirdPartyClientEmployment.client_id == client_id,
         ThirdPartyClientEmployment.access_token == token,

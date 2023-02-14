@@ -20,7 +20,6 @@ from app.controllers.third_party_company import (
 )
 from app.controllers.third_party_employment import (
     Query as ThirdPartyEmploymentProtectedQuery,
-    ThirdPartyClientEmploymentOutput,
     GenerateEmploymentToken,
     DismissEmploymentToken,
     PrivateQuery as ThirdPartyEmploymentPrivateQuery,
@@ -59,6 +58,7 @@ from app.controllers.mission import UpdateMissionVehicle, ValidateMission
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
+    ChangeName,
     ChangeTimezone,
     ConfirmFranceConnectEmail,
     DisableWarning,
@@ -135,6 +135,7 @@ class PrivateAuth(graphene.ObjectType):
 
 class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
+    change_name = ChangeName.Field()
     change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
     reset_password_connected = ResetPasswordConnected.Field()

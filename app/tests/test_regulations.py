@@ -26,64 +26,25 @@ from app.seed.helpers import (
 )
 from app.services.get_regulation_checks import (
     RegulationCheckData,
-    get_regulation_checks,
 )
 from app.tests import BaseTest
 from dateutil.tz import gettz
 from flask.ctx import AppContext
 
+from app.tests.helpers import (
+    init_regulation_checks_data,
+    insert_regulation_check,
+)
+
 ADMIN_EMAIL = "admin@email.com"
 EMPLOYEE_EMAIL = "employee@email.com"
-
-
-def insert_regulation_check(regulation_data):
-    db.session.execute(
-        """
-            INSERT INTO regulation_check(
-              creation_time,
-              type,
-              label,
-              description,
-              date_application_start,
-              date_application_end,
-              regulation_rule,
-              variables,
-              unit
-            )
-            VALUES
-            (
-              NOW(),
-              :type,
-              :label,
-              :description,
-              :date_application_start,
-              :date_application_end,
-              :regulation_rule,
-              :variables,
-              :unit
-            )
-            """,
-        dict(
-            type=regulation_data.type,
-            label=regulation_data.label,
-            description=regulation_data.description,
-            date_application_start=regulation_data.date_application_start,
-            date_application_end=regulation_data.date_application_end,
-            regulation_rule=regulation_data.regulation_rule,
-            variables=regulation_data.variables,
-            unit=regulation_data.unit,
-        ),
-    )
 
 
 class TestRegulations(BaseTest):
     def setUp(self):
         super().setUp()
 
-        if not RegulationCheck.query.first():
-            regulation_checks = get_regulation_checks()
-            for r in regulation_checks:
-                insert_regulation_check(r)
+        init_regulation_checks_data()
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True

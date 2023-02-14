@@ -127,7 +127,7 @@ class Email(graphene.String):
         if isinstance(node, ast.StringValue):
             if is_valid_email(node.value):
                 return node.value
-        raise GraphQLError(f"Invalid Email {node.value}")
+        raise GraphQLError(f"Invalid Email")
 
 
 class Password(graphene.Scalar):
@@ -144,4 +144,4 @@ class Password(graphene.Scalar):
     def parse_value(value):
         if is_valid_password(value):
             return value
-        raise GraphQLError(f"Invalid Password {value}")
+        raise GraphQLError(f"Invalid Password")

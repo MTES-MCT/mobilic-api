@@ -715,3 +715,36 @@ class DisableWarning(AuthenticatedMutation):
                 ]
 
         return Void(success=True)
+
+
+class ChangeName(AuthenticatedMutation):
+    class Arguments:
+        user_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'utilisateur dont le nom doit être changé",
+        )
+
+        new_last_name = graphene.String(
+            required=True,
+            description="Nouveau nom",
+        )
+
+        new_first_name = graphene.String(
+            required=True,
+            description="Nouveau prénom",
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, user_id, new_first_name, new_last_name):
+        user = User.query.get(user_id)
+        with atomic_transaction(commit_at_end=True):
+            user.last_name = new_last_name
+            user.first_name = new_first_name
+        return user

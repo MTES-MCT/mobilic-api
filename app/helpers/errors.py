@@ -123,8 +123,8 @@ class TokenExpiredError(MobilicError):
 
 
 class EmailAlreadyRegisteredError(MobilicError):
-    code = "EMAIL_ALREADY_REGISTERED"
-    default_message = "A user is already registered for this email"
+    code = "ERROR_WHILE_REGISTERING_USER"
+    default_message = "An error occurred while registering user"
     default_should_alert_team = False
 
 
@@ -202,6 +202,14 @@ class ActivityOutsideEmploymentByEmployeeError(MobilicError):
 class ActivityOutsideEmploymentByAdminError(MobilicError):
     code = "ACTIVITY_OUTSIDE_EMPLOYMENT_ADMIN"
     default_message = "Activity can't be added outside employment period"
+
+
+class UserNotEmployedByCompanyAnymoreEmployeeError(MobilicError):
+    code = "USER_NOT_EMPLOYED_BY_COMPANY_ANYMORE_EMPLOYEE"
+
+
+class UserNotEmployedByCompanyAnymoreAdminError(MobilicError):
+    code = "USER_NOT_EMPLOYED_BY_COMPANY_ANYMORE_ADMIN"
 
 
 class ActivityInFutureError(MobilicError):

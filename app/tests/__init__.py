@@ -4,7 +4,13 @@ from unittest import TestCase
 from flask.testing import FlaskClient
 from flask_migrate import upgrade
 
-from app import app, db, graphql_api_path, graphql_private_api_path
+from app import (
+    app,
+    db,
+    graphql_api_path,
+    graphql_private_api_path,
+    graphql_protected_api_path,
+)
 from app.seed import AuthenticatedUserContext
 from config import TestConfig
 
@@ -41,7 +47,11 @@ class BaseTest(TestCase):
 
 
 def test_post_graphql(
-    query, mock_authentication_with_user=None, variables=None, **kwargs
+    query,
+    mock_authentication_with_user=None,
+    variables=None,
+    headers=None,
+    **kwargs,
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
@@ -49,12 +59,17 @@ def test_post_graphql(
         return c.post(
             graphql_api_path,
             json=dict(query=query, variables=variables),
+            headers=headers,
             **kwargs,
         )
 
 
 def test_post_graphql_unexposed(
-    query, mock_authentication_with_user=None, variables=None, **kwargs
+    query,
+    mock_authentication_with_user=None,
+    variables=None,
+    headers=None,
+    **kwargs,
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
@@ -62,8 +77,32 @@ def test_post_graphql_unexposed(
         return c.post(
             graphql_private_api_path,
             json=dict(query=query, variables=variables),
+            headers=headers,
             **kwargs,
         )
+
+
+def test_post_graphql_protected(
+    query,
+    mock_authentication_with_user=None,
+    variables=None,
+    headers=None,
+    **kwargs,
+):
+    with app.test_client(
+        mock_authentication_with_user=mock_authentication_with_user
+    ) as c:
+        return c.post(
+            graphql_protected_api_path,
+            json=dict(query=query, variables=variables),
+            headers=headers,
+            **kwargs,
+        )
+
+
+def test_post_rest(url, json, headers):
+    with app.test_client() as c:
+        return c.post(url, json=json, headers=headers)
 
 
 class GraphQLTestClient(FlaskClient, AuthenticatedUserContext):
