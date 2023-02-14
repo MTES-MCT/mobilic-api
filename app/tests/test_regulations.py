@@ -1030,8 +1030,8 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 0)
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
 
     def test_compute_regulations_per_week_too_many_days(self):
         company = self.company
@@ -1082,11 +1082,15 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
-        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 11))
-        extra_info = json.loads(regulatory_alert[0].extra)
-        self.assertEqual(extra_info["too_many_days"], True)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        self.assertEqual(regulatory_alert.day, date(2022, 7, 11))
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["max_nb_days_worked_by_week"], 6)
+        self.assertEqual(extra_info["min_weekly_break_in_hours"], 34)
+        self.assertTrue(extra_info["too_many_days"])
+        self.assertIn("rest_duration_s", extra_info)
+        self.assertEqual(extra_info["rest_duration_s"], 14 * HOUR)
 
     def test_compute_regulations_per_week_not_enough_break(self):
         company = self.company
@@ -1170,10 +1174,11 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
-        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
-        extra_info = json.loads(regulatory_alert[0].extra)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        self.assertEqual(regulatory_alert.day, date(2022, 7, 18))
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertFalse(extra_info["too_many_days"])
         self.assertEqual(extra_info["rest_duration_s"], 111600)
 
     def test_max_work_day_time_in_guyana_success(self):
