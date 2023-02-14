@@ -260,8 +260,10 @@ def check_min_work_day_break(activity_groups, regulation_check):
             total_break_time_in_seconds=total_break_time_s,
             work_range_in_seconds=total_work_duration_s,
             work_range_start=activity_groups[0].start_time.isoformat(),
-            work_range_end=latest_work_time.isoformat(),
         )
+        if latest_work_time is not None:
+            extra["work_range_end"] = latest_work_time.isoformat()
+
         if (
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
