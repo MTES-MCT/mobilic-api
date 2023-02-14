@@ -91,6 +91,7 @@ def check_min_daily_rest(
     LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
+    extra = dict(min_daily_break_in_hours=LONG_BREAK_DURATION_IN_HOURS)
 
     all_activities = []
     for group in activity_groups:
@@ -110,19 +111,6 @@ def check_min_daily_rest(
             )
         )
 
-        # We remove all the activities covered by long breaks
-        for long_break in long_breaks:
-            all_activities = list(
-                filter(
-                    lambda activity: activity.start_time
-                    < long_break.start_time
-                    + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
-                    - timedelta(days=1)
-                    or activity.start_time >= long_break.end_time,
-                    all_activities,
-                )
-            )
-
         # We remove activities that are not included in the day to check.
         day_to_check_end_time = day_to_check_start_time + timedelta(days=1)
         all_activities = list(
@@ -134,8 +122,53 @@ def check_min_daily_rest(
             )
         )
 
-        success = len(all_activities) == 0
-    return ComputationResult(success=success)
+        previous_long_break = None
+        success = True
+
+        # We remove all the activities covered by long breaks
+        for long_break in long_breaks:
+
+            # Identify activities which should be covered by long break
+            activities_related_to_long_break = [
+                a for a in all_activities if a.start_time < long_break.end_time
+            ]
+            if previous_long_break:
+                activities_related_to_long_break = [
+                    a
+                    for a in activities_related_to_long_break
+                    if a.start_time >= previous_long_break.end_time
+                ]
+
+            cover_period_start = (
+                long_break.start_time
+                + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
+                - timedelta(days=1)
+            )
+            activities_not_covered_by_long_break = [
+                activity
+                for activity in activities_related_to_long_break
+                if activity.start_time < cover_period_start
+            ]
+
+            if len(activities_not_covered_by_long_break) > 0:
+                success = False
+                extra[
+                    "breach_period_start"
+                ] = activities_not_covered_by_long_break[
+                    0
+                ].start_time.isoformat()
+                breach_period_end = activities_not_covered_by_long_break[
+                    0
+                ].start_time + timedelta(days=1)
+                extra["breach_period_end"] = breach_period_end.isoformat()
+                extra["breach_period_max_break_in_seconds"] = (
+                    breach_period_end - long_break.start_time
+                ).seconds
+                break
+
+            previous_long_break = long_break
+
+    return ComputationResult(success=success, extra=extra)
 
 
 def get_long_breaks(activities, regulation_check):

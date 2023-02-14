@@ -310,8 +310,22 @@ class TestRegulations(BaseTest):
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=18),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=18),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            10 * HOUR - 1 * MINUTE,
+        )
 
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
         company = self.company
@@ -370,8 +384,20 @@ class TestRegulations(BaseTest):
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(1, len(regulatory_alert))
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago - 1, hour=6),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 2, hour=6),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"], 9 * HOUR
+        )
 
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
@@ -425,6 +451,18 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=13),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=13),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"], 8 * HOUR
+        )
 
     def test_max_work_day_time_by_employee_success(self):
         company = self.company
