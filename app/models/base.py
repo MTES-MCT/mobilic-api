@@ -1,6 +1,7 @@
-from sqlalchemy.ext.declarative import declared_attr
-from uuid import uuid4
 from datetime import datetime
+from uuid import uuid4
+
+from sqlalchemy.ext.declarative import declared_attr, declarative_base
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
@@ -17,7 +18,10 @@ class RandomNineIntId(db.Model):
                 return id_
 
 
-class BaseModel(db.Model):
+Base = declarative_base()
+
+
+class BaseModel(Base, db.Model):
     __abstract__ = True
 
     creation_time = db.Column(
