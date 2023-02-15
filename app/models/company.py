@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
+from app.models import User
 from app.models.base import BaseModel
 from app import db
 
@@ -54,7 +55,10 @@ class Company(BaseModel, WithEmploymentHistory):
         return ""
 
     def users_between(self, start, end):
-        return [e.user for e in self.active_employments_between(start, end)]
+        active_employments = self.active_employments_between(start, end)
+        user_ids = [e.user_id for e in active_employments]
+        users = User.query.filter(User.id.in_(user_ids))
+        return users
 
     def query_current_users(self):
         from app.models import User
