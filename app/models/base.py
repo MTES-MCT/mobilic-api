@@ -18,10 +18,7 @@ class RandomNineIntId(db.Model):
                 return id_
 
 
-Base = declarative_base()
-
-
-class BaseModel(Base, db.Model):
+class BaseModel(db.Model):
     __abstract__ = True
 
     creation_time = db.Column(
