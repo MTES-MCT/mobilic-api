@@ -16,6 +16,12 @@ from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
 
+NATINF_11292 = "NATINF 11292"
+NATINF_32083 = "NATINF 32083"
+NATINF_20525 = "NATINF 20525"
+SANCTION_CODE = "Sanction du Code du Travail"
+
+
 def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
     return list(
         filter(
@@ -164,6 +170,7 @@ def check_min_daily_rest(
                 extra["breach_period_max_break_in_seconds"] = (
                     breach_period_end - long_break.start_time
                 ).seconds
+                extra["sanction_code"] = NATINF_20525
                 break
 
             previous_long_break = long_break
@@ -216,6 +223,9 @@ def check_max_work_day_time(activity_groups, regulation_check):
             work_range_end=group.end_time.isoformat(),
         )
         if worked_time_in_seconds > max_time_in_hours * HOUR:
+            extra["sanction_code"] = (
+                NATINF_32083 if night_work else NATINF_11292
+            )
             return ComputationResult(success=False, extra=extra)
 
     return ComputationResult(success=True, extra=extra)
@@ -260,6 +270,7 @@ def check_min_work_day_break(activity_groups, regulation_check):
             total_break_time_in_seconds=total_break_time_s,
             work_range_in_seconds=total_work_duration_s,
             work_range_start=activity_groups[0].start_time.isoformat(),
+            sanction_code=SANCTION_CODE,
         )
         if latest_work_time is not None:
             extra["work_range_end"] = latest_work_time.isoformat()
@@ -333,6 +344,7 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                     "longest_uninterrupted_work_start"
                 ] = current_uninterrupted_start.isoformat()
                 extra["longest_uninterrupted_work_end"] = end_time.isoformat()
+                extra["sanction_code"] = SANCTION_CODE
                 return ComputationResult(success=False, extra=extra)
             latest_work_time = activity.end_time
 
