@@ -7,6 +7,8 @@ from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
+NATINF_13152 = "NATINF 13152"
+
 
 def compute_regulations_per_week(user, week, submitter_type):
 
@@ -42,26 +44,24 @@ def check_max_worked_day_in_week(week, regulation_check):
     MAXIMUM_DAY_WORKED_BY_WEEK = regulation_check.variables[
         "MAXIMUM_DAY_WORKED_BY_WEEK"
     ]
-    if week["worked_days"] > MAXIMUM_DAY_WORKED_BY_WEEK:
-        return ComputationResult(
-            success=False,
-            extra=dict(
-                too_many_days=True, rest_duration_s=week["rest_duration_s"]
-            ),
-        )
-
     MINIMUM_WEEKLY_BREAK_IN_HOURS = regulation_check.variables[
         "MINIMUM_WEEKLY_BREAK_IN_HOURS"
     ]
-    if week["rest_duration_s"] < MINIMUM_WEEKLY_BREAK_IN_HOURS * HOUR:
-        return ComputationResult(
-            success=False,
-            extra=dict(
-                too_many_days=False, rest_duration_s=week["rest_duration_s"]
-            ),
-        )
+    extra = dict(
+        max_nb_days_worked_by_week=MAXIMUM_DAY_WORKED_BY_WEEK,
+        min_weekly_break_in_hours=MINIMUM_WEEKLY_BREAK_IN_HOURS,
+    )
+    too_many_days = week["worked_days"] > MAXIMUM_DAY_WORKED_BY_WEEK
+    not_enough_rest = (
+        week["rest_duration_s"] < MINIMUM_WEEKLY_BREAK_IN_HOURS * HOUR
+    )
+    extra["too_many_days"] = too_many_days
+    if not_enough_rest:
+        extra["rest_duration_s"] = week["rest_duration_s"]
+        extra["sanction_code"] = NATINF_13152
 
-    return ComputationResult(success=True)
+    success = not (too_many_days or not_enough_rest)
+    return ComputationResult(success=success, extra=extra)
 
 
 WEEKLY_REGULATION_CHECKS = {

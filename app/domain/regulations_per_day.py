@@ -16,6 +16,12 @@ from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
 
+NATINF_11292 = "NATINF 11292"
+NATINF_32083 = "NATINF 32083"
+NATINF_20525 = "NATINF 20525"
+SANCTION_CODE = "Sanction du Code du Travail"
+
+
 def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
     return list(
         filter(
@@ -91,6 +97,7 @@ def check_min_daily_rest(
     LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
+    extra = dict(min_daily_break_in_hours=LONG_BREAK_DURATION_IN_HOURS)
 
     all_activities = []
     for group in activity_groups:
@@ -110,19 +117,6 @@ def check_min_daily_rest(
             )
         )
 
-        # We remove all the activities covered by long breaks
-        for long_break in long_breaks:
-            all_activities = list(
-                filter(
-                    lambda activity: activity.start_time
-                    < long_break.start_time
-                    + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
-                    - timedelta(days=1)
-                    or activity.start_time >= long_break.end_time,
-                    all_activities,
-                )
-            )
-
         # We remove activities that are not included in the day to check.
         day_to_check_end_time = day_to_check_start_time + timedelta(days=1)
         all_activities = list(
@@ -134,8 +128,54 @@ def check_min_daily_rest(
             )
         )
 
-        success = len(all_activities) == 0
-    return ComputationResult(success=success)
+        previous_long_break = None
+        success = True
+
+        # We remove all the activities covered by long breaks
+        for long_break in long_breaks:
+
+            # Identify activities which should be covered by long break
+            activities_related_to_long_break = [
+                a for a in all_activities if a.start_time < long_break.end_time
+            ]
+            if previous_long_break:
+                activities_related_to_long_break = [
+                    a
+                    for a in activities_related_to_long_break
+                    if a.start_time >= previous_long_break.end_time
+                ]
+
+            cover_period_start = (
+                long_break.start_time
+                + timedelta(hours=LONG_BREAK_DURATION_IN_HOURS)
+                - timedelta(days=1)
+            )
+            activities_not_covered_by_long_break = [
+                activity
+                for activity in activities_related_to_long_break
+                if activity.start_time < cover_period_start
+            ]
+
+            if len(activities_not_covered_by_long_break) > 0:
+                success = False
+                extra[
+                    "breach_period_start"
+                ] = activities_not_covered_by_long_break[
+                    0
+                ].start_time.isoformat()
+                breach_period_end = activities_not_covered_by_long_break[
+                    0
+                ].start_time + timedelta(days=1)
+                extra["breach_period_end"] = breach_period_end.isoformat()
+                extra["breach_period_max_break_in_seconds"] = (
+                    breach_period_end - long_break.start_time
+                ).seconds
+                extra["sanction_code"] = NATINF_20525
+                break
+
+            previous_long_break = long_break
+
+    return ComputationResult(success=success, extra=extra)
 
 
 def get_long_breaks(activities, regulation_check):
@@ -174,10 +214,18 @@ def check_max_work_day_time(activity_groups, regulation_check):
             if night_work
             else MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
         )
+        worked_time_in_seconds = group.total_work_duration
         extra = dict(
-            night_work=night_work, max_time_in_hours=max_time_in_hours
+            night_work=night_work,
+            max_work_range_in_hours=max_time_in_hours,
+            work_range_in_seconds=worked_time_in_seconds,
+            work_range_start=group.start_time.isoformat(),
+            work_range_end=group.end_time.isoformat(),
         )
-        if group.total_work_duration > max_time_in_hours * HOUR:
+        if worked_time_in_seconds > max_time_in_hours * HOUR:
+            extra["sanction_code"] = (
+                NATINF_32083 if night_work else NATINF_11292
+            )
             return ComputationResult(success=False, extra=extra)
 
     return ComputationResult(success=True, extra=extra)
@@ -218,25 +266,36 @@ def check_min_work_day_break(activity_groups, regulation_check):
             latest_work_time = activity.end_time
 
     if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
+        extra = dict(
+            total_break_time_in_seconds=total_break_time_s,
+            work_range_in_seconds=total_work_duration_s,
+            work_range_start=activity_groups[0].start_time.isoformat(),
+            sanction_code=SANCTION_CODE,
+        )
+        if latest_work_time is not None:
+            extra["work_range_end"] = latest_work_time.isoformat()
+
         if (
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
         ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
             return ComputationResult(
                 success=False,
-                extra=dict(
-                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_1
-                ),
+                extra=extra,
             )
         elif (
             total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
         ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
             return ComputationResult(
                 success=False,
-                extra=dict(
-                    min_time_in_minutes=MINIMUM_DURATION_BREAK_IN_MIN_2
-                ),
+                extra=extra,
             )
 
     return ComputationResult(success=True)
@@ -252,7 +311,11 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
     # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
     current_uninterrupted_work_duration = 0
+    current_uninterrupted_start = None
     latest_work_time = None
+    extra = dict(
+        max_uninterrupted_work_in_hours=MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS
+    )
 
     for group in activity_groups:
         for activity in group.activities:
@@ -263,6 +326,7 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                 or activity.start_time > latest_work_time
             ):
                 current_uninterrupted_work_duration = 0
+                current_uninterrupted_start = activity.start_time
             end_time = (
                 activity.end_time if activity.end_time is not None else now
             )
@@ -273,10 +337,18 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
             ):
-                return ComputationResult(success=False)
+                extra[
+                    "longest_uninterrupted_work_in_seconds"
+                ] = current_uninterrupted_work_duration
+                extra[
+                    "longest_uninterrupted_work_start"
+                ] = current_uninterrupted_start.isoformat()
+                extra["longest_uninterrupted_work_end"] = end_time.isoformat()
+                extra["sanction_code"] = SANCTION_CODE
+                return ComputationResult(success=False, extra=extra)
             latest_work_time = activity.end_time
 
-    return ComputationResult(success=True)
+    return ComputationResult(success=True, extra=extra)
 
 
 DAILY_REGULATION_CHECKS = {
