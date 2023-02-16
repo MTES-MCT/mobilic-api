@@ -7,7 +7,7 @@ from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
-SANCTION_CODE_WEEKLY_WORK = "NATINF 13152"
+NATINF_13152 = "NATINF 13152"
 
 
 def compute_regulations_per_week(user, week, submitter_type):
@@ -58,7 +58,7 @@ def check_max_worked_day_in_week(week, regulation_check):
     extra["too_many_days"] = too_many_days
     if not_enough_rest:
         extra["rest_duration_s"] = week["rest_duration_s"]
-        extra["sanction_code"] = SANCTION_CODE_WEEKLY_WORK
+        extra["sanction_code"] = NATINF_13152
 
     success = not (too_many_days or not_enough_rest)
     return ComputationResult(success=success, extra=extra)
