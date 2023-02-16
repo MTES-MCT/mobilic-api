@@ -3,6 +3,7 @@ from sqlalchemy.orm import selectinload
 
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.team import TeamOutput
 from app.domain.permissions import (
     company_admin,
     is_employed_by_company_over_period,
@@ -22,7 +23,6 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
-from app.models.team import Team, TeamOutput
 from app.models.vehicle import VehicleOutput
 
 

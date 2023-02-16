@@ -15,7 +15,7 @@ team_known_address_association_table = Table(
     BaseModel.metadata,
     db.Column("team_id", db.ForeignKey("team.id"), primary_key=True),
     db.Column(
-        "address_id",
+        "company_known_address_id",
         db.ForeignKey("company_known_address.id"),
         primary_key=True,
     ),

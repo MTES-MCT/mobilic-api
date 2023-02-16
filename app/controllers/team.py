@@ -2,10 +2,11 @@ import graphene
 
 from app import db
 from app.controllers.utils import atomic_transaction
+from app.data_access.team import TeamOutput
 from app.domain.permissions import company_admin
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app.models.team import Team, TeamOutput
+from app.models.team import Team
 
 
 class CreateTeam(AuthenticatedMutation):

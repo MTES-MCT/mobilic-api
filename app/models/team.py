@@ -33,9 +33,3 @@ class Team(BaseModel, RandomNineIntId):
     known_addresses = relationship(
         "CompanyKnownAddress", secondary=team_known_address_association_table
     )
-
-
-class TeamOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = Team
-        only_fields = ("name",)
