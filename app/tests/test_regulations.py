@@ -5,6 +5,7 @@ from unittest.mock import patch
 from app import app, db
 from app.domain import regulations
 from app.domain.log_activities import log_activity
+from app.domain.regulations_per_week import SANCTION_CODE_WEEKLY_WORK
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
@@ -1091,6 +1092,9 @@ class TestRegulations(BaseTest):
         self.assertTrue(extra_info["too_many_days"])
         self.assertIn("rest_duration_s", extra_info)
         self.assertEqual(extra_info["rest_duration_s"], 14 * HOUR)
+        self.assertEqual(
+            extra_info["sanction_code"], SANCTION_CODE_WEEKLY_WORK
+        )
 
     def test_compute_regulations_per_week_not_enough_break(self):
         company = self.company
@@ -1180,6 +1184,9 @@ class TestRegulations(BaseTest):
         extra_info = json.loads(regulatory_alert.extra)
         self.assertFalse(extra_info["too_many_days"])
         self.assertEqual(extra_info["rest_duration_s"], 111600)
+        self.assertEqual(
+            extra_info["sanction_code"], SANCTION_CODE_WEEKLY_WORK
+        )
 
     def test_max_work_day_time_in_guyana_success(self):
         company = self.company
