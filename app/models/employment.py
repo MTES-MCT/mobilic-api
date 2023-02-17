@@ -6,6 +6,7 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import AuthorizationError, InvalidResourceError
 from app.helpers.validation import validate_email_field_in_db
 from app.models.event import Dismissable, UserEventBaseModel
+from app.models.team import Team
 from app.models.utils import enum_column
 
 
@@ -43,6 +44,7 @@ class Employment(UserEventBaseModel, Dismissable):
     team_id = db.Column(
         db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
     )
+    team = db.relationship(Team, backref="employments")
 
     db.validates("email")(validate_email_field_in_db)
 
