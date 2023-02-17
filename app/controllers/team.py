@@ -6,7 +6,8 @@ from app.data_access.team import TeamOutput
 from app.domain.permissions import company_admin
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app.models import Employment
+from app.helpers.errors import InvalidParamsError
+from app.models import Employment, User
 from app.models.team import Team
 
 
@@ -107,10 +108,17 @@ class CreateTeam(AuthenticatedMutation):
                 name=name,
                 company_id=company_id,
                 # user_ids=user_ids,
-                # admin_ids=admin_ids,
                 # address_ids=address_ids,
                 # vehicle_ids=vehicle_ids,
             )
+            if admin_ids:
+                admin_users = User.query.filter(User.id.in_(admin_ids))
+                for admin_user in admin_users:
+                    if not admin_user.has_admin_rights(company_id):
+                        raise InvalidParamsError(
+                            "At least one of the admin of the team does not have admin right on company."
+                        )
+                new_team.admin_users.extend(admin_users)
             db.session.add(new_team)
 
         all_teams = Team.query.filter(Team.company_id == company_id).all()
