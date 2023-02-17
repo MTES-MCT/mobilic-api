@@ -112,13 +112,14 @@ class CreateTeam(AuthenticatedMutation):
                 # vehicle_ids=vehicle_ids,
             )
             if admin_ids:
-                admin_users = User.query.filter(User.id.in_(admin_ids))
+                admin_users = User.query.filter(User.id.in_(admin_ids)).all()
                 for admin_user in admin_users:
                     if not admin_user.has_admin_rights(company_id):
                         raise InvalidParamsError(
                             "At least one of the admin of the team does not have admin right on company."
                         )
-                new_team.admin_users.extend(admin_users)
+                new_team.admin_users = admin_users
+
             db.session.add(new_team)
 
         all_teams = Team.query.filter(Team.company_id == company_id).all()
