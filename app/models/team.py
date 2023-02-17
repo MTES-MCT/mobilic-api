@@ -2,7 +2,6 @@ from sqlalchemy import true
 from sqlalchemy.orm import relationship
 
 from app import db
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.base import RandomNineIntId, BaseModel
 from app.models.team_association_tables import (
     team_vehicle_association_table,

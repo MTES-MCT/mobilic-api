@@ -79,7 +79,7 @@ from app.controllers.oauth_token import (
     RevokeOauthToken,
 )
 from app.controllers.oauth_client import Query as OAuthClientQuery
-from app.controllers.team import CreateTeam, DeleteTeam
+from app.controllers.team import CreateTeam, DeleteTeam, UpdateTeam
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -177,6 +177,7 @@ class Teams(graphene.ObjectType):
 
     create_team = CreateTeam.Field()
     delete_team = DeleteTeam.Field()
+    update_team = UpdateTeam.Field()
 
 
 class Locations(graphene.ObjectType):

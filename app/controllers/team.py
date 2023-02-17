@@ -21,7 +21,7 @@ class DeleteTeam(AuthenticatedMutation):
     class Arguments:
         team_id = graphene.Int(
             required=True,
-            description="Identifiant de l'entreprise du véhicule",
+            description="Identifiant de l'équipe à supprimer",
         )
 
     Output = graphene.List(TeamOutput)
@@ -123,5 +123,84 @@ class CreateTeam(AuthenticatedMutation):
             db.session.add(new_team)
 
         all_teams = Team.query.filter(Team.company_id == company_id).all()
+
+        return all_teams
+
+
+class UpdateTeam(AuthenticatedMutation):
+    """
+    Mis à jour d'une équipe dans l'entreprise.
+
+    Renvoie la liste des équipes de l'entreprise.
+    """
+
+    class Arguments:
+        team_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'équipe à modifier",
+        )
+        name = graphene.String(required=True, description="Nom de l'équipe")
+        user_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Identifiants des utilisateurs qui feront partie de cette équipe.",
+        )
+        admin_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Identifiants des gestionnaire de cette équipe.",
+        )
+
+        address_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Identifiants des adresses qui seront affectées à cette équipe.",
+        )
+
+        vehicle_ids = graphene.List(
+            graphene.Int,
+            required=False,
+            description="Identifiants des véhicules qui seront affectées à cette équipe.",
+        )
+
+    Output = graphene.List(TeamOutput)
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Team.query.get(
+            kwargs["team_id"]
+        ).company_id,
+    )
+    def mutate(
+        cls,
+        _,
+        info,
+        team_id,
+        name,
+        user_ids=None,
+        admin_ids=None,
+        address_ids=None,
+        vehicle_ids=None,
+    ):
+        with atomic_transaction(commit_at_end=True):
+
+            team_to_update = Team.query.get(team_id)
+            team_to_update.name = name
+
+            if admin_ids:
+                admin_users = User.query.filter(User.id.in_(admin_ids)).all()
+                new_admin_users = [
+                    u
+                    for u in admin_users
+                    if u.has_admin_rights(team_to_update.company_id)
+                ]
+                team_to_update.admin_users = new_admin_users
+            else:
+                team_to_update.admin_users = []
+
+        all_teams = Team.query.filter(
+            Team.company_id == team_to_update.company_id
+        ).all()
 
         return all_teams
