@@ -6,7 +6,45 @@ from app.data_access.team import TeamOutput
 from app.domain.permissions import company_admin
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
+from app.models import Employment
 from app.models.team import Team
+
+
+class DeleteTeam(AuthenticatedMutation):
+    """
+    Suppression d'une équipe.
+
+    Renvoie la nouvelle liste des équipes de l'entreprise.
+    """
+
+    class Arguments:
+        team_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'entreprise du véhicule",
+        )
+
+    Output = graphene.List(TeamOutput)
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Team.query.get(
+            kwargs["team_id"]
+        ).company_id,
+    )
+    def mutate(cls, _, info, team_id):
+        team_to_delete = Team.query.get(team_id)
+        company_id = team_to_delete.company_id
+
+        with atomic_transaction(commit_at_end=True):
+            Employment.query.filter(Employment.team_id == team_id).update(
+                {"team_id": None}
+            )
+            db.session.delete(team_to_delete)
+
+        all_teams = Team.query.filter(Team.company_id == company_id).all()
+
+        return all_teams
 
 
 class CreateTeam(AuthenticatedMutation):
@@ -19,7 +57,7 @@ class CreateTeam(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
             required=True,
-            description="Identifiant de l'entreprise du véhicule",
+            description="Identifiant de l'entreprise de l'équipe",
         )
         name = graphene.String(required=True, description="Nom de l'équipe")
         user_ids = graphene.List(
@@ -58,22 +96,23 @@ class CreateTeam(AuthenticatedMutation):
         info,
         company_id,
         name,
-        user_ids,
-        admin_ids,
-        address_ids,
-        vehicle_ids,
+        user_ids=None,
+        admin_ids=None,
+        address_ids=None,
+        vehicle_ids=None,
     ):
         with atomic_transaction(commit_at_end=True):
 
             new_team = Team(
                 name=name,
-                user_ids=user_ids,
-                admin_ids=admin_ids,
-                address_ids=address_ids,
-                vehicle_ids=vehicle_ids,
+                company_id=company_id,
+                # user_ids=user_ids,
+                # admin_ids=admin_ids,
+                # address_ids=address_ids,
+                # vehicle_ids=vehicle_ids,
             )
             db.session.add(new_team)
 
-            all_teams = Team.query.filter(company_id).all()
+        all_teams = Team.query.filter(Team.company_id == company_id).all()
 
         return all_teams
