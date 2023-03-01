@@ -3,6 +3,7 @@ import sys
 from app import db
 from app.helpers.oauth.models import (
     OAuth2Client,
+    ThirdPartyApiKey,
     ThirdPartyClientCompany,
     ThirdPartyClientEmployment,
 )
@@ -54,6 +55,7 @@ def clean():
 
     ThirdPartyClientEmployment.query.delete()
     ThirdPartyClientCompany.query.delete()
+    ThirdPartyApiKey.query.delete()
     OAuth2Client.query.delete()
 
     Expenditure.query.delete()
