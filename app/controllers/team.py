@@ -4,6 +4,7 @@ from app import db
 from app.controllers.utils import atomic_transaction
 from app.data_access.team import TeamOutput
 from app.domain.permissions import company_admin
+from app.domain.team import populate_team
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.errors import InvalidParamsError
@@ -72,10 +73,10 @@ class CreateTeam(AuthenticatedMutation):
             description="Identifiants des gestionnaire de cette équipe.",
         )
 
-        address_ids = graphene.List(
+        known_address_ids = graphene.List(
             graphene.Int,
             required=False,
-            description="Identifiants des adresses qui seront affectées à cette équipe.",
+            description="Identifiants des adresses préenregistrées qui seront affectées à cette équipe.",
         )
 
         vehicle_ids = graphene.List(
@@ -99,7 +100,7 @@ class CreateTeam(AuthenticatedMutation):
         name,
         user_ids=None,
         admin_ids=None,
-        address_ids=None,
+        known_address_ids=None,
         vehicle_ids=None,
     ):
         with atomic_transaction(commit_at_end=True):
@@ -107,9 +108,9 @@ class CreateTeam(AuthenticatedMutation):
             new_team = Team(
                 name=name,
                 company_id=company_id,
-                # user_ids=user_ids,
-                # address_ids=address_ids,
-                # vehicle_ids=vehicle_ids,
+            )
+            populate_team(
+                new_team, known_address_ids, name, admin_ids, vehicle_ids
             )
             if admin_ids:
                 admin_users = User.query.filter(User.id.in_(admin_ids)).all()
@@ -151,10 +152,10 @@ class UpdateTeam(AuthenticatedMutation):
             description="Identifiants des gestionnaire de cette équipe.",
         )
 
-        address_ids = graphene.List(
+        known_address_ids = graphene.List(
             graphene.Int,
             required=False,
-            description="Identifiants des adresses qui seront affectées à cette équipe.",
+            description="Identifiants des adresses préenregistrées qui seront affectées à cette équipe.",
         )
 
         vehicle_ids = graphene.List(
@@ -180,24 +181,16 @@ class UpdateTeam(AuthenticatedMutation):
         name,
         user_ids=None,
         admin_ids=None,
-        address_ids=None,
+        known_address_ids=None,
         vehicle_ids=None,
     ):
         with atomic_transaction(commit_at_end=True):
 
             team_to_update = Team.query.get(team_id)
-            team_to_update.name = name
 
-            if admin_ids:
-                admin_users = User.query.filter(User.id.in_(admin_ids)).all()
-                new_admin_users = [
-                    u
-                    for u in admin_users
-                    if u.has_admin_rights(team_to_update.company_id)
-                ]
-                team_to_update.admin_users = new_admin_users
-            else:
-                team_to_update.admin_users = []
+            populate_team(
+                team_to_update, known_address_ids, name, admin_ids, vehicle_ids
+            )
 
         all_teams = Team.query.filter(
             Team.company_id == team_to_update.company_id
