@@ -1,6 +1,9 @@
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
 from app.models.team import Team
-from app.models.team_association_tables import team_vehicle_association_table
+from app.models.team_association_tables import (
+    team_vehicle_association_table,
+    team_known_address_association_table,
+)
 
 
 def populate_team(
@@ -53,3 +56,20 @@ def remove_vehicle_from_all_teams(vehicle):
     )
     for team in teams_with_vehicle:
         team.vehicles.remove(vehicle)
+
+
+def remove_known_address_from_all_teams(company_known_address):
+    teams_with_known_address = (
+        Team.query.join(team_known_address_association_table)
+        .join(CompanyKnownAddress)
+        .filter(
+            (
+                team_known_address_association_table.c.company_known_address_id
+                == company_known_address.id
+            )
+            & (team_known_address_association_table.c.team_id == Team.id)
+        )
+        .all()
+    )
+    for team in teams_with_known_address:
+        team.known_addresses.remove(company_known_address)

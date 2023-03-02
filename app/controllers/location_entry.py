@@ -9,6 +9,7 @@ from app.domain.permissions import (
     company_admin,
     check_actor_can_write_on_mission,
 )
+from app.domain.team import remove_known_address_from_all_teams
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -167,6 +168,12 @@ class TerminateCompanyKnownAddress(AuthenticatedMutation):
             company_known_address_id
         )
         company_known_address.dismiss(datetime.now())
+
+        try:
+            remove_known_address_from_all_teams(company_known_address)
+        except Exception:
+            pass
+
         db.session.commit()
         return Void(success=True)
 
