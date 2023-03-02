@@ -681,6 +681,110 @@ class ApiRequests:
       }
     """
 
+    create_team = """
+      mutation createTeam(
+        $companyId: Int!
+        $name: String!
+        $userIds: [Int]
+        $adminIds: [Int]
+        $knownAddressIds: [Int]
+        $vehicleIds: [Int]
+      ) {
+        teams {
+          createTeam(
+            companyId: $companyId
+            name: $name
+            userIds: $userIds
+            adminIds: $adminIds
+            knownAddressIds: $knownAddressIds
+            vehicleIds: $vehicleIds
+          ) {
+                id
+                name
+                creationTime
+                adminUsers {
+                  id
+                  firstName
+                  lastName
+                }
+                users {
+                  id
+                  firstName
+                  lastName
+                }
+                vehicles {
+                  id
+                  name
+                }
+                knownAddresses {
+                  id
+                  alias
+                  name
+                  postalCode
+                  city
+                }
+          }
+        }
+      }
+    """
+
+    update_team = """
+      mutation updateTeam(
+        $teamId: Int!
+        $name: String!
+        $userIds: [Int]
+        $adminIds: [Int]
+        $knownAddressIds: [Int]
+        $vehicleIds: [Int]
+      ) {
+        teams {
+          updateTeam(
+            teamId: $teamId
+            name: $name
+            userIds: $userIds
+            adminIds: $adminIds
+            knownAddressIds: $knownAddressIds
+            vehicleIds: $vehicleIds
+          ) {
+                id
+                name
+                creationTime
+                adminUsers {
+                  id
+                  firstName
+                  lastName
+                }
+                users {
+                  id
+                  firstName
+                  lastName
+                }
+                vehicles {
+                  id
+                  name
+                }
+                knownAddresses {
+                  id
+                  alias
+                  name
+                  postalCode
+                  city
+                }
+          }
+        }
+      }
+    """
+
+    delete_team = """
+      mutation deleteTeam($teamId: Int!) {
+        teams {
+          deleteTeam(teamId: $teamId) {
+            id
+          }
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
