@@ -3,10 +3,12 @@ import sys
 from app import db
 from app.helpers.oauth.models import (
     OAuth2Client,
+    ThirdPartyApiKey,
     ThirdPartyClientCompany,
     ThirdPartyClientEmployment,
 )
 from app.models import (
+    Activity,
     ActivityVersion,
     Comment,
     Company,
@@ -26,8 +28,8 @@ from app.models import (
     User,
     UserReadToken,
     Vehicle,
+    Team,
 )
-from app.models.activity import Activity
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
     UserFactory,
@@ -54,6 +56,7 @@ def clean():
 
     ThirdPartyClientEmployment.query.delete()
     ThirdPartyClientCompany.query.delete()
+    ThirdPartyApiKey.query.delete()
     OAuth2Client.query.delete()
 
     Expenditure.query.delete()
@@ -66,22 +69,31 @@ def clean():
     LocationEntry.query.delete()
     Mission.query.delete()
 
+    db.session.execute(
+        """
+        DELETE FROM team_admin_user;
+        DELETE FROM team_known_address;
+        DELETE FROM team_vehicle;
+        """
+    )
+
     CompanyKnownAddress.query.delete()
     Employment.query.delete()
+    Team.query.delete()
     Vehicle.query.delete()
     Company.query.delete()
-
-    ControllerControl.query.delete()
 
     RefreshToken.query.delete()
     UserReadToken.query.delete()
     Email.query.delete()
     RegulatoryAlert.query.delete()
     RegulationComputation.query.delete()
-    User.query.delete()
 
+    ControllerControl.query.delete()
     ControllerRefreshToken.query.delete()
     ControllerUser.query.delete()
+
+    User.query.delete()
     db.session.commit()
 
 
