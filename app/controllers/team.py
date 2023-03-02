@@ -64,7 +64,7 @@ class CreateTeam(AuthenticatedMutation):
         user_ids = graphene.List(
             graphene.Int,
             required=False,
-            description="Identifiants des utilisateurs qui feront partie de cette équipe.",
+            description="Identifiants des salariés de cette équipe.",
         )
         admin_ids = graphene.List(
             graphene.Int,
@@ -141,12 +141,12 @@ class UpdateTeam(AuthenticatedMutation):
         user_ids = graphene.List(
             graphene.Int,
             required=False,
-            description="Identifiants des utilisateurs qui feront partie de cette équipe.",
+            description="Identifiants des salariés de cette équipe.",
         )
         admin_ids = graphene.List(
             graphene.Int,
             required=False,
-            description="Identifiants des gestionnaire de cette équipe.",
+            description="Identifiants des gestionnaires de cette équipe.",
         )
 
         known_address_ids = graphene.List(

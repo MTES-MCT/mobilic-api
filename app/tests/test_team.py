@@ -193,3 +193,14 @@ class TestTeam(BaseTest):
         )
         delete_team_output = delete_team_result["data"]["teams"]["deleteTeam"]
         self.assertEqual(0, len(delete_team_output))
+
+    def test_team_update_wrong_company(self):
+        response = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.update_team,
+            variables={"team_id": 1234, "name": "nom d'équipe"},
+        )
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "AUTHORIZATION_ERROR"
+        )
