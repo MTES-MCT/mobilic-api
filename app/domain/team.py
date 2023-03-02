@@ -1,4 +1,6 @@
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
+from app.models.team import Team
+from app.models.team_association_tables import team_vehicle_association_table
 
 
 def populate_team(
@@ -37,3 +39,17 @@ def populate_team(
             Employment.company_id == company_id,
             Employment.user_id.in_(user_ids),
         ).update({"team_id": team_to_update.id}, synchronize_session=False)
+
+
+def remove_vehicle_from_all_teams(vehicle):
+    teams_with_vehicle = (
+        Team.query.join(team_vehicle_association_table)
+        .join(Vehicle)
+        .filter(
+            (team_vehicle_association_table.c.vehicle_id == vehicle.id)
+            & (team_vehicle_association_table.c.team_id == Team.id)
+        )
+        .all()
+    )
+    for team in teams_with_vehicle:
+        team.vehicles.remove(vehicle)
