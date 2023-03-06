@@ -2,12 +2,12 @@ import graphene
 
 from app import db
 from app.controllers.utils import atomic_transaction
-from app.data_access.team import TeamOutput
+from app.data_access.company import CompanyOutput
 from app.domain.permissions import company_admin
 from app.domain.team import populate_team
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app.models import Employment
+from app.models import Employment, Company
 from app.models.team import Team
 
 
@@ -24,7 +24,7 @@ class DeleteTeam(AuthenticatedMutation):
             description="Identifiant de l'équipe à supprimer",
         )
 
-    Output = graphene.List(TeamOutput)
+    Output = CompanyOutput
 
     @classmethod
     @with_authorization_policy(
@@ -43,9 +43,7 @@ class DeleteTeam(AuthenticatedMutation):
             )
             db.session.delete(team_to_delete)
 
-        all_teams = Team.query.filter(Team.company_id == company_id).all()
-
-        return all_teams
+        return Company.query.get(company_id)
 
 
 class CreateTeam(AuthenticatedMutation):
@@ -84,7 +82,7 @@ class CreateTeam(AuthenticatedMutation):
             description="Identifiants des véhicules qui seront affectées à cette équipe.",
         )
 
-    Output = graphene.List(TeamOutput)
+    Output = CompanyOutput
 
     @classmethod
     @with_authorization_policy(
@@ -120,9 +118,7 @@ class CreateTeam(AuthenticatedMutation):
                 vehicle_ids,
             )
 
-        all_teams = Team.query.filter(Team.company_id == company_id).all()
-
-        return all_teams
+        return Company.query.get(company_id)
 
 
 class UpdateTeam(AuthenticatedMutation):
@@ -161,7 +157,7 @@ class UpdateTeam(AuthenticatedMutation):
             description="Identifiants des véhicules qui seront affectées à cette équipe.",
         )
 
-    Output = graphene.List(TeamOutput)
+    Output = CompanyOutput
 
     @classmethod
     @with_authorization_policy(
@@ -194,8 +190,4 @@ class UpdateTeam(AuthenticatedMutation):
                 vehicle_ids,
             )
 
-        all_teams = Team.query.filter(
-            Team.company_id == team_to_update.company_id
-        ).all()
-
-        return all_teams
+        return Company.query.get(team_to_update.company_id)
