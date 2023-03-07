@@ -699,6 +699,7 @@ class ApiRequests:
             knownAddressIds: $knownAddressIds
             vehicleIds: $vehicleIds
           ) {
+            teams {
                 id
                 name
                 creationTime
@@ -723,6 +724,7 @@ class ApiRequests:
                   postalCode
                   city
                 }
+            }
           }
         }
       }
@@ -746,6 +748,7 @@ class ApiRequests:
             knownAddressIds: $knownAddressIds
             vehicleIds: $vehicleIds
           ) {
+            teams {
                 id
                 name
                 creationTime
@@ -770,6 +773,7 @@ class ApiRequests:
                   postalCode
                   city
                 }
+            }
           }
         }
       }
@@ -779,7 +783,9 @@ class ApiRequests:
       mutation deleteTeam($teamId: Int!) {
         teams {
           deleteTeam(teamId: $teamId) {
-            id
+            teams {
+                id
+            }
           }
         }
       }

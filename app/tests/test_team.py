@@ -23,8 +23,8 @@ class TestTeam(BaseTest):
             variables={"company_id": self.company.id, "name": team_name_input},
         )
         team_name_output = create_team_result["data"]["teams"]["createTeam"][
-            0
-        ]["name"]
+            "teams"
+        ][0]["name"]
         self.assertEqual(team_name_input, team_name_output)
 
     def test_team_creation_with_user_and_admin(self):
@@ -40,12 +40,14 @@ class TestTeam(BaseTest):
                 "adminIds": [self.admin.id],
             },
         )
-        admin_users = create_team_result["data"]["teams"]["createTeam"][0][
-            "adminUsers"
-        ]
+        admin_users = create_team_result["data"]["teams"]["createTeam"][
+            "teams"
+        ][0]["adminUsers"]
         self.assertEqual(1, len(admin_users))
         self.assertEqual(self.admin.id, admin_users[0]["id"])
-        users = create_team_result["data"]["teams"]["createTeam"][0]["users"]
+        users = create_team_result["data"]["teams"]["createTeam"]["teams"][0][
+            "users"
+        ]
         self.assertEqual(1, len(users))
         self.assertEqual(self.employee.id, users[0]["id"])
 
@@ -74,9 +76,9 @@ class TestTeam(BaseTest):
                 "knownAddressIds": [address_id],
             },
         )
-        known_addresses = create_team_result["data"]["teams"]["createTeam"][0][
-            "knownAddresses"
-        ]
+        known_addresses = create_team_result["data"]["teams"]["createTeam"][
+            "teams"
+        ][0]["knownAddresses"]
         self.assertEqual(1, len(known_addresses))
         self.assertEqual(address_id, known_addresses[0]["id"])
 
@@ -105,9 +107,9 @@ class TestTeam(BaseTest):
                 "vehicleIds": [vehicle_id],
             },
         )
-        vehicles = create_team_result["data"]["teams"]["createTeam"][0][
-            "vehicles"
-        ]
+        vehicles = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["vehicles"]
         self.assertEqual(1, len(vehicles))
         self.assertEqual(vehicle_id, vehicles[0]["id"])
 
@@ -123,9 +125,9 @@ class TestTeam(BaseTest):
                 "adminIds": [self.employee.id],
             },
         )
-        admin_users = create_team_result["data"]["teams"]["createTeam"][0][
-            "adminUsers"
-        ]
+        admin_users = create_team_result["data"]["teams"]["createTeam"][
+            "teams"
+        ][0]["adminUsers"]
         self.assertEqual(0, len(admin_users))
 
     def test_team_remove_one_user(self):
@@ -140,7 +142,9 @@ class TestTeam(BaseTest):
                 "userIds": [self.employee.id, self.admin.id],
             },
         )
-        team_id = create_team_result["data"]["teams"]["createTeam"][0]["id"]
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
         update_team_result = make_authenticated_request(
             time=None,
             submitter_id=self.admin.id,
@@ -151,7 +155,9 @@ class TestTeam(BaseTest):
                 "userIds": [self.employee.id],
             },
         )
-        users = update_team_result["data"]["teams"]["updateTeam"][0]["users"]
+        users = update_team_result["data"]["teams"]["updateTeam"]["teams"][0][
+            "users"
+        ]
         self.assertEqual(1, len(users))
         self.assertEqual(self.employee.id, users[0]["id"])
 
@@ -164,7 +170,9 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={"company_id": self.company.id, "name": team_name_input},
         )
-        team_id = create_team_result["data"]["teams"]["createTeam"][0]["id"]
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
         update_team_result = make_authenticated_request(
             time=None,
             submitter_id=self.admin.id,
@@ -172,8 +180,8 @@ class TestTeam(BaseTest):
             variables={"team_id": team_id, "name": new_team_name_input},
         )
         team_name_output = update_team_result["data"]["teams"]["updateTeam"][
-            0
-        ]["name"]
+            "teams"
+        ][0]["name"]
         self.assertEqual(new_team_name_input, team_name_output)
 
     def test_remove_team(self):
@@ -184,14 +192,18 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={"company_id": self.company.id, "name": team_name_input},
         )
-        team_id = create_team_result["data"]["teams"]["createTeam"][0]["id"]
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
         delete_team_result = make_authenticated_request(
             time=None,
             submitter_id=self.admin.id,
             query=ApiRequests.delete_team,
             variables={"team_id": team_id},
         )
-        delete_team_output = delete_team_result["data"]["teams"]["deleteTeam"]
+        delete_team_output = delete_team_result["data"]["teams"]["deleteTeam"][
+            "teams"
+        ]
         self.assertEqual(0, len(delete_team_output))
 
     def test_team_update_wrong_company(self):
