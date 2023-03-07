@@ -55,7 +55,7 @@ def init_regulation_alerts(part):
     It is used to split all users in 4 parts using modulo on user_id.
     """
 
-    nb_parts = 4
+    nb_parts = 8
     if part < 1 or part > nb_parts:
         click.echo(f"ERROR: [part] should be between 1 and {nb_parts}")
         sys.exit(1)
