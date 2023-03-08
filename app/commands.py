@@ -58,7 +58,7 @@ def init_regulation_alerts(part, nb_parts):
     """
 
     if nb_parts < 1 or nb_parts > 24:
-        click.echo(f"ERROR: [nb_parts] should be between 1 and 24")
+        click.echo("ERROR: [nb_parts] should be between 1 and 24")
         sys.exit(1)
 
     if part < 1 or part > nb_parts:
