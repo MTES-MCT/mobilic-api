@@ -47,15 +47,20 @@ def seed():
 
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 @click.argument("part", type=click.INT)
-def init_regulation_alerts(part):
+@click.argument("nb_parts", type=click.INT)
+def init_regulation_alerts(part, nb_parts):
     """
     Initialize alerts for users from part PART
 
-    PART is a number between 1 and 4.
-    It is used to split all users in 4 parts using modulo on user_id.
+    NB_PARTS is a number between 1 and 24
+    PART is a number between 1 and NB_PARTS.
+    It is used to split all users in [NB_PARTS] parts using modulo on user_id.
     """
 
-    nb_parts = 4
+    if nb_parts < 1 or nb_parts > 24:
+        click.echo("ERROR: [nb_parts] should be between 1 and 24")
+        sys.exit(1)
+
     if part < 1 or part > nb_parts:
         click.echo(f"ERROR: [part] should be between 1 and {nb_parts}")
         sys.exit(1)
