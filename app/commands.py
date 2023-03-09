@@ -50,12 +50,14 @@ def seed():
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 @click.argument("part", type=click.INT)
 @click.argument("nb_parts", type=click.INT)
-def init_regulation_alerts(part, nb_parts):
+@click.argument("nb_fork", type=click.INT)
+def init_regulation_alerts(part, nb_parts, nb_fork):
     """
     Initialize alerts for users from part PART
 
     NB_PARTS is a number between 1 and 24
     PART is a number between 1 and NB_PARTS.
+    nb_fork is the number of parallel thread can be run.
     It is used to split all users in [NB_PARTS] parts using modulo on user_id.
     """
 
@@ -87,7 +89,7 @@ def init_regulation_alerts(part, nb_parts):
     # ) as rambar_abs, tqdm(
     #     total=100, desc="-ram%", position=0
     # ) as rambar_perc:
-    with Pool(6) as p:
+    with Pool(nb_fork) as p:
         p.map(run_batch_user_id, users_ids)
         # for user in users:
         #     with atomic_transaction(commit_at_end=True):
