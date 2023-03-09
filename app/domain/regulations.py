@@ -52,7 +52,9 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     )
 
     # Compute daily rules for each day
+    print(f"DEBUT COMPUTE PAR JOUR POUR {user.id}")
     for day in get_dates_range(period_start, period_end):
+        print(f"DEBUT DU JOUR {day} POUR {user.id}")
         compute_regulations_per_day(
             user,
             day,
@@ -61,6 +63,8 @@ def compute_regulations(user, period_start, period_end, submitter_type):
             tz=user_timezone,
         )
         mark_day_as_computed(user, day, submitter_type)
+        print(f"FIN TRAITEMENT {day} POUR {user.id}")
+    print(f"FIN COMPUTE PAR JOUR POUR {user.id}")
 
     # Compute weekly rules
     weeks = group_user_events_by_week(
@@ -194,6 +198,8 @@ def compute_weekly_rest_duration(week, tz):
 
 
 def compute_regulation_for_user(user):
+    print(f"**********************************************")
+    print(f"DEBUT TRAITEMENT pour l'utilisateur {user.id}")
     # on pourrait ajouter un PERIOD_START et un period_END
 
     #####
@@ -242,6 +248,7 @@ def compute_regulation_for_user(user):
     #####
     # Compute alerts
     #####
+    print(f"FIN DU CLEAN pour l'utilisateur {user.id}")
     for submitter_type in [SubmitterType.ADMIN, SubmitterType.EMPLOYEE]:
         (work_days, _) = group_user_events_by_day_with_limit(
             user=user,
@@ -251,13 +258,18 @@ def compute_regulation_for_user(user):
             only_missions_validated_by_user=submitter_type
             == SubmitterType.EMPLOYEE,
         )
+        print(f"FIN DU GROUP BY {submitter_type} pour l'utilisateur {user.id}")
         time_ranges = get_uninterrupted_datetime_ranges(
             [wd.day for wd in work_days]
+        )
+        print(
+            f"FIN DU get_uninterrupted_datetime_ranges pour l'utilisateur {user.id}"
         )
         for time_range in time_ranges:
             compute_regulations(
                 user, time_range[0], time_range[1], submitter_type
             )
+        print(f"FIN DU compute_regulations pour l'utilisateur {user.id}")
     ######
 
 
