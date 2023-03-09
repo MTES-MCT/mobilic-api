@@ -2,9 +2,10 @@ import os
 import secrets
 import sys
 from unittest import TestLoader, TextTestRunner
+from tqdm import tqdm
+import psutil
 
 import click
-import progressbar
 from argon2 import PasswordHasher
 
 from app.helpers.oauth.models import ThirdPartyApiKey
@@ -66,18 +67,31 @@ def init_regulation_alerts(part, nb_parts):
         sys.exit(1)
 
     print(f"Computing regulation alerts ({part}/{nb_parts})")
-    widgets = [progressbar.Percentage(), progressbar.Bar()]
     users = User.query.filter(User.id % nb_parts == part - 1).all()
     max_value = len(users) if users else 0
     print(f"{max_value} users to process")
-    bar = progressbar.ProgressBar(widgets=widgets, max_value=max_value).start()
-    i = 0
-    for user in users:
-        with atomic_transaction(commit_at_end=True):
-            compute_regulation_for_user(user)
-        i += 1
-        bar.update(i)
-    bar.finish()
+
+    virtual_memory = psutil.virtual_memory()
+    total_in_mb = int(virtual_memory.total / (1024 * 1024))
+
+    with tqdm(total=max_value, desc="user%", position=3) as usersbar, tqdm(
+        total=100, desc="-cpu%", position=2
+    ) as cpubar, tqdm(
+        total=total_in_mb, desc="-ram#", position=1
+    ) as rambar_abs, tqdm(
+        total=100, desc="-ram%", position=0
+    ) as rambar_perc:
+        for user in users:
+            with atomic_transaction(commit_at_end=True):
+                compute_regulation_for_user(user)
+            rambar_abs.n = int(psutil.virtual_memory().used / (1024 * 1024))
+            rambar_perc.n = psutil.virtual_memory().percent
+            cpubar.n = psutil.cpu_percent()
+            usersbar.n += 1
+            rambar_abs.refresh()
+            rambar_perc.refresh()
+            cpubar.refresh()
+            usersbar.refresh()
 
 
 @app.cli.command("create_api_key", with_appcontext=True)
