@@ -17,6 +17,7 @@ from app.domain.regulations import compute_regulation_for_user
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
+from multiprocessing import Pool
 
 
 @app.cli.command(with_appcontext=False)
@@ -67,31 +68,44 @@ def init_regulation_alerts(part, nb_parts):
         sys.exit(1)
 
     print(f"Computing regulation alerts ({part}/{nb_parts})")
-    users = User.query.filter(User.id % nb_parts == part - 1).all()
-    max_value = len(users) if users else 0
+    users_ids = (
+        db.session.query(User.id).filter(User.id % nb_parts == part - 1).all()
+    )
+    max_value = len(users_ids) if users_ids else 0
+    # users = User.query.filter(User.id % nb_parts == part - 1).all()
+    # max_value = len(users) if users else 0
     print(f"{max_value} users to process")
 
     virtual_memory = psutil.virtual_memory()
     total_in_mb = int(virtual_memory.total / (1024 * 1024))
+    db.session.close()
+    db.engine.dispose()
+    # with tqdm(total=max_value, desc="user%", position=3) as usersbar, tqdm(
+    #     total=100, desc="-cpu%", position=2
+    # ) as cpubar, tqdm(
+    #     total=total_in_mb, desc="-ram#", position=1
+    # ) as rambar_abs, tqdm(
+    #     total=100, desc="-ram%", position=0
+    # ) as rambar_perc:
+    with Pool(6) as p:
+        p.map(run_batch_user_id, users_ids)
+        # for user in users:
+        #     with atomic_transaction(commit_at_end=True):
+        #         compute_regulation_for_user(user)
+        # rambar_abs.n = int(psutil.virtual_memory().used / (1024 * 1024))
+        # rambar_perc.n = psutil.virtual_memory().percent
+        # cpubar.n = psutil.cpu_percent()
+        # usersbar.n += 1
+        # rambar_abs.refresh()
+        # rambar_perc.refresh()
+        # cpubar.refresh()
+        # usersbar.refresh()
 
-    with tqdm(total=max_value, desc="user%", position=3) as usersbar, tqdm(
-        total=100, desc="-cpu%", position=2
-    ) as cpubar, tqdm(
-        total=total_in_mb, desc="-ram#", position=1
-    ) as rambar_abs, tqdm(
-        total=100, desc="-ram%", position=0
-    ) as rambar_perc:
-        for user in users:
-            with atomic_transaction(commit_at_end=True):
-                compute_regulation_for_user(user)
-            rambar_abs.n = int(psutil.virtual_memory().used / (1024 * 1024))
-            rambar_perc.n = psutil.virtual_memory().percent
-            cpubar.n = psutil.cpu_percent()
-            usersbar.n += 1
-            rambar_abs.refresh()
-            rambar_perc.refresh()
-            cpubar.refresh()
-            usersbar.refresh()
+
+def run_batch_user_id(user_id):
+    with atomic_transaction(commit_at_end=True):
+        user_to_process = User.query.filter(User.id == user_id).one()
+        compute_regulation_for_user(user_to_process)
 
 
 @app.cli.command("create_api_key", with_appcontext=True)
