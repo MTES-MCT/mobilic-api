@@ -1,6 +1,5 @@
 import graphene
 
-from app.data_access.user import UserOutput
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import User
 from app.models.company_known_address import CompanyKnownAddressOutput
@@ -35,7 +34,7 @@ class TeamOutput(BaseSQLAlchemyObjectType):
     )
 
     users = graphene.List(
-        UserOutput,
+        lambda: UserOutput,
         description="Liste des salariés affectés à l'équipe'",
     )
 
@@ -49,3 +48,6 @@ class TeamOutput(BaseSQLAlchemyObjectType):
         user_ids = [e.user_id for e in self.employments]
         users = User.query.filter(User.id.in_(user_ids))
         return users
+
+
+from app.data_access.user import UserOutput
