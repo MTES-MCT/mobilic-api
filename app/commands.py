@@ -1,6 +1,7 @@
 import os
 import secrets
 import sys
+from datetime import datetime
 from unittest import TestLoader, TextTestRunner
 from tqdm import tqdm
 import psutil
@@ -70,6 +71,9 @@ def init_regulation_alerts(part, nb_parts, nb_fork):
         sys.exit(1)
 
     print(f"Computing regulation alerts ({part}/{nb_parts})")
+    # users_ids = (
+    #     db.session.query(User.id).filter(User.id == 247167328).all()
+    # )
     users_ids = (
         db.session.query(User.id).filter(User.id % nb_parts == part - 1).all()
     )
@@ -106,8 +110,11 @@ def init_regulation_alerts(part, nb_parts, nb_fork):
 
 def run_batch_user_id(user_id):
     with atomic_transaction(commit_at_end=True):
+        print(f"**********************************************")
+        print(f"{datetime.now()} - COMPUTE BEGINS FOR USER {user_id}")
         user_to_process = User.query.filter(User.id == user_id).one()
         compute_regulation_for_user(user_to_process)
+        print(f"{datetime.now()} - COMPUTE FINISHED FOR USER {user_id}")
 
 
 @app.cli.command("create_api_key", with_appcontext=True)
