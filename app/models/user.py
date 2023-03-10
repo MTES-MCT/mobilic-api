@@ -135,7 +135,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         if include_mission_relations:
             base_query = base_query.options(
                 add_mission_relations(
-                    selectinload(Activity.mission),
+                    joinedload(Activity.mission),
                     include_revisions=include_revisions,
                     use_subqueries=use_subqueries,
                 )
@@ -227,6 +227,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     ):
         sorted_missions = []
         missions = set()
+        mission_ids = set()
 
         small_query = (
             start_time
@@ -236,7 +237,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
 
         activity_query = self.query_activities_with_relations(
             include_dismissed_activities=include_dismissed_activities,
-            include_mission_relations=False,
+            include_mission_relations=True,
             include_revisions=include_revisions,
             start_time=start_time,
             end_time=end_time,
@@ -267,12 +268,13 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             )
 
         for a in activities:
-            if a.mission not in missions and (
+            if a.mission_id not in mission_ids and (
                 restrict_to_company_ids is None
                 or a.mission.company_id in restrict_to_company_ids
             ):
                 sorted_missions.append(a.mission)
                 missions.add(a.mission)
+                mission_ids.add(a.mission.id)
         return sorted_missions, has_next_page
 
     def query_missions(self, **kwargs):
