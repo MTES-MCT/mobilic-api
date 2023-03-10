@@ -118,9 +118,9 @@ class WorkDay:
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
-        mission.history = actions_history(
-            mission, self.user, max_reception_time=self.max_reception_time
-        )
+        # mission.history = actions_history(
+        #     mission, self.user, max_reception_time=self.max_reception_time
+        # )
         self.missions.append(mission)
         activities = mission.activities_for(
             self.user,
@@ -152,11 +152,11 @@ class WorkDay:
                 and (not a.end_time or a.end_time >= self.start_of_day)
             ]
         )
-        self.comments.extend(
-            mission.retrieve_all_comments(
-                max_reception_time=self.max_reception_time
-            )
-        )
+        # self.comments.extend(
+        #     mission.retrieve_all_comments(
+        #         max_reception_time=self.max_reception_time
+        #     )
+        # )
 
     def _sort_activities(self):
         if not self._are_activities_sorted:
@@ -389,7 +389,7 @@ def group_user_events_by_day_with_limit(
 
     missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
-        include_revisions=True,
+        include_revisions=False,
         start_time=to_datetime(from_date, tz_for_date=tz)
         if from_date
         else None,
@@ -454,7 +454,7 @@ def group_user_events_by_day_with_limit_both_submitter(
 
     missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
-        include_revisions=True,
+        include_revisions=False,
         start_time=to_datetime(from_date, tz_for_date=tz)
         if from_date
         else None,
