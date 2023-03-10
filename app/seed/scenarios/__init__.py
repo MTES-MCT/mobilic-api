@@ -42,7 +42,6 @@ from app.seed.scenarios.third_party import (
 from app.seed.scenarios.team_mode import (
     SUPER_ADMIN_EMAIL,
     TEAM_ADMIN_EMAIL,
-    EMPLOYEE as NO_TEAM_EMPLOYEE,
     TEAM_EMPLOYEE,
     run_scenario_team_mode,
 )
@@ -123,7 +122,12 @@ scenarios = [
     SeedScenario(
         "Team mode",
         "Creates one company with one team",
-        [SUPER_ADMIN_EMAIL, TEAM_ADMIN_EMAIL, NO_TEAM_EMPLOYEE, TEAM_EMPLOYEE],
+        [
+            SUPER_ADMIN_EMAIL,
+            TEAM_ADMIN_EMAIL,
+            "noteam.employee{i}@test.com",
+            TEAM_EMPLOYEE,
+        ],
         run_scenario_team_mode,
     ),
 ]

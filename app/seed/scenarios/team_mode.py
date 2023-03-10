@@ -8,12 +8,35 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
+from app.seed.helpers import get_time, log_and_validate_mission
 
 SUPER_ADMIN_EMAIL = "super.admin@test.com"
 TEAM_ADMIN_EMAIL = "team.admin@test.com"
 
-EMPLOYEE = "noteam.employee@test.com"
 TEAM_EMPLOYEE = "team.employee@test.com"
+
+
+def create_vehicle(id, alias, admin, company):
+    vehicle = Vehicle(
+        registration_number=f"XXX-00{id}-ABC",
+        alias=alias,
+        submitter=admin,
+        company_id=company.id,
+    )
+    db.session.add(vehicle)
+    return vehicle
+
+
+def create_address(alias, address, company):
+    company_address = CompanyKnownAddress(
+        alias=alias,
+        address=Address.get_or_create(
+            geo_api_data=None, manual_address=address
+        ),
+        company_id=company.id,
+    )
+    db.session.add(company_address)
+    return company_address
 
 
 def run_scenario_team_mode():
@@ -47,39 +70,17 @@ def run_scenario_team_mode():
         has_admin_rights=True,
     )
 
-    vehicle = Vehicle(
-        registration_number=f"XXX-001-ABC",
-        alias=f"Vehicule 1",
-        submitter=super_admin,
-        company_id=company.id,
-    )
-    db.session.add(vehicle)
+    team_vehicle = create_vehicle(1, "Vehicule Team 1", super_admin, company)
+    for i in range(2, 5):
+        no_team_vehicle = create_vehicle(
+            i, f"Vehicule {i}", super_admin, company
+        )
 
-    team_vehicle = Vehicle(
-        registration_number=f"XXX-002-ABC",
-        alias=f"Vehicule Team 1",
-        submitter=super_admin,
-        company_id=company.id,
+    team_address = create_address(
+        "Entrepot Team 1", "1, rue de Rennes", company
     )
-    db.session.add(team_vehicle)
-
-    company_address = CompanyKnownAddress(
-        alias=f"Entrepot 1",
-        address=Address.get_or_create(
-            geo_api_data=None, manual_address="1, rue de Paris"
-        ),
-        company_id=company.id,
-    )
-    db.session.add(company_address)
-
-    team_address = CompanyKnownAddress(
-        alias=f"Entrepot Team 1",
-        address=Address.get_or_create(
-            geo_api_data=None, manual_address="1, rue de Rennes"
-        ),
-        company_id=company.id,
-    )
-    db.session.add(team_address)
+    for i in range(2, 5):
+        create_address(f"Entrepot {i}", f"{i}, rue de Paris", company)
 
     team = Team(
         name="My team",
@@ -89,15 +90,21 @@ def run_scenario_team_mode():
         known_addresses=[team_address],
     )
 
-    no_team_employee = UserFactory.create(
-        first_name=f"NoTeam", last_name=f"Employee", email=EMPLOYEE
-    )
-    EmploymentFactory.create(
-        company=company,
-        submitter=super_admin,
-        user=no_team_employee,
-        has_admin_rights=False,
-    )
+    no_team_employees = [
+        UserFactory.create(
+            first_name=f"NoTeam",
+            last_name=f"Employee {i}",
+            email=f"noteam.employee{i}@test.com",
+        )
+        for i in range(5)
+    ]
+    for e in no_team_employees:
+        EmploymentFactory.create(
+            company=company,
+            submitter=super_admin,
+            user=e,
+            has_admin_rights=False,
+        )
 
     team_employee = UserFactory.create(
         first_name=f"Team", last_name=f"Employee", email=TEAM_EMPLOYEE
@@ -108,6 +115,33 @@ def run_scenario_team_mode():
         user=team_employee,
         has_admin_rights=False,
         team=team,
+    )
+
+    for idx_e, nte in enumerate(no_team_employees):
+        log_and_validate_mission(
+            mission_name=f"Mission pas equipe {idx_e}",
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=2, hour=6),
+                    get_time(how_many_days_ago=2, hour=10),
+                ]
+            ],
+            vehicle=no_team_vehicle,
+            company=company,
+            employee=nte,
+        )
+
+    log_and_validate_mission(
+        mission_name="Mission equipe",
+        work_periods=[
+            [
+                get_time(how_many_days_ago=2, hour=5),
+                get_time(how_many_days_ago=2, hour=11),
+            ]
+        ],
+        vehicle=team_vehicle,
+        company=company,
+        employee=team_employee,
     )
 
     db.session.commit()
