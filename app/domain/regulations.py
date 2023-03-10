@@ -249,14 +249,14 @@ def compute_regulation_for_user(user):
     # Compute alerts
     #####
     print(f"FIN DU CLEAN pour l'utilisateur {user.id}")
+    (work_days_admin, work_days_user) = group_user_events_by_day_with_limit(
+        user=user, include_dismissed_or_empty_days=False
+    )
     for submitter_type in [SubmitterType.ADMIN, SubmitterType.EMPLOYEE]:
-        (work_days, _) = group_user_events_by_day_with_limit(
-            user=user,
-            include_dismissed_or_empty_days=False,
-            only_missions_validated_by_admin=submitter_type
-            == SubmitterType.ADMIN,
-            only_missions_validated_by_user=submitter_type
-            == SubmitterType.EMPLOYEE,
+        work_days = (
+            work_days_admin
+            if submitter_type == SubmitterType.ADMIN
+            else work_days_user
         )
         print(f"FIN DU GROUP BY {submitter_type} pour l'utilisateur {user.id}")
         time_ranges = get_uninterrupted_datetime_ranges(

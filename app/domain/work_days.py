@@ -408,27 +408,34 @@ def group_user_events_by_day_with_limit(
         max_reception_time=max_reception_time,
     )
 
-    if only_missions_validated_by_admin:
-        missions = [m for m in missions if m.validated_by_admin_for(user)]
-    elif only_missions_validated_by_user:
-        missions = [
-            m
-            for m in missions
-            if m.validation_of(user, max_reception_time=max_reception_time)
-        ]
+    missions_validated_by_admin = [
+        m for m in missions if m.validated_by_admin_for(user)
+    ]
+    missions_validated_by_user = [
+        m
+        for m in missions
+        if m.validation_of(user, max_reception_time=max_reception_time)
+    ]
 
-    work_days = group_user_missions_by_day(
+    work_days_admin = group_user_missions_by_day(
         user,
-        missions,
+        missions_validated_by_admin,
         from_date=from_date,
         until_date=until_date,
         tz=tz,
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
         max_reception_time=max_reception_time,
     )
-    if first and has_next:
-        work_days = work_days[1:]
-    return work_days, has_next
+    work_days_user = group_user_missions_by_day(
+        user,
+        missions_validated_by_user,
+        from_date=from_date,
+        until_date=until_date,
+        tz=tz,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
+    )
+    return work_days_admin, work_days_user
 
 
 def group_user_missions_by_day(
