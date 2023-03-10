@@ -236,7 +236,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
 
         activity_query = self.query_activities_with_relations(
             include_dismissed_activities=include_dismissed_activities,
-            include_mission_relations=True,
+            include_mission_relations=False,
             include_revisions=include_revisions,
             start_time=start_time,
             end_time=end_time,
