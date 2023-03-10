@@ -158,13 +158,6 @@ def add_mission_relations(
     return query.options(
         mission_activities_subq,
         relationship_loading_technique(Mission.validations),
-        relationship_loading_technique(Mission.expenditures),
-        relationship_loading_technique(Mission.comments),
-        relationship_loading_technique(Mission.vehicle),
-        relationship_loading_technique(Mission.location_entries).options(
-            joinedload(LocationEntry._address),
-            joinedload(LocationEntry._company_known_address),
-        ),
     )
 
 
