@@ -15,6 +15,7 @@ from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
 from sqlalchemy import desc
 
+from app.services.get_regulation_checks import get_regulation_checks
 
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
@@ -55,11 +56,14 @@ def compute_regulations_per_day(
         work_days_filter = regulation_functions[1]
         computation = regulation_functions[0]
         # IMPROVE: instead of using the latest, use the one valid for the day target
-        regulation_check = (
-            RegulationCheck.query.filter(RegulationCheck.type == type)
-            .order_by(desc(RegulationCheck.date_application_start))
-            .first()
+        regulation_check = next(
+            (x for x in get_regulation_checks() if x.type == type), None
         )
+        # regulation_check = (
+        #     RegulationCheck.query.filter(RegulationCheck.type == type)
+        #     .order_by(desc(RegulationCheck.date_application_start))
+        #     .first()
+        # )
         if not regulation_check:
             raise InvalidResourceError(
                 f"Missing regulation check of type {type}"
@@ -86,7 +90,7 @@ def compute_regulations_per_day(
                 extra=extra_json,
                 submitter_type=submitter_type,
                 user=user,
-                regulation_check=regulation_check,
+                regulation_check_id=regulation_check.id,
             )
             db.session.add(regulatory_alert)
 
