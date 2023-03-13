@@ -29,6 +29,7 @@ from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
     CancelEmployment,
     ChangeEmployeeRole,
+    ChangeEmployeeTeam,
     CreateEmployment,
     CreateWorkerEmploymentsFromEmails,
     GetInvitation,
@@ -158,6 +159,7 @@ class Employments(graphene.ObjectType):
     send_invitation_reminder = SendInvitationReminder.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
+    change_employee_team = ChangeEmployeeTeam.Field()
 
 
 class Vehicles(graphene.ObjectType):

@@ -9,6 +9,8 @@ from sqlalchemy.orm import selectinload
 from app import app, db, mailer
 from app.controllers.user import TIMEZONE_DESC
 from app.controllers.utils import atomic_transaction, Void
+from app.data_access.company import CompanyOutput
+from app.data_access.employment import EmploymentOutput
 from app.domain.employment import create_employment_by_third_party_if_needed
 from app.domain.permissions import company_admin
 from app.domain.third_party_employment import (
@@ -50,7 +52,6 @@ from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
 )
-from app.data_access.employment import EmploymentOutput
 from app.models.queries import query_activities
 
 MAX_SIZE_OF_INVITATION_BATCH = 100
@@ -208,6 +209,10 @@ class CreateEmployment(AuthenticatedMutation):
             required=False,
             description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés. Par défaut, si l'argument n'est pas présent le salarié n'aura pas les droits.",
         )
+        team_id = graphene.Int(
+            required=False,
+            description="Identifiant de l'équipe à laquelle le salarié sera rattaché.",
+        )
 
     Output = EmploymentOutput
 
@@ -222,6 +227,7 @@ class CreateEmployment(AuthenticatedMutation):
             company = Company.query.get(employment_input["company_id"])
             user_id = employment_input.get("user_id")
             user_email = employment_input.get("mail")
+            team_id = employment_input.get("team_id")
 
             if (user_id is None) == (user_email is None):
                 raise InvalidParamsError(
@@ -261,6 +267,7 @@ class CreateEmployment(AuthenticatedMutation):
                 user_id=user_id,
                 invite_token=invite_token,
                 email=employment_input.get("mail"),
+                team_id=team_id,
             )
             db.session.add(employment)
 
@@ -644,3 +651,33 @@ class ChangeEmployeeRole(AuthenticatedMutation):
         employment.has_admin_rights = has_admin_rights
         db.session.commit()
         return employment
+
+
+class ChangeEmployeeTeam(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement pour lequel l'équipe doit être changée",
+        )
+        team_id = graphene.Int(
+            required=True,
+            description="Identifiant de la nouvelle équipe du rattachement",
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to change employee team",
+    )
+    def mutate(cls, _, info, employment_id, team_id):
+        with atomic_transaction(commit_at_end=True):
+            employment = Employment.query.get(employment_id)
+            employment.team_id = team_id if team_id > -1 else None
+
+        return Company.query.get(employment.company_id)
