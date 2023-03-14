@@ -21,36 +21,13 @@ from app.seed import (
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time, get_date
+from app.seed.helpers import get_time, get_date, create_mission
 
 NB_COMPANIES = 2
 NB_EMPLOYEES = 2
 NB_HISTORY = 7
 INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
-
-
-def create_mission(name, company, time, submitter, vehicle, address):
-    mission = Mission(
-        name=name,
-        company=company,
-        reception_time=time,
-        submitter=submitter,
-        vehicle=vehicle,
-    )
-    db.session.add(mission)
-    location_entry = LocationEntry(
-        _address=address.address,
-        mission=mission,
-        reception_time=datetime.datetime.now(),
-        submitter=submitter,
-        _company_known_address=address,
-        type=LocationEntryType.MISSION_START_LOCATION,
-        creation_time=datetime.datetime.now(),
-    )
-    location_entry.register_kilometer_reading(2500, datetime.datetime.now())
-    db.session.add(location_entry)
-    return mission
 
 
 def run_scenario_busy_admin():
@@ -120,6 +97,7 @@ def run_scenario_busy_admin():
                 submitter=employee,
                 vehicle=vehicles[0],
                 address=addresses[0],
+                add_location_entry=True,
             )
 
             # YESTERDAY: a mission to validate
@@ -130,6 +108,7 @@ def run_scenario_busy_admin():
                 submitter=employee,
                 vehicle=vehicles[0],
                 address=addresses[0],
+                add_location_entry=True,
             )
 
             # CREATES HISTORY MISSIONS
@@ -143,6 +122,7 @@ def run_scenario_busy_admin():
                     submitter=employee,
                     vehicle=vehicles[0],
                     address=addresses[0],
+                    add_location_entry=True,
                 )
                 history_missions[idx_history] = tmp_mission
             db.session.commit()

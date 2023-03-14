@@ -30,6 +30,7 @@ from app.models.mission_validation import (
 from app.data_access.mission import MissionOutput
 from app.domain.permissions import (
     check_actor_can_write_on_mission,
+    get_employment_over_period,
     is_employed_by_company_over_period,
     can_actor_read_mission,
     company_admin,
@@ -44,7 +45,9 @@ from app.helpers.errors import (
 from app.models.vehicle import VehicleOutput
 
 
-def find_or_create_vehicle(vehicle_id, vehicle_registration_number, company):
+def find_or_create_vehicle(
+    vehicle_id, vehicle_registration_number, company, employment
+):
     if not vehicle_id:
         vehicle = Vehicle.query.filter(
             Vehicle.registration_number == vehicle_registration_number,
@@ -59,6 +62,14 @@ def find_or_create_vehicle(vehicle_id, vehicle_registration_number, company):
             )
             db.session.add(vehicle)
             db.session.flush()  # To get a DB id for the new vehicle
+
+        if (
+            employment
+            and employment.team
+            and len(employment.team.vehicles) > 0
+            and vehicle not in employment.team.vehicles
+        ):
+            employment.team.vehicles.append(vehicle)
 
     else:
         vehicle = Vehicle.query.filter(
@@ -123,9 +134,10 @@ class CreateMission(AuthenticatedMutation):
             # Preload resources
             company_id = mission_input["company_id"]
             company = Company.query.get(company_id)
-            if not is_employed_by_company_over_period(
+            employment = get_employment_over_period(
                 current_user, company, include_pending_invite=False
-            ):
+            )
+            if employment is None:
                 raise AuthorizationError(
                     "Actor is not authorized to create a mission for the company"
                 )
@@ -141,6 +153,7 @@ class CreateMission(AuthenticatedMutation):
                     received_vehicle_id,
                     received_vehicle_registration_number,
                     company,
+                    employment,
                 )
                 if received_vehicle_id or received_vehicle_registration_number
                 else None
@@ -400,8 +413,14 @@ class UpdateMissionVehicle(AuthenticatedMutation):
             if not vehicle_id and not vehicle_registration_number:
                 app.logger.warning("No vehicle was associated to the mission")
             else:
+                employment = get_employment_over_period(
+                    current_user, mission.company, include_pending_invite=False
+                )
                 vehicle = find_or_create_vehicle(
-                    vehicle_id, vehicle_registration_number, mission.company
+                    vehicle_id,
+                    vehicle_registration_number,
+                    mission.company,
+                    employment,
                 )
                 mission.vehicle_id = vehicle.id
 

@@ -45,7 +45,7 @@ def company_admin(actor, company_obj_or_id):
     )
 
 
-def is_employed_by_company_over_period(
+def get_employment_over_period(
     actor,
     company_obj_or_id,
     start=None,
@@ -69,15 +69,34 @@ def is_employed_by_company_over_period(
     )
 
     if not company_employments_on_period:
-        return False
+        return None
     earliest_employment = company_employments_on_period[0]
     latest_employment = company_employments_on_period[-1]
 
     if earliest_employment.start_date > start_ or (
         latest_employment.end_date and latest_employment.end_date < end_
     ):
-        return False
-    return True
+        return None
+    return latest_employment
+
+
+def is_employed_by_company_over_period(
+    actor,
+    company_obj_or_id,
+    start=None,
+    end=None,
+    include_pending_invite=True,
+):
+    return (
+        get_employment_over_period(
+            actor,
+            company_obj_or_id,
+            start,
+            end,
+            include_pending_invite,
+        )
+        is not None
+    )
 
 
 def has_any_employment_with_company_or_controller(actor, company_obj_or_id):

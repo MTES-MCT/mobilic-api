@@ -3,7 +3,7 @@ from datetime import datetime, date
 import factory
 
 from app import db
-from app.models import User, Employment, Company, ControllerUser
+from app.models import User, Employment, Company, ControllerUser, Team
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.regulation_computation import RegulationComputation
@@ -52,6 +52,7 @@ class UserFactory(BaseFactory):
                 has_admin_rights=kwargs.get("has_admin_rights", False),
                 start_date=kwargs.get("start_date", date(2000, 1, 1)),
                 end_date=kwargs.get("end_date", None),
+                team=kwargs.get("team", None),
             )
 
 
@@ -61,6 +62,13 @@ class CompanyFactory(BaseFactory):
 
     usual_name = factory.Sequence(lambda n: f"super corp {n}")
     siren = factory.Sequence(lambda n: n)
+
+
+class TeamFactory(BaseFactory):
+    class Meta:
+        model = Team
+
+    name = factory.Sequence(lambda n: f"My team {n}")
 
 
 class EmploymentFactory(BaseFactory):

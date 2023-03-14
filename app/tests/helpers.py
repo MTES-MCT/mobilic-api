@@ -113,9 +113,9 @@ class ApiRequests:
     """
 
     create_mission = """
-        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
+        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int, $vehicleRegistrationNumber: String) {
             activities {
-                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId) {
+                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
                     id
                     name
                 }

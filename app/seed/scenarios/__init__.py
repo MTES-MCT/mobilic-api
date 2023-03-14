@@ -31,7 +31,20 @@ from app.seed.scenarios.two_weeks import (
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
 from app.seed.scenarios.two_weeks import run_scenario_non_stop
-from app.seed.scenarios.third_party import run_scenario_third_party
+from app.seed.scenarios.third_party import (
+    ADMIN_EMAIL as ADMIN_THIRD_PARTY,
+    EMPLOYEE_CONFIRMED_EMAIL,
+    EMPLOYEE_DISMISSED_EMAIL,
+    EMPLOYEE_INVITED_EMAIL,
+    EMPLOYEE_NOT_INVITED_EMAIL,
+    run_scenario_third_party,
+)
+from app.seed.scenarios.team_mode import (
+    SUPER_ADMIN_EMAIL,
+    TEAM_ADMIN_EMAIL,
+    TEAM_EMPLOYEE,
+    run_scenario_team_mode,
+)
 
 
 @dataclass
@@ -97,7 +110,24 @@ scenarios = [
     SeedScenario(
         "Third party",
         "Creates one company with client and 4 employees",
-        [],
+        [
+            ADMIN_THIRD_PARTY,
+            EMPLOYEE_NOT_INVITED_EMAIL,
+            EMPLOYEE_INVITED_EMAIL,
+            EMPLOYEE_DISMISSED_EMAIL,
+            EMPLOYEE_CONFIRMED_EMAIL,
+        ],
         run_scenario_third_party,
+    ),
+    SeedScenario(
+        "Team mode",
+        "Creates one company with one team",
+        [
+            SUPER_ADMIN_EMAIL,
+            TEAM_ADMIN_EMAIL,
+            "noteam.employee{i}@test.com",
+            TEAM_EMPLOYEE,
+        ],
+        run_scenario_team_mode,
     ),
 ]

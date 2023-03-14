@@ -35,7 +35,6 @@ from app.helpers.time import (
     min_or_none,
 )
 from app.models import User, Company, Activity
-from app.data_access.employment import EmploymentOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -130,12 +129,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
         ),
     )
     current_employments = graphene.List(
-        EmploymentOutput,
+        lambda: EmploymentOutput,
         description="Liste des rattachements actifs ou en attente de validation",
     )
 
     employments = graphene.List(
-        EmploymentOutput,
+        lambda: EmploymentOutput,
         description="Liste de tous les rattachements actifs on en attente de validation de l'utilisateur sur une période donnée",
         from_date=graphene.Date(required=False, description="Date de début"),
         until_date=graphene.Date(required=False, description="Date de fin"),
@@ -425,3 +424,4 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
 from app.data_access.company import CompanyOutput
 from app.data_access.work_day import WorkDayConnection
+from app.data_access.employment import EmploymentOutput
