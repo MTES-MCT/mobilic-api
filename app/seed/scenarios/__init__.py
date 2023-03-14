@@ -41,8 +41,6 @@ from app.seed.scenarios.third_party import (
 )
 from app.seed.scenarios.team_mode import (
     SUPER_ADMIN_EMAIL,
-    TEAM_ADMIN_EMAIL,
-    TEAM_EMPLOYEE,
     run_scenario_team_mode,
 )
 
@@ -102,12 +100,6 @@ scenarios = [
         run_scenario_export_excel,
     ),
     SeedScenario(
-        "Controls",
-        "Creates one controller user",
-        [],
-        run_scenario_controls,
-    ),
-    SeedScenario(
         "Third party",
         "Creates one company with client and 4 employees",
         [
@@ -124,10 +116,15 @@ scenarios = [
         "Creates one company with one team",
         [
             SUPER_ADMIN_EMAIL,
-            TEAM_ADMIN_EMAIL,
-            "noteam.employee{i}@test.com",
-            TEAM_EMPLOYEE,
+            "team.admin{i}@test.com",
+            "team.employee{i}@test.com",
         ],
         run_scenario_team_mode,
+    ),
+    SeedScenario(
+        "Controls",
+        "Creates one controller user",
+        [],
+        run_scenario_controls,
     ),
 ]
