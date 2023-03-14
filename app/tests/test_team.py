@@ -235,8 +235,10 @@ class TestTeam(BaseTest):
                     "name": team_name,
                 },
             )
-            id = team_result["data"]["teams"]["createTeam"]["teams"][0]["id"]
-            team_ids[team_name] = id
+            created_team_id = team_result["data"]["teams"]["createTeam"][
+                "teams"
+            ][0]["id"]
+            team_ids[team_name] = created_team_id
         print(team_ids)
 
         ## employee starts with no team
