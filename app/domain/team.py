@@ -1,8 +1,10 @@
+from app import db
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
 from app.models.team import Team
 from app.models.team_association_tables import (
     team_vehicle_association_table,
     team_known_address_association_table,
+    team_admin_user_association_table,
 )
 
 
@@ -73,3 +75,17 @@ def remove_known_address_from_all_teams(company_known_address):
     )
     for team in teams_with_known_address:
         team.known_addresses.remove(company_known_address)
+
+
+def remove_admin_from_teams(admin_user_id):
+    admin_user = User.query.get(admin_user_id)
+    if not admin_user:
+        return
+    team_ids = (
+        db.session.query(team_admin_user_association_table.c.team_id)
+        .filter(team_admin_user_association_table.c.user_id == admin_user_id)
+        .all()
+    )
+    for team_id in team_ids:
+        team_to_update = Team.query.get(team_id[0])
+        team_to_update.admin_users.remove(admin_user)

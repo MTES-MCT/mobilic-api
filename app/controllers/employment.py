@@ -13,6 +13,7 @@ from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
 from app.domain.employment import create_employment_by_third_party_if_needed
 from app.domain.permissions import company_admin
+from app.domain.team import remove_admin_from_teams
 from app.domain.third_party_employment import (
     create_third_party_employment_link_if_needed,
 )
@@ -649,6 +650,8 @@ class ChangeEmployeeRole(AuthenticatedMutation):
         if current_user.id == employment.user_id:
             raise UserSelfChangeRoleError
         employment.has_admin_rights = has_admin_rights
+        if not has_admin_rights:
+            remove_admin_from_teams(employment.user_id)
         db.session.commit()
         return employment
 
