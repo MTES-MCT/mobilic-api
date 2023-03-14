@@ -9,6 +9,8 @@ from app.models import Mission, LocationEntry, MissionEnd
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
 
+DEFAULT_PASSWORD = "password123!"
+
 
 class AuthenticatedUserContext:
     def __init__(self, user=None):

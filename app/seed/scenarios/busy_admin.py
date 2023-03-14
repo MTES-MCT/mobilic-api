@@ -6,22 +6,24 @@ from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.models import (
     MissionEnd,
-    Mission,
     Vehicle,
     CompanyKnownAddress,
     Address,
-    LocationEntry,
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
-from app.models.location_entry import LocationEntryType
 from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time, get_date, create_mission
+from app.seed.helpers import (
+    get_time,
+    get_date,
+    create_mission,
+    DEFAULT_PASSWORD,
+)
 
 NB_COMPANIES = 2
 NB_EMPLOYEES = 2
@@ -40,7 +42,7 @@ def run_scenario_busy_admin():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Busy",
         last_name="Admin",
     )
@@ -78,7 +80,7 @@ def run_scenario_busy_admin():
         for i in range(NB_EMPLOYEES):
             employee = UserFactory.create(
                 email=f"busy.employee{i + 1}@busycorp{idx_company + 1}.com",
-                password="password",
+                password=DEFAULT_PASSWORD,
                 first_name=f"Bérénice {i + 1}",
                 last_name=f"Corp {idx_company + 1}",
             )

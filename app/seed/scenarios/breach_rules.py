@@ -7,7 +7,11 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
-from app.seed.helpers import get_time, log_and_validate_mission
+from app.seed.helpers import (
+    get_time,
+    log_and_validate_mission,
+    DEFAULT_PASSWORD,
+)
 
 ADMIN_EMAIL = "breach.boss@test.com"
 EMPLOYEE_EMAIL = "breach@test.com"
@@ -20,7 +24,7 @@ def run_scenario_breach_rules():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Breach",
         last_name="Boss",
     )
@@ -39,7 +43,7 @@ def run_scenario_breach_rules():
 
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Raoul",
         last_name=f"Breacher",
     )

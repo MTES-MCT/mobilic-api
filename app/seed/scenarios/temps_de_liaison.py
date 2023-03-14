@@ -11,7 +11,7 @@ from app.seed import (
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time
+from app.seed.helpers import get_time, DEFAULT_PASSWORD
 
 ADMIN_EMAIL = "tempsdeliaison.admin@test.com"
 EMPLOYEE_EMAIL = "tempsdeliaison.employee@test.com"
@@ -24,7 +24,7 @@ def run_scenario_temps_de_liaison():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Tps de Liaison",
         last_name="Admin",
     )
@@ -34,7 +34,7 @@ def run_scenario_temps_de_liaison():
 
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
     )
     EmploymentFactory.create(
         company=company,

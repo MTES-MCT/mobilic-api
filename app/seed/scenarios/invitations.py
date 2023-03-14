@@ -3,6 +3,7 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
+from app.seed.helpers import DEFAULT_PASSWORD
 
 ADMIN_EMAIL = "invitations.admin@test.com"
 EMPLOYEE_EMAIL = "invitations.employee@test.com"
@@ -15,7 +16,7 @@ def run_scenario_invitations():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Invitations",
         last_name="Admin",
     )
@@ -25,5 +26,5 @@ def run_scenario_invitations():
 
     UserFactory.create(
         email=EMPLOYEE_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
     )

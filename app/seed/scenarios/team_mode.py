@@ -9,7 +9,11 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
-from app.seed.helpers import get_time, log_and_validate_mission
+from app.seed.helpers import (
+    get_time,
+    log_and_validate_mission,
+    DEFAULT_PASSWORD,
+)
 
 SUPER_ADMIN_EMAIL = "super.admin.teams@test.com"
 
@@ -44,7 +48,7 @@ def run_scenario_team_mode():
 
     super_admin = UserFactory.create(
         email=SUPER_ADMIN_EMAIL,
-        password="password123!",
+        password=DEFAULT_PASSWORD,
         first_name="Super",
         last_name="Admin",
     )
@@ -71,7 +75,7 @@ def run_scenario_team_mode():
     admins = [
         UserFactory.create(
             email=f"team.admin{i}@test.com",
-            password="password123!",
+            password=DEFAULT_PASSWORD,
             first_name="Team",
             last_name=f"Admin {i}",
         )
@@ -99,7 +103,7 @@ def run_scenario_team_mode():
     employees = [
         UserFactory.create(
             email=f"team.employee{i}@test.com",
-            password="password123!",
+            password=DEFAULT_PASSWORD,
             first_name="Employee",
             last_name=f"Numero {i}",
         )

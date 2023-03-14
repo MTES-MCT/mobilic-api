@@ -14,7 +14,7 @@ from app.models import (
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
 from app.seed import CompanyFactory, UserFactory, EmploymentFactory
-from app.seed.helpers import AuthenticatedUserContext
+from app.seed.helpers import AuthenticatedUserContext, DEFAULT_PASSWORD
 
 ADMIN_EMAIL = "export_excel@admin.com"
 EMPLOYEE_1_EMAIL = "export_excel1@employee.com"
@@ -79,7 +79,7 @@ def run_scenario_export_excel():
     ## An admin for both companies
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Busy",
         last_name="Admin",
     )
@@ -112,25 +112,25 @@ def run_scenario_export_excel():
 
     employee_1 = UserFactory.create(
         email=EMPLOYEE_1_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Michael",
         last_name=f"Jordan",
     )
     employee_2 = UserFactory.create(
         email=EMPLOYEE_2_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Larry",
         last_name=f"Bird",
     )
     employee_3 = UserFactory.create(
         email=EMPLOYEE_3_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Michael",
         last_name=f"Jordan",
     )
     employee_4 = UserFactory.create(
         email=EMPLOYEE_4_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Larry",
         last_name=f"Bird",
     )
