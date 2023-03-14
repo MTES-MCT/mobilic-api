@@ -1,5 +1,6 @@
+from app.models import Employment, Team
 from app.seed import CompanyFactory, UserFactory
-from app.tests import BaseTest, test_post_graphql_unexposed
+from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 
@@ -8,6 +9,9 @@ class TestTeam(BaseTest):
         super().setUp()
         self.company = CompanyFactory.create()
         self.admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        self.admin_2 = UserFactory.create(
             post__company=self.company, post__has_admin_rights=True
         )
         self.employee = UserFactory.create(
@@ -216,3 +220,93 @@ class TestTeam(BaseTest):
         self.assertEqual(
             response["errors"][0]["extensions"]["code"], "AUTHORIZATION_ERROR"
         )
+
+    def test_update_team_employment(self):
+        team_ids = {}
+        team_1 = "Equipe A"
+        team_2 = "Equipe B"
+        for team_name in [team_1, team_2]:
+            team_result = make_authenticated_request(
+                time=None,
+                submitter_id=self.admin.id,
+                query=ApiRequests.create_team,
+                variables={
+                    "company_id": self.company.id,
+                    "name": team_name,
+                },
+            )
+            id = team_result["data"]["teams"]["createTeam"]["teams"][0]["id"]
+            team_ids[team_name] = id
+        print(team_ids)
+
+        ## employee starts with no team
+        employment = Employment.query.filter(
+            Employment.user_id == self.employee.id
+        ).one_or_none()
+        self.assertIsNone(employment.team_id)
+
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_team,
+            variables={
+                "employment_id": employment.id,
+                "team_id": team_ids[team_1],
+            },
+        )
+
+        ## employee is now in Team A
+        employment = Employment.query.filter(
+            Employment.user_id == self.employee.id
+        ).one_or_none()
+        self.assertEqual(team_ids[team_1], employment.team_id)
+
+        ## removing employee from any team
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_team,
+            variables={
+                "employment_id": employment.id,
+                "team_id": -1,
+            },
+        )
+
+        ## employee is now in no team
+        employment = Employment.query.filter(
+            Employment.user_id == self.employee.id
+        ).one_or_none()
+        self.assertIsNone(employment.team_id)
+
+    def test_update_employment_role_team_admin(self):
+        create_team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company.id,
+                "name": "Equipe A",
+                "adminIds": [self.admin_2.id],
+            },
+        )
+        data_result = create_team_result["data"]["teams"]["createTeam"][
+            "teams"
+        ][0]
+        team_id = data_result["id"]
+        self.assertEqual(len(data_result["adminUsers"]), 1)
+
+        employment_admin_2 = Employment.query.filter(
+            Employment.user_id == self.admin_2.id
+        ).one_or_none()
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_role,
+            variables={
+                "employment_id": employment_admin_2.id,
+                "has_admin_rights": False,
+            },
+        )
+
+        team = Team.query.get(team_id)
+        self.assertEqual(len(team.admin_users), 0)

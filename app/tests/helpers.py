@@ -224,6 +224,25 @@ class ApiRequests:
         }
     """
 
+    change_employee_team = """
+        mutation changeEmployeeTeam($employmentId: Int!, $teamId: Int!) {
+            employments {
+              changeEmployeeTeam(
+                employmentId: $employmentId
+                teamId: $teamId
+              ) {
+                id
+                teams {
+                    name
+                    users {
+                        id
+                    }
+                }
+              }
+            }
+        }
+    """
+
     terminate_employment = """
         mutation terminateEmployment($employmentId: Int!, $endDate: Date) {
             employments {
