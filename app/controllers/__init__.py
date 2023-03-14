@@ -79,6 +79,7 @@ from app.controllers.oauth_token import (
     RevokeOauthToken,
 )
 from app.controllers.oauth_client import Query as OAuthClientQuery
+from app.controllers.team import CreateTeam, DeleteTeam, UpdateTeam
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -169,6 +170,16 @@ class Vehicles(graphene.ObjectType):
     terminate_vehicle = TerminateVehicle.Field()
 
 
+class Teams(graphene.ObjectType):
+    """
+    Gestion des équipes de l'entreprise
+    """
+
+    create_team = CreateTeam.Field()
+    delete_team = DeleteTeam.Field()
+    update_team = UpdateTeam.Field()
+
+
 class Locations(graphene.ObjectType):
     create_known_address = CreateCompanyKnownAddress.Field()
     edit_known_address = EditCompanyKnownAddress.Field()
@@ -197,6 +208,7 @@ class Mutations(graphene.ObjectType):
     employments = graphene.Field(
         Employments, resolver=lambda root, info: Employments()
     )
+    teams = graphene.Field(Teams, resolver=lambda root, info: Teams())
 
 
 class ProtectedMutations(graphene.ObjectType):

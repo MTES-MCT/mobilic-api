@@ -24,6 +24,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "has_admin_rights",
             "email",
             "latest_invite_email_time",
+            "team_id",
         )
 
     id = graphene.Field(

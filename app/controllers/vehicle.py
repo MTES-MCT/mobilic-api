@@ -1,12 +1,13 @@
-import graphene
 from datetime import datetime
 
-from app.controllers.utils import Void, atomic_transaction
-from app.helpers.authentication import current_user, AuthenticatedMutation
+import graphene
 
+from app import db
+from app.controllers.utils import Void, atomic_transaction
 from app.domain.permissions import company_admin
+from app.domain.team import remove_vehicle_from_all_teams
+from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app import db, app
 from app.models.vehicle import VehicleOutput, Vehicle
 
 
@@ -112,5 +113,11 @@ class TerminateVehicle(AuthenticatedMutation):
     def mutate(cls, _, info, id):
         vehicle = Vehicle.query.get(id)
         vehicle.terminated_at = datetime.now()
+
+        try:
+            remove_vehicle_from_all_teams(vehicle)
+        except Exception:
+            pass
+
         db.session.commit()
         return Void(success=True)

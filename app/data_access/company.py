@@ -3,6 +3,7 @@ from sqlalchemy.orm import selectinload
 
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.team import TeamOutput
 from app.domain.permissions import (
     company_admin,
     is_employed_by_company_over_period,
@@ -136,10 +137,17 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         description="Liste des SIRETS des établissements regroupés dans cette entreprise",
     )
+    teams = graphene.List(
+        TeamOutput,
+        description="Liste des équipes d'une entreprise",
+    )
     authorized_clients = graphene.List(OAuth2ClientOutput)
 
     def resolve_name(self, info):
         return self.name
+
+    def resolve_teams(self, info):
+        return self.teams
 
     @with_authorization_policy(
         is_employed_by_company_over_period,
