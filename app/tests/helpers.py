@@ -217,8 +217,10 @@ class ApiRequests:
                 employmentId: $employmentId
                 hasAdminRights: $hasAdminRights
               ) {
-                id
-                hasAdminRights
+                employments {
+                    id
+                    hasAdminRights
+                }
               }
             }
         }
