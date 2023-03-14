@@ -635,7 +635,7 @@ class ChangeEmployeeRole(AuthenticatedMutation):
             description="Précise si le salarié rattaché est gestionnaire de l'entreprise, et s'il pourra donc avoir les droits de consultation et d'administration associés.",
         )
 
-    Output = EmploymentOutput
+    Output = CompanyOutput
 
     @classmethod
     @with_authorization_policy(
@@ -653,7 +653,8 @@ class ChangeEmployeeRole(AuthenticatedMutation):
         if not has_admin_rights:
             remove_admin_from_teams(employment.user_id)
         db.session.commit()
-        return employment
+
+        return Company.query.get(employment.company_id)
 
 
 class ChangeEmployeeTeam(AuthenticatedMutation):
