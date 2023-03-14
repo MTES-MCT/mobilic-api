@@ -81,11 +81,6 @@ def remove_admin_from_teams(admin_user_id):
     admin_user = User.query.get(admin_user_id)
     if not admin_user:
         return
-    team_ids = (
-        db.session.query(team_admin_user_association_table.c.team_id)
-        .filter(team_admin_user_association_table.c.user_id == admin_user_id)
-        .all()
-    )
-    for team_id in team_ids:
-        team_to_update = Team.query.get(team_id[0])
-        team_to_update.admin_users.remove(admin_user)
+    db.session.query(team_admin_user_association_table).filter(
+        team_admin_user_association_table.c.user_id == admin_user_id
+    ).delete(synchronize_session=False)
