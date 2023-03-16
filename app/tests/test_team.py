@@ -239,7 +239,6 @@ class TestTeam(BaseTest):
                 "teams"
             ][0]["id"]
             team_ids[team_name] = created_team_id
-        print(team_ids)
 
         ## employee starts with no team
         employment = Employment.query.filter(
@@ -270,7 +269,6 @@ class TestTeam(BaseTest):
             query=ApiRequests.change_employee_team,
             variables={
                 "employment_id": employment.id,
-                "team_id": -1,
             },
         )
 

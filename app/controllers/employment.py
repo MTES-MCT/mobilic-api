@@ -662,11 +662,11 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
         employment_id = graphene.Argument(
             graphene.Int,
             required=True,
-            description="Identifiant du rattachement pour lequel l'équipe doit être changée",
+            description="Identifiant du rattachement pour lequel l'équipe doit être changée.",
         )
         team_id = graphene.Int(
-            required=True,
-            description="Identifiant de la nouvelle équipe du rattachement",
+            required=False,
+            description="Identifiant de la nouvelle équipe du rattachement. Si ce paramètre est absent, le rattachement ne sera plus associé à une équipe.",
         )
 
     Output = CompanyOutput
@@ -679,9 +679,9 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
         ).company_id,
         error_message="Actor is not authorized to change employee team",
     )
-    def mutate(cls, _, info, employment_id, team_id):
+    def mutate(cls, _, info, employment_id, team_id=None):
         with atomic_transaction(commit_at_end=True):
             employment = Employment.query.get(employment_id)
-            employment.team_id = team_id if team_id > -1 else None
+            employment.team_id = team_id
 
         return Company.query.get(employment.company_id)

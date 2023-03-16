@@ -227,7 +227,7 @@ class ApiRequests:
     """
 
     change_employee_team = """
-        mutation changeEmployeeTeam($employmentId: Int!, $teamId: Int!) {
+        mutation changeEmployeeTeam($employmentId: Int!, $teamId: Int) {
             employments {
               changeEmployeeTeam(
                 employmentId: $employmentId
