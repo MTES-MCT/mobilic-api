@@ -1,5 +1,9 @@
+from app import db
 from app.models import Employment, Team
-from app.seed import CompanyFactory, UserFactory
+from app.models.team_association_tables import (
+    team_admin_user_association_table,
+)
+from app.seed import CompanyFactory, UserFactory, EmploymentFactory
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
@@ -16,6 +20,24 @@ class TestTeam(BaseTest):
         )
         self.employee = UserFactory.create(
             post__company=self.company, post__has_admin_rights=False
+        )
+
+        self.company_with_several_teams = CompanyFactory.create()
+        self.admin_several_teams = UserFactory.create(
+            post__company=self.company_with_several_teams,
+            post__has_admin_rights=True,
+        )
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=self.admin_several_teams,
+            has_admin_rights=True,
+        )
+        EmploymentFactory.create(
+            company=self.company_with_several_teams,
+            submitter=self.admin_several_teams,
+            user=self.admin,
+            has_admin_rights=True,
         )
 
     def test_team_creation_only_name(self):
@@ -310,3 +332,66 @@ class TestTeam(BaseTest):
 
         team = Team.query.get(team_id)
         self.assertEqual(len(team.admin_users), 0)
+
+    def test_remove_admin_rights_admin_should_still_be_team_admin_in_other_companies(
+        self,
+    ):
+        team_name_a = "Equipe A"
+        team_name_b = "Equipe B"
+        for company in [self.company, self.company_with_several_teams]:
+            for team_name in [team_name_a, team_name_b]:
+                response = make_authenticated_request(
+                    time=None,
+                    submitter_id=self.admin_several_teams.id,
+                    query=ApiRequests.create_team,
+                    variables={
+                        "company_id": company.id,
+                        "name": team_name,
+                        "adminIds": [self.admin_several_teams.id],
+                    },
+                )
+
+        ## Our admin is admin of 4 teams (2 in company and 2 in company_with_several_teams
+        self.assertEqual(
+            db.session.query(team_admin_user_association_table).count(), 4
+        )
+
+        employment = Employment.query.filter(
+            Employment.user_id == self.admin_several_teams.id,
+            Employment.company_id == self.company_with_several_teams.id,
+        ).one_or_none()
+
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_role,
+            variables={
+                "employment_id": employment.id,
+                "has_admin_rights": False,
+            },
+        )
+        self.assertEqual(
+            db.session.query(team_admin_user_association_table).count(), 2
+        )
+
+        self.assertEqual(
+            len(
+                Team.query.filter(
+                    Team.company == self.company, Team.name == team_name_a
+                )
+                .one_or_none()
+                .admin_users
+            ),
+            1,
+        )
+        self.assertEqual(
+            len(
+                Team.query.filter(
+                    Team.company == self.company_with_several_teams,
+                    Team.name == team_name_a,
+                )
+                .one_or_none()
+                .admin_users
+            ),
+            0,
+        )

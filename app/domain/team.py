@@ -77,10 +77,23 @@ def remove_known_address_from_all_teams(company_known_address):
         team.known_addresses.remove(company_known_address)
 
 
-def remove_admin_from_teams(admin_user_id):
+def remove_admin_from_teams(admin_user_id, company_id):
     admin_user = User.query.get(admin_user_id)
     if not admin_user:
         return
+    team_ids_to_delete = (
+        db.session.query(team_admin_user_association_table.c.team_id)
+        .join(Team)
+        .filter(
+            (team_admin_user_association_table.c.user_id == admin_user_id)
+            & (Team.company_id == company_id)
+        )
+        .all()
+    )
+
     db.session.query(team_admin_user_association_table).filter(
-        team_admin_user_association_table.c.user_id == admin_user_id
+        team_admin_user_association_table.c.user_id == admin_user_id,
+        team_admin_user_association_table.c.team_id.in_(
+            [item.team_id for item in team_ids_to_delete]
+        ),
     ).delete(synchronize_session=False)

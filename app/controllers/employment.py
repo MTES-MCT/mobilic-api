@@ -651,7 +651,7 @@ class ChangeEmployeeRole(AuthenticatedMutation):
             raise UserSelfChangeRoleError
         employment.has_admin_rights = has_admin_rights
         if not has_admin_rights:
-            remove_admin_from_teams(employment.user_id)
+            remove_admin_from_teams(employment.user_id, employment.company_id)
         db.session.commit()
 
         return Company.query.get(employment.company_id)
