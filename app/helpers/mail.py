@@ -580,6 +580,34 @@ class Mailer:
             employment_already_exists=True,
         )
 
+    def generate_team_management_update_mail(
+        self, user, submitter, team, access_given
+    ):
+        return self._create_message_from_flask_template(
+            "team_update_affectation.html",
+            type_=EmailType.TEAM_AFFECTATION,
+            subject="Changement d'affectation de groupe Mobilic",
+            user=user,
+            first_name=user.first_name,
+            access_given=access_given,
+            team_name=team.name,
+            submitter_first_name=submitter.first_name,
+            submitter_last_name=submitter.last_name,
+        )
+
+    def generate_team_colleague_affectation_mail(self, user, new_admin, team):
+        return self._create_message_from_flask_template(
+            "team_colleague_affectation.html",
+            type_=EmailType.TEAM_NEW_COLLEAGUE,
+            subject="Ajout d'un responsable dans votre groupe Mobilic",
+            user=user,
+            first_name=user.first_name,
+            new_admin_first_name=new_admin.first_name,
+            new_admin_last_name=new_admin.last_name,
+            team_name=team.name,
+            company_name=team.company.name,
+        )
+
     def send_warning_email_about_mission_changes(
         self,
         user,
