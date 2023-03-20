@@ -278,7 +278,8 @@ class TestTeam(BaseTest):
             submitter_id=self.admin.id,
             query=ApiRequests.change_employee_team,
             variables={
-                "employment_id": employment.id,
+                "company_id": employment.company_id,
+                "user_id": self.employee.id,
                 "team_id": team_ids[team_1],
             },
         )
@@ -295,7 +296,8 @@ class TestTeam(BaseTest):
             submitter_id=self.admin.id,
             query=ApiRequests.change_employee_team,
             variables={
-                "employment_id": employment.id,
+                "company_id": employment.company_id,
+                "user_id": self.employee.id,
             },
         )
 
@@ -437,7 +439,8 @@ class TestTeam(BaseTest):
             submitter_id=self.admin.id,
             query=ApiRequests.change_employee_team,
             variables={
-                "employment_id": current_employment.id,
+                "company_id": current_employment.company_id,
+                "user_id": current_employment.user_id,
                 "team_id": team_id,
             },
         )

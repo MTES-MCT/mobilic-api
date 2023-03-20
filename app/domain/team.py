@@ -77,9 +77,6 @@ def remove_known_address_from_all_teams(company_known_address):
 
 
 def remove_admin_from_teams(admin_user_id, company_id):
-    admin_user = User.query.get(admin_user_id)
-    if not admin_user:
-        return
     team_ids_to_delete = (
         db.session.query(team_admin_user_association_table.c.team_id)
         .join(Team)
@@ -89,6 +86,8 @@ def remove_admin_from_teams(admin_user_id, company_id):
         )
         .all()
     )
+    if len(team_ids_to_delete) == 0:
+        return
 
     db.session.query(team_admin_user_association_table).filter(
         team_admin_user_association_table.c.user_id == admin_user_id,

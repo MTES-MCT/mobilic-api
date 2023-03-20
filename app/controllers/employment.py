@@ -663,14 +663,19 @@ class ChangeEmployeeRole(AuthenticatedMutation):
 
 class ChangeEmployeeTeam(AuthenticatedMutation):
     class Arguments:
-        employment_id = graphene.Argument(
+        company_id = graphene.Argument(
             graphene.Int,
             required=True,
-            description="Identifiant du rattachement pour lequel l'équipe doit être changée.",
+            description="Identifiant de l'entreprise pour laquelle l'équipe du salarié doit être changée.",
+        )
+        user_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du salarié pour lequel l'équipe est modifiée.",
         )
         team_id = graphene.Int(
             required=False,
-            description="Identifiant de la nouvelle équipe du rattachement. Si ce paramètre est absent, le rattachement ne sera plus associé à une équipe.",
+            description="Identifiant de la nouvelle équipe du salarié dans l'entreprise . Si ce paramètre est absent, le salarié ne sera plus rattaché à une équipe.",
         )
 
     Output = CompanyOutput
@@ -678,17 +683,14 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
     @classmethod
     @with_authorization_policy(
         company_admin,
-        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
-            kwargs["employment_id"]
-        ).company_id,
+        get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
         error_message="Actor is not authorized to change employee team",
     )
-    def mutate(cls, _, info, employment_id, team_id=None):
+    def mutate(cls, _, info, company_id, user_id, team_id=None):
         with atomic_transaction(commit_at_end=True):
-            employment = Employment.query.get(employment_id)
             Employment.query.filter(
-                Employment.company_id == employment.company_id,
-                Employment.user_id == employment.user_id,
+                Employment.company_id == company_id,
+                Employment.user_id == user_id,
             ).update({"team_id": team_id}, synchronize_session=False)
 
-        return Company.query.get(employment.company_id)
+        return Company.query.get(company_id)
