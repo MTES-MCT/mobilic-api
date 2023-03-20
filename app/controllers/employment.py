@@ -253,6 +253,10 @@ class CreateEmployment(AuthenticatedMutation):
                 )
             if user:
                 user_id = user.id
+                Employment.query.filter(
+                    Employment.company_id == company.id,
+                    Employment.user_id == user_id,
+                ).update({"team_id": team_id}, synchronize_session=False)
 
             start_date = employment_input.get("start_date", date.today())
 
@@ -682,6 +686,9 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
     def mutate(cls, _, info, employment_id, team_id=None):
         with atomic_transaction(commit_at_end=True):
             employment = Employment.query.get(employment_id)
-            employment.team_id = team_id
+            Employment.query.filter(
+                Employment.company_id == employment.company_id,
+                Employment.user_id == employment.user_id,
+            ).update({"team_id": team_id}, synchronize_session=False)
 
         return Company.query.get(employment.company_id)

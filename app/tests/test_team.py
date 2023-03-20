@@ -1,11 +1,16 @@
+import datetime
+
 from app import db
 from app.models import Employment, Team
 from app.models.team_association_tables import (
     team_admin_user_association_table,
 )
 from app.seed import CompanyFactory, UserFactory, EmploymentFactory
-from app.tests import BaseTest
-from app.tests.helpers import make_authenticated_request, ApiRequests
+from app.tests import BaseTest, test_post_graphql
+from app.tests.helpers import (
+    make_authenticated_request,
+    ApiRequests,
+)
 
 
 class TestTeam(BaseTest):
@@ -395,3 +400,218 @@ class TestTeam(BaseTest):
             ),
             0,
         )
+
+    def test_change_employee_team_should_update_all_employments(self):
+        employee_with_history = UserFactory.create()
+        create_team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company.id,
+                "name": "Equipe A",
+                "adminIds": [self.admin.id],
+            },
+        )
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
+
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2000, 1, 1),
+            end_date=datetime.date(2002, 1, 1),
+        )
+        current_employment = EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2023, 1, 1),
+        )
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_team,
+            variables={
+                "employment_id": current_employment.id,
+                "team_id": team_id,
+            },
+        )
+
+        employments = Employment.query.filter(
+            Employment.user_id == employee_with_history.id
+        ).all()
+        self.assertIsNone(
+            Employment.query.filter(Employment.user_id == self.employee.id)
+            .one_or_none()
+            .team_id
+        )
+        self.assertEqual(len(employments), 2)
+        self.assertEqual(employments[0].team_id, team_id)
+        self.assertEqual(employments[1].team_id, team_id)
+
+    def test_update_team_should_update_all_employments(self):
+        employee_with_history = UserFactory.create()
+        create_team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company.id,
+                "name": "Equipe A",
+                "adminIds": [self.admin.id],
+            },
+        )
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
+
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2000, 1, 1),
+            end_date=datetime.date(2002, 1, 1),
+        )
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2023, 1, 1),
+        )
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.update_team,
+            variables={
+                "team_id": team_id,
+                "name": "Equipe A",
+                "userIds": [employee_with_history.id],
+            },
+        )
+
+        employments = Employment.query.filter(
+            Employment.user_id == employee_with_history.id
+        ).all()
+        self.assertIsNone(
+            Employment.query.filter(Employment.user_id == self.employee.id)
+            .one_or_none()
+            .team_id
+        )
+        self.assertEqual(len(employments), 2)
+        self.assertEqual(employments[0].team_id, team_id)
+        self.assertEqual(employments[1].team_id, team_id)
+
+    def test_invite_existing_user_should_update_all_employments(self):
+        employee_with_history = UserFactory.create()
+        create_team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company.id,
+                "name": "Equipe A",
+                "adminIds": [self.admin.id],
+            },
+        )
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
+
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2000, 1, 1),
+            end_date=datetime.date(2002, 1, 1),
+        )
+
+        test_post_graphql(
+            ApiRequests.invite,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                userId=employee_with_history.id,
+                companyId=self.company.id,
+                teamId=team_id,
+            ),
+        )
+
+        employments = Employment.query.filter(
+            Employment.user_id == employee_with_history.id
+        ).all()
+        self.assertIsNone(
+            Employment.query.filter(Employment.user_id == self.employee.id)
+            .one_or_none()
+            .team_id
+        )
+        self.assertEqual(len(employments), 2)
+        self.assertEqual(employments[0].team_id, team_id)
+        self.assertEqual(employments[1].team_id, team_id)
+
+    def test_redeem_invitation_should_apply_team_to_previous_employments(self):
+        employee_with_history = UserFactory.create()
+        create_team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company.id,
+                "name": "Equipe A",
+                "adminIds": [self.admin.id],
+            },
+        )
+        team_id = create_team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=employee_with_history,
+            has_admin_rights=False,
+            start_date=datetime.date(2000, 1, 1),
+            end_date=datetime.date(2002, 1, 1),
+        )
+
+        test_post_graphql(
+            ApiRequests.invite,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                mail="email@test.com",
+                companyId=self.company.id,
+                teamId=team_id,
+            ),
+        )
+        invite_token = (
+            Employment.query.filter(Employment.user_id == None)
+            .one_or_none()
+            .invite_token
+        )
+
+        make_authenticated_request(
+            time=datetime.datetime.now(),
+            submitter_id=employee_with_history.id,
+            query=ApiRequests.redeem_invite,
+            variables=dict(
+                token=invite_token,
+            ),
+            unexposed_query=True,
+        )
+
+        employments = Employment.query.filter(
+            Employment.user_id == employee_with_history.id
+        ).all()
+        self.assertIsNone(
+            Employment.query.filter(Employment.user_id == self.employee.id)
+            .one_or_none()
+            .team_id
+        )
+        self.assertEqual(len(employments), 2)
+        self.assertEqual(employments[0].team_id, team_id)
+        self.assertEqual(employments[1].team_id, team_id)

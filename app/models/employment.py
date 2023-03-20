@@ -98,6 +98,11 @@ class Employment(UserEventBaseModel, Dismissable):
         )
         self.validation_time = time if time else datetime.now()
 
+        Employment.query.filter(
+            Employment.company_id == self.company_id,
+            Employment.user_id == user.id,
+        ).update({"team_id": self.team_id}, synchronize_session=False)
+
     @property
     def latest_invite_email_time(self):
         invite_emails = self.invite_emails

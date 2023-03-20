@@ -40,10 +40,9 @@ def populate_team(
         {"team_id": None}
     )
     if user_ids:
-        Employment.query.filter(
-            Employment.company_id == company_id,
-            Employment.user_id.in_(user_ids),
-        ).update({"team_id": team_to_update.id}, synchronize_session=False)
+        _bind_users_to_team(
+            user_ids=user_ids, team_id=team_to_update.id, company_id=company_id
+        )
 
 
 def remove_vehicle_from_all_teams(vehicle):
@@ -97,3 +96,10 @@ def remove_admin_from_teams(admin_user_id, company_id):
             [item.team_id for item in team_ids_to_delete]
         ),
     ).delete(synchronize_session=False)
+
+
+def _bind_users_to_team(user_ids, team_id, company_id):
+    Employment.query.filter(
+        Employment.company_id == company_id,
+        Employment.user_id.in_(user_ids),
+    ).update({"team_id": team_id}, synchronize_session=False)
