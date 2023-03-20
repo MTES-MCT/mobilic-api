@@ -12,6 +12,9 @@ from app.tests.helpers import (
     ApiRequests,
 )
 
+TEAM_A = "Equipe A"
+TEAM_B = "Equipe B"
+
 
 class TestTeam(BaseTest):
     def setUp(self):
@@ -250,8 +253,8 @@ class TestTeam(BaseTest):
 
     def test_update_team_employment(self):
         team_ids = {}
-        team_1 = "Equipe A"
-        team_2 = "Equipe B"
+        team_1 = TEAM_A
+        team_2 = TEAM_B
         for team_name in [team_1, team_2]:
             team_result = make_authenticated_request(
                 time=None,
@@ -314,7 +317,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={
                 "company_id": self.company.id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "adminIds": [self.admin_2.id],
             },
         )
@@ -343,11 +346,11 @@ class TestTeam(BaseTest):
     def test_remove_admin_rights_admin_should_still_be_team_admin_in_other_companies(
         self,
     ):
-        team_name_a = "Equipe A"
-        team_name_b = "Equipe B"
+        team_name_a = TEAM_A
+        team_name_b = TEAM_B
         for company in [self.company, self.company_with_several_teams]:
             for team_name in [team_name_a, team_name_b]:
-                response = make_authenticated_request(
+                make_authenticated_request(
                     time=None,
                     submitter_id=self.admin_several_teams.id,
                     query=ApiRequests.create_team,
@@ -411,7 +414,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={
                 "company_id": self.company.id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "adminIds": [self.admin.id],
             },
         )
@@ -465,7 +468,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={
                 "company_id": self.company.id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "adminIds": [self.admin.id],
             },
         )
@@ -494,7 +497,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.update_team,
             variables={
                 "team_id": team_id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "userIds": [employee_with_history.id],
             },
         )
@@ -519,7 +522,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={
                 "company_id": self.company.id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "adminIds": [self.admin.id],
             },
         )
@@ -566,7 +569,7 @@ class TestTeam(BaseTest):
             query=ApiRequests.create_team,
             variables={
                 "company_id": self.company.id,
-                "name": "Equipe A",
+                "name": TEAM_A,
                 "adminIds": [self.admin.id],
             },
         )
