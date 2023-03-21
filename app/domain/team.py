@@ -1,5 +1,6 @@
 from app import db
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
+from app.models.employment import _bind_users_to_team
 from app.models.team import Team
 from app.models.team_association_tables import (
     team_vehicle_association_table,
@@ -95,10 +96,3 @@ def remove_admin_from_teams(admin_user_id, company_id):
             [item.team_id for item in team_ids_to_delete]
         ),
     ).delete(synchronize_session=False)
-
-
-def _bind_users_to_team(user_ids, team_id, company_id):
-    Employment.query.filter(
-        Employment.company_id == company_id,
-        Employment.user_id.in_(user_ids),
-    ).update({"team_id": team_id}, synchronize_session=False)

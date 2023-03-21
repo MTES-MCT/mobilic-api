@@ -29,7 +29,6 @@ class TestTeam(BaseTest):
         self.employee = UserFactory.create(
             post__company=self.company, post__has_admin_rights=False
         )
-
         self.company_with_several_teams = CompanyFactory.create()
         self.admin_several_teams = UserFactory.create(
             post__company=self.company_with_several_teams,
@@ -621,3 +620,42 @@ class TestTeam(BaseTest):
         self.assertEqual(len(employments), 2)
         self.assertEqual(employments[0].team_id, team_id)
         self.assertEqual(employments[1].team_id, team_id)
+
+    def test_update_team_wrong_company_has_no_effect(self):
+
+        # creating a team in another company
+        team_result = make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.create_team,
+            variables={
+                "company_id": self.company_with_several_teams.id,
+                "name": TEAM_A,
+            },
+        )
+        created_team_id = team_result["data"]["teams"]["createTeam"]["teams"][
+            0
+        ]["id"]
+
+        ## employee starts with no team
+        employment = Employment.query.filter(
+            Employment.user_id == self.employee.id
+        ).one_or_none()
+        self.assertIsNone(employment.team_id)
+
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin.id,
+            query=ApiRequests.change_employee_team,
+            variables={
+                "company_id": employment.company_id,
+                "user_id": self.employee.id,
+                "team_id": created_team_id,
+            },
+        )
+
+        ## employee is now in Team A
+        employment = Employment.query.filter(
+            Employment.user_id == self.employee.id
+        ).one_or_none()
+        self.assertIsNone(employment.team_id)

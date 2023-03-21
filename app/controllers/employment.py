@@ -48,10 +48,11 @@ from app.helpers.graphene_types import Email
 from app.helpers.mail import MailjetError
 from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
-from app.models import Company, User
+from app.models import Company, User, Team
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
+    _bind_users_to_team,
 )
 from app.models.queries import query_activities
 
@@ -229,6 +230,10 @@ class CreateEmployment(AuthenticatedMutation):
             user_id = employment_input.get("user_id")
             user_email = employment_input.get("mail")
             team_id = employment_input.get("team_id")
+            if team_id:
+                team = Team.query.get(team_id)
+                if team.company_id != company.id:
+                    team_id = None
 
             if (user_id is None) == (user_email is None):
                 raise InvalidParamsError(
@@ -253,10 +258,9 @@ class CreateEmployment(AuthenticatedMutation):
                 )
             if user:
                 user_id = user.id
-                Employment.query.filter(
-                    Employment.company_id == company.id,
-                    Employment.user_id == user_id,
-                ).update({"team_id": team_id}, synchronize_session=False)
+                _bind_users_to_team(
+                    user_ids=[user_id], team_id=team_id, company_id=company.id
+                )
 
             start_date = employment_input.get("start_date", date.today())
 
@@ -688,9 +692,8 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
     )
     def mutate(cls, _, info, company_id, user_id, team_id=None):
         with atomic_transaction(commit_at_end=True):
-            Employment.query.filter(
-                Employment.company_id == company_id,
-                Employment.user_id == user_id,
-            ).update({"team_id": team_id}, synchronize_session=False)
+            _bind_users_to_team(
+                user_ids=[user_id], team_id=team_id, company_id=company_id
+            )
 
         return Company.query.get(company_id)
