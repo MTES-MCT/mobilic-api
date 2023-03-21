@@ -98,9 +98,22 @@ class Employment(UserEventBaseModel, Dismissable):
         )
         self.validation_time = time if time else datetime.now()
 
+        _bind_users_to_team(
+            user_ids=[user.id],
+            team_id=self.team_id,
+            company_id=self.company_id,
+        )
+
     @property
     def latest_invite_email_time(self):
         invite_emails = self.invite_emails
         if not invite_emails:
             return None
         return max([e.creation_time for e in invite_emails])
+
+
+def _bind_users_to_team(user_ids, team_id, company_id):
+    Employment.query.filter(
+        Employment.company_id == company_id,
+        Employment.user_id.in_(user_ids),
+    ).update({"team_id": team_id}, synchronize_session=False)

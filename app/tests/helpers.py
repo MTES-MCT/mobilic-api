@@ -191,9 +191,9 @@ class ApiRequests:
     """
 
     invite = """
-        mutation ($userId: Int, $companyId: Int!, $mail: String) {
+        mutation ($userId: Int, $companyId: Int!, $mail: String, $teamId: Int) {
             employments {
-                createEmployment(userId: $userId, companyId: $companyId, mail: $mail) {
+                createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId) {
                     id
                 }
             }
@@ -217,8 +217,30 @@ class ApiRequests:
                 employmentId: $employmentId
                 hasAdminRights: $hasAdminRights
               ) {
+                employments {
+                    id
+                    hasAdminRights
+                }
+              }
+            }
+        }
+    """
+
+    change_employee_team = """
+        mutation changeEmployeeTeam($companyId: Int!, $userId: Int!, $teamId: Int) {
+            employments {
+              changeEmployeeTeam(
+                companyId: $companyId
+                userId: $userId
+                teamId: $teamId
+              ) {
                 id
-                hasAdminRights
+                teams {
+                    name
+                    users {
+                        id
+                    }
+                }
               }
             }
         }

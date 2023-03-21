@@ -1,4 +1,5 @@
 from app import db
+from app.domain.validation import validate_mission
 from app.models.address import Address
 from app.models.company_known_address import CompanyKnownAddress
 from app.models.team import Team
@@ -8,12 +9,13 @@ from app.seed import (
     UserFactory,
     EmploymentFactory,
 )
-from app.seed.helpers import get_time, log_and_validate_mission
+from app.seed.helpers import (
+    get_time,
+    log_and_validate_mission,
+    DEFAULT_PASSWORD,
+)
 
-SUPER_ADMIN_EMAIL = "super.admin@test.com"
-TEAM_ADMIN_EMAIL = "team.admin@test.com"
-
-TEAM_EMPLOYEE = "team.employee@test.com"
+SUPER_ADMIN_EMAIL = "super.admin.teams@test.com"
 
 
 def create_vehicle(id, alias, admin, company):
@@ -46,7 +48,7 @@ def run_scenario_team_mode():
 
     super_admin = UserFactory.create(
         email=SUPER_ADMIN_EMAIL,
-        password="password123!",
+        password=DEFAULT_PASSWORD,
         first_name="Super",
         last_name="Admin",
     )
@@ -57,91 +59,121 @@ def run_scenario_team_mode():
         has_admin_rights=True,
     )
 
-    team_admin = UserFactory.create(
-        email=TEAM_ADMIN_EMAIL,
-        password="password123!",
-        first_name="Team",
-        last_name="Admin",
-    )
-    EmploymentFactory.create(
-        company=company,
-        submitter=super_admin,
-        user=team_admin,
-        has_admin_rights=True,
-    )
-
-    team_vehicle = create_vehicle(1, "Vehicule Team 1", super_admin, company)
-    for i in range(2, 5):
-        no_team_vehicle = create_vehicle(
-            i, f"Vehicule {i}", super_admin, company
-        )
-
-    team_address = create_address(
-        "Entrepot Team 1", "1, rue de Rennes", company
-    )
-    for i in range(2, 5):
-        create_address(f"Entrepot {i}", f"{i}, rue de Paris", company)
-
-    team = Team(
-        name="My team",
-        company_id=company.id,
-        admin_users=[team_admin],
-        vehicles=[team_vehicle],
-        known_addresses=[team_address],
-    )
-
-    no_team_employees = [
-        UserFactory.create(
-            first_name=f"NoTeam",
-            last_name=f"Employee {i}",
-            email=f"noteam.employee{i}@test.com",
-        )
-        for i in range(5)
+    vehicles = [
+        create_vehicle(i, f"Vehicule Team {i}", super_admin, company)
+        for i in range(1, 5)
     ]
-    for e in no_team_employees:
+    vehicles += [create_vehicle(5, "Vehicule No Team", super_admin, company)]
+    addresses = [
+        create_address(f"Entrepot Team {i}", f"{i}, rue de Rennes", company)
+        for i in range(1, 5)
+    ]
+    addresses += [
+        create_address("Entrepot No Team", "1, rue de Paris", company)
+    ]
+
+    admins = [
+        UserFactory.create(
+            email=f"team.admin{i}@test.com",
+            password=DEFAULT_PASSWORD,
+            first_name="Team",
+            last_name=f"Admin {i}",
+        )
+        for i in range(1, 5)
+    ]
+    for idx_admin, admin in enumerate(admins):
+        EmploymentFactory.create(
+            company=company,
+            submitter=super_admin,
+            user=admins[idx_admin],
+            has_admin_rights=True,
+        )
+
+    teams = [
+        Team(
+            name=f"Team {i}",
+            company_id=company.id,
+            admin_users=admins[:i],
+            vehicles=[vehicles[i - 1]],
+            known_addresses=[addresses[i - 1]],
+        )
+        for i in range(1, 5)
+    ]
+
+    employees = [
+        UserFactory.create(
+            email=f"team.employee{i}@test.com",
+            password=DEFAULT_PASSWORD,
+            first_name="Employee",
+            last_name=f"Numero {i}",
+        )
+        for i in range(1, 6)
+    ]
+
+    for idx_e in range(0, 4):
+        e = employees[idx_e]
         EmploymentFactory.create(
             company=company,
             submitter=super_admin,
             user=e,
             has_admin_rights=False,
+            team=teams[idx_e],
         )
 
-    team_employee = UserFactory.create(
-        first_name=f"Team", last_name=f"Employee", email=TEAM_EMPLOYEE
-    )
     EmploymentFactory.create(
         company=company,
         submitter=super_admin,
-        user=team_employee,
+        user=employees[-1],
         has_admin_rights=False,
-        team=team,
     )
 
-    for idx_e, nte in enumerate(no_team_employees):
+    db.session.commit()
+
+    for idx_e, e in enumerate(employees):
         log_and_validate_mission(
-            mission_name=f"Mission pas equipe {idx_e}",
+            mission_name=f"Mission A Valider {idx_e}",
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=3, hour=6),
+                    get_time(how_many_days_ago=3, hour=10),
+                ]
+            ],
+            vehicle=vehicles[idx_e],
+            company=company,
+            employee=e,
+        )
+        log_and_validate_mission(
+            mission_name=f"Mission Non Validée {idx_e}",
             work_periods=[
                 [
                     get_time(how_many_days_ago=2, hour=6),
                     get_time(how_many_days_ago=2, hour=10),
                 ]
             ],
-            vehicle=no_team_vehicle,
+            vehicle=vehicles[idx_e - 1],
             company=company,
-            employee=nte,
+            employee=e,
+            validate=False,
         )
-
-    log_and_validate_mission(
-        mission_name="Mission equipe",
-        work_periods=[
-            [
-                get_time(how_many_days_ago=2, hour=5),
-                get_time(how_many_days_ago=2, hour=11),
-            ]
-        ],
-        vehicle=team_vehicle,
-        company=company,
-        employee=team_employee,
-    )
+    mission_validated = [
+        log_and_validate_mission(
+            mission_name=f"Mission Validée {idx_e}",
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=1, hour=6),
+                    get_time(how_many_days_ago=1, hour=10),
+                ]
+            ],
+            vehicle=vehicles[idx_e - 1],
+            company=company,
+            employee=e,
+            validate=True,
+        )
+        for idx_e, e in enumerate(employees)
+    ]
+    for idx_m, m in enumerate(mission_validated):
+        validate_mission(
+            mission=m, submitter=super_admin, for_user=employees[idx_m]
+        )
 
     db.session.commit()

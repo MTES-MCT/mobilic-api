@@ -1,10 +1,13 @@
+from app import db
 from app import mailer
 from app.helpers.authentication import current_user
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
+from app.models.employment import _bind_users_to_team
 from app.models.team import Team
 from app.models.team_association_tables import (
     team_vehicle_association_table,
     team_known_address_association_table,
+    team_admin_user_association_table,
 )
 
 
@@ -42,10 +45,9 @@ def populate_team(
         {"team_id": None}
     )
     if user_ids:
-        Employment.query.filter(
-            Employment.company_id == company_id,
-            Employment.user_id.in_(user_ids),
-        ).update({"team_id": team_to_update.id}, synchronize_session=False)
+        _bind_users_to_team(
+            user_ids=user_ids, team_id=team_to_update.id, company_id=company_id
+        )
 
     return mail_to_send
 
@@ -117,3 +119,24 @@ def remove_known_address_from_all_teams(company_known_address):
     )
     for team in teams_with_known_address:
         team.known_addresses.remove(company_known_address)
+
+
+def remove_admin_from_teams(admin_user_id, company_id):
+    team_ids_to_delete = (
+        db.session.query(team_admin_user_association_table.c.team_id)
+        .join(Team)
+        .filter(
+            (team_admin_user_association_table.c.user_id == admin_user_id)
+            & (Team.company_id == company_id)
+        )
+        .all()
+    )
+    if len(team_ids_to_delete) == 0:
+        return
+
+    db.session.query(team_admin_user_association_table).filter(
+        team_admin_user_association_table.c.user_id == admin_user_id,
+        team_admin_user_association_table.c.team_id.in_(
+            [item.team_id for item in team_ids_to_delete]
+        ),
+    ).delete(synchronize_session=False)

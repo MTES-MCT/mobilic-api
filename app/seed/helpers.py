@@ -9,6 +9,8 @@ from app.models import Mission, LocationEntry, MissionEnd
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
 
+DEFAULT_PASSWORD = "password123!"
+
 
 class AuthenticatedUserContext:
     def __init__(self, user=None):
@@ -90,7 +92,7 @@ def create_mission(
 #   [start_time_n, end_time_n]
 # ]
 def log_and_validate_mission(
-    mission_name, work_periods, company, employee, vehicle
+    mission_name, work_periods, company, employee, vehicle, validate=True
 ):
     mission = create_mission(
         name=mission_name,
@@ -121,8 +123,10 @@ def log_and_validate_mission(
                 mission=mission,
             )
         )
-        validate_mission(
-            submitter=employee,
-            mission=mission,
-            for_user=employee,
-        )
+        if validate:
+            validate_mission(
+                submitter=employee,
+                mission=mission,
+                for_user=employee,
+            )
+    return mission

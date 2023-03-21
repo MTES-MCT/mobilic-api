@@ -12,7 +12,11 @@ from app.seed import (
     EmploymentFactory,
     ControllerUserFactory,
 )
-from app.seed.helpers import get_time, AuthenticatedUserContext
+from app.seed.helpers import (
+    get_time,
+    AuthenticatedUserContext,
+    DEFAULT_PASSWORD,
+)
 
 
 def run_scenario_controls():
@@ -34,7 +38,7 @@ def run_scenario_controls():
         usual_name="Controlled Corp", siren="77464376"
     )
     admin = UserFactory.create(
-        password="password",
+        password=DEFAULT_PASSWORD,
     )
     EmploymentFactory.create(
         company=company, submitter=admin, user=admin, has_admin_rights=True
