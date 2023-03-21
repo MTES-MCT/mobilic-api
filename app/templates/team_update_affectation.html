@@ -7,9 +7,9 @@
 {% block body %}
 <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
 {% if access_given %}
-    <p>Le gestionnaire {{submitter_first_name | capitalize}} {{submitter_last_name | capitalize}} vous a donné la gestion du groupe {{team_name}}</p>
+    <p>Le gestionnaire {{submitter_first_name | capitalize}} {{submitter_last_name | capitalize}} de votre entreprise {{company_name | upper}} vous a donné la gestion du groupe {{team_name}}.</p>
 {%else%}
-    <p>Le gestionnaire {{submitter_first_name | capitalize}} {{submitter_last_name | capitalize}} vous a retiré la gestion du groupe {{team_name}}</p>
+    <p>Le gestionnaire {{submitter_first_name | capitalize}} {{submitter_last_name | capitalize}} de votre entreprise {{company_name | upper}} vous a retiré la gestion du groupe {{team_name}}.</p>
 {%endif%}
 <p>
     Vous pouvez à tout moment vous rattacher ou vous détacher de groupes à gérer en vous connectant sur votre compte Mobilic.

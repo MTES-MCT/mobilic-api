@@ -591,6 +591,7 @@ class Mailer:
             first_name=user.first_name,
             access_given=access_given,
             team_name=team.name,
+            company_name=team.company.name,
             submitter_first_name=submitter.first_name,
             submitter_last_name=submitter.last_name,
         )
