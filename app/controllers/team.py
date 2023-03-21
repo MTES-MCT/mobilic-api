@@ -1,10 +1,10 @@
 import graphene
 
-from app import db
+from app import db, mailer, app
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
 from app.domain.permissions import company_admin
-from app.domain.team import populate_team
+from app.domain.team import populate_team, handle_mail_to_admin_users
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.models import Employment, Company
@@ -41,7 +41,14 @@ class DeleteTeam(AuthenticatedMutation):
             Employment.query.filter(Employment.team_id == team_id).update(
                 {"team_id": None}
             )
+            mail_to_send = []
+            handle_mail_to_admin_users(mail_to_send, [], team_to_delete)
             db.session.delete(team_to_delete)
+            try:
+                if len(mail_to_send) > 0:
+                    mailer.send_batch(mail_to_send, _disable_commit=True)
+            except Exception as e:
+                app.logger.exception(e)
 
         return Company.query.get(company_id)
 
@@ -109,7 +116,7 @@ class CreateTeam(AuthenticatedMutation):
 
             db.session.add(new_team)
             db.session.flush()
-            populate_team(
+            mail_to_send = populate_team(
                 new_team,
                 name,
                 admin_ids,
@@ -117,6 +124,11 @@ class CreateTeam(AuthenticatedMutation):
                 known_address_ids,
                 vehicle_ids,
             )
+            try:
+                if len(mail_to_send) > 0:
+                    mailer.send_batch(mail_to_send, _disable_commit=True)
+            except Exception as e:
+                app.logger.exception(e)
 
         return Company.query.get(company_id)
 
@@ -181,7 +193,7 @@ class UpdateTeam(AuthenticatedMutation):
 
             team_to_update = Team.query.get(team_id)
 
-            populate_team(
+            mail_to_send = populate_team(
                 team_to_update,
                 name,
                 admin_ids,
@@ -189,5 +201,10 @@ class UpdateTeam(AuthenticatedMutation):
                 known_address_ids,
                 vehicle_ids,
             )
+            try:
+                if len(mail_to_send) > 0:
+                    mailer.send_batch(mail_to_send, _disable_commit=True)
+            except Exception as e:
+                app.logger.exception(e)
 
         return Company.query.get(team_to_update.company_id)

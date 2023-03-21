@@ -5,7 +5,15 @@ from unittest.mock import patch
 from app import app, db
 from app.domain import regulations
 from app.domain.log_activities import log_activity
+from app.domain.regulations_per_day import (
+    NATINF_11292,
+    NATINF_32083,
+    SANCTION_CODE,
+    NATINF_20525,
+)
+from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
+from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission
 from app.models.activity import ActivityType
@@ -309,8 +317,23 @@ class TestRegulations(BaseTest):
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=18),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=18),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            10 * HOUR - 1 * MINUTE,
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
         company = self.company
@@ -369,8 +392,21 @@ class TestRegulations(BaseTest):
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(1, len(regulatory_alert))
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago - 1, hour=6),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 2, hour=6),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"], 9 * HOUR
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
     def test_min_daily_rest_by_employee_failure(self):
         company = self.company
@@ -424,6 +460,19 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=13),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=13),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"], 8 * HOUR
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
     def test_max_work_day_time_by_employee_success(self):
         company = self.company
@@ -509,9 +558,9 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=15),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=15),
+                reception_time=get_time(how_many_days_ago, hour=16),
+                start_time=get_time(how_many_days_ago, hour=8),
+                end_time=get_time(how_many_days_ago, hour=16),
             )
 
             validate_mission(
@@ -532,7 +581,83 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_time_in_hours"])
+        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
+        self.assertEqual(extra_info["work_range_in_seconds"], 11 * HOUR)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_end"]),
+            get_time(how_many_days_ago, hour=16),
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_32083)
+
+    def test_max_work_day_time_by_employee_no_night_work_failure(self):
+        company = self.company
+        employee = self.employee
+        how_many_days_ago = 2
+
+        mission = Mission(
+            name="5h work + 8h drive",
+            company=company,
+            reception_time=datetime.now(),
+            submitter=employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=employee):
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.WORK,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago, hour=12),
+                start_time=get_time(how_many_days_ago, hour=7),
+                end_time=get_time(how_many_days_ago, hour=12),
+            )
+
+            log_activity(
+                submitter=employee,
+                user=employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago, hour=21),
+                start_time=get_time(how_many_days_ago, hour=13),
+                end_time=get_time(how_many_days_ago, hour=21),
+            )
+
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+        day_start = get_date(how_many_days_ago)
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["night_work"], False)
+        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
+        self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_start"]),
+            get_time(how_many_days_ago, hour=7),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_end"]),
+            get_time(how_many_days_ago, hour=21),
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_11292)
 
     def test_max_work_day_time_by_admin_failure(self):
         company = self.company
@@ -593,7 +718,17 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
         self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_time_in_hours"])
+        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
+        self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_end"]),
+            get_time(how_many_days_ago, hour=17),
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
     def test_min_work_day_break_by_employee_success(self):
         company = self.company
@@ -701,7 +836,22 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = json.loads(regulatory_alert.extra)
-        self.assertEqual(extra_info["min_time_in_minutes"], 45)
+        self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
+        self.assertEqual(
+            extra_info["total_break_time_in_seconds"], 30 * MINUTE
+        )
+        self.assertEqual(
+            extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_start"]),
+            get_time(how_many_days_ago, hour=16),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["work_range_end"]),
+            get_time(how_many_days_ago - 1, hour=2),
+        )
+        self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
     def test_max_uninterrupted_work_time_by_employee_success(self):
         company = self.company
@@ -808,6 +958,25 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["max_uninterrupted_work_in_hours"], 6)
+        self.assertEqual(
+            extra_info["longest_uninterrupted_work_in_seconds"],
+            6 * HOUR + 15 * MINUTE,
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_start"]
+            ),
+            get_time(how_many_days_ago, hour=17),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_end"]
+            ),
+            get_time(how_many_days_ago, hour=23, minute=15),
+        )
+        self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
     def test_use_latest_regulation_check_by_type(self):
         company = self.company
@@ -941,8 +1110,8 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 0)
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
 
     def test_compute_regulations_per_week_too_many_days(self):
         company = self.company
@@ -993,11 +1162,16 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
-        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 11))
-        extra_info = json.loads(regulatory_alert[0].extra)
-        self.assertEqual(extra_info["too_many_days"], True)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        self.assertEqual(regulatory_alert.day, date(2022, 7, 11))
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["max_nb_days_worked_by_week"], 6)
+        self.assertEqual(extra_info["min_weekly_break_in_hours"], 34)
+        self.assertTrue(extra_info["too_many_days"])
+        self.assertIn("rest_duration_s", extra_info)
+        self.assertEqual(extra_info["rest_duration_s"], 14 * HOUR)
+        self.assertEqual(extra_info["sanction_code"], NATINF_13152)
 
     def test_compute_regulations_per_week_not_enough_break(self):
         company = self.company
@@ -1081,11 +1255,13 @@ class TestRegulations(BaseTest):
                 == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
             ),
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(len(regulatory_alert), 1)
-        self.assertEqual(regulatory_alert[0].day, date(2022, 7, 18))
-        extra_info = json.loads(regulatory_alert[0].extra)
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        self.assertEqual(regulatory_alert.day, date(2022, 7, 18))
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertFalse(extra_info["too_many_days"])
         self.assertEqual(extra_info["rest_duration_s"], 111600)
+        self.assertEqual(extra_info["sanction_code"], NATINF_13152)
 
     def test_max_work_day_time_in_guyana_success(self):
         company = self.company

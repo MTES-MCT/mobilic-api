@@ -1,4 +1,6 @@
 from app import db
+from app import mailer
+from app.helpers.authentication import current_user
 from app.models import User, CompanyKnownAddress, Vehicle, Employment
 from app.models.employment import _bind_users_to_team
 from app.models.team import Team
@@ -14,14 +16,16 @@ def populate_team(
 ):
     company_id = team_to_update.company_id
     team_to_update.name = name
+    mail_to_send = []
+    new_admin_users = []
     if admin_ids:
         admin_users = User.query.filter(User.id.in_(admin_ids)).all()
         new_admin_users = [
             u for u in admin_users if u.has_admin_rights(company_id)
         ]
-        team_to_update.admin_users = new_admin_users
-    else:
-        team_to_update.admin_users = []
+    handle_mail_to_admin_users(mail_to_send, new_admin_users, team_to_update)
+    team_to_update.admin_users = new_admin_users
+
     if known_address_ids:
         known_addresses = CompanyKnownAddress.query.filter(
             CompanyKnownAddress.id.in_(known_address_ids),
@@ -44,6 +48,46 @@ def populate_team(
         _bind_users_to_team(
             user_ids=user_ids, team_id=team_to_update.id, company_id=company_id
         )
+
+    return mail_to_send
+
+
+def handle_mail_to_admin_users(mail_to_send, new_admin_users, team_to_update):
+    newly_affected_users = list(
+        set(new_admin_users) - set(team_to_update.admin_users)
+    )
+    for new_admin in newly_affected_users:
+        if current_user.id != new_admin.id:
+            mail_to_send.append(
+                mailer.generate_team_management_update_mail(
+                    user=new_admin,
+                    submitter=current_user,
+                    team=team_to_update,
+                    access_given=True,
+                )
+            )
+        for existing_admin in team_to_update.admin_users:
+            if current_user.id != existing_admin.id:
+                mail_to_send.append(
+                    mailer.generate_team_colleague_affectation_mail(
+                        user=existing_admin,
+                        new_admin=new_admin,
+                        team=team_to_update,
+                    )
+                )
+    removed_admins = list(
+        set(team_to_update.admin_users) - set(new_admin_users)
+    )
+    for former_admin in removed_admins:
+        if current_user.id != former_admin.id:
+            mail_to_send.append(
+                mailer.generate_team_management_update_mail(
+                    user=former_admin,
+                    submitter=current_user,
+                    team=team_to_update,
+                    access_given=False,
+                )
+            )
 
 
 def remove_vehicle_from_all_teams(vehicle):

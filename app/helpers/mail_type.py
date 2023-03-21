@@ -17,3 +17,5 @@ class EmailType(str, Enum):
     THIRD_PARTY_EMPLOYMENT_CREATION = "third_party_employment_creation"
     THIRD_PARTY_EMPLOYMENT_ACCESS = "third_party_employment_access"
     BLOCKED_ACCOUNT = "blocked_account"
+    TEAM_AFFECTATION = "team_affectation"
+    TEAM_NEW_COLLEAGUE = "team_new_colleague"
