@@ -1,0 +1,15 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+{{subject}}
+{% endblock %}
+
+{% block body %}
+<p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
+<p>
+    Le gestionnaire {{new_admin_first_name | capitalize}} {{new_admin_last_name | capitalize}} de votre entreprise <strong>{{company_name | upper}}</strong> a été ajouté à la gestion de votre groupe {{team_name}}.
+</p>
+<br/>
+<p>Bien à vous,</p>
+<strong>L'équipe Mobilic</strong>
+{% endblock %}
