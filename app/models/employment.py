@@ -113,8 +113,6 @@ class Employment(UserEventBaseModel, Dismissable):
 
 
 def _bind_users_to_team(user_ids, team_id, company_id):
-    if team_id and Team.query.get(team_id).company_id != company_id:
-        return
     Employment.query.filter(
         Employment.company_id == company_id,
         Employment.user_id.in_(user_ids),

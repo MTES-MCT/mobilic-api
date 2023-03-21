@@ -258,9 +258,12 @@ class CreateEmployment(AuthenticatedMutation):
                 )
             if user:
                 user_id = user.id
-                _bind_users_to_team(
-                    user_ids=[user_id], team_id=team_id, company_id=company.id
-                )
+                if team_id:
+                    _bind_users_to_team(
+                        user_ids=[user_id],
+                        team_id=team_id,
+                        company_id=company.id,
+                    )
 
             start_date = employment_input.get("start_date", date.today())
 
@@ -692,8 +695,12 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
     )
     def mutate(cls, _, info, company_id, user_id, team_id=None):
         with atomic_transaction(commit_at_end=True):
-            _bind_users_to_team(
-                user_ids=[user_id], team_id=team_id, company_id=company_id
-            )
+            if (
+                team_id is None
+                or Team.query.get(team_id).company_id == company_id
+            ):
+                _bind_users_to_team(
+                    user_ids=[user_id], team_id=team_id, company_id=company_id
+                )
 
         return Company.query.get(company_id)
