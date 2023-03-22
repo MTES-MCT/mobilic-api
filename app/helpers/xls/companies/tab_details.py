@@ -40,7 +40,8 @@ def write_day_details_sheet(
                 mission_starting_row_idx = row_idx
                 if (
                     first_activities_for_user
-                    and first_activities_for_user.start_time.date() == wday.day
+                    and to_fr_tz(first_activities_for_user.start_time).date()
+                    == wday.day
                 ):
                     if row_idx == user_starting_row_idx:
                         column_base_formats = write_tab_headers(
