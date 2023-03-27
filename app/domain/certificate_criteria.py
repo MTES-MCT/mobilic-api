@@ -1,4 +1,5 @@
-from datetime import datetime
+import calendar
+from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
@@ -6,46 +7,82 @@ from app import db
 from app.models.company_certification import CompanyCertification
 
 
-def is_employee_active(company, employee):
+def get_drivers(company, start, end):
+    drivers = []
+    users = company.users_between(start, end)
+    for user in users:
+        # a driver can have admin rights
+        if user.has_admin_rights(
+            company
+        ) is False or user.first_activity_after(start):
+            drivers.append(user)
+    return drivers
+
+
+def is_employee_active(company, employee, start, end):
     MIN_NB_ACTIVITY_PER_DAY = 2
     MIN_NB_ACTIVE_DAY_PER_MONTH = 10
 
-    # active_days = select all activities
-    # - non dismissed
-    # - de l'employé
-    # - pour une mission de cette company
-    # - avec start_time le mois précédent
-    # group by day
-    # having count >= MIN_NB_ACTIVITY_PER_DAY
+    activities = employee.query_activities_with_relations(
+        start_time=start,
+        end_time=end,
+        restrict_to_company_ids=[company.id],
+    ).all()
 
-    # si nb active_days >= MIN_NB_ACTIVE_DAY_PER_MONTH
-    #    return True
-
+    nb_activity_per_day = {}
+    for activity in activities:
+        current_day = activity.start_time
+        last_day = activity.end_time or end
+        while current_day <= last_day:
+            if current_day in nb_activity_per_day.keys():
+                nb_activity_per_day[current_day] += 1
+            else:
+                nb_activity_per_day[current_day] = 1
+            current_day += relativedelta(days=1)
+        active_days = list(
+            filter(
+                lambda value: value >= MIN_NB_ACTIVITY_PER_DAY,
+                nb_activity_per_day.values(),
+            )
+        )
+        if len(active_days) >= MIN_NB_ACTIVE_DAY_PER_MONTH:
+            return True
     return False
 
 
-def be_active(company):
-    # si <= 3 salariés : 75% des salariés de l’entreprise sont “actifs”
-    # si > 3 salariés : au moins 3 salariés “actifs”
-    # salariés “actifs” : nb jours avec au moins 2 activités >= 10 (dans le mois)
+def are_all_employees_active(company, employees, start, end):
+    for employee in employees:
+        if not is_employee_active(company, employee, start, end):
+            return False
+    return True
+
+
+def are_at_least_n_employees_active(company, employees, start, end, n):
+    nb_employees_active = 0
+    for employee in employees:
+        if is_employee_active(company, employee, start, end):
+            nb_employees_active += 1
+            if nb_employees_active == n:
+                return True
+    return False
+
+
+def compute_be_active(company, start, end):
     COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
     MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
 
-    # nb employee actif = 0
-    # si company nb employee = 1
-    #   si is_employee_active(company, employee)
-    #     return True
-    # sinon si company nb employee <= COMPANY_SIZE_NB_EMPLOYEE_LIMIT
-    #   pour chaque employee
-    #     nb employee actif += 1 si is_employee_active(company, employee)
-    #     si nb empoyee actif = 2
-    #       return True
-    # sinon
-    #   pour chaque employee
-    #     nb employee actif += 1 si is_employee_active(company, employee)
-    #     si nb empoyee actif = MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE
-    #       return True
-    return False
+    employees = get_drivers(company, start, end)
+
+    if len(employees) < COMPANY_SIZE_NB_EMPLOYEE_LIMIT:
+        return are_all_employees_active(company, employees, start, end)
+
+    return are_at_least_n_employees_active(
+        company,
+        employees,
+        start,
+        end,
+        MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
+    )
 
 
 def is_alert_above_tolerance_limit(regulatory_alert):
@@ -71,7 +108,7 @@ def is_alert_above_tolerance_limit(regulatory_alert):
     return True
 
 
-def be_compliant(company):
+def compute_be_compliant(company, start, end):
     # pour chaque employé
     #   pour chaque regulatory_alert (use latest version)
     #     si is_alert_above_tolerance_limit(regulatory_alert)
@@ -80,7 +117,7 @@ def be_compliant(company):
     return True
 
 
-def not_too_many_changes(company):
+def compute_not_too_many_changes(company, start, end):
     # Nombre de modifications ne dépassant pas 10% des saisies à la semaine (côté gestionnaire)
     MAX_CHANGES_PER_WEEK_PERCENTAGE = 0.1
 
@@ -96,7 +133,7 @@ def not_too_many_changes(company):
     return True
 
 
-def validate_regularly(company):
+def compute_validate_regularly(company, start, end):
     # Validation régulière de la part du gestionnaire
     MAX_VALIDATION_DELAY_DAY = 7
     MIN_VALIDATION_OK_PERCENTAGE = 0.9
@@ -113,7 +150,7 @@ def validate_regularly(company):
     return True
 
 
-def log_in_real_time(company):
+def compute_log_in_real_time(company, start, end):
     # sur l'intégralité des activités saisies dans le mois pour l'entreprise,
     # au moins 90% de "temps réel" ( = saisie à moins de 15mn du début de l'activité)
     TOLERANCE_REAL_TIME_LOG_MINUTES = 15
@@ -132,14 +169,33 @@ def log_in_real_time(company):
     return False
 
 
-def compute_company_certification(company):
-    attribution_date = datetime.today()
+def end_of_month(date):
+    return date.replace(day=calendar.monthrange(date.year, date.month)[1])
 
-    be_active = be_active(company)
-    be_compliant = be_compliant(company)
-    not_too_many_changes = not_too_many_changes(company)
-    validate_regularly = validate_regularly(company)
-    log_in_real_time = log_in_real_time(company)
+
+def previous_month_period(today):
+    previous_month = today + relativedelta(months=-1)
+    start = previous_month.replace(day=1)
+    end = end_of_month(previous_month)
+    return start, end
+
+
+def certificate_expiration(today, lifetime_month):
+    expiration_month = today + relativedelta(months=+lifetime_month - 1)
+    return end_of_month(expiration_month)
+
+
+def compute_company_certification(company):
+    CERTIFICATE_LIFETIME_MONTH = 6
+
+    today = date.today()
+    start, end = previous_month_period(today)
+
+    be_active = compute_be_active(company, start, end)
+    be_compliant = compute_be_compliant(company, start, end)
+    not_too_many_changes = compute_not_too_many_changes(company, start, end)
+    validate_regularly = compute_validate_regularly(company, start, end)
+    log_in_real_time = compute_log_in_real_time(company, start, end)
 
     certified = (
         be_active
@@ -148,12 +204,15 @@ def compute_company_certification(company):
         and validate_regularly
         and log_in_real_time
     )
-    if certified:
-        expiration_date = attribution_date + relativedelta(month=5, day=31)
+    expiration_date = (
+        certificate_expiration(today, CERTIFICATE_LIFETIME_MONTH)
+        if certified
+        else None
+    )
 
     company_certification = CompanyCertification(
         company=company,
-        attribution_date=attribution_date,
+        attribution_date=today,
         expiration_date=expiration_date,
         be_active=be_active,
         be_compliant=be_compliant,
