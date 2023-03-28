@@ -1,6 +1,7 @@
-from sqlalchemy.ext.declarative import declared_attr
-from uuid import uuid4
 from datetime import datetime
+from uuid import uuid4
+
+from sqlalchemy.ext.declarative import declared_attr, declarative_base
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC

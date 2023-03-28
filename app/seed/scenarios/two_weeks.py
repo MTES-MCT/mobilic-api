@@ -12,7 +12,7 @@ from app.seed import (
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time
+from app.seed.helpers import get_time, DEFAULT_PASSWORD
 
 ADMIN_EMAIL = "nonstop@test.com"
 EMPLOYEE_EMAIL = "employee.nonstop@test.com"
@@ -25,7 +25,7 @@ def run_scenario_non_stop():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Non Stop",
         last_name="Boss",
     )
@@ -36,7 +36,7 @@ def run_scenario_non_stop():
 
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Non",
         last_name=f"Stop",
     )

@@ -6,6 +6,7 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import AuthorizationError, InvalidResourceError
 from app.helpers.validation import validate_email_field_in_db
 from app.models.event import Dismissable, UserEventBaseModel
+from app.models.team import Team
 from app.models.utils import enum_column
 
 
@@ -39,6 +40,11 @@ class Employment(UserEventBaseModel, Dismissable):
     )
     email = db.Column(db.String(255), nullable=True)
     invite_token = db.Column(db.String(255), nullable=True, unique=True)
+
+    team_id = db.Column(
+        db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
+    )
+    team = db.relationship(Team, backref="employments")
 
     db.validates("email")(validate_email_field_in_db)
 
@@ -92,9 +98,22 @@ class Employment(UserEventBaseModel, Dismissable):
         )
         self.validation_time = time if time else datetime.now()
 
+        _bind_users_to_team(
+            user_ids=[user.id],
+            team_id=self.team_id,
+            company_id=self.company_id,
+        )
+
     @property
     def latest_invite_email_time(self):
         invite_emails = self.invite_emails
         if not invite_emails:
             return None
         return max([e.creation_time for e in invite_emails])
+
+
+def _bind_users_to_team(user_ids, team_id, company_id):
+    Employment.query.filter(
+        Employment.company_id == company_id,
+        Employment.user_id.in_(user_ids),
+    ).update({"team_id": team_id}, synchronize_session=False)

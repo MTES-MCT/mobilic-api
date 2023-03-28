@@ -48,7 +48,8 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
             ## skip mission if necessary
             if (
                 not first_activities_for_user
-                or first_activities_for_user.start_time.date() != wday.day
+                or to_fr_tz(first_activities_for_user.start_time).date()
+                != wday.day
             ):
                 continue
 

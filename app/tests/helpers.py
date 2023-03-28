@@ -113,9 +113,9 @@ class ApiRequests:
     """
 
     create_mission = """
-        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int) {
+        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int, $vehicleRegistrationNumber: String) {
             activities {
-                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId) {
+                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
                     id
                     name
                 }
@@ -191,9 +191,9 @@ class ApiRequests:
     """
 
     invite = """
-        mutation ($userId: Int, $companyId: Int!, $mail: String) {
+        mutation ($userId: Int, $companyId: Int!, $mail: String, $teamId: Int) {
             employments {
-                createEmployment(userId: $userId, companyId: $companyId, mail: $mail) {
+                createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId) {
                     id
                 }
             }
@@ -217,8 +217,30 @@ class ApiRequests:
                 employmentId: $employmentId
                 hasAdminRights: $hasAdminRights
               ) {
+                employments {
+                    id
+                    hasAdminRights
+                }
+              }
+            }
+        }
+    """
+
+    change_employee_team = """
+        mutation changeEmployeeTeam($companyId: Int!, $userId: Int!, $teamId: Int) {
+            employments {
+              changeEmployeeTeam(
+                companyId: $companyId
+                userId: $userId
+                teamId: $teamId
+              ) {
                 id
-                hasAdminRights
+                teams {
+                    name
+                    users {
+                        id
+                    }
+                }
               }
             }
         }
@@ -676,6 +698,116 @@ class ApiRequests:
             id
             firstName
             lastName
+          }
+        }
+      }
+    """
+
+    create_team = """
+      mutation createTeam(
+        $companyId: Int!
+        $name: String!
+        $userIds: [Int]
+        $adminIds: [Int]
+        $knownAddressIds: [Int]
+        $vehicleIds: [Int]
+      ) {
+        teams {
+          createTeam(
+            companyId: $companyId
+            name: $name
+            userIds: $userIds
+            adminIds: $adminIds
+            knownAddressIds: $knownAddressIds
+            vehicleIds: $vehicleIds
+          ) {
+            teams {
+                id
+                name
+                creationTime
+                adminUsers {
+                  id
+                  firstName
+                  lastName
+                }
+                users {
+                  id
+                  firstName
+                  lastName
+                }
+                vehicles {
+                  id
+                  name
+                }
+                knownAddresses {
+                  id
+                  alias
+                  name
+                  postalCode
+                  city
+                }
+            }
+          }
+        }
+      }
+    """
+
+    update_team = """
+      mutation updateTeam(
+        $teamId: Int!
+        $name: String!
+        $userIds: [Int]
+        $adminIds: [Int]
+        $knownAddressIds: [Int]
+        $vehicleIds: [Int]
+      ) {
+        teams {
+          updateTeam(
+            teamId: $teamId
+            name: $name
+            userIds: $userIds
+            adminIds: $adminIds
+            knownAddressIds: $knownAddressIds
+            vehicleIds: $vehicleIds
+          ) {
+            teams {
+                id
+                name
+                creationTime
+                adminUsers {
+                  id
+                  firstName
+                  lastName
+                }
+                users {
+                  id
+                  firstName
+                  lastName
+                }
+                vehicles {
+                  id
+                  name
+                }
+                knownAddresses {
+                  id
+                  alias
+                  name
+                  postalCode
+                  city
+                }
+            }
+          }
+        }
+      }
+    """
+
+    delete_team = """
+      mutation deleteTeam($teamId: Int!) {
+        teams {
+          deleteTeam(teamId: $teamId) {
+            teams {
+                id
+            }
           }
         }
       }

@@ -6,51 +6,30 @@ from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.models import (
     MissionEnd,
-    Mission,
     Vehicle,
     CompanyKnownAddress,
     Address,
-    LocationEntry,
 )
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
-from app.models.location_entry import LocationEntryType
 from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
     AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time, get_date
+from app.seed.helpers import (
+    get_time,
+    get_date,
+    create_mission,
+    DEFAULT_PASSWORD,
+)
 
 NB_COMPANIES = 2
 NB_EMPLOYEES = 2
 NB_HISTORY = 7
 INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
-
-
-def create_mission(name, company, time, submitter, vehicle, address):
-    mission = Mission(
-        name=name,
-        company=company,
-        reception_time=time,
-        submitter=submitter,
-        vehicle=vehicle,
-    )
-    db.session.add(mission)
-    location_entry = LocationEntry(
-        _address=address.address,
-        mission=mission,
-        reception_time=datetime.datetime.now(),
-        submitter=submitter,
-        _company_known_address=address,
-        type=LocationEntryType.MISSION_START_LOCATION,
-        creation_time=datetime.datetime.now(),
-    )
-    location_entry.register_kilometer_reading(2500, datetime.datetime.now())
-    db.session.add(location_entry)
-    return mission
 
 
 def run_scenario_busy_admin():
@@ -63,7 +42,7 @@ def run_scenario_busy_admin():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Busy",
         last_name="Admin",
     )
@@ -101,7 +80,7 @@ def run_scenario_busy_admin():
         for i in range(NB_EMPLOYEES):
             employee = UserFactory.create(
                 email=f"busy.employee{i + 1}@busycorp{idx_company + 1}.com",
-                password="password",
+                password=DEFAULT_PASSWORD,
                 first_name=f"Bérénice {i + 1}",
                 last_name=f"Corp {idx_company + 1}",
             )
@@ -120,6 +99,7 @@ def run_scenario_busy_admin():
                 submitter=employee,
                 vehicle=vehicles[0],
                 address=addresses[0],
+                add_location_entry=True,
             )
 
             # YESTERDAY: a mission to validate
@@ -130,6 +110,7 @@ def run_scenario_busy_admin():
                 submitter=employee,
                 vehicle=vehicles[0],
                 address=addresses[0],
+                add_location_entry=True,
             )
 
             # CREATES HISTORY MISSIONS
@@ -143,6 +124,7 @@ def run_scenario_busy_admin():
                     submitter=employee,
                     vehicle=vehicles[0],
                     address=addresses[0],
+                    add_location_entry=True,
                 )
                 history_missions[idx_history] = tmp_mission
             db.session.commit()

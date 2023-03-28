@@ -1,71 +1,20 @@
 from app import db
-from app.domain.log_activities import log_activity
-from app.domain.validation import validate_mission
 from app.models import (
-    MissionEnd,
-    Mission,
     Vehicle,
 )
-from app.models.activity import ActivityType
 from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
-    AuthenticatedUserContext,
 )
-from app.seed.helpers import get_time
+from app.seed.helpers import (
+    get_time,
+    log_and_validate_mission,
+    DEFAULT_PASSWORD,
+)
 
 ADMIN_EMAIL = "breach.boss@test.com"
 EMPLOYEE_EMAIL = "breach@test.com"
-
-
-def create_mission(name, company, time, submitter, vehicle):
-    mission = Mission(
-        name=name,
-        company=company,
-        reception_time=time,
-        submitter=submitter,
-        vehicle=vehicle,
-    )
-    db.session.add(mission)
-    return mission
-
-
-def log_mission(mission_name, work_periods, company, employee, vehicle):
-    mission = create_mission(
-        name=mission_name,
-        company=company,
-        time=work_periods[0][0],
-        submitter=employee,
-        vehicle=vehicle,
-    )
-    db.session.commit()
-
-    with AuthenticatedUserContext(user=employee):
-        for wp in work_periods:
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=wp[1],
-                start_time=wp[0],
-                end_time=wp[1],
-            )
-        db.session.add(
-            MissionEnd(
-                submitter=employee,
-                reception_time=work_periods[-1][1],
-                user=employee,
-                mission=mission,
-            )
-        )
-        validate_mission(
-            submitter=employee,
-            mission=mission,
-            for_user=employee,
-        )
 
 
 def run_scenario_breach_rules():
@@ -75,7 +24,7 @@ def run_scenario_breach_rules():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Breach",
         last_name="Boss",
     )
@@ -94,7 +43,7 @@ def run_scenario_breach_rules():
 
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name=f"Raoul",
         last_name=f"Breacher",
     )
@@ -107,7 +56,7 @@ def run_scenario_breach_rules():
 
     ## works 5 days before:
     for i in range(5):
-        log_mission(
+        log_and_validate_mission(
             mission_name=f"Mission Before {i}",
             work_periods=[
                 [
@@ -125,7 +74,7 @@ def run_scenario_breach_rules():
         )
 
     ## MISSION 1
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 1",
         work_periods=[
             [
@@ -142,7 +91,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 2
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 2",
         work_periods=[
             [
@@ -155,7 +104,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 3
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 3",
         work_periods=[
             [
@@ -172,7 +121,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 4
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 4",
         work_periods=[
             [
@@ -185,7 +134,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 5
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 5",
         work_periods=[
             [
@@ -202,7 +151,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 6
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 6",
         work_periods=[
             [
@@ -215,7 +164,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 7
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 7",
         work_periods=[
             [
@@ -236,7 +185,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
     ## MISSION 8
-    log_mission(
+    log_and_validate_mission(
         mission_name="Mission 8",
         work_periods=[
             [

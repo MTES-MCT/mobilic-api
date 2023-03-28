@@ -24,6 +24,8 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "has_admin_rights",
             "email",
             "latest_invite_email_time",
+            "team_id",
+            "team",
         )
 
     id = graphene.Field(
@@ -78,6 +80,9 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         OAuth2ClientOutput,
         description="Logiciels authorisés à accéder aux données de ce rattachement",
     )
+    team = graphene.Field(
+        lambda: TeamOutput, description="Équipe associée à ce rattachement"
+    )
 
     def resolve_is_acknowledged(self, info):
         return self.is_acknowledged
@@ -94,3 +99,6 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             if not client_id.is_dismissed
             and client_id.access_token is not None
         ]
+
+
+from app.data_access.team import TeamOutput

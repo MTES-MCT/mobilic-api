@@ -318,12 +318,10 @@ def _generate_work_days_pdf(
                 "date": wd.day,
                 "start_time": "-"
                 if wd.is_first_mission_overlapping_with_previous_day
-                else format_time(to_fr_tz(wd.start_time), False),
+                else format_time(wd.start_time, False),
                 "end_time": "-"
                 if wd.is_last_mission_overlapping_with_next_day
-                else format_time(
-                    to_fr_tz(wd.end_time or wd.end_of_day), False
-                ),
+                else format_time(wd.end_time or wd.end_of_day, False),
                 "service": wd.service_duration,
                 "total_work": wd.total_work_duration,
                 **{

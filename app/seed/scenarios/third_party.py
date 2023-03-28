@@ -13,6 +13,7 @@ from app.seed.factories import (
 )
 from datetime import datetime
 
+from app.seed.helpers import DEFAULT_PASSWORD
 
 ADMIN_EMAIL = "admin@3rdparty.com"
 EMPLOYEE_NOT_INVITED_EMAIL = "empl-not-invited@3rdparty.com"
@@ -27,7 +28,9 @@ def run_scenario_third_party():
         usual_name=f"Comp with Software", siren=f"00000405"
     )
 
-    client = OAuth2ClientFactory.create(name="Mob Software", secret="password")
+    client = OAuth2ClientFactory.create(
+        name="Mob Software", secret=DEFAULT_PASSWORD
+    )
 
     ph = PasswordHasher()
     token_hash = ph.hash(API_KEY)
@@ -38,7 +41,7 @@ def run_scenario_third_party():
     )
 
     client2 = OAuth2ClientFactory.create(
-        name="Mob Software 2", secret="password"
+        name="Mob Software 2", secret=DEFAULT_PASSWORD
     )
 
     ThirdPartyClientCompanyFactory.create(
@@ -47,7 +50,7 @@ def run_scenario_third_party():
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
-        password="password",
+        password=DEFAULT_PASSWORD,
         first_name="Admin",
         last_name="Third",
     )
@@ -66,7 +69,7 @@ def run_scenario_third_party():
     ):
         employee = UserFactory.create(
             email=employee_email,
-            password="password",
+            password=DEFAULT_PASSWORD,
             first_name=f"Empl{i+1}",
             last_name=f"Third",
         )

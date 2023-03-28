@@ -29,6 +29,7 @@ from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
     CancelEmployment,
     ChangeEmployeeRole,
+    ChangeEmployeeTeam,
     CreateEmployment,
     CreateWorkerEmploymentsFromEmails,
     GetInvitation,
@@ -79,6 +80,7 @@ from app.controllers.oauth_token import (
     RevokeOauthToken,
 )
 from app.controllers.oauth_client import Query as OAuthClientQuery
+from app.controllers.team import CreateTeam, DeleteTeam, UpdateTeam
 from app.controllers.vehicle import (
     CreateVehicle,
     EditVehicle,
@@ -157,6 +159,7 @@ class Employments(graphene.ObjectType):
     send_invitation_reminder = SendInvitationReminder.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
+    change_employee_team = ChangeEmployeeTeam.Field()
 
 
 class Vehicles(graphene.ObjectType):
@@ -167,6 +170,16 @@ class Vehicles(graphene.ObjectType):
     create_vehicle = CreateVehicle.Field()
     edit_vehicle = EditVehicle.Field()
     terminate_vehicle = TerminateVehicle.Field()
+
+
+class Teams(graphene.ObjectType):
+    """
+    Gestion des équipes de l'entreprise
+    """
+
+    create_team = CreateTeam.Field()
+    delete_team = DeleteTeam.Field()
+    update_team = UpdateTeam.Field()
 
 
 class Locations(graphene.ObjectType):
@@ -197,6 +210,7 @@ class Mutations(graphene.ObjectType):
     employments = graphene.Field(
         Employments, resolver=lambda root, info: Employments()
     )
+    teams = graphene.Field(Teams, resolver=lambda root, info: Teams())
 
 
 class ProtectedMutations(graphene.ObjectType):
