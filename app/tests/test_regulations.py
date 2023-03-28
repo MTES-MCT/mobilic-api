@@ -15,7 +15,6 @@ from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
-from app.helpers.time import FR_TIMEZONE
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import (
@@ -125,7 +124,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="8h drive J",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -133,7 +132,7 @@ class TestRegulations(BaseTest):
         mission_next_day = Mission(
             name="8h drive J+1",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission_next_day)
@@ -141,7 +140,7 @@ class TestRegulations(BaseTest):
         mission_last_day = Mission(
             name="8h drive J+2",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission_last_day)
@@ -209,7 +208,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="8h drive J",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -269,7 +268,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="8h drive J",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -344,7 +343,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="8h drive J",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -418,7 +417,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="15h drive with 2 groups",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -483,7 +482,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="Transfer & night work tarification but not legislation",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -536,7 +535,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="3h work (night) + 8h drive",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -602,7 +601,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="5h work + 8h drive",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -669,7 +668,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="3h work (night) + 10h drive",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -739,7 +738,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="8h30 work with 30m break",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -792,7 +791,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="9h30 work with 30m break",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -862,7 +861,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="5h15 drive - 30m pause - 2h15 work",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -915,7 +914,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="6h15 drive - 30m pause - 2h15 work",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -999,7 +998,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="any mission",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
@@ -1068,7 +1067,7 @@ class TestRegulations(BaseTest):
             mission = Mission(
                 name=f"mission #{i}",
                 company=company,
-                reception_time=datetime.now(tz=FR_TIMEZONE),
+                reception_time=datetime.now(),
                 submitter=employee,
             )
             db.session.add(mission)
@@ -1123,7 +1122,7 @@ class TestRegulations(BaseTest):
             mission = Mission(
                 name=f"Day #{i}",
                 company=company,
-                reception_time=datetime.now(tz=FR_TIMEZONE),
+                reception_time=datetime.now(),
                 submitter=employee,
             )
             db.session.add(mission)
@@ -1183,7 +1182,7 @@ class TestRegulations(BaseTest):
             mission = Mission(
                 name=f"Day #{i}",
                 company=company,
-                reception_time=datetime.now(tz=FR_TIMEZONE),
+                reception_time=datetime.now(),
                 submitter=employee,
             )
             db.session.add(mission)
@@ -1192,7 +1191,7 @@ class TestRegulations(BaseTest):
         mission_final = Mission(
             name=f"Final day",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission_final)
@@ -1287,7 +1286,7 @@ class TestRegulations(BaseTest):
         mission = Mission(
             name="11h drive in Guyana with night work",
             company=company,
-            reception_time=datetime.now(tz=FR_TIMEZONE),
+            reception_time=datetime.now(),
             submitter=employee,
         )
         db.session.add(mission)
