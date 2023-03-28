@@ -1,11 +1,9 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_apispec import FlaskApiSpec
 from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
@@ -124,30 +122,6 @@ def trigger_error():
 
 
 from app.services import service_decorator
-
-
-@app.route("/services/update-stat-spreadsheet", methods=["POST"])
-@service_decorator
-def compute_usage_stats():
-    from app.services.compute_usage_stats import (
-        compute_and_add_usage_stats_snapshot,
-    )
-
-    success = False
-    try:
-        compute_and_add_usage_stats_snapshot()
-        success = True
-    except Exception as e:
-        app.logger.exception(e)
-
-    return (
-        "La spreadsheet a été mise à jour"
-        if success
-        else "La spreadsheet n'a pas pu être mise à jour à cause d'erreurs.",
-        200 if success else 500,
-    )
-
-
 from app.controllers.misc import *
 
 
