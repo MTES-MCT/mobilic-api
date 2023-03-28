@@ -4,6 +4,9 @@ from dateutil.tz import gettz
 from jours_feries_france import JoursFeries
 
 FR_TIMEZONE = gettz("Europe/Paris")
+LOCAL_TIMEZONE = (
+    datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+)
 VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
 VERY_FAR_AHEAD = datetime.datetime(2100, 1, 1)
 SUNDAY_WEEKDAY = 6
