@@ -4,7 +4,7 @@ from argon2 import PasswordHasher
 from freezegun import freeze_time
 
 from app.helpers.oauth.models import OAuth2Client, ThirdPartyClientEmployment
-from app.helpers.time import to_timestamp
+from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.models.activity import ActivityType
 from app.seed.factories import CompanyFactory, ThirdPartyApiKeyFactory
 from app.seed.helpers import get_time
@@ -268,7 +268,7 @@ def _end_mission_success(self, mission_id):
 
 
 def _log_expenditure_success(self):
-    with freeze_time(get_time(how_many_days_ago=0, hour=1)):
+    with freeze_time(get_time(how_many_days_ago=0, hour=1, tz=LOCAL_TIMEZONE)):
         mission_id = _create_mission_success(self)
         _log_activity_success(self, mission_id)
 
@@ -602,7 +602,9 @@ class TestApiEmployeeQueries(BaseTest):
         _end_mission_success(self, mission_id)
 
     def test_validate_mission_success(self):
-        with freeze_time(get_time(how_many_days_ago=0, hour=1)):
+        with freeze_time(
+            get_time(how_many_days_ago=0, hour=1, tz=LOCAL_TIMEZONE)
+        ):
             mission_id = _create_mission_success(self)
             _log_activity_success(self, mission_id)
 
