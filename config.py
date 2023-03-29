@@ -29,7 +29,6 @@ class Config:
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
-    SENTRY_URL = os.environ.get("SENTRY_URL")
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
