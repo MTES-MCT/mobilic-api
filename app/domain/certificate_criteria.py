@@ -1,10 +1,17 @@
 import calendar
+import datetime
 from datetime import date
+from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
 
 from app import db
 from app.models.company_certification import CompanyCertification
+
+IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
+IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
+IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
+IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
 
 
 def get_drivers(company, start, end):
@@ -13,15 +20,15 @@ def get_drivers(company, start, end):
     for user in users:
         # a driver can have admin rights
         if user.has_admin_rights(
-            company
-        ) is False or user.first_activity_after(start):
+            company.id
+        ) is False or user.first_activity_after(
+            datetime.combine(start, datetime.min.time())
+        ):
             drivers.append(user)
     return drivers
 
 
 def is_employee_active(company, employee, start, end):
-    MIN_NB_ACTIVITY_PER_DAY = 2
-    MIN_NB_ACTIVE_DAY_PER_MONTH = 10
 
     activities = employee.query_activities_with_relations(
         start_time=start,
@@ -31,8 +38,8 @@ def is_employee_active(company, employee, start, end):
 
     nb_activity_per_day = {}
     for activity in activities:
-        current_day = activity.start_time
-        last_day = activity.end_time or end
+        current_day = activity.start_time.date()
+        last_day = activity.end_time.date() or end
         while current_day <= last_day:
             if current_day in nb_activity_per_day.keys():
                 nb_activity_per_day[current_day] += 1
@@ -41,16 +48,19 @@ def is_employee_active(company, employee, start, end):
             current_day += relativedelta(days=1)
         active_days = list(
             filter(
-                lambda value: value >= MIN_NB_ACTIVITY_PER_DAY,
+                lambda value: value >= IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY,
                 nb_activity_per_day.values(),
             )
         )
-        if len(active_days) >= MIN_NB_ACTIVE_DAY_PER_MONTH:
+        if len(active_days) >= IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH:
             return True
     return False
 
 
 def are_all_employees_active(company, employees, start, end):
+    if len(employees) == 0:
+        return False
+
     for employee in employees:
         if not is_employee_active(company, employee, start, end):
             return False
@@ -68,12 +78,10 @@ def are_at_least_n_employees_active(company, employees, start, end, n):
 
 
 def compute_be_active(company, start, end):
-    COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
-    MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
 
     employees = get_drivers(company, start, end)
 
-    if len(employees) < COMPANY_SIZE_NB_EMPLOYEE_LIMIT:
+    if len(employees) < IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT:
         return are_all_employees_active(company, employees, start, end)
 
     return are_at_least_n_employees_active(
@@ -81,7 +89,7 @@ def compute_be_active(company, start, end):
         employees,
         start,
         end,
-        MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
+        IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
     )
 
 
