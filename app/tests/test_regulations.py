@@ -16,6 +16,7 @@ from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
+from app.helpers.time import LOCAL_TIMEZONE, FR_TIMEZONE
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import (
@@ -261,11 +262,10 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
-    @unittest.skip("failing due to summer time")
     def test_min_daily_rest_by_employee_failure_one_minute(self):
         company = self.company
         employee = self.employee
-        how_many_days_ago = 3
+        how_many_days_ago = 4
 
         mission = Mission(
             name="8h drive J",
@@ -282,9 +282,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=22),
-                start_time=get_time(how_many_days_ago, hour=18),
-                end_time=get_time(how_many_days_ago, hour=19),
+                reception_time=get_time(
+                    how_many_days_ago, hour=22, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=18, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago, hour=19, tz=LOCAL_TIMEZONE
+                ),
             )
 
             log_activity(
@@ -293,9 +299,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=15),
-                start_time=get_time(how_many_days_ago - 1, hour=4),
-                end_time=get_time(how_many_days_ago - 1, hour=8, minute=1),
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=15, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago - 1, hour=4, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=8, minute=1, tz=LOCAL_TIMEZONE
+                ),
             )
 
             log_activity(
@@ -304,9 +316,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=23),
-                start_time=get_time(how_many_days_ago - 1, hour=22),
-                end_time=get_time(how_many_days_ago - 1, hour=23),
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=23, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago - 1, hour=22, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=23, tz=LOCAL_TIMEZONE
+                ),
             )
 
             validate_mission(
@@ -325,11 +343,11 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=18),
+            get_time(how_many_days_ago, hour=18, tz=LOCAL_TIMEZONE),
         )
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=18),
+            get_time(how_many_days_ago - 1, hour=18, tz=LOCAL_TIMEZONE),
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
@@ -732,7 +750,6 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
-    @unittest.skip("failing due to summer time")
     def test_min_work_day_break_by_employee_success(self):
         company = self.company
         employee = self.employee
@@ -753,9 +770,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23, minute=14),
-                start_time=get_time(how_many_days_ago, hour=17),
-                end_time=get_time(how_many_days_ago, hour=23, minute=14),
+                reception_time=get_time(
+                    how_many_days_ago, hour=23, minute=14, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=16, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago, hour=22, minute=14, tz=LOCAL_TIMEZONE
+                ),
             )
 
             log_activity(
@@ -764,9 +787,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.WORK,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=2),
-                start_time=get_time(how_many_days_ago, hour=23, minute=45),
-                end_time=get_time(how_many_days_ago - 1, hour=2),
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=2, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=22, minute=45, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=1, tz=LOCAL_TIMEZONE
+                ),
             )
 
             validate_mission(
@@ -786,7 +815,6 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
-    @unittest.skip("failing due to summer time")
     def test_min_work_day_break_by_employee_failure(self):
         company = self.company
         employee = self.employee
@@ -807,9 +835,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.DRIVE,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23, minute=15),
-                start_time=get_time(how_many_days_ago, hour=16),
-                end_time=get_time(how_many_days_ago, hour=23, minute=15),
+                reception_time=get_time(
+                    how_many_days_ago, hour=23, minute=15, tz=FR_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=15, tz=FR_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago, hour=22, minute=15, tz=FR_TIMEZONE
+                ),
             )
 
             log_activity(
@@ -818,9 +852,15 @@ class TestRegulations(BaseTest):
                 mission=mission,
                 type=ActivityType.WORK,
                 switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=2),
-                start_time=get_time(how_many_days_ago, hour=23, minute=45),
-                end_time=get_time(how_many_days_ago - 1, hour=2),
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=2, tz=FR_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=22, minute=45, tz=FR_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE
+                ),
             )
 
             validate_mission(
@@ -849,11 +889,11 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(
             datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=16),
+            get_time(how_many_days_ago, hour=15, tz=FR_TIMEZONE),
         )
         self.assertEqual(
             datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago - 1, hour=2),
+            get_time(how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE),
         )
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 

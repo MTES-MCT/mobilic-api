@@ -92,7 +92,6 @@ regex==2020.1.8
 reportlab==3.6.6
 requests==2.26.0
 Rx==1.6.1
-sentry-sdk==0.14.4
 singledispatch==3.4.0.3
 six==1.14.0
 slacker==0.14.0
@@ -110,7 +109,7 @@ urllib3==1.26.5
 virtualenv==20.7.2
 webargs==8.0.0
 webencodings==0.5.1
-Werkzeug==2.2.1
+Werkzeug==2.2.3
 WTForms==2.2.1
 xhtml2pdf==0.2.5
 XlsxWriter==1.2.7

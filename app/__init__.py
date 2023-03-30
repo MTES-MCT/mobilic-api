@@ -47,11 +47,6 @@ for name, filter in JINJA_CUSTOM_FILTERS.items():
 from app.helpers.mail import mailer
 
 
-if app.config["SENTRY_URL"]:
-    from app.helpers.sentry import setup_sentry
-
-    setup_sentry()
-
 db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}
 )
@@ -114,11 +109,6 @@ app.register_blueprint(oauth_blueprint, url_prefix="/oauth")
 from app.controllers.control import control_blueprint
 
 app.register_blueprint(control_blueprint, url_prefix="/control")
-
-
-@app.route("/debug-sentry")
-def trigger_error():
-    division_by_zero = 1 / 0
 
 
 from app.services import service_decorator
