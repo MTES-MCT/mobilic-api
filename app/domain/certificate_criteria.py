@@ -2,12 +2,13 @@ import calendar
 import datetime
 from datetime import date
 from datetime import datetime
+from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
 
 from app import db
 from app.models.company_certification import CompanyCertification
-from app.models.queries import query_activities
+from app.models.queries import query_activities, query_company_missions
 
 IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
 IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
@@ -15,6 +16,8 @@ IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
 IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
 REAL_TIME_LOG_TOLERANCE_MINUTES = 15
 REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 0.9
+VALIDATION_MAX_DELAY_DAY = 7
+VALIDATION_MIN_OK_PERCENTAGE = 0.9
 
 
 def get_drivers(company, start, end):
@@ -144,21 +147,50 @@ def compute_not_too_many_changes(company, start, end):
     return True
 
 
+def _is_mission_validated_soon_enough(mission, ok_period_start):
+    mission_end_datetime = mission.ends[0].reception_time
+    if mission_end_datetime.date() >= ok_period_start:
+        return True
+
+    first_validation_time_by_admin = mission.first_validation_time_by_admin
+
+    if not first_validation_time_by_admin:
+        return False
+
+    return first_validation_time_by_admin <= mission.ends[
+        0
+    ].reception_time + timedelta(days=VALIDATION_MAX_DELAY_DAY)
+
+
 def compute_validate_regularly(company, start, end):
-    # Validation régulière de la part du gestionnaire
-    MAX_VALIDATION_DELAY_DAY = 7
-    MIN_VALIDATION_OK_PERCENTAGE = 0.9
 
-    # missions = missions de l'entreprise du mois passé
-    # pour toutes les missions
-    #   si
-    #     - pas de validation et date fin < fin du mois précédent - MAX_VALIDATION_DELAY_DAY
-    #     - ou date validation - date fin > MAX_VALIDATION_DELAY_DAY
-    #      count_validation_ok += 1
-    # si count_validation_ok / len(missions) < MIN_VALIDATION_OK_PERCENTAGE
-    #   return False
+    missions = query_company_missions(
+        company_ids=[company.id],
+        start_time=start,
+        end_time=end,
+        only_ended_missions=True,
+    )
+    missions = [mission.node for mission in missions.edges]
 
-    return True
+    nb_total_missions = len(missions)
+    if nb_total_missions == 0:
+        return False
+
+    # if a mission ends at this date or later, we will assume it is ok
+    ok_period_start = end + timedelta(days=-(VALIDATION_MAX_DELAY_DAY - 1))
+
+    nb_missions_validated_soon_enough = len(
+        [
+            mission
+            for mission in missions
+            if _is_mission_validated_soon_enough(mission, ok_period_start)
+        ]
+    )
+
+    return (
+        nb_missions_validated_soon_enough / nb_total_missions
+        >= VALIDATION_MIN_OK_PERCENTAGE
+    )
 
 
 def _is_activity_in_real_time(activity):

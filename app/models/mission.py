@@ -185,6 +185,15 @@ class Mission(EventBaseModel):
     def validated_by_admin(self):
         return any([v.is_admin and not v.user_id for v in self.validations])
 
+    @property
+    def first_validation_time_by_admin(self):
+        admin_validation_times = [
+            v.reception_time for v in self.validations if v.is_admin
+        ]
+        if len(admin_validation_times) == 0:
+            return None
+        return min(admin_validation_times)
+
     def validated_by_admin_for(self, user):
         return any(
             [
