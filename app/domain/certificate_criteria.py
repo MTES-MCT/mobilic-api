@@ -7,11 +7,14 @@ from dateutil.relativedelta import relativedelta
 
 from app import db
 from app.models.company_certification import CompanyCertification
+from app.models.queries import query_activities
 
 IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
 IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
 IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
 IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
+REAL_TIME_LOG_TOLERANCE_MINUTES = 15
+REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 0.9
 
 
 def get_drivers(company, start, end):
@@ -158,23 +161,39 @@ def compute_validate_regularly(company, start, end):
     return True
 
 
+def _is_activity_in_real_time(activity):
+    return (
+        activity.reception_time - activity.start_time
+    ).total_seconds() / 60.0 < REAL_TIME_LOG_TOLERANCE_MINUTES
+
+
 def compute_log_in_real_time(company, start, end):
-    # sur l'intégralité des activités saisies dans le mois pour l'entreprise,
-    # au moins 90% de "temps réel" ( = saisie à moins de 15mn du début de l'activité)
-    TOLERANCE_REAL_TIME_LOG_MINUTES = 15
-    MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 0.9
 
-    # nb_temps_reel = 0
-    # pour chaque activity
-    # - non dismissed
-    # - pour une mission de cette company
-    # - avec start_time le mois précédent
-    #   nb_temps_reel += 1 si creation_time - start_time > TOLERANCE_REAL_TIME_LOG_MINUTES sinon 0
+    # Quid d'une activity modifiee a posteriori ?
 
-    # si nb_temps_reel / nb_activity > MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
-    #   return True
+    activities = query_activities(
+        include_dismissed_activities=False,
+        start_time=start,
+        end_time=end,
+        company_ids=[company.id],
+    )
 
-    return False
+    nb_activities = activities.count()
+    if nb_activities == 0:
+        return False
+
+    nb_activities_in_real_time = len(
+        [
+            activity
+            for activity in activities
+            if _is_activity_in_real_time(activity)
+        ]
+    )
+
+    return (
+        nb_activities_in_real_time / nb_activities
+        >= REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
+    )
 
 
 def end_of_month(date):
