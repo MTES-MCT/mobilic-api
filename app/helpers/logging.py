@@ -15,7 +15,6 @@ from config import MOBILIC_ENV
 from app.helpers.authentication import current_user, check_auth
 from app.helpers.errors import MobilicError, BadGraphQLRequestError
 
-logging.getLogger("googleapicliet.discovery_cache").setLevel(logging.ERROR)
 root_logger = logging.getLogger()
 
 SENSITIVE_FIELDS = [
