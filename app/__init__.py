@@ -1,11 +1,9 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_apispec import FlaskApiSpec
 from flask_compress import Compress
 from flask_migrate import Migrate
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 
@@ -48,11 +46,6 @@ for name, filter in JINJA_CUSTOM_FILTERS.items():
 
 from app.helpers.mail import mailer
 
-
-if app.config["SENTRY_URL"]:
-    from app.helpers.sentry import setup_sentry
-
-    setup_sentry()
 
 db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}
@@ -118,36 +111,7 @@ from app.controllers.control import control_blueprint
 app.register_blueprint(control_blueprint, url_prefix="/control")
 
 
-@app.route("/debug-sentry")
-def trigger_error():
-    division_by_zero = 1 / 0
-
-
 from app.services import service_decorator
-
-
-@app.route("/services/update-stat-spreadsheet", methods=["POST"])
-@service_decorator
-def compute_usage_stats():
-    from app.services.compute_usage_stats import (
-        compute_and_add_usage_stats_snapshot,
-    )
-
-    success = False
-    try:
-        compute_and_add_usage_stats_snapshot()
-        success = True
-    except Exception as e:
-        app.logger.exception(e)
-
-    return (
-        "La spreadsheet a été mise à jour"
-        if success
-        else "La spreadsheet n'a pas pu être mise à jour à cause d'erreurs.",
-        200 if success else 500,
-    )
-
-
 from app.controllers.misc import *
 
 
