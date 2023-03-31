@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, date
 from sqlalchemy.orm import selectinload
 
 from app.models import User, Employment
@@ -113,7 +113,3 @@ def send_onboarding_emails(today):
                     except Exception as e:
                         app.logger.exception(e)
                     continue
-
-
-if __name__ == "__main__":
-    send_onboarding_emails(date.today())

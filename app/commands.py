@@ -106,3 +106,14 @@ def create_api_key(client_id):
     db_model = ThirdPartyApiKey(client_id=client_id, api_key=token_hash)
     db.session.add(db_model)
     db.session.commit()
+
+
+@app.cli.command("send_onboarding_emails", with_appcontext=True)
+def send_onboarding_emails():
+    from app.services.send_onboarding_emails import send_onboarding_emails
+    from datetime import date
+
+    app.logger.info("Beginning send_onboarding_emails task")
+
+    send_onboarding_emails(date.today())
+    app.logger.info("Ending send_onboarding_emails task")
