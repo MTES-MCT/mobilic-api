@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import math
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
@@ -7,6 +8,7 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
 from app import db
+from app.models import User
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
 
@@ -131,18 +133,45 @@ def compute_be_compliant(company, start, end):
     return True
 
 
+def _has_activity_been_changed(activity, company_id):
+    activity_user_id = activity.user_id
+    # should we check if submitter was admin at the time ?
+    version_author_ids = [
+        version.submitter_id
+        for version in activity.versions
+        if version.submitter_id != activity_user_id
+        and User.query.get(version.submitter_id).has_admin_rights(company_id)
+    ]
+    return len(version_author_ids) > 0
+
+
 def compute_not_too_many_changes(company, start, end):
-    # Nombre de modifications ne dépassant pas 10% des saisies à la semaine (côté gestionnaire)
     MAX_CHANGES_PER_WEEK_PERCENTAGE = 0.1
 
-    # count_all_activities = nb activity for company in month
-    # limit = count_all_activities * MAX_CHANGES_PER_WEEK_PERCENTAGE
-    # pour chacune de ces activity:
-    #   si activity.user <> activity_version.submitter
-    #    et employment(company, submitter) en cours has_admin_right = True
-    #     count_updated_activities += 1
-    #     si count_updated_activities > limit
-    #       return False
+    activities = query_activities(
+        include_dismissed_activities=False,
+        start_time=start,
+        end_time=end,
+        company_ids=[company.id],
+    )
+    # should we include dismissed ? is a dismissal a change ?
+
+    nb_total_activities = activities.count()
+    if nb_total_activities == 0:
+        return False
+
+    limit_nb_activities = math.ceil(
+        MAX_CHANGES_PER_WEEK_PERCENTAGE * nb_total_activities
+    )
+
+    modified_count = 0
+    for activity in activities:
+        if _has_activity_been_changed(
+            activity=activity, company_id=company.id
+        ):
+            modified_count += 1
+            if modified_count >= limit_nb_activities:
+                return False
 
     return True
 
@@ -152,7 +181,7 @@ def _is_mission_validated_soon_enough(mission, ok_period_start):
     if mission_end_datetime.date() >= ok_period_start:
         return True
 
-    first_validation_time_by_admin = mission.first_validation_time_by_admin
+    first_validation_time_by_admin = mission.first_validation_time_by_admin()
 
     if not first_validation_time_by_admin:
         return False
