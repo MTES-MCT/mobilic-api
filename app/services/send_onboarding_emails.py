@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from sqlalchemy.orm import selectinload
 
 from app.models import User, Employment
