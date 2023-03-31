@@ -400,6 +400,11 @@ class ValidateEmployment(AuthenticatedMutation):
 
         try:
             mailer.send_employment_validation_email(employment)
+            if employment.has_admin_rights:
+                mailer.send_manager_onboarding_first_email(employment.user)
+            else:
+                mailer.send_worker_onboarding_first_email(employment.user)
+
         except Exception as e:
             app.logger.exception(e)
 
