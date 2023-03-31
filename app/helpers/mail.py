@@ -728,17 +728,6 @@ class Mailer:
             )
         )
 
-    def send_manager_onboarding_second_email(self, user):
-        self._send_single(
-            self._create_message_from_mailjet_template(
-                2690590,
-                type_=EmailType.MANAGER_ONBOARDING_SECOND_INFO,
-                user=user,
-                first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
-            )
-        )
-
     def send_blocked_account_email(self, user):
         reset_link = self._generate_reset_password_link(user)
         self._send_single(

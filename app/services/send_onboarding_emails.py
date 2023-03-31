@@ -60,23 +60,6 @@ def send_onboarding_emails(today):
                         app.logger.exception(e)
                     continue
 
-            elif company_creation_time == today - timedelta(days=4):
-                if all(
-                    [
-                        e.type != EmailType.MANAGER_ONBOARDING_SECOND_INFO
-                        for e in user.emails
-                    ]
-                ):
-                    target_users.add(user)
-                    try:
-                        app.logger.info(
-                            f"Sending second email of manager onboarding to {user}"
-                        )
-                        mailer.send_manager_onboarding_second_email(user)
-                    except Exception as e:
-                        app.logger.exception(e)
-                    continue
-
         else:
             if employment.validation_time.date() == today - timedelta(days=1):
                 if all(
