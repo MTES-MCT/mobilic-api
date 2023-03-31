@@ -1,20 +1,15 @@
-from datetime import date, datetime
+from datetime import date
 
 from flask.ctx import AppContext
 
-from app import app, db
+from app import app
 from app.domain.certificate_criteria import (
     certificate_expiration,
-    compute_be_active,
     compute_company_certification,
     previous_month_period,
 )
-from app.domain.log_activities import log_activity
-from app.models import Mission
-from app.models.activity import ActivityType
-from app.seed import CompanyFactory, UserFactory
-from app.seed.factories import CompanyFactory, UserFactory
-from app.tests import AuthenticatedUserContext, BaseTest
+from app.seed.factories import CompanyFactory
+from app.tests import BaseTest
 
 
 class TestCertificateCriteria(BaseTest):

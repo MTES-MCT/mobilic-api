@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import json
 import math
 from datetime import date
 from datetime import datetime
@@ -8,9 +9,10 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 
 from app import db
-from app.models import User
+from app.models import User, RegulatoryAlert
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
+from app.models.regulation_check import RegulationCheckType, RegulationCheck
 
 IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
 IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
@@ -20,6 +22,10 @@ REAL_TIME_LOG_TOLERANCE_MINUTES = 15
 REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 0.9
 VALIDATION_MAX_DELAY_DAY = 7
 VALIDATION_MIN_OK_PERCENTAGE = 0.9
+COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
+COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
+COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
+COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
 
 
 def get_drivers(company, start, end):
@@ -102,33 +108,79 @@ def compute_be_active(company, start, end):
 
 
 def is_alert_above_tolerance_limit(regulatory_alert):
-    # Repos journalier (on tolère jusqu'à 15 mn en moins)
-    # Temps de pause (on tolère 5 mn de décalage avec le temps de pause min)
-    # Repos hebdomadaire (pas de tolérance)
-    # Durée du travail quotidien (on tolère jusqu'à 15 minutes de dépassement)
-    # Durée maximale de travail ininterrompu (on tolère 15mn de dépassement)
 
-    TOLERANCE_DAILY_REST_MINUTES = 15
-    TOLERANCE_WORK_DAY_TIME_MINUTES = 15
-    TOLERANCE_DAILY_BREAK_MINUTES = 5
-    TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
+    if not regulatory_alert.extra:
+        return False
 
-    # si regulatory_alert.regulation_check.type = minimumDailyRest
-    #   return extra.min_daily_break_in_hours - extra.breach_period_max_break_in_seconds > TOLERANCE_DAILY_REST_MINUTES
-    # sinon si = maximumWorkDayTime
-    #   return extra.work_range_in_seconds - extra.max_work_range_in_hours > TOLERANCE_WORK_DAY_TIME_MINUTES
-    # sinon si = minimumWorkDayBreak
-    #   return extra.total_break_time_in_seconds - extra.min_break_time_in_minutes > TOLERANCE_DAILY_BREAK_MINUTES
-    # sinon si = maximumUninterruptedWorkTime
-    #   return longest_uninterrupted_work_in_seconds - max_uninterrupted_work_in_hours > TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES
+    extra_json = json.loads(regulatory_alert.extra)
+
+    if (
+        regulatory_alert.regulation_check.type
+        == RegulationCheckType.MINIMUM_DAILY_REST
+    ):
+        return (
+            extra_json["min_daily_break_in_hours"] * 60
+            - extra_json["breach_period_max_break_in_seconds"] / 60
+            > COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES
+        )
+
+    if (
+        regulatory_alert.regulation_check.type
+        == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+    ):
+        return (
+            extra_json["work_range_in_seconds"] / 60
+            - extra_json["max_work_range_in_hours"] * 60
+            > COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES
+        )
+
+    if (
+        regulatory_alert.regulation_check.type
+        == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+    ):
+        return (
+            extra_json["min_break_time_in_minutes"]
+            - extra_json["total_break_time_in_seconds"] / 60
+            > COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES
+        )
+
+    if (
+        regulatory_alert.regulation_check.type
+        == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
+    ):
+        return (
+            extra_json["longest_uninterrupted_work_in_seconds"] / 60
+            - extra_json["max_uninterrupted_work_in_hours"] * 60
+            > COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES
+        )
+
     return True
 
 
 def compute_be_compliant(company, start, end):
-    # pour chaque employé
-    #   pour chaque regulatory_alert (use latest version)
-    #     si is_alert_above_tolerance_limit(regulatory_alert)
-    #       return False
+    users = company.users_between(start, end)
+
+    ## If weekly rest breached, return False directly
+    weekly_regulatory_alerts = RegulatoryAlert.query.filter(
+        RegulatoryAlert.user_id.in_([user.id for user in users]),
+        RegulatoryAlert.day >= start,
+        RegulatoryAlert.day <= end,
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.type
+            == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+        ),
+    )
+    if weekly_regulatory_alerts.count() > 0:
+        return False
+
+    regulatory_alerts = RegulatoryAlert.query.filter(
+        RegulatoryAlert.user_id.in_([user.id for user in users]),
+        RegulatoryAlert.day >= start,
+        RegulatoryAlert.day <= end,
+    )
+    for regulatory_alert in regulatory_alerts:
+        if is_alert_above_tolerance_limit(regulatory_alert):
+            return False
 
     return True
 

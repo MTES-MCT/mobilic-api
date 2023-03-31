@@ -37,6 +37,10 @@ class TestCertificateBeActive(BaseTest):
         self._app_context = AppContext(app)
         self._app_context.__enter__()
 
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
     def test_employee_not_active_no_activities(self):
         self.assertFalse(
             is_employee_active(self.company, self.worker, self.start, self.end)
