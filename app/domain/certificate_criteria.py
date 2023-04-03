@@ -277,7 +277,7 @@ def compute_validate_regularly(company, start, end):
 
 def _is_activity_in_real_time(activity):
     return (
-        activity.reception_time - activity.start_time
+        activity.creation_time - activity.start_time
     ).total_seconds() / 60.0 < REAL_TIME_LOG_TOLERANCE_MINUTES
 
 

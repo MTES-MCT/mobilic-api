@@ -58,6 +58,7 @@ class TestCertificateRealTime(BaseTest):
                 type=ActivityType.WORK,
                 switch_mode=True,
                 reception_time=datetime(2023, 2, 15, 10, 5),
+                creation_time=datetime(2023, 2, 15, 10, 5),
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
@@ -108,6 +109,7 @@ class TestCertificateRealTime(BaseTest):
                     else ActivityType.DRIVE,
                     switch_mode=True,
                     reception_time=datetime(2023, 2, 2, start_hour, 5),
+                    creation_time=datetime(2023, 2, 2, start_hour, 5),
                     start_time=datetime(2023, 2, 2, start_hour),
                 )
             db.session.commit()
@@ -120,6 +122,7 @@ class TestCertificateRealTime(BaseTest):
                 type=ActivityType.SUPPORT,
                 switch_mode=True,
                 reception_time=datetime(2023, 2, 3, 18),
+                creation_time=datetime(2023, 2, 3, 18),
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
@@ -184,6 +187,7 @@ class TestCertificateRealTime(BaseTest):
                 type=ActivityType.WORK,
                 switch_mode=True,
                 reception_time=datetime(2023, 2, 2, 10, 5),
+                creation_time=datetime(2023, 2, 2, 10, 5),
                 start_time=datetime(2023, 2, 2, 10),
             )
             # not real time
@@ -194,6 +198,7 @@ class TestCertificateRealTime(BaseTest):
                 type=ActivityType.DRIVE,
                 switch_mode=True,
                 reception_time=datetime(2023, 2, 3, 18),
+                creation_time=datetime(2023, 2, 3, 18),
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
