@@ -119,6 +119,11 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         regulatory_alert.regulation_check.type
         == RegulationCheckType.MINIMUM_DAILY_REST
     ):
+        if (
+            "min_daily_break_in_hours" not in extra_json
+            or "breach_period_max_break_in_seconds" not in extra_json
+        ):
+            return False
         return (
             extra_json["min_daily_break_in_hours"] * 60
             - extra_json["breach_period_max_break_in_seconds"] / 60
@@ -129,6 +134,11 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         regulatory_alert.regulation_check.type
         == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
     ):
+        if (
+            "work_range_in_seconds" not in extra_json
+            or "max_work_range_in_hours" not in extra_json
+        ):
+            return False
         return (
             extra_json["work_range_in_seconds"] / 60
             - extra_json["max_work_range_in_hours"] * 60
@@ -139,6 +149,8 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         regulatory_alert.regulation_check.type
         == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
     ):
+        if "min_break_time_in_minutes" not in extra_json:
+            return False
         return (
             extra_json["min_break_time_in_minutes"]
             - extra_json["total_break_time_in_seconds"] / 60
@@ -149,6 +161,11 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         regulatory_alert.regulation_check.type
         == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
     ):
+        if (
+            "longest_uninterrupted_work_in_seconds" not in extra_json
+            or "max_uninterrupted_work_in_hours" not in extra_json
+        ):
+            return False
         return (
             extra_json["longest_uninterrupted_work_in_seconds"] / 60
             - extra_json["max_uninterrupted_work_in_hours"] * 60
