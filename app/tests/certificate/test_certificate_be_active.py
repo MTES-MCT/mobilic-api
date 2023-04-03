@@ -310,7 +310,7 @@ class TestCertificateBeActive(BaseTest):
         UserFactory.create(
             post__company=company_small_size, post__has_admin_rights=True
         )
-        for idx_employee in range(IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT):
+        for _ in range(IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT):
             worker = UserFactory.create(
                 post__company=company_small_size, post__has_admin_rights=False
             )
