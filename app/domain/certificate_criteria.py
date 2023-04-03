@@ -2,14 +2,15 @@ import calendar
 import datetime
 import json
 import math
-from datetime import date
 from datetime import datetime
 from datetime import timedelta
 
+import progressbar
 from dateutil.relativedelta import relativedelta
 
 from app import db
-from app.models import User, RegulatoryAlert
+from app.controllers.utils import atomic_transaction
+from app.models import User, RegulatoryAlert, Mission, Company, Activity
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
 from app.models.regulation_check import RegulationCheckType, RegulationCheck
@@ -53,7 +54,7 @@ def is_employee_active(company, employee, start, end):
     nb_activity_per_day = {}
     for activity in activities:
         current_day = activity.start_time.date()
-        last_day = activity.end_time.date() or end
+        last_day = activity.end_time.date() if activity.end_time else end
         while current_day <= last_day:
             if current_day in nb_activity_per_day.keys():
                 nb_activity_per_day[current_day] += 1
@@ -325,11 +326,8 @@ def certificate_expiration(today, lifetime_month):
     return end_of_month(expiration_month)
 
 
-def compute_company_certification(company):
+def compute_company_certification(company, today, start, end):
     CERTIFICATE_LIFETIME_MONTH = 6
-
-    today = date.today()
-    start, end = previous_month_period(today)
 
     be_active = compute_be_active(company, start, end)
     be_compliant = compute_be_compliant(company, start, end)
@@ -363,8 +361,57 @@ def compute_company_certification(company):
     db.session.add(company_certification)
 
 
-def compute_company_certifications_if_needed():
-    # TODO: select eligible companies : at least one mission non dismissed with creation_time in past month
-    companies = []
-    for company in companies:
-        compute_company_certification(company)
+# returns companies with missions created during period with non-dismissed activities
+def get_eligible_companies(start, end):
+
+    missions_subquery = (
+        Mission.query.join(Activity, Activity.mission_id == Mission.id)
+        .filter(
+            Mission.creation_time
+            >= datetime.combine(start, datetime.min.time()),
+            Mission.creation_time
+            <= datetime.combine(end, datetime.max.time()),
+        )
+        .filter(~Activity.is_dismissed)
+        .with_entities(Mission.company_id)
+        .distinct()
+        .subquery()
+    )
+
+    return Company.query.filter(Company.id.in_(missions_subquery))
+
+
+def compute_company_certifications_if_needed(today, verbose=False):
+    # Remove company certifications for attribution date
+    CompanyCertification.query.filter(
+        CompanyCertification.attribution_date == today
+    ).delete()
+
+    start, end = previous_month_period(today)
+
+    companies = get_eligible_companies(start, end)
+    nb_eligible_companies = companies.count()
+
+    if nb_eligible_companies == 0:
+        if verbose:
+            print("0 eligible companies")
+        return
+
+    if verbose:
+        widgets = [progressbar.Percentage(), progressbar.Bar()]
+        max_value = nb_eligible_companies
+        print(f"{max_value} companies to process")
+        bar = progressbar.ProgressBar(
+            widgets=widgets, max_value=max_value
+        ).start()
+
+    for idx_company, company in enumerate(companies):
+        with atomic_transaction(commit_at_end=True):
+            compute_company_certification(
+                company=company, today=today, start=start, end=end
+            )
+        if verbose:
+            bar.update(idx_company)
+
+    if verbose:
+        bar.finish()

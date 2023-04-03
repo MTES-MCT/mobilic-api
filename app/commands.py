@@ -1,12 +1,17 @@
+import datetime
 import os
 import secrets
 import sys
+from datetime import date
 from unittest import TestLoader, TextTestRunner
 
 import click
 import progressbar
 from argon2 import PasswordHasher
 
+from app.domain.certificate_criteria import (
+    compute_company_certifications_if_needed,
+)
 from app.helpers.oauth.models import ThirdPartyApiKey
 from config import TestConfig
 
@@ -106,3 +111,20 @@ def create_api_key(client_id):
     db_model = ThirdPartyApiKey(client_id=client_id, api_key=token_hash)
     db.session.add(db_model)
     db.session.commit()
+
+
+@app.cli.command("run_certificate", with_appcontext=True)
+@click.argument("as_of_date", required=False)
+def run_certificate(as_of_date=None):
+    """
+    Run certificate as of today
+
+    as_of_date is an optional date with format 2023-03-01
+    """
+
+    today = (
+        datetime.datetime.strptime(as_of_date, "%Y-%m-%d").date()
+        if as_of_date is not None
+        else date.today()
+    )
+    compute_company_certifications_if_needed(today, verbose=True)
