@@ -34,6 +34,10 @@ class TestCertificateRealTime(BaseTest):
         self._app_context = AppContext(app)
         self._app_context.__enter__()
 
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
     def test_company_not_real_time_no_activities(self):
         self.assertFalse(
             compute_log_in_real_time(self.company, self.start, self.end)
