@@ -36,5 +36,8 @@ class TestCertificateCriteria(BaseTest):
         self.assertEqual(expiration_date, date(2023, 8, 31))
 
     def test_compute_company_certification(self):
-        compute_company_certification(self.company)
+        start, end = previous_month_period(date(2023, 3, 28))
+        compute_company_certification(
+            company=self.company, start=start, end=end, today=date.today()
+        )
         # should not fail
