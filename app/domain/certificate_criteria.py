@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 
 from app import db
 from app.controllers.utils import atomic_transaction
-from app.helpers.time import end_of_month, previous_month_period
+from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import User, RegulatoryAlert, Mission, Company, Activity
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
@@ -29,20 +29,6 @@ COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
 COMPLIANCE_MAX_ALERTS_ALLOWED = 0
 CERTIFICATE_LIFETIME_MONTH = 6
-
-
-def get_drivers(company, start, end):
-    drivers = []
-    users = company.users_between(start, end)
-    for user in users:
-        # a driver can have admin rights
-        if user.has_admin_rights(
-            company.id
-        ) is False or user.first_activity_after(
-            datetime.combine(start, datetime.min.time())
-        ):
-            drivers.append(user)
-    return drivers
 
 
 def is_employee_active(company, employee, start, end):
@@ -85,7 +71,7 @@ def are_at_least_n_employees_active(company, employees, start, end, n):
 
 
 def compute_be_active(company, start, end):
-    employees = get_drivers(company, start, end)
+    employees = company.get_drivers(start, end)
     return are_at_least_n_employees_active(
         company,
         employees,
@@ -356,10 +342,8 @@ def get_eligible_companies(start, end):
     missions_subquery = (
         Mission.query.join(Activity, Activity.mission_id == Mission.id)
         .filter(
-            Mission.creation_time
-            >= datetime.combine(start, datetime.min.time()),
-            Mission.creation_time
-            <= datetime.combine(end, datetime.max.time()),
+            Mission.creation_time >= to_datetime(start),
+            Mission.creation_time <= to_datetime(end, date_as_end_of_day=True),
         )
         .filter(~Activity.is_dismissed)
         .with_entities(Mission.company_id)

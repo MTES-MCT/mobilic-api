@@ -225,7 +225,7 @@ class TestCertificateBeActive(BaseTest):
         )
         # THEN we should get 0 drivers
         self.assertEqual(
-            0, len(get_drivers(company_without_drivers, self.start, self.end))
+            0, len(company_without_drivers.get_drivers(self.start, self.end))
         )
         # AND company should not be active
         self.assertFalse(
@@ -257,7 +257,7 @@ class TestCertificateBeActive(BaseTest):
         db.session.commit()
         # THEN the admin is considered a driver
         self.assertEqual(
-            1, len(get_drivers(company_without_drivers, self.start, self.end))
+            1, len(company_without_drivers.get_drivers(self.start, self.end))
         )
 
     def test_company_not_active_small_size_one_worker_inactive(self):

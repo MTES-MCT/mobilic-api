@@ -28,7 +28,7 @@ from app.tests import BaseTest
 from app.tests.helpers import init_regulation_checks_data
 
 
-class TestCertificateBeActive(BaseTest):
+class TestCertificateBeCompliant(BaseTest):
     def setUp(self):
         super().setUp()
         init_regulation_checks_data()

@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
+from app.helpers.time import to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
@@ -59,6 +60,17 @@ class Company(BaseModel, WithEmploymentHistory):
         user_ids = [e.user_id for e in active_employments]
         users = User.query.filter(User.id.in_(user_ids))
         return users
+
+    def get_drivers(self, start, end):
+        drivers = []
+        users = self.users_between(start, end)
+        for user in users:
+            # a driver can have admin rights
+            if user.has_admin_rights(
+                self.id
+            ) is False or user.first_activity_after(to_datetime(start)):
+                drivers.append(user)
+        return drivers
 
     def query_current_users(self):
         from app.models import User
