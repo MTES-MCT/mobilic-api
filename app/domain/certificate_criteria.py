@@ -27,6 +27,7 @@ COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
+CERTIFICATE_LIFETIME_MONTH = 6
 
 
 def get_drivers(company, start, end):
@@ -327,14 +328,14 @@ def compute_log_in_real_time(company, start, end):
     )
 
 
-def certificate_expiration(today, lifetime_month):
-    expiration_month = today + relativedelta(months=+lifetime_month - 1)
+def certificate_expiration(today):
+    expiration_month = today + relativedelta(
+        months=+CERTIFICATE_LIFETIME_MONTH - 1
+    )
     return end_of_month(expiration_month)
 
 
 def compute_company_certification(company, today, start, end):
-    CERTIFICATE_LIFETIME_MONTH = 6
-
     be_active = compute_be_active(company, start, end)
     be_compliant = compute_be_compliant(company, start, end)
     not_too_many_changes = compute_not_too_many_changes(company, start, end)
@@ -348,11 +349,7 @@ def compute_company_certification(company, today, start, end):
         and validate_regularly
         and log_in_real_time
     )
-    expiration_date = (
-        certificate_expiration(today, CERTIFICATE_LIFETIME_MONTH)
-        if certified
-        else None
-    )
+    expiration_date = certificate_expiration(today) if certified else None
 
     company_certification = CompanyCertification(
         company=company,

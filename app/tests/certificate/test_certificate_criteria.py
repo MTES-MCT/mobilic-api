@@ -25,9 +25,7 @@ class TestCertificateCriteria(BaseTest):
         super().tearDown()
 
     def test_certificate_expiration(self):
-        expiration_date = certificate_expiration(
-            date(2023, 3, 28), lifetime_month=6
-        )
+        expiration_date = certificate_expiration(date(2023, 3, 28))
         self.assertEqual(expiration_date, date(2023, 8, 31))
 
     def test_compute_company_certification(self):
