@@ -25,7 +25,7 @@ def run_scenario_certificated():
     month_start, _ = previous_month_period(date.today())
 
     company = CompanyFactory.create(
-        usual_name=f"Les bons eleves", siren=f"00000822"
+        usual_name="Les bons eleves", siren="00000822"
     )
 
     admin = UserFactory.create(
@@ -42,8 +42,8 @@ def run_scenario_certificated():
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
         password=DEFAULT_PASSWORD,
-        first_name=f"Employee",
-        last_name=f"Du Mois",
+        first_name="Employee",
+        last_name="Du Mois",
     )
     EmploymentFactory.create(
         company=company,
@@ -53,7 +53,7 @@ def run_scenario_certificated():
     )
 
     vehicle = Vehicle(
-        registration_number=f"XXX-001-BREACH",
+        registration_number="XXX-001-BREACH",
         alias=f"Vehicule - Corp Breach",
         submitter=admin,
         company_id=company.id,

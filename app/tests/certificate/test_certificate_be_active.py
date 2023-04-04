@@ -79,7 +79,7 @@ class TestCertificateBeActive(BaseTest):
         )
 
     def test_employee_not_active_not_enough_days_with_enough_activities(self):
-        # GIVEN employee has enough days with enough activities in the month
+        # GIVEN employee has not enough days with enough activities in the month
         for day in range(3, 3 + IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH - 1):
             mission_date = datetime(2023, 2, day)
             with AuthenticatedUserContext(user=self.worker):
@@ -105,13 +105,13 @@ class TestCertificateBeActive(BaseTest):
                     )
             db.session.commit()
 
-        # THEN he is active
+        # THEN he is not active
         self.assertFalse(
             is_employee_active(self.company, self.worker, self.start, self.end)
         )
 
     def test_employee_not_active_enough_days_with_not_enough_activities(self):
-        # GIVEN employee has enough days with enough activities in the month
+        # GIVEN employee has enough days but without enough activities
         for day in range(3, 3 + IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH):
             mission_date = datetime(2023, 2, day)
             with AuthenticatedUserContext(user=self.worker):
@@ -137,7 +137,7 @@ class TestCertificateBeActive(BaseTest):
                     )
             db.session.commit()
 
-        # THEN he is active
+        # THEN he is not active
         self.assertFalse(
             is_employee_active(self.company, self.worker, self.start, self.end)
         )
