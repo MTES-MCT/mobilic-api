@@ -6,8 +6,8 @@ from app import app
 from app.domain.certificate_criteria import (
     certificate_expiration,
     compute_company_certification,
-    previous_month_period,
 )
+from app.helpers.time import previous_month_period
 from app.seed.factories import CompanyFactory
 from app.tests import BaseTest
 
@@ -23,11 +23,6 @@ class TestCertificateCriteria(BaseTest):
     def tearDown(self):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
-
-    def test_previous_month_period(self):
-        start, end = previous_month_period(date(2023, 3, 28))
-        self.assertEqual(start, date(2023, 2, 1))
-        self.assertEqual(end, date(2023, 2, 28))
 
     def test_certificate_expiration(self):
         expiration_date = certificate_expiration(

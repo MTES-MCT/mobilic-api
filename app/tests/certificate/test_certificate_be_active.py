@@ -5,7 +5,6 @@ from flask.ctx import AppContext
 from app import app, db
 from app.domain.certificate_criteria import (
     is_employee_active,
-    previous_month_period,
     IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH,
     IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY,
     get_drivers,
@@ -14,6 +13,7 @@ from app.domain.certificate_criteria import (
     IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
 )
 from app.domain.log_activities import log_activity
+from app.helpers.time import previous_month_period
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.seed import (

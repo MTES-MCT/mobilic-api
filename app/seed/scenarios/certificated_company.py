@@ -2,7 +2,7 @@ import datetime
 from datetime import date
 
 from app import db
-from app.domain.certificate_criteria import previous_month_period
+from app.helpers.time import previous_month_period
 from app.models import (
     Vehicle,
 )

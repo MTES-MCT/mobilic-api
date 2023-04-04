@@ -4,10 +4,10 @@ from flask.ctx import AppContext
 
 from app import app, db
 from app.domain.certificate_criteria import (
-    previous_month_period,
     compute_not_too_many_changes,
 )
 from app.domain.log_activities import log_activity
+from app.helpers.time import previous_month_period
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.seed import (

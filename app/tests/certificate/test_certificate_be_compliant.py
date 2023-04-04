@@ -5,7 +5,6 @@ from flask.ctx import AppContext
 
 from app import app, db
 from app.domain.certificate_criteria import (
-    previous_month_period,
     compute_be_compliant,
     is_alert_above_tolerance_limit,
     COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES,
@@ -16,6 +15,7 @@ from app.domain.certificate_criteria import (
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
+from app.helpers.time import previous_month_period
 from app.models import Mission, RegulatoryAlert, RegulationCheck
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheckType

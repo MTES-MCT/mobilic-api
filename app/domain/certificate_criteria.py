@@ -1,4 +1,3 @@
-import calendar
 import datetime
 import json
 import math
@@ -10,6 +9,7 @@ from dateutil.relativedelta import relativedelta
 
 from app import db
 from app.controllers.utils import atomic_transaction
+from app.helpers.time import end_of_month, previous_month_period
 from app.models import User, RegulatoryAlert, Mission, Company, Activity
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
@@ -327,17 +327,6 @@ def compute_log_in_real_time(company, start, end):
     )
 
 
-def end_of_month(date):
-    return date.replace(day=calendar.monthrange(date.year, date.month)[1])
-
-
-def previous_month_period(today):
-    previous_month = today + relativedelta(months=-1)
-    start = previous_month.replace(day=1)
-    end = end_of_month(previous_month)
-    return start, end
-
-
 def certificate_expiration(today, lifetime_month):
     expiration_month = today + relativedelta(months=+lifetime_month - 1)
     return end_of_month(expiration_month)
@@ -398,7 +387,7 @@ def get_eligible_companies(start, end):
     return Company.query.filter(Company.id.in_(missions_subquery))
 
 
-def compute_company_certifications_if_needed(today, verbose=False):
+def compute_company_certifications(today, verbose=False):
     # Remove company certifications for attribution date
     CompanyCertification.query.filter(
         CompanyCertification.attribution_date == today

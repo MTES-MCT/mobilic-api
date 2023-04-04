@@ -5,11 +5,11 @@ from flask.ctx import AppContext
 from app import app, db
 from app.controllers.activity import edit_activity
 from app.domain.certificate_criteria import (
-    previous_month_period,
     compute_log_in_real_time,
     REAL_TIME_LOG_TOLERANCE_MINUTES,
 )
 from app.domain.log_activities import log_activity
+from app.helpers.time import previous_month_period
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.seed import (

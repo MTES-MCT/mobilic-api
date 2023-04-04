@@ -3,22 +3,13 @@ from datetime import date, datetime
 from flask.ctx import AppContext
 
 from app import app, db
-from app.domain.certificate_criteria import (
-    previous_month_period,
-    compute_log_in_real_time,
-    compute_validate_regularly,
-)
+from app.domain.certificate_criteria import compute_validate_regularly
 from app.domain.log_activities import log_activity
-from app.domain.validation import validate_mission
+from app.helpers.time import previous_month_period
 from app.models import Mission, MissionEnd, MissionValidation
 from app.models.activity import ActivityType
-from app.seed import (
-    CompanyFactory,
-    UserFactory,
-    AuthenticatedUserContext,
-)
-from app.tests import BaseTest, test_post_graphql
-from app.tests.helpers import ApiRequests
+from app.seed import AuthenticatedUserContext, CompanyFactory, UserFactory
+from app.tests import BaseTest
 
 
 class TestCertificateValidation(BaseTest):

@@ -9,9 +9,7 @@ import click
 import progressbar
 from argon2 import PasswordHasher
 
-from app.domain.certificate_criteria import (
-    compute_company_certifications_if_needed,
-)
+from app.domain.certificate_criteria import compute_company_certifications
 from app.helpers.oauth.models import ThirdPartyApiKey
 from config import TestConfig
 
@@ -127,4 +125,4 @@ def run_certificate(as_of_date=None):
         if as_of_date is not None
         else date.today()
     )
-    compute_company_certifications_if_needed(today, verbose=True)
+    compute_company_certifications(today, verbose=True)
