@@ -27,6 +27,7 @@ COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
+COMPLIANCE_MAX_ALERTS_ALLOWED = 0
 CERTIFICATE_LIFETIME_MONTH = 6
 
 
@@ -73,16 +74,6 @@ def is_employee_active(company, employee, start, end):
     return False
 
 
-def are_all_employees_active(company, employees, start, end):
-    if len(employees) == 0:
-        return False
-
-    for employee in employees:
-        if not is_employee_active(company, employee, start, end):
-            return False
-    return True
-
-
 def are_at_least_n_employees_active(company, employees, start, end, n):
     nb_employees_active = 0
     for employee in employees:
@@ -94,18 +85,13 @@ def are_at_least_n_employees_active(company, employees, start, end, n):
 
 
 def compute_be_active(company, start, end):
-
     employees = get_drivers(company, start, end)
-
-    if len(employees) < IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT:
-        return are_all_employees_active(company, employees, start, end)
-
     return are_at_least_n_employees_active(
         company,
         employees,
         start,
         end,
-        IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
+        min(len(employees), IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE),
     )
 
 
@@ -189,7 +175,7 @@ def compute_be_compliant(company, start, end):
             == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
         ),
     )
-    if weekly_regulatory_alerts.count() > 0:
+    if weekly_regulatory_alerts.count() > COMPLIANCE_MAX_ALERTS_ALLOWED:
         return False
 
     regulatory_alerts = RegulatoryAlert.query.filter(
@@ -381,7 +367,7 @@ def get_eligible_companies(start, end):
         .subquery()
     )
 
-    return Company.query.filter(Company.id.in_(missions_subquery))
+    return Company.query.filter(Company.id.in_(missions_subquery)).all()
 
 
 def compute_company_certifications(today, verbose=False):
@@ -393,7 +379,7 @@ def compute_company_certifications(today, verbose=False):
     start, end = previous_month_period(today)
 
     companies = get_eligible_companies(start, end)
-    nb_eligible_companies = companies.count()
+    nb_eligible_companies = len(companies)
 
     if nb_eligible_companies == 0:
         if verbose:
@@ -408,13 +394,15 @@ def compute_company_certifications(today, verbose=False):
             widgets=widgets, max_value=max_value
         ).start()
 
-    for idx_company, company in enumerate(companies):
+    i = 0
+    for company in companies:
         with atomic_transaction(commit_at_end=True):
             compute_company_certification(
                 company=company, today=today, start=start, end=end
             )
         if verbose:
-            bar.update(idx_company)
+            i += 1
+            bar.update(i)
 
     if verbose:
         bar.finish()
