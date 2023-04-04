@@ -7,7 +7,6 @@ from app.domain.certificate_criteria import (
     is_employee_active,
     IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH,
     IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY,
-    get_drivers,
     compute_be_active,
     IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT,
     IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
