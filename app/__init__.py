@@ -111,19 +111,7 @@ from app.controllers.control import control_blueprint
 app.register_blueprint(control_blueprint, url_prefix="/control")
 
 
-from app.services import service_decorator
 from app.controllers.misc import *
-
-
-@app.route("/services/send-onboarding-emails", methods=["POST"])
-@service_decorator
-def send_onboarding_emails():
-    from app.services.send_onboarding_emails import send_onboarding_emails
-    from datetime import date
-
-    send_onboarding_emails(date.today())
-
-    return "C'est fait", 200
 
 
 @app.errorhandler(MobilicError)

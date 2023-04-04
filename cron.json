@@ -1,0 +1,7 @@
+{
+  "jobs": [
+    {
+      "command": "0 3 * * * flask send_onboarding_emails"
+    }
+  ]
+}
