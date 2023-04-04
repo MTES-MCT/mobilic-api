@@ -126,3 +126,14 @@ def run_certificate(as_of_date=None):
         else date.today()
     )
     compute_company_certifications(today, verbose=True)
+
+
+@app.cli.command("send_onboarding_emails", with_appcontext=True)
+def send_onboarding_emails():
+    from app.services.send_onboarding_emails import send_onboarding_emails
+    from datetime import date
+
+    app.logger.info("Beginning send_onboarding_emails task")
+
+    send_onboarding_emails(date.today())
+    app.logger.info("Ending send_onboarding_emails task")
