@@ -125,7 +125,7 @@ def run_certificate(as_of_date=None):
         if as_of_date is not None
         else date.today()
     )
-    compute_company_certifications(today, verbose=True)
+    compute_company_certifications(today)
 
 
 @app.cli.command("send_onboarding_emails", with_appcontext=True)

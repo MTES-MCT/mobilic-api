@@ -1,10 +1,7 @@
-import datetime
 import json
 import math
-from datetime import datetime
 from datetime import timedelta
 
-import progressbar
 from dateutil.relativedelta import relativedelta
 
 from app import db
@@ -354,7 +351,7 @@ def get_eligible_companies(start, end):
     return Company.query.filter(Company.id.in_(missions_subquery)).all()
 
 
-def compute_company_certifications(today, verbose=False):
+def compute_company_certifications(today):
     # Remove company certifications for attribution date
     CompanyCertification.query.filter(
         CompanyCertification.attribution_date == today
@@ -366,27 +363,10 @@ def compute_company_certifications(today, verbose=False):
     nb_eligible_companies = len(companies)
 
     if nb_eligible_companies == 0:
-        if verbose:
-            print("0 eligible companies")
         return
 
-    if verbose:
-        widgets = [progressbar.Percentage(), progressbar.Bar()]
-        max_value = nb_eligible_companies
-        print(f"{max_value} companies to process")
-        bar = progressbar.ProgressBar(
-            widgets=widgets, max_value=max_value
-        ).start()
-
-    i = 0
     for company in companies:
         with atomic_transaction(commit_at_end=True):
             compute_company_certification(
                 company=company, today=today, start=start, end=end
             )
-        if verbose:
-            i += 1
-            bar.update(i)
-
-    if verbose:
-        bar.finish()
