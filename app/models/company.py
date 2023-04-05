@@ -72,6 +72,10 @@ class Company(BaseModel, WithEmploymentHistory):
                 drivers.append(user)
         return drivers
 
+    def get_admins(self, start, end):
+        users = self.users_between(start, end)
+        return [user for user in users if user.has_admin_rights(self.id)]
+
     def query_current_users(self):
         from app.models import User
 

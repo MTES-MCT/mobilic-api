@@ -174,13 +174,13 @@ def compute_be_compliant(company, start, end):
     return True
 
 
-def _has_activity_been_changed(activity, company_id):
+def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
     activity_user_id = activity.user_id
     version_author_ids = [
         version.submitter_id
         for version in activity.versions
         if version.submitter_id != activity_user_id
-        and User.query.get(version.submitter_id).has_admin_rights(company_id)
+        and version.submitter_id in admin_ids
     ]
     return len(version_author_ids) > 0
 
@@ -202,10 +202,12 @@ def compute_not_too_many_changes(company, start, end):
         CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100.0 * nb_total_activities
     )
 
+    company_admin_ids = [admin.id for admin in company.get_admins(start, end)]
+
     modified_count = 0
     for activity in activities:
-        if _has_activity_been_changed(
-            activity=activity, company_id=company.id
+        if _has_activity_been_created_or_modified_by_an_admin(
+            activity=activity, admin_ids=company_admin_ids
         ):
             modified_count += 1
             if modified_count >= limit_nb_activities:
