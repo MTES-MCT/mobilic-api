@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import func, exists, and_
 
@@ -48,7 +48,3 @@ def send_onboarding_emails(today):
         except Exception as e:
             app.logger.exception(e)
         continue
-
-
-if __name__ == "__main__":
-    send_onboarding_emails(date.today())
