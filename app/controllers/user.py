@@ -3,7 +3,7 @@ import jwt
 from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from urllib.parse import quote, urlencode, unquote
 from io import BytesIO
 
@@ -296,10 +296,26 @@ class ActivateEmail(graphene.Mutation):
             user.has_activated_email = True
 
             try:
-                if len(user.current_company_ids_with_admin_rights or []) > 0:
-                    mailer.send_manager_onboarding_first_email(user)
-                else:
-                    mailer.send_worker_onboarding_first_email(user)
+                all_related_company_ids = [
+                    e.company_id
+                    for e in user.active_employments_at(
+                        date.today(), include_pending_ones=True
+                    )
+                ]
+                user_related_to_excluded_company = any(
+                    company_id in all_related_company_ids
+                    for company_id in app.config[
+                        "COMPANY_EXCLUDE_ONBOARDING_EMAILS"
+                    ]
+                )
+                if not user_related_to_excluded_company:
+                    if (
+                        len(user.current_company_ids_with_admin_rights or [])
+                        > 0
+                    ):
+                        mailer.send_manager_onboarding_first_email(user)
+                    else:
+                        mailer.send_worker_onboarding_first_email(user)
             except Exception as e:
                 app.logger.exception(e)
 
