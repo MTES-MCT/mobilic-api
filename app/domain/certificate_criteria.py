@@ -176,7 +176,6 @@ def compute_be_compliant(company, start, end):
 
 def _has_activity_been_changed(activity, company_id):
     activity_user_id = activity.user_id
-    # should we check if submitter was admin at the time ?
     version_author_ids = [
         version.submitter_id
         for version in activity.versions
