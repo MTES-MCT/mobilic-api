@@ -26,6 +26,7 @@ COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
 COMPLIANCE_MAX_ALERTS_ALLOWED = 0
 CERTIFICATE_LIFETIME_MONTH = 6
+CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE = 10
 
 
 def is_employee_active(company, employee, start, end):
@@ -186,7 +187,6 @@ def _has_activity_been_changed(activity, company_id):
 
 
 def compute_not_too_many_changes(company, start, end):
-    MAX_CHANGES_PER_WEEK_PERCENTAGE = 0.1
 
     activities = query_activities(
         include_dismissed_activities=False,
@@ -201,7 +201,7 @@ def compute_not_too_many_changes(company, start, end):
         return False
 
     limit_nb_activities = math.ceil(
-        MAX_CHANGES_PER_WEEK_PERCENTAGE * nb_total_activities
+        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100 * nb_total_activities
     )
 
     modified_count = 0
