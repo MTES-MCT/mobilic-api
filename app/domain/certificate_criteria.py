@@ -225,9 +225,9 @@ def _is_mission_validated_soon_enough(mission, ok_period_start):
     if not first_validation_time_by_admin:
         return False
 
-    return first_validation_time_by_admin <= mission.ends[
-        0
-    ].reception_time + timedelta(days=VALIDATION_MAX_DELAY_DAY)
+    return first_validation_time_by_admin <= mission_end_datetime + timedelta(
+        days=VALIDATION_MAX_DELAY_DAY
+    )
 
 
 def compute_validate_regularly(company, start, end):
