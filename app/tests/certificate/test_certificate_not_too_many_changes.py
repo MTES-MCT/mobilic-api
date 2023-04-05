@@ -36,8 +36,8 @@ class TestCertificateNotTooManyChanges(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def test_too_many_changes_ko_no_activities(self):
-        self.assertFalse(
+    def test_too_many_changes_ok_no_activities(self):
+        self.assertTrue(
             compute_not_too_many_changes(self.company, self.start, self.end)
         )
 

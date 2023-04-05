@@ -38,8 +38,8 @@ class TestCertificateRealTime(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def test_company_not_real_time_no_activities(self):
-        self.assertFalse(
+    def test_company_real_time_ok_no_activities(self):
+        self.assertTrue(
             compute_log_in_real_time(self.company, self.start, self.end)
         )
 

@@ -17,9 +17,9 @@ IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
 IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
 IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
 REAL_TIME_LOG_TOLERANCE_MINUTES = 15
-REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 0.9
+REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 90
 VALIDATION_MAX_DELAY_DAY = 7
-VALIDATION_MIN_OK_PERCENTAGE = 0.9
+VALIDATION_MIN_OK_PERCENTAGE = 90
 COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
@@ -193,14 +193,13 @@ def compute_not_too_many_changes(company, start, end):
         end_time=end,
         company_ids=[company.id],
     )
-    # should we include dismissed ? is a dismissal a change ?
 
     nb_total_activities = activities.count()
     if nb_total_activities == 0:
-        return False
+        return True
 
     limit_nb_activities = math.ceil(
-        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100 * nb_total_activities
+        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100.0 * nb_total_activities
     )
 
     modified_count = 0
@@ -242,23 +241,26 @@ def compute_validate_regularly(company, start, end):
 
     nb_total_missions = len(missions)
     if nb_total_missions == 0:
-        return False
+        return True
+
+    target_nb_missions_validated_soon_enough = math.ceil(
+        nb_total_missions * VALIDATION_MIN_OK_PERCENTAGE / 100.0
+    )
 
     # if a mission ends at this date or later, we will assume it is ok
     ok_period_start = end + timedelta(days=-(VALIDATION_MAX_DELAY_DAY - 1))
 
-    nb_missions_validated_soon_enough = len(
-        [
-            mission
-            for mission in missions
-            if _is_mission_validated_soon_enough(mission, ok_period_start)
-        ]
-    )
+    nb_missions_validated_soon_enough = 0
+    for mission in missions:
+        if _is_mission_validated_soon_enough(mission, ok_period_start):
+            nb_missions_validated_soon_enough += 1
+        if (
+            nb_missions_validated_soon_enough
+            >= target_nb_missions_validated_soon_enough
+        ):
+            return True
 
-    return (
-        nb_missions_validated_soon_enough / nb_total_missions
-        >= VALIDATION_MIN_OK_PERCENTAGE
-    )
+    return False
 
 
 def _is_activity_in_real_time(activity):
@@ -269,8 +271,6 @@ def _is_activity_in_real_time(activity):
 
 def compute_log_in_real_time(company, start, end):
 
-    # Quid d'une activity modifiee a posteriori ?
-
     activities = query_activities(
         include_dismissed_activities=False,
         start_time=start,
@@ -280,20 +280,22 @@ def compute_log_in_real_time(company, start, end):
 
     nb_activities = activities.count()
     if nb_activities == 0:
-        return False
+        return True
 
-    nb_activities_in_real_time = len(
-        [
-            activity
-            for activity in activities
-            if _is_activity_in_real_time(activity)
-        ]
+    target_nb_activities_in_real_time = math.ceil(
+        REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
+        / 100.0
+        * nb_activities
     )
 
-    return (
-        nb_activities_in_real_time / nb_activities
-        >= REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
-    )
+    nb_activities_in_real_time = 0
+    for activity in activities:
+        if _is_activity_in_real_time(activity):
+            nb_activities_in_real_time += 1
+        if nb_activities_in_real_time >= target_nb_activities_in_real_time:
+            return True
+
+    return False
 
 
 def certificate_expiration(today):

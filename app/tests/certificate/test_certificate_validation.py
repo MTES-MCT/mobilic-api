@@ -30,8 +30,8 @@ class TestCertificateValidation(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def test_company_validation_ko_no_misssion(self):
-        self.assertFalse(
+    def test_company_validation_ok_no_misssion(self):
+        self.assertTrue(
             compute_validate_regularly(self.company, self.start, self.end)
         )
 
