@@ -54,7 +54,7 @@ def run_scenario_certificated():
 
     vehicle = Vehicle(
         registration_number="XXX-001-BREACH",
-        alias=f"Vehicule - Corp Breach",
+        alias="Vehicule - Corp Breach",
         submitter=admin,
         company_id=company.id,
     )
