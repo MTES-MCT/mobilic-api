@@ -1,0 +1,7 @@
+{
+  "jobs": [
+    {
+      "command": "0 4 1 * * flask run_certificate"
+    }
+  ]
+}
