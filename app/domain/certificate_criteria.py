@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 from app import db
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
-from app.models import User, RegulatoryAlert, Mission, Company, Activity
+from app.models import RegulatoryAlert, Mission, Company, Activity
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
 from app.models.regulation_check import RegulationCheckType, RegulationCheck
@@ -192,9 +192,9 @@ def compute_not_too_many_changes(company, start, end):
         start_time=start,
         end_time=end,
         company_ids=[company.id],
-    )
+    ).all()
 
-    nb_total_activities = activities.count()
+    nb_total_activities = len(activities)
     if nb_total_activities == 0:
         return True
 
@@ -278,9 +278,9 @@ def compute_log_in_real_time(company, start, end):
         start_time=start,
         end_time=end,
         company_ids=[company.id],
-    )
+    ).all()
 
-    nb_activities = activities.count()
+    nb_activities = len(activities)
     if nb_activities == 0:
         return True
 
