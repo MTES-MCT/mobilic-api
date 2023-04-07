@@ -10,7 +10,7 @@ from app.domain.certificate_criteria import (
     COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES,
     COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES,
     COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES,
-    COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES,
+    COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES,
 )
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
@@ -190,7 +190,7 @@ class TestCertificateBeCompliant(BaseTest):
                     "max_uninterrupted_work_in_hours": 8,
                     "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
                     + (
-                        COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES
+                        COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
                         + 2
                     )
                     * 60,
@@ -216,7 +216,7 @@ class TestCertificateBeCompliant(BaseTest):
                     "max_uninterrupted_work_in_hours": 8,
                     "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
                     + (
-                        COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES
+                        COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
                         - 2
                     )
                     * 60,

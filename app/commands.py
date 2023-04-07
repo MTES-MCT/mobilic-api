@@ -125,7 +125,11 @@ def run_certificate(as_of_date=None):
         if as_of_date is not None
         else date.today()
     )
+    app.logger.info("Script run_certificate began")
+
     compute_company_certifications(today)
+
+    app.logger.info("Script run_certificate done")
 
 
 @app.cli.command("send_onboarding_emails", with_appcontext=True)

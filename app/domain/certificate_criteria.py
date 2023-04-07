@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from dateutil.relativedelta import relativedelta
 
-from app import db
+from app import db, app
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
@@ -23,7 +23,7 @@ VALIDATION_MIN_OK_PERCENTAGE = 90
 COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
-COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES = 15
+COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES = 15
 COMPLIANCE_MAX_ALERTS_ALLOWED = 0
 CERTIFICATE_LIFETIME_MONTH = 6
 CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE = 10
@@ -140,7 +140,7 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         return (
             extra_json["longest_uninterrupted_work_in_seconds"] / 60
             - extra_json["max_uninterrupted_work_in_hours"] * 60
-            > COMPLIANCE_TOLERANCE_MAX_ININTERRUPTED_WORK_TIME_MINUTES
+            > COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
         )
 
     return True
@@ -149,7 +149,7 @@ def is_alert_above_tolerance_limit(regulatory_alert):
 def compute_be_compliant(company, start, end):
     users = company.users_between(start, end)
 
-    ## If weekly rest breached, return False directly
+    # If weekly rest breached, return False directly
     weekly_regulatory_alerts = RegulatoryAlert.query.filter(
         RegulatoryAlert.user_id.in_([user.id for user in users]),
         RegulatoryAlert.day >= start,
@@ -364,12 +364,16 @@ def compute_company_certifications(today):
 
     companies = get_eligible_companies(start, end)
     nb_eligible_companies = len(companies)
+    app.logger.info(f"{nb_eligible_companies} eligible companies found")
 
     if nb_eligible_companies == 0:
         return
 
     for company in companies:
         with atomic_transaction(commit_at_end=True):
-            compute_company_certification(
-                company=company, today=today, start=start, end=end
-            )
+            try:
+                compute_company_certification(
+                    company=company, today=today, start=start, end=end
+                )
+            except Exception as e:
+                app.logger.error(f"Error with company {company}", exc_info=e)
