@@ -10,6 +10,7 @@ from app.domain.log_activities import log_activity
 from app.helpers.time import previous_month_period
 from app.models import Mission
 from app.models.activity import ActivityType
+from app.models.queries import query_activities
 from app.seed import (
     CompanyFactory,
     UserFactory,
@@ -36,10 +37,19 @@ class TestCertificateNotTooManyChanges(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def test_too_many_changes_ok_no_activities(self):
-        self.assertTrue(
-            compute_not_too_many_changes(self.company, self.start, self.end)
+    def _compute_not_too_many_changes(self):
+        activities = query_activities(
+            include_dismissed_activities=False,
+            start_time=self.start,
+            end_time=self.end,
+            company_ids=[self.company.id],
+        ).all()
+        return compute_not_too_many_changes(
+            self.company, self.start, self.end, activities
         )
+
+    def test_too_many_changes_ok_no_activities(self):
+        self.assertTrue(self._compute_not_too_many_changes())
 
     def test_too_many_changes_ok_one_activity_unmodified(self):
         mission_date = datetime(2023, 2, 15)
@@ -59,9 +69,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertTrue(
-            compute_not_too_many_changes(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_not_too_many_changes())
 
     def test_too_many_changes_ko_one_activity_modified(self):
         mission_date = datetime(2023, 2, 15)
@@ -87,9 +95,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
                 start_time=datetime(2023, 2, 15, 11),
                 end_time=datetime(2023, 2, 15, 13),
             )
-        self.assertFalse(
-            compute_not_too_many_changes(self.company, self.start, self.end)
-        )
+        self.assertFalse(self._compute_not_too_many_changes())
 
     def test_too_many_changes_several_activities(self):
         mission_date = datetime(2023, 2, 15)
@@ -115,9 +121,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
             db.session.commit()
 
         # Activities are not modified => ok
-        self.assertTrue(
-            compute_not_too_many_changes(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_not_too_many_changes())
         with AuthenticatedUserContext(user=self.admin):
             activities[0].revise(
                 revision_time=datetime(2023, 2, 16, 10),
@@ -126,9 +130,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
             )
 
         # Only one modified is still ok
-        self.assertTrue(
-            compute_not_too_many_changes(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_not_too_many_changes())
 
         with AuthenticatedUserContext(user=self.admin):
             activities[1].revise(
@@ -138,6 +140,4 @@ class TestCertificateNotTooManyChanges(BaseTest):
             )
 
         # Two modified is not ok
-        self.assertFalse(
-            compute_not_too_many_changes(self.company, self.start, self.end)
-        )
+        self.assertFalse(self._compute_not_too_many_changes())

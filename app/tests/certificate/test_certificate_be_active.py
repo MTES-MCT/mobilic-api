@@ -8,8 +8,6 @@ from app.domain.certificate_criteria import (
     IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH,
     IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY,
     compute_be_active,
-    IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT,
-    IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE,
 )
 from app.domain.log_activities import log_activity
 from app.helpers.time import previous_month_period
@@ -265,7 +263,7 @@ class TestCertificateBeActive(BaseTest):
         UserFactory.create(
             post__company=company_small_size, post__has_admin_rights=True
         )
-        for idx_employee in range(IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT):
+        for idx_employee in range(3):
             worker = UserFactory.create(
                 post__company=company_small_size, post__has_admin_rights=False
             )
@@ -298,8 +296,8 @@ class TestCertificateBeActive(BaseTest):
                             )
                     db.session.commit()
 
-        # THEN company is not active
-        self.assertFalse(
+        # THEN company is active
+        self.assertTrue(
             compute_be_active(company_small_size, self.start, self.end)
         )
 
@@ -309,7 +307,7 @@ class TestCertificateBeActive(BaseTest):
         UserFactory.create(
             post__company=company_small_size, post__has_admin_rights=True
         )
-        for _ in range(IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT):
+        for _ in range(3):
             worker = UserFactory.create(
                 post__company=company_small_size, post__has_admin_rights=False
             )
@@ -351,14 +349,12 @@ class TestCertificateBeActive(BaseTest):
         UserFactory.create(
             post__company=company_large_size, post__has_admin_rights=True
         )
-        for idx_employee in range(
-            IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT * 2
-        ):
+        for idx_employee in range(18):
             worker = UserFactory.create(
                 post__company=company_large_size, post__has_admin_rights=False
             )
-            # first 3 employees are active
-            if idx_employee < IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE:
+            # 60% employees are active
+            if idx_employee < 13:
                 for day in range(3, 3 + IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH):
                     mission_date = datetime(2023, 2, day)
                     with AuthenticatedUserContext(user=worker):
@@ -397,14 +393,12 @@ class TestCertificateBeActive(BaseTest):
         UserFactory.create(
             post__company=company_large_size, post__has_admin_rights=True
         )
-        for idx_employee in range(
-            IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT * 2
-        ):
+        for idx_employee in range(18):
             worker = UserFactory.create(
                 post__company=company_large_size, post__has_admin_rights=False
             )
-            # only first 2 employees are active
-            if idx_employee < IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE - 1:
+            # only first few employees are active
+            if idx_employee < 5:
                 for day in range(3, 3 + IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH):
                     mission_date = datetime(2023, 2, day)
                     with AuthenticatedUserContext(user=worker):

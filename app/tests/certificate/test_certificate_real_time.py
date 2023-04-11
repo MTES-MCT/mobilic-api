@@ -6,12 +6,12 @@ from app import app, db
 from app.controllers.activity import edit_activity
 from app.domain.certificate_criteria import (
     compute_log_in_real_time,
-    REAL_TIME_LOG_TOLERANCE_MINUTES,
 )
 from app.domain.log_activities import log_activity
 from app.helpers.time import previous_month_period
 from app.models import Mission
 from app.models.activity import ActivityType
+from app.models.queries import query_activities
 from app.seed import (
     CompanyFactory,
     UserFactory,
@@ -38,10 +38,17 @@ class TestCertificateRealTime(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
+    def _compute_log_in_real_time(self):
+        activities = query_activities(
+            include_dismissed_activities=False,
+            start_time=self.start,
+            end_time=self.end,
+            company_ids=[self.company.id],
+        ).all()
+        return compute_log_in_real_time(activities)
+
     def test_company_real_time_ok_no_activities(self):
-        self.assertTrue(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_log_in_real_time())
 
     def test_company_real_time_one_activity(self):
         mission_date = datetime(2023, 2, 15)
@@ -62,9 +69,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertTrue(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_log_in_real_time())
 
     def test_company_not_real_time_one_activity_edge_case(self):
         mission_date = datetime(2023, 2, 15)
@@ -80,15 +85,11 @@ class TestCertificateRealTime(BaseTest):
                 mission=mission,
                 type=ActivityType.WORK,
                 switch_mode=True,
-                reception_time=datetime(
-                    2023, 2, 15, 10, REAL_TIME_LOG_TOLERANCE_MINUTES
-                ),
+                reception_time=datetime(2023, 2, 15, 11),
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertFalse(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertFalse(self._compute_log_in_real_time())
 
     def test_company_real_time_multiple_activities(self):
         mission_date = datetime(2023, 2, 2)
@@ -126,9 +127,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
-        self.assertTrue(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_log_in_real_time())
 
     def test_company_not_real_time_multiple_activities(self):
         mission_date = datetime(2023, 2, 2)
@@ -167,9 +166,7 @@ class TestCertificateRealTime(BaseTest):
                     start_time=datetime(2023, 2, 3, start_hour),
                 )
             db.session.commit()
-        self.assertFalse(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertFalse(self._compute_log_in_real_time())
 
     def test_activity_dismissed_should_not_count_as_inactive(self):
         mission_date = datetime(2023, 2, 2)
@@ -203,9 +200,7 @@ class TestCertificateRealTime(BaseTest):
             )
             db.session.commit()
         # 50% are active => criteria not ok
-        self.assertFalse(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertFalse(self._compute_log_in_real_time())
 
         with AuthenticatedUserContext(user=self.worker):
             edit_activity(
@@ -215,6 +210,4 @@ class TestCertificateRealTime(BaseTest):
             db.session.commit()
 
         # 100% are active => criteria ok
-        self.assertTrue(
-            compute_log_in_real_time(self.company, self.start, self.end)
-        )
+        self.assertTrue(self._compute_log_in_real_time())

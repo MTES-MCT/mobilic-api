@@ -230,7 +230,7 @@ class TestCertificateBeCompliant(BaseTest):
 
     def test_company_compliant_no_alerts(self):
         self.assertTrue(
-            compute_be_compliant(self.company, self.start, self.end)
+            compute_be_compliant(self.company, self.start, self.end, 0)
         )
 
     def test_company_not_compliant_max_work_day_breached(self):
@@ -266,5 +266,5 @@ class TestCertificateBeCompliant(BaseTest):
                 submitter=self.worker, mission=mission, for_user=self.worker
             )
         self.assertFalse(
-            compute_be_compliant(self.company, self.start, self.end)
+            compute_be_compliant(self.company, self.start, self.end, 2)
         )

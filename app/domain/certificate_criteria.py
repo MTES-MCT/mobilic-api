@@ -14,9 +14,7 @@ from app.models.regulation_check import RegulationCheckType, RegulationCheck
 
 IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
 IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
-IS_ACTIVE_COMPANY_SIZE_NB_EMPLOYEE_LIMIT = 3
-IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE = 3
-REAL_TIME_LOG_TOLERANCE_MINUTES = 15
+REAL_TIME_LOG_TOLERANCE_MINUTES = 60
 REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 90
 VALIDATION_MAX_DELAY_DAY = 7
 VALIDATION_MIN_OK_PERCENTAGE = 90
@@ -24,13 +22,12 @@ COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES = 15
-COMPLIANCE_MAX_ALERTS_ALLOWED = 0
+COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE = 5
 CERTIFICATE_LIFETIME_MONTH = 6
 CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE = 10
 
 
 def is_employee_active(company, employee, start, end):
-
     activities = employee.query_activities_with_relations(
         start_time=start,
         end_time=end,
@@ -68,6 +65,12 @@ def are_at_least_n_employees_active(company, employees, start, end, n):
     return False
 
 
+def target_percentage_nb_drivers_active(nb_drivers):
+    if nb_drivers <= 5:
+        return 50
+    return 60
+
+
 def compute_be_active(company, start, end):
     employees = company.get_drivers(start, end)
     return are_at_least_n_employees_active(
@@ -75,12 +78,15 @@ def compute_be_active(company, start, end):
         employees,
         start,
         end,
-        min(len(employees), IS_ACTIVE_MIN_EMPLOYEE_BIGGER_COMPANY_ACTIVE),
+        math.ceil(
+            target_percentage_nb_drivers_active(len(employees))
+            / 100.0
+            * len(employees)
+        ),
     )
 
 
 def is_alert_above_tolerance_limit(regulatory_alert):
-
     if not regulatory_alert.extra:
         return False
 
@@ -143,32 +149,31 @@ def is_alert_above_tolerance_limit(regulatory_alert):
             > COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
         )
 
+    if (
+        regulatory_alert.regulation_check.type
+        == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+    ):
+        return False
+
     return True
 
 
-def compute_be_compliant(company, start, end):
+def compute_be_compliant(company, start, end, nb_activities):
     users = company.users_between(start, end)
-
-    # If weekly rest breached, return False directly
-    weekly_regulatory_alerts = RegulatoryAlert.query.filter(
-        RegulatoryAlert.user_id.in_([user.id for user in users]),
-        RegulatoryAlert.day >= start,
-        RegulatoryAlert.day <= end,
-        RegulatoryAlert.regulation_check.has(
-            RegulationCheck.type
-            == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-        ),
-    )
-    if weekly_regulatory_alerts.count() > COMPLIANCE_MAX_ALERTS_ALLOWED:
-        return False
 
     regulatory_alerts = RegulatoryAlert.query.filter(
         RegulatoryAlert.user_id.in_([user.id for user in users]),
         RegulatoryAlert.day >= start,
         RegulatoryAlert.day <= end,
     )
+    limit_nb_alerts = math.ceil(
+        COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE / 100.0 * nb_activities
+    )
+    nb_alerts_above_limit = 0
     for regulatory_alert in regulatory_alerts:
         if is_alert_above_tolerance_limit(regulatory_alert):
+            nb_alerts_above_limit += 1
+        if nb_alerts_above_limit >= limit_nb_alerts:
             return False
 
     return True
@@ -185,15 +190,7 @@ def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
     return len(version_author_ids) > 0
 
 
-def compute_not_too_many_changes(company, start, end):
-
-    activities = query_activities(
-        include_dismissed_activities=False,
-        start_time=start,
-        end_time=end,
-        company_ids=[company.id],
-    ).all()
-
+def compute_not_too_many_changes(company, start, end, activities):
     nb_total_activities = len(activities)
     if nb_total_activities == 0:
         return True
@@ -232,7 +229,6 @@ def _is_mission_validated_soon_enough(mission, ok_period_start):
 
 
 def compute_validate_regularly(company, start, end):
-
     missions = query_company_missions(
         company_ids=[company.id],
         start_time=start,
@@ -271,15 +267,7 @@ def _is_activity_in_real_time(activity):
     ).total_seconds() / 60.0 < REAL_TIME_LOG_TOLERANCE_MINUTES
 
 
-def compute_log_in_real_time(company, start, end):
-
-    activities = query_activities(
-        include_dismissed_activities=False,
-        start_time=start,
-        end_time=end,
-        company_ids=[company.id],
-    ).all()
-
+def compute_log_in_real_time(activities):
     nb_activities = len(activities)
     if nb_activities == 0:
         return True
@@ -308,11 +296,20 @@ def certificate_expiration(today):
 
 
 def compute_company_certification(company, today, start, end):
+    activities = query_activities(
+        include_dismissed_activities=False,
+        start_time=start,
+        end_time=end,
+        company_ids=[company.id],
+    ).all()
+
     be_active = compute_be_active(company, start, end)
-    be_compliant = compute_be_compliant(company, start, end)
-    not_too_many_changes = compute_not_too_many_changes(company, start, end)
+    be_compliant = compute_be_compliant(company, start, end, len(activities))
+    not_too_many_changes = compute_not_too_many_changes(
+        company, start, end, activities
+    )
     validate_regularly = compute_validate_regularly(company, start, end)
-    log_in_real_time = compute_log_in_real_time(company, start, end)
+    log_in_real_time = compute_log_in_real_time(activities)
 
     certified = (
         be_active
@@ -338,7 +335,6 @@ def compute_company_certification(company, today, start, end):
 
 # returns companies with missions created during period with non-dismissed activities
 def get_eligible_companies(start, end):
-
     missions_subquery = (
         Mission.query.join(Activity, Activity.mission_id == Mission.id)
         .filter(
