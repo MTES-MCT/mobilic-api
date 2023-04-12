@@ -29,7 +29,6 @@ class Config:
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
-    SENTRY_URL = os.environ.get("SENTRY_URL")
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
@@ -71,7 +70,6 @@ class Config:
         "USER_READ_TOKEN_EXPIRATION", timedelta(days=7)
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
-    MOBILIC_SERVICE_ACTOR_TOKEN = os.environ.get("MOBILIC_SERVICE_ACTOR_TOKEN")
     USER_CONTROL_HISTORY_DEPTH = timedelta(days=28)
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get(
@@ -81,12 +79,6 @@ class Config:
     MIN_MINUTES_BETWEEN_ACTIVATION_EMAILS = timedelta(
         minutes=os.environ.get("MIN_MINUTES_BETWEEN_ACTIVATION_EMAILS", 30)
     )
-    GOOGLE_CLIENT_CERT_URL = os.environ.get("GOOGLE_CLIENT_CERT_URL", None)
-    GOOGLE_CLIENT_EMAIL = os.environ.get("GOOGLE_CLIENT_EMAIL", None)
-    GOOGLE_PRIVATE_KEY = os.environ.get("GOOGLE_PRIVATE_KEY", None)
-    GOOGLE_PRIVATE_KEY_ID = os.environ.get("GOOGLE_PRIVATE_KEY_ID", None)
-    GOOGLE_PROJECT_NAME = os.environ.get("GOOGLE_PROJECT_NAME", None)
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", None)
     ENABLE_NEWSLETTER_SUBSCRIPTION = os.environ.get(
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )

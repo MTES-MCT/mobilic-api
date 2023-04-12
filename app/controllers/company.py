@@ -51,9 +51,6 @@ from app.models import Company, Employment
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
-from app.services.update_companies_spreadsheet import (
-    add_company_to_spreadsheet,
-)
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -216,15 +213,6 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
             current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
         except Exception as e:
             app.logger.exception(e)
-
-    if app.config["GOOGLE_PRIVATE_KEY"]:
-        # Add new company to spreadsheet
-        try:
-            add_company_to_spreadsheet(company, current_user)
-        except Exception as e:
-            app.logger.warning(
-                f"Could not add {company} to spreadsheet because : {e}"
-            )
 
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
