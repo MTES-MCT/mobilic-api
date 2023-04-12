@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from dateutil.tz import gettz
+
 from app import db, app
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
@@ -8,6 +10,7 @@ from app.helpers.errors import (
     MissionStillRunningError,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
 from app.helpers.authorization import AuthorizationError
 
@@ -90,10 +93,13 @@ def _get_or_create_validation(
 def _compute_regulations_after_validation(
     activities_to_validate, is_admin_validation, user
 ):
-    mission_start = activities_to_validate[0].start_time.date()
+    user_timezone = gettz(user.timezone_name)
+    mission_start = to_tz(
+        activities_to_validate[0].start_time, user_timezone
+    ).date()
     mission_end = (
-        activities_to_validate[-1].end_time.date()
-        if activities_to_validate[-1].end_time
+        to_tz(activities_to_validate[-1].end_time, user_timezone).date()
+        if to_tz(activities_to_validate[-1].end_time, user_timezone)
         else None
     )
     submitter_type = (
