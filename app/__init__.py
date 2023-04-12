@@ -112,6 +112,7 @@ app.register_blueprint(control_blueprint, url_prefix="/control")
 
 
 from app.controllers.misc import *
+from app.controllers.certificate import *
 
 
 @app.errorhandler(MobilicError)

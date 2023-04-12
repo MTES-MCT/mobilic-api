@@ -86,6 +86,7 @@ class Config:
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
+    CERTIFICATION_API_KEY = os.environ.get("CERTIFICATION_API_KEY")
     API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_live_")
     NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING = 10
 
