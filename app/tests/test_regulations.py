@@ -355,6 +355,180 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    def test_min_daily_rest_simple_case(self):
+        how_many_days_ago = 4
+
+        mission = Mission(
+            name="8h drive J",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=self.employee):
+            log_activity(
+                submitter=self.employee,
+                user=self.employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(
+                    how_many_days_ago, hour=8, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=4, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago, hour=8, tz=LOCAL_TIMEZONE
+                ),
+            )
+
+            log_activity(
+                submitter=self.employee,
+                user=self.employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=3, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=17, minute=45, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=3, tz=LOCAL_TIMEZONE
+                ),
+            )
+
+            validate_mission(
+                submitter=self.employee,
+                mission=mission,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=4, tz=LOCAL_TIMEZONE),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=4, tz=LOCAL_TIMEZONE),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            9 * HOUR + 45 * MINUTE,
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
+
+    def test_min_daily_rest_lot_of_activities(self):
+        how_many_days_ago = 4
+
+        mission = Mission(
+            name="8h drive J",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+        )
+        db.session.add(mission)
+
+        with AuthenticatedUserContext(user=self.employee):
+            for start_hour in range(4, 12, 2):
+                log_activity(
+                    submitter=self.employee,
+                    user=self.employee,
+                    mission=mission,
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=get_time(
+                        how_many_days_ago,
+                        hour=start_hour + 1,
+                        tz=LOCAL_TIMEZONE,
+                    ),
+                    start_time=get_time(
+                        how_many_days_ago, hour=start_hour, tz=LOCAL_TIMEZONE
+                    ),
+                    end_time=get_time(
+                        how_many_days_ago,
+                        hour=start_hour + 1,
+                        tz=LOCAL_TIMEZONE,
+                    ),
+                )
+
+            log_activity(
+                submitter=self.employee,
+                user=self.employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(
+                    how_many_days_ago, hour=17, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=16, minute=10, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago, hour=17, tz=LOCAL_TIMEZONE
+                ),
+            )
+
+            log_activity(
+                submitter=self.employee,
+                user=self.employee,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(
+                    how_many_days_ago - 1, hour=3, tz=LOCAL_TIMEZONE
+                ),
+                start_time=get_time(
+                    how_many_days_ago, hour=18, tz=LOCAL_TIMEZONE
+                ),
+                end_time=get_time(
+                    how_many_days_ago - 1, hour=3, tz=LOCAL_TIMEZONE
+                ),
+            )
+
+            validate_mission(
+                submitter=self.employee,
+                mission=mission,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=4, tz=LOCAL_TIMEZONE),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=4, tz=LOCAL_TIMEZONE),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            5 * HOUR + 10 * MINUTE,
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
+
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
         company = self.company
         employee = self.employee
