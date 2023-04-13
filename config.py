@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
@@ -88,6 +89,9 @@ class Config:
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
     API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_live_")
     NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING = 10
+    COMPANY_EXCLUDE_ONBOARDING_EMAILS = json.loads(
+        os.environ.get("COMPANY_EXCLUDE_ONBOARDING_EMAILS", "[]")
+    )
 
 
 class DevConfig(Config):
