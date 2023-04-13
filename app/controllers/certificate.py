@@ -1,5 +1,4 @@
-from datetime import date
-from typing import NamedTuple
+from dataclasses import dataclass
 
 from flask import jsonify, request, abort
 from flask_apispec import use_kwargs
@@ -10,14 +9,18 @@ from app import app, db
 from app.models import Company, CompanyCertification
 
 
-class CertificationOutput(NamedTuple):
+@dataclass
+class CertificationOutput:
     siren: str
-    siret: str
-    certification_attribution_date: date
-    certification_expiration_date: date
+    certification_attribution_date: str
+    certification_expiration_date: str
+    siret: str = None
 
 
-@app.route("/is_company_certified", methods=["POST"])
+CERTIFICATION_DATE_FORMAT = "%Y/%m/%d"
+
+
+@app.route("/companies/is_company_certified", methods=["POST"])
 @use_kwargs(
     {"siren": fields.String(required=True)},
     apply=True,
@@ -55,7 +58,10 @@ def is_company_certified(siren):
     certified_companies = []
     for company in certified_company_result:
         company_dict = company._asdict()
-        if len(company_dict["short_sirets"]) > 0:
+        if (
+            company_dict["short_sirets"]
+            and len(company_dict["short_sirets"]) > 0
+        ):
             for siret in company_dict["short_sirets"]:
                 certified_companies.append(
                     CertificationOutput(
@@ -63,10 +69,10 @@ def is_company_certified(siren):
                         siret=company_dict["siren"] + f"{siret:05}",
                         certification_attribution_date=company_dict[
                             "attribution_date"
-                        ],
+                        ].strftime(CERTIFICATION_DATE_FORMAT),
                         certification_expiration_date=company_dict[
                             "expiration_date"
-                        ],
+                        ].strftime(CERTIFICATION_DATE_FORMAT),
                     )
                 )
         else:
@@ -75,11 +81,11 @@ def is_company_certified(siren):
                     siren=company_dict["siren"],
                     certification_attribution_date=company_dict[
                         "attribution_date"
-                    ],
+                    ].strftime(CERTIFICATION_DATE_FORMAT),
                     certification_expiration_date=company_dict[
                         "expiration_date"
-                    ],
+                    ].strftime(CERTIFICATION_DATE_FORMAT),
                 )
             )
 
-    return jsonify([c._asdict() for c in certified_companies]), 200
+    return jsonify([c for c in certified_companies]), 200

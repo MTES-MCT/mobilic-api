@@ -114,6 +114,7 @@ class TestConfig(Config):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
+    CERTIFICATION_API_KEY = "1234"
 
 
 class ProdConfig(Config):

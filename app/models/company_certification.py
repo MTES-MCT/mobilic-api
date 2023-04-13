@@ -1,4 +1,3 @@
-import graphene
 from sqlalchemy.orm import backref
 
 from app import db

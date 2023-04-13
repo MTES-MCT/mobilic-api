@@ -24,3 +24,4 @@ from .regulation_check import RegulationCheck
 from .regulatory_alert import RegulatoryAlert
 from .regulation_computation import RegulationComputation
 from .team import Team
+from .company_certification import CompanyCertification
