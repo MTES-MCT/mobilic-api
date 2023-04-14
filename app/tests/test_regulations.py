@@ -310,11 +310,11 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=4, tz=LOCAL_TIMEZONE),
+            get_time(how_many_days_ago, hour=4),
         )
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=4, tz=LOCAL_TIMEZONE),
+            get_time(how_many_days_ago - 1, hour=4),
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
@@ -374,11 +374,11 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=4, tz=LOCAL_TIMEZONE),
+            get_time(how_many_days_ago, hour=4),
         )
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=4, tz=LOCAL_TIMEZONE),
+            get_time(how_many_days_ago - 1, hour=4),
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
