@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import g
 from sqlalchemy import func
@@ -141,3 +141,17 @@ def change_user_password(user, new_password, revoke_tokens=True):
     user.password_update_time = datetime.now()
     user.nb_bad_password_tries = 0
     user.status = UserAccountStatus.ACTIVE
+
+
+def is_user_related_to_onboarding_excluded_company(user):
+    all_related_company_ids = [
+        e.company_id
+        for e in user.active_employments_at(
+            date.today(), include_pending_ones=True
+        )
+    ]
+    user_related_to_excluded_company = any(
+        company_id in all_related_company_ids
+        for company_id in app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"]
+    )
+    return user_related_to_excluded_company

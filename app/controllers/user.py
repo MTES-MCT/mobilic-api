@@ -3,7 +3,7 @@ import jwt
 from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from urllib.parse import quote, urlencode, unquote
 from io import BytesIO
 
@@ -23,6 +23,7 @@ from app.domain.user import (
     get_user_from_fc_info,
     bind_user_to_pending_employments,
     change_user_password,
+    is_user_related_to_onboarding_excluded_company,
 )
 from app.helpers.authentication import (
     current_user,
@@ -294,6 +295,18 @@ class ActivateEmail(graphene.Mutation):
                 )
 
             user.has_activated_email = True
+
+            try:
+                if not is_user_related_to_onboarding_excluded_company(user):
+                    if (
+                        len(user.current_company_ids_with_admin_rights or [])
+                        > 0
+                    ):
+                        mailer.send_manager_onboarding_first_email(user)
+                    else:
+                        mailer.send_worker_onboarding_first_email(user)
+            except Exception as e:
+                app.logger.exception(e)
 
         @after_this_request
         def set_cookies(response):

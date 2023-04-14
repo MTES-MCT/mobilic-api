@@ -701,7 +701,8 @@ class Mailer:
                 type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
                 user=user,
                 first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login?next=/app",
+                cta=f"{app.config['FRONTEND_URL']}/login",
+                _disable_commit=True,
             )
         )
 
@@ -716,26 +717,15 @@ class Mailer:
             )
         )
 
-    def send_manager_onboarding_first_email(self, user, company):
+    def send_manager_onboarding_first_email(self, user):
         self._send_single(
             self._create_message_from_mailjet_template(
                 2690876,
                 type_=EmailType.MANAGER_ONBOARDING_FIRST_INFO,
                 user=user,
                 first_name=user.first_name,
-                company=company.name,
                 cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
-            )
-        )
-
-    def send_manager_onboarding_second_email(self, user):
-        self._send_single(
-            self._create_message_from_mailjet_template(
-                2690590,
-                type_=EmailType.MANAGER_ONBOARDING_SECOND_INFO,
-                user=user,
-                first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
+                _disable_commit=True,
             )
         )
 
