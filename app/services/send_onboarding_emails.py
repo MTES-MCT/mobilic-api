@@ -11,6 +11,8 @@ from app.models.employment import EmploymentRequestValidationStatus
 def send_onboarding_emails(today):
     signup_date = today - timedelta(days=7)
 
+    company_ids_to_exclude = app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"]
+
     recent_user_signups = Employment.query.filter(
         func.date_trunc("day", Employment.validation_time)
         == datetime(
@@ -22,6 +24,7 @@ def send_onboarding_emails(today):
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
         ~Employment.is_dismissed,
+        ~Employment.company_id.in_(company_ids_to_exclude),
         ~exists().where(
             and_(
                 Email.user_id == Employment.user_id,
