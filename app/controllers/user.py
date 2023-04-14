@@ -23,6 +23,7 @@ from app.domain.user import (
     get_user_from_fc_info,
     bind_user_to_pending_employments,
     change_user_password,
+    is_user_related_to_onboarding_excluded_company,
 )
 from app.helpers.authentication import (
     current_user,
@@ -296,19 +297,7 @@ class ActivateEmail(graphene.Mutation):
             user.has_activated_email = True
 
             try:
-                all_related_company_ids = [
-                    e.company_id
-                    for e in user.active_employments_at(
-                        date.today(), include_pending_ones=True
-                    )
-                ]
-                user_related_to_excluded_company = any(
-                    company_id in all_related_company_ids
-                    for company_id in app.config[
-                        "COMPANY_EXCLUDE_ONBOARDING_EMAILS"
-                    ]
-                )
-                if not user_related_to_excluded_company:
+                if not is_user_related_to_onboarding_excluded_company(user):
                     if (
                         len(user.current_company_ids_with_admin_rights or [])
                         > 0
