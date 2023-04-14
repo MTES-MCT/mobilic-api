@@ -90,6 +90,37 @@ class TestRegulations(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
+    def _log_and_validate_mission(
+        self, mission_name, company, reception_time, submitter, work_periods
+    ):
+        mission = Mission(
+            name=mission_name,
+            company=company,
+            reception_time=reception_time,
+            submitter=submitter,
+        )
+        db.session.add(mission)
+        db.session.commit()
+
+        with AuthenticatedUserContext(user=submitter):
+            for work_period in work_periods:
+                log_activity(
+                    submitter=submitter,
+                    user=submitter,
+                    mission=mission,
+                    type=work_period[2]
+                    if len(work_period) >= 3
+                    else ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=work_period[1],
+                    start_time=work_period[0],
+                    end_time=work_period[1],
+                )
+            validate_mission(
+                submitter=submitter, mission=mission, for_user=submitter
+            )
+        return mission
+
     def test_no_activity_all_success(self):
         employee = self.employee
         how_many_days_ago = 2
@@ -118,80 +149,44 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(computation_done)
 
     def test_min_daily_rest_by_employee_success(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 3
 
-        mission = Mission(
-            name="8h drive J",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="5h drive J",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        mission_next_day = Mission(
-            name="8h drive J+1",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="2h drive J+1",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=6),
+                ],
+            ],
         )
-        db.session.add(mission_next_day)
-
-        mission_last_day = Mission(
-            name="8h drive J+2",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="6h drive J+2",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=10),
+                ],
+            ],
         )
-        db.session.add(mission_last_day)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23),
-                start_time=get_time(how_many_days_ago, hour=18),
-                end_time=get_time(how_many_days_ago, hour=23),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission_next_day,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=15),
-                start_time=get_time(how_many_days_ago - 1, hour=4),
-                end_time=get_time(how_many_days_ago - 1, hour=6),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission_next_day, for_user=employee
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission_last_day,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 2, hour=15),
-                start_time=get_time(how_many_days_ago - 2, hour=4),
-                end_time=get_time(how_many_days_ago - 2, hour=10),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission_last_day, for_user=employee
-            )
-
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -202,56 +197,28 @@ class TestRegulations(BaseTest):
         self.assertIsNone(regulatory_alert)
 
     def test_min_daily_rest_by_employee_success_exact_min_rest(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 3
 
-        mission = Mission(
-            name="8h drive J",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="3 + 1 + 4 on two days",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=22),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=8),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=22),
-                start_time=get_time(how_many_days_ago, hour=18),
-                end_time=get_time(how_many_days_ago, hour=21),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23),
-                start_time=get_time(how_many_days_ago, hour=22),
-                end_time=get_time(how_many_days_ago, hour=23),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=15),
-                start_time=get_time(how_many_days_ago - 1, hour=4),
-                end_time=get_time(how_many_days_ago - 1, hour=8),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -266,51 +233,26 @@ class TestRegulations(BaseTest):
         employee = self.employee
         how_many_days_ago = 4
 
-        mission = Mission(
-            name="8h drive J",
+        self._log_and_validate_mission(
+            mission_name="Missing one minute break",
             company=company,
             reception_time=datetime.now(),
             submitter=employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=4),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=8,
+                        minute=1,
+                    ),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago, hour=22, tz=FR_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago, hour=18, tz=FR_TIMEZONE
-                ),
-                end_time=get_time(how_many_days_ago, hour=19, tz=FR_TIMEZONE),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago - 1, hour=15, tz=FR_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago - 1, hour=4, tz=FR_TIMEZONE
-                ),
-                end_time=get_time(
-                    how_many_days_ago - 1, hour=8, minute=1, tz=FR_TIMEZONE
-                ),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
@@ -335,56 +277,140 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    def test_min_daily_rest_simple_case(self):
+        how_many_days_ago = 4
+
+        self._log_and_validate_mission(
+            mission_name="4h drive / 9h45 break / drive",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=17, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=3),
+                ],
+            ],
+        )
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=4),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            9 * HOUR + 45 * MINUTE,
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
+
+    def test_min_daily_rest_lot_of_activities(self):
+        how_many_days_ago = 4
+
+        work_periods = []
+        for start_hour in range(4, 12, 2):
+            work_periods.append(
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=start_hour
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago,
+                        hour=start_hour + 1,
+                    ),
+                ]
+            )
+
+        work_periods.append(
+            [
+                get_time(
+                    how_many_days_ago=how_many_days_ago, hour=16, minute=10
+                ),
+                get_time(how_many_days_ago=how_many_days_ago, hour=17),
+            ]
+        )
+        work_periods.append(
+            [
+                get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                get_time(how_many_days_ago=how_many_days_ago - 1, hour=3),
+            ]
+        )
+
+        self._log_and_validate_mission(
+            mission_name="Several 1h drives, 5h10 break then long drive",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=work_periods,
+        )
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago, hour=4),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago - 1, hour=4),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            5 * HOUR + 10 * MINUTE,
+        )
+        self.assertEqual(extra_info["sanction_code"], NATINF_20525)
+
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
         company = self.company
         employee = self.employee
         how_many_days_ago = 3
 
-        mission = Mission(
-            name="8h drive J",
+        self._log_and_validate_mission(
+            mission_name="6h drive / 2h break / 7h drive / 11h break / 12h drive",
             company=company,
             reception_time=datetime.now(),
             submitter=employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=6),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=12),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=14),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=21),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=8),
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=20),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=12),
-                start_time=get_time(how_many_days_ago - 1, hour=6),
-                end_time=get_time(how_many_days_ago - 1, hour=12),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=21),
-                start_time=get_time(how_many_days_ago - 1, hour=14),
-                end_time=get_time(how_many_days_ago - 1, hour=21),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 2, hour=20),
-                start_time=get_time(how_many_days_ago - 2, hour=8),
-                end_time=get_time(how_many_days_ago - 2, hour=20),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
 
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
@@ -409,46 +435,24 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
     def test_min_daily_rest_by_employee_failure(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        # GIVEN
-        mission = Mission(
-            name="15h drive with 2 groups",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="6h drive / 1h break / 9h drive",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=20),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=5),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=19),
-                start_time=get_time(how_many_days_ago, hour=13),
-                end_time=get_time(how_many_days_ago, hour=19),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=5),
-                start_time=get_time(how_many_days_ago, hour=20),
-                end_time=get_time(how_many_days_ago - 1, hour=5),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -474,46 +478,131 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
-    def test_max_work_day_time_by_employee_success(self):
-        company = self.company
-        employee = self.employee
-        how_many_days_ago = 2
-
-        mission = Mission(
-            name="Transfer & night work tarification but not legislation",
-            company=company,
+    def test_min_daily_rest_by_employee_failure_complex_case(self):
+        self._log_and_validate_mission(
+            mission_name="4hD/30mB/4hD/15mB/3hD/5h15B/4hD/3hB/7hD",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=2, hour=8),
+                    get_time(how_many_days_ago=2, hour=12),
+                ],
+                [
+                    get_time(how_many_days_ago=2, hour=12, minute=30),
+                    get_time(how_many_days_ago=2, hour=16, minute=30),
+                ],
+                [
+                    get_time(how_many_days_ago=2, hour=16, minute=45),
+                    get_time(how_many_days_ago=2, hour=19, minute=45),
+                ],
+                [
+                    get_time(how_many_days_ago=1, hour=1),
+                    get_time(how_many_days_ago=1, hour=5),
+                ],
+                [
+                    get_time(how_many_days_ago=1, hour=8),
+                    get_time(how_many_days_ago=1, hour=15),
+                ],
+            ],
         )
-        db.session.add(mission)
+        day_start = get_date(2)
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.day == day_start,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago=2, hour=8),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago=1, hour=8),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            5 * HOUR + 15 * MINUTE,
+        )
 
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.TRANSFER,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=5),
-                start_time=get_time(how_many_days_ago, hour=3),
-                end_time=get_time(how_many_days_ago, hour=5),
-            )
+    def test_min_daily_rest_by_employee_failure_complex_case_double_alert(
+        self,
+    ):
+        self._log_and_validate_mission(
+            mission_name="4hD/30mB/4hD/15mB/3hD/5h15B/4hD/3hB/7h30D",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=2, hour=8),
+                    get_time(how_many_days_ago=2, hour=12),
+                ],
+                [
+                    get_time(how_many_days_ago=2, hour=12, minute=30),
+                    get_time(how_many_days_ago=2, hour=16, minute=30),
+                ],
+                [
+                    get_time(how_many_days_ago=2, hour=16, minute=45),
+                    get_time(how_many_days_ago=2, hour=19, minute=45),
+                ],
+                [
+                    get_time(how_many_days_ago=1, hour=1),
+                    get_time(how_many_days_ago=1, hour=5),
+                ],
+                [
+                    get_time(how_many_days_ago=1, hour=8),
+                    get_time(how_many_days_ago=1, hour=15, minute=30),
+                ],
+            ],
+        )
+        regulatory_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(2, len(regulatory_alerts))
+        extra_info = json.loads(regulatory_alerts[1].extra)
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_start"]),
+            get_time(how_many_days_ago=1, hour=1),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(extra_info["breach_period_end"]),
+            get_time(how_many_days_ago=0, hour=1),
+        )
+        self.assertEqual(
+            extra_info["breach_period_max_break_in_seconds"],
+            9 * HOUR + 30 * MINUTE,
+        )
 
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=16),
-                start_time=get_time(how_many_days_ago, hour=5),
-                end_time=get_time(how_many_days_ago, hour=16),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
+    def test_max_work_day_time_by_employee_success(self):
+        how_many_days_ago = 2
+        self._log_and_validate_mission(
+            mission_name="Transfer & night work tarification but not legislation",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=3),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
+                    ActivityType.TRANSFER,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
+                ],
+            ],
+        )
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -528,45 +617,25 @@ class TestRegulations(BaseTest):
         self.assertIsNone(regulatory_alert)
 
     def test_max_work_day_time_by_employee_failure(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="3h work (night) + 8h drive",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="3h work (night) + 8h drive",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=7),
-                start_time=get_time(how_many_days_ago, hour=4),
-                end_time=get_time(how_many_days_ago, hour=7),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=16),
-                start_time=get_time(how_many_days_ago, hour=8),
-                end_time=get_time(how_many_days_ago, hour=16),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -594,44 +663,24 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
     def test_max_work_day_time_by_employee_no_night_work_failure(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
-
-        mission = Mission(
-            name="5h work + 8h drive",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="5h work + 8h drive",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=12),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=12),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=21),
-                start_time=get_time(how_many_days_ago, hour=13),
-                end_time=get_time(how_many_days_ago, hour=21),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
 
         day_start = get_date(how_many_days_ago)
 
@@ -660,48 +709,28 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_11292)
 
     def test_max_work_day_time_by_admin_failure(self):
-        company = self.company
-        employee = self.employee
-        admin = self.admin
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="3h work (night) + 10h drive",
-            company=company,
+        mission = self._log_and_validate_mission(
+            mission_name="3h work (night) + 10h drive",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=7),
-                start_time=get_time(how_many_days_ago, hour=4),
-                end_time=get_time(how_many_days_ago, hour=7),
-            )
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=17),
-                start_time=get_time(how_many_days_ago, hour=7),
-                end_time=get_time(how_many_days_ago, hour=17),
-            )
-
+        with AuthenticatedUserContext(user=self.admin):
             validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
-        with AuthenticatedUserContext(user=admin):
-            validate_mission(
-                submitter=admin, mission=mission, for_user=employee
+                submitter=self.admin, mission=mission, for_user=self.employee
             )
 
         day_start = get_date(how_many_days_ago)
@@ -731,57 +760,29 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
     def test_min_work_day_break_by_employee_success(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="8h30 work with 30m break",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="8h30 work with 30m break",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=22, minute=14
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=22, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
+                    ActivityType.WORK,
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago, hour=23, minute=14, tz=LOCAL_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago, hour=16, tz=LOCAL_TIMEZONE
-                ),
-                end_time=get_time(
-                    how_many_days_ago, hour=22, minute=14, tz=LOCAL_TIMEZONE
-                ),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago - 1, hour=2, tz=LOCAL_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago, hour=22, minute=45, tz=LOCAL_TIMEZONE
-                ),
-                end_time=get_time(
-                    how_many_days_ago - 1, hour=1, tz=LOCAL_TIMEZONE
-                ),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -796,57 +797,29 @@ class TestRegulations(BaseTest):
         self.assertIsNone(regulatory_alert)
 
     def test_min_work_day_break_by_employee_failure(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="9h30 work with 30m break",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="9h30 work with 30m break",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=15),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=22, minute=15
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=22, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
+                    ActivityType.WORK,
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago, hour=23, minute=15, tz=FR_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago, hour=15, tz=FR_TIMEZONE
-                ),
-                end_time=get_time(
-                    how_many_days_ago, hour=22, minute=15, tz=FR_TIMEZONE
-                ),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago - 1, hour=2, tz=FR_TIMEZONE
-                ),
-                start_time=get_time(
-                    how_many_days_ago, hour=22, minute=45, tz=FR_TIMEZONE
-                ),
-                end_time=get_time(
-                    how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE
-                ),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -956,44 +929,29 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
     def test_max_uninterrupted_work_time_by_employee_success(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="5h15 drive - 30m pause - 2h15 work",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="5h15 drive - 30m pause - 2h15 work",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=15
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=2),
+                    ActivityType.WORK,
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23, minute=15),
-                start_time=get_time(how_many_days_ago, hour=18),
-                end_time=get_time(how_many_days_ago, hour=23, minute=15),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=2),
-                start_time=get_time(how_many_days_ago, hour=23, minute=45),
-                end_time=get_time(how_many_days_ago - 1, hour=2),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
 
         day_start = get_date(how_many_days_ago)
 
@@ -1009,45 +967,29 @@ class TestRegulations(BaseTest):
         self.assertIsNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_failure(self):
-        company = self.company
-        employee = self.employee
         how_many_days_ago = 2
 
-        mission = Mission(
-            name="6h15 drive - 30m pause - 2h15 work",
-            company=company,
+        self._log_and_validate_mission(
+            mission_name="6h15 drive - 30m pause - 2h15 work",
+            company=self.company,
             reception_time=datetime.now(),
-            submitter=employee,
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=15
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
+                    ActivityType.WORK,
+                ],
+            ],
         )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago, hour=23, minute=15),
-                start_time=get_time(how_many_days_ago, hour=17),
-                end_time=get_time(how_many_days_ago, hour=23, minute=15),
-            )
-
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=False,
-                reception_time=get_time(how_many_days_ago - 1, hour=2),
-                start_time=get_time(how_many_days_ago, hour=23, minute=45),
-                end_time=get_time(how_many_days_ago - 1, hour=2),
-            )
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
         day_start = get_date(how_many_days_ago)
 
         regulatory_alert = RegulatoryAlert.query.filter(
@@ -1160,51 +1102,36 @@ class TestRegulations(BaseTest):
         self.assertEqual(len(computations_done), 17)
 
     def test_compute_regulations_per_week_success(self):
-        company = self.company
-        employee = self.employee
-
-        NB_WEEKS = 3
-        missions = []
-        for i in range(NB_WEEKS):
-            mission = Mission(
-                name=f"mission #{i}",
-                company=company,
+        nb_weeks = 3
+        for i in range(nb_weeks):
+            how_many_days_ago = 3 + i * 7
+            self._log_and_validate_mission(
+                mission_name=f"mission #{i}",
+                company=self.company,
                 reception_time=datetime.now(),
-                submitter=employee,
+                submitter=self.employee,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=23,
+                            minute=15,
+                        ),
+                    ],
+                    [
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=23,
+                            minute=45,
+                        ),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1, hour=2
+                        ),
+                        ActivityType.WORK,
+                    ],
+                ],
             )
-            db.session.add(mission)
-            missions.append(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            for i in range(NB_WEEKS):
-                how_many_days_ago = 3 + i * 7
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=missions[i],
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=get_time(
-                        how_many_days_ago, hour=23, minute=15
-                    ),
-                    start_time=get_time(how_many_days_ago, hour=17),
-                    end_time=get_time(how_many_days_ago, hour=23, minute=15),
-                )
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=missions[i],
-                    type=ActivityType.WORK,
-                    switch_mode=False,
-                    reception_time=get_time(how_many_days_ago - 1, hour=2),
-                    start_time=get_time(how_many_days_ago, hour=23, minute=45),
-                    end_time=get_time(how_many_days_ago - 1, hour=2),
-                )
-
-                validate_mission(
-                    submitter=employee, mission=missions[i], for_user=employee
-                )
-
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
