@@ -251,10 +251,6 @@ class TestRegulations(BaseTest):
                         minute=1,
                     ),
                 ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=22),
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=23),
-                ],
             ],
         )
         regulatory_alert = RegulatoryAlert.query.filter(
