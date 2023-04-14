@@ -1,5 +1,7 @@
+import calendar
 import datetime
 
+from dateutil.relativedelta import relativedelta
 from dateutil.tz import gettz
 from jours_feries_france import JoursFeries
 
@@ -150,3 +152,14 @@ def get_uninterrupted_datetime_ranges(array_datetime):
 
     ranges.append([tmp_start, tmp_date])
     return ranges
+
+
+def end_of_month(date):
+    return date.replace(day=calendar.monthrange(date.year, date.month)[1])
+
+
+def previous_month_period(today):
+    previous_month = today + relativedelta(months=-1)
+    start = previous_month.replace(day=1)
+    end = end_of_month(previous_month)
+    return start, end

@@ -5,7 +5,7 @@ from app import db
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.time import FR_TIMEZONE, from_tz
-from app.models import Mission, LocationEntry, MissionEnd
+from app.models import Mission, LocationEntry, MissionEnd, MissionValidation
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
 
@@ -65,6 +65,7 @@ def create_mission(
         name=name,
         company=company,
         reception_time=time,
+        creation_time=time,
         submitter=submitter,
         vehicle=vehicle,
     )
@@ -92,7 +93,13 @@ def create_mission(
 #   [start_time_n, end_time_n]
 # ]
 def log_and_validate_mission(
-    mission_name, work_periods, company, employee, vehicle, validate=True
+    mission_name,
+    work_periods,
+    company,
+    employee,
+    vehicle,
+    validate=True,
+    admin_validating=None,
 ):
     mission = create_mission(
         name=mission_name,
@@ -112,6 +119,7 @@ def log_and_validate_mission(
                 type=ActivityType.DRIVE,
                 switch_mode=False,
                 reception_time=wp[1],
+                creation_time=wp[0],
                 start_time=wp[0],
                 end_time=wp[1],
             )
@@ -128,5 +136,19 @@ def log_and_validate_mission(
                 submitter=employee,
                 mission=mission,
                 for_user=employee,
+                creation_time=work_periods[-1][1],
             )
+    if admin_validating is not None:
+        db.session.add(
+            MissionValidation(
+                submitter=admin_validating,
+                mission=mission,
+                user=employee,
+                reception_time=work_periods[-1][1]
+                + datetime.timedelta(days=1),
+                is_admin=True,
+                creation_time=work_periods[-1][1] + datetime.timedelta(days=1),
+            )
+        )
+
     return mission
