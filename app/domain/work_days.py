@@ -118,9 +118,12 @@ class WorkDay:
 
     def add_mission(self, mission):
         self._are_activities_sorted = False
+
+        # To be commented locally on init regulation alerts only!
         mission.history = actions_history(
             mission, self.user, max_reception_time=self.max_reception_time
         )
+
         self.missions.append(mission)
         activities = mission.activities_for(
             self.user,
@@ -152,6 +155,8 @@ class WorkDay:
                 and (not a.end_time or a.end_time >= self.start_of_day)
             ]
         )
+
+        # To be commented locally on init regulation alerts only!
         self.comments.extend(
             mission.retrieve_all_comments(
                 max_reception_time=self.max_reception_time
@@ -389,7 +394,7 @@ def group_user_events_by_day_with_limit(
 
     missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
-        include_revisions=True,
+        include_revisions=True,  # To be updated locally on init regulation alerts only!
         start_time=to_datetime(from_date, tz_for_date=tz)
         if from_date
         else None,
