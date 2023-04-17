@@ -1028,6 +1028,7 @@ class TestRegulations(BaseTest):
         how_many_days_ago = 2
 
         expired_regulation_data = RegulationCheckData(
+            id=6,
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
             description="Règlementation expirée",
