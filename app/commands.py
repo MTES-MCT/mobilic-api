@@ -77,9 +77,8 @@ def init_regulation_alerts(part, nb_parts, nb_fork):
     max_value = len(users_ids) if users_ids else 0
     print(f"{max_value} users to process")
 
-    # TODO: is this still needed?
-    # db.session.close()
-    # db.engine.dispose()
+    db.session.close()
+    db.engine.dispose()
 
     with Pool(nb_fork) as p:
         p.map(run_batch_user_id, users_ids)
