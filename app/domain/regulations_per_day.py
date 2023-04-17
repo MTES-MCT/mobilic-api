@@ -60,6 +60,12 @@ def compute_regulations_per_day(
             .order_by(desc(RegulationCheck.date_application_start))
             .first()
         )
+
+        # To be used locally on init regulation alerts only!
+        # regulation_check = next(
+        #     (x for x in get_regulation_checks() if x.type == type), None
+        # )
+
         if not regulation_check:
             raise InvalidResourceError(
                 f"Missing regulation check of type {type}"
@@ -86,7 +92,7 @@ def compute_regulations_per_day(
                 extra=extra_json,
                 submitter_type=submitter_type,
                 user=user,
-                regulation_check=regulation_check,
+                regulation_check_id=regulation_check.id,
             )
             db.session.add(regulatory_alert)
 
