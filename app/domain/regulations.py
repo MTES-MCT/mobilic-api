@@ -231,16 +231,12 @@ def compute_regulation_for_user(user):
 
 
 def mark_day_as_computed(user, day, submitter_type):
-    already_computed = RegulationComputation.query.filter(
-        RegulationComputation.user_id == user.id,
-        RegulationComputation.day == day,
-        RegulationComputation.submitter_type == submitter_type,
-    ).one_or_none()
+    from sqlalchemy.dialects.postgresql import insert
 
-    if not already_computed:
-        regulation_computation = RegulationComputation(
-            day=day,
-            user=user,
-            submitter_type=submitter_type,
-        )
-        db.session.add(regulation_computation)
+    stmt = (
+        insert(RegulationComputation)
+        .values(day=day, user_id=user.id, submitter_type=submitter_type)
+        .on_conflict_do_nothing()
+    )
+
+    db.session.execute(stmt)
