@@ -431,6 +431,76 @@ def group_user_events_by_day_with_limit(
     return work_days, has_next
 
 
+def group_user_events_by_day_with_limit_both_submitter(
+    user,
+    consultation_scope=None,
+    from_date=None,
+    until_date=None,
+    tz=FR_TIMEZONE,
+    include_dismissed_or_empty_days=False,
+    first=None,
+    after=None,
+    max_reception_time=None,
+):
+    if after:
+        try:
+            max_date = b64decode(after).decode()
+            max_date = date.fromisoformat(max_date) - timedelta(days=1)
+        except:
+            raise InvalidParamsError("Invalid pagination cursor")
+        until_date = min(max_date, until_date) if until_date else max_date
+
+    missions, has_next = user.query_missions_with_limit(
+        include_dismissed_activities=True,
+        include_revisions=False,
+        start_time=to_datetime(from_date, tz_for_date=tz)
+        if from_date
+        else None,
+        end_time=to_datetime(
+            until_date, tz_for_date=tz, date_as_end_of_day=True
+        )
+        if until_date
+        else None,
+        restrict_to_company_ids=(consultation_scope.company_ids or None)
+        if consultation_scope
+        else None,
+        additional_activity_filters=lambda query: query.order_by(
+            desc(Activity.start_time), desc(Activity.id)
+        ),
+        limit_fetch_activities=max(first * 5, 200) if first else None,
+        max_reception_time=max_reception_time,
+    )
+
+    missions_validated_by_admin = [
+        m for m in missions if m.validated_by_admin_for(user)
+    ]
+    missions_validated_by_user = [
+        m
+        for m in missions
+        if m.validation_of(user, max_reception_time=max_reception_time)
+    ]
+
+    work_days_admin = group_user_missions_by_day(
+        user,
+        missions_validated_by_admin,
+        from_date=from_date,
+        until_date=until_date,
+        tz=tz,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
+    )
+    work_days_user = group_user_missions_by_day(
+        user,
+        missions_validated_by_user,
+        from_date=from_date,
+        until_date=until_date,
+        tz=tz,
+        include_dismissed_or_empty_days=include_dismissed_or_empty_days,
+        max_reception_time=max_reception_time,
+    )
+    return work_days_admin, work_days_user
+
+
 def group_user_missions_by_day(
     user,
     missions,
