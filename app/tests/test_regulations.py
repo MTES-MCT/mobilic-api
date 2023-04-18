@@ -146,6 +146,70 @@ class TestRegulations(BaseTest):
             RegulationComputation.day == day_start,
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
+        self.assertIsNone(computation_done)
+
+    def test_no_computation_for_empty_previous_day(self):
+        self.employee
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="5h work",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=10),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=15),
+                ],
+            ],
+        )
+
+        day_start = get_date(how_many_days_ago)
+        day_before = get_date(how_many_days_ago + 1)
+        computation_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == day_start,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(computation_done)
+        computation_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == day_before,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(computation_done)
+
+    def test_computation_for_non_empty_day(self):
+        self.employee
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="long night",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago + 1, hour=20),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
+                ],
+            ],
+        )
+
+        day_start = get_date(how_many_days_ago)
+        day_before = get_date(how_many_days_ago + 1)
+        computation_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == day_start,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(computation_done)
+        computation_done = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == day_before,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
         self.assertIsNotNone(computation_done)
 
     def test_min_daily_rest_by_employee_success(self):
@@ -1087,9 +1151,17 @@ class TestRegulations(BaseTest):
         period_start = get_date(how_many_days_ago=18)
         period_end = get_date(how_many_days_ago=3)
 
-        # WHEN
-        regulations.compute_regulations(
-            employee, period_start, period_end, SubmitterType.EMPLOYEE
+        self._log_and_validate_mission(
+            mission_name="super long mission",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=18, hour=4),
+                    get_time(how_many_days_ago=3, hour=5),
+                ],
+            ],
         )
 
         # THEN
@@ -1099,7 +1171,7 @@ class TestRegulations(BaseTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(computations_done), 17)
+        self.assertEqual(len(computations_done), 16)
 
     def test_compute_regulations_per_week_success(self):
         nb_weeks = 3

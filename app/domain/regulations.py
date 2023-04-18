@@ -1,7 +1,10 @@
 from datetime import date, datetime, timedelta, timezone
 
 from app import app, db
-from app.domain.regulations_per_day import compute_regulations_per_day
+from app.domain.regulations_per_day import (
+    compute_regulations_per_day,
+    filter_work_days_to_current_day,
+)
 from app.domain.regulations_per_week import compute_regulations_per_week
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.regulations_utils import DAY
@@ -60,7 +63,10 @@ def compute_regulations(user, period_start, period_end, submitter_type):
             work_days_over_current_past_and_next_days,
             tz=user_timezone,
         )
-        mark_day_as_computed(user, day, submitter_type)
+        if activity_to_compute_in_day(
+            day, work_days_over_current_past_and_next_days, user_timezone
+        ):
+            mark_day_as_computed(user, day, submitter_type)
 
     # Compute weekly rules
     weeks = group_user_events_by_week(
@@ -71,6 +77,20 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     )
     for week in weeks:
         compute_regulations_per_week(user, week, submitter_type)
+
+
+def activity_to_compute_in_day(
+    day, work_days_over_current_past_and_next_days, user_timezone
+):
+    activity_groups_to_take_into_account = filter_work_days_to_current_day(
+        work_days_over_current_past_and_next_days,
+        to_datetime(day, tz_for_date=user_timezone),
+        to_datetime(day, tz_for_date=user_timezone) + timedelta(days=1),
+    )
+    for group in activity_groups_to_take_into_account:
+        if len(group.activities) > 0:
+            return True
+    return False
 
 
 def clean_current_alerts(
