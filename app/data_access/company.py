@@ -143,6 +143,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     authorized_clients = graphene.List(OAuth2ClientOutput)
 
+    is_certified = graphene.Boolean(
+        description="Indique si l'entreprise a la certification Mobilic"
+    )
+
+    allow_certification_communication = graphene.Boolean(
+        description="Indique si un gestionnaire a accepté ou refusé la "
+    )
+
     def resolve_name(self, info):
         return self.name
 

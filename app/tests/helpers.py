@@ -813,6 +813,18 @@ class ApiRequests:
       }
     """
 
+    admined_companies = """
+      query adminCompaniesList($id: Int!) {
+        user(id: $id) {
+          adminedCompanies {
+            id
+            isCertified
+            allowCertificationCommunication
+          }
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
