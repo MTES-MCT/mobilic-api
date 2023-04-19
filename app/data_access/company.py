@@ -148,7 +148,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
 
     allow_certification_communication = graphene.Boolean(
-        description="Indique si un gestionnaire a accepté ou refusé la "
+        description="Indique si un gestionnaire a accepté ou refusé la communication sur le certificat"
     )
 
     def resolve_name(self, info):
