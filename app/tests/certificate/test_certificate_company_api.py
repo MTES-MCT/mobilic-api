@@ -5,8 +5,6 @@ from app.seed.factories import CompanyCertificationFactory, UserFactory
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
-EXPECTED_CERTIFICATION_DATE_FORMAT = "%Y/%m/%d"
-
 
 class TestCertificateCompanyApi(BaseTest):
     def setUp(self):
