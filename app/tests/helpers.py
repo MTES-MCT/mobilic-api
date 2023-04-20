@@ -819,8 +819,22 @@ class ApiRequests:
           adminedCompanies {
             id
             isCertified
-            allowCertificationCommunication
+            acceptCertificationCommunication
           }
+        }
+      }
+    """
+
+    edit_company_communication_setting = """
+      mutation editCompanyCommunicationSetting(
+        $companyIds: [Int]!
+        $acceptCommunication: Boolean!
+      ) {
+        editCompanyCommunicationSetting(
+          companyIds: $companyIds
+          acceptCommunication: $acceptCommunication
+        ) {
+          success
         }
       }
     """

@@ -147,7 +147,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         description="Indique si l'entreprise a la certification Mobilic"
     )
 
-    allow_certification_communication = graphene.Boolean(
+    accept_certification_communication = graphene.Boolean(
         description="Indique si un gestionnaire a accepté ou refusé la communication sur le certificat"
     )
 

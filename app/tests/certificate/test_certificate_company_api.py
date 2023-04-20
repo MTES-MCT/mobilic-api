@@ -46,7 +46,7 @@ class TestCertificateCompanyApi(BaseTest):
             "adminedCompanies"
         ][0]
         self.assertTrue(admined_company["isCertified"])
-        self.assertIsNone(admined_company["allowCertificationCommunication"])
+        self.assertIsNone(admined_company["acceptCertificationCommunication"])
 
     def test_no_certificate(self):
         CompanyCertificationFactory.create(
@@ -73,7 +73,7 @@ class TestCertificateCompanyApi(BaseTest):
             "adminedCompanies"
         ][0]
         self.assertFalse(admined_company["isCertified"])
-        self.assertIsNone(admined_company["allowCertificationCommunication"])
+        self.assertIsNone(admined_company["acceptCertificationCommunication"])
 
     def test_expired_certificate(self):
         CompanyCertificationFactory.create(
@@ -100,4 +100,4 @@ class TestCertificateCompanyApi(BaseTest):
             "adminedCompanies"
         ][0]
         self.assertFalse(admined_company["isCertified"])
-        self.assertIsNone(admined_company["allowCertificationCommunication"])
+        self.assertIsNone(admined_company["acceptCertificationCommunication"])

@@ -43,3 +43,10 @@ def link_company_to_software(company_id, client_id):
     )
     db.session.add(new_link)
     return new_link
+
+
+def change_company_certification_communication_pref(company_ids, accept):
+    Company.query.filter(Company.id.in_(company_ids)).update(
+        {"accept_certification_communication": accept},
+        synchronize_session=False,
+    )
