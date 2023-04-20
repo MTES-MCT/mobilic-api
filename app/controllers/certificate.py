@@ -51,6 +51,7 @@ def is_company_certified(siren):
         )
         .filter(
             Company.siren == siren,
+            Company.accept_certification_communication,
             CompanyCertification.be_active,
             CompanyCertification.be_compliant,
             CompanyCertification.not_too_many_changes,
