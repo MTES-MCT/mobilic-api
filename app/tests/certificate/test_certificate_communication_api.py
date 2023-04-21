@@ -28,7 +28,7 @@ class TestCertificateCommunicationApi(BaseTest):
             unexposed_query=True,
             variables={
                 "companyIds": [self.company.id],
-                "acceptCommunication": True,
+                "acceptCertificationCommunication": True,
             },
         )
         admined_companies = make_authenticated_request(

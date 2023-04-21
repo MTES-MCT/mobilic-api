@@ -828,11 +828,11 @@ class ApiRequests:
     edit_company_communication_setting = """
       mutation editCompanyCommunicationSetting(
         $companyIds: [Int]!
-        $acceptCommunication: Boolean!
+        $acceptCertificationCommunication: Boolean!
       ) {
         editCompanyCommunicationSetting(
           companyIds: $companyIds
-          acceptCommunication: $acceptCommunication
+          acceptCertificationCommunication: $acceptCertificationCommunication
         ) {
           success
         }
