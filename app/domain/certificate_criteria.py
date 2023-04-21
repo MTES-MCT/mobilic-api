@@ -298,7 +298,9 @@ def compute_company_certification(company, today, start, end):
         and validate_regularly
         and log_in_real_time
     )
-    expiration_date = certificate_expiration(today) if certified else None
+    expiration_date = (
+        certificate_expiration(today) if certified else end_of_month(today)
+    )
 
     company_certification = CompanyCertification(
         company=company,

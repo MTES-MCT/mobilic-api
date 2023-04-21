@@ -103,9 +103,7 @@ class Company(BaseModel, WithEmploymentHistory):
         today = date.today()
         for company_certification in self.certifications:
             if (
-                company_certification.attribution_date
-                <= today
-                <= company_certification.expiration_date
+                today <= company_certification.expiration_date
                 and company_certification.certified
             ):
                 return True
