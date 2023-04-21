@@ -74,7 +74,7 @@ class TestCertificateCompanyApi(BaseTest):
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
 
     def test_expired_certificate(self):
-        CompanyCertificationFactory.create(
+        expired_certificate = CompanyCertificationFactory.create(
             company_id=self.company.id,
             attribution_date=date.today() - timedelta(days=10),
             expiration_date=date.today() - timedelta(days=4),
@@ -99,3 +99,9 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         self.assertFalse(admined_company["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
+        self.assertEquals(
+            expired_certificate.expiration_date,
+            datetime.strptime(
+                admined_company["lastDayCertified"], "%Y-%m-%d"
+            ).date(),
+        )

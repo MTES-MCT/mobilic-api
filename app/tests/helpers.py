@@ -820,6 +820,7 @@ class ApiRequests:
             id
             isCertified
             acceptCertificationCommunication
+            lastDayCertified
           }
         }
       }

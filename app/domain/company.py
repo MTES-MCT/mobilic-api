@@ -1,7 +1,7 @@
 from enum import Enum
 
 from app import db
-from app.models import Company
+from app.models import Company, CompanyCertification
 
 
 class SirenRegistrationStatus(str, Enum):
@@ -50,3 +50,18 @@ def change_company_certification_communication_pref(company_ids, accept):
         {"accept_certification_communication": accept},
         synchronize_session=False,
     )
+
+
+def get_last_day_of_certification(company_id):
+    return (
+        db.session.query(db.func.max(CompanyCertification.expiration_date))
+        .filter(
+            CompanyCertification.company_id == company_id,
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+        )
+        .first()
+    )[0]

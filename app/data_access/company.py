@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
 from app.data_access.team import TeamOutput
+from app.domain.company import get_last_day_of_certification
 from app.domain.permissions import (
     company_admin,
     is_employed_by_company_over_period,
@@ -149,6 +150,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     accept_certification_communication = graphene.Boolean(
         description="Indique si un gestionnaire a accepté ou refusé la communication sur le certificat"
+    )
+
+    last_day_certified = graphene.Field(
+        graphene.Date,
+        description="Date la plus récente à laquelle l'entreprise cessera ou a cessé d'être certifiée.",
     )
 
     def resolve_name(self, info):
@@ -320,6 +326,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_authorized_clients(self, info):
         return self.retrieve_authorized_clients
+
+    def resolve_last_day_certified(self, info):
+        return get_last_day_of_certification(self.id)
 
 
 from app.data_access.user import UserOutput
