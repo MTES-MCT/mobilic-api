@@ -104,8 +104,9 @@ class EditCompanyCommunicationSetting(AuthenticatedMutation):
             required=True,
             description="Identifiants des entreprises.",
         )
-        accept_communication = graphene.Boolean(
-            required=True, description="True si la communication est accepté"
+        accept_certification_communication = graphene.Boolean(
+            required=True,
+            description="True si la communication sur la certification est acceptée",
         )
 
     Output = Void
@@ -118,10 +119,10 @@ class EditCompanyCommunicationSetting(AuthenticatedMutation):
         ],
         error_message="You need to be a company admin to be able to edit company communication settings",
     )
-    def mutate(cls, _, info, company_ids, accept_communication):
+    def mutate(cls, _, info, company_ids, accept_certification_communication):
         with atomic_transaction(commit_at_end=True):
             change_company_certification_communication_pref(
-                company_ids, accept_communication
+                company_ids, accept_certification_communication
             )
 
         return Void(success=True)
