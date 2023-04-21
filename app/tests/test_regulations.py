@@ -149,7 +149,6 @@ class TestRegulations(BaseTest):
         self.assertIsNone(computation_done)
 
     def test_no_computation_for_empty_previous_day(self):
-        self.employee
         how_many_days_ago = 2
 
         self._log_and_validate_mission(
@@ -1146,10 +1145,6 @@ class TestRegulations(BaseTest):
     def test_compute_regulations_calls_daily_regulations_for_all_days(
         self, mock_compute_regulations_per_day
     ):
-        # GIVEN
-        employee = self.employee
-        period_start = get_date(how_many_days_ago=18)
-        period_end = get_date(how_many_days_ago=3)
 
         self._log_and_validate_mission(
             mission_name="super long mission",
