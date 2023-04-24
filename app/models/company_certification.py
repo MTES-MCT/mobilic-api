@@ -11,7 +11,7 @@ class CompanyCertification(BaseModel):
     company = db.relationship("Company", backref=backref("certifications"))
 
     attribution_date = db.Column(db.Date, nullable=False)
-    expiration_date = db.Column(db.Date, nullable=True)
+    expiration_date = db.Column(db.Date, nullable=False)
     be_active = db.Column(db.Boolean, default=False, nullable=False)
     be_compliant = db.Column(db.Boolean, default=False, nullable=False)
     not_too_many_changes = db.Column(db.Boolean, default=False, nullable=False)

@@ -34,6 +34,8 @@ class Company(BaseModel, WithEmploymentHistory):
     )
     require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
 
+    accept_certification_communication = db.Column(db.Boolean, nullable=True)
+
     __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
 
     @property
@@ -95,3 +97,14 @@ class Company(BaseModel, WithEmploymentHistory):
                 ),
             )
         )
+
+    @cached_property
+    def is_certified(self):
+        today = date.today()
+        for company_certification in self.certifications:
+            if (
+                today <= company_certification.expiration_date
+                and company_certification.certified
+            ):
+                return True
+        return False

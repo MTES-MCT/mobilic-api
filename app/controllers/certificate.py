@@ -1,11 +1,17 @@
 from dataclasses import dataclass
 
+import graphene
 from flask import jsonify, request, abort
 from flask_apispec import use_kwargs
 from sqlalchemy.sql.functions import now
 from webargs import fields
 
 from app import app, db
+from app.controllers.utils import Void, atomic_transaction
+from app.domain.company import change_company_certification_communication_pref
+from app.domain.permissions import companies_admin
+from app.helpers.authentication import AuthenticatedMutation
+from app.helpers.authorization import with_authorization_policy
 from app.models import Company, CompanyCertification
 
 
@@ -45,6 +51,7 @@ def is_company_certified(siren):
         )
         .filter(
             Company.siren == siren,
+            Company.accept_certification_communication,
             CompanyCertification.be_active,
             CompanyCertification.be_compliant,
             CompanyCertification.not_too_many_changes,
@@ -89,3 +96,34 @@ def is_company_certified(siren):
             )
 
     return jsonify([c for c in certified_companies]), 200
+
+
+class EditCompanyCommunicationSetting(AuthenticatedMutation):
+    class Arguments:
+        company_ids = graphene.List(
+            graphene.Int,
+            required=True,
+            description="Identifiants des entreprises.",
+        )
+        accept_certification_communication = graphene.Boolean(
+            required=True,
+            description="True si la communication sur la certification est acceptée",
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        companies_admin,
+        get_target_from_args=lambda cls, _, info, **kwargs: kwargs[
+            "company_ids"
+        ],
+        error_message="You need to be a company admin to be able to edit company communication settings",
+    )
+    def mutate(cls, _, info, company_ids, accept_certification_communication):
+        with atomic_transaction(commit_at_end=True):
+            change_company_certification_communication_pref(
+                company_ids, accept_certification_communication
+            )
+
+        return Void(success=True)

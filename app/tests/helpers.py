@@ -813,6 +813,33 @@ class ApiRequests:
       }
     """
 
+    admined_companies = """
+      query adminCompaniesList($id: Int!) {
+        user(id: $id) {
+          adminedCompanies {
+            id
+            isCertified
+            acceptCertificationCommunication
+            lastDayCertified
+          }
+        }
+      }
+    """
+
+    edit_company_communication_setting = """
+      mutation editCompanyCommunicationSetting(
+        $companyIds: [Int]!
+        $acceptCertificationCommunication: Boolean!
+      ) {
+        editCompanyCommunicationSetting(
+          companyIds: $companyIds
+          acceptCertificationCommunication: $acceptCertificationCommunication
+        ) {
+          success
+        }
+      }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []

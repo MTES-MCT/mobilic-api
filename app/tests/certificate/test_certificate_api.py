@@ -12,19 +12,23 @@ class TestCertificateApi(BaseTest):
     def setUp(self):
         super().setUp()
         self.company_without_siret = CompanyFactory.create(
-            usual_name="company sans siret", siren="111111111"
+            usual_name="company sans siret",
+            siren="111111111",
+            accept_certification_communication=True,
         )
 
         self.company_with_sirets = CompanyFactory.create(
             usual_name="company avec sirets",
             siren="222222222",
             short_sirets=[333, 4444],
+            accept_certification_communication=True,
         )
 
         self.company_with_other_sirets = CompanyFactory.create(
             usual_name="company avec un autre siret",
             siren="222222222",
             short_sirets=[55555],
+            accept_certification_communication=True,
         )
 
     def test_certificate_no_header(self):
@@ -209,6 +213,64 @@ class TestCertificateApi(BaseTest):
             "/companies/is_company_certified",
             json={
                 "siren": "123456789",
+            },
+            headers={
+                "X-MOBILIC-CERTIFICATION-KEY": TestConfig.CERTIFICATION_API_KEY,
+            },
+        )
+        self.assertEqual(company_certification.status_code, 200)
+        list_certified_companies = company_certification.json
+        self.assertEqual(0, len(list_certified_companies))
+
+    def test_decline_communication(self):
+        company_no_communication = CompanyFactory.create(
+            usual_name="company refuse comm",
+            siren="111111111",
+            accept_certification_communication=False,
+        )
+        CompanyCertificationFactory.create(
+            company_id=company_no_communication.id,
+            attribution_date=date.today() - timedelta(days=30),
+            expiration_date=date.today() + timedelta(days=30),
+            be_active=True,
+            be_compliant=True,
+            not_too_many_changes=True,
+            validate_regularly=True,
+            log_in_real_time=True,
+        )
+        company_certification = test_post_rest(
+            "/companies/is_company_certified",
+            json={
+                "siren": company_no_communication.siren,
+            },
+            headers={
+                "X-MOBILIC-CERTIFICATION-KEY": TestConfig.CERTIFICATION_API_KEY,
+            },
+        )
+        self.assertEqual(company_certification.status_code, 200)
+        list_certified_companies = company_certification.json
+        self.assertEqual(0, len(list_certified_companies))
+
+    def test_no_communication_information(self):
+        company_no_communication = CompanyFactory.create(
+            usual_name="company no comm info",
+            siren="111111111",
+            accept_certification_communication=None,
+        )
+        CompanyCertificationFactory.create(
+            company_id=company_no_communication.id,
+            attribution_date=date.today() - timedelta(days=30),
+            expiration_date=date.today() + timedelta(days=30),
+            be_active=True,
+            be_compliant=True,
+            not_too_many_changes=True,
+            validate_regularly=True,
+            log_in_real_time=True,
+        )
+        company_certification = test_post_rest(
+            "/companies/is_company_certified",
+            json={
+                "siren": company_no_communication.siren,
             },
             headers={
                 "X-MOBILIC-CERTIFICATION-KEY": TestConfig.CERTIFICATION_API_KEY,
