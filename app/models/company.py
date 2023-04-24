@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
+from app.helpers.time import to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
@@ -33,6 +34,8 @@ class Company(BaseModel, WithEmploymentHistory):
     )
     require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
 
+    accept_certification_communication = db.Column(db.Boolean, nullable=True)
+
     __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
 
     @property
@@ -60,6 +63,21 @@ class Company(BaseModel, WithEmploymentHistory):
         users = User.query.filter(User.id.in_(user_ids))
         return users
 
+    def get_drivers(self, start, end):
+        drivers = []
+        users = self.users_between(start, end)
+        for user in users:
+            # a driver can have admin rights
+            if user.has_admin_rights(
+                self.id
+            ) is False or user.first_activity_after(to_datetime(start)):
+                drivers.append(user)
+        return drivers
+
+    def get_admins(self, start, end):
+        users = self.users_between(start, end)
+        return [user for user in users if user.has_admin_rights(self.id)]
+
     def query_current_users(self):
         from app.models import User
 
@@ -79,3 +97,14 @@ class Company(BaseModel, WithEmploymentHistory):
                 ),
             )
         )
+
+    @cached_property
+    def is_certified(self):
+        today = date.today()
+        for company_certification in self.certifications:
+            if (
+                today <= company_certification.expiration_date
+                and company_certification.certified
+            ):
+                return True
+        return False

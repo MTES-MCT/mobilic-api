@@ -119,7 +119,7 @@ def check_min_daily_rest(
 
         # We remove activities that are not included in the day to check.
         day_to_check_end_time = day_to_check_start_time + timedelta(days=1)
-        all_activities = list(
+        all_activities_for_the_day = list(
             filter(
                 lambda activity: activity.start_time < day_to_check_end_time
                 and activity.end_time
@@ -135,10 +135,20 @@ def check_min_daily_rest(
         for long_break in long_breaks:
 
             # Identify activities which should be covered by long break
+            activities_for_the_day_related_to_long_break = [
+                a
+                for a in all_activities_for_the_day
+                if a.start_time < long_break.end_time
+            ]
             activities_related_to_long_break = [
                 a for a in all_activities if a.start_time < long_break.end_time
             ]
             if previous_long_break:
+                activities_for_the_day_related_to_long_break = [
+                    a
+                    for a in activities_for_the_day_related_to_long_break
+                    if a.start_time >= previous_long_break.end_time
+                ]
                 activities_related_to_long_break = [
                     a
                     for a in activities_related_to_long_break
@@ -152,7 +162,7 @@ def check_min_daily_rest(
             )
             activities_not_covered_by_long_break = [
                 activity
-                for activity in activities_related_to_long_break
+                for activity in activities_for_the_day_related_to_long_break
                 if activity.start_time < cover_period_start
             ]
 
@@ -167,8 +177,10 @@ def check_min_daily_rest(
                     0
                 ].start_time + timedelta(days=1)
                 extra["breach_period_end"] = breach_period_end.isoformat()
-                extra["breach_period_max_break_in_seconds"] = (
-                    breach_period_end - long_break.start_time
+                extra[
+                    "breach_period_max_break_in_seconds"
+                ] = get_longest_inner_break(
+                    activities_related_to_long_break,
                 ).seconds
                 extra["sanction_code"] = NATINF_20525
                 break
@@ -176,6 +188,24 @@ def check_min_daily_rest(
             previous_long_break = long_break
 
     return ComputationResult(success=success, extra=extra)
+
+
+def get_longest_inner_break(activities):
+    period_end = activities[0].start_time + timedelta(days=1)
+    if len(activities) == 1:
+        return period_end - activities[-1].end_time
+
+    activities = list(set(activities))
+    activities.sort(key=lambda activity: activity.start_time)
+
+    candidates = [
+        activities[idx_activity].start_time
+        - activities[idx_activity - 1].end_time
+        for idx_activity in range(1, len(activities))
+    ]
+    candidates.append(period_end - activities[-1].end_time)
+    candidates.sort()
+    return candidates[-1]
 
 
 def get_long_breaks(activities, regulation_check):

@@ -11,6 +11,7 @@ from app.seed.scenarios.busy_admin import (
     ADMIN_EMAIL,
     run_scenario_busy_admin,
 )
+from app.seed.scenarios.certificated_company import run_scenario_certificated
 from app.seed.scenarios.temps_de_liaison import (
     ADMIN_EMAIL as ADMIN_TEMPS_DE_LIAISON,
     EMPLOYEE_EMAIL as EMPLOYEE_TEMPS_DE_LIAISON,
@@ -27,6 +28,10 @@ from app.seed.scenarios.export_excel import (
 from app.seed.scenarios.two_weeks import (
     ADMIN_EMAIL as ADMIN_TWO_WEEKS,
     EMPLOYEE_EMAIL as EMPLOYEE_TWO_WEEKS,
+)
+from app.seed.scenarios.certificated_company import (
+    ADMIN_EMAIL as CERTIFICATED_ADMIN_EMAIL,
+    EMPLOYEE_EMAIL as CERTIFICATED_EMPLOYEE_EMAIL,
 )
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
@@ -68,6 +73,12 @@ scenarios = [
         f"Creates a company where everybody break rules !",
         [BREACH_EMPLOYEE_EMAIL],
         run_scenario_breach_rules,
+    ),
+    SeedScenario(
+        "Certificated company",
+        "Creates a company which should be compliant enough to get a Mobilic certificate",
+        [CERTIFICATED_ADMIN_EMAIL, CERTIFICATED_EMPLOYEE_EMAIL],
+        run_scenario_certificated,
     ),
     SeedScenario(
         "Non Stop",

@@ -3,6 +3,7 @@ from .controller_user import ControllerUser
 from .company import Company
 from .address import Address
 from .company_known_address import CompanyKnownAddress
+from .company_certification import CompanyCertification
 from .vehicle import Vehicle
 from .mission import Mission
 from .location_entry import LocationEntry
@@ -23,3 +24,4 @@ from .regulation_check import RegulationCheck
 from .regulatory_alert import RegulatoryAlert
 from .regulation_computation import RegulationComputation
 from .team import Team
+from .company_certification import CompanyCertification

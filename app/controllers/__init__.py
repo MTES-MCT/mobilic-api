@@ -1,4 +1,6 @@
 import graphene
+
+from app.controllers.certificate import EditCompanyCommunicationSetting
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
 from app.controllers.authentication import (
@@ -241,6 +243,9 @@ class PrivateMutations(graphene.ObjectType):
     dismiss_employment_token = DismissEmploymentToken.Field()
     dismiss_company_token = DismissCompanyToken.Field()
     generate_company_token = GenerateCompanyToken.Field()
+    edit_company_communication_setting = (
+        EditCompanyCommunicationSetting.Field()
+    )
 
 
 class Queries(

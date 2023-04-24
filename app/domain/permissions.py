@@ -45,6 +45,13 @@ def company_admin(actor, company_obj_or_id):
     )
 
 
+def companies_admin(actor, company_ids):
+    for company_id in company_ids:
+        if not company_admin(actor, company_id):
+            return False
+    return True
+
+
 def get_employment_over_period(
     actor,
     company_obj_or_id,

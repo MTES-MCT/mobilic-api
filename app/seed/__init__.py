@@ -12,6 +12,7 @@ from app.models import (
     ActivityVersion,
     Comment,
     Company,
+    CompanyCertification,
     CompanyKnownAddress,
     ControllerRefreshToken,
     ControllerUser,
@@ -77,6 +78,7 @@ def clean():
         """
     )
 
+    CompanyCertification.query.delete()
     CompanyKnownAddress.query.delete()
     Employment.query.delete()
     Team.query.delete()

@@ -3,7 +3,14 @@ from datetime import datetime, date
 import factory
 
 from app import db
-from app.models import User, Employment, Company, ControllerUser, Team
+from app.models import (
+    User,
+    Employment,
+    Company,
+    ControllerUser,
+    Team,
+    CompanyCertification,
+)
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.regulation_computation import RegulationComputation
@@ -62,6 +69,11 @@ class CompanyFactory(BaseFactory):
 
     usual_name = factory.Sequence(lambda n: f"super corp {n}")
     siren = factory.Sequence(lambda n: n)
+
+
+class CompanyCertificationFactory(BaseFactory):
+    class Meta:
+        model = CompanyCertification
 
 
 class TeamFactory(BaseFactory):

@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
@@ -86,8 +87,12 @@ class Config:
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
+    CERTIFICATION_API_KEY = os.environ.get("CERTIFICATION_API_KEY")
     API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_live_")
     NB_BAD_PASSWORD_TRIES_BEFORE_BLOCKING = 10
+    COMPANY_EXCLUDE_ONBOARDING_EMAILS = json.loads(
+        os.environ.get("COMPANY_EXCLUDE_ONBOARDING_EMAILS", "[]")
+    )
 
 
 class DevConfig(Config):
@@ -113,6 +118,7 @@ class TestConfig(Config):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
+    CERTIFICATION_API_KEY = "1234"
 
 
 class ProdConfig(Config):
