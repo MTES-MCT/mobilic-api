@@ -3,10 +3,10 @@ import os
 import secrets
 import sys
 from datetime import date
+from multiprocessing import Pool
 from unittest import TestLoader, TextTestRunner
 
 import click
-import progressbar
 from argon2 import PasswordHasher
 
 from app.domain.certificate_criteria import compute_company_certifications
@@ -51,12 +51,14 @@ def seed():
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 @click.argument("part", type=click.INT)
 @click.argument("nb_parts", type=click.INT)
-def init_regulation_alerts(part, nb_parts):
+@click.argument("nb_fork", type=click.INT)
+def init_regulation_alerts(part, nb_parts, nb_fork):
     """
-    Initialize alerts for users from part PART
+    Initialize alerts for users
 
-    NB_PARTS is a number between 1 and 24
-    PART is a number between 1 and NB_PARTS.
+    part is a number between 1 and NB_PARTS.
+    nb_parts is a number between 1 and 24
+    nb_fork is the number of parallel thread can be run.
     It is used to split all users in [NB_PARTS] parts using modulo on user_id.
     """
 
@@ -69,18 +71,23 @@ def init_regulation_alerts(part, nb_parts):
         sys.exit(1)
 
     print(f"Computing regulation alerts ({part}/{nb_parts})")
-    widgets = [progressbar.Percentage(), progressbar.Bar()]
-    users = User.query.filter(User.id % nb_parts == part - 1).all()
-    max_value = len(users) if users else 0
+    users_ids = (
+        db.session.query(User.id).filter(User.id % nb_parts == part - 1).all()
+    )
+    max_value = len(users_ids) if users_ids else 0
     print(f"{max_value} users to process")
-    bar = progressbar.ProgressBar(widgets=widgets, max_value=max_value).start()
-    i = 0
-    for user in users:
-        with atomic_transaction(commit_at_end=True):
-            compute_regulation_for_user(user)
-        i += 1
-        bar.update(i)
-    bar.finish()
+
+    db.session.close()
+    db.engine.dispose()
+
+    with Pool(nb_fork) as p:
+        p.map(run_batch_user_id, users_ids)
+
+
+def run_batch_user_id(user_id):
+    with atomic_transaction(commit_at_end=True):
+        user_to_process = User.query.filter(User.id == user_id).one()
+        compute_regulation_for_user(user_to_process)
 
 
 @app.cli.command("create_api_key", with_appcontext=True)

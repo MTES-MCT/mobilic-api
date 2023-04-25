@@ -6,7 +6,10 @@ from app.domain.regulations_per_day import (
     filter_work_days_to_current_day,
 )
 from app.domain.regulations_per_week import compute_regulations_per_week
-from app.domain.work_days import group_user_events_by_day_with_limit
+from app.domain.work_days import (
+    group_user_events_by_day_with_limit,
+    group_user_events_by_day_with_limit_both_submitter,
+)
 from app.helpers.regulations_utils import DAY
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import (
@@ -231,14 +234,17 @@ def compute_regulation_for_user(user):
     #####
     # COMPUTE alerts
     #####
+    (
+        work_days_admin,
+        work_days_user,
+    ) = group_user_events_by_day_with_limit_both_submitter(
+        user=user, include_dismissed_or_empty_days=False
+    )
     for submitter_type in [SubmitterType.ADMIN, SubmitterType.EMPLOYEE]:
-        (work_days, _) = group_user_events_by_day_with_limit(
-            user=user,
-            include_dismissed_or_empty_days=False,
-            only_missions_validated_by_admin=submitter_type
-            == SubmitterType.ADMIN,
-            only_missions_validated_by_user=submitter_type
-            == SubmitterType.EMPLOYEE,
+        work_days = (
+            work_days_admin
+            if submitter_type == SubmitterType.ADMIN
+            else work_days_user
         )
         time_ranges = get_uninterrupted_datetime_ranges(
             [wd.day for wd in work_days]
@@ -251,16 +257,12 @@ def compute_regulation_for_user(user):
 
 
 def mark_day_as_computed(user, day, submitter_type):
-    already_computed = RegulationComputation.query.filter(
-        RegulationComputation.user_id == user.id,
-        RegulationComputation.day == day,
-        RegulationComputation.submitter_type == submitter_type,
-    ).one_or_none()
+    from sqlalchemy.dialects.postgresql import insert
 
-    if not already_computed:
-        regulation_computation = RegulationComputation(
-            day=day,
-            user=user,
-            submitter_type=submitter_type,
-        )
-        db.session.add(regulation_computation)
+    stmt = (
+        insert(RegulationComputation)
+        .values(day=day, user_id=user.id, submitter_type=submitter_type)
+        .on_conflict_do_nothing()
+    )
+
+    db.session.execute(stmt)

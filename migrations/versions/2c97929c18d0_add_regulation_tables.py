@@ -10,6 +10,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm.session import Session
 
+import json
 from app.services.get_regulation_checks import get_regulation_checks
 
 # revision identifiers, used by Alembic.
@@ -54,7 +55,7 @@ def fill_regulation_checks():
                 label=r.label,
                 description=r.description,
                 regulation_rule=r.regulation_rule,
-                variables=r.variables,
+                variables=json.dumps(r.variables),
                 unit=r.unit,
             ),
         )
