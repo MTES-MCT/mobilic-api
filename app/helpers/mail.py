@@ -703,7 +703,8 @@ class Mailer:
                 first_name=user.first_name,
                 cta=f"{app.config['FRONTEND_URL']}/login",
                 _disable_commit=True,
-            )
+            ),
+            _disable_commit=True,
         )
 
     def send_worker_onboarding_second_email(self, user):
@@ -726,7 +727,8 @@ class Mailer:
                 first_name=user.first_name,
                 cta=f"{app.config['FRONTEND_URL']}/login?next=/admin/company",
                 _disable_commit=True,
-            )
+            ),
+            _disable_commit=True,
         )
 
     def send_blocked_account_email(self, user):
