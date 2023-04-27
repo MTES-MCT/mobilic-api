@@ -38,7 +38,7 @@ from app.helpers.errors import AuthorizationError, InvalidControlToken
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
-from app.models import Mission
+from app.models import Mission, ControlBulletin
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.controller_user import ControllerUser
 from app.models.queries import add_mission_relations, query_controls
@@ -107,6 +107,44 @@ class ControllerScanCode(graphene.Mutation):
                 decoded_token["dateCodeGeneration"]
             ),
         )
+        return control
+
+
+class ControllerSaveControlBulletin(graphene.Mutation):
+    Output = ControllerControlOutput
+
+    class Arguments:
+        control_id = graphene.Int(required=False)
+        user_first_name = graphene.String(required=False)
+        user_last_name = graphene.String(required=False)
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(
+        cls, _, info, control_id=None, user_first_name="", user_last_name=""
+    ):
+        if control_id:
+            control = ControllerControl.query.filter(
+                ControllerControl.id == control_id
+            ).one_or_none()
+        else:
+            control = ControllerControl.create_no_lic_control(current_user.id)
+
+        existing_bulletin = ControlBulletin.query.filter(
+            ControlBulletin.control_id == control.id
+        ).one_or_none()
+        if existing_bulletin:
+            with atomic_transaction(commit_at_end=True):
+                existing_bulletin.user_first_name = user_first_name
+                existing_bulletin.user_last_name = user_last_name
+        else:
+            new_bulletin = ControlBulletin(
+                control_id=control.id, creation_time=datetime.now()
+            )
+            new_bulletin.user_last_name = user_last_name
+            new_bulletin.user_first_name = user_first_name
+            db.session.add(new_bulletin)
+            db.session.commit()
         return control
 
 

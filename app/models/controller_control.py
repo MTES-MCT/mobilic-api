@@ -48,6 +48,16 @@ class ControllerControl(BaseModel, RandomNineIntId):
         return compute_history_start_date(self.history_end_date)
 
     @staticmethod
+    def create_no_lic_control(controller_id):
+        new_control = ControllerControl(
+            control_type=ControlType.sans_lic,
+            controller_id=controller_id,
+        )
+        db.session.add(new_control)
+        db.session.commit()
+        return new_control
+
+    @staticmethod
     def get_or_create_mobilic_control(
         controller_id, user_id, qr_code_generation_time
     ):

@@ -26,7 +26,11 @@ from app.controllers.third_party_employment import (
     DismissEmploymentToken,
     PrivateQuery as ThirdPartyEmploymentPrivateQuery,
 )
-from app.controllers.controller import AgentConnectLogin, ControllerScanCode
+from app.controllers.controller import (
+    AgentConnectLogin,
+    ControllerScanCode,
+    ControllerSaveControlBulletin,
+)
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
     CancelEmployment,
@@ -234,6 +238,7 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_settings = EditCompanySettings.Field()
 
     controller_scan_code = ControllerScanCode.Field()
+    controller_save_control_bulletin = ControllerSaveControlBulletin.Field()
 
     generate_employment_token = GenerateEmploymentToken.Field()
 
