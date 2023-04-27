@@ -39,15 +39,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
     nb_controlled_days = db.Column(db.Integer, nullable=True)
     bulletin = db.relationship("ControlBulletin")
 
-    __table_args__ = (
-        db.UniqueConstraint(
-            "controller_id",
-            "user_id",
-            "qr_code_generation_time",
-            name="only_one_control_per_controller_user_date",
-        ),
-    )
-
     @property
     def history_end_date(self):
         return self.qr_code_generation_time.date()
