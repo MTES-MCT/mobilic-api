@@ -20,10 +20,10 @@ def compute_history_start_date(history_end_date):
 
 
 class ControllerControl(BaseModel, RandomNineIntId):
-    qr_code_generation_time = db.Column(DateTimeStoredAsUTC, nullable=False)
+    qr_code_generation_time = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
+        db.Integer, db.ForeignKey("user.id"), nullable=True, index=True
     )
     controller_id = db.Column(
         db.Integer,
@@ -37,6 +37,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
     company_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
+    bulletin = db.relationship("ControlBulletin")
 
     __table_args__ = (
         db.UniqueConstraint(
