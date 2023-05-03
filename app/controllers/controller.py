@@ -117,34 +117,49 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         control_id = graphene.Int(required=False)
         user_first_name = graphene.String(required=False)
         user_last_name = graphene.String(required=False)
+        user_birth_date = graphene.Date(required=False)
+        user_nationality = graphene.String(required=False)
+        lic_paper_presented = graphene.Boolean(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
     def mutate(
-        cls, _, info, control_id=None, user_first_name="", user_last_name=""
+        cls,
+        _,
+        info,
+        control_id=None,
+        user_first_name=None,
+        user_last_name=None,
+        user_nationality=None,
+        lic_paper_presented=None,
+        user_birth_date=None,
     ):
         if control_id:
+            controller_can_see_control(current_user, control_id)
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
-            ).one_or_none()
+            ).one()
         else:
             control = ControllerControl.create_no_lic_control(current_user.id)
 
-        existing_bulletin = ControlBulletin.query.filter(
-            ControlBulletin.control_id == control.id
-        ).one_or_none()
+        existing_bulletin = control.control_bulletin
         if existing_bulletin:
-            with atomic_transaction(commit_at_end=True):
-                existing_bulletin.user_first_name = user_first_name
-                existing_bulletin.user_last_name = user_last_name
+            existing_bulletin.user_first_name = user_first_name
+            existing_bulletin.user_last_name = user_last_name
+            existing_bulletin.user_birth_date = user_birth_date
+            existing_bulletin.user_nationality = user_nationality
+            existing_bulletin.lic_paper_presented = lic_paper_presented
         else:
             new_bulletin = ControlBulletin(
-                control_id=control.id, creation_time=datetime.now()
+                control_id=control.id,
+                user_last_name=user_last_name,
+                user_first_name=user_first_name,
+                user_birth_date=user_birth_date,
+                user_nationality=user_nationality,
+                lic_paper_presented=lic_paper_presented,
             )
-            new_bulletin.user_last_name = user_last_name
-            new_bulletin.user_first_name = user_first_name
             db.session.add(new_bulletin)
-            db.session.commit()
+        db.session.commit()
         return control
 
 

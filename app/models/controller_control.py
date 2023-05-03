@@ -37,7 +37,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     company_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
-    bulletin = db.relationship("ControlBulletin")
+    control_bulletin = db.relationship(
+        "ControlBulletin", back_populates="control", uselist=False
+    )
 
     @property
     def history_end_date(self):
