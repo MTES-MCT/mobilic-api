@@ -120,6 +120,17 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         user_birth_date = graphene.Date(required=False)
         user_nationality = graphene.String(required=False)
         lic_paper_presented = graphene.Boolean(required=False)
+        siren = graphene.String(required=False)
+        company_name = graphene.String(required=False)
+        company_address = graphene.String(required=False)
+        vehicle_registration_number = graphene.String(required=False)
+        vehicle_registration_country = graphene.String(required=False)
+        mission_address_begin = graphene.String(required=False)
+        mission_address_end = graphene.String(required=False)
+        transport_type = graphene.String(required=False)
+        articles_nature = graphene.String(required=False)
+        license_number = graphene.String(required=False)
+        license_copy_number = graphene.String(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -133,6 +144,17 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         user_nationality=None,
         lic_paper_presented=None,
         user_birth_date=None,
+        siren=None,
+        company_name=None,
+        company_address=None,
+        vehicle_registration_number=None,
+        vehicle_registration_country=None,
+        mission_address_begin=None,
+        mission_address_end=None,
+        transport_type=None,
+        articles_nature=None,
+        license_number=None,
+        license_copy_number=None,
     ):
         if control_id:
             controller_can_see_control(current_user, control_id)
@@ -143,22 +165,30 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             control = ControllerControl.create_no_lic_control(current_user.id)
 
         existing_bulletin = control.control_bulletin
-        if existing_bulletin:
-            existing_bulletin.user_first_name = user_first_name
-            existing_bulletin.user_last_name = user_last_name
-            existing_bulletin.user_birth_date = user_birth_date
-            existing_bulletin.user_nationality = user_nationality
-            existing_bulletin.lic_paper_presented = lic_paper_presented
-        else:
-            new_bulletin = ControlBulletin(
-                control_id=control.id,
-                user_last_name=user_last_name,
-                user_first_name=user_first_name,
-                user_birth_date=user_birth_date,
-                user_nationality=user_nationality,
-                lic_paper_presented=lic_paper_presented,
-            )
-            db.session.add(new_bulletin)
+        if not existing_bulletin:
+            existing_bulletin = ControlBulletin(control_id=control.id)
+            db.session.add(existing_bulletin)
+
+        existing_bulletin.user_first_name = user_first_name
+        existing_bulletin.user_last_name = user_last_name
+        existing_bulletin.user_birth_date = user_birth_date
+        existing_bulletin.user_nationality = user_nationality
+        existing_bulletin.lic_paper_presented = lic_paper_presented
+        existing_bulletin.siren = siren
+        existing_bulletin.company_name = company_name
+        existing_bulletin.company_address = company_address
+        existing_bulletin.vehicle_registration_number = (
+            vehicle_registration_number
+        )
+        existing_bulletin.vehicle_registration_country = (
+            vehicle_registration_country
+        )
+        existing_bulletin.mission_address_begin = mission_address_begin
+        existing_bulletin.mission_address_end = mission_address_end
+        existing_bulletin.transport_type = transport_type
+        existing_bulletin.articles_nature = articles_nature
+        existing_bulletin.license_number = license_number
+        existing_bulletin.license_copy_number = license_copy_number
         db.session.commit()
         return control
 
