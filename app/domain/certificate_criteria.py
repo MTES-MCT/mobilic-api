@@ -1,6 +1,8 @@
+import functools
 import json
 import math
 from datetime import timedelta
+from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
 
@@ -349,11 +351,23 @@ def compute_company_certifications(today):
     if nb_eligible_companies == 0:
         return
 
-    for company in companies:
-        with atomic_transaction(commit_at_end=True):
-            try:
-                compute_company_certification(
-                    company=company, today=today, start=start, end=end
-                )
-            except Exception as e:
-                app.logger.error(f"Error with company {company}", exc_info=e)
+    db.session.close()
+    db.engine.dispose()
+
+    with Pool(6) as p:
+        func = functools.partial(
+            run_compute_company_certification, today, start, end
+        )
+        p.map(func, company_ids)
+
+
+def run_compute_company_certification(today, start, end, company_id):
+    with atomic_transaction(commit_at_end=True):
+        try:
+            compute_company_certification(
+                company_id=company_id, today=today, start=start, end=end
+            )
+        except Exception as e:
+            app.logger.error(f"Error with company {company_id}", exc_info=e)
+    db.session.close()
+    db.engine.dispose()
