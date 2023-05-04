@@ -275,13 +275,14 @@ def certificate_expiration(today):
     return end_of_month(expiration_month)
 
 
-def compute_company_certification(company, today, start, end):
+def compute_company_certification(company_id, today, start, end):
     activities = query_activities(
         include_dismissed_activities=False,
         start_time=start,
         end_time=end,
-        company_ids=[company.id],
+        company_ids=[company_id],
     ).all()
+    company = Company.query.filter(Company.id == company_id).one()
 
     be_active = compute_be_active(company, start, end)
     be_compliant = compute_be_compliant(company, start, end, len(activities))
@@ -341,7 +342,8 @@ def compute_company_certifications(today):
     start, end = previous_month_period(today)
 
     companies = get_eligible_companies(start, end)
-    nb_eligible_companies = len(companies)
+    company_ids = [c.id for c in companies]
+    nb_eligible_companies = len(company_ids)
     app.logger.info(f"{nb_eligible_companies} eligible companies found")
 
     if nb_eligible_companies == 0:
