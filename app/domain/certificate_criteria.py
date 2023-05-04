@@ -161,13 +161,13 @@ def compute_be_compliant(company, start, end, nb_activities):
 
 def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
     activity_user_id = activity.user_id
-    version_author_ids = [
-        version.submitter_id
-        for version in activity.versions
-        if version.submitter_id != activity_user_id
-        and version.submitter_id in admin_ids
-    ]
-    return len(version_author_ids) > 0
+    for version in activity.versions:
+        if (
+            version.submitter_id in admin_ids
+            and version.submitter_id != activity_user_id
+        ):
+            return True
+    return False
 
 
 def compute_not_too_many_changes(company, start, end, activities):
