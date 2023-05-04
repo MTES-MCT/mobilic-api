@@ -335,7 +335,7 @@ def get_eligible_companies(start, end):
     return Company.query.filter(Company.id.in_(missions_subquery)).all()
 
 
-def compute_company_certifications(today):
+def compute_company_certifications(today, nb_fork):
     # Remove company certifications for attribution date
     CompanyCertification.query.filter(
         CompanyCertification.attribution_date == today
@@ -354,7 +354,7 @@ def compute_company_certifications(today):
     db.session.close()
     db.engine.dispose()
 
-    with Pool(6) as p:
+    with Pool(nb_fork) as p:
         func = functools.partial(
             run_compute_company_certification, today, start, end
         )

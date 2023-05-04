@@ -58,8 +58,8 @@ def init_regulation_alerts(part, nb_parts, nb_fork):
 
     part is a number between 1 and NB_PARTS.
     nb_parts is a number between 1 and 24
-    nb_fork is the number of parallel thread can be run.
     It is used to split all users in [NB_PARTS] parts using modulo on user_id.
+    nb_fork is the number of parallel thread can be run.
     """
 
     if nb_parts < 1 or nb_parts > 24:
@@ -119,11 +119,13 @@ def create_api_key(client_id):
 
 
 @app.cli.command("run_certificate", with_appcontext=True)
+@click.argument("nb_fork", type=click.INT)
 @click.argument("as_of_date", required=False)
-def run_certificate(as_of_date=None):
+def run_certificate(nb_fork, as_of_date=None):
     """
     Run certificate as of today
 
+    nb_fork is the number of parallel thread can be run.
     as_of_date is an optional date with format 2023-03-01
     """
 
@@ -134,7 +136,7 @@ def run_certificate(as_of_date=None):
     )
     app.logger.info("Script run_certificate began")
 
-    compute_company_certifications(today)
+    compute_company_certifications(today, nb_fork)
 
     app.logger.info("Script run_certificate done")
 
