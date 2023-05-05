@@ -2,7 +2,6 @@ import json
 
 import graphene
 
-from app.data_access.control_bulletin import ControlBulletinOutput
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
@@ -62,8 +61,6 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         ),
         description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
-
-    # control_bulletin = graphene.Field(ControlBulletinOutput, required=False)
 
     siren = graphene.String()
     company_address = graphene.String()
