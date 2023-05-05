@@ -168,6 +168,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         if not existing_bulletin:
             existing_bulletin = ControlBulletin(control_id=control.id)
             db.session.add(existing_bulletin)
+            control.control_bulletin = existing_bulletin
 
         existing_bulletin.user_first_name = user_first_name
         existing_bulletin.user_last_name = user_last_name
