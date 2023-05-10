@@ -131,6 +131,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         articles_nature = graphene.String(required=False)
         license_number = graphene.String(required=False)
         license_copy_number = graphene.String(required=False)
+        observation = graphene.String(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -155,6 +156,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         articles_nature=None,
         license_number=None,
         license_copy_number=None,
+        observation=None,
     ):
         if control_id:
             controller_can_see_control(current_user, control_id)
@@ -190,6 +192,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         existing_bulletin.articles_nature = articles_nature
         existing_bulletin.license_number = license_number
         existing_bulletin.license_copy_number = license_copy_number
+        existing_bulletin.observation = observation
         db.session.commit()
         return control
 

@@ -30,3 +30,4 @@ class ControlBulletin(BaseModel):
     articles_nature = db.Column(db.String, nullable=True)
     license_number = db.Column(db.String, nullable=True)
     license_copy_number = db.Column(db.String, nullable=True)
+    observation = db.Column(db.TEXT, nullable=True)
