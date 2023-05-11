@@ -35,6 +35,7 @@ from app.helpers.time import (
     min_or_none,
 )
 from app.models import User, Company, Activity
+from app.models.controller_control import ControllerControl
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -173,6 +174,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
             description="Date de fin de l'historique des alertes",
         ),
         description="Résultats de calcul de seuils règlementaires groupés par jour",
+    )
+
+    controls_date = graphene.List(
+        TimeStamp,
+        description="Liste des dates où l'utilisateur s'est fait contrôler.",
     )
 
     @user_resolver_with_consultation_scope(
@@ -420,6 +426,17 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     def resolve_should_update_password(self, info):
         return self.password_update_time is None
+
+    def resolve_controls_date(self, info):
+        user_controls = (
+            ControllerControl.query.with_entities(
+                ControllerControl.creation_time
+            )
+            .filter(ControllerControl.user_id == self.id)
+            .order_by(desc(ControllerControl.creation_time))
+            .all()
+        )
+        return [control.creation_time for control in user_controls]
 
 
 from app.data_access.company import CompanyOutput
