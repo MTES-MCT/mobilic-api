@@ -1,6 +1,9 @@
+import functools
 import json
 import math
+import multiprocessing
 from datetime import timedelta
+from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
 
@@ -161,13 +164,13 @@ def compute_be_compliant(company, start, end, nb_activities):
 
 def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
     activity_user_id = activity.user_id
-    version_author_ids = [
-        version.submitter_id
-        for version in activity.versions
-        if version.submitter_id != activity_user_id
-        and version.submitter_id in admin_ids
-    ]
-    return len(version_author_ids) > 0
+    for version in activity.versions:
+        if (
+            version.submitter_id in admin_ids
+            and version.submitter_id != activity_user_id
+        ):
+            return True
+    return False
 
 
 def compute_not_too_many_changes(company, start, end, activities):
@@ -275,13 +278,14 @@ def certificate_expiration(today):
     return end_of_month(expiration_month)
 
 
-def compute_company_certification(company, today, start, end):
+def compute_company_certification(company_id, today, start, end):
     activities = query_activities(
         include_dismissed_activities=False,
         start_time=start,
         end_time=end,
-        company_ids=[company.id],
+        company_ids=[company_id],
     ).all()
+    company = Company.query.filter(Company.id == company_id).one()
 
     be_active = compute_be_active(company, start, end)
     be_compliant = compute_be_compliant(company, start, end, len(activities))
@@ -341,17 +345,31 @@ def compute_company_certifications(today):
     start, end = previous_month_period(today)
 
     companies = get_eligible_companies(start, end)
-    nb_eligible_companies = len(companies)
+    company_ids = [c.id for c in companies]
+    nb_eligible_companies = len(company_ids)
     app.logger.info(f"{nb_eligible_companies} eligible companies found")
 
     if nb_eligible_companies == 0:
         return
 
-    for company in companies:
-        with atomic_transaction(commit_at_end=True):
-            try:
-                compute_company_certification(
-                    company=company, today=today, start=start, end=end
-                )
-            except Exception as e:
-                app.logger.error(f"Error with company {company}", exc_info=e)
+    db.session.close()
+    db.engine.dispose()
+
+    nb_forks = multiprocessing.cpu_count()
+    with Pool(nb_forks) as p:
+        func = functools.partial(
+            run_compute_company_certification, today, start, end
+        )
+        p.map(func, company_ids)
+
+
+def run_compute_company_certification(today, start, end, company_id):
+    with atomic_transaction(commit_at_end=True):
+        try:
+            compute_company_certification(
+                company_id=company_id, today=today, start=start, end=end
+            )
+        except Exception as e:
+            app.logger.error(f"Error with company {company_id}", exc_info=e)
+    db.session.close()
+    db.engine.dispose()

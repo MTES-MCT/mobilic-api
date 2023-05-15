@@ -58,8 +58,8 @@ def init_regulation_alerts(part, nb_parts, nb_fork):
 
     part is a number between 1 and NB_PARTS.
     nb_parts is a number between 1 and 24
-    nb_fork is the number of parallel thread can be run.
     It is used to split all users in [NB_PARTS] parts using modulo on user_id.
+    nb_fork is the number of parallel thread can be run.
     """
 
     if nb_parts < 1 or nb_parts > 24:

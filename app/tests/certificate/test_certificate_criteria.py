@@ -31,6 +31,9 @@ class TestCertificateCriteria(BaseTest):
     def test_compute_company_certification(self):
         start, end = previous_month_period(date(2023, 3, 28))
         compute_company_certification(
-            company=self.company, start=start, end=end, today=date.today()
+            company_id=self.company.id,
+            start=start,
+            end=end,
+            today=date.today(),
         )
         # should not fail
