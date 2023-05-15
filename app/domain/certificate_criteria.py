@@ -1,6 +1,7 @@
 import functools
 import json
 import math
+import multiprocessing
 from datetime import timedelta
 from multiprocessing import Pool
 
@@ -335,7 +336,7 @@ def get_eligible_companies(start, end):
     return Company.query.filter(Company.id.in_(missions_subquery)).all()
 
 
-def compute_company_certifications(today, nb_fork):
+def compute_company_certifications(today):
     # Remove company certifications for attribution date
     CompanyCertification.query.filter(
         CompanyCertification.attribution_date == today
@@ -354,7 +355,8 @@ def compute_company_certifications(today, nb_fork):
     db.session.close()
     db.engine.dispose()
 
-    with Pool(nb_fork) as p:
+    nb_forks = multiprocessing.cpu_count()
+    with Pool(nb_forks) as p:
         func = functools.partial(
             run_compute_company_certification, today, start, end
         )

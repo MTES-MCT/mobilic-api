@@ -119,13 +119,11 @@ def create_api_key(client_id):
 
 
 @app.cli.command("run_certificate", with_appcontext=True)
-@click.argument("nb_fork", type=click.INT)
 @click.argument("as_of_date", required=False)
-def run_certificate(nb_fork, as_of_date=None):
+def run_certificate(as_of_date=None):
     """
     Run certificate as of today
 
-    nb_fork is the number of parallel thread can be run.
     as_of_date is an optional date with format 2023-03-01
     """
 
@@ -136,7 +134,7 @@ def run_certificate(nb_fork, as_of_date=None):
     )
     app.logger.info("Script run_certificate began")
 
-    compute_company_certifications(today, nb_fork)
+    compute_company_certifications(today)
 
     app.logger.info("Script run_certificate done")
 
