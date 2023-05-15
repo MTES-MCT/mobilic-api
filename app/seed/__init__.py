@@ -30,6 +30,7 @@ from app.models import (
     UserReadToken,
     Vehicle,
     Team,
+    ControlBulletin,
 )
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
@@ -91,6 +92,7 @@ def clean():
     RegulatoryAlert.query.delete()
     RegulationComputation.query.delete()
 
+    ControlBulletin.query.delete()
     ControllerControl.query.delete()
     ControllerRefreshToken.query.delete()
     ControllerUser.query.delete()
