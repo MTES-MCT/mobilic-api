@@ -15,6 +15,7 @@ from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
 from app.domain.validation import validate_mission
+from app.domain.vehicle import find_or_create_vehicle
 from app.helpers.authorization import (
     with_authorization_policy,
     active,
@@ -43,41 +44,6 @@ from app.helpers.errors import (
     UnavailableSwitchModeError,
 )
 from app.models.vehicle import VehicleOutput
-
-
-def find_or_create_vehicle(
-    vehicle_id, vehicle_registration_number, company, employment
-):
-    if not vehicle_id:
-        vehicle = Vehicle.query.filter(
-            Vehicle.registration_number == vehicle_registration_number,
-            Vehicle.company_id == company.id,
-        ).one_or_none()
-
-        if not vehicle:
-            vehicle = Vehicle(
-                registration_number=vehicle_registration_number,
-                submitter=current_user,
-                company=company,
-            )
-            db.session.add(vehicle)
-            db.session.flush()  # To get a DB id for the new vehicle
-
-        if (
-            employment
-            and employment.team
-            and len(employment.team.vehicles) > 0
-            and vehicle not in employment.team.vehicles
-        ):
-            employment.team.vehicles.append(vehicle)
-
-    else:
-        vehicle = Vehicle.query.filter(
-            Vehicle.id == vehicle_id,
-            Vehicle.company_id == company.id,
-        ).one_or_none()
-
-    return vehicle
 
 
 class MissionInput:
@@ -150,10 +116,10 @@ class CreateMission(AuthenticatedMutation):
 
             vehicle = (
                 find_or_create_vehicle(
-                    received_vehicle_id,
-                    received_vehicle_registration_number,
-                    company,
-                    employment,
+                    company_id=company.id,
+                    vehicle_id=received_vehicle_id,
+                    vehicle_registration_number=received_vehicle_registration_number,
+                    employment=employment,
                 )
                 if received_vehicle_id or received_vehicle_registration_number
                 else None
