@@ -35,6 +35,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
@@ -357,3 +358,28 @@ def controller_download_tachograph_files(
                 cache_timeout=0,
                 attachment_filename="fichiers_C1B.zip",
             )
+
+
+@app.route("/controllers/generate_control_bulletin", methods=["POST"])
+@doc(
+    description="Génération d'un bulletin de contrôle en bord de route au format PDF"
+)
+@use_kwargs({"control_id": fields.Int(required=True)}, apply=True)
+@with_authorization_policy(
+    controller_can_see_control,
+    get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+)
+def generate_control_bulletin_pdf_export(control_id):
+    control = ControllerControl.query.filter(
+        ControllerControl.id == control_id
+    ).one()
+
+    pdf = generate_control_bulletin_pdf(control)
+
+    return send_file(
+        pdf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename=f"bulletin",
+    )
