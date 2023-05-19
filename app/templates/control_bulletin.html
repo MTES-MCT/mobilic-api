@@ -1,14 +1,152 @@
-{% extends "pdf_landscape_base.html" %}
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            img {
+                border: none;
+                -ms-interpolation-mode: bicubic;
+                max-width: 100%;
+            }
 
-{% block style %}
-<style>
-    .section {
-        margin-bottom: 30pt;
-    }
+            body {
+                background-color: #ffffff;
+                font-family: sans-serif;
+                -webkit-font-smoothing: antialiased;
+                font-size: 10pt;
+                line-height: 1.6;
+                margin: 0;
+                padding: 0;
+                -ms-text-size-adjust: 100%;
+                -webkit-text-size-adjust: 100%;
+            }
 
-</style>
-{% endblock %}
+            .container {
+                width: 1000px;
+                margin: auto;
+                padding: 24pt 0pt;
+                text-align: center;
+            }
 
-{% block body %}
-    <div>Hello</div>
-{% endblock %}
+            .primary-color {
+                color: #3284FF;
+            }
+            .secondary-color {
+                color: #696969;
+            }
+
+            .title {
+                font-size: 20px;
+                font-weight: 500;
+            }
+            .subtitle {
+                font-size: 16px;
+                font-weight: 400;
+            }
+
+            #frame {
+                border: 3px solid #3284FF;
+                font-weight: 600;
+                display: grid;
+                width: 100%;
+                grid-template-columns: 1fr 1fr;
+                padding: 16px 0px;
+            }
+            .frame-item-left {
+                text-align: right;
+            }
+            .frame-item-right {
+                padding-left: 12px;
+                text-align: left;
+            }
+
+            .table {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                text-align: left;
+            }
+            .top-left {
+                padding-left: 4px;
+                border: 2px solid #BEBEBE;
+                border-top: none;
+                border-left: none;
+            }
+            .top-right {
+                padding-left: 4px;
+                border: 2px solid #BEBEBE;
+                border-top: none;
+                border-right: none;
+            }
+            .bottom-left {
+                padding-left: 4px;
+                border: 2px solid #BEBEBE;
+                border-bottom: none;
+                border-left: none;
+            }
+            .bottom-right {
+                padding-left: 4px;
+                border: 2px solid #BEBEBE;
+                border-bottom: none;
+                border-right: none;
+            }
+            .left {
+                padding-left: 4px;
+                border: 4px solid #BEBEBE;
+                border-right: 2px solid #BEBEBE;
+            }
+            .right {
+                padding-left: 4px;
+                border: 4px solid #BEBEBE;
+                border-left: 2px solid #BEBEBE;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="item">
+                logo
+            </div>
+            <p class="title">BULLETIN DE CONTRÔLE EN BORD DE ROUTE AVEC <span class="primary-color">MOBILIC</span></p>
+            <p class="subtitle">D.R.E.A.L. DEPARTEMENT</p>
+            <div id="frame">
+                <div class="frame-item-left primary-color">N° de bulletin de contrôle:</div>
+                <div class="frame-item-right secondary-color">0167-2022-IDCONTROLEUR</div>
+                <div class="frame-item-left primary-color">Date du contrôle:</div>
+                <div class="frame-item-right secondary-color">xx/xx/xxxx</div>
+                <div class="frame-item-left primary-color">Heure du contrôle:</div>
+                <div class="frame-item-right secondary-color">xx:xx</div>
+                <div class="frame-item-left primary-color">Lieu de contrôle:</div>
+                <div class="frame-item-right secondary-color">Département, commune, lieu</div>
+                <div class="frame-item-left primary-color">Salarié contrôlé:</div>
+                <div class="frame-item-right secondary-color">NOM PRENOM</div>
+                <div class="frame-item-left primary-color">Entreprise de rattachement:</div>
+                <div class="frame-item-right secondary-color">SIREN</div>
+            </div>
+            <p style="font-weight: bold;">
+                <span style="font-style: italic;">Pas de LIC présenté</span>
+                <br>
+                Il n'y a pas eu d'infractions retenues
+            </p>
+
+            <div class="table">
+                <div class="top-left">Type de transport: intérieur</div>
+                <div class="top-right">Nature de la marchandise: xxxxxxx</div>
+                <div class="bottom-left">N° de la license: xxxxxxxx</div>
+                <div class="bottom-right">N° de la copie conforme de la license: xxxxxxx</div>
+            </div>
+            <br>
+            <div class="table">
+                <div class="top-left">N° d'immatriculation du véhicule: xxxxxx</div>
+                <div class="top-right">Pays d'immatriculation du véhicule: xxxxxxx</div>
+                <div class="bottom-left">Provenance: xxxxxxxx</div>
+                <div class="bottom-right">Destination: xxxxxxx</div>
+            </div>
+            <br>
+            <div class="table">
+                <div class="left">Observations de l'agent de Contrôle des Transports Terrestres:<br> xxxxxx</div>
+                <div class="right">L'agent chargé du Contrôle des Transports Terrestres: <br> xxxxxxx</div>
+            </div>
+        </div>
+    </body>
