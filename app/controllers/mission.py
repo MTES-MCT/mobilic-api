@@ -383,10 +383,10 @@ class UpdateMissionVehicle(AuthenticatedMutation):
                     current_user, mission.company, include_pending_invite=False
                 )
                 vehicle = find_or_create_vehicle(
-                    vehicle_id,
-                    vehicle_registration_number,
-                    mission.company,
-                    employment,
+                    company_id=mission.company.id,
+                    vehicle_id=vehicle_id,
+                    vehicle_registration_number=vehicle_registration_number,
+                    employment=employment,
                 )
                 mission.vehicle_id = vehicle.id
 
