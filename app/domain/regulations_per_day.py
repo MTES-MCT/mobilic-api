@@ -352,9 +352,15 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
     extra = dict(
         max_uninterrupted_work_in_hours=MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS
     )
+    activity_ids_already_seen = set()
 
     for group in activity_groups:
         for activity in group.activities:
+            if activity.id in activity_ids_already_seen:
+                continue
+            else:
+                activity_ids_already_seen.add(activity.id)
+
             if activity.type is ActivityType.TRANSFER:
                 continue
             if (

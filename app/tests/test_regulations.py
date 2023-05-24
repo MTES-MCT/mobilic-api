@@ -991,6 +991,43 @@ class TestRegulations(BaseTest):
         )
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
+    def test_min_work_day_break_on_two_days(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=20),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=1,
+                        minute=30,
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+        day_start = get_date(how_many_days_ago)
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
+
     def test_max_uninterrupted_work_time_by_employee_success(self):
         how_many_days_ago = 2
 
@@ -1084,6 +1121,104 @@ class TestRegulations(BaseTest):
             get_time(how_many_days_ago, hour=23, minute=15),
         )
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
+
+    def test_ok_uninterrumpted_work_on_two_days(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Mission on two days",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=19, minute=51
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=21, minute=24
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=21, minute=24
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=0,
+                        minute=19,
+                    ),
+                ],
+            ],
+        )
+        day_start = get_date(how_many_days_ago)
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
+
+    def test_ko_uninterrumpted_work_on_two_days(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Mission on two days",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=20, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=20, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=1,
+                        minute=0,
+                    ),
+                ],
+            ],
+        )
+        day_start = get_date(how_many_days_ago)
+
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
+
+        extra_info = json.loads(regulatory_alert.extra)
+        self.assertEqual(
+            extra_info["longest_uninterrupted_work_in_seconds"],
+            7 * HOUR,
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_start"]
+            ),
+            get_time(how_many_days_ago, hour=18),
+        )
+        self.assertEqual(
+            datetime.fromisoformat(
+                extra_info["longest_uninterrupted_work_end"]
+            ),
+            get_time(how_many_days_ago - 1, hour=1, minute=0),
+        )
 
     def test_use_latest_regulation_check_by_type(self):
         company = self.company
