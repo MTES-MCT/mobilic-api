@@ -374,7 +374,7 @@ def generate_control_bulletin_pdf_export(control_id):
         ControllerControl.id == control_id
     ).one()
 
-    pdf = generate_control_bulletin_pdf(control)
+    pdf = generate_control_bulletin_pdf(control.control_bulletin)
 
     return send_file(
         pdf,
