@@ -1,3 +1,5 @@
+from sqlalchemy import func
+
 from app import db
 from app.helpers.authentication import current_user
 from app.models import Vehicle
@@ -45,3 +47,13 @@ def find_or_create_vehicle(
         ).one_or_none()
 
     return vehicle
+
+
+def find_vehicle(registration_number, company_id):
+    vehicle_registration_number = registration_number.upper()
+    return Vehicle.query.filter(
+        func.translate(Vehicle.registration_number, "- ", "").ilike(
+            func.translate(vehicle_registration_number, "- ", "")
+        ),
+        Vehicle.company_id == company_id,
+    ).all()
