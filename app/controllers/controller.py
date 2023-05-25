@@ -374,12 +374,12 @@ def generate_control_bulletin_pdf_export(control_id):
         ControllerControl.id == control_id
     ).one()
 
-    pdf = generate_control_bulletin_pdf(control.control_bulletin)
+    pdf = generate_control_bulletin_pdf(control, current_user)
 
     return send_file(
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
         cache_timeout=0,
-        attachment_filename=f"bulletin",
+        attachment_filename=control.name,
     )

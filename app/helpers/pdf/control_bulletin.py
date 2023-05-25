@@ -1,10 +1,12 @@
 from app.helpers.pdf import generate_pdf_from_template
 
 
-def generate_control_bulletin_pdf(control_bulletin):
+def generate_control_bulletin_pdf(control, controller_user):
+    control_bulletin = control.control_bulletin
+
     return generate_pdf_from_template(
         "control_bulletin.html",
-        control_bulletin_id="0167-2022-IDCONTROLEUR",
+        control_bulletin_id=control.name,
         control_time=control_bulletin.creation_time.strftime("%H:%M"),
         control_date=control_bulletin.creation_time.strftime("%d/%m/%Y"),
         control_location="Département, commune, lieu",
@@ -19,5 +21,5 @@ def generate_control_bulletin_pdf(control_bulletin):
         transport_from=control_bulletin.mission_address_begin,
         transport_to=control_bulletin.mission_address_end,
         observations=control_bulletin.observation,
-        controller_name="",
+        controller_name=f"{controller_user.last_name} {controller_user.first_name}",
     )

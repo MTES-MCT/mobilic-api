@@ -1,6 +1,8 @@
 import enum
 import json
 
+from datetime import date
+
 from sqlalchemy import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -51,6 +53,11 @@ class ControllerControl(BaseModel, RandomNineIntId):
     @property
     def history_start_date(self):
         return compute_history_start_date(self.history_end_date)
+
+    @property
+    def name(self):
+        today = date.today()
+        return f"{self.id}-{today.strftime('%Y')}-IDCONTROLEUR"
 
     @staticmethod
     def create_no_lic_control(controller_id):
