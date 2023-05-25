@@ -127,7 +127,7 @@
                     <table>
                         <tr style="padding-top: 8px;">
                             <td class="frame-item-left primary-color">N° de bulletin de contrôle:</td>
-                            <td class="frame-item-right secondary-color">{{ control_bulletin_id }}</td>
+                            <td class="frame-item-right secondary-color">{{ control_bulletin_id | format_none_bdc }}</td>
                         </tr>
                         <tr>
                             <td class="frame-item-left primary-color">Date du contrôle:</td>
@@ -139,7 +139,7 @@
                         </tr>
                         <tr>
                             <td class="frame-item-left primary-color">Lieu de contrôle:</td>
-                            <td class="frame-item-right secondary-color">{{ control_location }}</td>
+                            <td class="frame-item-right secondary-color">{{ control_location | format_none_bdc }}</td>
                         </tr>
                         <tr>
                             <td class="frame-item-left primary-color">Salarié contrôlé:</td>
@@ -147,7 +147,7 @@
                         </tr>
                         <tr style="padding-bottom: 4px;">
                             <td class="frame-item-left primary-color">Entreprise de rattachement:</td>
-                            <td class="frame-item-right secondary-color">{{ controlled_company }}</td>
+                            <td class="frame-item-right secondary-color">{{ controlled_company | format_none_bdc }}</td>
                         </tr>
                     </table>
                 </td>
@@ -164,29 +164,29 @@
 
         <table>
             <tr>
-                <td class="top-left">Type de transport: <b>{{ transport_type }}</b></td>
-                <td class="top-right">Nature de la marchandise: <b>{{ articles_nature }}</b></td>
+                <td class="top-left">Type de transport: <b>{{ transport_type | format_none_bdc }}</b></td>
+                <td class="top-right">Nature de la marchandise: <b>{{ articles_nature | format_none_bdc }}</b></td>
             </tr>
             <tr style=" padding-top: 4px;">
-                <td class="bottom-left">N° de la license: <b>{{ license_number }}</b></td>
-                <td class="bottom-right">N° de la copie conforme de la license: <b>{{ license_copy_number }}</b></td>
+                <td class="bottom-left">N° de la license: <b>{{ license_number | format_none_bdc }}</b></td>
+                <td class="bottom-right">N° de la copie conforme de la license: <b>{{ license_copy_number | format_none_bdc }}</b></td>
             </tr>
         </table>
         <br>
         <table>
             <tr>
-                <td class="top-left">N° d'immatriculation du véhicule: <b>{{ vehicle_registration_number }}</b></td>
-                <td class="top-right">Pays d'immatriculation du véhicule: <b>{{ vehicle_registration_country }}</b></td>
+                <td class="top-left">N° d'immatriculation du véhicule: <b>{{ vehicle_registration_number | format_none_bdc }}</b></td>
+                <td class="top-right">Pays d'immatriculation du véhicule: <b>{{ vehicle_registration_country | format_none_bdc }}</b></td>
             </tr>
             <tr style=" padding-top: 4px;">
-                <td class="bottom-left">Provenance: <b>{{ transport_from }}</b></td>
-                <td class="bottom-right">Destination: <b>{{ transport_to }}</b></td>
+                <td class="bottom-left">Provenance: <b>{{ transport_from | format_none_bdc }}</b></td>
+                <td class="bottom-right">Destination: <b>{{ transport_to | format_none_bdc }}</b></td>
             </tr>
         </table>
         <br>
         <table>
             <tr style="padding-top: 4px; padding-bottom: 4px;">
-                <td class="left">Observations de l'agent de Contrôle des Transports Terrestres:<br> <b>{{ observations }}</b></td>
+                <td class="left">Observations de l'agent de Contrôle des Transports Terrestres:<br> <b>{{ observations | format_none_bdc }}</b></td>
                 <td class="right">L'agent chargé du Contrôle des Transports Terrestres: <br> <b>{{ controller_name }}</b></td>
             </tr>
         </table>
