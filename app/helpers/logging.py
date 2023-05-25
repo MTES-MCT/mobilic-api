@@ -1,5 +1,7 @@
 import logging
 from logging import StreamHandler
+
+import elasticapm
 import requests
 from time import time
 from marshmallow import fields
@@ -76,6 +78,7 @@ def store_time_and_request_params():
         request_json_payload = request.json
     except:
         request_json_payload = {"error": "JSON syntax error"}
+    client_id = request.headers.get("X-CLIENT-ID") or ""
     g.log_info = {
         "start_time": time(),
         "vars": request_json_payload,  # by default 'vars' stores the JSON payload of the request, except for GraphQL requests where it's only the GraphQL variables (not the query, see app/helpers/graphql.py).
@@ -84,7 +87,9 @@ def store_time_and_request_params():
         "graphql_op_short": "",
         "remote_addr": request.remote_addr,
         "referrer": request.referrer,
+        "client_id": client_id,
     }
+    elasticapm.label(client_id=client_id)
 
 
 @app.after_request
@@ -321,6 +326,7 @@ class OVHLogSchema(LDPSchema):
     user_id = fields.Int()
     device = fields.String()
     referrer = fields.String(required=False)
+    client_id = fields.String(required=False)
 
 
 if app.config["OVH_LDP_TOKEN"]:
