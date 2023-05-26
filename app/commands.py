@@ -96,10 +96,17 @@ def _clean_vehicle():
         vehicles_ids_to_delete = [v.id for v in vehicles_to_delete]
         print(f"vehicles_ids_to_delete {vehicles_ids_to_delete}")
         print(f"vehicle_to_keep {vehicle_to_keep.id}")
+        for id_to_delete in vehicles_ids_to_delete:
+            db.session.execute(
+                "UPDATE team_vehicle t SET vehicle_id = :new_id WHERE t.vehicle_id = :id_to_delete AND NOT EXISTS(SELECT 1 from team_vehicle t2 where t2.team_id = t.team_id AND t2.vehicle_id = :new_id)",
+                {
+                    "new_id": vehicle_to_keep.id,
+                    "id_to_delete": id_to_delete,
+                },
+            )
         db.session.execute(
-            "UPDATE team_vehicle SET vehicle_id = :new_id WHERE vehicle_id IN :old_ids",
+            "DELETE FROM team_vehicle WHERE vehicle_id IN :old_ids",
             {
-                "new_id": vehicle_to_keep.id,
                 "old_ids": tuple(vehicles_ids_to_delete),
             },
         )
@@ -112,12 +119,16 @@ def _clean_vehicle():
             },
         )
         db.session.execute(
-            "DELETE FROM VEHICLE WHERE id IN :old_ids",
-            {"old_ids": tuple(vehicles_ids_to_delete)},
+            "DELETE FROM VEHICLE WHERE id IN :old_ids AND company_id = :company_id",
+            {
+                "company_id": duplicate_vehicles_info[1],
+                "old_ids": tuple(vehicles_ids_to_delete),
+            },
         )
         print(
             f"DELETE VEHICLES {duplicate_vehicles_info[0]} FROM COMPANY {duplicate_vehicles_info[1]}"
         )
+        db.session.commit()
 
 
 @app.cli.command()
