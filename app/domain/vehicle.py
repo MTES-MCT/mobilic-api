@@ -13,11 +13,12 @@ def find_or_create_vehicle(
     employment=None,
 ):
     if not vehicle_id:
+        vehicles = find_vehicle(
+            registration_number=vehicle_registration_number,
+            company_id=company_id,
+        )
+        vehicle = vehicles[0] if vehicles else None
         vehicle_registration_number = vehicle_registration_number.upper()
-        vehicle = Vehicle.query.filter(
-            Vehicle.registration_number.ilike(vehicle_registration_number),
-            Vehicle.company_id == company_id,
-        ).first()
 
         if not vehicle:
             vehicle = Vehicle(
@@ -30,7 +31,9 @@ def find_or_create_vehicle(
             db.session.flush()  # To get a DB id for the new vehicle
         else:
             vehicle.terminated_at = None
-            vehicle.alias = alias
+            vehicle.registration_number = vehicle_registration_number
+            if alias:
+                vehicle.alias = alias
 
         if (
             employment
