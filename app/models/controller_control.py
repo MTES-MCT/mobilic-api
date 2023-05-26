@@ -57,7 +57,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     @property
     def reference(self):
         today = date.today()
-        return f"{self.id}-{today.strftime('%Y')}-IDCONTROLEUR"
+        return (
+            f"{self.id}-{today.strftime('%Y')}-{self.controller_user.greco_id}"
+        )
 
     @staticmethod
     def create_no_lic_control(controller_id):
