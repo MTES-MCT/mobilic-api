@@ -134,10 +134,6 @@ def filter_vehicle(list_to_filter, filter_function):
         return vehicles_filtered
 
 
-if __name__ == "__main__":
-    clean_vehicle()
-
-
 @app.cli.command("init_regulation_alerts", with_appcontext=True)
 @click.argument("part", type=click.INT)
 @click.argument("nb_parts", type=click.INT)
