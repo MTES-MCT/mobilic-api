@@ -381,5 +381,5 @@ def generate_control_bulletin_pdf_export(control_id):
         mimetype="application/pdf",
         as_attachment=True,
         cache_timeout=0,
-        attachment_filename=control.name,
+        attachment_filename=control.reference,
     )

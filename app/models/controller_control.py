@@ -55,7 +55,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
         return compute_history_start_date(self.history_end_date)
 
     @property
-    def name(self):
+    def reference(self):
         today = date.today()
         return f"{self.id}-{today.strftime('%Y')}-IDCONTROLEUR"
 

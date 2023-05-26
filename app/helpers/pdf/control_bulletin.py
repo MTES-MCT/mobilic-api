@@ -6,9 +6,10 @@ def generate_control_bulletin_pdf(control, controller_user):
 
     return generate_pdf_from_template(
         "control_bulletin.html",
-        control_bulletin_id=control.name,
-        control_time=control_bulletin.creation_time.strftime("%H:%M"),
-        control_date=control_bulletin.creation_time.strftime("%d/%m/%Y"),
+        control_bulletin_id=control.reference,
+        organizational_unit=controller_user.organizational_unit,
+        control_time=control_bulletin.creation_time,
+        control_date=control_bulletin.creation_time,
         control_location="Département, commune, lieu",
         controlled_employee=f"{control_bulletin.user_last_name} {control_bulletin.user_first_name}",
         controlled_company=control_bulletin.siren,
