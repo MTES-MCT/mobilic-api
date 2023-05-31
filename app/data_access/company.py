@@ -1,3 +1,5 @@
+from datetime import date
+
 import graphene
 from sqlalchemy.orm import selectinload
 
@@ -11,7 +13,10 @@ from app.domain.permissions import (
     has_any_employment_with_company_or_controller,
 )
 from app.domain.work_days import WorkDayStatsOnly
-from app.helpers.authorization import with_authorization_policy
+from app.helpers.authorization import (
+    with_authorization_policy,
+    controller_only,
+)
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
@@ -155,6 +160,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     last_day_certified = graphene.Field(
         graphene.Date,
         description="Date la plus récente à laquelle l'entreprise cessera ou a cessé d'être certifiée.",
+    )
+
+    current_admins = graphene.List(
+        lambda: UserOutput,
+        description="Liste des gestionnaires actuellement rattachés à l'entreprise",
     )
 
     def resolve_name(self, info):
@@ -329,6 +339,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_last_day_certified(self, info):
         return get_last_day_of_certification(self.id)
+
+    @with_authorization_policy(
+        controller_only,
+        get_target_from_args=lambda self, info: self,
+        error_message="Forbidden access to field 'currentAdmins' of company object.",
+    )
+    def resolve_current_admins(self, info):
+        return self.get_admins(date.today(), None)
 
 
 from app.data_access.user import UserOutput

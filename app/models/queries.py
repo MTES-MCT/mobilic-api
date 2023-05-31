@@ -158,6 +158,8 @@ def add_mission_relations(
     return query.options(
         mission_activities_subq,
         relationship_loading_technique(Mission.validations),
+        # To be commented locally on init regulation alerts only!
+        # (all the relationships below)
         relationship_loading_technique(Mission.expenditures),
         relationship_loading_technique(Mission.comments),
         relationship_loading_technique(Mission.vehicle),
