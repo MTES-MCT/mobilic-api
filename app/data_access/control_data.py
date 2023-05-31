@@ -22,7 +22,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
 
-    qr_code_generation_time = graphene.Field(TimeStamp, required=True)
+    qr_code_generation_time = graphene.Field(TimeStamp, required=False)
     control_bulletin_creation_time = graphene.Field(TimeStamp, required=False)
     creation_time = graphene.Field(TimeStamp, required=True)
     nb_controlled_days = graphene.Field(
