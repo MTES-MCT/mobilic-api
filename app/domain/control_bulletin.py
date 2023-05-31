@@ -26,8 +26,6 @@ def save_control_bulletin(
         existing_bulletin = json.loads(control.control_bulletin)
     else:
         existing_bulletin = {}
-    if not control.control_bulletin_creation_time:
-        control.control_bulletin_creation_time = datetime.now()
 
     control.user_first_name = user_first_name
     control.user_last_name = user_last_name

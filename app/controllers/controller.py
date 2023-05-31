@@ -165,6 +165,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
             ).one()
+            if not control.control_bulletin_creation_time:
+                control.control_bulletin_creation_time = datetime.now()
         else:
             control = ControllerControl.create_no_lic_control(current_user.id)
 

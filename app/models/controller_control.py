@@ -138,12 +138,14 @@ class ControllerControl(BaseModel, RandomNineIntId):
             new_control = ControllerControl(
                 qr_code_generation_time=qr_code_generation_time,
                 user_id=user_id,
+                user_first_name=controlled_user.first_name,
+                user_last_name=controlled_user.last_name,
                 control_type=ControlType.mobilic,
                 controller_id=controller_id,
                 company_name=company_name,
                 vehicle_registration_number=vehicle_registration_number,
                 nb_controlled_days=nb_controlled_days,
-                extra=json.dumps(control_bulletin),
+                control_bulletin=json.dumps(control_bulletin),
             )
             db.session.add(new_control)
             db.session.commit()
