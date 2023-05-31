@@ -7,7 +7,6 @@ def save_control_bulletin(
     user_first_name=None,
     user_last_name=None,
     user_nationality=None,
-    lic_paper_presented=None,
     user_birth_date=None,
     siren=None,
     company_name=None,
@@ -35,7 +34,6 @@ def save_control_bulletin(
         user_birth_date.isoformat() if user_birth_date else None
     )
     existing_bulletin["user_nationality"] = user_nationality
-    existing_bulletin["lic_paper_presented"] = lic_paper_presented
     existing_bulletin["siren"] = siren
     existing_bulletin["company_address"] = company_address
     existing_bulletin[

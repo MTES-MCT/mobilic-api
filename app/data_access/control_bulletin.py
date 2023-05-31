@@ -4,7 +4,6 @@ import graphene
 class ControlBulletinFields(graphene.ObjectType):
     user_birth_date = graphene.String(required=False)
     user_nationality = graphene.String(required=False)
-    lic_paper_presented = graphene.Boolean(required=False)
     siren = graphene.String(required=False)
     company_address = graphene.String(required=False)
     vehicle_registration_country = graphene.String(required=False)
@@ -21,7 +20,6 @@ class ControlBulletinFields(graphene.ObjectType):
         return ControlBulletinFields(
             json_dct.get("user_birth_date"),
             json_dct.get("user_nationality"),
-            json_dct.get("lic_paper_presented"),
             json_dct.get("siren"),
             json_dct.get("company_address"),
             json_dct.get("vehicle_registration_country"),

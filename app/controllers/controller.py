@@ -121,7 +121,6 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         user_last_name = graphene.String(required=False)
         user_birth_date = graphene.Date(required=False)
         user_nationality = graphene.String(required=False)
-        lic_paper_presented = graphene.Boolean(required=False)
         siren = graphene.String(required=False)
         company_name = graphene.String(required=False)
         company_address = graphene.String(required=False)
@@ -145,7 +144,6 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         user_first_name=None,
         user_last_name=None,
         user_nationality=None,
-        lic_paper_presented=None,
         user_birth_date=None,
         siren=None,
         company_name=None,
@@ -175,7 +173,6 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             user_first_name,
             user_last_name,
             user_nationality,
-            lic_paper_presented,
             user_birth_date,
             siren,
             company_name,
