@@ -1,6 +1,5 @@
 import enum
 import json
-
 from datetime import date
 
 from sqlalchemy import Enum
@@ -39,12 +38,14 @@ class ControllerControl(BaseModel, RandomNineIntId):
     user = db.relationship("User")
     controller_user = db.relationship("ControllerUser")
     company_name = db.Column(db.String(255), nullable=True)
+    user_first_name = db.Column(db.String(255), nullable=True)
+    user_last_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
-    control_bulletin = db.relationship(
-        "ControlBulletin", back_populates="control", uselist=False
+    control_bulletin = db.Column(JSONB(none_as_null=True), nullable=True)
+    control_bulletin_creation_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
     )
-    extra = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @property
     def history_end_date(self):
@@ -85,7 +86,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             controlled_user = User.query.get(user_id)
             company_name = ""
             vehicle_registration_number = ""
-            extra = {}
+            control_bulletin = {}
 
             latest_activity_before = controlled_user.latest_activity_before(
                 qr_code_generation_time
@@ -101,7 +102,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         latest_mission.company.legal_name
                         or latest_mission.company.usual_name
                     )
-                    extra["siren"] = latest_mission.company.siren
+                    control_bulletin["siren"] = latest_mission.company.siren
                     if (
                         latest_mission.company.siren_api_info
                         and latest_mission.company.siren_api_info[
@@ -111,7 +112,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         etablissement = latest_mission.company.siren_api_info[
                             "etablissements"
                         ][-1]
-                        extra["company_address"] = (
+                        control_bulletin["company_address"] = (
                             etablissement["adresse"]
                             + " "
                             + etablissement["codePostal"]
@@ -121,7 +122,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                             latest_mission.vehicle.registration_number
                         )
                     if latest_mission.start_location:
-                        extra[
+                        control_bulletin[
                             "mission_address_begin"
                         ] = latest_mission.start_location.address.format()
 
@@ -142,7 +143,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                 company_name=company_name,
                 vehicle_registration_number=vehicle_registration_number,
                 nb_controlled_days=nb_controlled_days,
-                extra=json.dumps(extra),
+                extra=json.dumps(control_bulletin),
             )
             db.session.add(new_control)
             db.session.commit()

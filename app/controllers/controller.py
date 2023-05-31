@@ -14,6 +14,7 @@ from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
+from app.domain.control_bulletin import save_control_bulletin
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
@@ -39,7 +40,7 @@ from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
-from app.models import Mission, ControlBulletin
+from app.models import Mission
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.controller_user import ControllerUser
 from app.models.queries import add_mission_relations, query_controls
@@ -167,33 +168,26 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         else:
             control = ControllerControl.create_no_lic_control(current_user.id)
 
-        existing_bulletin = control.control_bulletin
-        if not existing_bulletin:
-            existing_bulletin = ControlBulletin(control_id=control.id)
-            db.session.add(existing_bulletin)
-            control.control_bulletin = existing_bulletin
-
-        existing_bulletin.user_first_name = user_first_name
-        existing_bulletin.user_last_name = user_last_name
-        existing_bulletin.user_birth_date = user_birth_date
-        existing_bulletin.user_nationality = user_nationality
-        existing_bulletin.lic_paper_presented = lic_paper_presented
-        existing_bulletin.siren = siren
-        existing_bulletin.company_name = company_name
-        existing_bulletin.company_address = company_address
-        existing_bulletin.vehicle_registration_number = (
-            vehicle_registration_number
+        save_control_bulletin(
+            control,
+            user_first_name,
+            user_last_name,
+            user_nationality,
+            lic_paper_presented,
+            user_birth_date,
+            siren,
+            company_name,
+            company_address,
+            vehicle_registration_number,
+            vehicle_registration_country,
+            mission_address_begin,
+            mission_address_end,
+            transport_type,
+            articles_nature,
+            license_number,
+            license_copy_number,
+            observation,
         )
-        existing_bulletin.vehicle_registration_country = (
-            vehicle_registration_country
-        )
-        existing_bulletin.mission_address_begin = mission_address_begin
-        existing_bulletin.mission_address_end = mission_address_end
-        existing_bulletin.transport_type = transport_type
-        existing_bulletin.articles_nature = articles_nature
-        existing_bulletin.license_number = license_number
-        existing_bulletin.license_copy_number = license_copy_number
-        existing_bulletin.observation = observation
         db.session.commit()
         return control
 

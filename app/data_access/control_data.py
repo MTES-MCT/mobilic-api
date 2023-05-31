@@ -2,7 +2,7 @@ import json
 
 import graphene
 
-from app.data_access.control_bulletin import ControlBulletinOutput
+from app.data_access.control_bulletin import ControlBulletinFields
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
@@ -23,6 +23,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         model = ControllerControl
 
     qr_code_generation_time = graphene.Field(TimeStamp, required=True)
+    control_bulletin_creation_time = graphene.Field(TimeStamp, required=False)
     creation_time = graphene.Field(TimeStamp, required=True)
     nb_controlled_days = graphene.Field(
         graphene.Int,
@@ -63,26 +64,40 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
-    control_bulletin = graphene.Field(ControlBulletinOutput, required=False)
+    control_bulletin = graphene.Field(ControlBulletinFields, required=False)
 
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
 
     def resolve_siren(self, info):
-        return json.loads(self.extra).get("siren") if self.extra else None
+        return (
+            json.loads(self.control_bulletin).get("siren")
+            if self.control_bulletin
+            else None
+        )
+
+    def resolve_control_bulletin(self, info):
+        return (
+            json.loads(
+                self.control_bulletin,
+                object_hook=ControlBulletinFields.from_json,
+            )
+            if self.control_bulletin
+            else None
+        )
 
     def resolve_company_address(self, info):
         return (
-            json.loads(self.extra).get("company_address")
-            if self.extra
+            json.loads(self.control_bulletin).get("company_address")
+            if self.control_bulletin
             else None
         )
 
     def resolve_mission_address_begin(self, info):
         return (
-            json.loads(self.extra).get("mission_address_begin")
-            if self.extra
+            json.loads(self.control_bulletin).get("mission_address_begin")
+            if self.control_bulletin
             else None
         )
 
