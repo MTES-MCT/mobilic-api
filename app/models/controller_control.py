@@ -1,6 +1,8 @@
 import enum
+import json
 
 from sqlalchemy import Enum
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db, app
 from app.domain.work_days import group_user_events_by_day_with_limit
@@ -40,6 +42,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_bulletin = db.relationship(
         "ControlBulletin", back_populates="control", uselist=False
     )
+    extra = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @property
     def history_end_date(self):
@@ -75,6 +78,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             controlled_user = User.query.get(user_id)
             company_name = ""
             vehicle_registration_number = ""
+            extra = {}
 
             latest_activity_before = controlled_user.latest_activity_before(
                 qr_code_generation_time
@@ -90,10 +94,30 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         latest_mission.company.legal_name
                         or latest_mission.company.usual_name
                     )
+                    extra["siren"] = latest_mission.company.siren
+                    if (
+                        latest_mission.company.siren_api_info
+                        and latest_mission.company.siren_api_info[
+                            "etablissements"
+                        ]
+                    ):
+                        etablissement = latest_mission.company.siren_api_info[
+                            "etablissements"
+                        ][-1]
+                        extra["company_address"] = (
+                            etablissement["adresse"]
+                            + " "
+                            + etablissement["codePostal"]
+                        )
                     if latest_mission.vehicle:
                         vehicle_registration_number = (
                             latest_mission.vehicle.registration_number
                         )
+                    if latest_mission.start_location:
+                        extra[
+                            "mission_address_begin"
+                        ] = latest_mission.start_location.address.format()
+
             work_days = group_user_events_by_day_with_limit(
                 user=controlled_user,
                 from_date=compute_history_start_date(
@@ -111,6 +135,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                 company_name=company_name,
                 vehicle_registration_number=vehicle_registration_number,
                 nb_controlled_days=nb_controlled_days,
+                extra=json.dumps(extra),
             )
             db.session.add(new_control)
             db.session.commit()

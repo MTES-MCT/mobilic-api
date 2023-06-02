@@ -1,3 +1,5 @@
+import json
+
 import graphene
 
 from app.data_access.control_bulletin import ControlBulletinOutput
@@ -62,6 +64,27 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     )
 
     control_bulletin = graphene.Field(ControlBulletinOutput, required=False)
+
+    siren = graphene.String()
+    company_address = graphene.String()
+    mission_address_begin = graphene.String()
+
+    def resolve_siren(self, info):
+        return json.loads(self.extra).get("siren") if self.extra else None
+
+    def resolve_company_address(self, info):
+        return (
+            json.loads(self.extra).get("company_address")
+            if self.extra
+            else None
+        )
+
+    def resolve_mission_address_begin(self, info):
+        return (
+            json.loads(self.extra).get("mission_address_begin")
+            if self.extra
+            else None
+        )
 
     def resolve_employments(
         self,
