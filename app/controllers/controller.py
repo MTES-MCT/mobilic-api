@@ -242,7 +242,7 @@ class AgentConnectLogin(graphene.Mutation):
 
 class ControllerChangeGrecoId(graphene.Mutation):
     class Arguments:
-        greco_id = graphene.String(required=False)
+        greco_id = graphene.String(required=True)
 
     Output = ControllerUserOutput
 
