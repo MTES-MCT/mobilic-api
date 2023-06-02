@@ -8,12 +8,7 @@ from app.models import ControllerUser
 class ControllerUserOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerUser
-        only_fields = (
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-        )
+        only_fields = ("id", "first_name", "last_name", "email", "greco_id")
 
     id = graphene.Field(
         graphene.Int,
@@ -30,6 +25,9 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         required=False,
         description="Adresse email",
+    )
+    greco_id = graphene.Field(
+        graphene.String, required=False, description="Identifiant Greco"
     )
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),

@@ -240,6 +240,22 @@ class AgentConnectLogin(graphene.Mutation):
         return UserTokensWithAC(**tokens, ac_token=ac_token)
 
 
+class ControllerChangeGrecoId(graphene.Mutation):
+    class Arguments:
+        greco_id = graphene.String(required=True)
+
+    Output = ControllerUserOutput
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(cls, _, info, greco_id):
+        old_greco_id = current_user.greco_id
+        if old_greco_id != greco_id:
+            with atomic_transaction(commit_at_end=True):
+                current_user.greco_id = greco_id
+        return current_user
+
+
 class Query(graphene.ObjectType):
     controller_user = graphene.Field(
         ControllerUserOutput,
