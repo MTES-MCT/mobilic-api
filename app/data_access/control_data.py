@@ -14,7 +14,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models.controller_control import ControllerControl
+from app.models.controller_control import ControllerControl, ControlType
 from app.data_access.employment import EmploymentOutput
 
 
@@ -69,6 +69,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
+    control_type = graphene.String()
 
     def resolve_siren(self, info):
         return (
@@ -76,6 +77,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             if self.control_bulletin
             else None
         )
+
+    def resolve_control_type(self, info):
+        return ControlType(self.control_type).value
 
     def resolve_control_bulletin(self, info):
         return (
