@@ -30,6 +30,7 @@ from app.controllers.controller import (
     AgentConnectLogin,
     ControllerScanCode,
     ControllerSaveControlBulletin,
+    ControllerChangeGrecoId,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
@@ -239,6 +240,7 @@ class PrivateMutations(graphene.ObjectType):
 
     controller_scan_code = ControllerScanCode.Field()
     controller_save_control_bulletin = ControllerSaveControlBulletin.Field()
+    controller_change_greco_id = ControllerChangeGrecoId.Field()
 
     generate_employment_token = GenerateEmploymentToken.Field()
 
