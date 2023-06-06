@@ -46,6 +46,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_bulletin_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    control_bulletin_first_download_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
 
     @property
     def history_end_date(self):
