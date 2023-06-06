@@ -124,6 +124,9 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         siren = graphene.String(required=False)
         company_name = graphene.String(required=False)
         company_address = graphene.String(required=False)
+        location_commune = graphene.String(required=False)
+        location_department = graphene.String(required=False)
+        location_lieu = graphene.String(required=False)
         vehicle_registration_number = graphene.String(required=False)
         vehicle_registration_country = graphene.String(required=False)
         mission_address_begin = graphene.String(required=False)
@@ -148,6 +151,9 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         siren=None,
         company_name=None,
         company_address=None,
+        location_commune=None,
+        location_department=None,
+        location_lieu=None,
         vehicle_registration_number=None,
         vehicle_registration_country=None,
         mission_address_begin=None,
@@ -177,6 +183,9 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             siren,
             company_name,
             company_address,
+            location_commune,
+            location_department,
+            location_lieu,
             vehicle_registration_number,
             vehicle_registration_country,
             mission_address_begin,
