@@ -27,6 +27,7 @@ class TestControllerReadControl(BaseTest):
             user_id=controlled_user.id,
             controller_id=controller_user.id,
             qr_code_generation_time=qr_code_generation_time,
+            creation_time=qr_code_generation_time,
         )
         return controller_control.id
 
