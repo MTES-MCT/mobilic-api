@@ -385,6 +385,10 @@ def generate_control_bulletin_pdf_export(control_id):
 
     pdf = generate_control_bulletin_pdf(control, current_user)
 
+    if not control.control_bulletin_first_download_time:
+        control.control_bulletin_first_download_time = datetime.now()
+        db.session.commit()
+
     return send_file(
         pdf,
         mimetype="application/pdf",
