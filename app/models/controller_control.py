@@ -15,7 +15,7 @@ from app.models.base import BaseModel, RandomNineIntId
 class ControlType(enum.Enum):
     mobilic = "Mobilic"
     lic_papier = "LIC papier"
-    sans_lic = "Sans LIC"
+    sans_lic = "Pas de LIC"
 
 
 def compute_history_start_date(history_end_date):
