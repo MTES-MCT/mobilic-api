@@ -11,6 +11,9 @@ def save_control_bulletin(
     siren=None,
     company_name=None,
     company_address=None,
+    location_commune=None,
+    location_department=None,
+    location_lieu=None,
     vehicle_registration_number=None,
     vehicle_registration_country=None,
     mission_address_begin=None,
@@ -36,6 +39,9 @@ def save_control_bulletin(
     existing_bulletin["user_nationality"] = user_nationality
     existing_bulletin["siren"] = siren
     existing_bulletin["company_address"] = company_address
+    existing_bulletin["location_commune"] = location_commune
+    existing_bulletin["location_department"] = location_department
+    existing_bulletin["location_lieu"] = location_lieu
     existing_bulletin[
         "vehicle_registration_country"
     ] = vehicle_registration_country
