@@ -6,7 +6,10 @@ from sqlalchemy.orm import selectinload
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
 from app.data_access.team import TeamOutput
-from app.domain.company import get_last_day_of_certification
+from app.domain.company import (
+    get_last_day_of_certification,
+    get_start_last_certification_period,
+)
 from app.domain.permissions import (
     company_admin,
     is_employed_by_company_over_period,
@@ -160,6 +163,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     last_day_certified = graphene.Field(
         graphene.Date,
         description="Date la plus récente à laquelle l'entreprise cessera ou a cessé d'être certifiée.",
+    )
+
+    start_last_certification_period = graphene.Field(
+        graphene.Date,
+        description="Date de début de la dernière période de certification",
     )
 
     current_admins = graphene.List(
@@ -339,6 +347,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_last_day_certified(self, info):
         return get_last_day_of_certification(self.id)
+
+    def resolve_start_last_certification_period(self, info):
+        return get_start_last_certification_period(self.id)
 
     @with_authorization_policy(
         controller_only,

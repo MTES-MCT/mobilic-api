@@ -20,10 +20,10 @@ class TestCertificateCompanyApi(BaseTest):
         )
 
     def test_certificate(self):
-        CompanyCertificationFactory.create(
+        certificate = CompanyCertificationFactory.create(
             company_id=self.company.id,
-            attribution_date=date.today() - timedelta(days=10),
-            expiration_date=date.today() + timedelta(days=10),
+            attribution_date=date.today() - timedelta(days=31),
+            expiration_date=date.today() + timedelta(days=31),
             be_active=True,
             be_compliant=True,
             not_too_many_changes=True,
@@ -45,6 +45,12 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         self.assertTrue(admined_company["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
+        self.assertEquals(
+            certificate.attribution_date,
+            datetime.strptime(
+                admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
+            ).date(),
+        )
 
     def test_no_certificate(self):
         CompanyCertificationFactory.create(
@@ -72,12 +78,14 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         self.assertFalse(admined_company["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
+        self.assertIsNone(admined_company["lastDayCertified"])
+        self.assertIsNone(admined_company["startLastCertificationPeriod"])
 
     def test_expired_certificate(self):
         expired_certificate = CompanyCertificationFactory.create(
             company_id=self.company.id,
-            attribution_date=date.today() - timedelta(days=10),
-            expiration_date=date.today() - timedelta(days=4),
+            attribution_date=date.today() - timedelta(days=62),
+            expiration_date=date.today() - timedelta(days=31),
             be_active=True,
             be_compliant=True,
             not_too_many_changes=True,
@@ -103,5 +111,11 @@ class TestCertificateCompanyApi(BaseTest):
             expired_certificate.expiration_date,
             datetime.strptime(
                 admined_company["lastDayCertified"], "%Y-%m-%d"
+            ).date(),
+        )
+        self.assertEquals(
+            expired_certificate.attribution_date,
+            datetime.strptime(
+                admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
             ).date(),
         )
