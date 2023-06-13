@@ -8,17 +8,18 @@ from unittest import TestLoader, TextTestRunner
 
 import click
 from argon2 import PasswordHasher
-
-from app.domain.certificate_criteria import compute_company_certifications
-from app.helpers.oauth.models import ThirdPartyApiKey
-from config import TestConfig
+from sqlalchemy import text
 
 from app import app, db
 from app.controllers.utils import atomic_transaction
+from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.regulations import compute_regulation_for_user
+from app.domain.vehicle import find_vehicle
+from app.helpers.oauth.models import ThirdPartyApiKey
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
+from config import TestConfig
 
 
 @app.cli.command(with_appcontext=False)
@@ -46,6 +47,102 @@ def clean():
 def seed():
     """Inject tests data in database."""
     seed_seed()
+
+
+def _clean_vehicle():
+    sql = text(
+        """ select translate(UPPER(v.registration_number), '- ', ''),
+                           v.company_id,
+                           count(translate(UPPER(v.registration_number), '- ', ''))
+                    from vehicle v
+                    group by 1, 2
+                    having count(translate(UPPER(v.registration_number), '- ', '')) > 1"""
+    )
+    result = db.engine.execute(sql)
+    for duplicate_vehicles_info in result:
+        vehicles_to_deduplicate = find_vehicle(
+            registration_number=duplicate_vehicles_info[0],
+            company_id=duplicate_vehicles_info[1],
+        )
+        vehicle_to_keep = None
+        vehicles_possibly_not_terminated = filter_vehicle(
+            vehicles_to_deduplicate, lambda v: not v.is_terminated
+        )
+        if len(vehicles_possibly_not_terminated) == 1:
+            vehicle_to_keep = vehicles_possibly_not_terminated[0]
+        else:
+            vehicles_possibly_with_alias = filter_vehicle(
+                vehicles_possibly_not_terminated, lambda v: v.alias is not None
+            )
+            if len(vehicles_possibly_with_alias) == 1:
+                vehicle_to_keep = vehicles_possibly_with_alias[0]
+            else:
+                vehicles_possibly_with_kilometer = filter_vehicle(
+                    vehicles_possibly_with_alias,
+                    lambda v: v.last_kilometer_reading is not None,
+                )
+                if len(vehicles_possibly_with_kilometer) == 1:
+                    vehicle_to_keep = vehicles_possibly_with_kilometer[0]
+                else:
+                    vehicle_to_keep = max(
+                        vehicles_possibly_with_kilometer,
+                        key=lambda v: v.creation_time,
+                    )
+        vehicles_to_delete = list(
+            filter(
+                lambda v: v.id != vehicle_to_keep.id, vehicles_to_deduplicate
+            )
+        )
+        vehicles_ids_to_delete = [v.id for v in vehicles_to_delete]
+        print(f"vehicles_ids_to_delete {vehicles_ids_to_delete}")
+        print(f"vehicle_to_keep {vehicle_to_keep.id}")
+        for id_to_delete in vehicles_ids_to_delete:
+            db.session.execute(
+                "UPDATE team_vehicle t SET vehicle_id = :new_id WHERE t.vehicle_id = :id_to_delete AND NOT EXISTS(SELECT 1 from team_vehicle t2 where t2.team_id = t.team_id AND t2.vehicle_id = :new_id)",
+                {
+                    "new_id": vehicle_to_keep.id,
+                    "id_to_delete": id_to_delete,
+                },
+            )
+        db.session.execute(
+            "DELETE FROM team_vehicle WHERE vehicle_id IN :old_ids",
+            {
+                "old_ids": tuple(vehicles_ids_to_delete),
+            },
+        )
+        db.session.execute(
+            "UPDATE mission SET vehicle_id = :new_id WHERE company_id = :company_id AND vehicle_id IN :old_ids",
+            {
+                "company_id": duplicate_vehicles_info[1],
+                "new_id": vehicle_to_keep.id,
+                "old_ids": tuple(vehicles_ids_to_delete),
+            },
+        )
+        db.session.execute(
+            "DELETE FROM VEHICLE WHERE id IN :old_ids AND company_id = :company_id",
+            {
+                "company_id": duplicate_vehicles_info[1],
+                "old_ids": tuple(vehicles_ids_to_delete),
+            },
+        )
+        print(
+            f"DELETE VEHICLES {duplicate_vehicles_info[0]} FROM COMPANY {duplicate_vehicles_info[1]}"
+        )
+        db.session.commit()
+
+
+@app.cli.command()
+def clean_vehicle():
+    print(f"Cleaning the duplicate vehicles")
+    _clean_vehicle()
+
+
+def filter_vehicle(list_to_filter, filter_function):
+    vehicles_filtered = list(filter(filter_function, list_to_filter))
+    if len(vehicles_filtered) == 0:
+        return list_to_filter
+    else:
+        return vehicles_filtered
 
 
 @app.cli.command("init_regulation_alerts", with_appcontext=True)

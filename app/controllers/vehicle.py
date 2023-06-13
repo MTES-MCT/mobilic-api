@@ -6,6 +6,7 @@ from app import db
 from app.controllers.utils import Void, atomic_transaction
 from app.domain.permissions import company_admin
 from app.domain.team import remove_vehicle_from_all_teams
+from app.domain.vehicle import find_or_create_vehicle
 from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.models.vehicle import VehicleOutput, Vehicle
@@ -40,23 +41,11 @@ class CreateVehicle(AuthenticatedMutation):
     def mutate(cls, _, info, registration_number, company_id, alias=None):
         with atomic_transaction(commit_at_end=True):
 
-            vehicle = Vehicle.query.filter(
-                Vehicle.company_id == company_id,
-                Vehicle.registration_number == registration_number,
-                Vehicle.terminated_at is not None,
-            ).one_or_none()
-
-            if not vehicle:
-                vehicle = Vehicle(
-                    registration_number=registration_number,
-                    alias=alias,
-                    submitter=current_user,
-                    company_id=company_id,
-                )
-                db.session.add(vehicle)
-            else:
-                vehicle.terminated_at = None
-                vehicle.alias = alias
+            vehicle = find_or_create_vehicle(
+                company_id=company_id,
+                vehicle_registration_number=registration_number,
+                alias=alias,
+            )
         return vehicle
 
 

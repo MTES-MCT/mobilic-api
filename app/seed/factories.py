@@ -10,6 +10,8 @@ from app.models import (
     ControllerUser,
     Team,
     CompanyCertification,
+    Vehicle,
+    Mission,
 )
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
@@ -71,9 +73,19 @@ class CompanyFactory(BaseFactory):
     siren = factory.Sequence(lambda n: n)
 
 
+class VehicleFactory(BaseFactory):
+    class Meta:
+        model = Vehicle
+
+
 class CompanyCertificationFactory(BaseFactory):
     class Meta:
         model = CompanyCertification
+
+
+class MissionFactory(BaseFactory):
+    class Meta:
+        model = Mission
 
 
 class TeamFactory(BaseFactory):
