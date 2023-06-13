@@ -1,4 +1,7 @@
 from enum import Enum
+from sqlalchemy.sql.functions import now
+
+from sqlalchemy import func
 
 from app import db
 from app.models import Company, CompanyCertification
@@ -11,9 +14,7 @@ class SirenRegistrationStatus(str, Enum):
 
 
 def get_siren_registration_status(siren):
-    all_registered_companies_for_siren = Company.query.filter(
-        Company.siren == siren
-    ).all()
+    all_registered_companies_for_siren = get_companies_by_siren(siren)
 
     if not all_registered_companies_for_siren:
         return SirenRegistrationStatus.UNREGISTERED, None
@@ -65,3 +66,52 @@ def get_last_day_of_certification(company_id):
         )
         .first()
     )[0]
+
+
+def get_company_by_siret(siret):
+    all_registered_companies_for_siren = get_companies_by_siren(siret[:9])
+    for c in all_registered_companies_for_siren:
+        if c.short_sirets:
+            for short_siret in c.short_sirets:
+                if str(short_siret).zfill(5) == siret[9:]:
+                    # Return the company corresponding to the specific siret
+                    return c
+        else:
+            # Return the company corresponding to the whole SIREN organization
+            return c
+    return None
+
+
+def get_companies_by_siren(siren):
+    return Company.query.filter(Company.siren == siren).all()
+
+
+def find_companies_by_name(company_name):
+    return Company.query.filter(
+        func.translate(Company.usual_name, " .-", "").ilike(f"{company_name}%")
+    ).all()
+
+
+def find_certified_companies_query():
+    return (
+        db.session.query(
+            Company.usual_name,
+            Company.siren,
+            Company.short_sirets,
+            Company.creation_time,
+            CompanyCertification.attribution_date,
+            CompanyCertification.expiration_date,
+        )
+        .join(
+            CompanyCertification, CompanyCertification.company_id == Company.id
+        )
+        .filter(
+            Company.accept_certification_communication,
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+            CompanyCertification.expiration_date > now(),
+        )
+    )

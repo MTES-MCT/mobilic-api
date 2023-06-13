@@ -1,29 +1,56 @@
-from dataclasses import dataclass
+import re
 
 import graphene
 from flask import jsonify, request, abort
 from flask_apispec import use_kwargs
-from sqlalchemy.sql.functions import now
 from webargs import fields
 
-from app import app, db
+from app import app
 from app.controllers.utils import Void, atomic_transaction
-from app.domain.company import change_company_certification_communication_pref
+from app.data_access.certificate import (
+    PUBLIC_CERTIFICATION_DATE_FORMAT,
+    compute_certified_companies_output,
+)
+from app.domain.company import (
+    change_company_certification_communication_pref,
+    get_companies_by_siren,
+    get_company_by_siret,
+    find_companies_by_name,
+    find_certified_companies_query,
+)
 from app.domain.permissions import companies_admin
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app.models import Company, CompanyCertification
+from app.models import Company
 
 
-@dataclass
-class CertificationOutput:
-    siren: str
-    certification_attribution_date: str
-    certification_expiration_date: str
-    siret: str = None
+@app.route("/companies/public_company_certification", methods=["POST"])
+@use_kwargs(
+    {"search_input": fields.String(required=True)},
+    apply=True,
+)
+def public_company_certification(search_input):
+    search_input = re.sub("[ .-]", "", search_input)
+    found_companies = []
+    if search_input.isdigit():
+        if len(search_input) == 9:
+            found_companies = get_companies_by_siren(search_input)
+        elif len(search_input) == 14:
+            found_company = get_company_by_siret(search_input)
+            found_companies = [found_company] if found_company else []
+    if len(found_companies) == 0:
+        found_companies = find_companies_by_name(search_input)
 
+    certified_company_result = (
+        find_certified_companies_query()
+        .filter(Company.id.in_([c.id for c in found_companies]))
+        .all()
+    )
+    certified_companies = compute_certified_companies_output(
+        certified_company_result, date_format=PUBLIC_CERTIFICATION_DATE_FORMAT
+    )
 
-CERTIFICATION_DATE_FORMAT = "%Y/%m/%d"
+    return jsonify([c for c in certified_companies]), 200
 
 
 @app.route("/companies/is_company_certified", methods=["POST"])
@@ -40,60 +67,11 @@ def is_company_certified(siren):
         abort(401)
 
     certified_company_result = (
-        db.session.query(
-            Company.siren,
-            Company.short_sirets,
-            CompanyCertification.attribution_date,
-            CompanyCertification.expiration_date,
-        )
-        .join(
-            CompanyCertification, CompanyCertification.company_id == Company.id
-        )
-        .filter(
-            Company.siren == siren,
-            Company.accept_certification_communication,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
-            CompanyCertification.expiration_date > now(),
-        )
-        .all()
+        find_certified_companies_query().filter(Company.siren == siren).all()
     )
-
-    certified_companies = []
-    for company in certified_company_result:
-        company_dict = company._asdict()
-        if (
-            company_dict["short_sirets"]
-            and len(company_dict["short_sirets"]) > 0
-        ):
-            for siret in company_dict["short_sirets"]:
-                certified_companies.append(
-                    CertificationOutput(
-                        siren=company_dict["siren"],
-                        siret=company_dict["siren"] + f"{siret:05}",
-                        certification_attribution_date=company_dict[
-                            "attribution_date"
-                        ].strftime(CERTIFICATION_DATE_FORMAT),
-                        certification_expiration_date=company_dict[
-                            "expiration_date"
-                        ].strftime(CERTIFICATION_DATE_FORMAT),
-                    )
-                )
-        else:
-            certified_companies.append(
-                CertificationOutput(
-                    siren=company_dict["siren"],
-                    certification_attribution_date=company_dict[
-                        "attribution_date"
-                    ].strftime(CERTIFICATION_DATE_FORMAT),
-                    certification_expiration_date=company_dict[
-                        "expiration_date"
-                    ].strftime(CERTIFICATION_DATE_FORMAT),
-                )
-            )
+    certified_companies = compute_certified_companies_output(
+        certified_company_result
+    )
 
     return jsonify([c for c in certified_companies]), 200
 
