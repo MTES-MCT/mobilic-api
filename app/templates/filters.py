@@ -95,6 +95,10 @@ def format_expenditures_string_from_count(expenditures_count):
     )
 
 
+def format_none_bdc(str):
+    return str if str else "-"
+
+
 JINJA_CUSTOM_FILTERS = {
     "format_time": format_time,
     "format_duration": format_seconds_duration,
@@ -103,4 +107,5 @@ JINJA_CUSTOM_FILTERS = {
     "pretty_format_month": pretty_format_month,
     "full_format_day": full_format_day,
     "format_activity_type": format_activity_type,
+    "format_none_bdc": format_none_bdc,
 }
