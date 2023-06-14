@@ -14,6 +14,7 @@ from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
+from app.domain.control_bulletin import save_control_bulletin
 from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
@@ -35,6 +36,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
@@ -110,6 +112,94 @@ class ControllerScanCode(graphene.Mutation):
         return control
 
 
+class ControllerSaveControlBulletin(graphene.Mutation):
+    Output = ControllerControlOutput
+
+    class Arguments:
+        control_id = graphene.Int(required=False)
+        user_first_name = graphene.String(required=False)
+        user_last_name = graphene.String(required=False)
+        user_birth_date = graphene.Date(required=False)
+        user_nationality = graphene.String(required=False)
+        siren = graphene.String(required=False)
+        company_name = graphene.String(required=False)
+        company_address = graphene.String(required=False)
+        location_commune = graphene.String(required=False)
+        location_department = graphene.String(required=False)
+        location_lieu = graphene.String(required=False)
+        vehicle_registration_number = graphene.String(required=False)
+        vehicle_registration_country = graphene.String(required=False)
+        mission_address_begin = graphene.String(required=False)
+        mission_address_end = graphene.String(required=False)
+        transport_type = graphene.String(required=False)
+        articles_nature = graphene.String(required=False)
+        license_number = graphene.String(required=False)
+        license_copy_number = graphene.String(required=False)
+        observation = graphene.String(required=False)
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(
+        cls,
+        _,
+        info,
+        control_id=None,
+        user_first_name=None,
+        user_last_name=None,
+        user_nationality=None,
+        user_birth_date=None,
+        siren=None,
+        company_name=None,
+        company_address=None,
+        location_commune=None,
+        location_department=None,
+        location_lieu=None,
+        vehicle_registration_number=None,
+        vehicle_registration_country=None,
+        mission_address_begin=None,
+        mission_address_end=None,
+        transport_type=None,
+        articles_nature=None,
+        license_number=None,
+        license_copy_number=None,
+        observation=None,
+    ):
+        if control_id:
+            controller_can_see_control(current_user, control_id)
+            control = ControllerControl.query.filter(
+                ControllerControl.id == control_id
+            ).one()
+            if not control.control_bulletin_creation_time:
+                control.control_bulletin_creation_time = datetime.now()
+        else:
+            control = ControllerControl.create_no_lic_control(current_user.id)
+
+        save_control_bulletin(
+            control,
+            user_first_name,
+            user_last_name,
+            user_nationality,
+            user_birth_date,
+            siren,
+            company_name,
+            company_address,
+            location_commune,
+            location_department,
+            location_lieu,
+            vehicle_registration_number,
+            vehicle_registration_country,
+            mission_address_begin,
+            mission_address_end,
+            transport_type,
+            articles_nature,
+            license_number,
+            license_copy_number,
+            observation,
+        )
+        db.session.commit()
+        return control
+
+
 class AgentConnectLogin(graphene.Mutation):
     class Arguments:
         authorization_code = graphene.String(required=True)
@@ -150,6 +240,22 @@ class AgentConnectLogin(graphene.Mutation):
             return response
 
         return UserTokensWithAC(**tokens, ac_token=ac_token)
+
+
+class ControllerChangeGrecoId(graphene.Mutation):
+    class Arguments:
+        greco_id = graphene.String(required=True)
+
+    Output = ControllerUserOutput
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    def mutate(cls, _, info, greco_id):
+        old_greco_id = current_user.greco_id
+        if old_greco_id != greco_id:
+            with atomic_transaction(commit_at_end=True):
+                current_user.greco_id = greco_id
+        return current_user
 
 
 class Query(graphene.ObjectType):
@@ -270,3 +376,32 @@ def controller_download_tachograph_files(
                 cache_timeout=0,
                 attachment_filename="fichiers_C1B.zip",
             )
+
+
+@app.route("/controllers/generate_control_bulletin", methods=["POST"])
+@doc(
+    description="Génération d'un bulletin de contrôle en bord de route au format PDF"
+)
+@use_kwargs({"control_id": fields.Int(required=True)}, apply=True)
+@with_authorization_policy(
+    controller_can_see_control,
+    get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+)
+def generate_control_bulletin_pdf_export(control_id):
+    control = ControllerControl.query.filter(
+        ControllerControl.id == control_id
+    ).one()
+
+    pdf = generate_control_bulletin_pdf(control, current_user)
+
+    if not control.control_bulletin_first_download_time:
+        control.control_bulletin_first_download_time = datetime.now()
+        db.session.commit()
+
+    return send_file(
+        pdf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        cache_timeout=0,
+        attachment_filename=control.reference,
+    )
