@@ -57,6 +57,9 @@ class CompanySettings(graphene.ObjectType):
 
 
 class CertificateCriterias(graphene.ObjectType):
+    creation_time = graphene.DateTime(
+        description="Date de calcul des critères."
+    )
     be_active = graphene.Boolean(
         description="Indique si l'entreprise utilise règulièrement Mobilic."
     )
@@ -382,12 +385,15 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .order_by(CompanyCertification.attribution_date)
             .first()
         )
-        return CertificateCriterias(
-            **{
-                k: getattr(current_certification, k)
-                for k in CertificateCriterias._meta.fields.keys()
-            }
-        )
+        if current_certification:
+            return CertificateCriterias(
+                **{
+                    k: getattr(current_certification, k)
+                    for k in CertificateCriterias._meta.fields.keys()
+                }
+            )
+        else:
+            return None
 
     @with_authorization_policy(
         controller_only,
