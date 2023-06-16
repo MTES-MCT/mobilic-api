@@ -1,6 +1,7 @@
 from datetime import date
 
 import graphene
+from sqlalchemy import desc
 from sqlalchemy.orm import selectinload
 
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
@@ -382,7 +383,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             CompanyCertification.query.filter(
                 CompanyCertification.company_id == self.id
             )
-            .order_by(CompanyCertification.attribution_date)
+            .order_by(desc(CompanyCertification.attribution_date))
             .first()
         )
         if current_certification:
