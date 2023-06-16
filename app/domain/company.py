@@ -1,7 +1,7 @@
 from enum import Enum
 from sqlalchemy.sql.functions import now
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from app import db
 from app.models import Company, CompanyCertification
@@ -88,7 +88,14 @@ def get_companies_by_siren(siren):
 
 def find_companies_by_name(company_name):
     return Company.query.filter(
-        func.translate(Company.usual_name, " .-", "").ilike(f"{company_name}%")
+        or_(
+            func.translate(Company.usual_name, " .-", "").ilike(
+                f"{company_name}%"
+            ),
+            func.translate(Company.usual_name, ".-", " ").ilike(
+                f"% {company_name}%"
+            ),
+        )
     ).all()
 
 
