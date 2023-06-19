@@ -4,6 +4,7 @@ from sqlalchemy.sql.functions import now
 from sqlalchemy import func, or_
 
 from app import db
+from app.helpers.time import successive_months
 from app.models import Company, CompanyCertification
 
 
@@ -66,6 +67,29 @@ def get_last_day_of_certification(company_id):
         )
         .first()
     )[0]
+
+
+def get_start_last_certification_period(company_id):
+    start_last_certification_period = None
+    certifications = (
+        CompanyCertification.query.filter(
+            CompanyCertification.company_id == company_id,
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+        )
+        .order_by(CompanyCertification.attribution_date)
+        .all()
+    )
+    for certification in certifications:
+        if start_last_certification_period is None or not successive_months(
+            end_certification, certification.attribution_date
+        ):
+            start_last_certification_period = certification.attribution_date
+            end_certification = certification.expiration_date
+    return start_last_certification_period
 
 
 def get_company_by_siret(siret):

@@ -822,6 +822,7 @@ class ApiRequests:
             isCertified
             acceptCertificationCommunication
             lastDayCertified
+            startLastCertificationPeriod
           }
         }
       }

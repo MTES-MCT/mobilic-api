@@ -163,3 +163,10 @@ def previous_month_period(today):
     start = previous_month.replace(day=1)
     end = end_of_month(previous_month)
     return start, end
+
+
+def successive_months(date1, date2):
+    diff = relativedelta(date2, date1)
+    if diff.months == 1 and diff.years == 0:
+        return True
+    return False
