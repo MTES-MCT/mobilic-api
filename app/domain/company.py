@@ -1,10 +1,9 @@
 from enum import Enum
+
+from sqlalchemy import func, or_, desc
 from sqlalchemy.sql.functions import now
 
-from sqlalchemy import func, or_
-
 from app import db
-from app.helpers.time import successive_months
 from app.models import Company, CompanyCertification
 
 
@@ -80,15 +79,17 @@ def get_start_last_certification_period(company_id):
             CompanyCertification.validate_regularly,
             CompanyCertification.log_in_real_time,
         )
-        .order_by(CompanyCertification.attribution_date)
+        .order_by(desc(CompanyCertification.attribution_date))
         .all()
     )
     for certification in certifications:
-        if start_last_certification_period is None or not successive_months(
-            end_certification, certification.attribution_date
+        if (
+            start_last_certification_period is None
+            or start_last_certification_period <= certification.expiration_date
         ):
             start_last_certification_period = certification.attribution_date
-            end_certification = certification.expiration_date
+        else:
+            break
     return start_last_certification_period
 
 
@@ -126,12 +127,16 @@ def find_companies_by_name(company_name):
 def find_certified_companies_query():
     return (
         db.session.query(
+            Company.id,
             Company.usual_name,
             Company.siren,
             Company.short_sirets,
-            Company.creation_time,
-            CompanyCertification.attribution_date,
-            CompanyCertification.expiration_date,
+            func.max(CompanyCertification.expiration_date).label(
+                "expiration_date"
+            ),
+        )
+        .group_by(
+            Company.id, Company.usual_name, Company.siren, Company.short_sirets
         )
         .join(
             CompanyCertification, CompanyCertification.company_id == Company.id
