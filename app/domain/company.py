@@ -174,7 +174,6 @@ def get_admin_of_companies_without_activity(
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
     )
-    from sqlalchemy.dialects import postgresql
 
     if min_signup_date:
         query = query.filter(
