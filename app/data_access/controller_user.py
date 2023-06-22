@@ -41,10 +41,18 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         controls_type=graphene.Argument(
             graphene.String, description="Type de contrôles souhaités"
         ),
+        limit=graphene.Argument(
+            graphene.Int, description="Nombre de contrôles maximum à remonter"
+        ),
     )
 
     def resolve_controls(
-        self, info, from_date=None, to_date=None, controls_type=None
+        self,
+        info,
+        from_date=None,
+        to_date=None,
+        controls_type=None,
+        limit=None,
     ):
         from app.models.queries import query_controls
 
@@ -53,4 +61,5 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
             start_time=from_date,
             end_time=to_date,
             controls_type=controls_type,
+            limit=limit,
         ).all()

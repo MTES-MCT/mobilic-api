@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from app.domain.company import get_start_last_certification_period
+
 CERTIFICATION_DATE_FORMAT = "%Y/%m/%d"
 PUBLIC_CERTIFICATION_DATE_FORMAT = "%d/%m/%Y"
 
@@ -7,7 +9,6 @@ PUBLIC_CERTIFICATION_DATE_FORMAT = "%d/%m/%Y"
 @dataclass
 class CertificationOutput:
     company_name: str
-    company_subscription_date: str
     siren: str
     certification_attribution_date: str
     certification_expiration_date: str
@@ -20,6 +21,9 @@ def compute_certified_companies_output(
     certified_companies = []
     for company in certified_company_result:
         company_dict = company._asdict()
+        date_beginning_certification = get_start_last_certification_period(
+            company_dict["id"]
+        )
         if (
             company_dict["short_sirets"]
             and len(company_dict["short_sirets"]) > 0
@@ -28,16 +32,11 @@ def compute_certified_companies_output(
                 certified_companies.append(
                     CertificationOutput(
                         company_name=company_dict["usual_name"],
-                        company_subscription_date=company_dict[
-                            "creation_time"
-                        ].strftime(date_format)
-                        if company_dict["creation_time"]
-                        else None,
                         siren=company_dict["siren"],
                         siret=company_dict["siren"] + f"{siret:05}",
-                        certification_attribution_date=company_dict[
-                            "attribution_date"
-                        ].strftime(date_format),
+                        certification_attribution_date=date_beginning_certification.strftime(
+                            date_format
+                        ),
                         certification_expiration_date=company_dict[
                             "expiration_date"
                         ].strftime(date_format),
@@ -47,15 +46,10 @@ def compute_certified_companies_output(
             certified_companies.append(
                 CertificationOutput(
                     company_name=company_dict["usual_name"],
-                    company_subscription_date=company_dict[
-                        "creation_time"
-                    ].strftime(date_format)
-                    if company_dict["creation_time"]
-                    else None,
                     siren=company_dict["siren"],
-                    certification_attribution_date=company_dict[
-                        "attribution_date"
-                    ].strftime(date_format),
+                    certification_attribution_date=date_beginning_certification.strftime(
+                        date_format
+                    ),
                     certification_expiration_date=company_dict[
                         "expiration_date"
                     ].strftime(date_format),
