@@ -5,6 +5,9 @@
     },
     {
       "command": "0 3 * * * flask send_onboarding_emails"
+    },
+    {
+      "command": "30 3 * * * flask send_never_active_companies_emails"
     }
   ]
 }

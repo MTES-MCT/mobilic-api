@@ -1,9 +1,19 @@
 from enum import Enum
 
 from sqlalchemy import func, or_, desc
+
+from sqlalchemy import exists, and_
+from sqlalchemy import func, or_
 from sqlalchemy.sql.functions import now
 
 from app import db
+from app.helpers.mail_type import EmailType
+from app.models import (
+    Employment,
+    Email,
+    Mission,
+)
+from app.models.employment import EmploymentRequestValidationStatus
 from app.models import Company, CompanyCertification
 
 
@@ -151,3 +161,30 @@ def find_certified_companies_query():
             CompanyCertification.expiration_date > now(),
         )
     )
+
+
+def get_admin_of_companies_without_activity(
+    max_signup_date, min_signup_date=None, companies_to_exclude=None
+):
+    query = Employment.query.filter(
+        Employment.company.has(Company.creation_time <= max_signup_date),
+        ~exists().where(Mission.company_id == Employment.company_id),
+        ~exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type == EmailType.COMPANY_NEVER_ACTIVE,
+            )
+        ),
+        Employment.company_id.notin_(companies_to_exclude or []),
+        Employment.has_admin_rights,
+        ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
+    )
+
+    if min_signup_date:
+        query = query.filter(
+            Employment.company.has(Company.creation_time > min_signup_date)
+        )
+    return query.all()
