@@ -1,9 +1,12 @@
 import time
 
+import graphene
 from flask import Blueprint, jsonify, request
 import jwt
 
-from app import app
+from app import app, db
+from app.data_access.control_data import ControllerControlOutput
+from app.domain.permissions import controller_can_see_control
 from app.helpers.authentication import require_auth_with_write_access
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -15,7 +18,7 @@ from app.helpers.xls import (
     retrieve_and_verify_signature,
 )
 from app.models import UserReadToken
-
+from app.models.controller_control import ControllerControl
 
 FILE_NAME = "xlsx-to-check"
 
@@ -44,3 +47,22 @@ def verify_xlsx_signature():
     file = request.files[FILE_NAME]
     retrieve_and_verify_signature(file)
     return {"success": True}
+
+
+class AddControlNote(graphene.Mutation):
+    class Arguments:
+        control_id = graphene.Int(required=True)
+        content = graphene.Argument(graphene.String, required=True)
+
+    Output = ControllerControlOutput
+
+    @classmethod
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def mutate(cls, _, info, control_id, content):
+        control = ControllerControl.query.get(control_id)
+        control.note = content
+        db.session.commit()
+        return control
