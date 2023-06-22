@@ -9,11 +9,13 @@ def send_never_active_companies_emails(today):
     old_companies_signup_threshold = today - timedelta(days=14)
 
     old_inactive_companies_admin = get_admin_of_companies_without_activity(
-        max_signup_date=old_companies_signup_threshold
+        max_signup_date=old_companies_signup_threshold,
+        companies_to_exclude=app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"],
     )
     recent_inactive_companies_admin = get_admin_of_companies_without_activity(
         max_signup_date=min_inactivity_period,
         min_signup_date=old_companies_signup_threshold,
+        companies_to_exclude=app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"],
     )
 
     app.logger.info(

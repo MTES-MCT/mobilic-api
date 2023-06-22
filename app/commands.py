@@ -251,7 +251,7 @@ def send_onboarding_emails():
 
 
 @app.cli.command("send_never_active_companies_emails", with_appcontext=True)
-def send_never_active_companies_emails():
+def command_send_never_active_companies_emails():
     app.logger.info("Beginning send_never_active_companies_emails task")
 
     send_never_active_companies_emails(datetime.datetime.now())

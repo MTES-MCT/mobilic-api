@@ -158,7 +158,7 @@ def find_certified_companies_query():
 
 
 def get_admin_of_companies_without_activity(
-    max_signup_date, min_signup_date=None
+    max_signup_date, min_signup_date=None, companies_to_exclude=None
 ):
     query = Employment.query.filter(
         Employment.company.has(Company.creation_time <= max_signup_date),
@@ -169,8 +169,10 @@ def get_admin_of_companies_without_activity(
                 Email.type == EmailType.COMPANY_NEVER_ACTIVE,
             )
         ),
+        Employment.company_id.notin_(companies_to_exclude or []),
         Employment.has_admin_rights,
         ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
     )
