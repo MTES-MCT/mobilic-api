@@ -153,14 +153,16 @@
                 </td>
             </tr>
         </table>
-        <p style="
-            font-weight: bold;
-            text-align: center;
-        ">
-            <span style="font-style: italic;">Pas de LIC présenté</span>
-            <br>
-            Il n'y a pas eu d'infractions retenues
-        </p>
+        {% if no_lic_presented %}
+            <p style="
+                font-weight: bold;
+                text-align: center;
+            ">
+                <span style="font-style: italic;">Pas de LIC présenté</span>
+            </p>
+        {% else %}
+            <br/>
+        {% endif %}
 
         <table>
             <tr>

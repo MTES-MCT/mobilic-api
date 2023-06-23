@@ -1,6 +1,7 @@
 import json
 
 from app.helpers.pdf import generate_pdf_from_template
+from app.models.controller_control import ControlType
 
 
 def generate_control_bulletin_pdf(control, controller_user):
@@ -9,6 +10,7 @@ def generate_control_bulletin_pdf(control, controller_user):
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
+        no_lic_presented=control.control_type == ControlType.sans_lic,
         organizational_unit=controller_user.organizational_unit,
         control_time=control.creation_time,
         control_date=control.creation_time,
