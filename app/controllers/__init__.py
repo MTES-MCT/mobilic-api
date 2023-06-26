@@ -16,6 +16,7 @@ from app.controllers.company import (
     CompanySoftwareRegistration,
 )
 from app.controllers.company import Query as CompanyQuery
+from app.controllers.control import AddControlNote
 from app.controllers.third_party_company import (
     DismissCompanyToken,
     GenerateCompanyToken,
@@ -240,6 +241,7 @@ class PrivateMutations(graphene.ObjectType):
 
     controller_scan_code = ControllerScanCode.Field()
     controller_save_control_bulletin = ControllerSaveControlBulletin.Field()
+    controller_add_control_note = AddControlNote.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
 
     generate_employment_token = GenerateEmploymentToken.Field()
