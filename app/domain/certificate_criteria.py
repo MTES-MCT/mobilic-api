@@ -7,7 +7,8 @@ from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
 
-from app import db, app, CERTIFICATE_INFO_DISABLED_WARNING_NAME
+from app import db, app
+from app.controllers.certificate import CERTIFICATE_INFO_DISABLED_WARNING_NAME
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
