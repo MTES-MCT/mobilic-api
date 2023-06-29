@@ -3,6 +3,7 @@ from datetime import date, datetime
 import graphene
 from sqlalchemy import desc, or_, and_
 
+from app.controllers.certificate import CERTIFICATE_INFO_DISABLED_WARNING_NAME
 from app.data_access.activity import ActivityConnection
 from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
@@ -80,6 +81,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.Boolean,
         required=False,
         description="Indique si l'utilisateur doit mettre à jour son mot de passe",
+    )
+    should_see_certificate_info = graphene.Field(
+        graphene.Boolean,
+        required=False,
+        description="Indique si l'on doit afficher les informations liées au certificat à l'utilisateur",
     )
     activities = graphene.Field(
         ActivityConnection,
@@ -426,6 +432,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     def resolve_should_update_password(self, info):
         return self.password_update_time is None
+
+    def resolve_should_see_certificate_info(self, info):
+        return (
+            CERTIFICATE_INFO_DISABLED_WARNING_NAME
+            not in self.disabled_warnings
+        )
 
     def resolve_controls_date(self, info):
         user_controls = (

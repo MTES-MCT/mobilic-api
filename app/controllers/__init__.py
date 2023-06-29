@@ -1,6 +1,9 @@
 import graphene
 
-from app.controllers.certificate import EditCompanyCommunicationSetting
+from app.controllers.certificate import (
+    EditCompanyCommunicationSetting,
+    AddCertificateInfoResult,
+)
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
 from app.controllers.authentication import (
@@ -255,6 +258,7 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_communication_setting = (
         EditCompanyCommunicationSetting.Field()
     )
+    add_certificate_info_result = AddCertificateInfoResult.Field()
 
 
 class Queries(
