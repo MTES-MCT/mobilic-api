@@ -1,3 +1,4 @@
+import datetime
 from enum import Enum
 
 from sqlalchemy import func, or_, desc
@@ -76,6 +77,22 @@ def get_last_day_of_certification(company_id):
         )
         .first()
     )[0]
+
+
+def get_current_certificate(company_id):
+    return (
+        CompanyCertification.query.filter(
+            CompanyCertification.company_id == company_id,
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+            CompanyCertification.expiration_date > datetime.datetime.now(),
+        )
+        .order_by(desc(CompanyCertification.attribution_date))
+        .first()
+    )
 
 
 def get_start_last_certification_period(company_id):
