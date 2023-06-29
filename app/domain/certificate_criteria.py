@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
 
-from app import db, app
+from app import db, app, CERTIFICATE_INFO_DISABLED_WARNING_NAME
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
@@ -361,6 +361,15 @@ def compute_company_certifications(today):
             run_compute_company_certification, today, start, end
         )
         p.map(func, company_ids)
+
+    query = """
+    UPDATE "user"
+    SET disabled_warnings = array_remove(disabled_warnings, :value)
+    """
+    params = {"value": CERTIFICATE_INFO_DISABLED_WARNING_NAME}
+    db.session.execute(query, params)
+
+    db.session.commit()
 
 
 def run_compute_company_certification(today, start, end, company_id):
