@@ -457,13 +457,13 @@ class UserOutput(BaseSQLAlchemyObjectType):
         return not has_scenario_been_resolved_this_month(user_id=self.id)
 
     def resolve_has_sent_action_load(self, info):
-        return not has_scenario_been_loaded_this_month(user_id=self.id)
+        return has_scenario_been_loaded_this_month(user_id=self.id)
 
     def resolve_has_sent_action_success(self, info):
-        return not has_scenario_been_succeeded_this_month(user_id=self.id)
+        return has_scenario_been_succeeded_this_month(user_id=self.id)
 
     def resolve_has_sent_action_close(self, info):
-        return not has_scenario_been_closed_this_month(user_id=self.id)
+        return has_scenario_been_closed_this_month(user_id=self.id)
 
     def resolve_controls_date(self, info):
         user_controls = (
