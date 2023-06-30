@@ -12,6 +12,7 @@ from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
     compute_certified_companies_output,
 )
+from app.domain.certificate_info import check_result_already_exists_this_month
 from app.domain.company import (
     change_company_certification_communication_pref,
     get_companies_by_siren,
@@ -20,12 +21,9 @@ from app.domain.company import (
     find_certified_companies_query,
 )
 from app.domain.permissions import companies_admin
-from app.helpers.authentication import AuthenticatedMutation, current_user
+from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.models import Company, CertificateInfoResult
-from app.models.certificate_info_result import CertificateInfoAction
-
-CERTIFICATE_INFO_DISABLED_WARNING_NAME = "certificate-info"
 
 
 @app.route("/companies/public_company_certification", methods=["POST"])
@@ -131,22 +129,19 @@ class AddCertificateInfoResult(AuthenticatedMutation):
 
     @classmethod
     def mutate(cls, _, info, user_id, scenario, action):
+
+        # check if action result exists already for this month
+        if check_result_already_exists_this_month(
+            user_id=user_id, action=action, scenario=scenario
+        ):
+            return Void(success=False)
+
         with atomic_transaction(commit_at_end=True):
             certificate_info_result = CertificateInfoResult(
                 user_id=user_id,
                 scenario=scenario,
                 action=action,
-                creation_time=datetime.now(),
             )
             db.session.add(certificate_info_result)
-            if action != CertificateInfoAction.LOAD:
-                if (
-                    CERTIFICATE_INFO_DISABLED_WARNING_NAME
-                    not in current_user.disabled_warnings
-                ):
-                    current_user.disabled_warnings = [
-                        *current_user.disabled_warnings,
-                        CERTIFICATE_INFO_DISABLED_WARNING_NAME,
-                    ]
 
         return Void(success=True)
