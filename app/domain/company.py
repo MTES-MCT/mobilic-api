@@ -88,7 +88,8 @@ def get_current_certificate(company_id):
             CompanyCertification.not_too_many_changes,
             CompanyCertification.validate_regularly,
             CompanyCertification.log_in_real_time,
-            CompanyCertification.expiration_date > datetime.datetime.now(),
+            CompanyCertification.expiration_date
+            >= datetime.datetime.now().date(),
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .first()

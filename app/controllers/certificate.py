@@ -121,12 +121,14 @@ def download_certificate(company_id):
 
     company_certification = get_current_certificate(company_id)
 
-    pdf = generate_company_certificate_pdf(company_certification)
+    if company_certification:
+        pdf = generate_company_certificate_pdf(company_certification)
 
-    return send_file(
-        pdf,
-        mimetype="application/pdf",
-        as_attachment=True,
-        cache_timeout=0,
-        attachment_filename="Certificat_Mobilic.pdf",
-    )
+        return send_file(
+            pdf,
+            mimetype="application/pdf",
+            as_attachment=True,
+            cache_timeout=0,
+            attachment_filename="Certificat_Mobilic.pdf",
+        )
+    return "", 204
