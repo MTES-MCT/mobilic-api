@@ -1,5 +1,5 @@
+import datetime
 import re
-from datetime import datetime
 
 import graphene
 from flask import jsonify, request, abort
@@ -12,7 +12,6 @@ from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
     compute_certified_companies_output,
 )
-from app.domain.certificate_info import check_result_already_exists_this_month
 from app.domain.company import (
     change_company_certification_communication_pref,
     get_companies_by_siren,
@@ -21,9 +20,14 @@ from app.domain.company import (
     find_certified_companies_query,
 )
 from app.domain.permissions import companies_admin
+from app.domain.scenario_testing import (
+    check_scenario_testing_action_already_exists_this_month,
+)
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
-from app.models import Company, CertificateInfoResult
+from app.helpers.time import end_of_month
+from app.models import Company, ScenarioTesting, Employment
+from app.models.scenario_testing import Action
 
 
 @app.route("/companies/public_company_certification", methods=["POST"])
@@ -111,8 +115,8 @@ class EditCompanyCommunicationSetting(AuthenticatedMutation):
 
 class AddCertificateInfoResult(AuthenticatedMutation):
     class Arguments:
-        user_id = graphene.Int(
-            required=True, description="Identifiant de l'utilisateur"
+        employment_id = graphene.Int(
+            required=True, description="Identifiant du rattachement"
         )
         scenario = graphene.Argument(
             graphene.String,
@@ -128,20 +132,30 @@ class AddCertificateInfoResult(AuthenticatedMutation):
     Output = Void
 
     @classmethod
-    def mutate(cls, _, info, user_id, scenario, action):
+    def mutate(cls, _, info, employment_id, scenario, action):
+
+        employment = Employment.query.filter(
+            Employment.id == employment_id
+        ).one()
+
+        if action != Action.LOAD:
+            with atomic_transaction(commit_at_end=True):
+                employment.certificate_info_snooze_date = end_of_month(
+                    datetime.date.today()
+                )
 
         # check if action result exists already for this month
-        if check_result_already_exists_this_month(
-            user_id=user_id, action=action, scenario=scenario
+        if check_scenario_testing_action_already_exists_this_month(
+            user_id=employment.user_id, action=action, scenario=scenario
         ):
             return Void(success=False)
 
         with atomic_transaction(commit_at_end=True):
-            certificate_info_result = CertificateInfoResult(
-                user_id=user_id,
+            new_scenario_testing = ScenarioTesting(
+                user_id=employment.user_id,
                 scenario=scenario,
                 action=action,
             )
-            db.session.add(certificate_info_result)
+            db.session.add(new_scenario_testing)
 
         return Void(success=True)

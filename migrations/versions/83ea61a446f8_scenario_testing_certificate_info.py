@@ -1,17 +1,16 @@
-"""certificate info result
+"""scenario testing - certificate info
 
-Revision ID: d8216e8af3e4
+Revision ID: 83ea61a446f8
 Revises: d342aeb2a88f
-Create Date: 2023-06-28 09:49:28.275367
+Create Date: 2023-07-03 18:38:11.808176
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-import app
 
 # revision identifiers, used by Alembic.
-revision = "d8216e8af3e4"
+revision = "83ea61a446f8"
 down_revision = "d342aeb2a88f"
 branch_labels = None
 depends_on = None
@@ -19,19 +18,15 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        "certificate_info_result",
-        sa.Column(
-            "creation_time",
-            app.helpers.db.DateTimeStoredAsUTC(),
-            nullable=False,
-        ),
+        "scenario_testing",
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column(
             "scenario",
             sa.Enum(
-                "Scenario A",
-                "Scenario B",
-                name="certificateinfoscenario",
+                "Certificate scenario A",
+                "Certificate scenario B",
+                name="scenario",
                 native_enum=False,
             ),
             nullable=False,
@@ -39,11 +34,7 @@ def upgrade():
         sa.Column(
             "action",
             sa.Enum(
-                "Load",
-                "Success",
-                "Close",
-                name="certificateinfoaction",
-                native_enum=False,
+                "Load", "Success", "Close", name="action", native_enum=False
             ),
             nullable=False,
         ),
@@ -55,16 +46,22 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        op.f("ix_certificate_info_result_user_id"),
-        "certificate_info_result",
+        op.f("ix_scenario_testing_user_id"),
+        "scenario_testing",
         ["user_id"],
         unique=False,
     )
 
+    op.add_column(
+        "employment",
+        sa.Column("certificate_info_snooze_date", sa.Date(), nullable=True),
+    )
+
 
 def downgrade():
+    op.drop_column("employment", "certificate_info_snooze_date")
+
     op.drop_index(
-        op.f("ix_certificate_info_result_user_id"),
-        table_name="certificate_info_result",
+        op.f("ix_scenario_testing_user_id"), table_name="scenario_testing"
     )
-    op.drop_table("certificate_info_result")
+    op.drop_table("scenario_testing")

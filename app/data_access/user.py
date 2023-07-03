@@ -8,12 +8,6 @@ from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
-from app.domain.certificate_info import (
-    has_scenario_been_resolved_this_month,
-    has_scenario_been_loaded_this_month,
-    has_scenario_been_succeeded_this_month,
-    has_scenario_been_closed_this_month,
-)
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
@@ -86,26 +80,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.Boolean,
         required=False,
         description="Indique si l'utilisateur doit mettre à jour son mot de passe",
-    )
-    should_see_certificate_info = graphene.Field(
-        graphene.Boolean,
-        required=False,
-        description="Indique si l'on doit afficher les informations liées au certificat à l'utilisateur",
-    )
-    has_sent_action_load = graphene.Field(
-        graphene.Boolean,
-        required=False,
-        description="Indique si l'utilisateur a déjà indiqué avoir chargé le scénario",
-    )
-    has_sent_action_success = graphene.Field(
-        graphene.Boolean,
-        required=False,
-        description="Indique si l'utilisateur a déjà renseigné le succès du scénario",
-    )
-    has_sent_action_close = graphene.Field(
-        graphene.Boolean,
-        required=False,
-        description="Indique si l'utilisateur a déjà annulé le scénario",
     )
     activities = graphene.Field(
         ActivityConnection,
@@ -452,18 +426,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     def resolve_should_update_password(self, info):
         return self.password_update_time is None
-
-    def resolve_should_see_certificate_info(self, info):
-        return not has_scenario_been_resolved_this_month(user_id=self.id)
-
-    def resolve_has_sent_action_load(self, info):
-        return has_scenario_been_loaded_this_month(user_id=self.id)
-
-    def resolve_has_sent_action_success(self, info):
-        return has_scenario_been_succeeded_this_month(user_id=self.id)
-
-    def resolve_has_sent_action_close(self, info):
-        return has_scenario_been_closed_this_month(user_id=self.id)
 
     def resolve_controls_date(self, info):
         user_controls = (

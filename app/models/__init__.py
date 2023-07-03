@@ -25,4 +25,4 @@ from .regulatory_alert import RegulatoryAlert
 from .regulation_computation import RegulationComputation
 from .team import Team
 from .company_certification import CompanyCertification
-from .certificate_info_result import CertificateInfoResult
+from .scenario_testing import ScenarioTesting
