@@ -127,3 +127,9 @@ def _bind_users_to_team(user_ids, team_id, company_id):
         Employment.company_id == company_id,
         Employment.user_id.in_(user_ids),
     ).update({"team_id": team_id}, synchronize_session=False)
+
+
+def _bind_employment_to_team(employment_id, team_id):
+    Employment.query.filter(
+        Employment.id == employment_id,
+    ).update({"team_id": team_id}, synchronize_session=False)

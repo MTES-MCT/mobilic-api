@@ -2,7 +2,7 @@ import datetime
 import re
 
 import graphene
-from flask import jsonify, request, abort
+from flask import jsonify, request, abort, send_file
 from flask_apispec import use_kwargs
 from webargs import fields
 
@@ -18,13 +18,17 @@ from app.domain.company import (
     get_company_by_siret,
     find_companies_by_name,
     find_certified_companies_query,
+    get_current_certificate,
 )
-from app.domain.permissions import companies_admin
+from app.domain.permissions import companies_admin, company_admin
 from app.domain.scenario_testing import (
     check_scenario_testing_action_already_exists_this_month,
 )
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
+from app.helpers.pdf.company_certificate import (
+    generate_company_certificate_pdf,
+)
 from app.helpers.time import end_of_month
 from app.models import Company, ScenarioTesting, Employment
 from app.models.scenario_testing import Action
@@ -159,3 +163,26 @@ class AddCertificateInfoResult(AuthenticatedMutation):
             db.session.add(new_scenario_testing)
 
         return Void(success=True)
+
+
+@app.route("/companies/download_certificate", methods=["POST"])
+@use_kwargs({"company_id": fields.Int(required=True)}, apply=True)
+@with_authorization_policy(
+    company_admin,
+    get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
+)
+def download_certificate(company_id):
+
+    company_certification = get_current_certificate(company_id)
+
+    if company_certification:
+        pdf = generate_company_certificate_pdf(company_certification)
+
+        return send_file(
+            pdf,
+            mimetype="application/pdf",
+            as_attachment=True,
+            cache_timeout=0,
+            attachment_filename="Certificat_Mobilic.pdf",
+        )
+    return "", 204
