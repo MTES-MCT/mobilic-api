@@ -773,5 +773,14 @@ class Mailer:
             ),
         )
 
+    def send_active_then_inactive_companies_email(self, admin_last_name):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="active_then_inactive_companies.html",
+                subject="Votre activité sur Mobilic peut vous mener à l’obtention du certificat",
+                admin_last_name=admin_last_name,
+            ),
+        )
+
 
 mailer = Mailer()

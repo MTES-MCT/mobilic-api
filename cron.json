@@ -8,6 +8,9 @@
     },
     {
       "command": "30 3 * * * flask send_never_active_companies_emails"
+    },
+    {
+      "command": "0 4 2 * * flask send_active_then_inactive_companies_emails"
     }
   ]
 }

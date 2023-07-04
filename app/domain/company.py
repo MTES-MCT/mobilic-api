@@ -13,6 +13,7 @@ from app.models import (
     Employment,
     Email,
     Mission,
+    User,
 )
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models import Company, CompanyCertification
@@ -178,6 +179,38 @@ def find_certified_companies_query():
             CompanyCertification.log_in_real_time,
             CompanyCertification.expiration_date > now(),
         )
+    )
+
+
+def find_active_companies_in_period(start_period, end_period):
+    return (
+        db.session.query(Company.id)
+        .join(
+            CompanyCertification, CompanyCertification.company_id == Company.id
+        )
+        .filter(
+            CompanyCertification.be_active == True,
+            CompanyCertification.attribution_date >= start_period,
+            CompanyCertification.attribution_date <= end_period,
+        )
+        .all()
+    )
+
+
+def get_admin_of_companies(company_ids):
+    return (
+        db.session.query(Employment.user_id, User.first_name, User.last_name)
+        .join(User, Employment.user_id == User.id)
+        .filter(
+            Employment.company_id.in_(company_ids),
+            Employment.has_admin_rights,
+            ~Employment.is_dismissed,
+            Employment.end_date.is_(None),
+            Employment.validation_status
+            == EmploymentRequestValidationStatus.APPROVED,
+        )
+        .distinct()
+        .all()
     )
 
 
