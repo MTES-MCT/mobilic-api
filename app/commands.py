@@ -19,6 +19,9 @@ from app.helpers.oauth.models import ThirdPartyApiKey
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
+from app.services.send_about_to_lose_certificate_emails import (
+    send_about_to_lose_certificate_emails,
+)
 from app.services.send_lost_companies_emails import (
     send_never_active_companies_emails,
 )
@@ -232,11 +235,13 @@ def run_certificate(as_of_date=None):
         if as_of_date is not None
         else date.today()
     )
-    app.logger.info("Script run_certificate began")
-
+    app.logger.info("Process run_certificate began")
     compute_company_certifications(today)
+    app.logger.info("Process run_certificate done")
 
-    app.logger.info("Script run_certificate done")
+    app.logger.info("Process send_about_to_lose_certificate_emails began")
+    send_about_to_lose_certificate_emails(today)
+    app.logger.info("Process send_about_to_lose_certificate_emails done")
 
 
 @app.cli.command("send_onboarding_emails", with_appcontext=True)

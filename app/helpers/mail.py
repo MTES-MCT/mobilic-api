@@ -718,6 +718,23 @@ class Mailer:
             )
         )
 
+    def send_admin_about_to_lose_certificate_email(
+        self, company, user, attribution_date
+    ):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="companies_about_to_lose_certificate.html",
+                subject="Votre entreprise est inscrite sur Mobilic ! Découvrez la prochaine étape dans ce mail",
+                company_name=company.name,
+                user=user,
+                attribution_date=attribution_date,
+                certificate_tab_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/admin/company?tab=certificat"
+                ),
+                type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
+            ),
+        )
+
     def send_manager_onboarding_first_email(self, user):
         self._send_single(
             self._create_message_from_mailjet_template(

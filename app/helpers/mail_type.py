@@ -19,3 +19,4 @@ class EmailType(str, Enum):
     TEAM_AFFECTATION = "team_affectation"
     TEAM_NEW_COLLEAGUE = "team_new_colleague"
     COMPANY_NEVER_ACTIVE = "company_never_active"
+    COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
