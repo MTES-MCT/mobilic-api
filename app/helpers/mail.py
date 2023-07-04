@@ -764,7 +764,7 @@ class Mailer:
         self._send_single(
             self._create_message_from_flask_template(
                 template="recent_never_active_companies.html",
-                subject="Votre entreprise est inscrite sur Mobilic! Découvrez la prochaine étape dans ce mail",
+                subject="Votre entreprise est inscrite sur Mobilic ! Découvrez la prochaine étape dans ce mail",
                 employment=employment,
                 company_name=company_name,
                 signup_date=signup_date,
