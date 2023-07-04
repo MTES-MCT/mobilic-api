@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
@@ -19,3 +21,23 @@ class ControllerUser(BaseModel, RandomNineIntId):
 
     def __repr__(self):
         return f"<Controller [{self.id}] : {self.display_name}>"
+
+    @property
+    def pretty_organizational_unit(self):
+        organizational_units = self.organizational_unit.split("/")
+        if self._is_ctt():
+            return organizational_units[0]
+        elif self._is_it() and len(organizational_units) > 1:
+            return organizational_units[1] + " " + organizational_units[0]
+        else:
+            return self.organizational_unit
+
+    def _is_ctt(self):
+        return re.search(
+            "DEAL|DRIEAT|DRIEA|DREAL", self.organizational_unit, re.IGNORECASE
+        )
+
+    def _is_it(self):
+        return re.search(
+            "DREETS|DRIETS|DDETS", self.organizational_unit, re.IGNORECASE
+        )

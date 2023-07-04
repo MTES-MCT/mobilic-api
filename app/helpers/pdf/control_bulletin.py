@@ -11,7 +11,7 @@ def generate_control_bulletin_pdf(control, controller_user):
         "control_bulletin.html",
         control_bulletin_id=control.reference,
         no_lic_presented=control.control_type == ControlType.sans_lic,
-        organizational_unit=controller_user.organizational_unit,
+        organizational_unit=controller_user.pretty_organizational_unit,
         control_time=control.creation_time,
         control_date=control.creation_time,
         control_location=f"{control_bulletin.get('location_department')}, {control_bulletin.get('location_commune')}, {control_bulletin.get('location_lieu')}",
