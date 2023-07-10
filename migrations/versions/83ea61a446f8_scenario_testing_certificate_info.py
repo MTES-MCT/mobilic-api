@@ -24,8 +24,8 @@ def upgrade():
         sa.Column(
             "scenario",
             sa.Enum(
-                "Certificate scenario A",
-                "Certificate scenario B",
+                "Certificate banner",
+                "Certificate badge",
                 name="scenario",
                 native_enum=False,
             ),

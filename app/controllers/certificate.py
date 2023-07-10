@@ -26,12 +26,13 @@ from app.domain.scenario_testing import (
 )
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
+from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.pdf.company_certificate import (
     generate_company_certificate_pdf,
 )
 from app.helpers.time import end_of_month
 from app.models import Company, ScenarioTesting, Employment
-from app.models.scenario_testing import Action
+from app.models.scenario_testing import Action, Scenario
 
 
 @app.route("/companies/public_company_certification", methods=["POST"])
@@ -123,11 +124,13 @@ class AddCertificateInfoResult(AuthenticatedMutation):
             required=True, description="Identifiant du rattachement"
         )
         scenario = graphene.Argument(
+            graphene_enum_type(Scenario),
             graphene.String,
             required=True,
             description="Nom du scénario",
         )
         action = graphene.Argument(
+            graphene_enum_type(Action),
             graphene.String,
             required=True,
             description="Type de l'action",
@@ -148,7 +151,6 @@ class AddCertificateInfoResult(AuthenticatedMutation):
                     datetime.date.today()
                 )
 
-        # check if action result exists already for this month
         if check_scenario_testing_action_already_exists_this_month(
             user_id=employment.user_id, action=action, scenario=scenario
         ):
