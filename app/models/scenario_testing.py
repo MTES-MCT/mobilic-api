@@ -6,8 +6,8 @@ from app.models.utils import enum_column
 
 
 class Scenario(str, Enum):
-    SCENARIO_A = "Certificate scenario A"
-    SCENARIO_B = "Certificate scenario B"
+    SCENARIO_A = "Certificate banner"
+    SCENARIO_B = "Certificate badge"
 
 
 class Action(str, Enum):
