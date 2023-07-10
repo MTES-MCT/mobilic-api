@@ -728,9 +728,6 @@ class Mailer:
                 company_name=company.name,
                 user=user,
                 attribution_date=attribution_date,
-                certificate_tab_link=Markup(
-                    f"{app.config['FRONTEND_URL']}/admin/company?tab=certificat"
-                ),
                 type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
             ),
         )
