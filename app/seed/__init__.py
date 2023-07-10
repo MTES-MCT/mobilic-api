@@ -26,6 +26,7 @@ from app.models import (
     RefreshToken,
     RegulationComputation,
     RegulatoryAlert,
+    ScenarioTesting,
     User,
     UserReadToken,
     Vehicle,
@@ -95,6 +96,7 @@ def clean():
     ControllerRefreshToken.query.delete()
     ControllerUser.query.delete()
 
+    ScenarioTesting.query.delete()
     User.query.delete()
     db.session.commit()
 
