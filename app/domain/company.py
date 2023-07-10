@@ -113,8 +113,8 @@ def get_start_last_certification_period(company_id):
     for certification in certifications:
         if (
             start_last_certification_period is None
-            or start_last_certification_period - certification.expiration_date
-            <= datetime.timedelta(days=1)
+            or start_last_certification_period
+            <= certification.expiration_date + datetime.timedelta(days=1)
         ):
             start_last_certification_period = certification.attribution_date
         else:
