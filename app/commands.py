@@ -241,6 +241,10 @@ def run_certificate(as_of_date=None):
 
     app.logger.info("Script run_certificate done")
 
+    app.logger.info("Process send_active_then_inactive_companies_emails began")
+    send_active_then_inactive_companies_emails(today)
+    app.logger.info("Process send_active_then_inactive_companies_emails done")
+
 
 @app.cli.command("send_onboarding_emails", with_appcontext=True)
 def send_onboarding_emails():
@@ -259,15 +263,3 @@ def command_send_never_active_companies_emails():
 
     send_never_active_companies_emails(datetime.datetime.now())
     app.logger.info("Ending send_lost_companies_emails task")
-
-
-@app.cli.command(
-    "send_active_then_inactive_companies_emails", with_appcontext=True
-)
-def command_send_active_then_inactive_companies_emails():
-    app.logger.info(
-        "Beginning send_active_then_inactive_companies_emails task"
-    )
-
-    send_active_then_inactive_companies_emails(datetime.datetime.now())
-    app.logger.info("Ending send_active_then_inactive_companies_emails task")
