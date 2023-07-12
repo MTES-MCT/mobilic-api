@@ -537,7 +537,11 @@ def query_work_day_stats(
 
 
 def query_controls(
-    controller_user_id, start_time=None, end_time=None, controls_type=None
+    controller_user_id,
+    start_time=None,
+    end_time=None,
+    controls_type=None,
+    limit=None,
 ):
     base_query = ControllerControl.query.filter(
         ControllerControl.controller_id == controller_user_id
@@ -545,13 +549,12 @@ def query_controls(
 
     if start_time:
         base_query = base_query.filter(
-            ControllerControl.qr_code_generation_time
-            >= to_datetime(start_time)
+            ControllerControl.creation_time >= to_datetime(start_time)
         )
 
     if end_time:
         base_query = base_query.filter(
-            ControllerControl.qr_code_generation_time
+            ControllerControl.creation_time
             <= to_datetime(end_time, date_as_end_of_day=True)
         )
 
@@ -559,5 +562,10 @@ def query_controls(
         base_query = base_query.filter(
             ControllerControl.control_type == controls_type
         )
+
+    if limit:
+        base_query = base_query.order_by(
+            desc(ControllerControl.creation_time)
+        ).limit(limit)
 
     return base_query

@@ -1,6 +1,9 @@
 import enum
+import json
+from datetime import date
 
 from sqlalchemy import Enum
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db, app
 from app.domain.work_days import group_user_events_by_day_with_limit
@@ -12,7 +15,7 @@ from app.models.base import BaseModel, RandomNineIntId
 class ControlType(enum.Enum):
     mobilic = "Mobilic"
     lic_papier = "LIC papier"
-    sans_lic = "Sans LIC"
+    sans_lic = "Pas de LIC"
 
 
 def compute_history_start_date(history_end_date):
@@ -20,10 +23,10 @@ def compute_history_start_date(history_end_date):
 
 
 class ControllerControl(BaseModel, RandomNineIntId):
-    qr_code_generation_time = db.Column(DateTimeStoredAsUTC, nullable=False)
+    qr_code_generation_time = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
+        db.Integer, db.ForeignKey("user.id"), nullable=True, index=True
     )
     controller_id = db.Column(
         db.Integer,
@@ -35,17 +38,18 @@ class ControllerControl(BaseModel, RandomNineIntId):
     user = db.relationship("User")
     controller_user = db.relationship("ControllerUser")
     company_name = db.Column(db.String(255), nullable=True)
+    user_first_name = db.Column(db.String(255), nullable=True)
+    user_last_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
-
-    __table_args__ = (
-        db.UniqueConstraint(
-            "controller_id",
-            "user_id",
-            "qr_code_generation_time",
-            name="only_one_control_per_controller_user_date",
-        ),
+    control_bulletin = db.Column(JSONB(none_as_null=True), nullable=True)
+    control_bulletin_creation_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
     )
+    control_bulletin_first_download_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
+    note = db.Column(db.TEXT, nullable=True)
 
     @property
     def history_end_date(self):
@@ -54,6 +58,23 @@ class ControllerControl(BaseModel, RandomNineIntId):
     @property
     def history_start_date(self):
         return compute_history_start_date(self.history_end_date)
+
+    @property
+    def reference(self):
+        today = date.today()
+        return (
+            f"{self.id}-{today.strftime('%Y')}-{self.controller_user.greco_id}"
+        )
+
+    @staticmethod
+    def create_no_lic_control(controller_id):
+        new_control = ControllerControl(
+            control_type=ControlType.sans_lic,
+            controller_id=controller_id,
+        )
+        db.session.add(new_control)
+        db.session.commit()
+        return new_control
 
     @staticmethod
     def get_or_create_mobilic_control(
@@ -71,6 +92,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             controlled_user = User.query.get(user_id)
             company_name = ""
             vehicle_registration_number = ""
+            control_bulletin = {}
 
             latest_activity_before = controlled_user.latest_activity_before(
                 qr_code_generation_time
@@ -86,10 +108,30 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         latest_mission.company.legal_name
                         or latest_mission.company.usual_name
                     )
+                    control_bulletin["siren"] = latest_mission.company.siren
+                    if (
+                        latest_mission.company.siren_api_info
+                        and latest_mission.company.siren_api_info[
+                            "etablissements"
+                        ]
+                    ):
+                        etablissement = latest_mission.company.siren_api_info[
+                            "etablissements"
+                        ][-1]
+                        control_bulletin["company_address"] = (
+                            etablissement["adresse"]
+                            + " "
+                            + etablissement["codePostal"]
+                        )
                     if latest_mission.vehicle:
                         vehicle_registration_number = (
                             latest_mission.vehicle.registration_number
                         )
+                    if latest_mission.start_location:
+                        control_bulletin[
+                            "mission_address_begin"
+                        ] = latest_mission.start_location.address.format()
+
             work_days = group_user_events_by_day_with_limit(
                 user=controlled_user,
                 from_date=compute_history_start_date(
@@ -102,11 +144,14 @@ class ControllerControl(BaseModel, RandomNineIntId):
             new_control = ControllerControl(
                 qr_code_generation_time=qr_code_generation_time,
                 user_id=user_id,
+                user_first_name=controlled_user.first_name,
+                user_last_name=controlled_user.last_name,
                 control_type=ControlType.mobilic,
                 controller_id=controller_id,
                 company_name=company_name,
                 vehicle_registration_number=vehicle_registration_number,
                 nb_controlled_days=nb_controlled_days,
+                control_bulletin=json.dumps(control_bulletin),
             )
             db.session.add(new_control)
             db.session.commit()

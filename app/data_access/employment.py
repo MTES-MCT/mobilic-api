@@ -83,6 +83,13 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     team = graphene.Field(
         lambda: TeamOutput, description="Équipe associée à ce rattachement"
     )
+    should_see_certificate_info = graphene.Field(
+        graphene.Boolean,
+        description="Indique si l'on doit afficher les informations liées au certificat pour ce rattachement",
+    )
+
+    def resolve_should_see_certificate_info(self, info):
+        return self.should_see_certificate_info
 
     def resolve_is_acknowledged(self, info):
         return self.is_acknowledged

@@ -19,6 +19,9 @@ from app.helpers.oauth.models import ThirdPartyApiKey
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
+from app.services.send_lost_companies_emails import (
+    send_never_active_companies_emails,
+)
 from config import TestConfig
 
 
@@ -245,3 +248,11 @@ def send_onboarding_emails():
 
     send_onboarding_emails(date.today())
     app.logger.info("Ending send_onboarding_emails task")
+
+
+@app.cli.command("send_never_active_companies_emails", with_appcontext=True)
+def command_send_never_active_companies_emails():
+    app.logger.info("Beginning send_never_active_companies_emails task")
+
+    send_never_active_companies_emails(datetime.datetime.now())
+    app.logger.info("Ending send_lost_companies_emails task")

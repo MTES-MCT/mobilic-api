@@ -8,12 +8,7 @@ from app.models import ControllerUser
 class ControllerUserOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerUser
-        only_fields = (
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-        )
+        only_fields = ("id", "first_name", "last_name", "email", "greco_id")
 
     id = graphene.Field(
         graphene.Int,
@@ -31,6 +26,9 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Adresse email",
     )
+    greco_id = graphene.Field(
+        graphene.String, required=False, description="Identifiant Greco"
+    )
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),
         description="Liste des contrôles réalisés par le contrôleur",
@@ -43,10 +41,18 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         controls_type=graphene.Argument(
             graphene.String, description="Type de contrôles souhaités"
         ),
+        limit=graphene.Argument(
+            graphene.Int, description="Nombre de contrôles maximum à remonter"
+        ),
     )
 
     def resolve_controls(
-        self, info, from_date=None, to_date=None, controls_type=None
+        self,
+        info,
+        from_date=None,
+        to_date=None,
+        controls_type=None,
+        limit=None,
     ):
         from app.models.queries import query_controls
 
@@ -55,4 +61,5 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
             start_time=from_date,
             end_time=to_date,
             controls_type=controls_type,
+            limit=limit,
         ).all()

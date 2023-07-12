@@ -46,6 +46,8 @@ class Employment(UserEventBaseModel, Dismissable):
     )
     team = db.relationship(Team, backref="employments")
 
+    certificate_info_snooze_date = db.Column(db.Date, nullable=True)
+
     db.validates("email")(validate_email_field_in_db)
 
     __table_args__ = (
@@ -62,6 +64,14 @@ class Employment(UserEventBaseModel, Dismissable):
             self.validation_status
             != EmploymentRequestValidationStatus.REJECTED
         )
+
+    @property
+    def should_see_certificate_info(self):
+        if not self.has_admin_rights:
+            return False
+        if self.certificate_info_snooze_date is None:
+            return True
+        return self.certificate_info_snooze_date < datetime.now().date()
 
     @property
     def is_acknowledged(self):
@@ -116,4 +126,10 @@ def _bind_users_to_team(user_ids, team_id, company_id):
     Employment.query.filter(
         Employment.company_id == company_id,
         Employment.user_id.in_(user_ids),
+    ).update({"team_id": team_id}, synchronize_session=False)
+
+
+def _bind_employment_to_team(employment_id, team_id):
+    Employment.query.filter(
+        Employment.id == employment_id,
     ).update({"team_id": team_id}, synchronize_session=False)

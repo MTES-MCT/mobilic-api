@@ -53,6 +53,7 @@ from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
     _bind_users_to_team,
+    _bind_employment_to_team,
 )
 from app.models.queries import query_activities
 
@@ -677,8 +678,13 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
         )
         user_id = graphene.Argument(
             graphene.Int,
-            required=True,
+            required=False,
             description="Identifiant du salarié pour lequel l'équipe est modifiée.",
+        )
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=False,
+            description="Identifiant de l'employment pour lequel l'équipe doit être modifiée.",
         )
         team_id = graphene.Int(
             required=False,
@@ -693,14 +699,29 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
         error_message="Actor is not authorized to change employee team",
     )
-    def mutate(cls, _, info, company_id, user_id, team_id=None):
+    def mutate(
+        cls,
+        _,
+        info,
+        company_id,
+        user_id=None,
+        employment_id=None,
+        team_id=None,
+    ):
         with atomic_transaction(commit_at_end=True):
             if (
                 team_id is None
                 or Team.query.get(team_id).company_id == company_id
             ):
-                _bind_users_to_team(
-                    user_ids=[user_id], team_id=team_id, company_id=company_id
-                )
+                if user_id:
+                    _bind_users_to_team(
+                        user_ids=[user_id],
+                        team_id=team_id,
+                        company_id=company_id,
+                    )
+                elif employment_id:
+                    _bind_employment_to_team(
+                        employment_id=employment_id, team_id=team_id
+                    )
 
         return Company.query.get(company_id)
