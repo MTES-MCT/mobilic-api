@@ -1,66 +1,93 @@
 from datetime import date
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import exists, and_
-from sqlalchemy.orm import aliased
+from sqlalchemy.sql.functions import now
 
 from app import app, mailer
+from app.domain.company import get_start_last_certification_period
+from app.domain.email import check_email_exists
+from app.helpers.mail_type import EmailType
 from app.models.company import Company
 from app.models import CompanyCertification
 
+NB_MONTHS_AGO = 3
+
 
 def send_about_to_lose_certificate_emails(today):
-    min_attribution_date = today.replace(day=1) - relativedelta(months=3)
+    max_attribution_date = today.replace(day=1) - relativedelta(
+        months=NB_MONTHS_AGO
+    )
+    current_month_attribution_date = today.replace(day=1)
 
     companies_about_to_lose_certificate = (
-        companies_about_to_lose_certification(min_attribution_date)
+        companies_about_to_lose_certification(
+            max_attribution_date, current_month_attribution_date
+        )
     )
     for company in companies_about_to_lose_certificate:
         current_admins = company.get_admins(date.today(), None)
+        attribution_date = get_start_last_certification_period(company.id)
+
         for admin in current_admins:
+            # if we already sent the email since company is certified, do not send it again
+            email_sent = check_email_exists(
+                email_type=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
+                user_id=admin.id,
+                since_date=attribution_date,
+            )
+            if email_sent:
+                continue
+
             try:
                 app.logger.info(
-                    f"Sending company about to lose certificate email to user {admin.id} for company {company.id}."
+                    f"Sending company about to lose certificate email to user {admin.id} for company {company.id}. Attribution date {attribution_date}"
                 )
                 mailer.send_admin_about_to_lose_certificate_email(
-                    company, admin, min_attribution_date
+                    company, admin, attribution_date
                 )
             except Exception as e:
                 app.logger.exception(e)
     return
 
 
-def companies_about_to_lose_certification(min_attribution_date):
-    max_attribution_date = min_attribution_date + relativedelta(months=1)
-    company_certification_1 = aliased(CompanyCertification)
-    company_certification_2 = aliased(CompanyCertification)
+def companies_about_to_lose_certification(
+    max_attribution_date, current_month_attribution_date
+):
 
-    return (
-        Company.query.join(
-            company_certification_1,
-            company_certification_1.company_id == Company.id,
+    company_ids_certified_today = [
+        company_id
+        for company_id, in Company.query.join(
+            CompanyCertification, CompanyCertification.company_id == Company.id
         )
         .filter(
-            company_certification_1.attribution_date >= min_attribution_date,
-            company_certification_1.be_active,
-            company_certification_1.be_compliant,
-            company_certification_1.not_too_many_changes,
-            company_certification_1.validate_regularly,
-            company_certification_1.log_in_real_time,
-            ~exists().where(
-                and_(
-                    company_certification_1.company_id
-                    == company_certification_2.company_id,
-                    company_certification_2.attribution_date
-                    >= max_attribution_date,
-                    company_certification_2.be_active,
-                    company_certification_2.be_compliant,
-                    company_certification_2.not_too_many_changes,
-                    company_certification_2.validate_regularly,
-                    company_certification_2.log_in_real_time,
-                )
-            ),
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+            CompanyCertification.attribution_date
+            == current_month_attribution_date,
+        )
+        .with_entities(Company.id)
+        .all()
+    ]
+
+    companies_certified_before_min_attribution_date = (
+        Company.query.join(
+            CompanyCertification, CompanyCertification.company_id == Company.id
+        )
+        .filter(
+            CompanyCertification.attribution_date <= max_attribution_date,
+            CompanyCertification.be_active,
+            CompanyCertification.be_compliant,
+            CompanyCertification.not_too_many_changes,
+            CompanyCertification.validate_regularly,
+            CompanyCertification.log_in_real_time,
+            CompanyCertification.expiration_date > now(),
+            ~Company.id.in_(company_ids_certified_today),
         )
         .distinct()
         .all()
     )
+
+    return companies_certified_before_min_attribution_date
