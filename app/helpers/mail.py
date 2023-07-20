@@ -751,6 +751,7 @@ class Mailer:
                 attribution_date=attribution_date,
                 type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
             ),
+            _apply_whitelist_if_not_prod=True,
         )
 
     def send_manager_onboarding_first_email(self, user):
@@ -819,6 +820,7 @@ class Mailer:
                 user=admin,
                 type_=EmailType.COMPANY_ACTIVE_THEN_INACTIVE,
             ),
+            _apply_whitelist_if_not_prod=True,
         )
 
 
