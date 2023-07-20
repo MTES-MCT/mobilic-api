@@ -1,3 +1,4 @@
+import datetime
 import re
 
 import graphene
@@ -5,7 +6,7 @@ from flask import jsonify, request, abort, send_file
 from flask_apispec import use_kwargs
 from webargs import fields
 
-from app import app
+from app import app, db
 from app.controllers.utils import Void, atomic_transaction
 from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
@@ -20,12 +21,18 @@ from app.domain.company import (
     get_current_certificate,
 )
 from app.domain.permissions import companies_admin, company_admin
+from app.domain.scenario_testing import (
+    check_scenario_testing_action_already_exists_this_month,
+)
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
+from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.pdf.company_certificate import (
     generate_company_certificate_pdf,
 )
-from app.models import Company
+from app.helpers.time import end_of_month
+from app.models import Company, ScenarioTesting, Employment
+from app.models.scenario_testing import Action, Scenario
 
 
 @app.route("/companies/public_company_certification", methods=["POST"])
@@ -107,6 +114,55 @@ class EditCompanyCommunicationSetting(AuthenticatedMutation):
             change_company_certification_communication_pref(
                 company_ids, accept_certification_communication
             )
+
+        return Void(success=True)
+
+
+class AddCertificateInfoResult(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Int(
+            required=True, description="Identifiant du rattachement"
+        )
+        scenario = graphene.Argument(
+            graphene_enum_type(Scenario),
+            graphene.String,
+            required=True,
+            description="Nom du scénario",
+        )
+        action = graphene.Argument(
+            graphene_enum_type(Action),
+            graphene.String,
+            required=True,
+            description="Type de l'action",
+        )
+
+    Output = Void
+
+    @classmethod
+    def mutate(cls, _, info, employment_id, scenario, action):
+
+        employment = Employment.query.filter(
+            Employment.id == employment_id
+        ).one()
+
+        if action != Action.LOAD:
+            with atomic_transaction(commit_at_end=True):
+                employment.certificate_info_snooze_date = end_of_month(
+                    datetime.date.today()
+                )
+
+        if check_scenario_testing_action_already_exists_this_month(
+            user_id=employment.user_id, action=action, scenario=scenario
+        ):
+            return Void(success=False)
+
+        with atomic_transaction(commit_at_end=True):
+            new_scenario_testing = ScenarioTesting(
+                user_id=employment.user_id,
+                scenario=scenario,
+                action=action,
+            )
+            db.session.add(new_scenario_testing)
 
         return Void(success=True)
 

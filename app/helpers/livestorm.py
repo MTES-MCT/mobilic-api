@@ -66,6 +66,10 @@ class LivestormAPIClient:
         first_page = self._request_page_and_get_results_and_page_count(
             endpoint, number=0, **kwargs
         )
+        if "errors" in first_page:
+            raise LivestormRequestError(
+                f"Request to Livestorm API failed with error : {first_page['errors'][0]}"
+            )
         page_count = first_page["meta"]["page_count"]
         results = {
             "data": first_page["data"],
