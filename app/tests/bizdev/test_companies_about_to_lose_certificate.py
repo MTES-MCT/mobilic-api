@@ -32,7 +32,9 @@ class TestCompaniesAboutToLoseCertificate(BaseTest):
 
     def get_list_companies(self):
         return companies_about_to_lose_certification(
-            self.MAX_ATTRIBUTION_DATE, self.CURRENT_ATTRIBUTION_DATE
+            self.MAX_ATTRIBUTION_DATE,
+            self.CURRENT_ATTRIBUTION_DATE,
+            datetime.date.today(),
         )
 
     def certif_ok(self, attribution_date):

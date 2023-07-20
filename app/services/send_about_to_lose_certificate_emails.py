@@ -21,7 +21,7 @@ def send_about_to_lose_certificate_emails(today):
 
     companies_about_to_lose_certificate = (
         companies_about_to_lose_certification(
-            max_attribution_date, current_month_attribution_date
+            max_attribution_date, current_month_attribution_date, today
         )
     )
     for company in companies_about_to_lose_certificate:
@@ -47,19 +47,15 @@ def send_about_to_lose_certificate_emails(today):
                 )
             except Exception as e:
                 app.logger.exception(e)
-    return
 
 
 def companies_about_to_lose_certification(
-    max_attribution_date, current_month_attribution_date
+    max_attribution_date, current_month_attribution_date, today
 ):
 
     company_ids_certified_today = [
         company_id
-        for company_id, in Company.query.join(
-            CompanyCertification, CompanyCertification.company_id == Company.id
-        )
-        .filter(
+        for company_id, in CompanyCertification.query.filter(
             CompanyCertification.be_active,
             CompanyCertification.be_compliant,
             CompanyCertification.not_too_many_changes,
@@ -68,7 +64,7 @@ def companies_about_to_lose_certification(
             CompanyCertification.attribution_date
             == current_month_attribution_date,
         )
-        .with_entities(Company.id)
+        .with_entities(CompanyCertification.company_id)
         .all()
     ]
 
@@ -83,7 +79,7 @@ def companies_about_to_lose_certification(
             CompanyCertification.not_too_many_changes,
             CompanyCertification.validate_regularly,
             CompanyCertification.log_in_real_time,
-            CompanyCertification.expiration_date > now(),
+            CompanyCertification.expiration_date > today,
             ~Company.id.in_(company_ids_certified_today),
         )
         .distinct()
