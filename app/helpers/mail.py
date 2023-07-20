@@ -169,7 +169,10 @@ class Mailer:
         )
 
     def send_batch(
-        self, messages, _disable_commit=False, _apply_whitelist=False
+        self,
+        messages,
+        _disable_commit=False,
+        _apply_whitelist_if_not_prod=False,
     ):
         from app.models import Email
         from app import db
@@ -179,7 +182,7 @@ class Mailer:
                 f"Email not sent because DISABLE_EMAIL is set to true"
             )
             return
-        if _apply_whitelist and MOBILIC_ENV != "prod":
+        if _apply_whitelist_if_not_prod and MOBILIC_ENV != "prod":
             app.logger.info("Emails will be filtered out based on whitelist")
             messages = [
                 m
@@ -216,12 +219,15 @@ class Mailer:
             db.session.commit() if not _disable_commit else db.session.flush()
 
     def _send_single(
-        self, message, _disable_commit=False, _apply_whitelist=False
+        self,
+        message,
+        _disable_commit=False,
+        _apply_whitelist_if_not_prod=False,
     ):
         self.send_batch(
             [message],
             _disable_commit=_disable_commit,
-            _apply_whitelist=_apply_whitelist,
+            _apply_whitelist_if_not_prod=_apply_whitelist_if_not_prod,
         )
         if isinstance(message.response, MailjetError):
             raise message.response
@@ -730,7 +736,7 @@ class Mailer:
                 first_name=user.first_name,
                 cta=f"{app.config['FRONTEND_URL']}/login?next=/app/history",
             ),
-            _apply_whitelist=True,
+            _apply_whitelist_if_not_prod=True,
         )
 
     def send_manager_onboarding_first_email(self, user):
@@ -771,7 +777,7 @@ class Mailer:
                 employment=employment,
                 user=employment.user,
             ),
-            _apply_whitelist=True,
+            _apply_whitelist_if_not_prod=True,
         )
 
     def send_recent_never_active_companies_email(
@@ -787,7 +793,7 @@ class Mailer:
                 type_=EmailType.COMPANY_NEVER_ACTIVE,
                 user=employment.user,
             ),
-            _apply_whitelist=True,
+            _apply_whitelist_if_not_prod=True,
         )
 
 
