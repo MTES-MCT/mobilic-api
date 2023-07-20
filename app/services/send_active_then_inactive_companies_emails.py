@@ -44,11 +44,11 @@ def send_active_then_inactive_companies_emails(today):
     admins = list(set(admins))
 
     app.logger.info(f"Will send an email to {len(admins)} admins")
-    # for admin in admins:
-    #     try:
-    #         app.logger.info(
-    #             f"Sending company not active anymore email to admin {admin.id}"
-    #         )
-    #         mailer.send_active_then_inactive_companies_email(admin)
-    #     except Exception as e:
-    #         app.logger.exception(e)
+    for admin in admins:
+        try:
+            app.logger.info(
+                f"Sending company not active anymore email to admin {admin.id}"
+            )
+            mailer.send_active_then_inactive_companies_email(admin)
+        except Exception as e:
+            app.logger.exception(e)
