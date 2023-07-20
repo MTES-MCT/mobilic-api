@@ -93,6 +93,9 @@ class Config:
     COMPANY_EXCLUDE_ONBOARDING_EMAILS = json.loads(
         os.environ.get("COMPANY_EXCLUDE_ONBOARDING_EMAILS", "[]")
     )
+    BATCH_EMAIL_WHITELIST = json.loads(
+        os.environ.get("BATCH_EMAIL_WHITELIST", "[]")
+    )
 
 
 class DevConfig(Config):
