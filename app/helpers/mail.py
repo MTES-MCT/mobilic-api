@@ -816,7 +816,6 @@ class Mailer:
             self._create_message_from_flask_template(
                 template="active_then_inactive_companies.html",
                 subject="Votre activité sur Mobilic peut vous mener à l’obtention du certificat",
-                admin_last_name=admin.last_name,
                 user=admin,
                 type_=EmailType.COMPANY_ACTIVE_THEN_INACTIVE,
             ),
