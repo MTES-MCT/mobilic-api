@@ -745,7 +745,7 @@ class Mailer:
         self._send_single(
             self._create_message_from_flask_template(
                 template="companies_about_to_lose_certificate.html",
-                subject="Votre entreprise est inscrite sur Mobilic ! Découvrez la prochaine étape dans ce mail",
+                subject="Attention, vous risquez de perdre le certificat Mobilic !",
                 company_name=company.name,
                 user=user,
                 attribution_date=attribution_date,
