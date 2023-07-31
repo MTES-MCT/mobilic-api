@@ -12,6 +12,7 @@ from app import app
 from app.helpers.errors import MobilicError
 from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
+from config import MOBILIC_ENV
 
 SENDER_ADDRESS = "mobilic@beta.gouv.fr"
 SENDER_NAME = "Mobilic"
@@ -167,7 +168,12 @@ class Mailer:
             version="v3.1",
         )
 
-    def send_batch(self, messages, _disable_commit=False):
+    def send_batch(
+        self,
+        messages,
+        _disable_commit=False,
+        _apply_whitelist_if_not_prod=False,
+    ):
         from app.models import Email
         from app import db
 
@@ -176,6 +182,15 @@ class Mailer:
                 f"Email not sent because DISABLE_EMAIL is set to true"
             )
             return
+        if _apply_whitelist_if_not_prod and MOBILIC_ENV != "prod":
+            app.logger.info("Emails will be filtered out based on whitelist")
+            messages = [
+                m
+                for m in messages
+                if m.actual_recipient in app.config["BATCH_EMAIL_WHITELIST"]
+            ]
+            if len(messages) == 0:
+                return
 
         response = self.mailjet.send.create(
             data={"Messages": [m.payload for m in messages]},
@@ -207,8 +222,13 @@ class Mailer:
         self,
         message,
         _disable_commit=False,
+        _apply_whitelist_if_not_prod=False,
     ):
-        self.send_batch([message], _disable_commit=_disable_commit)
+        self.send_batch(
+            [message],
+            _disable_commit=_disable_commit,
+            _apply_whitelist_if_not_prod=_apply_whitelist_if_not_prod,
+        )
         if isinstance(message.response, MailjetError):
             raise message.response
 
@@ -715,7 +735,23 @@ class Mailer:
                 user=user,
                 first_name=user.first_name,
                 cta=f"{app.config['FRONTEND_URL']}/login?next=/app/history",
-            )
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_admin_about_to_lose_certificate_email(
+        self, company, user, attribution_date
+    ):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="companies_about_to_lose_certificate.html",
+                subject="Attention, vous risquez de perdre le certificat Mobilic !",
+                company_name=company.name,
+                user=user,
+                attribution_date=attribution_date,
+                type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
+            ),
+            _apply_whitelist_if_not_prod=True,
         )
 
     def send_manager_onboarding_first_email(self, user):
@@ -756,6 +792,7 @@ class Mailer:
                 employment=employment,
                 user=employment.user,
             ),
+            _apply_whitelist_if_not_prod=True,
         )
 
     def send_recent_never_active_companies_email(
@@ -771,6 +808,18 @@ class Mailer:
                 type_=EmailType.COMPANY_NEVER_ACTIVE,
                 user=employment.user,
             ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_active_then_inactive_companies_email(self, admin):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="active_then_inactive_companies.html",
+                subject="Votre activité sur Mobilic peut vous mener à l’obtention du certificat",
+                user=admin,
+                type_=EmailType.COMPANY_ACTIVE_THEN_INACTIVE,
+            ),
+            _apply_whitelist_if_not_prod=True,
         )
 
 
