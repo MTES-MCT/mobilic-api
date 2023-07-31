@@ -33,7 +33,7 @@ Faker==4.0.0
 filelock==3.0.12
 Flask==2.2.5
 Flask-Admin==1.5.5
-flask-apispec==0.11.2
+flask-apispec==0.11.4
 Flask-Compress==1.13
 Flask-Cors==3.0.9
 Flask-GraphQL==2.0.1
