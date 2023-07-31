@@ -89,7 +89,7 @@ pytz==2019.3
 PyYAML==5.4
 regex==2022.10.31
 reportlab==3.6.6
-requests==2.26.0
+requests==2.31.0
 Rx==1.6.1
 singledispatch==3.4.0.3
 six==1.14.0
