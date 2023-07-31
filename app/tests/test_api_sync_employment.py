@@ -1,7 +1,8 @@
 from argon2 import PasswordHasher
 
 from app.helpers.oauth.models import OAuth2Client
-from app.seed.factories import ThirdPartyApiKeyFactory
+from app.models.company import Company
+from app.seed.factories import ThirdPartyApiKeyFactory, UserFactory
 from app.tests import BaseTest
 from app.tests.helpers import (
     INVALID_API_KEY_MESSAGE,
@@ -119,6 +120,34 @@ class TestApiSyncEmployment(BaseTest):
                         "firstName": "Prénom_test2",
                         "lastName": "Nom_test2",
                         "email": "email-salarie2@example.com",
+                    },
+                ],
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+        employment_ids = sync_employment_response["data"]["company"][
+            "syncEmployment"
+        ]
+        self.assertEqual(len(employment_ids), 2)
+
+    def test_sync_employments_already_exists(self):
+        company = Company.query.get(self.company_id)
+        existing_employee = UserFactory.create(
+            first_name="Existing", last_name="Employee", post__company=company
+        )
+        sync_employment_response = make_protected_request(
+            query=ApiRequests.sync_employment,
+            variables=dict(
+                company_id=self.company_id,
+                employees=[
+                    employee1,
+                    {
+                        "firstName": existing_employee.first_name,
+                        "lastName": existing_employee.last_name,
+                        "email": existing_employee.email,
                     },
                 ],
             ),
