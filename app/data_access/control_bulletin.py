@@ -9,6 +9,7 @@ class ControlBulletinFields(graphene.ObjectType):
     location_department = graphene.String(required=False)
     location_commune = graphene.String(required=False)
     location_lieu = graphene.String(required=False)
+    location_id = graphene.Int(required=False)
     vehicle_registration_country = graphene.String(required=False)
     mission_address_begin = graphene.String(required=False)
     mission_address_end = graphene.String(required=False)
