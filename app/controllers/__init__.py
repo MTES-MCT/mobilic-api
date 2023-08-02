@@ -37,6 +37,7 @@ from app.controllers.controller import (
     ControllerChangeGrecoId,
 )
 from app.controllers.controller import Query as ControllerUserQuery
+from app.controllers.control_location import Query as ControlLocationQuery
 from app.controllers.employment import (
     CancelEmployment,
     ChangeEmployeeRole,
@@ -290,6 +291,7 @@ class PrivateQueries(
     OAuthClientQuery,
     ControllerUserQuery,
     ThirdPartyEmploymentPrivateQuery,
+    ControlLocationQuery,
     graphene.ObjectType,
 ):
     pass

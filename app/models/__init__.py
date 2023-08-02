@@ -16,6 +16,7 @@ from .mission_validation import MissionValidation
 from .refresh_token import RefreshToken
 from .controller_refresh_token import ControllerRefreshToken
 from .comment import Comment
+from .control_location import ControlLocation
 from .user_read_token import UserReadToken
 from .email import Email
 from app.helpers.tachograph.rsa_keys import C1BSigningKey
