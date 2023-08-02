@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        "control_location.py",
+        "control_location",
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("department", sa.String(length=3), nullable=False),
         sa.Column("postal_code", sa.String(length=5), nullable=False),
@@ -34,7 +34,7 @@ def upgrade():
     )
     op.create_index(
         op.f("ix_control_location_department"),
-        "control_location.py",
+        "control_location",
         ["department"],
         unique=False,
     )
@@ -43,6 +43,6 @@ def upgrade():
 def downgrade():
     op.drop_index(
         op.f("ix_control_location_department"),
-        table_name="control_location.py",
+        table_name="control_location",
     )
-    op.drop_table("control_location.py")
+    op.drop_table("control_location")
