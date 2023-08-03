@@ -1,7 +1,7 @@
 """add control location table
 
 Revision ID: f628bed57b6c
-Revises: 83ea61a446f8
+Revises: 72fba41df82f
 Create Date: 2023-08-02 10:11:55.282557
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "f628bed57b6c"
-down_revision = "83ea61a446f8"
+down_revision = "72fba41df82f"
 branch_labels = None
 depends_on = None
 
