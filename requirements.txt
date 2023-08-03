@@ -110,6 +110,6 @@ webargs==8.0.0
 webencodings==0.5.1
 Werkzeug==2.2.3
 WTForms==2.2.1
-xhtml2pdf==0.2.5
+xhtml2pdf==0.2.6
 XlsxWriter==1.2.7
 zipp==2.1.0
