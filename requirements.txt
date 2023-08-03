@@ -88,7 +88,7 @@ python-utils==3.3.3
 pytz==2019.3
 PyYAML==5.4
 regex==2022.10.31
-reportlab==3.6.6
+reportlab==3.6.13
 requests==2.31.0
 Rx==1.6.1
 singledispatch==3.4.0.3
@@ -110,6 +110,6 @@ webargs==8.0.0
 webencodings==0.5.1
 Werkzeug==2.2.3
 WTForms==2.2.1
-xhtml2pdf==0.2.5
+xhtml2pdf==0.2.6
 XlsxWriter==1.2.7
 zipp==2.1.0
