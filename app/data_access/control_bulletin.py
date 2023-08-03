@@ -29,6 +29,7 @@ class ControlBulletinFields(graphene.ObjectType):
             json_dct.get("location_department"),
             json_dct.get("location_commune"),
             json_dct.get("location_lieu"),
+            json_dct.get("location_id"),
             json_dct.get("vehicle_registration_country"),
             json_dct.get("mission_address_begin"),
             json_dct.get("mission_address_end"),
