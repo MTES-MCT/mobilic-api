@@ -189,6 +189,5 @@ def send_excel_file(file, name):
         file,
         mimetype=EXCEL_MIMETYPE,
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename=name,
+        download_name=name,
     )

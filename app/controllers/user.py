@@ -610,10 +610,9 @@ def generate_tachograph_file(min_date, max_date, with_digital_signatures=True):
 
     return send_file(
         file,
-        cache_timeout=0,
         mimetype="application/octet-stream",
         as_attachment=True,
-        attachment_filename=generate_tachograph_file_name(current_user),
+        download_name=generate_tachograph_file_name(current_user),
     )
 
 
@@ -660,8 +659,7 @@ def generate_pdf_export(
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename=f"Relevé d'heures de {current_user.display_name} - {full_format_day(min_date)} au {full_format_day(max_date)}",
+        download_name=f"Relevé d'heures de {current_user.display_name} - {full_format_day(min_date)} au {full_format_day(max_date)}",
     )
 
 
@@ -692,8 +690,7 @@ def generate_mission_export(mission_id, user_id):
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename=f"Détails de la mission {mission.name or mission.id} pour {user.display_name}",
+        download_name=f"Détails de la mission {mission.name or mission.id} pour {user.display_name}",
     )
 
 

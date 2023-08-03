@@ -184,7 +184,6 @@ def download_certificate(company_id):
             pdf,
             mimetype="application/pdf",
             as_attachment=True,
-            cache_timeout=0,
-            attachment_filename="Certificat_Mobilic.pdf",
+            download_name="Certificat_Mobilic.pdf",
         )
     return "", 204
