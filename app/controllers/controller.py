@@ -6,6 +6,7 @@ import graphene
 import jwt
 from flask import after_this_request, redirect, request, send_file
 from flask_apispec import doc, use_kwargs
+from graphene import InputObjectType
 from marshmallow import Schema
 from webargs import fields
 
@@ -36,6 +37,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
 )
 from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.graphene_types import TimeStamp
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
@@ -196,6 +198,41 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             license_copy_number,
             observation,
         )
+        db.session.commit()
+        return control
+
+
+class ReportedInfractionInput(InputObjectType):
+    sanction = graphene.String()
+    date = graphene.Field(TimeStamp)
+
+
+class ControllerSaveReportedInfractions(graphene.Mutation):
+    Output = ControllerControlOutput
+
+    class Arguments:
+        control_id = graphene.Int(required=False)
+        reported_infractions = graphene.List(ReportedInfractionInput)
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def mutate(cls, _, info, control_id=None, reported_infractions=[]):
+        control = ControllerControl.query.filter(
+            ControllerControl.id == control_id
+        ).one()
+        control.reported_infractions_last_update_time = datetime.now()
+        control.reported_infractions = [
+            {
+                "sanction": infraction.sanction,
+                "date": infraction.date.isoformat(),
+            }
+            for infraction in reported_infractions
+        ]
+
         db.session.commit()
         return control
 
