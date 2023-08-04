@@ -50,6 +50,10 @@ class ControllerControl(BaseModel, RandomNineIntId):
         DateTimeStoredAsUTC, nullable=True
     )
     note = db.Column(db.TEXT, nullable=True)
+    reported_infractions = db.Column(JSONB(none_as_null=True), nullable=True)
+    reported_infractions_last_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
 
     @property
     def history_end_date(self):
