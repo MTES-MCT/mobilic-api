@@ -18,6 +18,11 @@ from app.models.controller_control import ControllerControl, ControlType
 from app.data_access.employment import EmploymentOutput
 
 
+class ReportedInfraction(ObjectType):
+    sanction = graphene.String()
+    date = graphene.Field(TimeStamp)
+
+
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
@@ -71,6 +76,14 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     company_address = graphene.String()
     mission_address_begin = graphene.String()
     control_type = graphene.String()
+    reported_infractions = graphene.List(
+        ReportedInfraction,
+        required=False,
+        description="Liste des infractions retenues",
+    )
+    reported_infractions_last_update_time = graphene.Field(
+        TimeStamp, required=False
+    )
 
     def resolve_siren(self, info):
         return (
@@ -150,4 +163,15 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                 day=day_, regulation_computations=computations_
             )
             for day_, computations_ in regulation_computations_by_day.items()
+        ]
+
+    def resolve_reported_infractions(self, info):
+        if not self.reported_infractions:
+            return []
+        return [
+            ReportedInfraction(
+                infraction.get("sanction"),
+                datetime.datetime.fromisoformat(infraction.get("date")),
+            )
+            for infraction in self.reported_infractions
         ]
