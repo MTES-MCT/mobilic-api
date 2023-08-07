@@ -15,7 +15,7 @@ black==21.8b0
 blinker==1.4
 cached-property==1.5.1
 cachetools==4.2.2
-certifi==2019.11.28
+certifi==2023.7.22
 cffi==1.14.6
 cfgv==2.0.1
 chardet==3.0.4
@@ -78,7 +78,7 @@ psycopg2==2.8.4
 pycparser==2.20
 PyJWT==2.4.0
 pyparsing==2.4.7
-PyPDF2==1.27.5
+PyPDF2==1.27.9
 python-bidi==0.4.2
 python-cas==1.6.0
 python-dateutil==2.8.1
@@ -88,8 +88,8 @@ python-utils==3.3.3
 pytz==2019.3
 PyYAML==5.4
 regex==2022.10.31
-reportlab==3.6.6
-requests==2.26.0
+reportlab==3.6.13
+requests==2.31.0
 Rx==1.6.1
 singledispatch==3.4.0.3
 six==1.14.0
@@ -110,6 +110,6 @@ webargs==8.0.0
 webencodings==0.5.1
 Werkzeug==2.2.3
 WTForms==2.2.1
-xhtml2pdf==0.2.5
+xhtml2pdf==0.2.6
 XlsxWriter==1.2.7
 zipp==2.1.0
