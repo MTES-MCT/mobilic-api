@@ -221,9 +221,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
     )
     def mutate(cls, _, info, control_id=None, reported_infractions=[]):
-        control = ControllerControl.query.filter(
-            ControllerControl.id == control_id
-        ).one()
+        control = ControllerControl.query.get(control_id)
         control.reported_infractions_last_update_time = datetime.now()
         control.reported_infractions = [
             {
