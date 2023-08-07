@@ -35,6 +35,7 @@ from app.controllers.controller import (
     ControllerScanCode,
     ControllerSaveControlBulletin,
     ControllerChangeGrecoId,
+    ControllerSaveReportedInfractions,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.employment import (
@@ -244,6 +245,9 @@ class PrivateMutations(graphene.ObjectType):
 
     controller_scan_code = ControllerScanCode.Field()
     controller_save_control_bulletin = ControllerSaveControlBulletin.Field()
+    controller_save_reported_infractions = (
+        ControllerSaveReportedInfractions.Field()
+    )
     controller_add_control_note = AddControlNote.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
 

@@ -1,6 +1,6 @@
 from itertools import groupby
 
-from app.models import RegulationComputation
+from app.models import RegulationComputation, RegulatoryAlert
 
 
 def get_regulation_computations(
@@ -35,3 +35,10 @@ def get_regulation_computations(
         }
 
     return regulation_computations
+
+
+def get_regulatory_alerts(user_id, start_date=None, end_date=None):
+    return RegulatoryAlert.query.filter(
+        RegulatoryAlert.user_id == user_id,
+        RegulatoryAlert.day.between(start_date, end_date),
+    ).all()
