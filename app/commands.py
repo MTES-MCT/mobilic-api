@@ -4,7 +4,6 @@ import secrets
 import sys
 from datetime import date
 from multiprocessing import Pool
-from unittest import TestLoader, TextTestRunner
 
 import click
 from argon2 import PasswordHasher
@@ -32,15 +31,28 @@ from config import TestConfig
 
 
 @app.cli.command(with_appcontext=False)
-def test():
+@click.argument("test_names", nargs=-1)
+def test(test_names):
     app.config.from_object(TestConfig)
-    root_project_path = os.path.dirname(app.root_path)
-    test_suite = TestLoader().discover(
-        os.path.join(app.root_path, "tests"),
-        pattern="test_*.py",
-        top_level_dir=root_project_path,
-    )
-    result = TextTestRunner(verbosity=3).run(test_suite)
+
+    import unittest
+
+    if test_names:
+        """Run specific unit tests.
+
+        Example:
+        $ flask test app.tests.test_authentication ...
+        """
+        test_suite = unittest.TestLoader().loadTestsFromNames(test_names)
+    else:
+        """Run unit tests"""
+        root_project_path = os.path.dirname(app.root_path)
+        test_suite = unittest.TestLoader().discover(
+            os.path.join(app.root_path, "tests"),
+            pattern="test_*.py",
+            top_level_dir=root_project_path,
+        )
+    result = unittest.TextTestRunner(verbosity=3).run(test_suite)
     if result.wasSuccessful():
         sys.exit(0)
     sys.exit(1)
