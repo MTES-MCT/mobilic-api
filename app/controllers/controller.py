@@ -221,12 +221,15 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
     )
     def mutate(cls, _, info, control_id=None, reported_infractions=[]):
+        now = datetime.now()
         control = ControllerControl.query.get(control_id)
-        control.reported_infractions_last_update_time = datetime.now()
+        if control.reported_infractions_first_update_time is None:
+            control.reported_infractions_first_update_time = now
+        control.reported_infractions_last_update_time = now
         control.reported_infractions = [
             {
                 "sanction": infraction.sanction,
-                "date": infraction.date.isoformat(),
+                "date": infraction.date.date().isoformat(),
             }
             for infraction in reported_infractions
         ]
