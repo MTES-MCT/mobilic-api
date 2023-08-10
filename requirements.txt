@@ -27,7 +27,6 @@ cssselect2==0.7.0
 decorator==4.4.1
 defusedxml==0.6.0
 distlib==0.3.3
-elastic-apm==6.7.2
 et-xmlfile==1.0.1
 factory-boy==2.12.0
 Faker==4.0.0
