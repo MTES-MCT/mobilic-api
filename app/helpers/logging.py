@@ -1,21 +1,21 @@
 import logging
 from logging import StreamHandler
-
-import elasticapm
-import requests
 from time import time
-from marshmallow import fields
-from werkzeug.exceptions import HTTPException
-from flask.logging import default_handler
+
+import requests
 from flask import request, g, has_request_context
+from flask.logging import default_handler
 from logging_ldp.formatters import LDPGELFFormatter
 from logging_ldp.handlers import LDPGELFTCPSocketHandler
 from logging_ldp.schemas import LDPSchema
+from marshmallow import fields
+from sentry_sdk import set_tag
+from werkzeug.exceptions import HTTPException
 
 from app import app
-from config import MOBILIC_ENV
 from app.helpers.authentication import current_user, check_auth
 from app.helpers.errors import MobilicError, BadGraphQLRequestError
+from config import MOBILIC_ENV
 
 root_logger = logging.getLogger()
 
@@ -89,7 +89,7 @@ def store_time_and_request_params():
         "referrer": request.referrer,
         "client_id": client_id,
     }
-    elasticapm.label(client_id=client_id)
+    set_tag("client.id", client_id)
 
 
 @app.after_request

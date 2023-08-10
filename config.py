@@ -97,8 +97,6 @@ class Config:
         os.environ.get("BATCH_EMAIL_WHITELIST", "[]")
     )
     SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
-    SENTRY_DSN = os.environ.get("SENTRY_DSN")
-    SENTRY_SAMPLE_RATE = os.environ.get("SENTRY_SAMPLE_RATE", 1)
 
 
 class DevConfig(Config):
