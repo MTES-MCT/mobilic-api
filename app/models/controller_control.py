@@ -205,4 +205,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
             )
             db.session.add(new_control)
             db.session.commit()
+
+            new_control.report_infractions()
             return new_control
