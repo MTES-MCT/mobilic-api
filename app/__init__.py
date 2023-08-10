@@ -20,7 +20,7 @@ from config import MOBILIC_ENV
 
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
-    traces_sample_rate=int(os.environ.get("SENTRY_SAMPLE_RATE", 1)),
+    traces_sample_rate=int(os.environ.get("SENTRY_SAMPLE_RATE", 0)),
 )
 app = Flask(__name__)
 
