@@ -355,7 +355,14 @@ def download_control_report(control_id):
     description="Génération de fichiers C1B contenant les données d'activité des salariés liés aux contrôles"
 )
 @with_authorization_policy(controller_only)
-@use_kwargs(TachographBaseOptionsSchema(), apply=True)
+@use_kwargs(
+    {
+        "min_date": fields.Date(required=True),
+        "max_date": fields.Date(required=True),
+        "with_digital_signatures": fields.Boolean(required=False),
+    },
+    apply=True,
+)
 def controller_download_tachograph_files(
     min_date, max_date, with_digital_signatures=False
 ):
