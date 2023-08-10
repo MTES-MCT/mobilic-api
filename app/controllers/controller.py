@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 from urllib.parse import quote, unquote, urlencode
 from uuid import uuid4
@@ -221,15 +222,21 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
     )
     def mutate(cls, _, info, control_id=None, reported_infractions=[]):
+        now = datetime.now()
         control = ControllerControl.query.get(control_id)
-        control.reported_infractions_last_update_time = datetime.now()
-        control.reported_infractions = [
-            {
-                "sanction": infraction.sanction,
-                "date": infraction.date.isoformat(),
-            }
-            for infraction in reported_infractions
-        ]
+        if control.reported_infractions_first_update_time is None:
+            control.reported_infractions_first_update_time = now
+        control.reported_infractions_last_update_time = now
+
+        observed_infractions = copy.deepcopy(control.observed_infractions)
+        for infraction in observed_infractions:
+            infraction["is_reported"] = any(
+                ri.date
+                == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
+                and ri.sanction == infraction.get("sanction")
+                for ri in reported_infractions
+            )
+        control.observed_infractions = observed_infractions
 
         db.session.commit()
         return control

@@ -3,6 +3,7 @@ import json
 
 import graphene
 from graphene import ObjectType
+from graphene.types.generic import GenericScalar
 
 from app.data_access.control_bulletin import ControlBulletinFields
 from app.data_access.mission import MissionOutput
@@ -10,19 +11,39 @@ from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
 from app.domain.regulation_computations import get_regulation_computations
+from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.models import RegulationCheck
 from app.models.controller_control import ControllerControl, ControlType
 from app.data_access.employment import EmploymentOutput
 
 
-class ReportedInfraction(ObjectType):
-    sanction = graphene.String()
+class ObservedInfraction(ObjectType):
     date = graphene.Field(TimeStamp)
+    label = graphene.String(
+        description="Nom de la règle du seuil règlementaire"
+    )
+    description = graphene.String(
+        description="Description de la règle du seuil règlementaire"
+    )
+    type = graphene.String()
+    unit = graphene.String()
+    sanction = graphene.String()
+    extra = GenericScalar(
+        required=False,
+        description="Un dictionnaire de données additionnelles.",
+    )
+    is_reportable = graphene.Boolean(
+        description="Indique si la sanction est relevable par le contrôleur"
+    )
+    is_reported = graphene.Boolean(
+        description="Indique si le contrôleur a relevé l'alerte ou non"
+    )
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -78,8 +99,8 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     company_address = graphene.String()
     mission_address_begin = graphene.String()
     control_type = graphene.String()
-    reported_infractions = graphene.List(
-        ReportedInfraction,
+    observed_infractions = graphene.List(
+        ObservedInfraction,
         required=False,
         description="Liste des infractions retenues",
     )
@@ -167,13 +188,38 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             for day_, computations_ in regulation_computations_by_day.items()
         ]
 
-    def resolve_reported_infractions(self, info):
-        if not self.reported_infractions:
-            return []
-        return [
-            ReportedInfraction(
-                infraction.get("sanction"),
-                datetime.datetime.fromisoformat(infraction.get("date")),
+    def resolve_observed_infractions(self, info):
+        observed_infractions = []
+        if not self.observed_infractions:
+            return observed_infractions
+        for infraction in self.observed_infractions:
+            check_type = infraction.get("check_type")
+            regulation_check = RegulationCheck.query.filter(
+                RegulationCheck.type == check_type
+            ).first()
+
+            sanction = infraction.get("sanction")
+            label = regulation_check.label if regulation_check else ""
+            description = (
+                regulation_check.description if regulation_check else ""
             )
-            for infraction in self.reported_infractions
-        ]
+            if sanction == NATINF_32083:
+                label = label.replace("quotidien", "de nuit")
+                description = f"{description}. Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures"
+
+            observed_infractions.append(
+                ObservedInfraction(
+                    sanction=sanction,
+                    date=datetime.datetime.fromisoformat(
+                        infraction.get("date")
+                    ),
+                    is_reportable=infraction.get("is_reportable"),
+                    is_reported=infraction.get("is_reported"),
+                    label=label,
+                    description=description,
+                    type=infraction.get("check_type"),
+                    unit=infraction.get("check_unit"),
+                    extra=infraction.get("extra"),
+                )
+            )
+        return observed_infractions
