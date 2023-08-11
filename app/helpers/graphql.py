@@ -1,7 +1,8 @@
-from app import app
-
-from flask_graphql import GraphQLView
 from flask import request, g
+from flask_graphql import GraphQLView
+from sentry_sdk import configure_scope
+
+from app import app
 
 
 def parse_graphql_request_info(request_data):
@@ -30,6 +31,7 @@ class CustomGraphQLView(GraphQLView):
     """
 
     def dispatch_request(self):
+        operation_name = "default_operation_name"
         try:
             request_data = self.parse_body()
         except:
@@ -39,10 +41,10 @@ class CustomGraphQLView(GraphQLView):
             try:
                 is_introspection = False
                 if type(request_data) is dict:
-                    if (
-                        request_data.get("operationName", "")
-                        == "IntrospectionQuery"
-                    ):
+                    operation_name = request_data.get(
+                        "operationName", operation_name
+                    )
+                    if operation_name == "IntrospectionQuery":
                         is_introspection = True
                     else:
                         query = request_data.get("query", "")
@@ -58,5 +60,7 @@ class CustomGraphQLView(GraphQLView):
                 app.logger.warning(
                     f"Could not add GraphQl request info to log context because of following error {e}"
                 )
-        response = super().dispatch_request()
-        return response
+        with configure_scope() as scope:
+            scope.set_transaction_name(operation_name)
+            response = super().dispatch_request()
+            return response

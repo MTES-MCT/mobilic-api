@@ -52,9 +52,9 @@ Créer un fichier dans `.env/.env.local` avec :
 
 ```text
 # use development values
-ELASTIC_APM_SECRET_TOKEN=
-ELASTIC_APM_SERVER_URL=
-ELASTIC_APM_ENVIRONMENT=
+SENTRY_ENVIRONMENT=development
+SENTRY_SAMPLE_RATE=1
+SENTRY_DSN=
 
 # disable sending emails
 DISABLE_EMAIL=true
