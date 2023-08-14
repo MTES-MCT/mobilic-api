@@ -1072,7 +1072,7 @@ def insert_regulation_check(regulation_data):
             date_application_start=regulation_data.date_application_start,
             date_application_end=regulation_data.date_application_end,
             regulation_rule=regulation_data.regulation_rule,
-            variables=json.dumps(regulation_data.variables),
+            variables=regulation_data.variables,
             unit=regulation_data.unit,
         ),
     )

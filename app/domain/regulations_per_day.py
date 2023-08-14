@@ -84,12 +84,9 @@ def compute_regulations_per_day(
         )
 
         if not success:
-            extra_json = None
-            if extra is not None:
-                extra_json = json.dumps(extra)
             regulatory_alert = RegulatoryAlert(
                 day=day,
-                extra=extra_json,
+                extra=extra,
                 submitter_type=submitter_type,
                 user=user,
                 regulation_check_id=regulation_check.id,

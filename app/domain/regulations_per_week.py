@@ -35,7 +35,7 @@ def compute_regulations_per_week(user, week, submitter_type):
         if not success:
             extra_json = None
             if extra is not None:
-                extra_json = json.dumps(extra)
+                extra_json = extra
             regulatory_alert = RegulatoryAlert(
                 day=week["start"],
                 extra=extra_json,
