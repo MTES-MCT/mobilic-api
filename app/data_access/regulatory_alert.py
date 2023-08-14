@@ -1,9 +1,9 @@
 import json
 
-import graphene
+from graphene.types.generic import GenericScalar
+
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.regulatory_alert import RegulatoryAlert
-from graphene.types.generic import GenericScalar
 
 
 class RegulatoryAlertOutput(BaseSQLAlchemyObjectType):

@@ -1,5 +1,3 @@
-import json
-
 from app.helpers.pdf import generate_pdf_from_template
 from app.models.controller_control import ControlType
 

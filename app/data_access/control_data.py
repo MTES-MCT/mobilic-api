@@ -1,8 +1,7 @@
-import json
-
 import graphene
 
 from app.data_access.control_bulletin import ControlBulletinFields
+from app.data_access.employment import EmploymentOutput
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
@@ -15,7 +14,6 @@ from app.helpers.graphene_types import (
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl, ControlType
-from app.data_access.employment import EmploymentOutput
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):

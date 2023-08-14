@@ -1,11 +1,10 @@
-import json
+from sqlalchemy import desc
 
 from app import db
 from app.helpers.errors import InvalidResourceError
 from app.helpers.regulations_utils import HOUR, ComputationResult
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
-from sqlalchemy import desc
 
 NATINF_13152 = "NATINF 13152"
 

@@ -1,7 +1,3 @@
-import json
-from datetime import datetime
-
-
 def save_control_bulletin(
     control,
     user_first_name=None,

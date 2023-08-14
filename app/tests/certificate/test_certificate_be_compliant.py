@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, date
 
 from flask.ctx import AppContext

@@ -1,6 +1,9 @@
-import json
+from datetime import date, datetime
 from datetime import date, datetime
 from unittest.mock import patch
+
+from dateutil.tz import gettz
+from flask.ctx import AppContext
 
 from app import app, db
 from app.domain import regulations
@@ -15,7 +18,7 @@ from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
-from app.helpers.time import LOCAL_TIMEZONE, FR_TIMEZONE
+from app.helpers.time import FR_TIMEZONE
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import (
@@ -37,9 +40,6 @@ from app.services.get_regulation_checks import (
     RegulationCheckData,
 )
 from app.tests import BaseTest
-from dateutil.tz import gettz
-from flask.ctx import AppContext
-
 from app.tests.helpers import (
     init_regulation_checks_data,
     insert_regulation_check,
