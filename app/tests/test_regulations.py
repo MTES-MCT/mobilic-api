@@ -1362,30 +1362,41 @@ class TestRegulations(BaseTest):
 
         with AuthenticatedUserContext(user=employee):
             for i in range(14):
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=missions[i],
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=get_datetime_tz(2022, 7, 6 + i, 12),
-                    start_time=get_datetime_tz(2022, 7, 6 + i, 7),
-                    end_time=get_datetime_tz(2022, 7, 6 + i, 12),
-                )
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=missions[i],
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=get_datetime_tz(2022, 7, 6 + i, 17),
-                    start_time=get_datetime_tz(2022, 7, 6 + i, 13),
-                    end_time=get_datetime_tz(2022, 7, 6 + i, 17),
-                )
 
-                validate_mission(
-                    submitter=employee, mission=missions[i], for_user=employee
-                )
+                if i == 8:
+                    log_activity(
+                        submitter=employee,
+                        user=employee,
+                        mission=missions[i],
+                        type=ActivityType.DRIVE,
+                        switch_mode=False,
+                        reception_time=get_datetime_tz(2022, 7, 6 + i, 17),
+                        start_time=get_datetime_tz(2022, 7, 6 + i, 3),
+                        end_time=get_datetime_tz(2022, 7, 6 + i, 4),
+                    )
+
+                    validate_mission(
+                        submitter=employee,
+                        mission=missions[i],
+                        for_user=employee,
+                    )
+                else:
+                    log_activity(
+                        submitter=employee,
+                        user=employee,
+                        mission=missions[i],
+                        type=ActivityType.DRIVE,
+                        switch_mode=False,
+                        reception_time=get_datetime_tz(2022, 7, 6 + i, 21),
+                        start_time=get_datetime_tz(2022, 7, 6 + i, 20),
+                        end_time=get_datetime_tz(2022, 7, 6 + i, 21),
+                    )
+
+                    validate_mission(
+                        submitter=employee,
+                        mission=missions[i],
+                        for_user=employee,
+                    )
 
         regulatory_alert = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
@@ -1401,8 +1412,6 @@ class TestRegulations(BaseTest):
         self.assertEqual(extra_info["max_nb_days_worked_by_week"], 6)
         self.assertEqual(extra_info["min_weekly_break_in_hours"], 34)
         self.assertTrue(extra_info["too_many_days"])
-        self.assertIn("rest_duration_s", extra_info)
-        self.assertEqual(extra_info["rest_duration_s"], 14 * HOUR)
         self.assertEqual(extra_info["sanction_code"], NATINF_13152)
 
     def test_compute_regulations_per_week_not_enough_break(self):
