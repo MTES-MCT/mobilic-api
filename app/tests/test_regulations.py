@@ -324,7 +324,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
@@ -369,7 +369,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
@@ -433,7 +433,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
@@ -483,7 +483,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
             get_time(how_many_days_ago - 1, hour=6),
@@ -527,7 +527,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
             get_time(how_many_days_ago, hour=13),
@@ -580,7 +580,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.day == day_start,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
             get_time(how_many_days_ago=2, hour=8),
@@ -633,7 +633,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
         self.assertEqual(2, len(regulatory_alerts))
-        extra_info = json.loads(regulatory_alerts[1].extra)
+        extra_info = regulatory_alerts[1].extra
         self.assertEqual(
             datetime.fromisoformat(extra_info["breach_period_start"]),
             get_time(how_many_days_ago=1, hour=1),
@@ -711,7 +711,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 11 * HOUR)
@@ -757,7 +757,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], False)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
@@ -808,7 +808,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
@@ -895,7 +895,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
         self.assertEqual(
             extra_info["total_break_time_in_seconds"], 30 * MINUTE
@@ -973,7 +973,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
         self.assertEqual(
             extra_info["total_break_time_in_seconds"], 30 * MINUTE
@@ -1102,7 +1102,7 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["max_uninterrupted_work_in_hours"], 6)
         self.assertEqual(
             extra_info["longest_uninterrupted_work_in_seconds"],
@@ -1202,7 +1202,7 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
 
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(
             extra_info["longest_uninterrupted_work_in_seconds"],
             7 * HOUR,
@@ -1397,7 +1397,7 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         self.assertEqual(regulatory_alert.day, date(2022, 7, 11))
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["max_nb_days_worked_by_week"], 6)
         self.assertEqual(extra_info["min_weekly_break_in_hours"], 34)
         self.assertTrue(extra_info["too_many_days"])
@@ -1490,7 +1490,7 @@ class TestRegulations(BaseTest):
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         self.assertEqual(regulatory_alert.day, date(2022, 7, 18))
-        extra_info = json.loads(regulatory_alert.extra)
+        extra_info = regulatory_alert.extra
         self.assertFalse(extra_info["too_many_days"])
         self.assertEqual(extra_info["rest_duration_s"], 111600)
         self.assertEqual(extra_info["sanction_code"], NATINF_13152)
