@@ -14,7 +14,7 @@ def generate_control_bulletin_pdf(control, controller_user):
         organizational_unit=controller_user.pretty_organizational_unit,
         control_time=control.creation_time,
         control_date=control.creation_time,
-        control_location=f"{control_bulletin.get('location_department')}, {control_bulletin.get('location_commune')}, {control_bulletin.get('location_lieu')}",
+        control_location=f"{control_bulletin.get('location_lieu')}, {control_bulletin.get('location_commune')}",
         controlled_employee=f"{control.user_last_name} {control.user_first_name}",
         controlled_company=f"{control.company_name} - {control_bulletin.get('siren')}",
         transport_type=control_bulletin.get("transport_type"),

@@ -9,6 +9,7 @@ class ControlBulletinFields(graphene.ObjectType):
     location_department = graphene.String(required=False)
     location_commune = graphene.String(required=False)
     location_lieu = graphene.String(required=False)
+    location_id = graphene.Int(required=False)
     vehicle_registration_country = graphene.String(required=False)
     mission_address_begin = graphene.String(required=False)
     mission_address_end = graphene.String(required=False)
@@ -28,6 +29,7 @@ class ControlBulletinFields(graphene.ObjectType):
             json_dct.get("location_department"),
             json_dct.get("location_commune"),
             json_dct.get("location_lieu"),
+            json_dct.get("location_id"),
             json_dct.get("vehicle_registration_country"),
             json_dct.get("mission_address_begin"),
             json_dct.get("mission_address_end"),
