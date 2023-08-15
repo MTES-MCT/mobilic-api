@@ -8,7 +8,7 @@ Create Date: 2023-08-15 12:31:18.349021
 from alembic import op
 from sqlalchemy.orm import Session
 
-from app.domain.controller import get_no_lic_observed_infractions
+from app.domain.controller_control import get_no_lic_observed_infractions
 from app.models.controller_control import ControllerControl
 
 # revision identifiers, used by Alembic.

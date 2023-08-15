@@ -7,7 +7,7 @@ from sqlalchemy import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db, app
-from app.domain.controller import get_no_lic_observed_infractions
+from app.domain.controller_control import get_no_lic_observed_infractions
 from app.domain.regulation_computations import get_regulatory_alerts
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
