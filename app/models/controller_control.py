@@ -7,12 +7,12 @@ from sqlalchemy import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db, app
+from app.domain.controller import get_no_lic_observed_infractions
 from app.domain.regulation_computations import get_regulatory_alerts
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
 from app.models import User
 from app.models.base import BaseModel, RandomNineIntId
-from app.models.regulation_check import UnitType, RegulationCheckType
 
 
 class ControlType(enum.Enum):
@@ -110,17 +110,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
         new_control = ControllerControl(
             control_type=ControlType.sans_lic,
             controller_id=controller_id,
-            observed_infractions=[
-                {
-                    "sanction": "NATINF 23103",
-                    "date": datetime.date.today().isoformat(),
-                    "is_reportable": True,
-                    "is_reported": True,
-                    "extra": None,
-                    "check_unit": UnitType.DAY,
-                    "check_type": RegulationCheckType.NO_LIC,
-                }
-            ],
+            observed_infractions=get_no_lic_observed_infractions(
+                datetime.date.today()
+            ),
         )
         db.session.add(new_control)
         db.session.commit()
