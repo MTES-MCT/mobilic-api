@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from datetime import date, datetime
 from unittest.mock import patch
 
 from dateutil.tz import gettz
