@@ -20,7 +20,7 @@ def upgrade():
     op.add_column(
         "controller_control",
         sa.Column(
-            "reported_infractions",
+            "observed_infractions",
             postgresql.JSONB(none_as_null=True, astext_type=sa.Text()),
             nullable=True,
         ),
@@ -48,4 +48,4 @@ def downgrade():
     op.drop_column(
         "controller_control", "reported_infractions_last_update_time"
     )
-    op.drop_column("controller_control", "reported_infractions")
+    op.drop_column("controller_control", "observed_infractions")

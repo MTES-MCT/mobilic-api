@@ -1,3 +1,4 @@
+import copy
 from datetime import datetime
 from urllib.parse import quote, unquote, urlencode
 from uuid import uuid4
@@ -226,13 +227,16 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
         control.reported_infractions_last_update_time = now
-        control.reported_infractions = [
-            {
-                "sanction": infraction.sanction,
-                "date": infraction.date.date().isoformat(),
-            }
-            for infraction in reported_infractions
-        ]
+
+        observed_infractions = copy.deepcopy(control.observed_infractions)
+        for infraction in observed_infractions:
+            infraction["is_reported"] = any(
+                ri.date
+                == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
+                and ri.sanction == infraction.get("sanction")
+                for ri in reported_infractions
+            )
+        control.observed_infractions = observed_infractions
 
         db.session.commit()
         return control

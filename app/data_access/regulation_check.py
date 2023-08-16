@@ -54,7 +54,7 @@ class RegulationCheckOutput(BaseSQLAlchemyObjectType):
     )
 
     regulation_rule = graphene_enum_type(RegulationRule)(
-        required=True, description="Seuil règlementaire"
+        required=False, description="Seuil règlementaire"
     )
 
     unit = graphene_enum_type(UnitType)(
