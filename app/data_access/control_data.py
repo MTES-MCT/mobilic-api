@@ -1,8 +1,7 @@
-import json
-
 import graphene
 
 from app.data_access.control_bulletin import ControlBulletinFields
+from app.data_access.employment import EmploymentOutput
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
@@ -15,7 +14,6 @@ from app.helpers.graphene_types import (
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models.controller_control import ControllerControl, ControlType
-from app.data_access.employment import EmploymentOutput
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -72,39 +70,11 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     mission_address_begin = graphene.String()
     control_type = graphene.String()
 
-    def resolve_siren(self, info):
-        return (
-            json.loads(self.control_bulletin).get("siren")
-            if self.control_bulletin
-            else None
-        )
-
     def resolve_control_type(self, info):
         return ControlType(self.control_type).value
 
     def resolve_control_bulletin(self, info):
-        return (
-            json.loads(
-                self.control_bulletin,
-                object_hook=ControlBulletinFields.from_json,
-            )
-            if self.control_bulletin
-            else None
-        )
-
-    def resolve_company_address(self, info):
-        return (
-            json.loads(self.control_bulletin).get("company_address")
-            if self.control_bulletin
-            else None
-        )
-
-    def resolve_mission_address_begin(self, info):
-        return (
-            json.loads(self.control_bulletin).get("mission_address_begin")
-            if self.control_bulletin
-            else None
-        )
+        return self.control_bulletin
 
     def resolve_employments(
         self,
