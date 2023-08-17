@@ -83,7 +83,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
         )
         observed_infractions = []
         for regulatory_alert in regulatory_alerts:
-            extra = json.loads(regulatory_alert.extra)
+            extra = regulatory_alert.extra
             if not extra or not "sanction_code" in extra:
                 continue
             sanction_code = extra.get("sanction_code")

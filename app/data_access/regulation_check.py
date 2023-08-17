@@ -19,10 +19,9 @@ from app.models.regulation_check import (
 def get_alert_sanction(alert):
     if alert is None or alert.extra is None:
         return None
-    extra = json.loads(alert.extra)
-    if "sanction_code" not in extra:
+    if "sanction_code" not in alert.extra:
         return None
-    return extra.get("sanction_code")
+    return alert.extra.get("sanction_code")
 
 
 class RegulationCheckOutput(BaseSQLAlchemyObjectType):
