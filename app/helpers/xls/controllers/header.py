@@ -9,6 +9,7 @@ def write_header(wb, sheet, control, min_date, max_date):
         f"Nom du salarié : {control.user.display_name}",
         f"Identifiant du salarié : {control.user.id}",
         f"Période des données contrôlées : du {min_date.strftime('%d/%m/%Y')} au {max_date.strftime('%d/%m/%Y')}",
+        f"Nombre d'infractions relevées : {control.nb_reported_infractions}",
     ]
     for idx, item in enumerate(items):
         sheet.write(idx, 0, item, wb.add_format({"bold": True}))

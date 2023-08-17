@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
@@ -31,6 +33,7 @@ COLUMNS_MAIN = [
     COLUMN_EXPENDITURE_SLEEP_OVER,
     COLUMN_EXPENDITURE_SNACK,
     COLUMN_OBSERVATIONS,
+    COLUMN_NB_INFRACTIONS,
 ]
 
 
@@ -39,13 +42,23 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
     sheet.protect()
     write_header(wb, sheet, control, min_date, max_date)
 
-    row_idx = 5
+    row_idx = 6
     column_base_formats = write_tab_headers(wb, sheet, row_idx, COLUMNS_MAIN)
     row_idx += 1
 
     recap_start_row = row_idx
     has_one_bank_holiday = False
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
+        nb_infractions_for_day = sum(
+            [
+                1
+                if datetime.strptime(infraction.get("date"), "%Y-%m-%d").date()
+                == wday.day
+                else 0
+                for infraction in control.reported_infractions
+            ]
+        )
+        wday.nb_infractions_for_day = nb_infractions_for_day
         col_idx = 0
         write_cells(
             wb,
