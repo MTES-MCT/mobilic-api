@@ -1,7 +1,7 @@
 """reported infractions
 
 Revision ID: 91a93a56a303
-Revises: 72fba41df82f
+Revises: ecc1e9f03ce8
 Create Date: 2023-08-04 11:57:56.944665
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "91a93a56a303"
-down_revision = "72fba41df82f"
+down_revision = "ecc1e9f03ce8"
 branch_labels = None
 depends_on = None
 
