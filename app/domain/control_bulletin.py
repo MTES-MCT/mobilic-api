@@ -1,7 +1,3 @@
-import json
-from datetime import datetime
-
-
 def save_control_bulletin(
     control,
     user_first_name=None,
@@ -14,6 +10,7 @@ def save_control_bulletin(
     location_commune=None,
     location_department=None,
     location_lieu=None,
+    location_id=None,
     vehicle_registration_number=None,
     vehicle_registration_country=None,
     mission_address_begin=None,
@@ -25,7 +22,7 @@ def save_control_bulletin(
     observation=None,
 ):
     if control.control_bulletin:
-        existing_bulletin = json.loads(control.control_bulletin)
+        existing_bulletin = control.control_bulletin
     else:
         existing_bulletin = {}
 
@@ -42,6 +39,7 @@ def save_control_bulletin(
     existing_bulletin["location_commune"] = location_commune
     existing_bulletin["location_department"] = location_department
     existing_bulletin["location_lieu"] = location_lieu
+    existing_bulletin["location_id"] = location_id
     existing_bulletin[
         "vehicle_registration_country"
     ] = vehicle_registration_country
@@ -52,4 +50,4 @@ def save_control_bulletin(
     existing_bulletin["license_number"] = license_number
     existing_bulletin["license_copy_number"] = license_copy_number
     existing_bulletin["observation"] = observation
-    control.control_bulletin = json.dumps(existing_bulletin)
+    control.control_bulletin = existing_bulletin

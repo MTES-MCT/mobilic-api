@@ -1,6 +1,5 @@
 import datetime
 import enum
-import json
 from datetime import date
 
 from sqlalchemy import Enum
@@ -193,7 +192,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                 company_name=company_name,
                 vehicle_registration_number=vehicle_registration_number,
                 nb_controlled_days=nb_controlled_days,
-                control_bulletin=json.dumps(control_bulletin),
+                control_bulletin=control_bulletin,
             )
             db.session.add(new_control)
             db.session.commit()

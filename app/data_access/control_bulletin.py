@@ -9,6 +9,7 @@ class ControlBulletinFields(graphene.ObjectType):
     location_department = graphene.String(required=False)
     location_commune = graphene.String(required=False)
     location_lieu = graphene.String(required=False)
+    location_id = graphene.Int(required=False)
     vehicle_registration_country = graphene.String(required=False)
     mission_address_begin = graphene.String(required=False)
     mission_address_end = graphene.String(required=False)
@@ -17,23 +18,3 @@ class ControlBulletinFields(graphene.ObjectType):
     license_number = graphene.String(required=False)
     license_copy_number = graphene.String(required=False)
     observation = graphene.String(required=False)
-
-    @staticmethod
-    def from_json(json_dct):
-        return ControlBulletinFields(
-            json_dct.get("user_birth_date"),
-            json_dct.get("user_nationality"),
-            json_dct.get("siren"),
-            json_dct.get("company_address"),
-            json_dct.get("location_department"),
-            json_dct.get("location_commune"),
-            json_dct.get("location_lieu"),
-            json_dct.get("vehicle_registration_country"),
-            json_dct.get("mission_address_begin"),
-            json_dct.get("mission_address_end"),
-            json_dct.get("transport_type"),
-            json_dct.get("articles_nature"),
-            json_dct.get("license_number"),
-            json_dct.get("license_copy_number"),
-            json_dct.get("observation"),
-        )

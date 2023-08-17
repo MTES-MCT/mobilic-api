@@ -130,6 +130,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         location_commune = graphene.String(required=False)
         location_department = graphene.String(required=False)
         location_lieu = graphene.String(required=False)
+        location_id = graphene.Int(required=False)
         vehicle_registration_number = graphene.String(required=False)
         vehicle_registration_country = graphene.String(required=False)
         mission_address_begin = graphene.String(required=False)
@@ -157,6 +158,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         location_commune=None,
         location_department=None,
         location_lieu=None,
+        location_id=None,
         vehicle_registration_number=None,
         vehicle_registration_country=None,
         mission_address_begin=None,
@@ -189,6 +191,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             location_commune,
             location_department,
             location_lieu,
+            location_id,
             vehicle_registration_number,
             vehicle_registration_country,
             mission_address_begin,
@@ -394,7 +397,14 @@ def download_control_report(control_id):
     description="Génération de fichiers C1B contenant les données d'activité des salariés liés aux contrôles"
 )
 @with_authorization_policy(controller_only)
-@use_kwargs(TachographBaseOptionsSchema(), apply=True)
+@use_kwargs(
+    {
+        "min_date": fields.Date(required=True),
+        "max_date": fields.Date(required=True),
+        "with_digital_signatures": fields.Boolean(required=False),
+    },
+    apply=True,
+)
 def controller_download_tachograph_files(
     min_date, max_date, with_digital_signatures=False
 ):

@@ -10,14 +10,6 @@ MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
 
 
 class Config:
-    ELASTIC_APM = {
-        "SERVICE_NAME": "mobilic-api",
-        "SECRET_TOKEN": os.environ.get("ELASTIC_APM_SECRET_TOKEN", None),
-        "SERVER_URL": os.environ.get("ELASTIC_APM_SERVER_URL", None),
-        "ENVIRONMENT": os.environ.get(
-            "ELASTIC_APM_ENVIRONMENT", "development"
-        ),
-    }
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL", "postgresql://mobilic:mobilic@localhost:5432/mobilic"
     )
@@ -96,6 +88,7 @@ class Config:
     BATCH_EMAIL_WHITELIST = json.loads(
         os.environ.get("BATCH_EMAIL_WHITELIST", "[]")
     )
+    SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
 
 
 class DevConfig(Config):

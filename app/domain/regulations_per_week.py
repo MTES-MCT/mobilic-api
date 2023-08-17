@@ -1,11 +1,10 @@
-import json
+from sqlalchemy import desc
 
 from app import db
 from app.helpers.errors import InvalidResourceError
 from app.helpers.regulations_utils import HOUR, ComputationResult
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
-from sqlalchemy import desc
 
 NATINF_13152 = "NATINF 13152"
 
@@ -33,12 +32,9 @@ def compute_regulations_per_week(user, week, submitter_type):
         success, extra = computation(week, regulation_check)
 
         if not success:
-            extra_json = None
-            if extra is not None:
-                extra_json = json.dumps(extra)
             regulatory_alert = RegulatoryAlert(
                 day=week["start"],
-                extra=extra_json,
+                extra=extra,
                 submitter_type=submitter_type,
                 user=user,
                 regulation_check_id=regulation_check.id,
@@ -62,9 +58,9 @@ def check_max_worked_day_in_week(week, regulation_check):
         week["rest_duration_s"] < MINIMUM_WEEKLY_BREAK_IN_HOURS * HOUR
     )
     extra["too_many_days"] = too_many_days
+    extra["sanction_code"] = NATINF_13152
     if not_enough_rest:
         extra["rest_duration_s"] = week["rest_duration_s"]
-        extra["sanction_code"] = NATINF_13152
 
     success = not (too_many_days or not_enough_rest)
     return ComputationResult(success=success, extra=extra)
