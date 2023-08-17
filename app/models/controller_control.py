@@ -1,3 +1,4 @@
+import datetime
 import enum
 from datetime import date
 
@@ -5,6 +6,8 @@ from sqlalchemy import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db, app
+from app.domain.controller_control import get_no_lic_observed_infractions
+from app.domain.regulation_computations import get_regulatory_alerts
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
 from app.models import User
@@ -49,6 +52,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
         DateTimeStoredAsUTC, nullable=True
     )
     note = db.Column(db.TEXT, nullable=True)
+    observed_infractions = db.Column(JSONB(none_as_null=True), nullable=True)
+    reported_infractions_first_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
+    reported_infractions_last_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
 
     @property
     def history_end_date(self):
@@ -65,11 +75,43 @@ class ControllerControl(BaseModel, RandomNineIntId):
             f"{self.id}-{today.strftime('%Y')}-{self.controller_user.greco_id}"
         )
 
+    def report_infractions(self):
+        regulatory_alerts = get_regulatory_alerts(
+            user_id=self.user.id,
+            start_date=self.history_start_date,
+            end_date=self.history_end_date,
+        )
+        observed_infractions = []
+        for regulatory_alert in regulatory_alerts:
+            extra = regulatory_alert.extra
+            if not extra or not "sanction_code" in extra:
+                continue
+            sanction_code = extra.get("sanction_code")
+            is_reportable = "NATINF" in sanction_code
+            check_type = regulatory_alert.regulation_check.type
+            check_unit = regulatory_alert.regulation_check.unit.value
+            observed_infractions.append(
+                {
+                    "sanction": extra.get("sanction_code"),
+                    "extra": extra,
+                    "is_reportable": is_reportable,
+                    "date": regulatory_alert.day.isoformat(),
+                    "is_reported": is_reportable,
+                    "check_type": check_type,
+                    "check_unit": check_unit,
+                }
+            )
+        self.observed_infractions = observed_infractions
+        db.session.commit()
+
     @staticmethod
     def create_no_lic_control(controller_id):
         new_control = ControllerControl(
             control_type=ControlType.sans_lic,
             controller_id=controller_id,
+            observed_infractions=get_no_lic_observed_infractions(
+                datetime.date.today()
+            ),
         )
         db.session.add(new_control)
         db.session.commit()
@@ -154,4 +196,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
             )
             db.session.add(new_control)
             db.session.commit()
+
+            new_control.report_infractions()
             return new_control

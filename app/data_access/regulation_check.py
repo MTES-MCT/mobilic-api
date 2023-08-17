@@ -1,6 +1,9 @@
+import json
+
 import graphene
 
 from app.data_access.regulatory_alert import RegulatoryAlertOutput
+from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     graphene_enum_type,
@@ -11,6 +14,14 @@ from app.models.regulation_check import (
     RegulationRule,
     UnitType,
 )
+
+
+def get_alert_sanction(alert):
+    if alert is None or alert.extra is None:
+        return None
+    if "sanction_code" not in alert.extra:
+        return None
+    return alert.extra.get("sanction_code")
 
 
 class RegulationCheckOutput(BaseSQLAlchemyObjectType):
@@ -42,7 +53,7 @@ class RegulationCheckOutput(BaseSQLAlchemyObjectType):
     )
 
     regulation_rule = graphene_enum_type(RegulationRule)(
-        required=True, description="Seuil règlementaire"
+        required=False, description="Seuil règlementaire"
     )
 
     unit = graphene_enum_type(UnitType)(
@@ -54,3 +65,21 @@ class RegulationCheckOutput(BaseSQLAlchemyObjectType):
         RegulatoryAlertOutput,
         description="Alerte remontée par ce calcul",
     )
+
+    def resolve_label(self, info):
+        sanction = get_alert_sanction(self.alert)
+        if not sanction:
+            return self.label
+
+        if sanction == NATINF_32083:
+            return self.label.replace("quotidien", "de nuit")
+        return self.label
+
+    def resolve_description(self, info):
+        sanction = get_alert_sanction(self.alert)
+        if not sanction:
+            return self.description
+
+        if sanction == NATINF_32083:
+            return f"{self.description}. Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures"
+        return self.description
