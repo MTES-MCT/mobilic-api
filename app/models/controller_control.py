@@ -10,7 +10,7 @@ from app.domain.controller_control import get_no_lic_observed_infractions
 from app.domain.regulation_computations import get_regulatory_alerts
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
-from app.models import User
+from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
 
@@ -86,6 +86,24 @@ class ControllerControl(BaseModel, RandomNineIntId):
             for infraction in self.observed_infractions
             if infraction.get("is_reported", False)
         ]
+
+    @property
+    def reported_infractions_labels(self):
+        check_types = list(
+            set(
+                [
+                    i.get("check_type")
+                    for i in self.reported_infractions
+                    if "check_type" in i
+                ]
+            )
+        )
+        labels = (
+            db.session.query(RegulationCheck.label)
+            .filter(RegulationCheck.type.in_(check_types))
+            .all()
+        )
+        return [label[0] for label in labels]
 
     def report_infractions(self):
         regulatory_alerts = get_regulatory_alerts(
