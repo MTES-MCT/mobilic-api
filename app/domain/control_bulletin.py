@@ -1,6 +1,3 @@
-import copy
-
-
 def save_control_bulletin(
     control,
     user_first_name=None,
@@ -25,9 +22,10 @@ def save_control_bulletin(
     observation=None,
 ):
     if control.control_bulletin:
-        existing_bulletin = copy.deepcopy(control.control_bulletin)
+        existing_bulletin = control.control_bulletin
     else:
         existing_bulletin = {}
+
     control.user_first_name = user_first_name
     control.user_last_name = user_last_name
     control.vehicle_registration_number = vehicle_registration_number
