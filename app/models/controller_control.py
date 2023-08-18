@@ -114,7 +114,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             .filter(RegulationCheck.type.in_(check_types))
             .all()
         )
-        return [label[0] for label in labels]
+        return [label.label for label in labels]
 
     def report_infractions(self):
         regulatory_alerts = get_regulatory_alerts(
