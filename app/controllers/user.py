@@ -579,6 +579,7 @@ class TachographBaseOptionsSchema(Schema):
     min_date = fields.Date(required=True)
     max_date = fields.Date(required=True)
     with_digital_signatures = fields.Boolean(required=False)
+    employee_version = fields.Boolean(required=False)
 
     @validates_schema
     def check_period_is_small_enough(self, data, **kwargs):

@@ -50,7 +50,7 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
             == wday.day
         ]
         if len(infractions_for_day) == 0:
-            text_infractions = "Pas d'infractions relevées"
+            text_infractions = "Pas d'infraction retenue"
         else:
             text_infractions = ",\n".join(
                 [i.get("sanction", "") for i in infractions_for_day]

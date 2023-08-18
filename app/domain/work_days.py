@@ -13,6 +13,7 @@ from app.helpers.time import (
     to_datetime,
     to_timestamp,
     to_tz,
+    min_or_none,
 )
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
@@ -383,6 +384,7 @@ def group_user_events_by_day_with_limit(
     first=None,
     after=None,
     max_reception_time=None,
+    employee_version=False,
 ):
     if after:
         try:
@@ -430,6 +432,7 @@ def group_user_events_by_day_with_limit(
         tz=tz,
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
         max_reception_time=max_reception_time,
+        employee_version=employee_version,
     )
     if first and has_next:
         work_days = work_days[1:]
@@ -514,22 +517,37 @@ def group_user_missions_by_day(
     tz=FR_TIMEZONE,
     include_dismissed_or_empty_days=False,
     max_reception_time=None,
+    employee_version=False,
 ):
     work_days = []
     current_work_day = None
     current_date = None
     for mission in missions:
+        mission_max_reception_time = max_reception_time
+        if employee_version:
+            all_user_activities = mission.activities_for(
+                user, include_dismissed_activities=True
+            )
+            latest_user_action_time = mission.get_latest_user_action_time(
+                user, all_user_activities
+            )
+            mission_max_reception_time = min_or_none(
+                latest_user_action_time, max_reception_time
+            )
         all_mission_activities = mission.activities_for(
             user,
             include_dismissed_activities=True,
-            max_reception_time=max_reception_time,
+            max_reception_time=mission_max_reception_time,
         )
         if all_mission_activities:
             acknowledged_mission_activities = [
                 a
                 for a in all_mission_activities
                 if not a.is_dismissed
-                or (max_reception_time and a.dismissed_at > max_reception_time)
+                or (
+                    mission_max_reception_time
+                    and a.dismissed_at > mission_max_reception_time
+                )
             ]
             mission_start_time = (
                 acknowledged_mission_activities[0].start_time
@@ -558,7 +576,7 @@ def group_user_missions_by_day(
                         user=user,
                         day=mission_running_day,
                         tz=tz,
-                        max_reception_time=max_reception_time,
+                        max_reception_time=mission_max_reception_time,
                     )
                     work_days.append(current_work_day)
                 current_work_day.add_mission(mission)
