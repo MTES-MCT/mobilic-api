@@ -11,7 +11,7 @@ from app.domain.controller_control import get_no_lic_observed_infractions
 from app.domain.regulation_computations import get_regulatory_alerts
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
-from app.models import User
+from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
 
@@ -65,11 +65,19 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def history_end_date(self):
-        return self.qr_code_generation_time.date()
+        return (
+            self.qr_code_generation_time.date()
+            if self.qr_code_generation_time
+            else None
+        )
 
     @property
     def history_start_date(self):
-        return compute_history_start_date(self.history_end_date)
+        return (
+            compute_history_start_date(self.history_end_date)
+            if self.history_end_date
+            else None
+        )
 
     @property
     def reference(self):
@@ -91,6 +99,24 @@ class ControllerControl(BaseModel, RandomNineIntId):
             for infraction in self.observed_infractions
             if infraction.get("is_reported", False)
         ]
+
+    @property
+    def reported_infractions_labels(self):
+        check_types = list(
+            set(
+                [
+                    i.get("check_type")
+                    for i in self.reported_infractions
+                    if "check_type" in i
+                ]
+            )
+        )
+        labels = (
+            db.session.query(RegulationCheck.label)
+            .filter(RegulationCheck.type.in_(check_types))
+            .all()
+        )
+        return [label.label for label in labels]
 
     def report_infractions(self):
         regulatory_alerts = get_regulatory_alerts(

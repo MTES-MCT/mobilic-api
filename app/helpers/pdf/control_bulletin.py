@@ -4,10 +4,13 @@ from app.models.controller_control import ControlType
 
 def generate_control_bulletin_pdf(control, controller_user):
 
+    infraction_labels = control.reported_infractions_labels
+    history_start_date = control.history_start_date
+    history_end_date = control.history_end_date
+
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
-        no_lic_presented=control.control_type == ControlType.sans_lic,
         organizational_unit=controller_user.pretty_organizational_unit,
         control_time=control.creation_time,
         control_date=control.creation_time,
@@ -28,4 +31,7 @@ def generate_control_bulletin_pdf(control, controller_user):
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
         controller_name=f"{controller_user.last_name} {controller_user.first_name}",
+        infraction_labels=infraction_labels,
+        history_start_date=history_start_date,
+        history_end_date=history_end_date,
     )
