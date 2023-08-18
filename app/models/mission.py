@@ -202,24 +202,15 @@ class Mission(EventBaseModel):
         )
 
     def modification_status_and_latest_action_time_for_user(self, user):
-        user_validation = self.validation_of(user)
-
-        latest_user_action_time = (
-            user_validation.reception_time if user_validation else None
-        )
         all_user_activities = self.activities_for(
             user, include_dismissed_activities=True
         )
         if not all_user_activities:
             return UserMissionModificationStatus.NO_DATA_FOR_USER, None
 
-        if not latest_user_action_time:
-            latest_user_action_time = max_or_none(
-                *[
-                    a.latest_modification_time_by(user)
-                    for a in all_user_activities
-                ]
-            )
+        latest_user_action_time = self.get_latest_user_action_time(
+            user, all_user_activities
+        )
 
         if not latest_user_action_time:
             # Mission was most likely created by the admin, user is not yet informed of it
@@ -239,6 +230,20 @@ class Mission(EventBaseModel):
             else UserMissionModificationStatus.USER_MODIFIED_LAST,
             latest_user_action_time,
         )
+
+    def get_latest_user_action_time(self, user, all_user_activities):
+        user_validation = self.validation_of(user)
+        latest_user_action_time = (
+            user_validation.reception_time if user_validation else None
+        )
+        if not latest_user_action_time:
+            latest_user_action_time = max_or_none(
+                *[
+                    a.latest_modification_time_by(user)
+                    for a in all_user_activities
+                ]
+            )
+        return latest_user_action_time
 
     def ended_for(self, user):
         return len([e for e in self.ends if e.user_id == user.id]) > 0

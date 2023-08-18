@@ -4,6 +4,7 @@ from datetime import date
 
 from sqlalchemy import Enum
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.mutable import MutableDict
 
 from app import db, app
 from app.domain.controller_control import get_no_lic_observed_infractions
@@ -44,7 +45,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     user_last_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
-    control_bulletin = db.Column(JSONB(none_as_null=True), nullable=True)
+    control_bulletin = db.Column(
+        MutableDict.as_mutable(JSONB(none_as_null=True)), nullable=True
+    )
     control_bulletin_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )

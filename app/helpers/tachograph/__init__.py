@@ -701,6 +701,7 @@ def generate_tachograph_parts(
     max_reception_time=None,
     min_reception_datetime=None,
     include_dismissed_or_empty_days=False,
+    employee_version=False,
 ):
     now = datetime.utcnow()
     first_user_activity = user.first_activity_after(min_reception_datetime)
@@ -720,6 +721,7 @@ def generate_tachograph_parts(
         max_reception_time=max_reception_time,
         only_missions_validated_by_admin=only_activities_validated_by_admin,
         consultation_scope=consultation_scope,
+        employee_version=employee_version,
     )
 
     if not work_days and do_not_generate_if_empty:
@@ -785,26 +787,13 @@ def generate_tachograph_parts(
     return files
 
 
-def generate_tachograph_file_name(user):
+def generate_tachograph_file_name(user, suffix=""):
     now = datetime.utcnow()
-    return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}.C1B'
+    return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}{suffix}.C1B'
 
 
 def generate_tachograph_file_name_control(control):
     return f"RO_{_card_like_id(control.user)}_{control.id}.C1B"
-
-
-def generate_and_export_tachograph_file(
-    user, output_dir, start_date=None, end_date=None
-):
-    files = generate_tachograph_parts(
-        user, start_date=start_date, end_date=end_date
-    )
-    with open(
-        f"{os.path.join(output_dir, generate_tachograph_file_name(user))}",
-        "wb",
-    ) as f:
-        f.write(write_tachograph_archive(files))
 
 
 _file_specs = [v for v in vars(FileSpecs).values() if type(v) is FileSpec]
@@ -871,7 +860,7 @@ def get_tachograph_archive_controller(controls, with_signatures):
 
 
 def get_tachograph_archive_company(
-    users, min_date, max_date, scope, with_signatures
+    users, min_date, max_date, scope, with_signatures, employee_version
 ):
     archive = BytesIO()
     with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
@@ -886,8 +875,26 @@ def get_tachograph_archive_company(
                 do_not_generate_if_empty=False,
             )
             f.writestr(
-                generate_tachograph_file_name(user),
+                generate_tachograph_file_name(
+                    user, "-VersionGestionnaire" if employee_version else ""
+                ),
                 write_tachograph_archive(tachograph_data),
             )
+            if employee_version:
+                tachograph_data = generate_tachograph_parts(
+                    user,
+                    start_date=min_date,
+                    end_date=max_date,
+                    consultation_scope=scope,
+                    only_activities_validated_by_admin=False,
+                    with_signatures=with_signatures,
+                    do_not_generate_if_empty=False,
+                    include_dismissed_or_empty_days=True,
+                    employee_version=True,
+                )
+                f.writestr(
+                    generate_tachograph_file_name(user, "-VersionSalarie"),
+                    write_tachograph_archive(tachograph_data),
+                )
     archive.seek(0)
     return archive
