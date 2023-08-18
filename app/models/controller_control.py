@@ -73,9 +73,11 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def history_start_date(self):
-        if self.history_end_date is None:
-            return None
-        return compute_history_start_date(self.history_end_date)
+        return (
+            compute_history_start_date(self.history_end_date)
+            if self.history_end_date
+            else None
+        )
 
     @property
     def reference(self):
