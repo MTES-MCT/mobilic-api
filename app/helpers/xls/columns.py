@@ -295,7 +295,7 @@ COLUMN_OBSERVATIONS = ExcelColumn(
     False,
 )
 COLUMN_NB_INFRACTIONS = ExcelColumn(
-    "Nombre d'infractions relevées",
+    "Nombre d'infractions retenues",
     lambda wday: wday.nb_infractions_for_day,
     lambda _: "center",
     50,
@@ -353,7 +353,7 @@ COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
     light_red_hex,
 )
 COLUMN_INFRACTIONS_FOR_DAY = ExcelColumn(
-    "Détail infractions relevées",
+    "Détail infractions retenues",
     None,
     lambda _: "center",
     60,
