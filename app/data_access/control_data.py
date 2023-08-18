@@ -201,9 +201,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return observed_infractions
 
     def resolve_nb_reported_infractions(self, info):
-        return sum(
+        reported_infractions = (
             [
-                1 if infraction.get("is_reported", False) else 0
+                infraction
                 for infraction in self.observed_infractions
+                if infraction.get("is_reported", False)
             ]
+            if self.observed_infractions
+            else []
         )
+        return len(reported_infractions)
