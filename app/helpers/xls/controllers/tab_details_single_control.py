@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
@@ -21,7 +23,12 @@ COLUMNS_EVENT = [
     COLUMN_EVENT_ACTIVITIES,
     COLUMN_EVENT_OBSERVATIONS,
 ]
-COLUMNS_ALL = [*COLUMNS_WORKDAY, *COLUMNS_MISSION, *COLUMNS_EVENT]
+COLUMNS_ALL = [
+    *COLUMNS_WORKDAY,
+    *COLUMNS_MISSION,
+    *COLUMNS_EVENT,
+    COLUMN_INFRACTIONS_FOR_DAY,
+]
 
 
 def write_details_sheet(wb, control, work_days_data, min_date, max_date):
@@ -30,12 +37,24 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
 
     write_header(wb, sheet, control, min_date, max_date)
 
-    row_idx = 5
+    row_idx = 6
 
     column_base_formats = write_tab_headers(wb, sheet, row_idx, COLUMNS_ALL)
     row_idx += 1
 
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
+        infractions_for_day = [
+            infraction
+            for infraction in control.reported_infractions
+            if datetime.strptime(infraction.get("date"), "%Y-%m-%d").date()
+            == wday.day
+        ]
+        if len(infractions_for_day) == 0:
+            text_infractions = "Pas d'infraction retenue"
+        else:
+            text_infractions = ",\n".join(
+                [i.get("sanction", "") for i in infractions_for_day]
+            )
         workday_starting_row_idx = row_idx
         for mission in sorted(
             wday.missions, key=lambda mission: mission.creation_time
@@ -94,6 +113,15 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
                     additional_format,
                 )
                 row_idx += 1
+                merge_cells_if_needed(
+                    wb,
+                    sheet,
+                    mission_starting_row_idx,
+                    row_idx,
+                    col_idx,
+                    text_infractions,
+                    formats.get("merged_center"),
+                )
                 merge_cells_if_needed(
                     wb,
                     sheet,

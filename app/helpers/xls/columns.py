@@ -10,6 +10,7 @@ from app.helpers.xls.common import (
     light_green_hex,
     light_orange_hex,
     light_red_hex,
+    very_light_red_hex,
 )
 from app.models.activity import ActivityType, Activity
 from app.templates.filters import format_activity_type
@@ -293,6 +294,14 @@ COLUMN_OBSERVATIONS = ExcelColumn(
     light_red_hex,
     False,
 )
+COLUMN_NB_INFRACTIONS = ExcelColumn(
+    "Nombre d'infractions retenues",
+    lambda wday: wday.nb_infractions_for_day,
+    lambda _: "center",
+    50,
+    very_light_red_hex,
+    False,
+)
 COLUMN_EVENT_TIME = ExcelColumn(
     "Date et heure de l'enregistrement",
     lambda event: to_fr_tz(event.time),
@@ -342,6 +351,13 @@ COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
     lambda _: "wrap",
     60,
     light_red_hex,
+)
+COLUMN_INFRACTIONS_FOR_DAY = ExcelColumn(
+    "Détail infractions retenues",
+    None,
+    lambda _: "center",
+    60,
+    very_light_red_hex,
 )
 
 

@@ -78,6 +78,20 @@ class ControllerControl(BaseModel, RandomNineIntId):
             f"{self.id}-{today.strftime('%Y')}-{self.controller_user.greco_id}"
         )
 
+    @property
+    def nb_reported_infractions(self):
+        return len(self.reported_infractions)
+
+    @property
+    def reported_infractions(self):
+        if self.observed_infractions is None:
+            return []
+        return [
+            infraction
+            for infraction in self.observed_infractions
+            if infraction.get("is_reported", False)
+        ]
+
     def report_infractions(self):
         regulatory_alerts = get_regulatory_alerts(
             user_id=self.user.id,
