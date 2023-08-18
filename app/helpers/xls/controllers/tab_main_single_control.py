@@ -49,13 +49,12 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
     recap_start_row = row_idx
     has_one_bank_holiday = False
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
-        nb_infractions_for_day = sum(
+        nb_infractions_for_day = len(
             [
-                1
+                infraction
+                for infraction in control.reported_infractions
                 if datetime.strptime(infraction.get("date"), "%Y-%m-%d").date()
                 == wday.day
-                else 0
-                for infraction in control.reported_infractions
             ]
         )
         wday.nb_infractions_for_day = nb_infractions_for_day
