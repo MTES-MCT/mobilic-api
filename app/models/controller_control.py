@@ -84,6 +84,8 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def reported_infractions(self):
+        if self.observed_infractions is None:
+            return []
         return [
             infraction
             for infraction in self.observed_infractions
