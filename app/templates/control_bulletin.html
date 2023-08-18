@@ -157,6 +157,11 @@
                 </td>
             </tr>
         </table>
+        {% if history_start_date and history_end_date %}
+            <p style="text-align: center; margin-bottom: 0pt; padding-bottom: 0pt;">
+                <i>Données Mobilic contrôlées : du {{ history_start_date | full_format_day }} au {{ history_end_date | full_format_day }}</i>
+            </p>
+        {% endif %}
         {% if infraction_labels|length == 1 %}
             <p><b>Infraction relevée : {{ infraction_labels[0] }}</b></p>
         {% elif infraction_labels|length > 1 %}

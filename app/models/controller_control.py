@@ -62,10 +62,16 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def history_end_date(self):
-        return self.qr_code_generation_time.date()
+        return (
+            self.qr_code_generation_time.date()
+            if self.qr_code_generation_time
+            else None
+        )
 
     @property
     def history_start_date(self):
+        if self.history_end_date is None:
+            return None
         return compute_history_start_date(self.history_end_date)
 
     @property
