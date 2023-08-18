@@ -103,6 +103,11 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Liste des infractions retenues",
     )
+    nb_reported_infractions = graphene.Field(
+        graphene.Int,
+        required=False,
+        description="Nombre d'infractions retenues",
+    )
     reported_infractions_last_update_time = graphene.Field(
         TimeStamp, required=False
     )
@@ -194,3 +199,15 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                 )
             )
         return observed_infractions
+
+    def resolve_nb_reported_infractions(self, info):
+        reported_infractions = (
+            [
+                infraction
+                for infraction in self.observed_infractions
+                if infraction.get("is_reported", False)
+            ]
+            if self.observed_infractions
+            else []
+        )
+        return len(reported_infractions)
