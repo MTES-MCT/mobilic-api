@@ -20,6 +20,6 @@ class ScenarioTesting(BaseModel):
     user_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
     )
-    user = db.relationship("User", backref="certificate_info_results")
+    user = db.relationship("User", backref="scenario_testing_results")
     scenario = enum_column(Scenario, nullable=False)
     action = enum_column(Action, nullable=False)
