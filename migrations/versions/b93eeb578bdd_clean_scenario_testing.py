@@ -6,7 +6,6 @@ Create Date: 2023-08-21 14:07:40.391195
 
 """
 from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,3 +18,8 @@ depends_on = None
 def upgrade():
     op.execute("DELETE FROM scenario_testing")
     op.execute("REINDEX TABLE scenario_testing")
+
+
+def downgrade():
+    # do nothing
+    pass
