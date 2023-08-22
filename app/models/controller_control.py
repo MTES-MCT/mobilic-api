@@ -155,6 +155,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             observed_infractions=get_no_lic_observed_infractions(
                 datetime.date.today()
             ),
+            nb_controlled_days=7,
         )
         db.session.add(new_control)
         db.session.commit()
