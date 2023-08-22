@@ -4,6 +4,7 @@ from app.controllers.certificate import (
     EditCompanyCommunicationSetting,
     AddCertificateInfoResult,
 )
+from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
 from app.controllers.authentication import (
@@ -264,6 +265,7 @@ class PrivateMutations(graphene.ObjectType):
         EditCompanyCommunicationSetting.Field()
     )
     add_certificate_info_result = AddCertificateInfoResult.Field()
+    create_survey_action = CreateSurveyAction.Field()
 
 
 class Queries(

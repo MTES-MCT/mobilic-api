@@ -27,3 +27,4 @@ from .regulation_computation import RegulationComputation
 from .team import Team
 from .company_certification import CompanyCertification
 from .scenario_testing import ScenarioTesting
+from .user_survey_actions import UserSurveyActions

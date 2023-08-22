@@ -31,6 +31,7 @@ from app.models import (
     UserReadToken,
     Vehicle,
     Team,
+    UserSurveyActions,
 )
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
@@ -97,6 +98,7 @@ def clean():
     ControllerUser.query.delete()
 
     ScenarioTesting.query.delete()
+    UserSurveyActions.query.delete()
     User.query.delete()
     db.session.commit()
 
