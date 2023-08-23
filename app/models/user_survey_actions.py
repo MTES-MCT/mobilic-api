@@ -9,9 +9,9 @@ from app.models.utils import enum_column
 
 
 class SurveyAction(str, Enum):
-    DISPLAY = "display"
-    CLOSE = "close"
-    SUBMIT = "submit"
+    DISPLAY = "DISPLAY"
+    CLOSE = "CLOSE"
+    SUBMIT = "SUBMIT"
 
 
 class UserSurveyActions(BaseModel):

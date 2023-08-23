@@ -26,9 +26,9 @@ def upgrade():
         sa.Column(
             "action",
             sa.Enum(
-                "display",
-                "close",
-                "submit",
+                "DISPLAY",
+                "CLOSE",
+                "SUBMIT",
                 name="surveyaction",
                 native_enum=False,
             ),
