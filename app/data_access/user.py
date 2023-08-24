@@ -83,7 +83,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Indique si l'utilisateur doit mettre à jour son mot de passe",
     )
-    creation_time = TimeStamp(description="Date de calcul des critères.")
+    creation_time = TimeStamp(
+        description="Date d'inscription de l'utilisateur'."
+    )
     activities = graphene.Field(
         ActivityConnection,
         description="Liste des activités de l'utilisateur, triées par id (pas forcément par récence).",
@@ -184,10 +186,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         description="Liste des dates où l'utilisateur s'est fait contrôler.",
     )
 
-    survey_actions = graphene.List(
-        UserSurveyActionsOutput,
-        description="Liste des rattachements actifs ou en attente de validation",
-    )
+    survey_actions = graphene.List(UserSurveyActionsOutput)
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
