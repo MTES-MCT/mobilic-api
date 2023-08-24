@@ -509,6 +509,5 @@ def download_tachograph_files(
         archive,
         mimetype="application/zip",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename="fichiers_C1B.zip",
+        download_name="fichiers_C1B.zip",
     )

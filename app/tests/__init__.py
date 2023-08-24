@@ -55,7 +55,7 @@ def test_post_graphql(
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
-    ) as c:
+    ) as c, app.app_context():
         return c.post(
             graphql_api_path,
             json=dict(query=query, variables=variables),
@@ -73,7 +73,7 @@ def test_post_graphql_unexposed(
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
-    ) as c:
+    ) as c, app.app_context():
         return c.post(
             graphql_private_api_path,
             json=dict(query=query, variables=variables),
@@ -91,7 +91,7 @@ def test_post_graphql_protected(
 ):
     with app.test_client(
         mock_authentication_with_user=mock_authentication_with_user
-    ) as c:
+    ) as c, app.app_context():
         return c.post(
             graphql_protected_api_path,
             json=dict(query=query, variables=variables),
@@ -101,7 +101,7 @@ def test_post_graphql_protected(
 
 
 def test_post_rest(url, json, headers):
-    with app.test_client() as c:
+    with app.test_client() as c, app.app_context():
         return c.post(url, json=json, headers=headers)
 
 
