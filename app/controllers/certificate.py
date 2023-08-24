@@ -20,7 +20,11 @@ from app.domain.company import (
     find_certified_companies_query,
     get_current_certificate,
 )
-from app.domain.permissions import companies_admin, company_admin
+from app.domain.permissions import (
+    companies_admin,
+    company_admin,
+    only_self_employment,
+)
 from app.domain.scenario_testing import (
     check_scenario_testing_action_already_exists_this_month,
 )
@@ -118,10 +122,35 @@ class EditCompanyCommunicationSetting(AuthenticatedMutation):
         return Void(success=True)
 
 
-class AddCertificateInfoResult(AuthenticatedMutation):
+class SnoozeCertificateInfo(AuthenticatedMutation):
     class Arguments:
         employment_id = graphene.Int(
             required=True, description="Identifiant du rattachement"
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        only_self_employment,
+        get_target_from_args=lambda *args, **kwargs: kwargs["employment_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, employment_id):
+        employment = Employment.query.get(employment_id)
+
+        with atomic_transaction(commit_at_end=True):
+            employment.certificate_info_snooze_date = end_of_month(
+                datetime.date.today()
+            )
+
+        return Void(success=True)
+
+
+class AddScenarioTestingResult(AuthenticatedMutation):
+    class Arguments:
+        user_id = graphene.Int(
+            required=True, description="Identifiant de l'utilisateur"
         )
         scenario = graphene.Argument(
             graphene_enum_type(Scenario),
@@ -139,26 +168,16 @@ class AddCertificateInfoResult(AuthenticatedMutation):
     Output = Void
 
     @classmethod
-    def mutate(cls, _, info, employment_id, scenario, action):
-
-        employment = Employment.query.filter(
-            Employment.id == employment_id
-        ).one()
-
-        if action != Action.LOAD:
-            with atomic_transaction(commit_at_end=True):
-                employment.certificate_info_snooze_date = end_of_month(
-                    datetime.date.today()
-                )
+    def mutate(cls, _, info, user_id, scenario, action):
 
         if check_scenario_testing_action_already_exists_this_month(
-            user_id=employment.user_id, action=action, scenario=scenario
+            user_id=user_id, action=action, scenario=scenario
         ):
             return Void(success=False)
 
         with atomic_transaction(commit_at_end=True):
             new_scenario_testing = ScenarioTesting(
-                user_id=employment.user_id,
+                user_id=user_id,
                 scenario=scenario,
                 action=action,
             )
