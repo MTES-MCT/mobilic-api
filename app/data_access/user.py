@@ -36,6 +36,7 @@ from app.helpers.time import (
 )
 from app.models import User, Company, Activity
 from app.models.controller_control import ControllerControl
+from app.models.user_survey_actions import UserSurveyActionsOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -43,6 +44,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         model = User
         only_fields = (
             "id",
+            "creation_time",
             "first_name",
             "last_name",
             "email",
@@ -80,6 +82,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.Boolean,
         required=False,
         description="Indique si l'utilisateur doit mettre à jour son mot de passe",
+    )
+    creation_time = TimeStamp(
+        description="Date d'inscription de l'utilisateur'."
     )
     activities = graphene.Field(
         ActivityConnection,
@@ -180,6 +185,8 @@ class UserOutput(BaseSQLAlchemyObjectType):
         TimeStamp,
         description="Liste des dates où l'utilisateur s'est fait contrôler.",
     )
+
+    survey_actions = graphene.List(UserSurveyActionsOutput)
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
@@ -437,6 +444,14 @@ class UserOutput(BaseSQLAlchemyObjectType):
             .all()
         )
         return [control.creation_time for control in user_controls]
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'survey_actions' of user object. The field is only accessible to the user himself.",
+    )
+    def resolve_survey_actions(self, info):
+        return self.survey_actions
 
 
 from app.data_access.company import CompanyOutput

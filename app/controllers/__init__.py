@@ -5,6 +5,7 @@ from app.controllers.certificate import (
     SnoozeCertificateInfo,
     AddScenarioTestingResult,
 )
+from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
 from app.controllers.authentication import (
@@ -266,6 +267,7 @@ class PrivateMutations(graphene.ObjectType):
     )
     snooze_certificate_info = SnoozeCertificateInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
+    create_survey_action = CreateSurveyAction.Field()
 
 
 class Queries(
