@@ -364,8 +364,7 @@ def generate_mission_control_export(mission_id, control_id):
             pdf,
             mimetype="application/pdf",
             as_attachment=True,
-            cache_timeout=0,
-            attachment_filename=f"Détails de la mission {mission.name or mission.id} pour {controller_control.user.display_name}",
+            download_name=f"Détails de la mission {mission.name or mission.id} pour {controller_control.user.display_name}",
         )
 
 
@@ -425,8 +424,7 @@ def controller_download_tachograph_files(
                 archive,
                 mimetype="application/zip",
                 as_attachment=True,
-                cache_timeout=0,
-                attachment_filename="fichiers_C1B.zip",
+                download_name="fichiers_C1B.zip",
             )
 
 
@@ -454,6 +452,5 @@ def generate_control_bulletin_pdf_export(control_id):
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename=control.reference,
+        download_name=control.reference,
     )

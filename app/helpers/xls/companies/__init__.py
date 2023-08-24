@@ -55,8 +55,7 @@ def send_work_days_as_one_archive(batches, companies, min_date, max_date):
         memory_file,
         mimetype="zip",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename="rapport_activités.zip",
+        download_name="rapport_activités.zip",
     )
 
 
