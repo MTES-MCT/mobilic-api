@@ -157,7 +157,7 @@ def _clean_vehicle():
 
 @app.cli.command()
 def clean_vehicle():
-    print(f"Cleaning the duplicate vehicles")
+    print("Cleaning the duplicate vehicles")
     _clean_vehicle()
 
 
@@ -285,3 +285,12 @@ def command_send_never_active_companies_emails():
 
     send_never_active_companies_emails(datetime.datetime.now())
     app.logger.info("Ending send_lost_companies_emails task")
+
+
+@app.cli.command("load_company_stats", with_appcontext=True)
+def load_company_stats():
+    from app.services.load_company_stats import load_company_stats
+
+    app.logger.info("Process load_company_stats began")
+    load_company_stats()
+    app.logger.info("Process load_company_stats done")
