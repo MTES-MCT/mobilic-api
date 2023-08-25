@@ -19,16 +19,19 @@ from app.helpers.oauth.models import ThirdPartyApiKey
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
+from app.services.send_about_to_lose_certificate_emails import (
+    send_about_to_lose_certificate_emails,
+)
 from app.services.send_active_then_inactive_companies_emails import (
     send_active_then_inactive_companies_emails,
 )
-from app.services.send_about_to_lose_certificate_emails import (
-    send_about_to_lose_certificate_emails,
+from app.services.send_certifiate_compute_end_notification import (
+    send_certificate_compute_end_notification,
 )
 from app.services.send_lost_companies_emails import (
     send_never_active_companies_emails,
 )
-from config import TestConfig
+from config import TestConfig, MOBILIC_ENV
 
 
 @app.cli.command(with_appcontext=False)
@@ -249,6 +252,8 @@ def run_certificate(as_of_date=None):
     app.logger.info("Process send_active_then_inactive_companies_emails began")
     send_active_then_inactive_companies_emails(today)
     app.logger.info("Process send_active_then_inactive_companies_emails done")
+    if MOBILIC_ENV == "prod":
+        send_certificate_compute_end_notification()
 
 
 @app.cli.command("send_onboarding_emails", with_appcontext=True)
