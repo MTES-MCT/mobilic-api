@@ -40,7 +40,7 @@ def get_first_employee_invitation_date(company_id):
             Employment.company_id == company_id, ~Employment.has_admin_rights
         )
         .first()
-    )
+    )[0]
 
 
 def get_first_mission_validation_by_admin_date(company_id):
@@ -50,10 +50,10 @@ def get_first_mission_validation_by_admin_date(company_id):
         .filter(
             Mission.company_id == company_id,
             MissionValidation.is_admin,
-            Mission.user_id != Mission.submitter_id,
+            MissionValidation.user_id != MissionValidation.submitter_id,
         )
         .first()
-    )
+    )[0]
 
 
 def get_first_active_criteria_date(company_id):
@@ -64,7 +64,7 @@ def get_first_active_criteria_date(company_id):
             CompanyCertification.be_active,
         )
         .first()
-    )
+    )[0]
 
 
 def get_first_certification_date(company_id):
@@ -79,7 +79,7 @@ def get_first_certification_date(company_id):
             CompanyCertification.log_in_real_time,
         )
         .first()
-    )
+    )[0]
 
 
 STEPS = {
