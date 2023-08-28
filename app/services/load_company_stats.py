@@ -47,7 +47,11 @@ def get_first_mission_validation_by_admin_date(company_id):
     return (
         db.session.query(db.func.min(MissionValidation.creation_time))
         .join(Mission)
-        .filter(Mission.company_id == company_id, MissionValidation.is_admin)
+        .filter(
+            Mission.company_id == company_id,
+            MissionValidation.is_admin,
+            Mission.user_id != Mission.submitter_id,
+        )
         .first()
     )
 
