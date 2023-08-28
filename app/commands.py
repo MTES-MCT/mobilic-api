@@ -25,7 +25,7 @@ from app.services.send_about_to_lose_certificate_emails import (
 from app.services.send_active_then_inactive_companies_emails import (
     send_active_then_inactive_companies_emails,
 )
-from app.services.send_certifiate_compute_end_notification import (
+from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,
 )
 from app.services.send_lost_companies_emails import (

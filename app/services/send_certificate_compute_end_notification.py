@@ -23,7 +23,7 @@ def send_certificate_compute_end_notification():
     requests.post(
         app.config["MATTERMOST_WEBHOOK"],
         json=dict(
-            channel=app.config["MATTERMOST_SECONDARY_LOG_CHANNEL"],
+            channel=app.config["MATTERMOST_MAIN_CHANNEL"],
             username=f"Calcul des certificats - {MOBILIC_ENV.capitalize()}",
             icon_emoji=":robot:",
             attachments=[
