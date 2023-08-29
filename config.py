@@ -39,6 +39,9 @@ class Config:
     AC_USER_INFO_URL = os.environ.get("AC_USER_INFO_URL")
     AC_JWKS_INFO = os.environ.get("AC_JWKS_INFO")
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(days=7)
+    MATTERMOST_MAIN_CHANNEL = os.environ.get(
+        "MATTERMOST_MAIN_CHANNEL", "#startup-mobilic"
+    )
     MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
         "MATTERMOST_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
     )
