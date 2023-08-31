@@ -10,8 +10,12 @@ class CompanyStats(BaseModel):
         unique=True,
         nullable=False,
     )
-    company_creation_date = db.Column(db.Date, nullable=False)
-    first_employee_invitation_date = db.Column(db.Date, nullable=True)
-    first_mission_validation_by_admin_date = db.Column(db.Date, nullable=True)
-    first_active_criteria_date = db.Column(db.Date, nullable=True)
-    first_certification_date = db.Column(db.Date, nullable=True)
+    company_creation_date = db.Column(db.Date, nullable=False, index=True)
+    first_employee_invitation_date = db.Column(
+        db.Date, nullable=True, index=True
+    )
+    first_mission_validation_by_admin_date = db.Column(
+        db.Date, nullable=True, index=True
+    )
+    first_active_criteria_date = db.Column(db.Date, nullable=True, index=True)
+    first_certification_date = db.Column(db.Date, nullable=True, index=True)
