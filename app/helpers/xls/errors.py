@@ -3,7 +3,7 @@ from abc import ABC
 
 
 class IntegrityVerificationError(MobilicError, ABC):
-    pass
+    http_status_code = 200
 
 
 class InvalidXlsxFormat(IntegrityVerificationError):
