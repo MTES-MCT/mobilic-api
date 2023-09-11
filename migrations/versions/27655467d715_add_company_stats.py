@@ -1,7 +1,7 @@
 """add company stats
 
 Revision ID: 27655467d715
-Revises: aa3c6ff8cdb7
+Revises: 575d1a347d04
 Create Date: 2023-08-24 17:09:50.589698
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "27655467d715"
-down_revision = "aa3c6ff8cdb7"
+down_revision = "575d1a347d04"
 branch_labels = None
 depends_on = None
 
