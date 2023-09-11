@@ -54,7 +54,20 @@ def run_scenario_breach_rules():
         has_admin_rights=False,
     )
 
-    ## works 5 days before:
+    log_and_validate_mission(
+        mission_name="Mission très longue durée",
+        work_periods=[
+            [
+                get_time(how_many_days_ago=20, hour=6),
+                get_time(how_many_days_ago=18, hour=20),
+            ]
+        ],
+        vehicle=vehicle,
+        company=company,
+        employee=employee,
+    )
+
+    # works 5 days before:
     for i in range(5):
         log_and_validate_mission(
             mission_name=f"Mission Before {i}",
@@ -73,7 +86,7 @@ def run_scenario_breach_rules():
             employee=employee,
         )
 
-    ## MISSION Duree maximale du travail de jour
+    # MISSION Duree maximale du travail de jour
     log_and_validate_mission(
         mission_name="Mission Duree maximale du travail de jour - NATINF 11292",
         work_periods=[
@@ -95,7 +108,7 @@ def run_scenario_breach_rules():
         employee=employee,
     )
 
-    ## MISSION 1
+    # MISSION 1
     log_and_validate_mission(
         mission_name="Mission Pas assez de pause sur 24h - NATINF 20525",
         work_periods=[
@@ -112,7 +125,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION PAS DE PAUSE
+    # MISSION PAS DE PAUSE
     log_and_validate_mission(
         mission_name="Mission Pas de pause - Sanction Du Code Du Travail",
         work_periods=[
@@ -125,7 +138,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 3
+    # MISSION 3
     log_and_validate_mission(
         mission_name="Mission 3",
         work_periods=[
@@ -142,7 +155,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 4
+    # MISSION 4
     log_and_validate_mission(
         mission_name="Mission 4",
         work_periods=[
@@ -155,7 +168,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 5
+    # MISSION 5
     log_and_validate_mission(
         mission_name="Mission 5",
         work_periods=[
@@ -172,7 +185,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 6
+    # MISSION 6
     log_and_validate_mission(
         mission_name="Mission 6",
         work_periods=[
@@ -185,7 +198,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION 7
+    # MISSION 7
     log_and_validate_mission(
         mission_name="Mission 7",
         work_periods=[
@@ -206,7 +219,7 @@ def run_scenario_breach_rules():
         company=company,
         employee=employee,
     )
-    ## MISSION Duree maximale du travail de jour
+    # MISSION Duree maximale du travail de jour
     log_and_validate_mission(
         mission_name="Mission Duree maximale du travail de nuit NATINF 32083",
         work_periods=[
