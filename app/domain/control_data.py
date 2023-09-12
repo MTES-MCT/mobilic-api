@@ -20,7 +20,7 @@ def convert_extra_datetime_to_user_tz(extra, user_id):
     timezone = pytz.timezone(controlled_user.timezone_name)
 
     for key in EXTRA_DATETIME_FIELDS:
-        if not key in extra:
+        if key not in extra:
             continue
         datetime_utc_str = extra.get(key)
         datetime_utc = datetime.datetime.fromisoformat(
