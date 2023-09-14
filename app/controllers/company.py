@@ -488,6 +488,7 @@ def download_tachograph_files(
     company_ids,
     min_date,
     max_date,
+    employee_version=False,
     with_digital_signatures=False,
     user_ids=None,
 ):
@@ -502,11 +503,11 @@ def download_tachograph_files(
         max_date=max_date,
         scope=scope,
         with_signatures=with_digital_signatures,
+        employee_version=employee_version,
     )
     return send_file(
         archive,
         mimetype="application/zip",
         as_attachment=True,
-        cache_timeout=0,
-        attachment_filename="fichiers_C1B.zip",
+        download_name="fichiers_C1B.zip",
     )

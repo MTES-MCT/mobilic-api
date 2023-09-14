@@ -14,6 +14,7 @@ from app.models import (
     Company,
     CompanyCertification,
     CompanyKnownAddress,
+    CompanyStats,
     ControllerRefreshToken,
     ControllerUser,
     Email,
@@ -31,6 +32,7 @@ from app.models import (
     UserReadToken,
     Vehicle,
     Team,
+    UserSurveyActions,
 )
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
@@ -79,6 +81,7 @@ def clean():
         """
     )
 
+    CompanyStats.query.delete()
     CompanyCertification.query.delete()
     CompanyKnownAddress.query.delete()
     Employment.query.delete()
@@ -97,6 +100,7 @@ def clean():
     ControllerUser.query.delete()
 
     ScenarioTesting.query.delete()
+    UserSurveyActions.query.delete()
     User.query.delete()
     db.session.commit()
 

@@ -1,21 +1,49 @@
-import json
+import datetime
 
 import graphene
+from graphene import ObjectType
+from graphene.types.generic import GenericScalar
 
 from app.data_access.control_bulletin import ControlBulletinFields
+from app.data_access.employment import EmploymentOutput
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
+from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
+from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.models import RegulationCheck
 from app.models.controller_control import ControllerControl, ControlType
-from app.data_access.employment import EmploymentOutput
+
+
+class ObservedInfraction(ObjectType):
+    date = graphene.Field(TimeStamp)
+    label = graphene.String(
+        description="Nom de la règle du seuil règlementaire"
+    )
+    description = graphene.String(
+        description="Description de la règle du seuil règlementaire"
+    )
+    type = graphene.String()
+    unit = graphene.String()
+    sanction = graphene.String()
+    extra = GenericScalar(
+        required=False,
+        description="Un dictionnaire de données additionnelles.",
+    )
+    is_reportable = graphene.Boolean(
+        description="Indique si la sanction est relevable par le contrôleur"
+    )
+    is_reported = graphene.Boolean(
+        description="Indique si le contrôleur a relevé l'alerte ou non"
+    )
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -71,40 +99,25 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     company_address = graphene.String()
     mission_address_begin = graphene.String()
     control_type = graphene.String()
-
-    def resolve_siren(self, info):
-        return (
-            json.loads(self.control_bulletin).get("siren")
-            if self.control_bulletin
-            else None
-        )
+    observed_infractions = graphene.List(
+        ObservedInfraction,
+        required=False,
+        description="Liste des infractions retenues",
+    )
+    nb_reported_infractions = graphene.Field(
+        graphene.Int,
+        required=False,
+        description="Nombre d'infractions retenues",
+    )
+    reported_infractions_last_update_time = graphene.Field(
+        TimeStamp, required=False
+    )
 
     def resolve_control_type(self, info):
         return ControlType(self.control_type).value
 
     def resolve_control_bulletin(self, info):
-        return (
-            json.loads(
-                self.control_bulletin,
-                object_hook=ControlBulletinFields.from_json,
-            )
-            if self.control_bulletin
-            else None
-        )
-
-    def resolve_company_address(self, info):
-        return (
-            json.loads(self.control_bulletin).get("company_address")
-            if self.control_bulletin
-            else None
-        )
-
-    def resolve_mission_address_begin(self, info):
-        return (
-            json.loads(self.control_bulletin).get("mission_address_begin")
-            if self.control_bulletin
-            else None
-        )
+        return self.control_bulletin
 
     def resolve_employments(
         self,
@@ -151,3 +164,42 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             )
             for day_, computations_ in regulation_computations_by_day.items()
         ]
+
+    def resolve_observed_infractions(self, info):
+        observed_infractions = []
+        if not self.observed_infractions:
+            return observed_infractions
+        for infraction in self.observed_infractions:
+            check_type = infraction.get("check_type")
+            regulation_check = RegulationCheck.query.filter(
+                RegulationCheck.type == check_type
+            ).first()
+
+            sanction = infraction.get("sanction")
+            label = regulation_check.label if regulation_check else ""
+            description = (
+                regulation_check.description if regulation_check else ""
+            )
+            if sanction == NATINF_32083:
+                label = label.replace("quotidien", "de nuit")
+                description = f"{description}. Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures"
+
+            extra = infraction.get("extra")
+            convert_extra_datetime_to_user_tz(extra, self.user_id)
+
+            observed_infractions.append(
+                ObservedInfraction(
+                    sanction=sanction,
+                    date=datetime.datetime.fromisoformat(
+                        infraction.get("date")
+                    ),
+                    is_reportable=infraction.get("is_reportable"),
+                    is_reported=infraction.get("is_reported"),
+                    label=label,
+                    description=description,
+                    type=infraction.get("check_type"),
+                    unit=infraction.get("check_unit"),
+                    extra=extra,
+                )
+            )
+        return observed_infractions

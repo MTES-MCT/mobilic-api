@@ -4,6 +4,7 @@ from .company import Company
 from .address import Address
 from .company_known_address import CompanyKnownAddress
 from .company_certification import CompanyCertification
+from .company_stats import CompanyStats
 from .vehicle import Vehicle
 from .mission import Mission
 from .location_entry import LocationEntry
@@ -27,3 +28,4 @@ from .regulation_computation import RegulationComputation
 from .team import Team
 from .company_certification import CompanyCertification
 from .scenario_testing import ScenarioTesting
+from .user_survey_actions import UserSurveyActions

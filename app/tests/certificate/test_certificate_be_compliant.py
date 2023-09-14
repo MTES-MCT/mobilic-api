@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, date
 
 from flask.ctx import AppContext
@@ -54,13 +53,11 @@ class TestCertificateBeCompliant(BaseTest):
             regulation_check=RegulationCheck.query.filter(
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ).first(),
-            extra=json.dumps(
-                {
-                    "min_daily_break_in_hours": 10,
-                    "breach_period_max_break_in_seconds": 10 * 60 * 60
-                    - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES + 2) * 60,
-                }
-            ),
+            extra={
+                "min_daily_break_in_hours": 10,
+                "breach_period_max_break_in_seconds": 10 * 60 * 60
+                - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES + 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -75,13 +72,11 @@ class TestCertificateBeCompliant(BaseTest):
             regulation_check=RegulationCheck.query.filter(
                 RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
             ).first(),
-            extra=json.dumps(
-                {
-                    "min_daily_break_in_hours": 10,
-                    "breach_period_max_break_in_seconds": 10 * 60 * 60
-                    - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES - 2) * 60,
-                }
-            ),
+            extra={
+                "min_daily_break_in_hours": 10,
+                "breach_period_max_break_in_seconds": 10 * 60 * 60
+                - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES - 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -97,13 +92,11 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
             ).first(),
-            extra=json.dumps(
-                {
-                    "max_work_range_in_hours": 10,
-                    "work_range_in_seconds": 10 * 60 * 60
-                    + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES + 2) * 60,
-                }
-            ),
+            extra={
+                "max_work_range_in_hours": 10,
+                "work_range_in_seconds": 10 * 60 * 60
+                + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES + 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -119,13 +112,11 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
             ).first(),
-            extra=json.dumps(
-                {
-                    "max_work_range_in_hours": 10,
-                    "work_range_in_seconds": 10 * 60 * 60
-                    + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES - 2) * 60,
-                }
-            ),
+            extra={
+                "max_work_range_in_hours": 10,
+                "work_range_in_seconds": 10 * 60 * 60
+                + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES - 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -141,13 +132,11 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
             ).first(),
-            extra=json.dumps(
-                {
-                    "min_break_time_in_minutes": 45,
-                    "total_break_time_in_seconds": 45 * 60
-                    - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES + 2) * 60,
-                }
-            ),
+            extra={
+                "min_break_time_in_minutes": 45,
+                "total_break_time_in_seconds": 45 * 60
+                - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES + 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -163,13 +152,11 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
             ).first(),
-            extra=json.dumps(
-                {
-                    "min_break_time_in_minutes": 45,
-                    "total_break_time_in_seconds": 45 * 60
-                    - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES - 2) * 60,
-                }
-            ),
+            extra={
+                "min_break_time_in_minutes": 45,
+                "total_break_time_in_seconds": 45 * 60
+                - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES - 2) * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -185,17 +172,15 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
             ).first(),
-            extra=json.dumps(
-                {
-                    "max_uninterrupted_work_in_hours": 8,
-                    "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
-                    + (
-                        COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
-                        + 2
-                    )
-                    * 60,
-                }
-            ),
+            extra={
+                "max_uninterrupted_work_in_hours": 8,
+                "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
+                + (
+                    COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
+                    + 2
+                )
+                * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -211,17 +196,15 @@ class TestCertificateBeCompliant(BaseTest):
                 RegulationCheck.type
                 == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
             ).first(),
-            extra=json.dumps(
-                {
-                    "max_uninterrupted_work_in_hours": 8,
-                    "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
-                    + (
-                        COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
-                        - 2
-                    )
-                    * 60,
-                }
-            ),
+            extra={
+                "max_uninterrupted_work_in_hours": 8,
+                "longest_uninterrupted_work_in_seconds": 8 * 60 * 60
+                + (
+                    COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
+                    - 2
+                )
+                * 60,
+            },
         )
         db.session.add(regulatory_alert)
         db.session.commit()

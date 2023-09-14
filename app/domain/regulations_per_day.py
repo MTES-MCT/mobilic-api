@@ -1,5 +1,6 @@
-import json
 from datetime import datetime, timedelta
+
+from sqlalchemy import desc
 
 from app import db
 from app.helpers.errors import InvalidResourceError
@@ -13,8 +14,6 @@ from app.helpers.time import to_datetime
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
-from sqlalchemy import desc
-
 
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
@@ -84,12 +83,9 @@ def compute_regulations_per_day(
         )
 
         if not success:
-            extra_json = None
-            if extra is not None:
-                extra_json = json.dumps(extra)
             regulatory_alert = RegulatoryAlert(
                 day=day,
-                extra=extra_json,
+                extra=extra,
                 submitter_type=submitter_type,
                 user=user,
                 regulation_check_id=regulation_check.id,

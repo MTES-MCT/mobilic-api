@@ -1,5 +1,4 @@
 import functools
-import json
 import math
 import multiprocessing
 from datetime import timedelta
@@ -13,7 +12,7 @@ from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
-from app.models.regulation_check import RegulationCheckType, RegulationCheck
+from app.models.regulation_check import RegulationCheckType
 
 IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
 IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
@@ -90,15 +89,13 @@ def compute_be_active(company, start, end):
 
 
 def is_alert_above_tolerance_limit(regulatory_alert):
-    extra_json = json.loads(regulatory_alert.extra)
-
     if (
         regulatory_alert.regulation_check.type
         == RegulationCheckType.MINIMUM_DAILY_REST
     ):
         return (
-            extra_json["min_daily_break_in_hours"] * 60
-            - extra_json["breach_period_max_break_in_seconds"] / 60
+            regulatory_alert.extra["min_daily_break_in_hours"] * 60
+            - regulatory_alert.extra["breach_period_max_break_in_seconds"] / 60
             > COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES
         )
 
@@ -107,8 +104,8 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
     ):
         return (
-            extra_json["work_range_in_seconds"] / 60
-            - extra_json["max_work_range_in_hours"] * 60
+            regulatory_alert.extra["work_range_in_seconds"] / 60
+            - regulatory_alert.extra["max_work_range_in_hours"] * 60
             > COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES
         )
 
@@ -117,8 +114,8 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
     ):
         return (
-            extra_json["min_break_time_in_minutes"]
-            - extra_json["total_break_time_in_seconds"] / 60
+            regulatory_alert.extra["min_break_time_in_minutes"]
+            - regulatory_alert.extra["total_break_time_in_seconds"] / 60
             > COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES
         )
 
@@ -127,8 +124,9 @@ def is_alert_above_tolerance_limit(regulatory_alert):
         == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
     ):
         return (
-            extra_json["longest_uninterrupted_work_in_seconds"] / 60
-            - extra_json["max_uninterrupted_work_in_hours"] * 60
+            regulatory_alert.extra["longest_uninterrupted_work_in_seconds"]
+            / 60
+            - regulatory_alert.extra["max_uninterrupted_work_in_hours"] * 60
             > COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
         )
 

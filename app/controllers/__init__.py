@@ -2,8 +2,10 @@ import graphene
 
 from app.controllers.certificate import (
     EditCompanyCommunicationSetting,
-    AddCertificateInfoResult,
+    SnoozeCertificateInfo,
+    AddScenarioTestingResult,
 )
+from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
 from app.controllers.authentication import (
@@ -35,6 +37,7 @@ from app.controllers.controller import (
     ControllerScanCode,
     ControllerSaveControlBulletin,
     ControllerChangeGrecoId,
+    ControllerSaveReportedInfractions,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.control_location import Query as ControlLocationQuery
@@ -245,6 +248,9 @@ class PrivateMutations(graphene.ObjectType):
 
     controller_scan_code = ControllerScanCode.Field()
     controller_save_control_bulletin = ControllerSaveControlBulletin.Field()
+    controller_save_reported_infractions = (
+        ControllerSaveReportedInfractions.Field()
+    )
     controller_add_control_note = AddControlNote.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
 
@@ -259,7 +265,9 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_communication_setting = (
         EditCompanyCommunicationSetting.Field()
     )
-    add_certificate_info_result = AddCertificateInfoResult.Field()
+    snooze_certificate_info = SnoozeCertificateInfo.Field()
+    add_scenario_testing_result = AddScenarioTestingResult.Field()
+    create_survey_action = CreateSurveyAction.Field()
 
 
 class Queries(

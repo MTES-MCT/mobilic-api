@@ -4,7 +4,7 @@ import sentry_sdk
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import Flask
-from flask_apispec import FlaskApiSpec
+from flask_apispec.extension import FlaskApiSpec
 from flask_compress import Compress
 from flask_cors import CORS
 from flask_migrate import Migrate
