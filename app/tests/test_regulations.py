@@ -6,6 +6,7 @@ from flask.ctx import AppContext
 
 from app import app, db
 from app.domain import regulations
+from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.log_activities import log_activity
 from app.domain.regulations_per_day import (
     NATINF_11292,
@@ -34,6 +35,7 @@ from app.seed.helpers import (
     get_date,
     get_datetime_tz,
     get_time,
+    get_time_no_timezone,
 )
 from app.services.get_regulation_checks import (
     RegulationCheckData,
@@ -88,6 +90,14 @@ class TestRegulations(BaseTest):
     def tearDown(self):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
+
+    def check_date(self, str_date, how_many_days_ago, hour, minute=0):
+        self.assertEqual(
+            str_date,
+            get_time_no_timezone(
+                how_many_days_ago, hour=hour, minute=minute
+            ).strftime("%Y-%m-%dT%H:%M:%S"),
+        )
 
     def _log_and_validate_mission(
         self, mission_name, company, reception_time, submitter, work_periods
@@ -179,7 +189,6 @@ class TestRegulations(BaseTest):
         self.assertIsNone(computation_done)
 
     def test_computation_for_non_empty_day(self):
-        self.employee
         how_many_days_ago = 2
 
         self._log_and_validate_mission(
@@ -323,15 +332,17 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=18, tz=FR_TIMEZONE),
+
+        self.check_date(
+            extra_info["breach_period_start"], how_many_days_ago, 18
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=18, tz=FR_TIMEZONE),
+        self.check_date(
+            extra_info["breach_period_end"], how_many_days_ago - 1, 18
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
@@ -368,15 +379,16 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=4),
+        self.check_date(
+            extra_info["breach_period_start"], how_many_days_ago, 4
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=4),
+        self.check_date(
+            extra_info["breach_period_end"], how_many_days_ago - 1, 4
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
@@ -432,15 +444,16 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=4),
+        self.check_date(
+            extra_info["breach_period_start"], how_many_days_ago, 4
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=4),
+        self.check_date(
+            extra_info["breach_period_end"], how_many_days_ago - 1, 4
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
@@ -482,14 +495,15 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago - 1, hour=6),
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
+        self.check_date(
+            extra_info["breach_period_start"], how_many_days_ago - 1, 6
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 2, hour=6),
+        self.check_date(
+            extra_info["breach_period_end"], how_many_days_ago - 2, 6
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"], 9 * HOUR
@@ -526,14 +540,15 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago, hour=13),
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
+        self.check_date(
+            extra_info["breach_period_start"], how_many_days_ago, 13
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago - 1, hour=13),
+        self.check_date(
+            extra_info["breach_period_end"], how_many_days_ago - 1, 13
         )
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"], 8 * HOUR
@@ -579,15 +594,12 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.day == day_start,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago=2, hour=8),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago=1, hour=8),
-        )
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
+        self.check_date(extra_info["breach_period_start"], 2, 8)
+        self.check_date(extra_info["breach_period_end"], 1, 8)
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
             5 * HOUR + 15 * MINUTE,
@@ -632,15 +644,12 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
         self.assertEqual(2, len(regulatory_alerts))
+
         extra_info = regulatory_alerts[1].extra
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_start"]),
-            get_time(how_many_days_ago=1, hour=1),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["breach_period_end"]),
-            get_time(how_many_days_ago=0, hour=1),
-        )
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
+        self.check_date(extra_info["breach_period_start"], 1, 1)
+        self.check_date(extra_info["breach_period_end"], 0, 1)
         self.assertEqual(
             extra_info["breach_period_max_break_in_seconds"],
             9 * HOUR + 30 * MINUTE,
@@ -710,18 +719,15 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 11 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=4),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=16),
-        )
+        self.check_date(extra_info["work_range_start"], how_many_days_ago, 4)
+        self.check_date(extra_info["work_range_end"], how_many_days_ago, 16)
         self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
     def test_max_work_day_time_by_employee_no_night_work_failure(self):
@@ -756,18 +762,15 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["night_work"], False)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=7),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=21),
-        )
+        self.check_date(extra_info["work_range_start"], how_many_days_ago, 7)
+        self.check_date(extra_info["work_range_end"], how_many_days_ago, 21)
         self.assertEqual(extra_info["sanction_code"], NATINF_11292)
 
     def test_max_work_day_time_by_admin_failure(self):
@@ -807,18 +810,15 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["night_work"], True)
         self.assertIsNotNone(extra_info["max_work_range_in_hours"])
         self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=4),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=17),
-        )
+        self.check_date(extra_info["work_range_start"], how_many_days_ago, 4)
+        self.check_date(extra_info["work_range_end"], how_many_days_ago, 17)
         self.assertEqual(extra_info["sanction_code"], NATINF_32083)
 
     def test_min_work_day_break_by_employee_success(self):
@@ -894,7 +894,10 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
         self.assertEqual(
             extra_info["total_break_time_in_seconds"], 30 * MINUTE
@@ -902,14 +905,8 @@ class TestRegulations(BaseTest):
         self.assertEqual(
             extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=15, tz=FR_TIMEZONE),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE),
-        )
+        self.check_date(extra_info["work_range_start"], how_many_days_ago, 15)
+        self.check_date(extra_info["work_range_end"], how_many_days_ago - 1, 1)
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
     def test_min_work_day_break_by_employee_failure_single_day(self):
@@ -972,7 +969,10 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, employee.id)
+
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
         self.assertEqual(
             extra_info["total_break_time_in_seconds"], 30 * MINUTE
@@ -980,14 +980,8 @@ class TestRegulations(BaseTest):
         self.assertEqual(
             extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
         )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=3, tz=FR_TIMEZONE),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=13, tz=FR_TIMEZONE),
-        )
+        self.check_date(extra_info["work_range_start"], how_many_days_ago, 3)
+        self.check_date(extra_info["work_range_end"], how_many_days_ago, 13)
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
     def test_min_work_day_break_on_two_days(self):
@@ -1101,23 +1095,26 @@ class TestRegulations(BaseTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
+
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(extra_info["max_uninterrupted_work_in_hours"], 6)
+
         self.assertEqual(
             extra_info["longest_uninterrupted_work_in_seconds"],
             6 * HOUR + 15 * MINUTE,
         )
-        self.assertEqual(
-            datetime.fromisoformat(
-                extra_info["longest_uninterrupted_work_start"]
-            ),
-            get_time(how_many_days_ago, hour=17),
+        self.check_date(
+            extra_info["longest_uninterrupted_work_start"],
+            how_many_days_ago,
+            17,
         )
-        self.assertEqual(
-            datetime.fromisoformat(
-                extra_info["longest_uninterrupted_work_end"]
-            ),
-            get_time(how_many_days_ago, hour=23, minute=15),
+        self.check_date(
+            extra_info["longest_uninterrupted_work_end"],
+            how_many_days_ago,
+            23,
+            15,
         )
         self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
 
@@ -1202,21 +1199,21 @@ class TestRegulations(BaseTest):
         self.assertIsNotNone(regulatory_alert)
 
         extra_info = regulatory_alert.extra
+        convert_extra_datetime_to_user_tz(extra_info, self.employee.id)
+
         self.assertEqual(
             extra_info["longest_uninterrupted_work_in_seconds"],
             7 * HOUR,
         )
-        self.assertEqual(
-            datetime.fromisoformat(
-                extra_info["longest_uninterrupted_work_start"]
-            ),
-            get_time(how_many_days_ago, hour=18),
+        self.check_date(
+            extra_info["longest_uninterrupted_work_start"],
+            how_many_days_ago,
+            18,
         )
-        self.assertEqual(
-            datetime.fromisoformat(
-                extra_info["longest_uninterrupted_work_end"]
-            ),
-            get_time(how_many_days_ago - 1, hour=1, minute=0),
+        self.check_date(
+            extra_info["longest_uninterrupted_work_end"],
+            how_many_days_ago - 1,
+            1,
         )
 
     def test_use_latest_regulation_check_by_type(self):

@@ -48,6 +48,11 @@ def get_time(how_many_days_ago, hour, minute=0, tz=FR_TIMEZONE):
     return get_datetime_tz(day.year, day.month, day.day, hour, minute, tz)
 
 
+def get_time_no_timezone(how_many_days_ago, hour, minute=0):
+    day = get_date(how_many_days_ago)
+    return datetime.datetime(day.year, day.month, day.day, hour, minute)
+
+
 def get_datetime_tz(year, month=1, day=1, hour=0, minutes=0, tz=FR_TIMEZONE):
     return from_tz(datetime.datetime(year, month, day, hour, minutes), tz)
 

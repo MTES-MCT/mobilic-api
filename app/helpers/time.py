@@ -1,6 +1,7 @@
 import calendar
 import datetime
 
+import pytz
 from dateutil.relativedelta import relativedelta
 from dateutil.tz import gettz
 from jours_feries_france import JoursFeries
@@ -163,3 +164,7 @@ def previous_month_period(today):
     start = previous_month.replace(day=1)
     end = end_of_month(previous_month)
     return start, end
+
+
+def as_utc(datetime):
+    return datetime.astimezone(pytz.timezone("UTC"))

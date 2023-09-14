@@ -10,7 +10,7 @@ from app.helpers.regulations_utils import (
     ComputationResult,
     Break,
 )
-from app.helpers.time import to_datetime
+from app.helpers.time import to_datetime, as_utc
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.models.regulatory_alert import RegulatoryAlert
@@ -170,15 +170,15 @@ def check_min_daily_rest(
 
             if len(activities_not_covered_by_long_break) > 0:
                 success = False
-                extra[
-                    "breach_period_start"
-                ] = activities_not_covered_by_long_break[
-                    0
-                ].start_time.isoformat()
+                extra["breach_period_start"] = as_utc(
+                    activities_not_covered_by_long_break[0].start_time
+                ).isoformat()
                 breach_period_end = activities_not_covered_by_long_break[
                     0
                 ].start_time + timedelta(days=1)
-                extra["breach_period_end"] = breach_period_end.isoformat()
+                extra["breach_period_end"] = as_utc(
+                    breach_period_end
+                ).isoformat()
                 extra[
                     "breach_period_max_break_in_seconds"
                 ] = get_longest_inner_break(
@@ -251,8 +251,8 @@ def check_max_work_day_time(activity_groups, regulation_check):
             night_work=night_work,
             max_work_range_in_hours=max_time_in_hours,
             work_range_in_seconds=worked_time_in_seconds,
-            work_range_start=group.start_time.isoformat(),
-            work_range_end=group.end_time.isoformat(),
+            work_range_start=as_utc(group.start_time).isoformat(),
+            work_range_end=as_utc(group.end_time).isoformat(),
         )
         if worked_time_in_seconds > max_time_in_hours * HOUR:
             extra["sanction_code"] = (
@@ -301,11 +301,11 @@ def check_min_work_day_break(activity_groups, regulation_check):
         extra = dict(
             total_break_time_in_seconds=total_break_time_s,
             work_range_in_seconds=total_work_duration_s,
-            work_range_start=activity_groups[0].start_time.isoformat(),
+            work_range_start=as_utc(activity_groups[0].start_time).isoformat(),
             sanction_code=SANCTION_CODE,
         )
         if latest_work_time is not None:
-            extra["work_range_end"] = latest_work_time.isoformat()
+            extra["work_range_end"] = as_utc(latest_work_time).isoformat()
 
         if (
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
@@ -378,10 +378,12 @@ def check_max_uninterrupted_work_time(activity_groups, regulation_check):
                 extra[
                     "longest_uninterrupted_work_in_seconds"
                 ] = current_uninterrupted_work_duration
-                extra[
-                    "longest_uninterrupted_work_start"
-                ] = current_uninterrupted_start.isoformat()
-                extra["longest_uninterrupted_work_end"] = end_time.isoformat()
+                extra["longest_uninterrupted_work_start"] = as_utc(
+                    current_uninterrupted_start
+                ).isoformat()
+                extra["longest_uninterrupted_work_end"] = as_utc(
+                    end_time
+                ).isoformat()
                 extra["sanction_code"] = SANCTION_CODE
                 return ComputationResult(success=False, extra=extra)
             latest_work_time = activity.end_time
