@@ -10,6 +10,7 @@ from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
+from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
 from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.graphene_types import (
@@ -183,6 +184,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                 label = label.replace("quotidien", "de nuit")
                 description = f"{description}. Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures"
 
+            extra = infraction.get("extra")
+            convert_extra_datetime_to_user_tz(extra, self.user_id)
+
             observed_infractions.append(
                 ObservedInfraction(
                     sanction=sanction,
@@ -195,7 +199,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                     description=description,
                     type=infraction.get("check_type"),
                     unit=infraction.get("check_unit"),
-                    extra=infraction.get("extra"),
+                    extra=extra,
                 )
             )
         return observed_infractions
