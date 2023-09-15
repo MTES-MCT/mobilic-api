@@ -14,6 +14,8 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
+import json
+
 
 class ControlType(enum.Enum):
     mobilic = "Mobilic"
@@ -119,33 +121,53 @@ class ControllerControl(BaseModel, RandomNineIntId):
         return [label.label for label in labels]
 
     def report_infractions(self):
-        regulatory_alerts = get_regulatory_alerts(
-            user_id=self.user.id,
-            start_date=self.history_start_date,
-            end_date=self.history_end_date,
-        )
         observed_infractions = []
-        for regulatory_alert in regulatory_alerts:
-            extra = regulatory_alert.extra
-            if not extra or not "sanction_code" in extra:
-                continue
-            sanction_code = extra.get("sanction_code")
-            is_reportable = "NATINF" in sanction_code
-            check_type = regulatory_alert.regulation_check.type
-            check_unit = regulatory_alert.regulation_check.unit.value
-            observed_infractions.append(
-                {
-                    "sanction": extra.get("sanction_code"),
-                    "extra": extra,
-                    "is_reportable": is_reportable,
-                    "date": regulatory_alert.day.isoformat(),
-                    "is_reported": is_reportable,
-                    "check_type": check_type,
-                    "check_unit": check_unit,
-                }
+
+        try:
+            regulatory_alerts = get_regulatory_alerts(
+                user_id=self.user.id,
+                start_date=self.history_start_date,
+                end_date=self.history_end_date,
             )
-        self.observed_infractions = observed_infractions
-        db.session.commit()
+
+            for regulatory_alert in regulatory_alerts:
+                extra = regulatory_alert.extra
+                if isinstance(extra, dict):
+                    if "sanction_code" not in extra:
+                        continue
+                    sanction_code = extra.get("sanction_code")
+
+                elif isinstance(extra, str):
+                    try:
+                        extra_dict = json.loads(extra)
+                        if "sanction_code" not in extra_dict:
+                            continue
+                        sanction_code = extra_dict.get("sanction_code")
+                    except json.JSONDecodeError:
+                        continue
+
+                sanction_code = extra.get("sanction_code")
+                is_reportable = "NATINF" in sanction_code
+                check_type = regulatory_alert.regulation_check.type
+                check_unit = regulatory_alert.regulation_check.unit.value
+
+                observed_infractions.append(
+                    {
+                        "sanction": extra.get("sanction_code"),
+                        "extra": extra,
+                        "is_reportable": is_reportable,
+                        "date": regulatory_alert.day.isoformat(),
+                        "is_reported": is_reportable,
+                        "check_type": check_type,
+                        "check_unit": check_unit,
+                    }
+                )
+
+            self.observed_infractions = observed_infractions
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            raise e
 
     @staticmethod
     def create_no_lic_control(controller_id):
