@@ -156,15 +156,11 @@ def process_control(control, bdc, doc, infractions):
         element_control, "nbjouractivites", str(control.nb_controlled_days)
     )
 
-    # Controle Technique de - de 3 mois
     # Boolean 0 ou 1
     # ?
     add_content_element(
         element_control, "default_Vehicule_MarchandiseDangereuse", str(0)
     )
-
-    # TODO
-    add_content_element(element_control, "rRecapInfraction", "")
 
     if len(infractions) > 0:
         infractions_element = ET.SubElement(
@@ -342,5 +338,6 @@ def send_control_as_greco_xml(control):
         temp_file.name,
         mimetype="application/xml",
         as_attachment=True,
-        download_name=f"MOB_{control.creation_time.strftime('%Y%m%d_%Hh%Mm')}_{control.id}.xml",
+        # TODO: file name should look like this
+        download_name=f"R84IC202309141451CCC-22-CCC.XML",
     )
