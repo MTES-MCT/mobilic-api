@@ -480,3 +480,46 @@ class TestDailyRest(RegulationsTest):
         self.assertEquals(
             0, extras[2].get("breach_period_max_break_in_seconds")
         )
+
+    def test_night_worker(self):
+        how_many_days_ago = 3
+        self._log_and_validate_mission(
+            mission_name="Mission de nuit",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=20),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=5),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=7),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=11),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=13),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=19),
+                ],
+            ],
+        )
+        regulatory_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(2, len(regulatory_alerts))
+
+        extras = [ra.extra for ra in regulatory_alerts]
+        self.assertEquals(
+            2 * HOUR, extras[0].get("breach_period_max_break_in_seconds")
+        )
+        self.assertEquals(
+            6 * HOUR, extras[1].get("breach_period_max_break_in_seconds")
+        )
