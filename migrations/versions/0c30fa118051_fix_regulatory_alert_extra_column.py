@@ -19,9 +19,9 @@ def upgrade():
     session = Session(bind=op.get_bind())
     session.execute(
         """
-            UPDATE regulatory_alert 
-            SET extra=(extra#>>'{}')::jsonb 
-            WHERE extra IS NOT NULL;
+            update regulatory_alert
+            set extra = substring(replace(extra::text, '\\"', '"'), 2, length(replace(extra::text, '\\"', '"')) - 2)::jsonb
+            where extra is not null;
         """
     )
 
@@ -30,8 +30,8 @@ def downgrade():
     session = Session(bind=op.get_bind())
     session.execute(
         """
-            UPDATE regulatory_alert
-            SET extra = to_jsonb(quote_literal(extra::text))
-            WHERE extra IS NOT NULL;
+            update regulatory_alert
+            set extra = to_json(extra::text)
+            where extra is not null;
         """
     )

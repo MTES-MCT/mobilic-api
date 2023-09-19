@@ -19,9 +19,9 @@ def upgrade():
     session = Session(bind=op.get_bind())
     session.execute(
         """
-            UPDATE controller_control 
-            SET control_bulletin=(control_bulletin#>>'{}')::jsonb 
-            WHERE control_bulletin IS NOT NULL;
+            update controller_control
+            set control_bulletin = substring(replace(control_bulletin::text, '\\"', '"'), 2, length(replace(control_bulletin::text, '\\"', '"')) - 2)::jsonb
+            where control_bulletin is not null;
         """
     )
 
@@ -30,8 +30,8 @@ def downgrade():
     session = Session(bind=op.get_bind())
     session.execute(
         """
-            UPDATE controller_control
-            SET control_bulletin = to_jsonb(quote_literal(control_bulletin::text))
-            WHERE control_bulletin IS NOT NULL;
+            update controller_control
+            set control_bulletin = to_json(control_bulletin::text)
+            where control_bulletin is not null;
         """
     )
