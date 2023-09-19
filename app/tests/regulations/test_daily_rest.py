@@ -446,3 +446,37 @@ class TestDailyRest(RegulationsTest):
             extra_info["breach_period_max_break_in_seconds"],
             9 * HOUR + 30 * MINUTE,
         )
+
+    def test_daily_rest_no_rest_extra_data(self):
+        how_many_days_ago = 5
+        self._log_and_validate_mission(
+            mission_name="Longue mission",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=6),
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=20),
+                ],
+            ],
+        )
+        regulatory_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(3, len(regulatory_alerts))
+
+        extras = [ra.extra for ra in regulatory_alerts]
+        self.assertEquals(
+            0, extras[0].get("breach_period_max_break_in_seconds")
+        )
+        self.assertEquals(
+            0, extras[1].get("breach_period_max_break_in_seconds")
+        )
+        self.assertEquals(
+            0, extras[2].get("breach_period_max_break_in_seconds")
+        )
