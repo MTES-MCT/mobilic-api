@@ -1,7 +1,7 @@
 """backfills observed_infractions for mobilic controls
 
 Revision ID: 575d1a347d04
-Revises: aa3c6ff8cdb7
+Revises: 27655467d715
 Create Date: 2023-09-05 10:33:30.873552
 
 """
@@ -12,7 +12,7 @@ from app.models.controller_control import ControllerControl
 
 # revision identifiers, used by Alembic.
 revision = "575d1a347d04"
-down_revision = "aa3c6ff8cdb7"
+down_revision = "27655467d715"
 branch_labels = None
 depends_on = None
 
