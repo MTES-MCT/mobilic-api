@@ -299,3 +299,49 @@ class TestWorkDayBreak(RegulationsTest):
             4 * HOUR + 2 * HOUR + 58 * MINUTE,
             extra.get("work_range_in_seconds"),
         )
+
+    def test_mission_with_break_the_day_before(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=22, minute=45
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=45
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=3,
+                        minute=0,
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=3,
+                        minute=15,
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=6,
+                        minute=45,
+                    ),
+                ],
+            ],
+        )
+
+        regulatory_alerts = self._get_regulatory_alerts_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        )
+        # Should have 0 alerts because we have 1 hour break in total
+        self.assertEqual(0, len(regulatory_alerts))
