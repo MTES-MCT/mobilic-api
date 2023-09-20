@@ -2,12 +2,10 @@ from datetime import datetime
 
 from app.domain.regulations_per_day import SANCTION_CODE
 from app.helpers.regulations_utils import HOUR, MINUTE
-from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert, User
 from app.models.activity import ActivityType
-from app.models.regulation_check import RegulationCheckType, RegulationCheck
+from app.models.regulation_check import RegulationCheckType
 from app.seed.helpers import get_time, get_date
-from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
+from app.tests.regulations import RegulationsTest
 
 
 class TestUninterruptedWorkTime(RegulationsTest):
@@ -37,16 +35,10 @@ class TestUninterruptedWorkTime(RegulationsTest):
         )
 
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME, day_start
+        )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
     def test_max_uninterrupted_work_time_by_employee_failure(self):
@@ -74,16 +66,10 @@ class TestUninterruptedWorkTime(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME, day_start
+        )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["max_uninterrupted_work_in_hours"], 6)
@@ -135,12 +121,9 @@ class TestUninterruptedWorkTime(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME, day_start
+        )
         self.assertIsNone(regulatory_alert)
 
     def test_ko_uninterrupted_work_on_two_days(self):
@@ -173,16 +156,9 @@ class TestUninterruptedWorkTime(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME, day_start
+        )
         self.assertIsNotNone(regulatory_alert)
 
         extra_info = regulatory_alert.extra

@@ -2,12 +2,10 @@ from datetime import datetime
 
 from app.domain.regulations_per_day import NATINF_20525
 from app.helpers.regulations_utils import HOUR, MINUTE
-from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import FR_TIMEZONE
-from app.models import User, RegulatoryAlert
-from app.models.regulation_check import RegulationCheckType, RegulationCheck
+from app.models.regulation_check import RegulationCheckType
 from app.seed.helpers import get_time, get_date
-from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
+from app.tests.regulations import RegulationsTest
 
 
 class TestDailyRest(RegulationsTest):
@@ -50,13 +48,9 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertIsNone(regulatory_alert)
 
     def test_min_daily_rest_by_employee_success_exact_min_rest(self):
@@ -82,13 +76,10 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
+
         self.assertIsNone(regulatory_alert)
 
     def test_min_daily_rest_by_employee_failure_one_minute(self):
@@ -116,13 +107,10 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
@@ -161,13 +149,10 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
@@ -225,13 +210,9 @@ class TestDailyRest(RegulationsTest):
             work_periods=work_periods,
         )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_daily_break_in_hours"], 10)
@@ -275,13 +256,9 @@ class TestDailyRest(RegulationsTest):
             ],
         )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(
@@ -316,16 +293,11 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        day_start = get_date(how_many_days_ago)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST, day_start
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(
@@ -371,14 +343,9 @@ class TestDailyRest(RegulationsTest):
             ],
         )
         day_start = get_date(2)
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-            RegulatoryAlert.day == day_start,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST, day_start
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(
@@ -425,13 +392,10 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
+
+        regulatory_alerts = self._get_regulatory_alerts_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertEqual(2, len(regulatory_alerts))
         extra_info = regulatory_alerts[1].extra
         self.assertEqual(
@@ -461,13 +425,9 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
+        regulatory_alerts = self._get_regulatory_alerts_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertEqual(3, len(regulatory_alerts))
 
         extras = [ra.extra for ra in regulatory_alerts]
@@ -507,13 +467,9 @@ class TestDailyRest(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type == RegulationCheckType.MINIMUM_DAILY_REST
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
+        regulatory_alerts = self._get_regulatory_alerts_employee(
+            RegulationCheckType.MINIMUM_DAILY_REST
+        )
         self.assertEqual(2, len(regulatory_alerts))
 
         extras = [ra.extra for ra in regulatory_alerts]

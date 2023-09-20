@@ -4,8 +4,7 @@ from app import db
 from app.domain.log_activities import log_activity
 from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
-from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert, User, RegulationCheck, Mission
+from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheckType
 from app.seed.helpers import (
@@ -13,7 +12,7 @@ from app.seed.helpers import (
     AuthenticatedUserContext,
     get_datetime_tz,
 )
-from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
+from app.tests.regulations import RegulationsTest
 
 
 class TestWeeklyRules(RegulationsTest):
@@ -48,14 +47,9 @@ class TestWeeklyRules(RegulationsTest):
                     ],
                 ],
             )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+        )
         self.assertIsNone(regulatory_alert)
 
     def test_compute_regulations_per_week_too_many_days(self):
@@ -111,14 +105,9 @@ class TestWeeklyRules(RegulationsTest):
                         for_user=employee,
                     )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+        )
         self.assertIsNotNone(regulatory_alert)
         self.assertEqual(regulatory_alert.day, date(2022, 7, 11))
         extra_info = regulatory_alert.extra
@@ -202,14 +191,9 @@ class TestWeeklyRules(RegulationsTest):
                 submitter=employee, mission=mission_final, for_user=employee
             )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+        )
         self.assertIsNotNone(regulatory_alert)
         self.assertEqual(regulatory_alert.day, date(2022, 7, 18))
         extra_info = regulatory_alert.extra

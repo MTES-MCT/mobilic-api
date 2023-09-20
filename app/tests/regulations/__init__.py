@@ -3,7 +3,8 @@ from flask.ctx import AppContext
 from app import app, db
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.models import Mission
+from app.helpers.submitter_type import SubmitterType
+from app.models import Mission, RegulatoryAlert, User, RegulationCheck
 from app.models.activity import ActivityType
 from app.seed import (
     CompanyFactory,
@@ -89,3 +90,24 @@ class RegulationsTest(BaseTest):
                 submitter=submitter, mission=mission, for_user=submitter
             )
         return mission
+
+    def _get_regulatory_alert_employee(self, alert_type, day=None):
+        query = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == alert_type
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        )
+        if day:
+            query = query.filter(RegulatoryAlert.day == day)
+        return query.one_or_none()
+
+    def _get_regulatory_alerts_employee(self, alert_type):
+        return RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == alert_type
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()

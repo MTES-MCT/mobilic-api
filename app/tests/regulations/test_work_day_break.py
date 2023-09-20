@@ -5,13 +5,12 @@ from app.domain.log_activities import log_activity
 from app.domain.regulations_per_day import SANCTION_CODE
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import MINUTE, HOUR
-from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import FR_TIMEZONE
-from app.models import RegulatoryAlert, RegulationCheck, User, Mission
+from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheckType
 from app.seed.helpers import get_date, get_time, AuthenticatedUserContext
-from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
+from app.tests.regulations import RegulationsTest
 
 
 class TestWorkDayBreak(RegulationsTest):
@@ -40,16 +39,10 @@ class TestWorkDayBreak(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK, day_start
+        )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
     def test_min_work_day_break_by_employee_failure(self):
@@ -77,16 +70,10 @@ class TestWorkDayBreak(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK, day_start
+        )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
@@ -155,16 +142,10 @@ class TestWorkDayBreak(RegulationsTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK, day_start
+        )
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
@@ -210,15 +191,9 @@ class TestWorkDayBreak(RegulationsTest):
         )
         day_start = get_date(how_many_days_ago)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK, day_start
+        )
         self.assertIsNone(regulatory_alert)
 
     def test_very_long_mission_has_correct_extra(self):
@@ -236,14 +211,9 @@ class TestWorkDayBreak(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
+        regulatory_alerts = self._get_regulatory_alerts_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        )
         self.assertEqual(3, len(regulatory_alerts))
 
         extras = [ra.extra for ra in regulatory_alerts]
@@ -272,13 +242,60 @@ class TestWorkDayBreak(RegulationsTest):
                 ],
             ],
         )
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        )
+        extra = regulatory_alert.extra
+        self.assertEqual(30, extra.get("min_break_time_in_minutes"))
+
+    def test_long_mission_over_two_days_has_correct_trigger(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=5),
+                ],
+            ],
+        )
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        )
         extra = regulatory_alert.extra
         self.assertEqual(45, extra.get("min_break_time_in_minutes"))
+
+    def test_two_missions_over_two_days_has_correct_extra(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=58
+                    ),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=0),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=4),
+                ],
+            ],
+        )
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        )
+        extra = regulatory_alert.extra
+        self.assertEqual(30, extra.get("min_break_time_in_minutes"))
+        self.assertEqual(
+            4 * HOUR + 2 * HOUR + 58 * MINUTE,
+            extra.get("work_range_in_seconds"),
+        )
