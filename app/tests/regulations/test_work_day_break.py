@@ -256,3 +256,29 @@ class TestWorkDayBreak(RegulationsTest):
         self.assertEqual(
             (18 + 24 + 20) * HOUR, extras[2].get("work_range_in_seconds")
         )
+
+    def test_mission_over_two_days_has_correct_trigger(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=22),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=5),
+                ],
+            ],
+        )
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+            ),
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        extra = regulatory_alert.extra
+        self.assertEqual(45, extra.get("min_break_time_in_minutes"))
