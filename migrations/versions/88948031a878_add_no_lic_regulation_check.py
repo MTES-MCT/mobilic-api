@@ -58,7 +58,9 @@ def fill_new_regulation_check():
 
 
 def upgrade():
-    op.alter_column("regulation_check", "regulation_rule", nullable=True)
+    op.execute(
+        "ALTER TABLE regulation_check ALTER COLUMN regulation_rule DROP NOT NULL"
+    )
 
     op.execute(
         "ALTER TABLE regulation_check DROP CONSTRAINT IF EXISTS regulationchecktype"
@@ -100,4 +102,6 @@ def downgrade():
         ),
         nullable=False,
     )
-    op.alter_column("regulation_check", "regulation_rule", nullable=False)
+    op.execute(
+        "ALTER TABLE regulation_check ALTER COLUMN regulation_rule SET NOT NULL"
+    )
