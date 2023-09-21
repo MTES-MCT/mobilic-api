@@ -13,6 +13,7 @@ from app.domain.permissions import (
     check_actor_can_edit_activity,
     check_actor_can_log_without_mission_validation,
 )
+
 from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.authorization import (
     with_authorization_policy,
