@@ -6,7 +6,7 @@ from app import db
 from app.domain.log_activities import log_activity
 from app.domain.regulations_per_day import NATINF_32083, NATINF_11292
 from app.domain.validation import validate_mission
-from app.helpers.regulations_utils import HOUR
+from app.helpers.regulations_utils import HOUR, MINUTE
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheckType
@@ -220,5 +220,90 @@ class TestMaximumWorkDayTime(RegulationsTest):
         day_start = get_date(how_many_days_ago)
         regulatory_alert = self._get_regulatory_alert_employee(
             RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME, day_start
+        )
+        self.assertIsNone(regulatory_alert)
+
+    def test_mission_over_two_days(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=0),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=2),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=3),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=7),
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=8),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=10,
+                        minute=30,
+                    ),
+                ],
+            ],
+        )
+
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+        )
+        self.assertIsNotNone(regulatory_alert)
+        extra = regulatory_alert.extra
+        self.assertTrue(extra.get("night_work"))
+        self.assertEqual(
+            10 * HOUR + 30 * MINUTE, extra.get("work_range_in_seconds")
+        )
+
+    def test_work_morning_and_nights_with_no_alert(self):
+        how_many_days_ago = 4
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=9),
+                ],
+            ],
+        )
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=22),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=4),
+                ],
+            ],
+        )
+        self._log_and_validate_mission(
+            mission_name="",
+            company=self.company,
+            reception_time=datetime.now(),
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=22),
+                    get_time(how_many_days_ago=how_many_days_ago - 2, hour=3),
+                ],
+            ],
+        )
+        regulatory_alert = self._get_regulatory_alert_employee(
+            RegulationCheckType.MAXIMUM_WORK_DAY_TIME
         )
         self.assertIsNone(regulatory_alert)
