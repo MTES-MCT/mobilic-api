@@ -106,34 +106,36 @@ def clean_current_alerts(
     week_compute_end,
     submitter_type,
 ):
-    ra_alias = aliased(RegulatoryAlert)
-
     condition_day = and_(
-        ra_alias.regulation_check.has(RegulationCheck.unit == "day"),
-        ra_alias.day >= day_compute_start,
-        ra_alias.day <= day_compute_end,
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.unit == UnitType.DAY
+        ),
+        RegulatoryAlert.day >= day_compute_start,
+        RegulatoryAlert.day <= day_compute_end,
     )
 
     condition_week = and_(
-        ra_alias.regulation_check.has(RegulationCheck.unit == "week"),
-        ra_alias.day >= week_compute_start,
-        ra_alias.day <= week_compute_end,
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.unit == UnitType.WEEK
+        ),
+        RegulatoryAlert.day >= week_compute_start,
+        RegulatoryAlert.day <= week_compute_end,
     )
 
     combined_condition = or_(condition_day, condition_week)
 
     id_to_delete = (
-        db.session.query(ra_alias.id)
+        db.session.query(RegulatoryAlert.id)
         .filter(
             combined_condition,
-            ra_alias.user == user,
-            ra_alias.submitter_type == submitter_type,
+            RegulatoryAlert.user == user,
+            RegulatoryAlert.submitter_type == submitter_type,
         )
         .all()
     )
 
-    db.session.query(ra_alias).filter(
-        ra_alias.id.in_([item.id for item in id_to_delete])
+    db.session.query(RegulatoryAlert).filter(
+        RegulatoryAlert.id.in_([item.id for item in id_to_delete])
     ).delete(synchronize_session=False)
 
 
