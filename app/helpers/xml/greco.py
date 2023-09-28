@@ -1,4 +1,3 @@
-import json
 import tempfile
 import xml.etree.cElementTree as ET
 from dataclasses import dataclass
@@ -60,11 +59,14 @@ def process_control(control, bdc, doc, infractions):
         "lieuDepartement_Intitule",
         bdc.get("location_department", ""),
     )
+
+    departement_code = str(control_location.department).zfill(2)
     add_content_element(
         element_control,
         "lieuDepartement_Code",
-        str(control_location.department),
+        departement_code,
     )
+
     add_content_element(element_control, "lieuVoie", "")
     add_content_element(
         element_control, "lieuDescription", control_location.label
@@ -174,18 +176,23 @@ def process_control(control, bdc, doc, infractions):
                 ET.SubElement(infractions_element, "id"), "DbValue"
             ).text = r.id
 
+    controller_name = f"{controller.first_name} {controller.last_name}"
+    initials = "".join(
+        [part[0].capitalize() for part in controller_name.split()]
+    )
+    return f"R{departement_code}{initials}{control.creation_time.strftime('%Y%m%d%H%M')}{control.vehicle_registration_number}.xml"
+
 
 def process_company(control, bdc, doc):
     element_company = ET.SubElement(doc, "Entreprise")
-    # TODO
     add_content_element(element_company, "raisonSociale", control.company_name)
     add_content_element(element_company, "numeroSIREN", bdc.get("siren", ""))
     add_content_element(
         element_company, "adresseLigne1", bdc.get("company_address", "")
     )
-    # add_content_element(element_company, "adresseLigne2", "")
-    # add_content_element(element_company, "adresseCPostal", "")
-    # add_content_element(element_company, "adresseVille", "")
+    add_content_element(element_company, "adresseLigne2", "")
+    add_content_element(element_company, "adresseCPostal", "")
+    add_content_element(element_company, "adresseVille", "")
     add_content_element(
         element_company, "licenceComNumero", bdc.get("license_number", "")
     )
@@ -194,26 +201,26 @@ def process_company(control, bdc, doc):
         "licenceComCopieNumero",
         bdc.get("license_copy_number", ""),
     )
-    # add_content_element(element_company, "licenceIntNumero", "")
-    # add_content_element(element_company, "licenceIntCopieNumero", "")
-    # add_content_element(element_company, "numeroNic", "")
-    # add_content_element(element_company, "typeActivite", "")
-    # add_content_element(element_company, "modeFonctionnement", "")
-    # add_content_element(element_company, "contactFonction", "")
-    # add_content_element(element_company, "contactNom", "")
-    # add_content_element(element_company, "contactPrenom", "")
-    # add_content_element(element_company, "contactTitre", "")
-    # add_content_element(element_company, "dirigeantNom", "")
-    # add_content_element(element_company, "dirigeantPrenom", "")
-    # add_content_element(element_company, "pays", "FR - France")
-    # add_content_element(element_company, "pays_ID", "FR")
-    # add_content_element(element_company, "resultatGrecoCommunautaire", "")
-    # add_content_element(element_company, "resultatGrecoInterieure", "")
-    # add_content_element(element_company, "ent_LicenceComInconnue", "")
-    # add_date_element(element_company, "ent_LicenceComValidite", date(1899, 12, 30))
-    # add_content_element(element_company, "ent_AutoType", "")
-    # add_content_element(element_company, "ent_AutoNum", "")
-    # add_date_element(element_company, "ent_AutoDate", date(1899, 12, 30))
+    add_content_element(element_company, "licenceIntNumero", "")
+    add_content_element(element_company, "licenceIntCopieNumero", "")
+    add_content_element(element_company, "numeroNic", "")
+    add_content_element(element_company, "typeActivite", "")
+    add_content_element(element_company, "modeFonctionnement", "")
+    add_content_element(element_company, "contactFonction", "")
+    add_content_element(element_company, "contactNom", "")
+    add_content_element(element_company, "contactPrenom", "")
+    add_content_element(element_company, "contactTitre", "")
+    add_content_element(element_company, "dirigeantNom", "")
+    add_content_element(element_company, "dirigeantPrenom", "")
+    add_content_element(element_company, "pays", "FR - France")
+    add_content_element(element_company, "pays_ID", "FR")
+    add_content_element(element_company, "resultatGrecoCommunautaire", "")
+    add_content_element(element_company, "resultatGrecoInterieure", "")
+    add_content_element(element_company, "ent_LicenceComInconnue", "")
+    add_content_element(element_company, "ent_LicenceComValidite", "")
+    add_content_element(element_company, "ent_AutoType", "")
+    add_content_element(element_company, "ent_AutoNum", "")
+    add_content_element(element_company, "ent_AutoDate", "")
 
 
 def process_driver(control, bdc, doc, infractions):
@@ -232,6 +239,28 @@ def process_driver(control, bdc, doc, infractions):
     add_content_element(
         element_driver, "nationalite", bdc.get("user_nationality", "")
     )
+
+    add_content_element(element_driver, "permisNumero", "")
+    add_content_element(element_driver, "permisPays", "")
+    add_content_element(element_driver, "permisAutorite", "")
+    add_content_element(element_driver, "dCNumero", "")
+    add_content_element(element_driver, "dCDateFinValidite", "")
+    add_content_element(element_driver, "civilite", "")
+    add_content_element(element_driver, "permisCategorie", "")
+    add_content_element(element_driver, "octetcndlieunais", "")
+    add_content_element(element_driver, "octetcndloca", "")
+    add_content_element(element_driver, "octetcndadre", "")
+    add_content_element(element_driver, "octetcndcmpl", "")
+    add_content_element(element_driver, "octetcndcodp", "")
+    add_content_element(element_driver, "octetcndcomu", "")
+    add_content_element(element_driver, "datepermis", "")
+    add_content_element(element_driver, "fIMO", "")
+    add_content_element(element_driver, "fCOS", "")
+    add_content_element(element_driver, "aDR", "")
+    add_content_element(element_driver, "carteQualification_Numero", "")
+    add_content_element(element_driver, "carteQualification_FinValidite", "")
+    add_content_element(element_driver, "carteFormation_Disponible", "")
+    add_content_element(element_driver, "carteFormation_FinValidite", "")
 
     if len(infractions) > 0:
         infractions_element = ET.SubElement(
@@ -256,12 +285,54 @@ def process_vehicle(control, bdc, doc):
     )
     add_content_element(element_vehicle, "categoriePoids", "N3")
     add_content_element(element_vehicle, "categorieVehicule", "TRR")
+    add_content_element(element_vehicle, "remorque1Immatriculation", "")
+    add_content_element(element_vehicle, "remorque2Immatriculation", "")
+    add_content_element(element_vehicle, "remorque1Pays", "")
+    add_content_element(element_vehicle, "remorque2Pays", "")
+    add_content_element(element_vehicle, "proprietaireSIREN", "")
+    add_content_element(element_vehicle, "proprietaireRaisonSociale", "")
     add_content_element(element_vehicle, "marchandiseDangereuse", str(0))
     add_content_element(
         element_vehicle, "provenance", bdc.get("mission_address_begin", "")
     )
     add_content_element(
         element_vehicle, "destination", bdc.get("mission_address_end", "")
+    )
+    add_content_element(element_vehicle, "remorque3Immatriculation", "")
+    add_content_element(element_vehicle, "remorque3Pays", "")
+    add_content_element(element_vehicle, "typeRemorque", "")
+    add_content_element(element_vehicle, "silhouette", "")
+    add_content_element(element_vehicle, "remorque1VIN", "")
+    add_content_element(element_vehicle, "remorque2VIN", "")
+    add_content_element(element_vehicle, "remorque3VIN", "")
+    add_content_element(element_vehicle, "marque", "")
+    add_content_element(element_vehicle, "remorque1Marque", "")
+    add_content_element(element_vehicle, "remorque2Marque", "")
+    add_content_element(element_vehicle, "remorque3Marque", "")
+    add_content_element(element_vehicle, "octetvehctrpoidvide", "")
+    add_content_element(element_vehicle, "octetvehctrptac", "")
+    add_content_element(element_vehicle, "octetvehctrptra", "")
+    add_content_element(
+        element_vehicle, "datePremiereMiseEnCirculation_Value", ""
+    )
+    add_content_element(
+        element_vehicle, "dateProchaineControleTechnique_Value", ""
+    )
+    add_content_element(element_vehicle, "dateControleRemorque1_Value", "")
+    add_content_element(element_vehicle, "dateControleRemorque2_Value", "")
+    add_content_element(element_vehicle, "dateControleRemorque3_Value", "")
+    add_content_element(element_vehicle, "nbPersonnesOuNatureMarchandise", "")
+    add_content_element(element_vehicle, "vE_CatInterRemorque1", "")
+    add_content_element(element_vehicle, "vE_CatInterRemorque2", "")
+    add_content_element(element_vehicle, "vE_CatInterRemorque3", "")
+    add_content_element(
+        element_vehicle, "vE_DateCirculationRemorque1_Value", ""
+    )
+    add_content_element(
+        element_vehicle, "vE_DateCirculationRemorque2_Value", ""
+    )
+    add_content_element(
+        element_vehicle, "vE_DateCirculationRemorque3_Value", ""
     )
 
 
@@ -296,7 +367,7 @@ def process_infractions(control, doc, infractions):
     pass
 
 
-def get_greco_xml(control):
+def get_greco_xml_and_filename(control):
     bdc = control.control_bulletin
 
     infractions = []
@@ -313,22 +384,21 @@ def get_greco_xml(control):
                 label="Label infraction",
             )
         )
-    print(infractions)
 
     doc = ET.Element("ValueSpace")
-    process_control(control, bdc, doc, infractions)
+    filename = process_control(control, bdc, doc, infractions)
     process_company(control, bdc, doc)
     process_driver(control, bdc, doc, infractions)
     process_vehicle(control, bdc, doc)
     process_infractions(control, doc, infractions)
 
     xml_data = ET.tostring(doc)
-    return xml_data
+    return (xml_data, filename)
 
 
 def send_control_as_greco_xml(control):
 
-    xml_data = get_greco_xml(control)
+    (xml_data, file_name) = get_greco_xml_and_filename(control)
 
     temp_file = tempfile.NamedTemporaryFile(delete=True, suffix=".xml")
     with open(temp_file.name, "wb") as file:
@@ -338,6 +408,5 @@ def send_control_as_greco_xml(control):
         temp_file.name,
         mimetype="application/xml",
         as_attachment=True,
-        # TODO: file name should look like this
-        download_name=f"R84IC202309141451CCC-22-CCC.XML",
+        download_name=file_name,
     )
