@@ -3,6 +3,7 @@ from logging import StreamHandler
 from time import time
 
 import requests
+import sentry_sdk
 from flask import request, g, has_request_context
 from flask.logging import default_handler
 from logging_ldp.formatters import LDPGELFFormatter
@@ -90,6 +91,14 @@ def store_time_and_request_params():
         "client_id": client_id,
     }
     set_tag("client.id", client_id)
+
+
+@app.before_request
+def enrich_sentry_with_user_information():
+    if current_user:
+        sentry_sdk.set_user(
+            {"id": current_user.id, "email": current_user.email}
+        )
 
 
 @app.after_request
