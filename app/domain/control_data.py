@@ -13,6 +13,9 @@ EXTRA_DATETIME_FIELDS = [
 
 
 def convert_extra_datetime_to_user_tz(extra, user_id):
+    if not extra:
+        return
+
     if not any(key in extra for key in EXTRA_DATETIME_FIELDS):
         return
 
