@@ -351,16 +351,56 @@ class EditCompanySettings(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
             is_there_something_updated = False
+            updated_fields = []
+
             for field, value in kwargs.items():
                 if value is not None:
                     current_field_value = getattr(company, field)
                     if current_field_value != value:
                         is_there_something_updated = True
                         setattr(company, field, value)
+                        updated_fields.append(field)
 
             if not is_there_something_updated:
                 app.logger.warning("No setting was actually modified")
+
+            app.logger.info(f"Updated fields: {', '.join(updated_fields)}")
+
             db.session.add(company)
+
+        return company
+
+
+class UpdateCompanyName(AuthenticatedMutation):
+    class Arguments:
+        company_id = graphene.Int(
+            required=True, description="Identifiant de l'entreprise"
+        )
+        new_name = graphene.String(
+            required=True, description="Nouveau nom de l'entreprise"
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
+            kwargs["company_id"]
+        ),
+        error_message="You need to be a company admin to be able to edit company name",
+    )
+    def mutate(cls, _, info, company_id, new_name):
+        with atomic_transaction(commit_at_end=True):
+            company = Company.query.get(company_id)
+
+            current_name = company.usual_name
+            if current_name != new_name:
+                company.usual_name = new_name
+                db.session.add(company)
+                app.logger.info(
+                    f"Company name changed from {current_name} to {new_name}"
+                )
 
         return company
 

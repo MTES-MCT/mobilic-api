@@ -1,3 +1,4 @@
+from app.controllers.contacts import *
 import graphene
 
 from app.controllers.certificate import (
@@ -19,6 +20,7 @@ from app.controllers.company import (
     CompanySignUp,
     EditCompanySettings,
     CompanySoftwareRegistration,
+    UpdateCompanyName,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.control import AddControlNote
@@ -226,6 +228,7 @@ class Mutations(graphene.ObjectType):
         Employments, resolver=lambda root, info: Employments()
     )
     teams = graphene.Field(Teams, resolver=lambda root, info: Teams())
+    update_company_name = UpdateCompanyName.Field()
 
 
 class ProtectedMutations(graphene.ObjectType):
@@ -316,5 +319,3 @@ private_graphql_schema = graphene.Schema(
 protected_graphql_schema = graphene.Schema(
     query=ProtectedQueries, mutation=ProtectedMutations
 )
-
-from app.controllers.contacts import *
