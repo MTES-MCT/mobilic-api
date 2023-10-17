@@ -27,6 +27,9 @@ def generate_control_bulletin_pdf(control, controller_user):
         vehicle_registration_country=control.control_bulletin.get(
             "vehicle_registration_country"
         ),
+        is_vehicle_immobilized=control.control_bulletin.get(
+            "is_vehicle_immobilized"
+        ),
         transport_from=control.control_bulletin.get("mission_address_begin"),
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),

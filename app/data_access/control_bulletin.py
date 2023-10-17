@@ -18,3 +18,6 @@ class ControlBulletinFields(graphene.ObjectType):
     license_number = graphene.String(required=False)
     license_copy_number = graphene.String(required=False)
     observation = graphene.String(required=False)
+    is_vehicle_immobilized = graphene.Boolean(
+        required=False, default_value=False
+    )
