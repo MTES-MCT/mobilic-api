@@ -20,6 +20,7 @@ from app.models.activity import ActivityType
 
 MAX_VEHICLE_RECORDS = 200
 ACTIVITY_BYTES = 13776
+MAX_INT_TO_3_BYTES = 16000000
 
 
 class FileSpec(NamedTuple):
@@ -644,9 +645,17 @@ def build_vehicles_file(work_days):
     )
     for index, vr in enumerate(vehicle_records_to_write):
         ### - 3 bytes for the kilometer reading at the start
-        content.extend((vr.start_kilometer_reading or 0).to_bytes(3, "big"))
+        content.extend(
+            min(
+                (vr.start_kilometer_reading or 0), MAX_INT_TO_3_BYTES
+            ).to_bytes(3, "big")
+        )
         ### - 3 bytes for the kilometer reading at the end
-        content.extend((vr.end_kilometer_reading or 0).to_bytes(3, "big"))
+        content.extend(
+            min((vr.end_kilometer_reading or 0), MAX_INT_TO_3_BYTES).to_bytes(
+                3, "big"
+            )
+        )
         ### - 4 bytes for the start time
         content.extend(int(vr.start_time.timestamp()).to_bytes(4, "big"))
         ### - 4 for the end time
