@@ -13,7 +13,7 @@ from app.models import (
     Employment,
     Email,
     Mission,
-    User,
+    Activity,
 )
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models import Company, CompanyCertification
@@ -228,3 +228,14 @@ def get_admin_of_companies_without_activity(
             Employment.company.has(Company.creation_time > min_signup_date)
         )
     return query.all()
+
+
+def check_company_has_no_activities(company_id):
+    company_activities = (
+        Mission.query.join(Activity, Activity.mission_id == Mission.id)
+        .filter(Mission.company_id == company_id)
+        .filter(~Activity.is_dismissed)
+        .distinct()
+        .all()
+    )
+    return len(company_activities) == 0
