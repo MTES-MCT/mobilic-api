@@ -285,7 +285,8 @@
                                 <tr>
                                     {% for column in columns %}
                                         <th
-                                                style="background-color: {{ column.color }}; border-top: solid 1pt black;  {{ 'border-left: solid 1pt black;' if loop.first else ''}} {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}"
+                                                style="background-color: {{ column.color }}; border-top: solid 1pt black;  {{ 'border-left: solid 1pt black;' if loop.first else ''}} {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}
+                                                {% if apply_max_width_columns and column.max_width_px %} width: {{ column.max_width_px }}px; {% endif %}"
                                                 align="{{ 'right' if column.number else 'center' }}"
                                         >
                                             {{ column.label }}
