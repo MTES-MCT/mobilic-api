@@ -1,7 +1,7 @@
 """update regulation check descriptions
 
 Revision ID: 99c325b1b8c1
-Revises: dc0d42d537a6
+Revises: 30cee055a36e
 Create Date: 2023-10-19 18:02:18.886278
 
 """
@@ -13,7 +13,7 @@ from app.services.get_regulation_checks import get_regulation_checks
 
 # revision identifiers, used by Alembic.
 revision = "99c325b1b8c1"
-down_revision = "dc0d42d537a6"
+down_revision = "30cee055a36e"
 branch_labels = None
 depends_on = None
 
