@@ -1,7 +1,7 @@
 """Add churn() function
 
 Revision ID: 59d3ad8f0527
-Revises: 575d1a347d04
+Revises: dc0d42d537a6
 Create Date: 2023-10-06 16:10:49.364836
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "59d3ad8f0527"
-down_revision = "575d1a347d04"
+down_revision = "dc0d42d537a6"
 branch_labels = None
 depends_on = None
 
