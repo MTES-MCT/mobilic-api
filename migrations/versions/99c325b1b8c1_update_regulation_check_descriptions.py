@@ -24,11 +24,11 @@ def upgrade():
     for r in regulation_check_data:
         session.execute(
             sa.text(
-                "UPDATE regulation_check SET description = :description WHERE id = :id;"
+                "UPDATE regulation_check SET description = :description WHERE type = :type;"
             ),
             dict(
                 description=r.description,
-                id=r.id,
+                type=r.type,
             ),
         )
 
