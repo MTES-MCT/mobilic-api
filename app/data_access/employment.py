@@ -2,7 +2,7 @@ import graphene
 
 from app.controllers.oauth_client import OAuth2ClientOutput
 from app.domain.permissions import only_self_employment
-from app.domain.user import get_user_with_hidden_email
+from app.domain.user import get_user_with_hidden_email, HIDDEN_EMAIL
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.employment import Employment
@@ -111,6 +111,11 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             if not client_id.is_dismissed
             and client_id.access_token is not None
         ]
+
+    def resolve_email(self, info):
+        if self.hide_email and self.is_acknowledged:
+            return HIDDEN_EMAIL
+        return self.email
 
     def resolve_user(self, info):
         if not self.hide_email:
