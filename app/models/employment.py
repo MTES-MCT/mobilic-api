@@ -41,6 +41,8 @@ class Employment(UserEventBaseModel, Dismissable):
     email = db.Column(db.String(255), nullable=True)
     invite_token = db.Column(db.String(255), nullable=True, unique=True)
 
+    hide_email = db.Column(db.Boolean, nullable=True)
+
     team_id = db.Column(
         db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
     )
