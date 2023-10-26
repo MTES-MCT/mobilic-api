@@ -10,6 +10,7 @@ from app.data_access.team import TeamOutput
 from app.domain.company import (
     get_last_day_of_certification,
     get_start_last_certification_period,
+    check_company_has_no_activities,
 )
 from app.domain.permissions import (
     company_admin,
@@ -176,6 +177,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     is_certified = graphene.Boolean(
         description="Indique si l'entreprise a la certification Mobilic"
+    )
+
+    has_no_activity = graphene.Boolean(
+        description="Indique que l'entreprise n'a jamais eu d'activité enregistrée"
     )
 
     accept_certification_communication = graphene.Boolean(
@@ -395,6 +400,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             )
         else:
             return None
+
+    def resolve_has_no_activity(self, info):
+        return check_company_has_no_activities(self.id)
 
     @with_authorization_policy(
         controller_only,

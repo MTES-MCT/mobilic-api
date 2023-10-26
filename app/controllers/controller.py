@@ -140,6 +140,9 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         license_number = graphene.String(required=False)
         license_copy_number = graphene.String(required=False)
         observation = graphene.String(required=False)
+        is_vehicle_immobilized = graphene.Boolean(
+            required=False, default_value=False
+        )
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -168,6 +171,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         license_number=None,
         license_copy_number=None,
         observation=None,
+        is_vehicle_immobilized=None,
     ):
         if control_id:
             controller_can_see_control(current_user, control_id)
@@ -201,6 +205,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             license_number,
             license_copy_number,
             observation,
+            is_vehicle_immobilized,
         )
         db.session.commit()
         return control

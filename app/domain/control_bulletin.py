@@ -20,6 +20,7 @@ def save_control_bulletin(
     license_number=None,
     license_copy_number=None,
     observation=None,
+    is_vehicle_immobilized=False,
 ):
     if control.control_bulletin:
         existing_bulletin = control.control_bulletin
@@ -50,4 +51,5 @@ def save_control_bulletin(
     existing_bulletin["license_number"] = license_number
     existing_bulletin["license_copy_number"] = license_copy_number
     existing_bulletin["observation"] = observation
+    existing_bulletin["is_vehicle_immobilized"] = is_vehicle_immobilized
     control.control_bulletin = existing_bulletin
