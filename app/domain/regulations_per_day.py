@@ -179,11 +179,14 @@ def check_min_daily_rest(
                     0
                 ].start_time + timedelta(days=1)
                 extra["breach_period_end"] = breach_period_end.isoformat()
-                extra[
-                    "breach_period_max_break_in_seconds"
-                ] = get_longest_inner_break(
+                longest_inner_break = get_longest_inner_break(
                     activities_related_to_long_break,
-                ).seconds
+                )
+                extra["breach_period_max_break_in_seconds"] = (
+                    longest_inner_break.seconds
+                    if longest_inner_break.days == 0
+                    else 0
+                )
                 extra["sanction_code"] = NATINF_20525
                 break
 
