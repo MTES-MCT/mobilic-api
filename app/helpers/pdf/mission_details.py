@@ -33,6 +33,7 @@ def _get_summary_columns(mission):
             label="Amplitude",
             color="#CFDAC8",
             format=format_seconds_duration,
+            max_width_px=80,
         ),
         Column(
             name=ActivityType.DRIVE.value,
@@ -40,6 +41,7 @@ def _get_summary_columns(mission):
             color="#C9CBFF",
             secondary=True,
             format=format_seconds_duration,
+            max_width_px=80,
         ),
         Column(
             name=ActivityType.WORK.value,
@@ -47,6 +49,7 @@ def _get_summary_columns(mission):
             color="#C9CBFF",
             secondary=True,
             format=format_seconds_duration,
+            max_width_px=90,
         ),
     ]
 
@@ -69,6 +72,7 @@ def _get_summary_columns(mission):
                 color="#C9CBFF",
                 secondary=True,
                 format=format_seconds_duration,
+                max_width_px=70,
             )
         )
 
@@ -80,12 +84,14 @@ def _get_summary_columns(mission):
                 color="#C9CBFF",
                 secondary=True,
                 format=format_seconds_duration,
+                max_width_px=70,
             ),
             Column(
                 name="total_work",
                 label="Travail",
                 color="#C9CBFF",
                 format=format_seconds_duration,
+                max_width_px=70,
             ),
         ]
     )
@@ -195,6 +201,8 @@ def generate_mission_details_pdf(
 
     end_location = mission.end_location_at(max_reception_time)
 
+    columns = _get_summary_columns(mission)
+
     return generate_pdf_from_template(
         "mission_details_pdf.html",
         mission_name=mission_name,
@@ -217,7 +225,8 @@ def generate_mission_details_pdf(
         end_kilometer_reading=end_location.kilometer_reading
         if end_location
         else None,
-        columns=_get_summary_columns(mission),
+        columns=columns,
+        apply_max_width_columns=len(columns) >= 8,
         stats=stats,
         activities=sort_and_fill_with_breaks(activities),
         show_history_before_employee_validation=show_history_before_employee_validation,
