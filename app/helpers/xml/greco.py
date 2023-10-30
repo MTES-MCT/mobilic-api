@@ -29,18 +29,19 @@ def add_content_element(element, field_name, content):
         sub_element.text = content
 
 
-def add_date_element(element, field_name, dt):
+def add_date_element(element, field_name, dt, no_hours_and_minutes=False):
     date_element = ET.SubElement(ET.SubElement(element, field_name), "content")
     ET.SubElement(date_element, "Year").text = str(dt.year)
     ET.SubElement(date_element, "Month").text = str(dt.month)
     ET.SubElement(date_element, "Day").text = str(dt.day)
 
-    if isinstance(dt, datetime):
-        ET.SubElement(date_element, "Hour").text = str(dt.hour)
-        ET.SubElement(date_element, "Min").text = str(dt.minute)
-    else:
-        ET.SubElement(date_element, "Hour").text = str(0)
-        ET.SubElement(date_element, "Min").text = str(0)
+    if not no_hours_and_minutes:
+        if isinstance(dt, datetime):
+            ET.SubElement(date_element, "Hour").text = str(dt.hour)
+            ET.SubElement(date_element, "Min").text = str(dt.minute)
+        else:
+            ET.SubElement(date_element, "Hour").text = str(0)
+            ET.SubElement(date_element, "Min").text = str(0)
 
 
 def process_control(control, bdc, doc, infractions):
@@ -80,11 +81,14 @@ def process_control(control, bdc, doc, infractions):
         element_control, "controleur_Prenom", controller.first_name
     )
     add_content_element(
-        element_control, "controleur_Identification", controller.greco_id
+        element_control,
+        "controleur_Identification",
+        controller.greco_id
+        # element_control, "controleur_Identification", "30TRANSPORTF?B00"
     )
 
     add_content_element(
-        element_control, "lieuAire_Code", str(control_location.postal_code)
+        element_control, "lieuAire_Code", str(control_location.greco_code)
     )
     # ?
     add_content_element(
@@ -148,7 +152,7 @@ def process_control(control, bdc, doc, infractions):
     # 2 Sans
     # 3 Les deux
     # ?
-    add_content_element(element_control, "typeTachygraphe", str(1))
+    add_content_element(element_control, "typeTachygraphe", str(2))
 
     add_date_element(
         element_control, "finPeriodeControle", control.history_end_date
@@ -212,15 +216,19 @@ def process_company(control, bdc, doc):
     add_content_element(element_company, "contactTitre", "")
     add_content_element(element_company, "dirigeantNom", "")
     add_content_element(element_company, "dirigeantPrenom", "")
-    add_content_element(element_company, "pays", "FR - France")
-    add_content_element(element_company, "pays_ID", "FR")
+    add_content_element(element_company, "pays", "F - France")
+    add_content_element(element_company, "pays_ID", "F")
     add_content_element(element_company, "resultatGrecoCommunautaire", "")
     add_content_element(element_company, "resultatGrecoInterieure", "")
-    add_content_element(element_company, "ent_LicenceComInconnue", "")
-    add_content_element(element_company, "ent_LicenceComValidite", "")
+    add_content_element(element_company, "ent_LicenceComInconnue", "1")
+    add_date_element(
+        element_company, "ent_LicenceComValidite", datetime(1899, 12, 30), True
+    )
     add_content_element(element_company, "ent_AutoType", "")
     add_content_element(element_company, "ent_AutoNum", "")
-    add_content_element(element_company, "ent_AutoDate", "")
+    add_date_element(
+        element_company, "ent_AutoDate", datetime(1899, 12, 30), True
+    )
 
 
 def process_driver(control, bdc, doc, infractions):
@@ -237,7 +245,10 @@ def process_driver(control, bdc, doc, infractions):
         datetime.strptime(bdc.get("user_birth_date"), "%Y-%m-%d"),
     )
     add_content_element(
-        element_driver, "nationalite", bdc.get("user_nationality", "")
+        # element_driver, "nationalite", bdc.get("user_nationality", "")
+        element_driver,
+        "nationalite",
+        "France",
     )
 
     add_content_element(element_driver, "permisNumero", "")
@@ -253,32 +264,44 @@ def process_driver(control, bdc, doc, infractions):
     add_content_element(element_driver, "octetcndcmpl", "")
     add_content_element(element_driver, "octetcndcodp", "")
     add_content_element(element_driver, "octetcndcomu", "")
-    add_content_element(element_driver, "datepermis", "")
-    add_content_element(element_driver, "fIMO", "")
-    add_content_element(element_driver, "fCOS", "")
-    add_content_element(element_driver, "aDR", "")
+    add_date_element(
+        element_driver, "datepermis", datetime(1899, 12, 30), True
+    )
+    add_content_element(element_driver, "fIMO", "0")
+    add_content_element(element_driver, "fCOS", "0")
+    add_content_element(element_driver, "aDR", "0")
     add_content_element(element_driver, "carteQualification_Numero", "")
-    add_content_element(element_driver, "carteQualification_FinValidite", "")
-    add_content_element(element_driver, "carteFormation_Disponible", "")
-    add_content_element(element_driver, "carteFormation_FinValidite", "")
+    add_date_element(
+        element_driver,
+        "carteQualification_FinValidite",
+        datetime(1899, 12, 30),
+        True,
+    )
+    add_content_element(element_driver, "carteFormation_Disponible", "1")
+    add_date_element(
+        element_driver,
+        "carteFormation_FinValidite",
+        datetime(1899, 12, 30),
+        True,
+    )
 
-    if len(infractions) > 0:
-        infractions_element = ET.SubElement(
-            ET.SubElement(
-                ET.SubElement(element_driver, "rInfraction"), "content"
-            ),
-            "idlist",
-        )
-        for r in infractions:
-            ET.SubElement(
-                ET.SubElement(infractions_element, "id"), "DbValue"
-            ).text = r.id
+    infractions_element = ET.SubElement(
+        ET.SubElement(ET.SubElement(element_driver, "rInfraction"), "content"),
+        "idlist",
+    )
+    for r in infractions:
+        ET.SubElement(
+            ET.SubElement(infractions_element, "id"), "DbValue"
+        ).text = r.id
 
 
 def process_vehicle(control, bdc, doc):
     element_vehicle = ET.SubElement(doc, "Vehicule")
     add_content_element(
-        element_vehicle, "pays", bdc.get("vehicle_registration_country", "")
+        # element_vehicle, "pays", bdc.get("vehicle_registration_country", "")
+        element_vehicle,
+        "pays",
+        "F - France",
     )
     add_content_element(
         element_vehicle, "immatriculation", control.vehicle_registration_number
@@ -300,8 +323,8 @@ def process_vehicle(control, bdc, doc):
     )
     add_content_element(element_vehicle, "remorque3Immatriculation", "")
     add_content_element(element_vehicle, "remorque3Pays", "")
-    add_content_element(element_vehicle, "typeRemorque", "")
-    add_content_element(element_vehicle, "silhouette", "")
+    add_content_element(element_vehicle, "typeRemorque", "-1")
+    add_content_element(element_vehicle, "silhouette", "Autres")
     add_content_element(element_vehicle, "remorque1VIN", "")
     add_content_element(element_vehicle, "remorque2VIN", "")
     add_content_element(element_vehicle, "remorque3VIN", "")
@@ -309,31 +332,72 @@ def process_vehicle(control, bdc, doc):
     add_content_element(element_vehicle, "remorque1Marque", "")
     add_content_element(element_vehicle, "remorque2Marque", "")
     add_content_element(element_vehicle, "remorque3Marque", "")
-    add_content_element(element_vehicle, "octetvehctrpoidvide", "")
-    add_content_element(element_vehicle, "octetvehctrptac", "")
-    add_content_element(element_vehicle, "octetvehctrptra", "")
-    add_content_element(
-        element_vehicle, "datePremiereMiseEnCirculation_Value", ""
+    add_content_element(element_vehicle, "octetvehctrpoidvide", "0")
+    add_content_element(element_vehicle, "octetvehctrptac", "0")
+    add_content_element(element_vehicle, "octetvehctrptra", "0")
+    add_content_element(element_vehicle, "remorque1poidvide", "0")
+    add_content_element(element_vehicle, "remorque1ptac", "0")
+    add_content_element(element_vehicle, "remorque1ptra", "0")
+    add_content_element(element_vehicle, "remorque2poidvide", "0")
+    add_content_element(element_vehicle, "remorque2ptac", "0")
+    add_content_element(element_vehicle, "remorque2ptra", "0")
+    add_content_element(element_vehicle, "remorque3poidvide", "0")
+    add_content_element(element_vehicle, "remorque3ptac", "0")
+    add_content_element(element_vehicle, "remorque3ptra", "0")
+    add_date_element(
+        element_vehicle,
+        "datePremiereMiseEnCirculation_Value",
+        datetime(1899, 12, 30),
+        True,
     )
-    add_content_element(
-        element_vehicle, "dateProchaineControleTechnique_Value", ""
+    add_date_element(
+        element_vehicle,
+        "dateProchaineControleTechnique_Value",
+        datetime(1899, 12, 30),
+        True,
     )
-    add_content_element(element_vehicle, "dateControleRemorque1_Value", "")
-    add_content_element(element_vehicle, "dateControleRemorque2_Value", "")
-    add_content_element(element_vehicle, "dateControleRemorque3_Value", "")
+    add_date_element(
+        element_vehicle,
+        "dateControleRemorque1_Value",
+        datetime(1899, 12, 30),
+        True,
+    )
+    add_date_element(
+        element_vehicle,
+        "dateControleRemorque2_Value",
+        datetime(1899, 12, 30),
+        True,
+    )
+    add_date_element(
+        element_vehicle,
+        "dateControleRemorque3_Value",
+        datetime(1899, 12, 30),
+        True,
+    )
     add_content_element(element_vehicle, "nbPersonnesOuNatureMarchandise", "")
     add_content_element(element_vehicle, "vE_CatInterRemorque1", "")
     add_content_element(element_vehicle, "vE_CatInterRemorque2", "")
     add_content_element(element_vehicle, "vE_CatInterRemorque3", "")
-    add_content_element(
-        element_vehicle, "vE_DateCirculationRemorque1_Value", ""
+
+    add_date_element(
+        element_vehicle,
+        "vE_DateCirculationRemorque1_Value",
+        datetime(1899, 12, 30),
+        True,
     )
-    add_content_element(
-        element_vehicle, "vE_DateCirculationRemorque2_Value", ""
+    add_date_element(
+        element_vehicle,
+        "vE_DateCirculationRemorque2_Value",
+        datetime(1899, 12, 30),
+        True,
     )
-    add_content_element(
-        element_vehicle, "vE_DateCirculationRemorque3_Value", ""
+    add_date_element(
+        element_vehicle,
+        "vE_DateCirculationRemorque3_Value",
+        datetime(1899, 12, 30),
+        True,
     )
+    ET.SubElement(element_vehicle, "ControleTechnique")
 
 
 def process_infractions(control, doc, infractions):
