@@ -21,7 +21,7 @@ def upgrade():
         "employment", sa.Column("hide_email", sa.Boolean(), nullable=True)
     )
     session = Session(bind=op.get_bind())
-    session.execute("UPDATE employment SET hide_email = TRUE")
+    session.execute("UPDATE employment SET hide_email = FALSE")
 
 
 def downgrade():
