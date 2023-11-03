@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from app import db
+from app.domain.user import HIDDEN_EMAIL
 from app.models import Employment
 from app.tests import BaseTest
 from app.tests.helpers import (
@@ -38,6 +40,17 @@ class TestEmployment(BaseTest):
             post__has_admin_rights=False,
         )
         self.worker_employment_id = self.user_worker.employments[0].id
+
+    def get_admined_employments(self, admin_id):
+        return make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=admin_id,
+            query=ApiRequests.admined_companies_employments,
+            unexposed_query=False,
+            variables={
+                "id": admin_id,
+            },
+        )["data"]["user"]["adminedCompanies"][0]["employments"]
 
     def test_change_role_to_admin(self, time=datetime(2020, 2, 7, 6)):
         worker_employment = Employment.query.get(self.worker_employment_id)
@@ -133,3 +146,38 @@ class TestEmployment(BaseTest):
         )
         worker_employment = Employment.query.get(self.worker_employment_id)
         self.assertIsNotNone(worker_employment.end_date)
+
+    def test_email_is_visible_if_hide_email_is_false(self):
+        worker_employment = Employment.query.get(self.worker_employment_id)
+        self.assertFalse(worker_employment.hide_email)
+
+        query_employments = self.get_admined_employments(
+            self.user_primary_admin.id
+        )
+        worker_employment = [
+            e
+            for e in query_employments
+            if e["id"] == self.worker_employment_id
+        ][0]
+
+        self.assertEqual(
+            worker_employment["user"]["email"], self.user_worker.email
+        )
+
+    def test_email_is_hidden_if_hide_email_is_true(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        worker_employment = Employment.query.get(self.worker_employment_id)
+        worker_employment.hide_email = True
+        db.session.commit()
+
+        query_employments = self.get_admined_employments(
+            self.user_primary_admin.id
+        )
+        worker_employment = [
+            e
+            for e in query_employments
+            if e["id"] == self.worker_employment_id
+        ][0]
+
+        self.assertEqual(worker_employment["user"]["email"], HIDDEN_EMAIL)

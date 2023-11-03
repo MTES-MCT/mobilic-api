@@ -67,6 +67,12 @@ class TestInvitations(BaseTest):
         )
         self.employee_1 = UserFactory.create()
 
+    def get_employment(self, employee, company):
+        return Employment.query.filter_by(
+            user_id=employee.id,
+            company_id=company.id,
+        ).one_or_none()
+
     def check_has_pending_invite(self, employee, company):
         employments = Employment.query.filter_by(
             user_id=employee.id,
@@ -103,11 +109,18 @@ class TestInvitations(BaseTest):
         invite_user_by_userid(self.admin, self.employee_1.id, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
+        self.assertEquals(
+            True, self.get_employment(self.employee_1, self.company).hide_email
+        )
 
     def test_invite_existing_user_by_email(self):
         invite_user_by_email(self.admin, self.employee_1.email, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
+        self.assertEquals(
+            False,
+            self.get_employment(self.employee_1, self.company).hide_email,
+        )
 
     def test_invite_existing_user_by_email_case_insensitive(self):
         invite_user_by_email(
