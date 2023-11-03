@@ -109,6 +109,7 @@ class EmploymentFactory(BaseFactory):
 
     user = factory.SubFactory(UserFactory)
     has_admin_rights = False
+    hide_email = False
 
 
 class ControllerUserFactory(BaseFactory):

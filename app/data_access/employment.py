@@ -27,6 +27,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "latest_invite_email_time",
             "team_id",
             "team",
+            "hide_email",
         )
 
     id = graphene.Field(
@@ -90,7 +91,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     )
     hide_email = graphene.Field(
         graphene.Boolean,
-        description="Ce salarié ne souhaite pas rendre visible son adresse email",
+        description="Indique si ce salarié souhaite rendre visible son adresse email ou non",
     )
 
     def resolve_should_see_certificate_info(self, info):
