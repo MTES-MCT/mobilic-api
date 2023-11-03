@@ -281,7 +281,7 @@ class CreateEmployment(AuthenticatedMutation):
                 invite_token=invite_token,
                 email=employment_input.get("mail"),
                 team_id=team_id,
-                hide_email=user_id is not None,
+                hide_email=user_email is None,
             )
             db.session.add(employment)
 
