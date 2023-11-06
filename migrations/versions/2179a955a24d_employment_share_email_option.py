@@ -1,7 +1,7 @@
 """employment: share email option
 
 Revision ID: 2179a955a24d
-Revises: 99c325b1b8c1
+Revises: af5f8595458a
 Create Date: 2023-10-25 11:07:43.890264
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "2179a955a24d"
-down_revision = "99c325b1b8c1"
+down_revision = "af5f8595458a"
 branch_labels = None
 depends_on = None
 
