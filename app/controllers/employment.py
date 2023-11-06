@@ -12,7 +12,7 @@ from app.controllers.utils import atomic_transaction, Void
 from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
 from app.domain.employment import create_employment_by_third_party_if_needed
-from app.domain.permissions import company_admin
+from app.domain.permissions import company_admin, only_self_employment
 from app.domain.team import remove_admin_from_teams
 from app.domain.third_party_employment import (
     create_third_party_employment_link_if_needed,
@@ -281,6 +281,7 @@ class CreateEmployment(AuthenticatedMutation):
                 invite_token=invite_token,
                 email=employment_input.get("mail"),
                 team_id=team_id,
+                hide_email=user_email is None,
             )
             db.session.add(employment)
 
@@ -725,3 +726,38 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
                     )
 
         return Company.query.get(company_id)
+
+
+class UpdateHideEmail(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement pour lequel l'option de visibilité de l'email doit être modifiée.",
+        )
+        hide_email = graphene.Argument(
+            graphene.Boolean,
+            required=True,
+            description="Indique si l'email doit être caché ou non.",
+        )
+
+    Output = EmploymentOutput
+
+    @classmethod
+    @with_authorization_policy(
+        only_self_employment,
+        get_target_from_args=lambda *args, **kwargs: kwargs["employment_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(
+        cls,
+        _,
+        info,
+        employment_id,
+        hide_email,
+    ):
+        with atomic_transaction(commit_at_end=True):
+            employment = Employment.query.get(employment_id)
+            employment.hide_email = hide_email
+
+        return employment
