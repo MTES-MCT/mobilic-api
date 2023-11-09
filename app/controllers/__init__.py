@@ -56,6 +56,7 @@ from app.controllers.employment import (
     TerminateEmployment,
     ValidateEmployment,
     SyncThirdPartyEmployees,
+    UpdateHideEmail,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -177,6 +178,7 @@ class Employments(graphene.ObjectType):
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
+    update_hide_email = UpdateHideEmail.Field()
 
 
 class Vehicles(graphene.ObjectType):

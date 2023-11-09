@@ -608,6 +608,14 @@ class ApiRequests:
       }
     """
 
+    query_employment = """
+      query employment($id: Int!){
+        employment(id: $id) {
+          id
+        }
+      }
+    """
+
     query_user = """
       query user($id: Int!){
           user(id: $id) {
@@ -823,6 +831,24 @@ class ApiRequests:
             acceptCertificationCommunication
             lastDayCertified
             startLastCertificationPeriod
+          }
+        }
+      }
+    """
+
+    admined_companies_employments = """
+      query adminCompaniesList($id: Int!) {
+        user(id: $id) {
+          adminedCompanies {
+            id
+            employments {
+              id
+              email
+              user {
+                id
+                email
+              }
+            }
           }
         }
       }
