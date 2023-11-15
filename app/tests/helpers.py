@@ -692,6 +692,26 @@ class ApiRequests:
       }
     """
 
+    query_company_mission_deleted = """
+      query CompanyMissionsDeleted($id: Int!) {
+        company(id: $id) {
+          missionsDeleted {
+            edges {
+              node {
+                id
+                name
+                receptionTime
+                activities {
+                  id
+                  dismissedAt
+                }
+              }
+            }
+          }
+        }
+      }
+    """
+
     change_name = """
       mutation changeName(
         $userId: Int!
@@ -1021,35 +1041,16 @@ def make_authenticated_request(
         if type(request_should_fail_with) is dict:
             status = request_should_fail_with.get("status")
             if status:
-                assert response.status_code == status
+                assert (
+                    response.status_code == status
+                ), f"Unexpected status code: {response.status_code}\nResponse content:\n{response.get_data(as_text=True)}"
     else:
-        assert response.status_code == 200
-
-    return response.json
-
-
-def make_protected_request(
-    query,
-    variables,
-    headers,
-    request_should_fail_with=None,
-):
-    formatted_variables = _snake_to_camel(
-        _convert_date_time_to_timestamps(variables)
-    )
-
-    response = test_post_graphql_protected(
-        query=query, variables=formatted_variables, headers=headers
-    )
-    db.session.rollback()
-
-    if request_should_fail_with:
-        if type(request_should_fail_with) is dict:
-            status = request_should_fail_with.get("status")
-            if status:
-                assert response.status_code == status
-    else:
-        assert response.status_code == 200
+        assert (
+            response.status_code == 200
+        ), f"Unexpected status code: {response.status_code}\nResponse content:\n{response.get_data(as_text=True)}"
+        assert (
+            response.content_type == "application/json"
+        ), f"Unexpected content type: {response.content_type}"
 
     return response.json
 

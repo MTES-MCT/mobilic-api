@@ -25,7 +25,7 @@ from app.helpers.authorization import (
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
-from app.models import Company, User, CompanyCertification
+from app.models import Company, User, CompanyCertification, Mission, Activity
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -151,6 +151,24 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             description="Ne retourne que les missions qui sont terminées par tous leurs utilisateurs.",
         ),
     )
+    missions_deleted = graphene.Field(
+        MissionConnection,
+        description="Liste des missions supprimées de l'entreprise",
+        from_time=TimeStamp(
+            required=False, description="Horodatage de début de l'historique"
+        ),
+        until_time=TimeStamp(
+            required=False, description="Horodatage de fin de l'historique"
+        ),
+        after=graphene.String(
+            required=False,
+            description="Curseur de connection, utilisé pour la pagination.",
+        ),
+        first=graphene.Int(
+            required=False,
+            description="Nombre maximal de missions retournées, par ordre de récence.",
+        ),
+    )
     vehicles = graphene.List(
         VehicleOutput, description="Liste des véhicules de l'entreprise"
     )
@@ -269,6 +287,35 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             after=after,
             only_ended_missions=only_ended_missions,
         )
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
+    )
+    def resolve_missions_deleted(self, info):
+        company_mission_subq = Mission.query.filter(
+            Mission.company_id == self.id,
+        )
+
+        deleted_missions = (
+            company_mission_subq.join(
+                Activity, Activity.mission_id == Mission.id
+            )
+            .filter(Activity.is_dismissed.isnot(None))
+            .group_by(Mission.id)
+        )
+
+        # Filtrer les missions sans activités "dismissed"
+        deleted_missions = [
+            mission
+            for mission in deleted_missions
+            if any(activity.is_dismissed for activity in mission.activities)
+        ]
+
+        edges = [{"node": mission} for mission in deleted_missions]
+
+        return MissionConnection(edges=edges)
 
     @with_authorization_policy(
         company_admin,
