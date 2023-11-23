@@ -38,12 +38,14 @@ class ActivityType(str, Enum):
     WORK = "work"
     SUPPORT = "support"
     TRANSFER = "transfer"
+    OFF = "off"
     __description__ = """
 Enumération des valeurs suivantes.
 - "drive" : conduite du véhicule
 - "work" : travail sans déplacement du véhicule
 - "support" : accompagnement ou disponibilité
 - "transfer": liaison d'un point à un autre
+- "off: représente un congé, repos, formation, etc."
 """
 
 
