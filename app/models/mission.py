@@ -7,6 +7,7 @@ from app.helpers.frozen_version_utils import (
     freeze_activities,
 )
 from app.helpers.time import max_or_none
+from app.models.activity import ActivityType
 from app.models.event import EventBaseModel
 
 
@@ -254,3 +255,11 @@ class Mission(EventBaseModel):
             if not self.ended_for(u):
                 return False
         return True
+
+    def is_holiday(self):
+        return (
+            len([a for a in self.activities if a.type == ActivityType.OFF]) > 0
+        )
+
+    def is_empty(self):
+        return len(self.activities) == 0
