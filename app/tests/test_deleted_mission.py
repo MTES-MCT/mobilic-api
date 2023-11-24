@@ -70,7 +70,7 @@ class TestDeletedMissions(BaseTest):
                     id
                     name
                     receptionTime
-                    activities {
+                    activities (includeDismissedActivities: true) {
                     id
                     dismissedAt
                     }
@@ -85,34 +85,24 @@ class TestDeletedMissions(BaseTest):
 
         print(query_company_mission_deleted_response)
 
-        self.assertTrue(
-            query_company_mission_deleted_response["data"]["company"][
-                "missionsDeleted"
-            ]
-        )
-
-        node = query_company_mission_deleted_response["data"]["company"][
+        edges = query_company_mission_deleted_response["data"]["company"][
             "missionsDeleted"
-        ]["edges"][0]["node"]
-        self.assertTrue(
-            node["activities"] and node["activities"][0]["dismissedAt"]
-        )
+        ]["edges"]
+        self.assertTrue(len(edges) > 0)
+
+        node = edges[0]["node"]
+        self.assertTrue(node["activities"])
+        self.assertTrue(node["activities"][0]["dismissedAt"])
 
     def test_missions_without_dismissed_activities_are_not_returned(self):
         response = make_authenticated_request(
             time=datetime.now(),
-            submitter_id=self.worker.id,
+            submitter_id=self.admin.id,
             query=ApiRequests.query_company_mission_deleted,
             variables=dict(
                 id=self.company.id,
             ),
         )
-        self.assertTrue(response["data"]["company"]["missionsDeleted"])
-
-        node = response["data"]["company"]["missionsDeleted"]["edges"][0][
-            "node"
-        ]
-        self.assertFalse(
-            node["activities"]
-            or any(activity["dismissedAt"] for activity in node["activities"])
+        self.assertTrue(
+            len(response["data"]["company"]["missionsDeleted"]["edges"]) == 0
         )

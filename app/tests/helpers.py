@@ -701,7 +701,7 @@ class ApiRequests:
                 id
                 name
                 receptionTime
-                activities {
+                activities (includeDismissedActivities: true) {
                   id
                   dismissedAt
                 }
