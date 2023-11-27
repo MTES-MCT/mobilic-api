@@ -28,7 +28,7 @@ class TestDeletedMissions(BaseTest):
                     company=self.company,
                     reception_time=datetime.now(),
                 )
-                self.activity_by_worker = log_activity(
+                self.activity_1_by_worker = log_activity(
                     submitter=self.worker,
                     user=self.worker,
                     mission=self.mission_by_worker,
@@ -51,7 +51,7 @@ class TestDeletedMissions(BaseTest):
             submitter_id=self.worker.id,
             query=ApiRequests.cancel_activity,
             variables=dict(
-                activity_id=self.activity_by_worker.id,
+                activity_id=self.activity_1_by_worker.id,
             ),
         )
         self.assertTrue(
@@ -83,8 +83,6 @@ class TestDeletedMissions(BaseTest):
             variables=dict(id=self.company.id),
         )
 
-        print(query_company_mission_deleted_response)
-
         edges = query_company_mission_deleted_response["data"]["company"][
             "missionsDeleted"
         ]["edges"]
@@ -103,6 +101,61 @@ class TestDeletedMissions(BaseTest):
                 id=self.company.id,
             ),
         )
-        self.assertTrue(
-            len(response["data"]["company"]["missionsDeleted"]["edges"]) == 0
+
+        edges = response["data"]["company"]["missionsDeleted"]["edges"]
+
+        self.assertTrue(len(edges) == 0)
+
+    def test_missions_without_all_activities_dismissed_are_not_returned(self):
+        self.activity_2_by_worker = log_activity(
+            submitter=self.worker,
+            user=self.worker,
+            mission=self.mission_by_worker,
+            type=ActivityType.DRIVE,
+            switch_mode=True,
+            reception_time=datetime.now(),
+            start_time=datetime(2023, 1, 1, 1),
+            end_time=datetime(2023, 1, 1, 2),
         )
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker.id,
+            query=ApiRequests.cancel_activity,
+            variables=dict(
+                activity_id=self.activity_1_by_worker.id,
+            ),
+        )
+        self.assertTrue(
+            response["data"]["activities"]["cancelActivity"]["success"]
+        )
+
+        query_company_mission_deleted_response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin.id,
+            query="""
+            query CompanyMissionsDeleted($id: Int!) {
+            company(id: $id) {
+            missionsDeleted {
+                edges {
+                node {
+                    id
+                    name
+                    receptionTime
+                    activities (includeDismissedActivities: true) {
+                    id
+                    dismissedAt
+                    }
+                   }
+                }
+              }
+            }
+        }
+            """,
+            variables=dict(id=self.company.id),
+        )
+
+        edges = query_company_mission_deleted_response["data"]["company"][
+            "missionsDeleted"
+        ]["edges"]
+
+        self.assertTrue(len(edges) == 0)

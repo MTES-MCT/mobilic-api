@@ -1,3 +1,5 @@
+from app.data_access.work_day import WorkDayConnection
+from app.data_access.user import UserOutput
 from datetime import date
 
 import graphene
@@ -306,11 +308,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .group_by(Mission.id)
         )
 
-        # Filtrer les missions sans activités "dismissed"
         deleted_missions = [
             mission
             for mission in deleted_missions
-            if any(activity.is_dismissed for activity in mission.activities)
+            if all(activity.is_dismissed for activity in mission.activities)
         ]
 
         edges = [{"node": mission} for mission in deleted_missions]
@@ -326,8 +327,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         self, info, from_date=None, until_date=None, first=None, after=None
     ):
         # There are two ways to build the work days :
-        ## - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
-        ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
+        # - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
+        # - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
         # if set(get_children_field_names(info)) & {"activities", "missions"}:
         #     missions = query_company_missions(
         #         [self.id],
@@ -353,7 +354,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         #     )
         #     return work_days[-limit:] if limit else work_days
 
-        ## Efficient approach
+        # Efficient approach
         work_day_stats, has_next_page = query_work_day_stats(
             self.id,
             start_date=from_date,
@@ -458,7 +459,3 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_current_admins(self, info):
         return self.get_admins(date.today(), None)
-
-
-from app.data_access.user import UserOutput
-from app.data_access.work_day import WorkDayConnection
