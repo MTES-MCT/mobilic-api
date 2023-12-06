@@ -51,6 +51,8 @@ from app.models import Company, Employment
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
+from app.helpers.brevo import brevo, CreateContactData, BrevoRequestError
+import sentry_sdk
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -190,14 +192,19 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
         )
         db.session.add(admin_employment)
 
-    app.logger.info(
-        f"Signed up new company {company}",
-        extra={
-            "post_to_mattermost": True,
-            "log_title": "New company signup",
-            "emoji": ":tada:",
-        },
-    )
+    try:
+        brevo.create_contact(
+            CreateContactData(
+                email=current_user.email,
+                admin_first_name=current_user.first_name,
+                admin_last_name=current_user.last_name,
+                company_name=company.usual_name,
+                siren=int(company.siren),
+            )
+        )
+    except BrevoRequestError as e:
+        sentry_sdk.capture_exception(e)
+        app.logger.exception(e)
 
     if send_email:
         try:
