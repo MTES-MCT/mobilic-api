@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dateutil.tz import gettz
 
@@ -6,6 +6,7 @@ from app import db, app
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
 from app.helpers.errors import (
+    MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
 )
@@ -33,6 +34,20 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
 
     if any([not a.end_time for a in activities_to_validate]):
         raise MissionStillRunningError()
+
+    if (
+        is_admin_validation
+        and mission.submitter_id != submitter.id
+        and len(mission.validations_for(for_user)) == 0
+    ):
+        mission_start = activities_to_validate[0].start_time
+        last_activity_start = activities_to_validate[-1].start_time
+        mission_too_old = datetime.now() - mission_start > timedelta(days=10)
+        last_activity_too_long = (
+            datetime.now() - last_activity_start > timedelta(hours=24)
+        )
+        if not (mission_too_old and last_activity_too_long):
+            raise MissionNotAlreadyValidatedByUserError()
 
     if not mission.ended_for(for_user):
         db.session.add(
