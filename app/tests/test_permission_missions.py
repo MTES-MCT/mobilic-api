@@ -13,12 +13,18 @@ from app.tests import (
     BaseTest,
     AuthenticatedUserContext,
 )
-from app.tests.helpers import make_authenticated_request, ApiRequests
+from app.tests.helpers import (
+    init_regulation_checks_data,
+    make_authenticated_request,
+    ApiRequests,
+)
 
 
 class TestPermissionMissions(BaseTest):
     def setUp(self):
         super().setUp()
+        init_regulation_checks_data()
+
         self.company = CompanyFactory.create()
         self.admin = UserFactory.create(
             post__company=self.company, post__has_admin_rights=True
