@@ -57,7 +57,7 @@ def verify_oauth_token_in_request():
         OAuth2Token.token == oauth_token_string
     ).one_or_none()
 
-    if not matching_token or matching_token.revoked:
+    if not matching_token or matching_token.is_revoked:
         raise AuthenticationError("Invalid token")
 
     g.user = matching_token.user
