@@ -80,7 +80,6 @@ psycopg2==2.8.4
 pycparser==2.20
 PyJWT==2.4.0
 pyparsing==2.4.7
-PyPDF2==2.10.6
 PyPDF3==1.0.6
 python-bidi==0.4.2
 python-cas==1.6.0
