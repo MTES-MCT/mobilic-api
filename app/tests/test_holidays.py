@@ -18,7 +18,7 @@ from app.tests import (
 )
 
 
-class TestActivityOverlaps(BaseTest):
+class TestHolidays(BaseTest):
     def setUp(self):
         super().setUp()
         self.company = CompanyFactory.create()
