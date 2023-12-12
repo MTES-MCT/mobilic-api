@@ -378,6 +378,7 @@ def group_user_events_by_day_with_limit(
     from_date=None,
     until_date=None,
     tz=FR_TIMEZONE,
+    include_holidays=True,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
     only_missions_validated_by_user=False,
@@ -394,6 +395,12 @@ def group_user_events_by_day_with_limit(
             raise InvalidParamsError("Invalid pagination cursor")
         until_date = min(max_date, until_date) if until_date else max_date
 
+    def additional_activity_filters(query):
+        query = query.order_by(desc(Activity.start_time), desc(Activity.id))
+        if not include_holidays:
+            query = query.filter(Activity.type != ActivityType.OFF)
+        return query
+
     missions, has_next = user.query_missions_with_limit(
         include_dismissed_activities=True,
         include_revisions=True,  # To be updated locally on init regulation alerts only!
@@ -408,9 +415,7 @@ def group_user_events_by_day_with_limit(
         restrict_to_company_ids=(consultation_scope.company_ids or None)
         if consultation_scope
         else None,
-        additional_activity_filters=lambda query: query.order_by(
-            desc(Activity.start_time), desc(Activity.id)
-        ),
+        additional_activity_filters=additional_activity_filters,
         limit_fetch_activities=max(first * 5, 200) if first else None,
         max_reception_time=max_reception_time,
     )

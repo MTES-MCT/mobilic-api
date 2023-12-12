@@ -1,13 +1,17 @@
 from contextlib import contextmanager
 
 from app import app, db
+from app.domain.holidays import (
+    check_if_mission_holiday,
+    check_log_holiday_only_in_empty_mission,
+)
 from app.domain.permissions import check_actor_can_write_on_mission_over_period
 from app.helpers.errors import (
     OverlappingMissionsError,
     UnavailableSwitchModeError,
     ActivityInFutureError,
 )
-from app.models.activity import Activity
+from app.models.activity import Activity, ActivityType
 from app.models import Mission, ActivityVersion
 from app.models.mission_end import MissionEnd
 
@@ -95,6 +99,7 @@ def handle_activities_update(
     reception_time,
     start_time,
     end_time,
+    type=None,
     bypass_auth_check=False,
     bypass_overlap_check=False,
     reopen_mission_if_needed=True,
@@ -112,7 +117,15 @@ def handle_activities_update(
             start=start_time,
             end=end_time or start_time,
         )
-    # 3. Do the stuff
+
+    # 3a. Check if mission is a holiday mission
+    check_if_mission_holiday(mission)
+
+    if type == ActivityType.OFF:
+        # 3b. Check we log a time off only in an empty mission
+        check_log_holiday_only_in_empty_mission(mission)
+
+    # 4. Do the stuff
     yield
 
     if reopen_mission_if_needed and not end_time:
@@ -124,7 +137,7 @@ def handle_activities_update(
             db.session.delete(existing_mission_end)
 
     if not bypass_overlap_check:
-        # 4. Check that the new/updated activity is consistent with the timeline for the user
+        # 5. Check that the new/updated activity is consistent with the timeline for the user
         check_overlaps(user, mission)
 
 
@@ -150,6 +163,7 @@ def log_activity(
         reception_time,
         start_time,
         end_time,
+        type=type,
         bypass_overlap_check=bypass_overlap_check,
         bypass_auth_check=bypass_auth_check,
     ):
