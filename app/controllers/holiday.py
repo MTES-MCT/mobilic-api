@@ -9,7 +9,7 @@ from app.domain.validation import validate_mission
 from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import check_company_against_scope_wrapper
 from app.helpers.graphene_types import TimeStamp
-from app.models import Company, Mission, MissionEnd, Comment
+from app.models import Company, Mission, MissionEnd, Comment, User
 from app.models.activity import ActivityType
 
 
@@ -19,6 +19,10 @@ class HolidayLogInput:
         graphene.Int,
         required=True,
         description="Identifiant de l'entreprise pour laquelle la période de repos sera enregistrée.",
+    )
+    user_id = graphene.Int(
+        required=False,
+        description="Optionnel, identifiant du salarié concerné par le repos ou l'absence. Par défaut c'est l'auteur de l'opération.",
     )
     start_time = graphene.Argument(
         TimeStamp,
@@ -56,10 +60,23 @@ class LogHoliday(AuthenticatedMutation):
         company_id_resolver=lambda *args, **kwargs: kwargs["company_id"]
     )
     def mutate(
-        cls, _, info, company_id, end_time, start_time, title, comment=None
+        cls,
+        _,
+        info,
+        company_id,
+        end_time,
+        start_time,
+        title,
+        user_id=None,
+        comment=None,
     ):
 
         now = datetime.datetime.now()
+
+        user = current_user
+        if user_id:
+            user = User.query.get(user_id)
+
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
@@ -78,7 +95,7 @@ class LogHoliday(AuthenticatedMutation):
                 )
             log_activity(
                 submitter=current_user,
-                user=current_user,
+                user=user,
                 type=ActivityType.OFF,
                 mission=mission,
                 switch_mode=False,
@@ -90,13 +107,13 @@ class LogHoliday(AuthenticatedMutation):
                 MissionEnd(
                     submitter=current_user,
                     reception_time=now,
-                    user=current_user,
+                    user=user,
                     mission=mission,
                 )
             )
             validate_mission(
                 submitter=current_user,
                 mission=mission,
-                for_user=current_user,
+                for_user=user,
             )
             return Void(success=True)
