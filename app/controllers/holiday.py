@@ -18,37 +18,37 @@ class HolidayLogInput:
     company_id = graphene.Argument(
         graphene.Int,
         required=True,
-        description="Identifiant de l'entreprise pour laquelle la période de repos sera enregistrée.",
+        description="Identifiant de l'entreprise pour laquelle la période de congés sera enregistrée.",
     )
     user_id = graphene.Int(
         required=False,
-        description="Optionnel, identifiant du salarié concerné par le repos ou l'absence. Par défaut c'est l'auteur de l'opération.",
+        description="Optionnel, identifiant du salarié concerné par le congé. Par défaut c'est l'auteur de l'opération.",
     )
     start_time = graphene.Argument(
         TimeStamp,
         required=True,
-        description="Horodatage du début de la période de repos.",
+        description="Horodatage du début de la période de congés.",
     )
     end_time = graphene.Argument(
         TimeStamp,
         required=True,
-        description="Horodatage de la fin de la période de repos.",
+        description="Horodatage de la fin de la période de congés.",
     )
     title = graphene.Argument(
         graphene.String,
         required=True,
-        description="Intitulé de la période de repos.",
+        description="Intitulé de la période de congés.",
     )
     comment = graphene.Argument(
         graphene.String,
         required=False,
-        description="Précision éventuelle du motif de la période de repos.",
+        description="Précision éventuelle du motif de la période de congés.",
     )
 
 
 class LogHoliday(AuthenticatedMutation):
     """
-    Enregistrement d'un ou plusieurs jours de repos.
+    Enregistrement d'un ou plusieurs jours de congés.
     """
 
     Arguments = HolidayLogInput
