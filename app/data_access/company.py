@@ -296,22 +296,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
     def resolve_missions_deleted(self, info):
-        company_mission_subq = Mission.query.filter(
+        company_missions = Mission.query.filter(
             Mission.company_id == self.id,
-        )
-
-        deleted_missions = (
-            company_mission_subq.join(
-                Activity, Activity.mission_id == Mission.id
-            )
-            .filter(Activity.is_dismissed.isnot(None))
-            .group_by(Mission.id)
-        )
+        ).all()
 
         deleted_missions = [
-            mission
-            for mission in deleted_missions
-            if all(activity.is_dismissed for activity in mission.activities)
+            mission for mission in company_missions if mission.is_deleted()
         ]
 
         edges = [{"node": mission} for mission in deleted_missions]

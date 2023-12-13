@@ -692,7 +692,7 @@ class ApiRequests:
       }
     """
 
-    query_company_mission_deleted = """
+    query_company_deleted_missions = """
       query CompanyMissionsDeleted($id: Int!) {
         company(id: $id) {
           missionsDeleted {

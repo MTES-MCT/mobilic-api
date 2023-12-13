@@ -254,3 +254,6 @@ class Mission(EventBaseModel):
             if not self.ended_for(u):
                 return False
         return True
+
+    def is_deleted(self):
+        return all(activity.is_dismissed for activity in self.activities)
