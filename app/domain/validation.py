@@ -15,6 +15,9 @@ from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
 from app.helpers.authorization import AuthorizationError
 
+MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
+MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
+
 
 def validate_mission(mission, submitter, for_user, creation_time=None):
     validation_time = datetime.now()
@@ -42,11 +45,15 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
     ):
         mission_start = activities_to_validate[0].start_time
         last_activity_start = activities_to_validate[-1].start_time
-        mission_too_old = datetime.now() - mission_start > timedelta(days=10)
-        last_activity_too_long = (
-            datetime.now() - last_activity_start > timedelta(hours=24)
+        mission_old_enough = (
+            datetime.now() - mission_start
+            > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
         )
-        if not (mission_too_old and last_activity_too_long):
+        last_activity_long_enough = (
+            datetime.now() - last_activity_start
+            > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+        )
+        if not (mission_old_enough and last_activity_long_enough):
             raise MissionNotAlreadyValidatedByUserError()
 
     if not mission.ended_for(for_user):
