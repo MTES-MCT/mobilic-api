@@ -28,11 +28,21 @@ date_formats = dict(
         "num_format": "[h]:mm",
         "align": "center",
         "bg_color": light_brown_hex,
+    },
+    bank_holiday_bold_duration_format={
+        "num_format": "[h]:mm",
+        "align": "center",
+        "bg_color": light_brown_hex,
         "bold": True,
     },
     bank_holiday_date_format={
         "num_format": "dd/mm/yyyy",
         "bg_color": light_brown_hex,
+    },
+    bank_holiday_time_format={
+        "num_format": "h:mm",
+        "bg_color": light_brown_hex,
+        "align": "center",
     },
     merged_date_format={
         "num_format": "dd/mm/yyyy",
@@ -44,7 +54,9 @@ date_formats = dict(
 formats = dict(
     bold={"bold": True},
     wrap={"text_wrap": True},
+    bank_holiday_wrap={"text_wrap": True, "bg_color": light_brown_hex},
     center={"align": "center"},
+    bank_holiday_center={"align": "center", "bg_color": light_brown_hex},
     merged_top={"bold": True, "valign": "top", "border": 1, "text_wrap": True},
     merged_center={"valign": "vcenter", "align": "center", "border": 1},
     **date_formats,
