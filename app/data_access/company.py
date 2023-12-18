@@ -156,20 +156,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     missions_deleted = graphene.Field(
         MissionConnection,
         description="Liste des missions supprimées de l'entreprise",
-        from_time=TimeStamp(
-            required=False, description="Horodatage de début de l'historique"
-        ),
-        until_time=TimeStamp(
-            required=False, description="Horodatage de fin de l'historique"
-        ),
-        after=graphene.String(
-            required=False,
-            description="Curseur de connection, utilisé pour la pagination.",
-        ),
-        first=graphene.Int(
-            required=False,
-            description="Nombre maximal de missions retournées, par ordre de récence.",
-        ),
     )
     vehicles = graphene.List(
         VehicleOutput, description="Liste des véhicules de l'entreprise"

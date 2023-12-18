@@ -134,6 +134,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
             description="Valeur du curseur, qui détermine quelle page retourner.",
         ),
     )
+    missions_deleted = graphene.Field(
+        MissionConnection,
+        description="Liste des missions supprimées de l'utilisateur",
+    )
     current_employments = graphene.List(
         lambda: EmploymentOutput,
         description="Liste des rattachements actifs ou en attente de validation",
@@ -274,7 +278,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         )
 
     @user_resolver_with_consultation_scope(
-        error_message="Forbidden access to field 'missions' of user object. The field is only accessible to the user himself of company admins."
+        error_message="Forbidden access to field 'missions' of user object. The field is only accessible to the user himself or company admins."
     )
     def resolve_missions(
         self,
@@ -329,6 +333,21 @@ class UserOutput(BaseSQLAlchemyObjectType):
             has_next_page=has_next_page,
             first=actual_first,
         )
+
+    @user_resolver_with_consultation_scope(
+        error_message="Forbidden access to field 'missions_deleted' of user object. The field is only accessible to the user himself or company admins."
+    )
+    def resolve_missions_deleted(self, info, consultation_scope):
+        missions, _ = self.query_missions_with_limit(
+            include_dismissed_activities=True,
+            restrict_to_company_ids=consultation_scope.company_ids or None,
+        )
+        deleted_missions = [m for m in missions if m.is_deleted()]
+        for m in deleted_missions:
+            print(m.activities)
+        edges = [{"node": mission} for mission in deleted_missions]
+
+        return MissionConnection(edges=edges)
 
     @with_authorization_policy(
         only_self,
