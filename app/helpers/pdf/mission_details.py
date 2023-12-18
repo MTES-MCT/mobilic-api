@@ -203,6 +203,16 @@ def generate_mission_details_pdf(
 
     columns = _get_summary_columns(mission)
 
+    start_time = (
+        all_user_activities[0].start_time
+        if mission.is_deleted()
+        else activities[0].start_time
+    )
+    end_time = (
+        all_user_activities[-1].end_time
+        if mission.is_deleted()
+        else activities[-1].end_time
+    )
     return generate_pdf_from_template(
         "mission_details_pdf.html",
         mission_name=mission_name,
@@ -213,8 +223,8 @@ def generate_mission_details_pdf(
         else None,
         user=user,
         show_dates=show_dates,
-        start_time=activities[0].start_time,
-        end_time=activities[-1].end_time,
+        start_time=start_time,
+        end_time=end_time,
         start_location=mission.start_location.address.format()
         if mission.start_location
         else None,
@@ -244,4 +254,5 @@ def generate_mission_details_pdf(
             show_history_before_employee_validation,
             max_reception_time,
         ),
+        is_deleted=mission.is_deleted(),
     )

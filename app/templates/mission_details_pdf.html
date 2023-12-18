@@ -271,6 +271,7 @@
         </td>
     </tr>
 </table>
+{% if not is_deleted %}
 <table class="grey">
     <tr>
         <td class="section">
@@ -313,7 +314,9 @@
         </td>
     </tr>
 </table>
+{% endif %}
 <!--Careful when editing this file, especially the tag structure. If a cell (<td>) becomes too high or wide the rendering will fail.-->
+{% if not is_deleted %}
 <table>
     <tr>
         <td class="section">
@@ -377,6 +380,7 @@
         </td>
     </tr>
 </table>
+{% endif %}
 <table class="grey section">
     <tr>
         <td class="padding-except-bottom section-title">Observations</td>
