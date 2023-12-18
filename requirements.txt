@@ -120,3 +120,4 @@ xhtml2pdf==0.2.6
 XlsxWriter==1.2.7
 zipp==2.1.0
 setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
+sib-api-v3-sdk==7.6.0
