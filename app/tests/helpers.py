@@ -1041,6 +1041,32 @@ def make_authenticated_request(
         if type(request_should_fail_with) is dict:
             status = request_should_fail_with.get("status")
             if status:
+                assert response.status_code == status
+    else:
+        assert response.status_code == 200
+
+    return response.json
+
+
+def make_protected_request(
+    query,
+    variables,
+    headers,
+    request_should_fail_with=None,
+):
+    formatted_variables = _snake_to_camel(
+        _convert_date_time_to_timestamps(variables)
+    )
+
+    response = test_post_graphql_protected(
+        query=query, variables=formatted_variables, headers=headers
+    )
+    db.session.rollback()
+
+    if request_should_fail_with:
+        if type(request_should_fail_with) is dict:
+            status = request_should_fail_with.get("status")
+            if status:
                 assert (
                     response.status_code == status
                 ), f"Unexpected status code: {response.status_code}\nResponse content:\n{response.get_data(as_text=True)}"
