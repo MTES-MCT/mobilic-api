@@ -255,4 +255,5 @@ def generate_mission_details_pdf(
             max_reception_time,
         ),
         is_deleted=mission.is_deleted(),
+        deleted_at_text=f"Cette mission a été supprimée le {full_format_day(mission.deleted_at())}",
     )
