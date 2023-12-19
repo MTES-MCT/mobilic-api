@@ -3,7 +3,7 @@ from app.data_access.user import UserOutput
 from datetime import date
 
 import graphene
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import selectinload
 
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
@@ -282,13 +282,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
     def resolve_missions_deleted(self, info):
-        company_missions = Mission.query.filter(
-            Mission.company_id == self.id,
+        deleted_missions = (
+            Mission.query.filter(
+                Mission.company_id == self.id,
+            )
+            .join(Activity, Activity.mission_id == Mission.id)
+            .group_by(Mission.id)
+            .having(func.every(Activity.dismissed_at.isnot(None)))
         ).all()
-
-        deleted_missions = [
-            mission for mission in company_missions if mission.is_deleted()
-        ]
 
         edges = [{"node": mission} for mission in deleted_missions]
 
