@@ -343,8 +343,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
             restrict_to_company_ids=consultation_scope.company_ids or None,
         )
         deleted_missions = [m for m in missions if m.is_deleted()]
-        for m in deleted_missions:
-            print(m.activities)
         edges = [{"node": mission} for mission in deleted_missions]
 
         return MissionConnection(edges=edges)
