@@ -91,7 +91,7 @@ class RevokeOauthToken(AuthenticatedMutation):
     def mutate(cls, _, info, token_id):
         with atomic_transaction(commit_at_end=True):
             existing_token = OAuth2Token.query.get(token_id)
-            if not existing_token or existing_token.is_revoked:
+            if not existing_token or existing_token.revoked:
                 raise InvalidParamsError("Forbidden access")
             revoke_oauth_token(existing_token)
         return get_active_oauth_token_for_user(existing_token.user_id)
