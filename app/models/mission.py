@@ -263,3 +263,12 @@ class Mission(EventBaseModel):
 
     def is_empty(self):
         return len(self.activities) == 0
+
+    def is_deleted(self):
+        return all(activity.is_dismissed for activity in self.activities)
+
+    def deleted_at(self):
+        dismissed_times = [a.dismissed_at for a in self.activities]
+        if len(dismissed_times) < len(self.activities):
+            return None
+        return max_or_none(*dismissed_times)
