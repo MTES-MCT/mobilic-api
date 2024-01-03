@@ -12,9 +12,12 @@ from sqlalchemy import text
 from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
+from app.domain.control_bulletin import save_control_bulletin
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.xml.greco import temp_write_greco_xml
+from app.models.controller_control import ControllerControl
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
@@ -285,3 +288,34 @@ def command_send_never_active_companies_emails():
 
     send_never_active_companies_emails(datetime.datetime.now())
     app.logger.info("Ending send_lost_companies_emails task")
+
+
+# TODO: remove
+@app.cli.command("temp_generate_xml", with_appcontext=True)
+@click.argument("id", required=True)
+def temp_command_generate_xm_control(id):
+    # controld id 204083429
+    # controller id 175216433
+    control = ControllerControl.query.get(id)
+    save_control_bulletin(
+        control=control,
+        location_id=3220,
+        user_birth_date=datetime.date(1990, 2, 2),
+        vehicle_registration_number="FF-222-DD",
+        siren="???",
+    )
+    # TODO
+    # set a SIREN
+    # real greco_id, controller user last/first name
+    # finPeriodeControle doit etre a la bonne date fin periode controle, verifier que c'est bien la date du controle cree dans greco
+    # modifier control.creation_time each time ?
+
+    # Infraction -> intitule -> content: important ? on met quoi pour les differents types d'infraction ?
+    # flagOk ?
+    # pVouAF ?
+    # numeroFeuillet ?
+    # gravite ?
+    # rI_DureeImmo ?
+
+    db.session.commit()
+    temp_write_greco_xml(control)

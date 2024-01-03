@@ -14,13 +14,19 @@ TRANSPORT_TYPES = {
     "cabotage": 2,
 }
 
+INFRACTION_LABELS = {"20525": "Non-respect(s) du repos quotidien"}
+INFRACTION_OBJECTS = {
+    "20525": "La durée du repos quotidien est d'au moins 10h toutes les 24h (article R. 3312-53, 2° du Code des transports)"
+}
+
 
 @dataclass
 class GrecoInfraction:
     natinf: str
     id: str
     short_id: str
-    label: str
+    date_start: datetime
+    date_end: datetime
 
 
 def add_content_element(element, field_name, content):
@@ -58,7 +64,9 @@ def process_control(control, bdc, doc, infractions):
     add_content_element(
         element_control,
         "lieuDepartement_Intitule",
-        bdc.get("location_department", ""),
+        bdc.get(
+            "location_department", ""
+        ),  # would need ILLE ET VILAINE for example
     )
 
     departement_code = str(control_location.department).zfill(2)
@@ -75,7 +83,7 @@ def process_control(control, bdc, doc, infractions):
 
     add_content_element(element_control, "controleur_Civilite", "-")
     add_content_element(
-        element_control, "controleur_Nom", controller.last_name
+        element_control, "controleur_Nom", controller.last_name.upper()
     )
     add_content_element(
         element_control, "controleur_Prenom", controller.first_name
@@ -103,7 +111,7 @@ def process_control(control, bdc, doc, infractions):
     )
 
     add_content_element(
-        element_control, "lieuCommune_Intitule", bdc.get("location_commune")
+        element_control, "lieuCommune_Intitule", control_location.commune
     )
     add_content_element(
         element_control,
@@ -126,7 +134,9 @@ def process_control(control, bdc, doc, infractions):
     add_content_element(
         element_control,
         "transportType",
-        str(TRANSPORT_TYPES[bdc.get("transport_type", "unknown")]),
+        str(
+            TRANSPORT_TYPES[bdc.get("transport_type", "unknown") or "unknown"]
+        ),
     )
 
     # Boolean 0 ou 1
@@ -403,9 +413,19 @@ def process_vehicle(control, bdc, doc):
 def process_infractions(control, doc, infractions):
     for r in infractions:
         element_infraction = ET.SubElement(doc, "Infraction")
-        add_content_element(element_infraction, "intitule", r.label)
-        add_content_element(element_infraction, "flagOk", str(0))
-        # TODO debut fin duree norme objet
+        add_content_element(
+            element_infraction, "intitule", INFRACTION_LABELS[r.natinf]
+        )
+        add_content_element(element_infraction, "flagOk", str(1))
+        if r.natinf == "20525":
+            add_date_element(element_infraction, "debut", r.date_start)
+            add_date_element(element_infraction, "fin", r.date_end)
+            add_content_element(element_infraction, "duree", "0")
+            add_content_element(element_infraction, "norme", "0")
+
+        add_content_element(
+            element_infraction, "objet", INFRACTION_OBJECTS[r.natinf]
+        )
 
         add_content_element(element_infraction, "nATINF", r.natinf)
         add_content_element(element_infraction, "inf_ID", r.short_id)
@@ -425,7 +445,13 @@ def process_infractions(control, doc, infractions):
         add_content_element(element_recap, "aVerifier", str(1))
         add_content_element(element_recap, "consignation", str(0))
         add_content_element(element_recap, "immobilisation", str(1))
-        add_content_element(element_recap, "nature", r.label)
+        add_content_element(
+            element_recap, "nature", INFRACTION_LABELS[r.natinf]
+        )
+        add_content_element(element_recap, "pVouAF", "AF")
+        add_content_element(element_recap, "numeroFeuillet", "123456")
+        add_content_element(element_recap, "gravite", "4ÈME CLASSE")
+        add_content_element(element_recap, "rI_DureeImmo", "")
         add_content_element(element_recap, "rI_ID", r.short_id)
 
     pass
@@ -438,14 +464,23 @@ def get_greco_xml_and_filename(control):
     for idx_r, r in enumerate(control.reported_infractions):
         extra = r.get("extra")
         natinf = extra.get("sanction_code").replace("NATINF ", "")
+        if natinf != "20525":
+            continue
         short_id = str(idx_r + 1).zfill(4)
         id = f"100100{short_id}"
+
+        if natinf == "20525":
+            date_start = datetime.fromisoformat(
+                extra.get("breach_period_start")
+            )
+            date_end = datetime.fromisoformat(extra.get("breach_period_end"))
         infractions.append(
             GrecoInfraction(
                 natinf=natinf,
                 short_id=short_id,
                 id=id,
-                label="Label infraction",
+                date_start=date_start,
+                date_end=date_end,
             )
         )
 
@@ -474,3 +509,10 @@ def send_control_as_greco_xml(control):
         as_attachment=True,
         download_name=file_name,
     )
+
+
+# TODO: remove
+def temp_write_greco_xml(control):
+    (xml_data, file_name) = get_greco_xml_and_filename(control)
+    with open(file_name, "wb") as file:
+        file.write(xml_data)
