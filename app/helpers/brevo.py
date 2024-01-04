@@ -1,3 +1,4 @@
+from functools import wraps
 from typing import NamedTuple
 
 import requests
@@ -6,6 +7,7 @@ from sib_api_v3_sdk.rest import ApiException
 
 from app import app
 from app.helpers.errors import MobilicError
+from config import BREVO_API_KEY_ENV
 
 BREVO_COMPANY_SUBSCRIBE_LIST = 19
 
@@ -33,6 +35,18 @@ class LinkCompanyContactData(NamedTuple):
     contact_id: int
 
 
+def check_api_key(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if self.api_key is None:
+            app.logger.warning(f"{BREVO_API_KEY_ENV} not found.")
+            return None
+        else:
+            return func(self, *args, **kwargs)
+
+    return wrapper
+
+
 class BrevoApiClient:
     BASE_URL = "https://api.brevo.com/v3/"
 
@@ -53,6 +67,7 @@ class BrevoApiClient:
             }
         )
 
+    @check_api_key
     def create_contact(self, data: CreateContactData):
         try:
             create_contact = sib_api_v3_sdk.CreateContact(
@@ -71,6 +86,7 @@ class BrevoApiClient:
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
+    @check_api_key
     def create_company(self, data: CreateCompanyData):
         try:
             url = f"{self.BASE_URL}companies"
@@ -87,6 +103,7 @@ class BrevoApiClient:
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
+    @check_api_key
     def link_company_and_contact(self, data: LinkCompanyContactData):
         try:
             url = f"{self.BASE_URL}companies/link-unlink/{data.company_id}"
@@ -97,4 +114,4 @@ class BrevoApiClient:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
 
-brevo = BrevoApiClient(app.config["BREVO_API_KEY"])
+brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
