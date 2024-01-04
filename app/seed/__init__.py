@@ -14,6 +14,7 @@ from app.models import (
     Company,
     CompanyCertification,
     CompanyKnownAddress,
+    CompanyStats,
     ControllerRefreshToken,
     ControllerUser,
     Email,
@@ -80,6 +81,7 @@ def clean():
         """
     )
 
+    CompanyStats.query.delete()
     CompanyCertification.query.delete()
     CompanyKnownAddress.query.delete()
     Employment.query.delete()

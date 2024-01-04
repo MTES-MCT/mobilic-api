@@ -12,6 +12,7 @@ class Column(NamedTuple):
     secondary: bool = False
     right_border: bool = False
     number: bool = True
+    max_width_px: int = None
 
 
 def generate_pdf_from_template(template_name, **kwargs):

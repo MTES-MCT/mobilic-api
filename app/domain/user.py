@@ -7,6 +7,8 @@ from app import app, db, mailer
 from app.models import User, Employment
 from app.models.user import UserAccountStatus
 
+HIDDEN_EMAIL = "***"
+
 
 def create_user_by_third_party_if_needed(
     email,
@@ -155,3 +157,13 @@ def is_user_related_to_onboarding_excluded_company(user):
         for company_id in app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"]
     )
     return user_related_to_excluded_company
+
+
+def get_user_with_hidden_email(user):
+    modified_user_data = {
+        column.name: getattr(user, column.name)
+        for column in user.__table__.columns
+    }
+    modified_user_data["email"] = HIDDEN_EMAIL
+    modified_user = User(**modified_user_data)
+    return modified_user

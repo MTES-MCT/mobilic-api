@@ -608,6 +608,14 @@ class ApiRequests:
       }
     """
 
+    query_employment = """
+      query employment($id: Int!){
+        employment(id: $id) {
+          id
+        }
+      }
+    """
+
     query_user = """
       query user($id: Int!){
           user(id: $id) {
@@ -681,6 +689,26 @@ class ApiRequests:
                 }
               }
           }
+      }
+    """
+
+    query_company_deleted_missions = """
+      query CompanyMissionsDeleted($id: Int!) {
+        company(id: $id) {
+          missionsDeleted {
+            edges {
+              node {
+                id
+                name
+                receptionTime
+                activities (includeDismissedActivities: true) {
+                  id
+                  dismissedAt
+                }
+              }
+            }
+          }
+        }
       }
     """
 
@@ -823,6 +851,24 @@ class ApiRequests:
             acceptCertificationCommunication
             lastDayCertified
             startLastCertificationPeriod
+          }
+        }
+      }
+    """
+
+    admined_companies_employments = """
+      query adminCompaniesList($id: Int!) {
+        user(id: $id) {
+          adminedCompanies {
+            id
+            employments {
+              id
+              email
+              user {
+                id
+                email
+              }
+            }
           }
         }
       }
@@ -1021,9 +1067,16 @@ def make_protected_request(
         if type(request_should_fail_with) is dict:
             status = request_should_fail_with.get("status")
             if status:
-                assert response.status_code == status
+                assert (
+                    response.status_code == status
+                ), f"Unexpected status code: {response.status_code}\nResponse content:\n{response.get_data(as_text=True)}"
     else:
-        assert response.status_code == 200
+        assert (
+            response.status_code == 200
+        ), f"Unexpected status code: {response.status_code}\nResponse content:\n{response.get_data(as_text=True)}"
+        assert (
+            response.content_type == "application/json"
+        ), f"Unexpected content type: {response.content_type}"
 
     return response.json
 

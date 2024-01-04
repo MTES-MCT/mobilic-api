@@ -9,6 +9,9 @@
     },
     {
       "command": "30 3 * * * flask send_never_active_companies_emails"
+    },
+    {
+      "command": "0 5 * * * flask load_company_stats"
     }
   ]
 }

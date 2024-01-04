@@ -23,25 +23,3 @@ def write_bank_holiday_legend(wb, sheet, start_row, start_col):
         "Dimanches ou jours fériés : jours de travail majorés",
         wb.add_format({"bold": True}),
     )
-
-
-def write_breached_rule_legend(wb, sheet, start_row, start_col):
-    sheet.write_datetime(
-        start_row,
-        start_col,
-        datetime(2022, 1, 1, 9, 30),
-        wb.add_format(
-            {
-                **formats.get("time_format"),
-                "border": 1,
-                "color": "red",
-                "bold": True,
-            }
-        ),
-    )
-    sheet.write(
-        start_row,
-        start_col + 1,
-        "Dépassement des seuils réglementaires",
-        wb.add_format({"bold": True}),
-    )

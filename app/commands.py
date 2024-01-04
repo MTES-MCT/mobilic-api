@@ -12,7 +12,6 @@ from sqlalchemy import text
 from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
-from app.domain.control_bulletin import save_control_bulletin
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
@@ -288,6 +287,15 @@ def command_send_never_active_companies_emails():
 
     send_never_active_companies_emails(datetime.datetime.now())
     app.logger.info("Ending send_lost_companies_emails task")
+
+
+@app.cli.command("load_company_stats", with_appcontext=True)
+def load_company_stats():
+    from app.services.load_company_stats import load_company_stats
+
+    app.logger.info("Process load_company_stats began")
+    load_company_stats()
+    app.logger.info("Process load_company_stats done")
 
 
 # TODO: to remove (or not ?)

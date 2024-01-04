@@ -27,7 +27,7 @@ def get_regulation_checks():
             id=1,
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
-            description="La durée du repos quotidien est d'au-moins 10h toutes les 24h (article R. 3312-53, 2° du code des transports)",
+            description="La durée du repos quotidien est d'au moins 10h toutes les 24h (article R. 3312-53, 2° du Code des transports)",
             regulation_rule="dailyRest",
             variables=dict(
                 LONG_BREAK_DURATION_IN_HOURS=10,
@@ -38,7 +38,7 @@ def get_regulation_checks():
             id=2,
             type="maximumWorkDayTime",
             label="Dépassement(s) de la durée maximale du travail quotidien",
-            description="La durée du travail quotidien est limitée à 12h (article R. 3312-a51 du code des transports)",
+            description="La durée du travail quotidien est limitée à 12h (article R. 3312-a51 du Code des transports)",
             regulation_rule="dailyWork",
             variables=dict(
                 MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS=10,
@@ -50,7 +50,7 @@ def get_regulation_checks():
             id=3,
             type="minimumWorkDayBreak",
             label="Non-respect(s) du temps de pause",
-            description="Lorsque le temps de travail dépasse 6h le temps de pause minimal est de 30 minutes (article L3312-2 du code des transports). Lorsque le temps de travail dépasse 9h le temps de pause minimal passe à 45 minutes. Le temps de pause peut être réparti en périodes d'au-moins 15 minutes.",
+            description="Lorsque le temps de travail dépasse 6h le temps de pause minimal est de 30 minutes (article L3312-2 du Code des transports). Lorsque le temps de travail dépasse 9h le temps de pause minimal passe à 45 minutes. Le temps de pause peut être réparti en périodes d'au moins 15 minutes.",
             regulation_rule="dailyRest",
             variables=dict(
                 MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN=15,
@@ -65,7 +65,7 @@ def get_regulation_checks():
             id=4,
             type="maximumUninterruptedWorkTime",
             label="Dépassement(s) de la durée maximale du travail ininterrompu",
-            description="Lorsque le temps de travail dépasse 6h il doit être interrompu par un temps de pause (article L3312-2 du code des transports)",
+            description="Lorsque le temps de travail dépasse 6h il doit être interrompu par un temps de pause (article L3312-2 du Code des transports)",
             regulation_rule="dailyRest",
             variables=dict(MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS=6),
             unit=UnitType.DAY,
@@ -74,7 +74,7 @@ def get_regulation_checks():
             id=5,
             type="maximumWorkedDaysInWeek",
             label="Non-respect(s) du repos hebdomadaire",
-            description="Il est interdit de travailler plus de six jours dans la semaine (article L. 3132-1 du code du travail). Le repos hebdomadaire doit durer au minimum 34h (article L. 3132-2 du code du travail)",
+            description="Il est interdit de travailler plus de six jours dans la semaine (article L. 3132-1 du Code du travail). Le repos hebdomadaire doit durer au minimum 34h (article L. 3132-2 du Code du travail)",
             regulation_rule="weeklyRest",
             variables=dict(
                 MINIMUM_WEEKLY_BREAK_IN_HOURS=34,

@@ -18,7 +18,7 @@ from app.models.regulatory_alert import RegulatoryAlert
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
 NATINF_20525 = "NATINF 20525"
-SANCTION_CODE = "Sanction du Code du Travail"
+SANCTION_CODE = "Non-respect du Code des transports"
 
 
 def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
@@ -179,11 +179,14 @@ def check_min_daily_rest(
                     0
                 ].start_time + timedelta(days=1)
                 extra["breach_period_end"] = breach_period_end.isoformat()
-                extra[
-                    "breach_period_max_break_in_seconds"
-                ] = get_longest_inner_break(
+                longest_inner_break = get_longest_inner_break(
                     activities_related_to_long_break,
-                ).seconds
+                )
+                extra["breach_period_max_break_in_seconds"] = (
+                    longest_inner_break.seconds
+                    if longest_inner_break.days == 0
+                    else 0
+                )
                 extra["sanction_code"] = NATINF_20525
                 break
 

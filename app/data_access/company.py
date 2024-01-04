@@ -1,7 +1,9 @@
+from app.data_access.work_day import WorkDayConnection
+from app.data_access.user import UserOutput
 from datetime import date
 
 import graphene
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import selectinload
 
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
@@ -10,6 +12,7 @@ from app.data_access.team import TeamOutput
 from app.domain.company import (
     get_last_day_of_certification,
     get_start_last_certification_period,
+    check_company_has_no_activities,
 )
 from app.domain.permissions import (
     company_admin,
@@ -24,7 +27,7 @@ from app.helpers.authorization import (
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
-from app.models import Company, User, CompanyCertification
+from app.models import Company, User, CompanyCertification, Mission, Activity
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -150,6 +153,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             description="Ne retourne que les missions qui sont terminées par tous leurs utilisateurs.",
         ),
     )
+    missions_deleted = graphene.Field(
+        MissionConnection,
+        description="Liste des missions supprimées de l'entreprise",
+    )
     vehicles = graphene.List(
         VehicleOutput, description="Liste des véhicules de l'entreprise"
     )
@@ -176,6 +183,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     is_certified = graphene.Boolean(
         description="Indique si l'entreprise a la certification Mobilic"
+    )
+
+    has_no_activity = graphene.Boolean(
+        description="Indique que l'entreprise n'a jamais eu d'activité enregistrée"
     )
 
     accept_certification_communication = graphene.Boolean(
@@ -268,14 +279,33 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         company_admin,
         get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
+    )
+    def resolve_missions_deleted(self, info):
+        deleted_missions = (
+            Mission.query.filter(
+                Mission.company_id == self.id,
+            )
+            .join(Activity, Activity.mission_id == Mission.id)
+            .group_by(Mission.id)
+            .having(func.every(Activity.dismissed_at.isnot(None)))
+        ).all()
+
+        edges = [{"node": mission} for mission in deleted_missions]
+
+        return MissionConnection(edges=edges)
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(
         self, info, from_date=None, until_date=None, first=None, after=None
     ):
         # There are two ways to build the work days :
-        ## - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
-        ## - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
+        # - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
+        # - Have the DB compute the aggregates and return them directly, which is the go-to approach if the low level items are not required
         # if set(get_children_field_names(info)) & {"activities", "missions"}:
         #     missions = query_company_missions(
         #         [self.id],
@@ -301,7 +331,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         #     )
         #     return work_days[-limit:] if limit else work_days
 
-        ## Efficient approach
+        # Efficient approach
         work_day_stats, has_next_page = query_work_day_stats(
             self.id,
             start_date=from_date,
@@ -396,6 +426,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         else:
             return None
 
+    def resolve_has_no_activity(self, info):
+        return check_company_has_no_activities(self.id)
+
     @with_authorization_policy(
         controller_only,
         get_target_from_args=lambda self, info: self,
@@ -403,7 +436,3 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_current_admins(self, info):
         return self.get_admins(date.today(), None)
-
-
-from app.data_access.user import UserOutput
-from app.data_access.work_day import WorkDayConnection

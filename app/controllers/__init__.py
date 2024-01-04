@@ -1,3 +1,4 @@
+from app.controllers.contacts import *
 import graphene
 
 from app.controllers.certificate import (
@@ -19,6 +20,7 @@ from app.controllers.company import (
     CompanySignUp,
     EditCompanySettings,
     CompanySoftwareRegistration,
+    UpdateCompanyName,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.control import AddControlNote
@@ -54,6 +56,7 @@ from app.controllers.employment import (
     TerminateEmployment,
     ValidateEmployment,
     SyncThirdPartyEmployees,
+    UpdateHideEmail,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -175,6 +178,7 @@ class Employments(graphene.ObjectType):
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
+    update_hide_email = UpdateHideEmail.Field()
 
 
 class Vehicles(graphene.ObjectType):
@@ -226,6 +230,7 @@ class Mutations(graphene.ObjectType):
         Employments, resolver=lambda root, info: Employments()
     )
     teams = graphene.Field(Teams, resolver=lambda root, info: Teams())
+    update_company_name = UpdateCompanyName.Field()
 
 
 class ProtectedMutations(graphene.ObjectType):
@@ -316,5 +321,3 @@ private_graphql_schema = graphene.Schema(
 protected_graphql_schema = graphene.Schema(
     query=ProtectedQueries, mutation=ProtectedMutations
 )
-
-from app.controllers.contacts import *

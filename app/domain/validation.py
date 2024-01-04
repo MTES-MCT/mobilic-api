@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dateutil.tz import gettz
 
@@ -6,6 +6,7 @@ from app import db, app
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
 from app.helpers.errors import (
+    MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
 )
@@ -13,6 +14,9 @@ from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
 from app.helpers.authorization import AuthorizationError
+
+MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
+MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
 
 
 def validate_mission(mission, submitter, for_user, creation_time=None):
@@ -33,6 +37,24 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
 
     if any([not a.end_time for a in activities_to_validate]):
         raise MissionStillRunningError()
+
+    if (
+        is_admin_validation
+        and mission.submitter_id != submitter.id
+        and len(mission.validations_for(for_user)) == 0
+    ):
+        mission_start = activities_to_validate[0].start_time
+        last_activity_start = activities_to_validate[-1].start_time
+        mission_old_enough = (
+            datetime.now() - mission_start
+            > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+        )
+        last_activity_long_enough = (
+            datetime.now() - last_activity_start
+            > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+        )
+        if not (mission_old_enough and last_activity_long_enough):
+            raise MissionNotAlreadyValidatedByUserError()
 
     if not mission.ended_for(for_user):
         db.session.add(

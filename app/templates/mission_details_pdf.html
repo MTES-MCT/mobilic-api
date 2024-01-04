@@ -174,6 +174,21 @@
         </td>
     </tr>
 </table>
+{% if is_deleted %}
+<table>
+    <tr>
+        <td class="section" style="padding-top: 0pt;">
+            <table>
+                <tr>
+                    <td style="color: #4f371f; background-color: #fff3e5; padding-left: 6pt; padding-top: 6pt; padding-bottom: 2pt;">
+                        {{ deleted_at_text }}
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+{% endif %}
 <table>
     <tr>
         <td class="section" style="padding-top: 0pt;">
@@ -271,6 +286,7 @@
         </td>
     </tr>
 </table>
+{% if not is_deleted %}
 <table class="grey">
     <tr>
         <td class="section">
@@ -285,7 +301,8 @@
                                 <tr>
                                     {% for column in columns %}
                                         <th
-                                                style="background-color: {{ column.color }}; border-top: solid 1pt black;  {{ 'border-left: solid 1pt black;' if loop.first else ''}} {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}"
+                                                style="background-color: {{ column.color }}; border-top: solid 1pt black;  {{ 'border-left: solid 1pt black;' if loop.first else ''}} {{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }}
+                                                {% if apply_max_width_columns and column.max_width_px %} width: {{ column.max_width_px }}px; {% endif %}"
                                                 align="{{ 'right' if column.number else 'center' }}"
                                         >
                                             {{ column.label }}
@@ -312,7 +329,9 @@
         </td>
     </tr>
 </table>
+{% endif %}
 <!--Careful when editing this file, especially the tag structure. If a cell (<td>) becomes too high or wide the rendering will fail.-->
+{% if not is_deleted %}
 <table>
     <tr>
         <td class="section">
@@ -376,6 +395,7 @@
         </td>
     </tr>
 </table>
+{% endif %}
 <table class="grey section">
     <tr>
         <td class="padding-except-bottom section-title">Observations</td>

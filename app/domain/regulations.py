@@ -1,4 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
+from sqlalchemy.orm import aliased
+from sqlalchemy import or_, and_
 
 from app import app, db
 from app.domain.regulations_per_day import (
@@ -104,26 +106,37 @@ def clean_current_alerts(
     week_compute_end,
     submitter_type,
 ):
-    db.session.query(RegulatoryAlert).filter(
-        RegulatoryAlert.user == user,
-        RegulatoryAlert.submitter_type == submitter_type,
-        RegulatoryAlert.day >= day_compute_start,
-        RegulatoryAlert.day <= day_compute_end,
+
+    condition_day = and_(
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.DAY
         ),
-    ).delete(
-        synchronize_session=False
-    )  # https://docs.sqlalchemy.org/en/14/orm/session_basics.html#selecting-a-synchronization-strategy
+        RegulatoryAlert.day >= day_compute_start,
+        RegulatoryAlert.day <= day_compute_end,
+    )
 
-    db.session.query(RegulatoryAlert).filter(
-        RegulatoryAlert.user == user,
-        RegulatoryAlert.submitter_type == submitter_type,
-        RegulatoryAlert.day >= week_compute_start,
-        RegulatoryAlert.day <= week_compute_end,
+    condition_week = and_(
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.WEEK
         ),
+        RegulatoryAlert.day >= week_compute_start,
+        RegulatoryAlert.day <= week_compute_end,
+    )
+
+    combined_condition = or_(condition_day, condition_week)
+
+    id_to_delete = (
+        db.session.query(RegulatoryAlert.id)
+        .filter(
+            combined_condition,
+            RegulatoryAlert.user == user,
+            RegulatoryAlert.submitter_type == submitter_type,
+        )
+        .all()
+    )
+
+    db.session.query(RegulatoryAlert).filter(
+        RegulatoryAlert.id.in_([item.id for item in id_to_delete])
     ).delete(synchronize_session=False)
 
 
