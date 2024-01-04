@@ -5,7 +5,7 @@ from datetime import datetime
 
 from flask import send_file
 
-from app.models import ControlLocation, ControllerUser
+from app.models import ControlLocation, ControllerUser, RegulationCheck
 
 TRANSPORT_TYPES = {
     "unknown": -1,
@@ -14,17 +14,14 @@ TRANSPORT_TYPES = {
     "cabotage": 2,
 }
 
-INFRACTION_LABELS = {"20525": "Non-respect(s) du repos quotidien"}
-INFRACTION_OBJECTS = {
-    "20525": "La durée du repos quotidien est d'au moins 10h toutes les 24h (article R. 3312-53, 2° du Code des transports)"
-}
-
 
 @dataclass
 class GrecoInfraction:
     natinf: str
     id: str
     short_id: str
+    label: str
+    object: str
     date_start: datetime
     date_end: datetime
 
@@ -64,9 +61,7 @@ def process_control(control, bdc, doc, infractions):
     add_content_element(
         element_control,
         "lieuDepartement_Intitule",
-        bdc.get(
-            "location_department", ""
-        ),  # would need ILLE ET VILAINE for example
+        bdc.get("location_department", ""),
     )
 
     departement_code = str(control_location.department).zfill(2)
@@ -89,10 +84,7 @@ def process_control(control, bdc, doc, infractions):
         element_control, "controleur_Prenom", controller.first_name
     )
     add_content_element(
-        element_control,
-        "controleur_Identification",
-        controller.greco_id
-        # element_control, "controleur_Identification", "30TRANSPORTF?B00"
+        element_control, "controleur_Identification", controller.greco_id
     )
 
     add_content_element(
@@ -200,6 +192,7 @@ def process_control(control, bdc, doc, infractions):
 def process_company(control, bdc, doc):
     element_company = ET.SubElement(doc, "Entreprise")
     add_content_element(element_company, "raisonSociale", control.company_name)
+    # mandatory, doit exister et être valide
     add_content_element(element_company, "numeroSIREN", bdc.get("siren", ""))
     add_content_element(
         element_company, "adresseLigne1", bdc.get("company_address", "")
@@ -226,6 +219,7 @@ def process_company(control, bdc, doc):
     add_content_element(element_company, "contactTitre", "")
     add_content_element(element_company, "dirigeantNom", "")
     add_content_element(element_company, "dirigeantPrenom", "")
+    # Format potentiellement important. Si pas besoin de traiter differents pays laisser en dur
     add_content_element(element_company, "pays", "F - France")
     add_content_element(element_company, "pays_ID", "F")
     add_content_element(element_company, "resultatGrecoCommunautaire", "")
@@ -307,6 +301,9 @@ def process_driver(control, bdc, doc, infractions):
 
 def process_vehicle(control, bdc, doc):
     element_vehicle = ET.SubElement(doc, "Vehicule")
+    # Certains champs de type "Pays" comme celui ci sont remplis comme "F - France" par tachoscan
+    # Je ne sais pas à quel point GRECO accepterait un format différent.
+    # Si pas utile d'ajouter de nouveaux pays on peut laisser F - France par defaut
     add_content_element(
         # element_vehicle, "pays", bdc.get("vehicle_registration_country", "")
         element_vehicle,
@@ -413,19 +410,17 @@ def process_vehicle(control, bdc, doc):
 def process_infractions(control, doc, infractions):
     for r in infractions:
         element_infraction = ET.SubElement(doc, "Infraction")
-        add_content_element(
-            element_infraction, "intitule", INFRACTION_LABELS[r.natinf]
-        )
+        add_content_element(element_infraction, "intitule", r.label)
         add_content_element(element_infraction, "flagOk", str(1))
-        if r.natinf == "20525":
-            add_date_element(element_infraction, "debut", r.date_start)
-            add_date_element(element_infraction, "fin", r.date_end)
-            add_content_element(element_infraction, "duree", "0")
-            add_content_element(element_infraction, "norme", "0")
 
-        add_content_element(
-            element_infraction, "objet", INFRACTION_OBJECTS[r.natinf]
-        )
+        # A voir si ces 4 champs sont utiles ou non et si oui comment les remplir
+        # Potentiellement ils servent à pré-remplir un constat de PV.
+        add_date_element(element_infraction, "debut", r.date_start)
+        add_date_element(element_infraction, "fin", r.date_end)
+        add_content_element(element_infraction, "duree", "0")
+        add_content_element(element_infraction, "norme", "0")
+
+        add_content_element(element_infraction, "objet", r.object)
 
         add_content_element(element_infraction, "nATINF", r.natinf)
         add_content_element(element_infraction, "inf_ID", r.short_id)
@@ -444,12 +439,18 @@ def process_infractions(control, doc, infractions):
         add_content_element(element_recap, "nombre", str(1))
         add_content_element(element_recap, "aVerifier", str(1))
         add_content_element(element_recap, "consignation", str(0))
-        add_content_element(element_recap, "immobilisation", str(1))
-        add_content_element(
-            element_recap, "nature", INFRACTION_LABELS[r.natinf]
-        )
-        add_content_element(element_recap, "pVouAF", "AF")
-        add_content_element(element_recap, "numeroFeuillet", "123456")
+        # TODO: changer pour lire immobilisation en fonction du bdc
+        add_content_element(element_recap, "immobilisation", str(0))
+        add_content_element(element_recap, "nature", r.label)
+        # TODO: ce champ pose problème pour le moment
+        # AF: Amende Forfaitaire | PV | champ vide (pour PV electronique) ?
+        add_content_element(element_recap, "pVouAF", "")
+        # Dans le cas d'un paiement immédiat, le contrôleur renseigne l'identifiant de son feuillet
+        # Il faut un identifiant valide existant. On peut mettre 0 sinon normalement
+        add_content_element(element_recap, "numeroFeuillet", "0")
+        # Je ne suis pas vraiment sûr que ce champ soit utile dans greco. A mon avis il râlera s'il n'est pas là
+        # mais de ce que j'ai vu de l'interface, l'information n'est utilisée nulle part
+        # pour mobilic tout est 4eme classe sauf 32083 qui est Classe 5
         add_content_element(element_recap, "gravite", "4ÈME CLASSE")
         add_content_element(element_recap, "rI_DureeImmo", "")
         add_content_element(element_recap, "rI_ID", r.short_id)
@@ -464,8 +465,15 @@ def get_greco_xml_and_filename(control):
     for idx_r, r in enumerate(control.reported_infractions):
         extra = r.get("extra")
         natinf = extra.get("sanction_code").replace("NATINF ", "")
-        if natinf != "20525":
+        check_type = r.get("check_type")
+        regulation_check = RegulationCheck.query.filter(
+            RegulationCheck.type == check_type
+        ).first()
+
+        # TODO: 13152 should not be observed ?
+        if natinf == "13152":
             continue
+
         short_id = str(idx_r + 1).zfill(4)
         id = f"100100{short_id}"
 
@@ -474,6 +482,11 @@ def get_greco_xml_and_filename(control):
                 extra.get("breach_period_start")
             )
             date_end = datetime.fromisoformat(extra.get("breach_period_end"))
+
+        if natinf == "11292" or natinf == "32083":
+            date_start = datetime.fromisoformat(extra.get("work_range_start"))
+            date_end = datetime.fromisoformat(extra.get("work_range_end"))
+
         infractions.append(
             GrecoInfraction(
                 natinf=natinf,
@@ -481,6 +494,8 @@ def get_greco_xml_and_filename(control):
                 id=id,
                 date_start=date_start,
                 date_end=date_end,
+                label=regulation_check.label,
+                object=regulation_check.description,
             )
         )
 
@@ -511,7 +526,7 @@ def send_control_as_greco_xml(control):
     )
 
 
-# TODO: remove
+# TODO: to remove (or not ?)
 def temp_write_greco_xml(control):
     (xml_data, file_name) = get_greco_xml_and_filename(control)
     with open(file_name, "wb") as file:
