@@ -51,7 +51,7 @@ source ${VIRTUAL_ENV_FOLDER}/bin/activate
 
 # Step 6 : create database on docker postgres
 echo "Creating local database mobilic (if needed)..."
-docker compose up -d
+docker-compose up -d
 
 # Step 7 : run migrations
 echo "Running DB migrations..."
