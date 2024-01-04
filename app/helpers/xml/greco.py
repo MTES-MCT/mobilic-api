@@ -407,7 +407,7 @@ def process_vehicle(control, bdc, doc):
     ET.SubElement(element_vehicle, "ControleTechnique")
 
 
-def process_infractions(control, doc, infractions):
+def process_infractions(bdc, doc, infractions):
     for r in infractions:
         element_infraction = ET.SubElement(doc, "Infraction")
         add_content_element(element_infraction, "intitule", r.label)
@@ -439,8 +439,11 @@ def process_infractions(control, doc, infractions):
         add_content_element(element_recap, "nombre", str(1))
         add_content_element(element_recap, "aVerifier", str(1))
         add_content_element(element_recap, "consignation", str(0))
-        # TODO: changer pour lire immobilisation en fonction du bdc
-        add_content_element(element_recap, "immobilisation", str(0))
+        add_content_element(
+            element_recap,
+            "immobilisation",
+            str(1) if bdc.get("is_vehicle_immobilized", False) else str(0),
+        )
         add_content_element(element_recap, "nature", r.label)
         # TODO: ce champ pose problème pour le moment
         # AF: Amende Forfaitaire | PV | champ vide (pour PV electronique) ?
@@ -504,7 +507,7 @@ def get_greco_xml_and_filename(control):
     process_company(control, bdc, doc)
     process_driver(control, bdc, doc, infractions)
     process_vehicle(control, bdc, doc)
-    process_infractions(control, doc, infractions)
+    process_infractions(bdc, doc, infractions)
 
     xml_data = ET.tostring(doc)
     return (xml_data, filename)
