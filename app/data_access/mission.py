@@ -86,6 +86,10 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     deleted_at = graphene.Field(
         TimeStamp, description="Horodatage de la suppression de la mission"
     )
+    deleted_by = graphene.Field(
+        graphene.String,
+        description="Nom de la personne ayant supprimé la mission",
+    )
 
     def resolve_activities(self, info, include_dismissed_activities=False):
         max_reception_time = retrieve_max_reception_time(info)
@@ -139,6 +143,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_deleted_at(self, info):
         return self.deleted_at()
+
+    def resolve_deleted_by(self, info):
+        return self.deleted_by()
 
 
 class MissionConnection(graphene.Connection):
