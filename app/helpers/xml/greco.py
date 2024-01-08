@@ -1,7 +1,7 @@
-import tempfile
 import xml.etree.cElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
 
 from flask import send_file
 
@@ -517,12 +517,12 @@ def send_control_as_greco_xml(control):
 
     (xml_data, file_name) = get_greco_xml_and_filename(control)
 
-    temp_file = tempfile.NamedTemporaryFile(delete=True, suffix=".xml")
-    with open(temp_file.name, "wb") as file:
-        file.write(xml_data)
+    memory_file = BytesIO()
+    memory_file.write(xml_data)
+    memory_file.seek(0)
 
     return send_file(
-        temp_file.name,
+        memory_file,
         mimetype="application/xml",
         as_attachment=True,
         download_name=file_name,
