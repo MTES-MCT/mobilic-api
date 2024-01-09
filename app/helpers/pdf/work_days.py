@@ -10,21 +10,31 @@ from app.models.expenditure import ExpenditureType
 from app.models.mission import UserMissionModificationStatus
 from app.templates.filters import format_seconds_duration, format_time
 
+COLOR_OFF = "#9BC0D1"
+COLOR_ACTIVITY = "#C9CBFF"
+COLOR_DAYS = "#CFDAC8"
+COLOR_EXPENDITURES = "#FFE5B9"
+LABEL_OFF_DAYS = "Jours de congés ou d'absence"
+LABEL_OFF_HOURS = "Heures de congés ou d'absence"
 
-def _get_summary_columns(include_support=False, include_expenditures=False):
+
+def _get_summary_columns(
+    include_support=False, include_expenditures=False, include_off_hours=False
+):
     summary_columns = [
-        Column(name="worked_days", label="Jours travaillés", color="#CFDAC8"),
+        Column(name="worked_days", label="Jours travaillés", color=COLOR_DAYS),
+        Column(name="off_days", label=LABEL_OFF_DAYS, color=COLOR_OFF),
         Column(
             name=ActivityType.DRIVE.value,
             label="Conduite",
-            color="#C9CBFF",
+            color=COLOR_ACTIVITY,
             secondary=True,
             format=format_seconds_duration,
         ),
         Column(
             name=ActivityType.WORK.value,
             label="Autre tâche",
-            color="#C9CBFF",
+            color=COLOR_ACTIVITY,
             secondary=True,
             format=format_seconds_duration,
         ),
@@ -35,7 +45,7 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
             Column(
                 name=ActivityType.SUPPORT.value,
                 label="Accompagnement",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 secondary=True,
                 format=format_seconds_duration,
             )
@@ -45,10 +55,20 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
         Column(
             name="total_work",
             label="Heures travaillées",
-            color="#C9CBFF",
+            color=COLOR_ACTIVITY,
             format=format_seconds_duration,
         )
     )
+
+    if include_off_hours:
+        summary_columns.append(
+            Column(
+                name=ActivityType.OFF.value,
+                label=LABEL_OFF_HOURS,
+                color=COLOR_OFF,
+                format=format_seconds_duration,
+            )
+        )
 
     if include_expenditures:
         summary_columns.extend(
@@ -56,25 +76,25 @@ def _get_summary_columns(include_support=False, include_expenditures=False):
                 Column(
                     name=ExpenditureType.DAY_MEAL.value,
                     label="Repas midi",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.NIGHT_MEAL.value,
                     label="Repas soir",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.SLEEP_OVER.value,
                     label="Découché",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.SNACK.value,
                     label="Casse-croûte",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
             ]
@@ -90,33 +110,33 @@ def _get_detail_columns(
         Column(
             name="start_time",
             label="Début",
-            color="#CFDAC8",
+            color=COLOR_DAYS,
             secondary=True,
         ),
         Column(
             name="end_time",
             label="Fin",
-            color="#CFDAC8",
+            color=COLOR_DAYS,
             secondary=True,
         ),
         Column(
             name="service",
             label="Amplitude",
-            color="#CFDAC8",
+            color=COLOR_DAYS,
             format=format_seconds_duration,
             right_border=True,
         ),
         Column(
             name=ActivityType.DRIVE.value,
             label="Conduite",
-            color="#C9CBFF",
+            color=COLOR_ACTIVITY,
             secondary=True,
             format=format_seconds_duration,
         ),
         Column(
             name=ActivityType.WORK.value,
             label="Autre tâche",
-            color="#C9CBFF",
+            color=COLOR_ACTIVITY,
             secondary=True,
             format=format_seconds_duration,
         ),
@@ -127,7 +147,7 @@ def _get_detail_columns(
             Column(
                 name=ActivityType.TRANSFER.value,
                 label="Temps de Liaison",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 secondary=True,
                 format=format_seconds_duration,
             )
@@ -138,7 +158,7 @@ def _get_detail_columns(
             Column(
                 name=ActivityType.SUPPORT.value,
                 label="Accompagnement",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 secondary=True,
                 format=format_seconds_duration,
             )
@@ -149,23 +169,39 @@ def _get_detail_columns(
             Column(
                 name="break",
                 label="Pause",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 secondary=True,
                 format=format_seconds_duration,
             ),
             Column(
                 name="total_work",
                 label="Heures travaillées",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 format=format_seconds_duration,
             ),
             Column(
                 name="night_hours",
                 label="Dont heures au tarif nuit",
-                color="#C9CBFF",
+                color=COLOR_ACTIVITY,
                 format=format_seconds_duration,
                 secondary=True,
                 right_border=True,
+            ),
+        ]
+    )
+
+    columns.extend(
+        [
+            Column(
+                name=ActivityType.OFF.value,
+                label=LABEL_OFF_HOURS,
+                color=COLOR_OFF,
+                format=format_seconds_duration,
+            ),
+            Column(
+                name="off_reasons",
+                label="Motifs",
+                color=COLOR_OFF,
             ),
         ]
     )
@@ -176,31 +212,44 @@ def _get_detail_columns(
                 Column(
                     name=ExpenditureType.DAY_MEAL.value,
                     label="Repas midi",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.NIGHT_MEAL.value,
                     label="Repas soir",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.SLEEP_OVER.value,
                     label="Découché",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
                 Column(
                     name=ExpenditureType.SNACK.value,
                     label="Casse-croûte",
-                    color="#FFE5B9",
+                    color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
             ]
         )
 
     return columns
+
+
+def get_accumulator_base():
+    base_dict = {
+        "worked_days": 0,
+        "off_days": 0,
+        "total_work": 0,
+    }
+    for _type in ActivityType:
+        base_dict[_type.value] = 0
+    for _type in ExpenditureType:
+        base_dict[_type.value] = 0
+    return base_dict
 
 
 def _generate_work_days_pdf(
@@ -218,60 +267,32 @@ def _generate_work_days_pdf(
     current_month = start_date.replace(day=1)
     last_month = end_date.replace(day=1)
     while current_month <= last_month:
-        months.append(
-            {
-                "date": current_month,
-                "worked_days": 0,
-                ActivityType.DRIVE.value: 0,
-                ActivityType.WORK.value: 0,
-                ActivityType.SUPPORT.value: 0,
-                ActivityType.TRANSFER.value: 0,
-                "total_work": 0,
-                ExpenditureType.DAY_MEAL.value: 0,
-                ExpenditureType.NIGHT_MEAL.value: 0,
-                ExpenditureType.SLEEP_OVER.value: 0,
-                ExpenditureType.SNACK.value: 0,
-            }
-        )
+        tpm_month = get_accumulator_base()
+        tpm_month["date"] = current_month
+        months.append(tpm_month)
         current_month += relativedelta(months=1)
 
     current_week = start_date - timedelta(days=start_date.weekday())
     last_week = end_date - timedelta(days=end_date.weekday())
     while current_week <= last_week:
-        weeks.append(
-            {
-                "start": current_week,
-                "end": current_week + timedelta(days=6),
-                "worked_days": 0,
-                ActivityType.DRIVE.value: 0,
-                ActivityType.WORK.value: 0,
-                ActivityType.SUPPORT.value: 0,
-                ActivityType.TRANSFER.value: 0,
-                "total_work": 0,
-                "night_hours": 0,
-                ExpenditureType.DAY_MEAL.value: 0,
-                ExpenditureType.NIGHT_MEAL.value: 0,
-                ExpenditureType.SLEEP_OVER.value: 0,
-                ExpenditureType.SNACK.value: 0,
-                "days": [],
-            }
-        )
+        tmp_week = get_accumulator_base()
+        tmp_week["start"] = current_week
+        tmp_week["end"] = current_week + timedelta(days=6)
+        tmp_week["night_hours"] = 0
+        tmp_week["days"] = []
+        weeks.append(tmp_week)
         current_week += timedelta(days=7)
 
-    total = {
-        "worked_days": 0,
-        ActivityType.DRIVE.value: 0,
-        ActivityType.WORK.value: 0,
-        ActivityType.SUPPORT.value: 0,
-        ActivityType.TRANSFER.value: 0,
-        "total_work": 0,
-        ExpenditureType.DAY_MEAL.value: 0,
-        ExpenditureType.NIGHT_MEAL.value: 0,
-        ExpenditureType.SLEEP_OVER.value: 0,
-        ExpenditureType.SNACK.value: 0,
-    }
+    total = get_accumulator_base()
 
     for wd in work_days:
+        is_day_off = any(m.is_holiday() for m in wd.missions)
+        is_day_worked = any(not m.is_holiday() for m in wd.missions)
+        day_off_reasons = (
+            " / ".join([m.name for m in wd.missions if m.is_holiday()])
+            if is_day_off
+            else ""
+        )
         month = [m for m in months if m["date"] == wd.day.replace(day=1)][0]
         week = [
             w
@@ -280,7 +301,10 @@ def _generate_work_days_pdf(
         ][0]
 
         for accumulator in [month, week, total]:
-            accumulator["worked_days"] += 1
+            if is_day_worked:
+                accumulator["worked_days"] += 1
+            if is_day_off:
+                accumulator["off_days"] += 1
 
             accumulator["total_work"] += wd.total_work_duration
             if "night_hours" in accumulator:
@@ -336,6 +360,7 @@ def _generate_work_days_pdf(
                 "not_validated_by_self": show_not_validated_by_self_alert,
                 "not_validated_by_admin": show_not_validated_by_admin_alert,
                 "modified_after_self_validation": show_modifications_after_validation_alert,
+                "off_reasons": day_off_reasons,
             }
         )
 
@@ -389,23 +414,33 @@ def _generate_work_days_pdf(
         [w["has_day_modified_after_self_validation"] for w in weeks]
     )
 
+    include_support_column = (
+        include_support_activity or total[ActivityType.SUPPORT] > 0
+    )
+    month_columns = _get_summary_columns(
+        include_support=include_support_column,
+        include_expenditures=include_expenditures,
+        include_off_hours=False,
+    )
+    week_columns = _get_summary_columns(
+        include_support=include_support_column,
+        include_expenditures=include_expenditures,
+        include_off_hours=True,
+    )
+    day_columns = _get_detail_columns(
+        include_support=include_support_column,
+        include_expenditures=include_expenditures,
+        include_transfers=include_transfers
+        or total[ActivityType.TRANSFER] > 0,
+    )
     return generate_pdf_from_template(
         "work_days_pdf.html",
         user_name=user.display_name,
         start_date=start_date,
         end_date=end_date,
-        summary_columns=_get_summary_columns(
-            include_support=include_support_activity
-            or total[ActivityType.SUPPORT] > 0,
-            include_expenditures=include_expenditures,
-        ),
-        day_columns=_get_detail_columns(
-            include_support=include_support_activity
-            or total[ActivityType.SUPPORT] > 0,
-            include_expenditures=include_expenditures,
-            include_transfers=include_transfers
-            or total[ActivityType.TRANSFER] > 0,
-        ),
+        month_columns=month_columns,
+        week_columns=week_columns,
+        day_columns=day_columns,
         weeks=weeks,
         has_any_week_comment_not_validated_by_self=has_any_week_comment_not_validated_by_self,
         has_any_week_comment_not_validated_by_admin=has_any_week_comment_not_validated_by_admin,
