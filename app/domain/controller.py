@@ -16,24 +16,14 @@ def create_controller_user(ac_info):
     db.session.add(controller)
     db.session.flush()
 
-    message = f"Signed up new controller {controller}"
-
     g.controller = controller
-    app.logger.info(
-        message,
-        extra={
-            "post_to_mattermost": True,
-            "log_title": "New controller signup",
-            "emoji": ":female-police-officer:",
-        },
-    )
 
     return controller
 
 
 def get_controller_from_ac_info(ac_info):
-    agent_connect_id = ac_info.get("sub")
+    email = ac_info.get("email")
 
     return ControllerUser.query.filter(
-        ControllerUser.agent_connect_id == agent_connect_id
+        ControllerUser.email == email
     ).one_or_none()
