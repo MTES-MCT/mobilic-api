@@ -90,6 +90,7 @@ class LogHoliday(AuthenticatedMutation):
                     reception_time=now,
                     submitter=current_user,
                 )
+                db.session.add(mission)
                 if comment:
                     db.session.add(
                         Comment(
@@ -99,7 +100,7 @@ class LogHoliday(AuthenticatedMutation):
                             reception_time=now,
                         )
                     )
-                db.session.add(mission)
+                db.session.flush()
                 log_activity(
                     submitter=current_user,
                     user=user,
@@ -109,14 +110,6 @@ class LogHoliday(AuthenticatedMutation):
                     reception_time=now,
                     start_time=start,
                     end_time=end,
-                )
-                db.session.add(
-                    MissionEnd(
-                        submitter=current_user,
-                        reception_time=now,
-                        user=user,
-                        mission=mission,
-                    )
                 )
                 validate_mission(
                     submitter=current_user,
