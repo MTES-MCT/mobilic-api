@@ -8,6 +8,7 @@ from app.helpers.frozen_version_utils import (
 )
 from app.helpers.time import max_or_none
 from app.models.event import EventBaseModel
+from app.models.user import User
 
 
 class UserMissionModificationStatus(str, Enum):
@@ -254,3 +255,23 @@ class Mission(EventBaseModel):
             if not self.ended_for(u):
                 return False
         return True
+
+    def is_deleted(self):
+        return all(activity.is_dismissed for activity in self.activities)
+
+    def deleted_at(self):
+        dismissed_times = [a.dismissed_at for a in self.activities]
+        if len(dismissed_times) < len(self.activities):
+            return None
+        return max_or_none(*dismissed_times)
+
+    def deleted_by(self):
+        if not self.is_deleted():
+            return None
+        activities = sorted(
+            [a for a in self.activities], key=lambda a: (a.dismissed_at)
+        )
+        deleted_by_id = activities[-1].dismiss_author_id
+        if deleted_by_id:
+            deleted_by_user = User.query.get(deleted_by_id)
+        return deleted_by_user.display_name if deleted_by_user else "-"
