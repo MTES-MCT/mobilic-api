@@ -1,13 +1,14 @@
 from datetime import datetime
 
+from app.helpers.time import is_sunday_or_bank_holiday
 from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
     write_user_recap,
 )
+from app.helpers.xls.companies.legend import write_sheet_legend
 from app.helpers.xls.controllers.header import write_header
 from app.helpers.xls.columns import *
-from app.helpers.xls.controllers.legend import write_sheet_legend
 
 COLUMNS_MAIN = [
     COLUMN_ENTREPRISE,
@@ -83,5 +84,4 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
         control.user.display_name,
     )
 
-    if has_one_bank_holiday:
-        write_sheet_legend(wb, sheet)
+    write_sheet_legend(wb, sheet, has_bank_holiday=has_one_bank_holiday)
