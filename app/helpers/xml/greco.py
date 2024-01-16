@@ -529,7 +529,6 @@ def send_control_as_greco_xml(control):
     )
 
 
-# TODO: to remove (or not ?)
 def temp_write_greco_xml(control):
     (xml_data, file_name) = get_greco_xml_and_filename(control)
     with open(file_name, "wb") as file:

@@ -298,7 +298,6 @@ def load_company_stats():
     app.logger.info("Process load_company_stats done")
 
 
-# TODO: to remove (or not ?)
 @app.cli.command("temp_generate_xml", with_appcontext=True)
 @click.argument("id", required=True)
 def temp_command_generate_xm_control(id):
