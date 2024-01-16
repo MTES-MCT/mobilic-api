@@ -43,6 +43,7 @@ from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.tachograph import get_tachograph_archive_controller
 from app.helpers.xls.controllers import send_control_as_one_excel_file
+from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.controller_user import ControllerUser
@@ -394,6 +395,18 @@ def download_control_report(control_id):
     return send_control_as_one_excel_file(
         control, work_days_data, min_date, max_date
     )
+
+
+@app.route("/controllers/download_control_xml", methods=["POST"])
+@doc(description="Téléchargement du contrôle au format XML")
+@use_kwargs({"control_id": fields.Int(required=True)}, apply=True)
+@with_authorization_policy(
+    controller_can_see_control,
+    get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+)
+def download_control_xml(control_id):
+    control = ControllerControl.query.get(control_id)
+    return send_control_as_greco_xml(control)
 
 
 @app.route("/controllers/generate_tachograph_files", methods=["POST"])
