@@ -104,7 +104,10 @@ def _get_summary_columns(
 
 
 def _get_detail_columns(
-    include_support=False, include_expenditures=False, include_transfers=False
+    include_support=False,
+    include_expenditures=False,
+    include_transfers=False,
+    include_off_hours=False,
 ):
     columns = [
         Column(
@@ -190,21 +193,22 @@ def _get_detail_columns(
         ]
     )
 
-    columns.extend(
-        [
-            Column(
-                name=ActivityType.OFF.value,
-                label=LABEL_OFF_HOURS,
-                color=COLOR_OFF,
-                format=format_seconds_duration,
-            ),
-            Column(
-                name="off_reasons",
-                label="Motifs",
-                color=COLOR_OFF,
-            ),
-        ]
-    )
+    if include_off_hours:
+        columns.extend(
+            [
+                Column(
+                    name=ActivityType.OFF.value,
+                    label=LABEL_OFF_HOURS,
+                    color=COLOR_OFF,
+                    format=format_seconds_duration,
+                ),
+                Column(
+                    name="off_reasons",
+                    label="Motifs",
+                    color=COLOR_OFF,
+                ),
+            ]
+        )
 
     if include_expenditures:
         columns.extend(
@@ -432,6 +436,7 @@ def _generate_work_days_pdf(
         include_expenditures=include_expenditures,
         include_transfers=include_transfers
         or total[ActivityType.TRANSFER] > 0,
+        include_off_hours=True,
     )
     return generate_pdf_from_template(
         "work_days_pdf.html",
