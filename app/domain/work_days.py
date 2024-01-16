@@ -22,6 +22,9 @@ from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
+NOT_WORK_ACTIVITIES = [ActivityType.OFF, ActivityType.TRANSFER]
+
+
 def compute_aggregate_durations(periods, min_time=None, tz=None):
     max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
@@ -40,7 +43,7 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
             period.duration_over(min_time, max_time).total_seconds()
         )
         timers[period.type] += total_duration
-        if period.type != ActivityType.TRANSFER and min_time:
+        if period.type not in NOT_WORK_ACTIVITIES and min_time:
             user_timezone = gettz(period.user.timezone_name)
             day_duration_tarification = int(
                 period.duration_over(
@@ -86,7 +89,7 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         [
             timers[a_type]
             for a_type in ActivityType
-            if a_type != ActivityType.TRANSFER
+            if a_type not in NOT_WORK_ACTIVITIES
         ],
     )
 

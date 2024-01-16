@@ -194,7 +194,7 @@
         <thead>
             <tr>
                 <th class="summary-table-month">Mois</th>
-                {% for column in summary_columns %}
+                {% for column in month_columns %}
                     <th
                         style="background-color: {{ column.color }}; {{ 'border-right: none;' if loop.last else '' }}"
                         align="{{ 'right' if column.number else 'center' }}"
@@ -211,7 +211,7 @@
                    <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none;' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}">
                        {{ month["date"] | pretty_format_month }}
                    </td>
-                   {% for column in summary_columns %}
+                   {% for column in month_columns %}
                        <td class="{{ 'summary-table-minor-prop' if column.secondary else 'summary-table-major-prop' }}"
                             style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}"
                             align="{{ 'right' if column.number else 'center' }}"
@@ -224,7 +224,7 @@
             {% if show_month_total %}
             <tr class="summary-table-total">
                 <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
-                {% for column in summary_columns %}
+                {% for column in month_columns %}
                    <td
                         style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
                         align="{{ 'right' if column.number else 'center' }}"
@@ -245,7 +245,7 @@
             <thead>
                 <tr>
                     <th class="summary-table-month">Semaine</th>
-                    {% for column in summary_columns %}
+                    {% for column in week_columns %}
                         <th
                             style="background-color: {{ column.color }}; {{ 'border-right: none;' if loop.last else '' }}"
                             align="{{ 'right' if column.number else 'center' }}"
@@ -262,7 +262,7 @@
                        <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}">
                            Du {{ week["start"] | format_day }} au {{ week["end"] | format_day }}
                        </td>
-                       {% for column in summary_columns %}
+                       {% for column in week_columns %}
                            <td class="{{ 'summary-table-minor-prop' if column.secondary else 'summary-table-major-prop' }}"
                                 style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last else '' }}"
                                 align="{{ 'right' if column.number else 'center' }}"
@@ -274,7 +274,7 @@
                 {% endfor %}
                 <tr class="summary-table-total">
                     <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
-                    {% for column in summary_columns %}
+                    {% for column in week_columns %}
                        <td
                             style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
                             align="{{ 'right' if column.number else 'center' }}"
