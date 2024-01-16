@@ -9,6 +9,7 @@ from app.domain.validation import validate_mission
 from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import check_company_against_scope_wrapper
 from app.helpers.graphene_types import TimeStamp
+from app.helpers.time import get_daily_periods
 from app.models import Company, Mission, MissionEnd, Comment, User
 from app.models.activity import ActivityType
 
@@ -79,41 +80,40 @@ class LogHoliday(AuthenticatedMutation):
 
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
-
-            mission = Mission(
-                name=title,
-                company=company,
-                reception_time=now,
-                submitter=current_user,
+            periods = get_daily_periods(
+                start_date_time=start_time, end_date_time=end_time
             )
-            if comment:
-                Comment(
-                    submitter=current_user,
-                    mission=mission,
-                    text=comment,
+            for (start, end) in periods:
+                mission = Mission(
+                    name=title,
+                    company=company,
                     reception_time=now,
+                    submitter=current_user,
                 )
-            log_activity(
-                submitter=current_user,
-                user=user,
-                type=ActivityType.OFF,
-                mission=mission,
-                switch_mode=False,
-                reception_time=now,
-                start_time=start_time,
-                end_time=end_time,
-            )
-            db.session.add(
-                MissionEnd(
+                db.session.add(mission)
+                if comment:
+                    db.session.add(
+                        Comment(
+                            submitter=current_user,
+                            mission=mission,
+                            text=comment,
+                            reception_time=now,
+                        )
+                    )
+                db.session.flush()
+                log_activity(
                     submitter=current_user,
-                    reception_time=now,
                     user=user,
+                    type=ActivityType.OFF,
                     mission=mission,
+                    switch_mode=False,
+                    reception_time=now,
+                    start_time=start,
+                    end_time=end,
                 )
-            )
-            validate_mission(
-                submitter=current_user,
-                mission=mission,
-                for_user=user,
-            )
-            return Void(success=True)
+                validate_mission(
+                    submitter=current_user,
+                    mission=mission,
+                    for_user=user,
+                )
+        return Void(success=True)

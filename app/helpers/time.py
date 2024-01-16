@@ -122,6 +122,20 @@ def get_dates_range(start_date, end_date):
         yield start_date + datetime.timedelta(n)
 
 
+def get_daily_periods(start_date_time, end_date_time):
+    start_time = start_date_time.time()
+    end_time = end_date_time.time()
+    inverted = start_time >= end_time
+    res = []
+    for day in get_dates_range(start_date_time, end_date_time):
+        start = day.replace(hour=start_time.hour, minute=start_time.minute)
+        end = day.replace(hour=end_time.hour, minute=end_time.minute)
+        if inverted:
+            end += datetime.timedelta(days=1)
+        res.append((start, end))
+    return res
+
+
 def get_first_day_of_week(day):
     day_of_week = day.weekday()
     return day - datetime.timedelta(days=day_of_week)
