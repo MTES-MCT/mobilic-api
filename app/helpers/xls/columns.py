@@ -2,6 +2,7 @@ from collections import namedtuple
 from datetime import timedelta
 
 from app.domain.history import LogActionType
+from app.domain.work_days import NOT_WORK_ACTIVITIES
 from app.helpers.time import to_fr_tz
 from app.helpers.xls.common import (
     light_grey_hex,
@@ -217,7 +218,7 @@ COLUMN_BREAK = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.service_duration
         - wday.total_work_duration
-        - wday.activity_durations[ActivityType.TRANSFER]
+        - sum([wday.activity_durations[t] for t in NOT_WORK_ACTIVITIES])
     ),
     lambda wday: get_duration_format(),
     13,
