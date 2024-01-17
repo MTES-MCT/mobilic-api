@@ -86,6 +86,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     deleted_at = graphene.Field(
         TimeStamp, description="Horodatage de la suppression de la mission"
     )
+    is_holiday = graphene.Field(graphene.Boolean)
 
     def resolve_activities(self, info, include_dismissed_activities=False):
         max_reception_time = retrieve_max_reception_time(info)
@@ -139,6 +140,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_deleted_at(self, info):
         return self.deleted_at()
+
+    def resolve_is_holiday(self, info):
+        return self.is_holiday()
 
 
 class MissionConnection(graphene.Connection):
