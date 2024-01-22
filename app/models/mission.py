@@ -44,7 +44,9 @@ class Mission(EventBaseModel):
         )
         if max_reception_time:
             all_activities_for_user = freeze_activities(
-                all_activities_for_user, max_reception_time
+                all_activities_for_user,
+                max_reception_time,
+                include_dismissed_activities,
             )
         if not include_dismissed_activities:
             if max_reception_time:
