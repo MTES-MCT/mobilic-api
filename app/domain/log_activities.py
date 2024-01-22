@@ -103,6 +103,7 @@ def handle_activities_update(
     bypass_auth_check=False,
     bypass_overlap_check=False,
     reopen_mission_if_needed=True,
+    is_revision=False,
 ):
     # 1. Check that start time and end time are not ahead in the future
     check_event_time_is_not_in_the_future(start_time, reception_time, "Start")
@@ -118,8 +119,9 @@ def handle_activities_update(
             end=end_time or start_time,
         )
 
-    # 3a. Check if mission is a holiday mission
-    check_if_mission_holiday(mission)
+    # 3a. Check if mission is a holiday mission for creation
+    if not is_revision:
+        check_if_mission_holiday(mission)
 
     if type == ActivityType.OFF:
         # 3b. Check we log a time off only in an empty mission
