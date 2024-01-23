@@ -25,17 +25,12 @@ from app.seed.scenarios.export_excel import (
     ADMIN_EMAIL as ADMIN_EXPORT,
     run_scenario_export_excel,
 )
-from app.seed.scenarios.two_weeks import (
-    ADMIN_EMAIL as ADMIN_TWO_WEEKS,
-    EMPLOYEE_EMAIL as EMPLOYEE_TWO_WEEKS,
-)
 from app.seed.scenarios.certificated_company import (
     ADMIN_EMAIL as CERTIFICATED_ADMIN_EMAIL,
     EMPLOYEE_EMAIL as CERTIFICATED_EMPLOYEE_EMAIL,
 )
 from app.seed.scenarios.controls import run_scenario_controls
 from app.seed.scenarios.temps_de_liaison import run_scenario_temps_de_liaison
-from app.seed.scenarios.two_weeks import run_scenario_non_stop
 from app.seed.scenarios.third_party import (
     ADMIN_EMAIL as ADMIN_THIRD_PARTY,
     EMPLOYEE_CONFIRMED_EMAIL,
@@ -79,12 +74,6 @@ scenarios = [
         "Creates a company which should be compliant enough to get a Mobilic certificate",
         [CERTIFICATED_ADMIN_EMAIL, CERTIFICATED_EMPLOYEE_EMAIL],
         run_scenario_certificated,
-    ),
-    SeedScenario(
-        "Non Stop",
-        "Creates a mission non stop for two weeks",
-        [ADMIN_TWO_WEEKS, EMPLOYEE_TWO_WEEKS],
-        run_scenario_non_stop,
     ),
     SeedScenario(
         "Busy Admin",

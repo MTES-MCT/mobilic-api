@@ -57,7 +57,7 @@ def create_mission(
     company,
     time,
     submitter,
-    vehicle,
+    vehicle=None,
     address=None,
     add_location_entry=False,
 ):
