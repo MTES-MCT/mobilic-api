@@ -71,16 +71,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Filtre sur une mission à l'aide de son identifiant",
         ),
-        include_dismissed_activities=graphene.Boolean(
-            required=False,
-            description="Flag pour inclure les activités effacées",
-        ),
         description="Liste des missions de l'utilisateur pendant la période de contrôle.",
-    )
-
-    missions_deleted = graphene.List(
-        MissionOutput,
-        description="Liste des missions supprimées de l'utilisateur pendant la période de contrôle.",
     )
 
     history_start_date = graphene.Field(
@@ -149,16 +140,6 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             include_dismissed_activities=True,
         )
         return missions
-
-    def resolve_missions_deleted(self, info):
-        missions, _ = self.user.query_missions_with_limit(
-            start_time=self.history_start_date,
-            end_time=self.history_end_date,
-            max_reception_time=self.qr_code_generation_time,
-            include_dismissed_activities=True,
-        )
-        deleted_missions = [m for m in missions if m.is_deleted()]
-        return deleted_missions
 
     def resolve_history_start_date(self, info):
         return self.history_start_date
