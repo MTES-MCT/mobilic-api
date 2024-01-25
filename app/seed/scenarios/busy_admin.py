@@ -245,7 +245,7 @@ def run_scenario_busy_admin():
 
     db.session.commit()
 
-    ## An employee who get her missions deleted
+    ## An employee with deleted activities and missions
     deleted_mission_employee = _add_employee(
         email="deleted.mission@busycorp.com",
         first_name="Agathe",
@@ -273,14 +273,14 @@ def run_scenario_busy_admin():
             mission=finished_mission,
             type=ActivityType.DRIVE,
             switch_mode=False,
-            reception_time=get_time(how_many_days_ago=14, hour=15),
-            start_time=get_time(how_many_days_ago=14, hour=14),
-            end_time=get_time(how_many_days_ago=14, hour=15),
+            reception_time=get_time(how_many_days_ago=15, hour=15),
+            start_time=get_time(how_many_days_ago=15, hour=14),
+            end_time=get_time(how_many_days_ago=15, hour=15),
         )
         db.session.add(
             MissionEnd(
                 submitter=deleted_mission_employee,
-                reception_time=get_time(how_many_days_ago=14, hour=15),
+                reception_time=get_time(how_many_days_ago=15, hour=15),
                 user=deleted_mission_employee,
                 mission=finished_mission,
             )
@@ -304,13 +304,76 @@ def run_scenario_busy_admin():
     from app.tests.helpers import make_authenticated_request, ApiRequests
 
     # Admin cancels missions
-    for mission_in in [finished_mission.id, running_mission.id]:
+    for mission_id in [finished_mission.id, running_mission.id]:
         make_authenticated_request(
-            time=datetime.datetime.now(),
+            time=get_time(how_many_days_ago=9, hour=17),
             submitter_id=admin.id,
             query=ApiRequests.cancel_mission,
             variables=dict(
-                mission_id=mission_in,
+                mission_id=mission_id,
                 user_id=deleted_mission_employee.id,
             ),
         )
+
+    mission_with_deleted_activities = create_mission(
+        name="Mission With Deleted Activities",
+        company=companies[0],
+        time=datetime.datetime.now(),
+        submitter=deleted_mission_employee,
+    )
+    db.session.commit()
+
+    with AuthenticatedUserContext(user=deleted_mission_employee):
+        for hour_ in [10, 13, 16]:
+            log_activity(
+                submitter=deleted_mission_employee,
+                user=deleted_mission_employee,
+                mission=mission_with_deleted_activities,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=get_time(how_many_days_ago=14, hour=hour_ + 1),
+                start_time=get_time(how_many_days_ago=14, hour=hour_),
+                end_time=get_time(how_many_days_ago=14, hour=hour_ + 1),
+            )
+        db.session.commit()
+
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=14, hour=20),
+        submitter_id=deleted_mission_employee.id,
+        query=ApiRequests.cancel_activity,
+        variables=dict(
+            activityId=mission_with_deleted_activities.activities_for(
+                deleted_mission_employee
+            )[0].id,
+        ),
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=14, hour=21),
+        submitter_id=deleted_mission_employee.id,
+        query=ApiRequests.validate_mission,
+        variables=dict(
+            missionId=mission_with_deleted_activities.id,
+            usersIds=[deleted_mission_employee.id],
+        ),
+    )
+
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=14, hour=23),
+        submitter_id=admin.id,
+        query=ApiRequests.validate_mission,
+        variables=dict(
+            missionId=mission_with_deleted_activities.id,
+            usersIds=[deleted_mission_employee.id],
+            activityItems=[
+                {
+                    "cancel": {
+                        "activityId": mission_with_deleted_activities.activities_for(
+                            deleted_mission_employee
+                        )[
+                            1
+                        ].id
+                    }
+                }
+            ],
+        ),
+    )
