@@ -262,7 +262,11 @@ class Mission(EventBaseModel):
         return all(activity.is_dismissed for activity in self.activities)
 
     def deleted_at(self):
-        dismissed_times = [a.dismissed_at for a in self.activities]
+        dismissed_times = [
+            a.dismissed_at
+            for a in self.activities
+            if a.dismissed_at is not None
+        ]
         if len(dismissed_times) < len(self.activities):
             return None
         return max_or_none(*dismissed_times)
