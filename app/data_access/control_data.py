@@ -71,7 +71,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Filtre sur une mission à l'aide de son identifiant",
         ),
-        include_dismissed_missions=graphene.Boolean(
+        include_deleted_missions=graphene.Boolean(
             required=False,
             description="Flag pour inclure les missions supprimées",
         ),
@@ -135,7 +135,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return employments
 
     def resolve_missions(
-        self, info, mission_id=None, include_dismissed_missions=False
+        self, info, mission_id=None, include_deleted_missions=False
     ):
         missions, _ = self.user.query_missions_with_limit(
             start_time=self.history_start_date,
@@ -143,7 +143,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             limit_fetch_activities=2000,
             max_reception_time=self.qr_code_generation_time,
             mission_id=mission_id,
-            include_dismissed_activities=include_dismissed_missions,
+            include_dismissed_activities=include_deleted_missions,
         )
         return missions
 

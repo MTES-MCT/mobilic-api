@@ -133,7 +133,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             graphene.String,
             description="Valeur du curseur, qui détermine quelle page retourner.",
         ),
-        include_dismissed_missions=graphene.Boolean(
+        include_deleted_missions=graphene.Boolean(
             required=False,
             description="Flag pour inclure les missions supprimées",
         ),
@@ -288,7 +288,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         until_time=None,
         first=None,
         after=None,
-        include_dismissed_missions=False,
+        include_deleted_missions=False,
     ):
         from_time = get_max_datetime(
             from_time, consultation_scope.user_data_min_date
@@ -322,7 +322,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         missions, has_next_page = self.query_missions_with_limit(
             start_time=from_time,
             end_time=until_time,
-            include_dismissed_activities=include_dismissed_missions,
+            include_dismissed_activities=include_deleted_missions,
             restrict_to_company_ids=consultation_scope.company_ids or None,
             additional_activity_filters=additional_activity_filters,
             sort_activities=False,
@@ -331,7 +331,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         return to_connection(
             missions,
             connection_cls=MissionConnection,
-            get_cursor=lambda m: f"{str(m.activities_for(self, include_dismissed_activities=include_dismissed_missions)[0].start_time)},{m.id}",
+            get_cursor=lambda m: f"{str(m.activities_for(self, include_dismissed_activities=include_deleted_missions)[0].start_time)},{m.id}",
             has_next_page=has_next_page,
             first=actual_first,
         )
