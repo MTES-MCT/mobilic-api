@@ -40,6 +40,7 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
 
     if (
         is_admin_validation
+        and for_user.id != submitter.id
         and mission.submitter_id != submitter.id
         and len(mission.validations_for(for_user)) == 0
     ):

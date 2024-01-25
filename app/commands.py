@@ -15,6 +15,8 @@ from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.xml.greco import temp_write_greco_xml
+from app.models.controller_control import ControllerControl
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
@@ -157,7 +159,7 @@ def _clean_vehicle():
 
 @app.cli.command()
 def clean_vehicle():
-    print("Cleaning the duplicate vehicles")
+    print(f"Cleaning the duplicate vehicles")
     _clean_vehicle()
 
 
@@ -294,3 +296,10 @@ def load_company_stats():
     app.logger.info("Process load_company_stats began")
     load_company_stats()
     app.logger.info("Process load_company_stats done")
+
+
+@app.cli.command("temp_generate_xml", with_appcontext=True)
+@click.argument("id", required=True)
+def temp_command_generate_xm_control(id):
+    control = ControllerControl.query.get(id)
+    temp_write_greco_xml(control)
