@@ -21,7 +21,7 @@ from app.seed.helpers import (
 
 def run_scenario_controls():
     controller_user = ControllerUserFactory.create(
-        email="controller@test.com",
+        email="test@abcd.com",
         agent_connect_id="18fe42b1cb10db11339baf77d8974821bcd594bc225989c3b0adfc6b05f197fd",
     )
 
