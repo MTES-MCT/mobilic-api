@@ -1,13 +1,15 @@
 from datetime import datetime
 
+from app.helpers.time import is_sunday_or_bank_holiday
 from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
     write_user_recap,
+    light_brown_hex,
 )
+from app.helpers.xls.companies.legend import write_sheet_legend
 from app.helpers.xls.controllers.header import write_header
 from app.helpers.xls.columns import *
-from app.helpers.xls.controllers.legend import write_sheet_legend
 
 COLUMNS_MAIN = [
     COLUMN_ENTREPRISE,
@@ -32,6 +34,8 @@ COLUMNS_MAIN = [
     COLUMN_EXPENDITURE_NIGHT_MEAL,
     COLUMN_EXPENDITURE_SLEEP_OVER,
     COLUMN_EXPENDITURE_SNACK,
+    COLUMN_OFF_HOURS,
+    COLUMN_OFF_REASONS,
     COLUMN_OBSERVATIONS,
     COLUMN_NB_INFRACTIONS,
 ]
@@ -48,6 +52,7 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
 
     recap_start_row = row_idx
     has_one_bank_holiday = False
+    has_one_day_off = False
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
         nb_infractions_for_day = len(
             [
@@ -58,6 +63,16 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
             ]
         )
         wday.nb_infractions_for_day = nb_infractions_for_day
+        is_day_off = all([m.is_holiday() for m in wday.missions])
+        is_sunday_or_bank_holiday_ = is_sunday_or_bank_holiday(wday.day)
+        bg_color = None
+        if is_sunday_or_bank_holiday_:
+            has_one_bank_holiday = True
+            bg_color = light_brown_hex
+        if is_day_off:
+            has_one_day_off = True
+            bg_color = blue_hex
+
         col_idx = 0
         write_cells(
             wb,
@@ -68,11 +83,9 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
             COLUMNS_MAIN,
             wday,
             with_border=True,
+            bg_color=bg_color,
         )
         row_idx += 1
-        has_one_bank_holiday = (
-            has_one_bank_holiday or is_sunday_or_bank_holiday(wday.day)
-        )
 
     write_user_recap(
         wb,
@@ -83,5 +96,9 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
         control.user.display_name,
     )
 
-    if has_one_bank_holiday:
-        write_sheet_legend(wb, sheet)
+    write_sheet_legend(
+        wb,
+        sheet,
+        has_bank_holiday=has_one_bank_holiday,
+        has_off_day=has_one_day_off,
+    )
