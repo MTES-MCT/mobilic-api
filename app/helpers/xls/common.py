@@ -4,6 +4,7 @@ light_brown_hex = "#ffe599"
 light_yellow_hex = "#fdffbc"
 light_grey_hex = "#dadada"
 light_blue_hex = "#b4e1fa"
+blue_hex = "#A9CBFF"
 light_green_hex = "#daf5e7"
 light_orange_hex = "#fff0e4"
 light_red_hex = "#d9d2e9"
@@ -24,26 +25,6 @@ date_formats = dict(
         "align": "center",
         "bold": True,
     },
-    bank_holiday_duration_format={
-        "num_format": "[h]:mm",
-        "align": "center",
-        "bg_color": light_brown_hex,
-    },
-    bank_holiday_bold_duration_format={
-        "num_format": "[h]:mm",
-        "align": "center",
-        "bg_color": light_brown_hex,
-        "bold": True,
-    },
-    bank_holiday_date_format={
-        "num_format": "dd/mm/yyyy",
-        "bg_color": light_brown_hex,
-    },
-    bank_holiday_time_format={
-        "num_format": "h:mm",
-        "bg_color": light_brown_hex,
-        "align": "center",
-    },
     merged_date_format={
         "num_format": "dd/mm/yyyy",
         "align": "center",
@@ -54,9 +35,7 @@ date_formats = dict(
 formats = dict(
     bold={"bold": True},
     wrap={"text_wrap": True},
-    bank_holiday_wrap={"text_wrap": True, "bg_color": light_brown_hex},
     center={"align": "center"},
-    bank_holiday_center={"align": "center", "bg_color": light_brown_hex},
     merged_top={"bold": True, "valign": "top", "border": 1, "text_wrap": True},
     merged_center={"valign": "vcenter", "align": "center", "border": 1},
     **date_formats,
@@ -99,6 +78,7 @@ def write_cells(
     resource_for_resolver,
     additional_format=None,
     with_border=False,
+    bg_color=None,
 ):
     for column in columns:
         style = column.lambda_style(resource_for_resolver)
@@ -109,6 +89,8 @@ def write_cells(
         }
         if with_border:
             row_style["border"] = 1
+        if bg_color:
+            row_style["bg_color"] = bg_color
 
         if additional_format:
             row_style.update(additional_format)
