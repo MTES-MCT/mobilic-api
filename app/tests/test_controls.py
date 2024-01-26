@@ -56,7 +56,7 @@ class TestControls(BaseTest):
         db.session.add(self.vehicle2)
         db.session.add(self.vehicle1)
         self.controller_user = ControllerUserFactory.create(
-            email="controller@test.com"
+            email="test@abcd.com"
         )
         db.session.commit()
 
