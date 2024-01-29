@@ -245,6 +245,53 @@ def run_scenario_busy_admin():
 
     db.session.commit()
 
+    from app.tests.helpers import make_authenticated_request, ApiRequests
+
+    ## An employee who takes holidays
+    holiday_employee = _add_employee(
+        email="holiday@busycorp.com",
+        first_name="Holly",
+        last_name="Day",
+        company=companies[0],
+        admin=admin,
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=5, hour=10),
+            endTime=get_time(how_many_days_ago=5, hour=16),
+            title="Accident du travail",
+        ),
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=12, hour=10),
+            endTime=get_time(how_many_days_ago=8, hour=16),
+            title="Congé payé",
+        ),
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=14, hour=8),
+            endTime=get_time(how_many_days_ago=14, hour=11),
+            title="Formation",
+        ),
+    )
+
     ## An employee with deleted activities and missions
     deleted_mission_employee = _add_employee(
         email="deleted.mission@busycorp.com",
