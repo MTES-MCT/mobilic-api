@@ -206,3 +206,50 @@ class TestPermissionMissions(BaseTest):
 
         if "errors" in response:
             self.fail(f"Validate mission returned an error: {response}")
+
+    def test_admin_can_validate_own_mission(self):
+
+        mission = self._create_mission(
+            submitter=self.admin,
+            user=self.admin,
+            start_time=datetime.now() - timedelta(days=1),
+            end_time=datetime.now(),
+        )
+
+        response = self._validate_mission(
+            submitter=self.admin, user=self.admin, mission=mission
+        )
+
+        if "errors" in response:
+            self.fail(
+                f"Validation of own mission by admin returned an error: {response}"
+            )
+
+    def test_admin_can_validate_team_mission_for_himself(
+        self,
+    ):
+        # Dans le cas des missions de groupe, en tant que gestionnaire je peux valider ma mission qui a été crée par un autre salarié
+
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(hours=4),
+            end_time=datetime.now() - timedelta(hours=1),
+        )
+
+        self._add_activity_to_mission(
+            submitter=self.worker,
+            user=self.admin,
+            start_time=datetime.now() - timedelta(hours=4),
+            end_time=datetime.now() - timedelta(hours=1),
+            mission=mission,
+        )
+
+        response = self._validate_mission(
+            submitter=self.admin,
+            user=self.admin,
+            mission=mission,
+        )
+
+        if "errors" in response:
+            self.fail(f"Validate mission returned an error: {response}")

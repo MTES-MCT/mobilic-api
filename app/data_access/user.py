@@ -137,6 +137,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
     missions_deleted = graphene.Field(
         MissionConnection,
         description="Liste des missions supprimées de l'utilisateur",
+        from_time=TimeStamp(
+            required=False, description="Horodatage de début de l'historique"
+        ),
+        until_time=TimeStamp(
+            required=False, description="Horodatage de fin de l'historique"
+        ),
     )
     current_employments = graphene.List(
         lambda: EmploymentOutput,
@@ -337,8 +343,23 @@ class UserOutput(BaseSQLAlchemyObjectType):
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'missions_deleted' of user object. The field is only accessible to the user himself or company admins."
     )
-    def resolve_missions_deleted(self, info, consultation_scope):
+    def resolve_missions_deleted(
+        self,
+        info,
+        consultation_scope,
+        from_time=None,
+        until_time=None,
+    ):
+        from_time = get_max_datetime(
+            from_time, consultation_scope.user_data_min_date
+        )
+        until_time = get_min_datetime(
+            until_time, consultation_scope.user_data_max_date
+        )
+
         missions, _ = self.query_missions_with_limit(
+            start_time=from_time,
+            end_time=until_time,
             include_dismissed_activities=True,
             restrict_to_company_ids=consultation_scope.company_ids or None,
         )

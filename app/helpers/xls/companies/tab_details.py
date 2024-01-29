@@ -34,6 +34,8 @@ def write_day_details_sheet(
             for mission in sorted(
                 wday.missions, key=lambda mi: mi.creation_time
             ):
+                if mission.is_holiday():
+                    continue
                 first_activities_for_user = next(
                     iter(mission.activities_for(user, True)), None
                 )
