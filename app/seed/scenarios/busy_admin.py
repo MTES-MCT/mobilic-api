@@ -32,6 +32,22 @@ INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
 
 
+def _add_employee(email, first_name, last_name, company, admin):
+    employee = UserFactory.create(
+        email=email,
+        password=DEFAULT_PASSWORD,
+        first_name=first_name,
+        last_name=last_name,
+    )
+    EmploymentFactory.create(
+        company=company,
+        submitter=admin,
+        user=employee,
+        has_admin_rights=False,
+    )
+    return employee
+
+
 def run_scenario_busy_admin():
     companies = [
         CompanyFactory.create(
@@ -233,3 +249,50 @@ def run_scenario_busy_admin():
                 db.session.commit()
 
     db.session.commit()
+
+    from app.tests.helpers import make_authenticated_request, ApiRequests
+
+    ## An employee who takes holidays
+    holiday_employee = _add_employee(
+        email="holiday@busycorp.com",
+        first_name="Holly",
+        last_name="Day",
+        company=companies[0],
+        admin=admin,
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=5, hour=10),
+            endTime=get_time(how_many_days_ago=5, hour=16),
+            title="Accident du travail",
+        ),
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=12, hour=10),
+            endTime=get_time(how_many_days_ago=8, hour=16),
+            title="Congé payé",
+        ),
+    )
+    make_authenticated_request(
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter_id=holiday_employee.id,
+        query=ApiRequests.log_holiday,
+        variables=dict(
+            companyId=companies[0].id,
+            userId=holiday_employee.id,
+            startTime=get_time(how_many_days_ago=14, hour=8),
+            endTime=get_time(how_many_days_ago=14, hour=11),
+            title="Formation",
+        ),
+    )
