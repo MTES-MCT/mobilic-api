@@ -395,7 +395,7 @@ def group_user_events_by_day_with_limit(
         until_date = min(max_date, until_date) if until_date else max_date
 
     missions, has_next = user.query_missions_with_limit(
-        include_dismissed_activities=True,
+        include_deleted_missions=True,
         include_revisions=True,  # To be updated locally on init regulation alerts only!
         start_time=to_datetime(from_date, tz_for_date=tz)
         if from_date
@@ -459,7 +459,7 @@ def group_user_events_by_day_with_limit_both_submitter(
         until_date = min(max_date, until_date) if until_date else max_date
 
     missions, has_next = user.query_missions_with_limit(
-        include_dismissed_activities=True,
+        include_deleted_missions=True,
         include_revisions=False,
         start_time=to_datetime(from_date, tz_for_date=tz)
         if from_date

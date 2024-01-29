@@ -137,7 +137,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             limit_fetch_activities=2000,
             max_reception_time=self.qr_code_generation_time,
             mission_id=mission_id,
-            include_dismissed_activities=True,
+            include_deleted_missions=True,
         )
         return missions
 
