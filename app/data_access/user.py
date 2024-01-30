@@ -135,7 +135,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         ),
         include_deleted_missions=graphene.Boolean(
             required=False,
-            description="Flag pour inclure les missions supprimées",
+            description="Flag pour inclure les missions supprimées. Faux par défaut.",
         ),
     )
     current_employments = graphene.List(
