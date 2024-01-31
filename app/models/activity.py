@@ -178,6 +178,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             end_time=new["end_time"],
             bypass_overlap_check=bypass_overlap_check,
             bypass_auth_check=bypass_auth_check,
+            is_revision=True,
         ):
             revision = ActivityVersion(
                 activity=self,
