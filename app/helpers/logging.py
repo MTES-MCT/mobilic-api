@@ -290,7 +290,7 @@ request_log_handler.addFilter(lambda r: getattr(r, "_request_log", False))
 request_log_handler.addFilter(add_request_and_user_context)
 request_log_handler.setFormatter(
     logging.Formatter(
-        "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response)s device=%(device)s referrer=%(referrer)s"
+        "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response).100s... device=%(device)s referrer=%(referrer)s"
     )
 )
 root_logger.addHandler(request_log_handler)
