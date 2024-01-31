@@ -296,3 +296,28 @@ def run_scenario_busy_admin():
             title="Formation",
         ),
     )
+    afternoon_mission = create_mission(
+        name="Mission Apres Midi",
+        company=companies[0],
+        time=get_time(how_many_days_ago=5, hour=18),
+        submitter=holiday_employee,
+    )
+    db.session.commit()
+
+    with AuthenticatedUserContext(user=holiday_employee):
+        log_activity(
+            submitter=holiday_employee,
+            user=holiday_employee,
+            mission=afternoon_mission,
+            type=ActivityType.DRIVE,
+            switch_mode=False,
+            reception_time=get_time(how_many_days_ago=14, hour=19),
+            start_time=get_time(how_many_days_ago=14, hour=14),
+            end_time=get_time(how_many_days_ago=14, hour=18),
+        )
+        db.session.commit()
+        validate_mission(
+            submitter=holiday_employee,
+            mission=afternoon_mission,
+            for_user=holiday_employee,
+        )
