@@ -20,6 +20,11 @@ from config import MOBILIC_ENV
 
 root_logger = logging.getLogger()
 
+COLOR_RESET = "\x1b[0m"
+COLOR_GREEN = "\x1b[42m"
+COLOR_RED = "\x1b[31m"
+COLOR_ORANGE = "\x1b[33m"
+
 SENSITIVE_FIELDS = [
     "password",
     "accessToken",
@@ -284,15 +289,21 @@ app.logger.addFilter(add_request_and_user_context)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 logging.getLogger("gunicorn.access").setLevel(logging.ERROR)
 
+
+class TerminalFormatter(logging.Formatter):
+    def format(self, record):
+        status_color = COLOR_GREEN if record.status_code == 200 else COLOR_RED
+        formatter = logging.Formatter(
+            f"%(remote_addr)s - - {COLOR_ORANGE}[%(asctime)s]{COLOR_RESET} %(endpoint)s status={status_color}%(status_code)s{COLOR_RESET} time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response).100s... device=%(device)s referrer=%(referrer)s"
+        )
+        return formatter.format(record)
+
+
 # Our custom request logger
 request_log_handler = StreamHandler()
 request_log_handler.addFilter(lambda r: getattr(r, "_request_log", False))
 request_log_handler.addFilter(add_request_and_user_context)
-request_log_handler.setFormatter(
-    logging.Formatter(
-        "%(remote_addr)s - - [%(asctime)s] %(endpoint)s status=%(status_code)s time=%(time)sms size=%(size)s - - user=%(user_name)s user_id=%(user_id)s graphql_op=%(graphql_op)s vars=%(vars)s response=%(response).100s... device=%(device)s referrer=%(referrer)s"
-    )
-)
+request_log_handler.setFormatter(TerminalFormatter())
 root_logger.addHandler(request_log_handler)
 
 app.logger.removeHandler(default_handler)
