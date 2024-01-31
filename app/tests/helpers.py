@@ -906,7 +906,7 @@ class ApiRequests:
                     endTime: $endTime
                     title: $title
                 ) {
-                    success
+                    id
                 }
             }
         }
