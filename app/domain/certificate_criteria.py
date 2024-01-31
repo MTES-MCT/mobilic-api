@@ -10,6 +10,7 @@ from app import db, app
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
+from app.models.activity import ActivityType
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
 from app.models.regulation_check import RegulationCheckType
@@ -37,21 +38,31 @@ def is_employee_active(company, employee, start, end):
     ).all()
 
     nb_activity_per_day = {}
+    active_days = set()
     for activity in activities:
         current_day = activity.start_time.date()
         last_day = activity.end_time.date() if activity.end_time else end
         while current_day <= last_day:
-            if current_day in nb_activity_per_day.keys():
-                nb_activity_per_day[current_day] += 1
-            else:
-                nb_activity_per_day[current_day] = 1
-            current_day += relativedelta(days=1)
-        active_days = list(
-            filter(
-                lambda value: value >= IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY,
-                nb_activity_per_day.values(),
+            if current_day in active_days:
+                current_day += relativedelta(days=1)
+                continue
+
+            if activity.type == ActivityType.OFF:
+                active_days.add(current_day)
+                current_day += relativedelta(days=1)
+                continue
+
+            nb_activity_per_day[current_day] = (
+                nb_activity_per_day.get(current_day, 0) + 1
             )
-        )
+            if (
+                nb_activity_per_day[current_day]
+                >= IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY
+            ):
+                active_days.add(current_day)
+
+            current_day += relativedelta(days=1)
+
         if len(active_days) >= IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH:
             return True
     return False
