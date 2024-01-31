@@ -3,7 +3,8 @@ import datetime
 import graphene
 
 from app import db
-from app.controllers.utils import Void, atomic_transaction
+from app.controllers.utils import atomic_transaction
+from app.data_access.mission import MissionOutput
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.authentication import AuthenticatedMutation, current_user
@@ -54,7 +55,7 @@ class LogHoliday(AuthenticatedMutation):
 
     Arguments = HolidayLogInput
 
-    Output = Void
+    Output = MissionOutput
 
     @classmethod
     @check_company_against_scope_wrapper(
@@ -116,4 +117,4 @@ class LogHoliday(AuthenticatedMutation):
                     mission=mission,
                     for_user=user,
                 )
-        return Void(success=True)
+        return mission
