@@ -1,7 +1,9 @@
 from flask import g
+from sqlalchemy import func
 
-from app import app, db
+from app import db
 from app.models.controller_user import ControllerUser
+from app.helpers.validation import clean_email_string
 
 
 def create_controller_user(ac_info):
@@ -9,7 +11,7 @@ def create_controller_user(ac_info):
         agent_connect_id=ac_info.get("sub"),
         first_name=ac_info.get("given_name"),
         last_name=ac_info.get("usual_name"),
-        email=ac_info.get("email"),
+        email=clean_email_string(ac_info.get("email")),
         agent_connect_info=ac_info,
         organizational_unit=ac_info.get("organizational_unit"),
     )
@@ -22,8 +24,16 @@ def create_controller_user(ac_info):
 
 
 def get_controller_from_ac_info(ac_info):
+    ac_id = ac_info.get("sub")
     email = ac_info.get("email")
 
+    controller_user = ControllerUser.query.filter(
+        ControllerUser.agent_connect_id == ac_id
+    ).one_or_none()
+
+    if controller_user is not None:
+        return controller_user
+
     return ControllerUser.query.filter(
-        ControllerUser.email == email
+        func.lower(ControllerUser.email) == func.lower(email)
     ).one_or_none()
