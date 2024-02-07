@@ -20,6 +20,23 @@ from app.seed import (
     EmploymentFactory,
 )
 from app.tests import BaseTest
+from app.tests.helpers import ApiRequests, make_authenticated_request
+
+
+def _log_holiday(company_id, user_id, start_time, end_time, title=""):
+    make_authenticated_request(
+        time=datetime.now(),
+        submitter_id=user_id,
+        query=ApiRequests.log_holiday,
+        unexposed_query=False,
+        variables={
+            "companyId": company_id,
+            "userId": user_id,
+            "startTime": start_time,
+            "endTime": end_time,
+            "title": title,
+        },
+    )
 
 
 class TestCertificateBeActive(BaseTest):
@@ -429,4 +446,52 @@ class TestCertificateBeActive(BaseTest):
         # THEN company is not active
         self.assertFalse(
             compute_be_active(company_large_size, self.start, self.end)
+        )
+
+    def test_employee_active_when_counting_holidays(self):
+        # employee is short two days in the month to be active
+        for day in range(3, 3 + IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH - 2):
+            mission_date = datetime(2023, 2, day)
+            with AuthenticatedUserContext(user=self.worker):
+                mission = Mission.create(
+                    submitter=self.worker,
+                    company=self.company,
+                    reception_time=mission_date,
+                )
+                for idx_activity in range(
+                    0, IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY
+                ):
+                    start_hour = 8 + idx_activity * 5
+                    log_activity(
+                        submitter=self.worker,
+                        user=self.worker,
+                        mission=mission,
+                        type=ActivityType.WORK,
+                        switch_mode=True,
+                        reception_time=datetime.now(),
+                        start_time=datetime(2023, 2, day, start_hour),
+                        end_time=datetime(2023, 2, day, start_hour + 4),
+                    )
+            db.session.commit()
+
+        self.assertFalse(
+            is_employee_active(self.company, self.worker, self.start, self.end)
+        )
+
+        for day in range(
+            IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH + 3,
+            IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH + 3 + 2,
+        ):
+            _log_holiday(
+                company_id=self.company.id,
+                user_id=self.worker.id,
+                start_time=datetime(2023, 2, day, 8),
+                end_time=datetime(2023, 2, day, 17),
+                title="Congé",
+            )
+        db.session.commit()
+
+        # with two days with OFF activities, he is considered active
+        self.assertTrue(
+            is_employee_active(self.company, self.worker, self.start, self.end)
         )

@@ -44,6 +44,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
 
     user_timezone = gettz(user.timezone_name)
 
+    # TODO: would need an optional filter in group_user_events_by_day_with_limit to say we don't want OFF activities
     # Next day is needed for some computation rules
     day_after_period_end = period_end + timedelta(days=1)
     (

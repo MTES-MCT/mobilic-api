@@ -77,9 +77,10 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
         creation_time=creation_time,
     )
 
-    _compute_regulations_after_validation(
-        activities_to_validate, is_admin_validation, for_user
-    )
+    if not mission.is_holiday():
+        _compute_regulations_after_validation(
+            activities_to_validate, is_admin_validation, for_user
+        )
 
     return validation
 
