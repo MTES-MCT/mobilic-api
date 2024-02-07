@@ -731,6 +731,7 @@ def generate_tachograph_parts(
         only_missions_validated_by_admin=only_activities_validated_by_admin,
         consultation_scope=consultation_scope,
         employee_version=employee_version,
+        include_holidays=False,
     )
 
     if not work_days and do_not_generate_if_empty:
