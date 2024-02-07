@@ -92,12 +92,19 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_activities(self, info, include_dismissed_activities=False):
+        _include_dismissed_activities = (
+            True if self.is_deleted() else include_dismissed_activities
+        )
         max_reception_time = retrieve_max_reception_time(info)
         if max_reception_time:
-            return freeze_activities(self.activities, max_reception_time)
+            return freeze_activities(
+                self.activities,
+                max_reception_time,
+                _include_dismissed_activities,
+            )
         return (
             self.activities
-            if include_dismissed_activities
+            if _include_dismissed_activities
             else self.acknowledged_activities
         )
 
