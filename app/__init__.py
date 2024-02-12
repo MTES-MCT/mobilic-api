@@ -3,7 +3,7 @@ import os
 import sentry_sdk
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
-from flask import Flask
+from flask import Flask, g
 from flask_apispec.extension import FlaskApiSpec
 from flask_compress import Compress
 from flask_cors import CORS
@@ -144,3 +144,17 @@ def handle_error(error):
         ),
         error.code,
     )
+
+
+from .helpers.dataloaders import EmailsInEmploymentLoader
+
+
+@app.before_request
+def load_loaders():
+    g.dataloaders = {"emails_in_employments": EmailsInEmploymentLoader()}
+
+
+@app.after_request
+def cleanup_loaders(response):
+    del g.dataloaders
+    return response
