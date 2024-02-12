@@ -165,5 +165,6 @@ def get_user_with_hidden_email(user):
         for column in user.__table__.columns
     }
     modified_user_data["email"] = HIDDEN_EMAIL
+    del modified_user_data["password"]
     modified_user = User(**modified_user_data)
     return modified_user
