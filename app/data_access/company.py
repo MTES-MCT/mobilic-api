@@ -340,7 +340,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             after=after,
         )
         user_ids = set([row.user_id for row in work_day_stats])
-        users = {user_id: User.query.get(user_id) for user_id in user_ids}
+
+        users = User.query.filter(User.id.in_(user_ids))
+        users = {user.id: user for user in users}
         wds = [
             WorkDayStatsOnly(
                 day=row.day,
