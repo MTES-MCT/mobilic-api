@@ -146,12 +146,26 @@ def handle_error(error):
     )
 
 
-from .helpers.dataloaders import EmailsInEmploymentLoader
+from .helpers.dataloaders import (
+    EmailsInEmploymentLoader,
+    UserLoader,
+    CommentsInMissionLoader,
+    ValidationsInMissionLoader,
+    ExpendituresInMissionLoader,
+    VehicleLoader,
+)
 
 
 @app.before_request
 def load_loaders():
-    g.dataloaders = {"emails_in_employments": EmailsInEmploymentLoader()}
+    g.dataloaders = {
+        "emails_in_employments": EmailsInEmploymentLoader(),
+        "users": UserLoader(),
+        "vehicles": VehicleLoader(),
+        "comments_in_missions": CommentsInMissionLoader(),
+        "validations_in_missions": ValidationsInMissionLoader(),
+        "expenditures_in_missions": ExpendituresInMissionLoader(),
+    }
 
 
 @app.after_request
