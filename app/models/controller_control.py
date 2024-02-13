@@ -88,7 +88,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def bdc_filename(self):
-        return f"{self.company_name}-{self.creation_time.strftime('%Y')}-{self.id}"
+        return f"{self.company_name}-{self.creation_time.strftime('%y%m%d')}-{self.id}"
 
     @property
     def nb_reported_infractions(self):
