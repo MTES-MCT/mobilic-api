@@ -153,6 +153,7 @@ from .helpers.dataloaders import (
     ValidationsInMissionLoader,
     ExpendituresInMissionLoader,
     VehicleLoader,
+    VehiclesInCompanyLoader,
 )
 
 
@@ -160,6 +161,7 @@ from .helpers.dataloaders import (
 def load_loaders():
     g.dataloaders = {
         "emails_in_employments": EmailsInEmploymentLoader(),
+        "vehicles_in_company": VehiclesInCompanyLoader(),
         "users": UserLoader(),
         "vehicles": VehicleLoader(),
         "comments_in_missions": CommentsInMissionLoader(),

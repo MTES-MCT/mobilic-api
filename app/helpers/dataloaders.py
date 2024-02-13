@@ -2,7 +2,7 @@ from promise import Promise
 from promise.dataloader import DataLoader
 
 from app import db
-from app.models import Email
+from app.models import Email, Vehicle
 
 
 class EmailsInEmploymentLoader(DataLoader):
@@ -14,6 +14,19 @@ class EmailsInEmploymentLoader(DataLoader):
             [
                 [email for email in emails if email.employment_id == id]
                 for id in employment_ids
+            ]
+        )
+
+
+class VehiclesInCompanyLoader(DataLoader):
+    def batch_load_fn(self, company_ids):
+        vehicles = Vehicle.query.filter(
+            Vehicle.company_id.in_(company_ids)
+        ).all()
+        return Promise.resolve(
+            [
+                [vehicle for vehicle in vehicles if vehicle.company_id == id]
+                for id in company_ids
             ]
         )
 
