@@ -133,15 +133,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
             graphene.String,
             description="Valeur du curseur, qui détermine quelle page retourner.",
         ),
-    )
-    missions_deleted = graphene.Field(
-        MissionConnection,
-        description="Liste des missions supprimées de l'utilisateur",
-        from_time=TimeStamp(
-            required=False, description="Horodatage de début de l'historique"
-        ),
-        until_time=TimeStamp(
-            required=False, description="Horodatage de fin de l'historique"
+        include_deleted_missions=graphene.Boolean(
+            required=False,
+            description="Flag pour inclure les missions supprimées. Faux par défaut.",
         ),
     )
     current_employments = graphene.List(
@@ -294,6 +288,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         until_time=None,
         first=None,
         after=None,
+        include_deleted_missions=False,
     ):
         from_time = get_max_datetime(
             from_time, consultation_scope.user_data_min_date
@@ -327,6 +322,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
         missions, has_next_page = self.query_missions_with_limit(
             start_time=from_time,
             end_time=until_time,
+            include_deleted_missions=include_deleted_missions,
             restrict_to_company_ids=consultation_scope.company_ids or None,
             additional_activity_filters=additional_activity_filters,
             sort_activities=False,
@@ -335,38 +331,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
         return to_connection(
             missions,
             connection_cls=MissionConnection,
-            get_cursor=lambda m: f"{str(m.activities_for(self)[0].start_time)},{m.id}",
+            get_cursor=lambda m: f"{str(m.activities_for(self, include_dismissed_activities=include_deleted_missions)[0].start_time)},{m.id}",
             has_next_page=has_next_page,
             first=actual_first,
         )
-
-    @user_resolver_with_consultation_scope(
-        error_message="Forbidden access to field 'missions_deleted' of user object. The field is only accessible to the user himself or company admins."
-    )
-    def resolve_missions_deleted(
-        self,
-        info,
-        consultation_scope,
-        from_time=None,
-        until_time=None,
-    ):
-        from_time = get_max_datetime(
-            from_time, consultation_scope.user_data_min_date
-        )
-        until_time = get_min_datetime(
-            until_time, consultation_scope.user_data_max_date
-        )
-
-        missions, _ = self.query_missions_with_limit(
-            start_time=from_time,
-            end_time=until_time,
-            include_dismissed_activities=True,
-            restrict_to_company_ids=consultation_scope.company_ids or None,
-        )
-        deleted_missions = [m for m in missions if m.is_deleted()]
-        edges = [{"node": mission} for mission in deleted_missions]
-
-        return MissionConnection(edges=edges)
 
     @with_authorization_policy(
         only_self,

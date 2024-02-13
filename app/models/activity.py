@@ -84,10 +84,14 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             else None
         )
 
-    def version_at(self, at_time):
+    def version_at(self, at_time, include_dismissed_activities=False):
         if self.reception_time > at_time:
             return None
-        if self.dismissed_at and self.dismissed_at <= at_time:
+        if (
+            not include_dismissed_activities
+            and self.dismissed_at
+            and self.dismissed_at <= at_time
+        ):
             return None
         versions_before = [
             r for r in self.versions if r.reception_time <= at_time
@@ -105,11 +109,11 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 key=lambda r: r.version_number,
             )
 
-    def freeze_activity_at(self, at_time):
+    def freeze_activity_at(self, at_time, include_dismissed_activities=False):
         if self.dismissed_at and self.dismissed_at > at_time:
             self.dismissed_at = None
             self.dismiss_author_id = None
-        frozen_version = self.version_at(at_time)
+        frozen_version = self.version_at(at_time, include_dismissed_activities)
         if frozen_version:
             self.start_time = frozen_version.start_time
             if frozen_version.end_time:

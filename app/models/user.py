@@ -214,7 +214,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
 
     def query_missions_with_limit(
         self,
-        include_dismissed_activities=False,
+        include_deleted_missions=False,
         include_revisions=False,
         start_time=None,
         end_time=None,
@@ -235,7 +235,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         ) or (limit_fetch_activities and limit_fetch_activities <= 1500)
 
         activity_query = self.query_activities_with_relations(
-            include_dismissed_activities=include_dismissed_activities,
+            include_dismissed_activities=include_deleted_missions,
             include_mission_relations=True,
             include_revisions=include_revisions,
             start_time=start_time,

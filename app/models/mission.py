@@ -44,7 +44,9 @@ class Mission(EventBaseModel):
         )
         if max_reception_time:
             all_activities_for_user = freeze_activities(
-                all_activities_for_user, max_reception_time
+                all_activities_for_user,
+                max_reception_time,
+                include_dismissed_activities,
             )
         if not include_dismissed_activities:
             if max_reception_time:
@@ -260,9 +262,9 @@ class Mission(EventBaseModel):
         return all(activity.is_dismissed for activity in self.activities)
 
     def deleted_at(self):
-        dismissed_times = [a.dismissed_at for a in self.activities]
-        if len(dismissed_times) < len(self.activities):
+        if not self.is_deleted():
             return None
+        dismissed_times = [a.dismissed_at for a in self.activities]
         return max_or_none(*dismissed_times)
 
     def deleted_by(self):

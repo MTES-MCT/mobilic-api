@@ -452,11 +452,13 @@ class ApiRequests:
       mutation validateMission(
         $missionId: Int!
         $usersIds: [Int]!
+        $activityItems: [BulkActivityItem]
       ) {
         activities {
           validateMission(
             missionId: $missionId
             usersIds: $usersIds
+            activityItems: $activityItems
           ) {
             id
           }
@@ -1036,7 +1038,6 @@ def make_authenticated_request(
                 variables=formatted_variables,
             )
     db.session.rollback()
-
     if request_should_fail_with:
         if type(request_should_fail_with) is dict:
             status = request_should_fail_with.get("status")

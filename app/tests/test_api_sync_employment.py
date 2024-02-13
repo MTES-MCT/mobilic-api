@@ -1,8 +1,13 @@
+from datetime import date, datetime
 from argon2 import PasswordHasher
 
 from app.helpers.oauth.models import OAuth2Client
 from app.models.company import Company
-from app.seed.factories import ThirdPartyApiKeyFactory, UserFactory
+from app.seed.factories import (
+    EmploymentFactory,
+    ThirdPartyApiKeyFactory,
+    UserFactory,
+)
 from app.tests import BaseTest
 from app.tests.helpers import (
     INVALID_API_KEY_MESSAGE,
@@ -160,3 +165,41 @@ class TestApiSyncEmployment(BaseTest):
             "syncEmployment"
         ]
         self.assertEqual(len(employment_ids), 2)
+
+    def test_sync_employments_many_already_exists(self):
+        company = Company.query.get(self.company_id)
+        existing_employee = UserFactory.create(
+            first_name="Existing",
+            last_name="Employee",
+            post__company=company,
+            post__start_date=date(2024, 1, 1),
+        )
+        EmploymentFactory.create(
+            company=company,
+            submitter=existing_employee,
+            user=existing_employee,
+            has_admin_rights=False,
+            start_date=date(2023, 1, 1),
+            end_date=datetime(2023, 6, 1),
+        )
+        sync_employment_response = make_protected_request(
+            query=ApiRequests.sync_employment,
+            variables=dict(
+                company_id=self.company_id,
+                employees=[
+                    {
+                        "firstName": existing_employee.first_name,
+                        "lastName": existing_employee.last_name,
+                        "email": existing_employee.email,
+                    },
+                ],
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+        employment_ids = sync_employment_response["data"]["company"][
+            "syncEmployment"
+        ]
+        self.assertEqual(len(employment_ids), 1)
