@@ -238,7 +238,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'vehicles' of company object.",
     )
     def resolve_vehicles(self, info):
-        return [v for v in self.vehicles if not v.is_terminated]
+        vehicles = g.dataloaders["vehicles_in_company"].load(self.id)
+        return vehicles.then(
+            lambda vehicles: [v for v in vehicles if not v.is_terminated]
+        )
 
     @with_authorization_policy(
         company_admin,
