@@ -1,3 +1,5 @@
+from flask import g
+
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -226,7 +228,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_users(self, info, from_date=None, to_date=None):
         info.context.company_ids_scope = [self.id]
-        return self.users_between(from_date, to_date)
+        return g.dataloaders["users"].load_many(
+            self.users_ids_between(from_date, to_date)
+        )
 
     @with_authorization_policy(
         has_any_employment_with_company_or_controller,

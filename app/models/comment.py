@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 from sqlalchemy.orm import backref
 
 from app import db
@@ -53,3 +54,8 @@ class CommentOutput(BaseSQLAlchemyObjectType):
     text = graphene.String(
         required=True, description="Contenu de l'observation"
     )
+
+    def resolve_submitter(self, info):
+        if not self.submitter_id:
+            return None
+        return g.dataloaders["users"].load(self.submitter_id)

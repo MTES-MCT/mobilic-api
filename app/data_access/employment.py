@@ -120,11 +120,14 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         return self.email
 
     def resolve_user(self, info):
+        if not self.user_id:
+            return None
+        user = g.dataloaders["users"].load(self.user_id)
         if not self.hide_email:
-            return self.user
+            return user
 
-        if self.user:
-            return get_user_with_hidden_email(self.user)
+        if user:
+            return user.then(lambda user: get_user_with_hidden_email(user))
 
     def resolve_latest_invite_email_time(self, info):
         emails = g.dataloaders["emails_in_employments"].load(self.id)

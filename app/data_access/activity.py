@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 from graphene.types.generic import GenericScalar
 
 from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
@@ -143,6 +144,11 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
         if max_reception_time:
             return filter_out_future_events(self.versions, max_reception_time)
         return self.versions
+
+    def resolve_user(self, info):
+        if not self.user_id:
+            return None
+        return g.dataloaders["users"].load(self.user_id)
 
 
 class ActivityConnection(graphene.Connection):
