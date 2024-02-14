@@ -470,5 +470,5 @@ def generate_control_bulletin_pdf_export(control_id):
         pdf,
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=control.reference,
+        download_name=control.bdc_filename,
     )
