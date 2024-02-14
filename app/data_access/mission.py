@@ -2,6 +2,7 @@ import graphene
 from flask import g
 from graphene.types.generic import GenericScalar
 
+from app.domain.mission import get_start_location, get_end_location
 from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
 from app.helpers.frozen_version_utils import (
     freeze_activities,
@@ -164,13 +165,27 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return comments.then(lambda comments: process_comments(comments))
 
     def resolve_start_location(self, info):
-        return self.start_location
+        location_entries = g.dataloaders["location_entries_in_missions"].load(
+            self.id
+        )
+        return location_entries.then(
+            lambda entries: get_start_location(entries)
+        )
 
     def resolve_end_location(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return self.end_location_at(max_reception_time)
-        return self.end_location
+        location_entries = g.dataloaders["location_entries_in_missions"].load(
+            self.id
+        )
+
+        def process_location_entries(entries):
+            if max_reception_time:
+                entries = filter_out_future_events(entries, max_reception_time)
+            return get_end_location(entries)
+
+        return location_entries.then(
+            lambda entries: process_location_entries(entries)
+        )
 
     def resolve_is_ended_for_self(self, info):
         return self.ended_for(current_user)

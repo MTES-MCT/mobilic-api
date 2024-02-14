@@ -80,3 +80,10 @@ class ExpendituresInMissionLoader(DataLoader):
         return batch_load_in_missions(
             class_name="Expenditure", mission_ids=mission_ids
         )
+
+
+class LocationEntriesInMissionLoader(DataLoader):
+    def batch_load_fn(self, mission_ids):
+        return batch_load_in_missions(
+            class_name="LocationEntry", mission_ids=mission_ids
+        )

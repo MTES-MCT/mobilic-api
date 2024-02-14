@@ -128,40 +128,25 @@ class Mission(EventBaseModel):
 
     @property
     def start_location(self):
-        from app.models.location_entry import LocationEntryType
+        from app.domain.mission import get_start_location
 
-        start_location_entry = [
-            l
-            for l in self.location_entries
-            if l.type == LocationEntryType.MISSION_START_LOCATION
-        ]
-        return start_location_entry[0] if start_location_entry else None
+        return get_start_location(self.location_entries)
 
     def end_location_at(self, max_reception_time):
-        from app.models.location_entry import LocationEntryType
-
         location_entries = (
             filter_out_future_events(self.location_entries, max_reception_time)
             if max_reception_time
             else self.location_entries
         )
-        end_location_entry = [
-            l
-            for l in location_entries
-            if l.type == LocationEntryType.MISSION_END_LOCATION
-        ]
-        return end_location_entry[0] if end_location_entry else None
+        from app.domain.mission import get_end_location
+
+        return get_end_location(location_entries)
 
     @property
     def end_location(self):
-        from app.models.location_entry import LocationEntryType
+        from app.domain.mission import get_end_location
 
-        end_location_entry = [
-            l
-            for l in self.location_entries
-            if l.type == LocationEntryType.MISSION_END_LOCATION
-        ]
-        return end_location_entry[0] if end_location_entry else None
+        return get_end_location(self.location_entries)
 
     def validation_of(self, user, max_reception_time=None):
         validations_of_user_for_himself_or_all = [

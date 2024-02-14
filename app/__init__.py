@@ -154,6 +154,7 @@ from .helpers.dataloaders import (
     ExpendituresInMissionLoader,
     VehicleLoader,
     VehiclesInCompanyLoader,
+    LocationEntriesInMissionLoader,
 )
 
 
@@ -167,6 +168,7 @@ def load_loaders():
         "comments_in_missions": CommentsInMissionLoader(),
         "validations_in_missions": ValidationsInMissionLoader(),
         "expenditures_in_missions": ExpendituresInMissionLoader(),
+        "location_entries_in_missions": LocationEntriesInMissionLoader(),
     }
 
 
