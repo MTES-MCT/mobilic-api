@@ -2,13 +2,18 @@ import graphene
 from flask import g
 from graphene.types.generic import GenericScalar
 
-from app.domain.mission import get_start_location, get_end_location
+from app.domain.mission import (
+    get_start_location,
+    get_end_location,
+    is_deleted_from_activities,
+)
 from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
 from app.helpers.frozen_version_utils import (
     freeze_activities,
     filter_out_future_events,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.time import max_or_none
 from app.models import Mission
 from app.data_access.activity import ActivityOutput
 from app.helpers.authentication import current_user
@@ -94,13 +99,14 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_activities(self, info, include_dismissed_activities=False):
-        _include_dismissed_activities = (
-            True if self.is_deleted() else include_dismissed_activities
-        )
         max_reception_time = retrieve_max_reception_time(info)
         activities = g.dataloaders["activities_in_missions"].load(self.id)
 
         def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            _include_dismissed_activities = (
+                True if is_deleted else include_dismissed_activities
+            )
             if max_reception_time:
                 return freeze_activities(
                     activities,
@@ -199,10 +205,39 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return self.ended_for(current_user)
 
     def resolve_deleted_at(self, info):
-        return self.deleted_at()
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            if not is_deleted:
+                return None
+            dismissed_times = [a.dismissed_at for a in activities]
+            return max_or_none(*dismissed_times)
+
+        return activities.then(
+            lambda activities: process_activities(activities)
+        )
 
     def resolve_deleted_by(self, info):
-        return self.deleted_by()
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            if not is_deleted:
+                return None
+            activities = sorted(
+                [a for a in activities], key=lambda a: (a.dismissed_at)
+            )
+            deleted_by_id = activities[-1].dismiss_author_id
+            if deleted_by_id:
+                deleted_by_user = g.dataloaders["users"].load(deleted_by_id)
+            return deleted_by_user.then(
+                lambda user: user.display_name if user else "-"
+            )
+
+        return activities.then(
+            lambda activities: process_activities(activities)
+        )
 
     def resolve_vehicle(self, info):
         if not self.vehicle_id:

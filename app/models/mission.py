@@ -244,7 +244,9 @@ class Mission(EventBaseModel):
         return True
 
     def is_deleted(self):
-        return all(activity.is_dismissed for activity in self.activities)
+        from app.domain.mission import is_deleted_from_activities
+
+        return is_deleted_from_activities(self.activities)
 
     def deleted_at(self):
         if not self.is_deleted():
