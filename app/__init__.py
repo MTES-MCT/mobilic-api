@@ -76,6 +76,9 @@ from app.helpers import logging
 # Uncomment to display profiler information in terminal
 # from app.helpers import profiler
 
+# Uncomment to log sql queries in a file
+# from app.helpers import log_sql_queries_file
+
 from . import commands
 
 
