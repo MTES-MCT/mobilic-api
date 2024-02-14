@@ -98,16 +98,24 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             True if self.is_deleted() else include_dismissed_activities
         )
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return freeze_activities(
-                self.activities,
-                max_reception_time,
-                _include_dismissed_activities,
-            )
-        return (
-            self.activities
-            if _include_dismissed_activities
-            else self.acknowledged_activities
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            if max_reception_time:
+                return freeze_activities(
+                    activities,
+                    max_reception_time,
+                    _include_dismissed_activities,
+                )
+            if not _include_dismissed_activities:
+                activities = sorted(
+                    [a for a in activities if not a.is_dismissed],
+                    key=lambda a: (a.start_time, a.id),
+                )
+            return activities
+
+        return activities.then(
+            lambda activities: process_activities(activities)
         )
 
     def resolve_expenditures(self, info, include_dismissed_expenditures=False):

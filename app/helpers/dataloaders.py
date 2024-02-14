@@ -87,3 +87,10 @@ class LocationEntriesInMissionLoader(DataLoader):
         return batch_load_in_missions(
             class_name="LocationEntry", mission_ids=mission_ids
         )
+
+
+class ActivitiesInMissionLoader(DataLoader):
+    def batch_load_fn(self, mission_ids):
+        return batch_load_in_missions(
+            class_name="Activity", mission_ids=mission_ids
+        )
