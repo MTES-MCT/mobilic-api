@@ -13,9 +13,10 @@ from app.helpers.graphene_types import (
 )
 from app.models import Activity, ActivityVersion
 from app.models.activity import ActivityType
+from app.models.mixins.user_resolver import ResolveUser
 
 
-class ActivityVersionOutput(BaseSQLAlchemyObjectType):
+class ActivityVersionOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = ActivityVersion
         only_fields = (
@@ -54,7 +55,7 @@ class ActivityVersionOutput(BaseSQLAlchemyObjectType):
     )
 
 
-class ActivityOutput(BaseSQLAlchemyObjectType):
+class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = Activity
         only_fields = (
