@@ -142,14 +142,16 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
 
     def resolve_versions(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return filter_out_future_events(self.versions, max_reception_time)
-        return self.versions
+        versions = g.dataloaders["activity_versions_in_activities"].load(
+            self.id
+        )
 
-    def resolve_user(self, info):
-        if not self.user_id:
-            return None
-        return g.dataloaders["users"].load(self.user_id)
+        def process_versions(versions):
+            if max_reception_time:
+                return filter_out_future_events(versions, max_reception_time)
+            return versions
+
+        return versions.then(lambda versions: process_versions(versions))
 
 
 class ActivityConnection(graphene.Connection):

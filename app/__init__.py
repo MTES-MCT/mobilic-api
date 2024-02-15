@@ -162,6 +162,7 @@ from .helpers.dataloaders import (
     VehiclesInCompanyLoader,
     LocationEntriesInMissionLoader,
     ActivitiesInMissionLoader,
+    ActivityVersionsInActivityLoader,
 )
 
 
@@ -177,6 +178,7 @@ def load_loaders():
         "expenditures_in_missions": ExpendituresInMissionLoader(),
         "location_entries_in_missions": LocationEntriesInMissionLoader(),
         "activities_in_missions": ActivitiesInMissionLoader(),
+        "activity_versions_in_activities": ActivityVersionsInActivityLoader(),
     }
 
 
