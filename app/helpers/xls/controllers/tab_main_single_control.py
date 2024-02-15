@@ -6,6 +6,8 @@ from app.helpers.xls.common import (
     write_cells,
     write_user_recap,
     light_brown_hex,
+    merge_cells_if_needed,
+    formats,
 )
 from app.helpers.xls.companies.legend import write_sheet_legend
 from app.helpers.xls.controllers.header import write_header
@@ -86,6 +88,24 @@ def write_main_sheet(wb, control, work_days_data, min_date, max_date):
             bg_color=bg_color,
         )
         row_idx += 1
+        merge_cells_if_needed(
+            wb,
+            sheet,
+            recap_start_row,
+            row_idx,
+            1,
+            COLUMN_SIREN.lambda_value(wday),
+            formats.get("merged_center"),
+        )
+        merge_cells_if_needed(
+            wb,
+            sheet,
+            recap_start_row,
+            row_idx,
+            0,
+            COLUMN_ENTREPRISE.lambda_value(wday),
+            formats.get("merged_center"),
+        )
 
     write_user_recap(
         wb,
