@@ -273,6 +273,8 @@ class Mission(EventBaseModel):
         activities = sorted(
             [a for a in self.activities], key=lambda a: (a.dismissed_at)
         )
+        if not activities:
+            return "-"
         deleted_by_id = activities[-1].dismiss_author_id
         if deleted_by_id:
             deleted_by_user = User.query.get(deleted_by_id)
