@@ -17,6 +17,7 @@ from functools import reduce
 from dateutil.tz import gettz
 
 from app import db
+from app.domain.work_days import NOT_WORK_ACTIVITIES
 from app.helpers.pagination import parse_datetime_plus_id_cursor, to_connection
 from app.helpers.time import to_datetime, to_tz
 from app.models import (
@@ -511,7 +512,7 @@ def query_work_day_stats(
             [
                 getattr(query.c, f"{a_type.value}_duration")
                 for a_type in ActivityType
-                if a_type != ActivityType.TRANSFER
+                if a_type not in NOT_WORK_ACTIVITIES
             ],
         ).label("total_work_duration"),
     )

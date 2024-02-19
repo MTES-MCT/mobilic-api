@@ -86,6 +86,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     deleted_at = graphene.Field(
         TimeStamp, description="Horodatage de la suppression de la mission"
     )
+    is_holiday = graphene.Field(graphene.Boolean)
     deleted_by = graphene.Field(
         graphene.String,
         description="Nom de la personne ayant supprimé la mission",
@@ -150,6 +151,9 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_deleted_at(self, info):
         return self.deleted_at()
+
+    def resolve_is_holiday(self, info):
+        return self.is_holiday()
 
     def resolve_deleted_by(self, info):
         return self.deleted_by()

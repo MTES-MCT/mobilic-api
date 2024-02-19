@@ -22,6 +22,9 @@ from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
+NOT_WORK_ACTIVITIES = [ActivityType.OFF, ActivityType.TRANSFER]
+
+
 def compute_aggregate_durations(periods, min_time=None, tz=None):
     max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
@@ -40,7 +43,7 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
             period.duration_over(min_time, max_time).total_seconds()
         )
         timers[period.type] += total_duration
-        if period.type != ActivityType.TRANSFER and min_time:
+        if period.type not in NOT_WORK_ACTIVITIES and min_time:
             user_timezone = gettz(period.user.timezone_name)
             day_duration_tarification = int(
                 period.duration_over(
@@ -86,7 +89,7 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         [
             timers[a_type]
             for a_type in ActivityType
-            if a_type != ActivityType.TRANSFER
+            if a_type not in NOT_WORK_ACTIVITIES
         ],
     )
 
@@ -378,6 +381,7 @@ def group_user_events_by_day_with_limit(
     from_date=None,
     until_date=None,
     tz=FR_TIMEZONE,
+    include_holidays=True,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
     only_missions_validated_by_user=False,
@@ -394,6 +398,12 @@ def group_user_events_by_day_with_limit(
             raise InvalidParamsError("Invalid pagination cursor")
         until_date = min(max_date, until_date) if until_date else max_date
 
+    def additional_activity_filters(query):
+        query = query.order_by(desc(Activity.start_time), desc(Activity.id))
+        if not include_holidays:
+            query = query.filter(Activity.type != ActivityType.OFF)
+        return query
+
     missions, has_next = user.query_missions_with_limit(
         include_deleted_missions=True,
         include_revisions=True,  # To be updated locally on init regulation alerts only!
@@ -408,9 +418,7 @@ def group_user_events_by_day_with_limit(
         restrict_to_company_ids=(consultation_scope.company_ids or None)
         if consultation_scope
         else None,
-        additional_activity_filters=lambda query: query.order_by(
-            desc(Activity.start_time), desc(Activity.id)
-        ),
+        additional_activity_filters=additional_activity_filters,
         limit_fetch_activities=max(first * 5, 200) if first else None,
         max_reception_time=max_reception_time,
     )

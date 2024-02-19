@@ -57,6 +57,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         only_missions_validated_by_admin=submitter_type == SubmitterType.ADMIN,
         only_missions_validated_by_user=submitter_type
         == SubmitterType.EMPLOYEE,
+        include_holidays=False,
     )
 
     # Compute daily rules for each day

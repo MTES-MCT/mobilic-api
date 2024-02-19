@@ -890,6 +890,28 @@ class ApiRequests:
       }
     """
 
+    log_holiday = """
+        mutation logHoliday(
+            $companyId: Int!
+            $userId: Int
+            $startTime: TimeStamp!
+            $endTime: TimeStamp!
+            $title: String!
+        ) {
+            activities{
+                logHoliday(
+                    companyId: $companyId
+                    userId: $userId
+                    startTime: $startTime
+                    endTime: $endTime
+                    title: $title
+                ) {
+                    id
+                }
+            }
+        }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
