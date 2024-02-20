@@ -1,5 +1,4 @@
 import graphene
-from flask import g
 from sqlalchemy.orm import backref
 
 from app import db
@@ -8,6 +7,7 @@ from app.helpers.graphene_types import (
     TimeStamp,
 )
 from app.models.event import EventBaseModel, Dismissable
+from app.models.mixins.user_resolver import ResolveUser
 
 
 class Comment(EventBaseModel, Dismissable):
@@ -20,7 +20,7 @@ class Comment(EventBaseModel, Dismissable):
     text = db.Column(db.TEXT, nullable=False)
 
 
-class CommentOutput(BaseSQLAlchemyObjectType):
+class CommentOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = Comment
         only_fields = (
@@ -54,8 +54,3 @@ class CommentOutput(BaseSQLAlchemyObjectType):
     text = graphene.String(
         required=True, description="Contenu de l'observation"
     )
-
-    def resolve_submitter(self, info):
-        if not self.submitter_id:
-            return None
-        return g.dataloaders["users"].load(self.submitter_id)

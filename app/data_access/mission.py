@@ -120,9 +120,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 )
             return activities
 
-        return activities.then(
-            lambda activities: process_activities(activities)
-        )
+        return activities.then(process_activities)
 
     def resolve_expenditures(self, info, include_dismissed_expenditures=False):
         max_reception_time = retrieve_max_reception_time(info)
@@ -142,9 +140,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 )
             )
 
-        return expenditures.then(
-            lambda expenditures: process_expenditures(expenditures)
-        )
+        return expenditures.then(process_expenditures)
 
     def resolve_validations(self, info):
         max_reception_time = retrieve_max_reception_time(info)
@@ -157,9 +153,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             return validations
 
         validations = g.dataloaders["validations_in_missions"].load(self.id)
-        return validations.then(
-            lambda validations: process_validations(validations)
-        )
+        return validations.then(process_validations)
 
     def resolve_comments(self, info):
         max_reception_time = retrieve_max_reception_time(info)
@@ -176,15 +170,13 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 )
             return acknowledged_comments
 
-        return comments.then(lambda comments: process_comments(comments))
+        return comments.then(process_comments)
 
     def resolve_start_location(self, info):
         location_entries = g.dataloaders["location_entries_in_missions"].load(
             self.id
         )
-        return location_entries.then(
-            lambda entries: get_start_location(entries)
-        )
+        return location_entries.then(get_start_location)
 
     def resolve_end_location(self, info):
         max_reception_time = retrieve_max_reception_time(info)
@@ -197,9 +189,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 entries = filter_out_future_events(entries, max_reception_time)
             return get_end_location(entries)
 
-        return location_entries.then(
-            lambda entries: process_location_entries(entries)
-        )
+        return location_entries.then(process_location_entries)
 
     def resolve_is_ended_for_self(self, info):
         return self.ended_for(current_user)
@@ -214,9 +204,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             dismissed_times = [a.dismissed_at for a in activities]
             return max_or_none(*dismissed_times)
 
-        return activities.then(
-            lambda activities: process_activities(activities)
-        )
+        return activities.then(process_activities)
 
     def resolve_deleted_by(self, info):
         activities = g.dataloaders["activities_in_missions"].load(self.id)
@@ -235,9 +223,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                 lambda user: user.display_name if user else "-"
             )
 
-        return activities.then(
-            lambda activities: process_activities(activities)
-        )
+        return activities.then(process_activities)
 
     def resolve_vehicle(self, info):
         if not self.vehicle_id:

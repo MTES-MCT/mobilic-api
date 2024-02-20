@@ -151,7 +151,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
                 return filter_out_future_events(versions, max_reception_time)
             return versions
 
-        return versions.then(lambda versions: process_versions(versions))
+        return versions.then(process_versions)
 
 
 class ActivityConnection(graphene.Connection):

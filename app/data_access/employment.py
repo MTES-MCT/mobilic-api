@@ -137,7 +137,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
                 return None
             return max([email_record.creation_time for email_record in emails])
 
-        return emails.then(lambda emails: return_most_recent_email(emails))
+        return emails.then(return_most_recent_email)
 
 
 from app.data_access.team import TeamOutput

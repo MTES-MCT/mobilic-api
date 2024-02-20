@@ -85,7 +85,7 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
                 regulation_checks_extended.append(regulation_check)
             return regulation_checks_extended
 
-        return alerts.then(lambda alerts: process_alerts(alerts))
+        return alerts.then(process_alerts)
 
 
 class RegulationComputationByDayOutput(graphene.ObjectType):
