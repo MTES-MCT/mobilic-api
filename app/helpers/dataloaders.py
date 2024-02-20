@@ -2,7 +2,7 @@ from promise import Promise
 from promise.dataloader import DataLoader
 
 from app import db
-from app.models import Email, Vehicle, ActivityVersion
+from app.models import Email, Vehicle, ActivityVersion, RegulatoryAlert
 
 
 class EmailsInEmploymentLoader(DataLoader):
@@ -111,3 +111,16 @@ class ActivitiesInMissionLoader(DataLoader):
         return batch_load_in_missions(
             class_name="Activity", mission_ids=mission_ids
         )
+
+
+def batch_load_regulatory_alerts(keys):
+    def load_alerts(key):
+        user_id, day, submitter_type = key
+        alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user_id == user_id,
+            RegulatoryAlert.day == day,
+            RegulatoryAlert.submitter_type == submitter_type,
+        ).all()
+        return alerts
+
+    return Promise.all([load_alerts(key) for key in keys])

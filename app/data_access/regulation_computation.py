@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 
 from app.data_access.regulation_check import RegulationCheckOutput
 from app.helpers.graphene_types import (
@@ -8,7 +9,27 @@ from app.helpers.graphene_types import (
 from app.helpers.submitter_type import SubmitterType
 from app.models.regulation_check import RegulationCheck, UnitType
 from app.models.regulation_computation import RegulationComputation
-from app.models.regulatory_alert import RegulatoryAlert
+
+
+def get_or_cache_regulation_checks():
+    if not hasattr(g, "regulation_checks"):
+        g.regulation_checks = RegulationCheck.query.all()
+    return g.regulation_checks
+
+
+def get_regulation_checks_by_unit(unit):
+    regulation_checks = get_or_cache_regulation_checks()
+    if unit:
+        regulation_checks = [rc for rc in regulation_checks if rc.unit == unit]
+    return regulation_checks
+
+
+def get_regulation_check_by_type(type):
+    regulation_checks = get_or_cache_regulation_checks()
+    for rc in regulation_checks:
+        if rc.type == type:
+            return rc
+    return None
 
 
 class RegulationComputationOutput(BaseSQLAlchemyObjectType):
@@ -41,29 +62,30 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_regulation_checks(self, info, unit=None):
-        base_query = RegulationCheck.query
-        if unit:
-            base_query = base_query.filter(RegulationCheck.unit == unit)
-        regulation_checks = base_query.all()
+        regulation_checks = get_regulation_checks_by_unit(unit=unit)
 
         if not regulation_checks:
             return None
 
-        regulatory_alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user_id == self.user.id,
-            RegulatoryAlert.day == self.day,
-            RegulatoryAlert.submitter_type == self.submitter_type,
-        )
+        key = (self.user_id, self.day, self.submitter_type)
+        alerts = g.dataloaders["regulatory_alerts"].load(key)
 
-        regulation_checks_extended = []
-        for regulation_check in regulation_checks:
-            regulatory_alert = regulatory_alerts.filter(
-                RegulatoryAlert.regulation_check_id == regulation_check.id
-            ).one_or_none()
-            setattr(regulation_check, "alert", regulatory_alert)
-            regulation_checks_extended.append(regulation_check)
+        def process_alerts(alerts):
+            regulation_checks_extended = []
+            for regulation_check in regulation_checks:
+                matching_alert = next(
+                    (
+                        alert
+                        for alert in alerts
+                        if alert.regulation_check_id == regulation_check.id
+                    ),
+                    None,
+                )
+                setattr(regulation_check, "alert", matching_alert)
+                regulation_checks_extended.append(regulation_check)
+            return regulation_checks_extended
 
-        return regulation_checks_extended
+        return alerts.then(lambda alerts: process_alerts(alerts))
 
 
 class RegulationComputationByDayOutput(graphene.ObjectType):
