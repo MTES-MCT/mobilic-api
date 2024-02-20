@@ -38,9 +38,10 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
     write_header(wb, sheet, control, min_date, max_date)
 
     row_idx = 6
-
     column_base_formats = write_tab_headers(wb, sheet, row_idx, COLUMNS_ALL)
     row_idx += 1
+
+    recap_start_row = row_idx
 
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
         infractions_for_day = [
@@ -140,24 +141,6 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
                 to_fr_tz(wday.start_time),
                 formats.get("merged_date_format"),
             )
-            merge_cells_if_needed(
-                wb,
-                sheet,
-                workday_starting_row_idx,
-                row_idx,
-                1,
-                COLUMN_SIREN.lambda_value(wday),
-                formats.get("merged_center"),
-            )
-            merge_cells_if_needed(
-                wb,
-                sheet,
-                workday_starting_row_idx,
-                row_idx,
-                0,
-                COLUMN_ENTREPRISE.lambda_value(wday),
-                formats.get("merged_center"),
-            )
             for col_to_format in range(col_idx):
                 sheet.write(
                     row_idx,
@@ -165,3 +148,22 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
                     "",
                     wb.add_format({"top": 1}),
                 )
+
+        merge_cells_if_needed(
+            wb,
+            sheet,
+            recap_start_row,
+            row_idx,
+            1,
+            COLUMN_SIREN.lambda_value(wday),
+            formats.get("merged_center"),
+        )
+        merge_cells_if_needed(
+            wb,
+            sheet,
+            recap_start_row,
+            row_idx,
+            0,
+            COLUMN_ENTREPRISE.lambda_value(wday),
+            formats.get("merged_center"),
+        )
