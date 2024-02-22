@@ -55,7 +55,7 @@ class LogHoliday(AuthenticatedMutation):
 
     Arguments = HolidayLogInput
 
-    Output = MissionOutput
+    Output = graphene.List(MissionOutput)
 
     @classmethod
     @check_company_against_scope_wrapper(
@@ -84,6 +84,7 @@ class LogHoliday(AuthenticatedMutation):
             periods = get_daily_periods(
                 start_date_time=start_time, end_date_time=end_time
             )
+            missions = []
             for (start, end) in periods:
                 mission = Mission(
                     name=title,
@@ -117,4 +118,5 @@ class LogHoliday(AuthenticatedMutation):
                     mission=mission,
                     for_user=user,
                 )
-        return mission
+                missions.append(mission)
+        return missions
