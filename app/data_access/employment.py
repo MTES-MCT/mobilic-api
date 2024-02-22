@@ -123,10 +123,11 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         if not self.user_id:
             return None
         user = g.dataloaders["users"].load(self.user_id)
-        if not self.hide_email:
-            return user
 
         def hide_email_user(user):
+            if not self.hide_email:
+                return user
+
             if not user:
                 return None
             return get_user_with_hidden_email(user)
