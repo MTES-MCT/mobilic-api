@@ -216,6 +216,8 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             activities = sorted(
                 [a for a in activities], key=lambda a: (a.dismissed_at)
             )
+            if not activities:
+                return "-"
             deleted_by_id = activities[-1].dismiss_author_id
             if deleted_by_id:
                 deleted_by_user = g.dataloaders["users"].load(deleted_by_id)
