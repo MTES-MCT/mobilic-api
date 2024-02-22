@@ -57,10 +57,13 @@ class Company(BaseModel, WithEmploymentHistory):
             return SirenAPIClient._get_legal_unit_name(legal_unit_dict)
         return ""
 
-    def users_between(self, start, end):
+    def users_ids_between(self, start, end):
         active_employments = self.active_employments_between(start, end)
-        user_ids = [e.user_id for e in active_employments]
-        users = User.query.filter(User.id.in_(user_ids))
+        return [e.user_id for e in active_employments]
+
+    def users_between(self, start, end):
+        active_user_ids = self.users_ids_between(start, end)
+        users = User.query.filter(User.id.in_(active_user_ids))
         return users
 
     def get_drivers(self, start, end):

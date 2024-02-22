@@ -1,12 +1,19 @@
 import graphene
+from flask import g
 from graphene.types.generic import GenericScalar
 
+from app.domain.mission import (
+    get_start_location,
+    get_end_location,
+    is_deleted_from_activities,
+)
 from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
 from app.helpers.frozen_version_utils import (
     freeze_activities,
     filter_out_future_events,
 )
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.time import max_or_none
 from app.models import Mission
 from app.data_access.activity import ActivityOutput
 from app.helpers.authentication import current_user
@@ -93,70 +100,142 @@ class MissionOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_activities(self, info, include_dismissed_activities=False):
-        _include_dismissed_activities = (
-            True if self.is_deleted() else include_dismissed_activities
-        )
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return freeze_activities(
-                self.activities,
-                max_reception_time,
-                _include_dismissed_activities,
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            _include_dismissed_activities = (
+                True if is_deleted else include_dismissed_activities
             )
-        return (
-            self.activities
-            if _include_dismissed_activities
-            else self.acknowledged_activities
-        )
+            if max_reception_time:
+                return freeze_activities(
+                    activities,
+                    max_reception_time,
+                    _include_dismissed_activities,
+                )
+            if not _include_dismissed_activities:
+                activities = sorted(
+                    [a for a in activities if not a.is_dismissed],
+                    key=lambda a: (a.start_time, a.id),
+                )
+            return activities
+
+        return activities.then(process_activities)
 
     def resolve_expenditures(self, info, include_dismissed_expenditures=False):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return filter_out_future_events(
-                self.expenditures, max_reception_time
+        expenditures = g.dataloaders["expenditures_in_missions"].load(self.id)
+
+        def process_expenditures(expenditures):
+            if max_reception_time:
+                return filter_out_future_events(
+                    expenditures, max_reception_time
+                )
+            return (
+                expenditures
+                if include_dismissed_expenditures
+                else sorted(
+                    [e for e in expenditures if not e.is_dismissed],
+                    key=lambda e: e.reception_time,
+                )
             )
-        return (
-            self.expenditures
-            if include_dismissed_expenditures
-            else self.acknowledged_expenditures
-        )
+
+        return expenditures.then(process_expenditures)
 
     def resolve_validations(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return filter_out_future_events(
-                self.validations, max_reception_time
-            )
-        return self.validations
+
+        def process_validations(validations):
+            if max_reception_time:
+                return filter_out_future_events(
+                    validations, max_reception_time
+                )
+            return validations
+
+        validations = g.dataloaders["validations_in_missions"].load(self.id)
+        return validations.then(process_validations)
 
     def resolve_comments(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return filter_out_future_events(
-                self.acknowledged_comments, max_reception_time
+        comments = g.dataloaders["comments_in_missions"].load(self.id)
+
+        def process_comments(comments):
+            acknowledged_comments = sorted(
+                [c for c in comments if not c.is_dismissed],
+                key=lambda c: c.reception_time,
             )
-        return self.acknowledged_comments
+            if max_reception_time:
+                return filter_out_future_events(
+                    acknowledged_comments, max_reception_time
+                )
+            return acknowledged_comments
+
+        return comments.then(process_comments)
 
     def resolve_start_location(self, info):
-        return self.start_location
+        location_entries = g.dataloaders["location_entries_in_missions"].load(
+            self.id
+        )
+        return location_entries.then(get_start_location)
 
     def resolve_end_location(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return self.end_location_at(max_reception_time)
-        return self.end_location
+        location_entries = g.dataloaders["location_entries_in_missions"].load(
+            self.id
+        )
+
+        def process_location_entries(entries):
+            if max_reception_time:
+                entries = filter_out_future_events(entries, max_reception_time)
+            return get_end_location(entries)
+
+        return location_entries.then(process_location_entries)
 
     def resolve_is_ended_for_self(self, info):
         return self.ended_for(current_user)
 
     def resolve_deleted_at(self, info):
-        return self.deleted_at()
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            if not is_deleted:
+                return None
+            dismissed_times = [a.dismissed_at for a in activities]
+            return max_or_none(*dismissed_times)
+
+        return activities.then(process_activities)
 
     def resolve_is_holiday(self, info):
         return self.is_holiday()
 
     def resolve_deleted_by(self, info):
-        return self.deleted_by()
+        activities = g.dataloaders["activities_in_missions"].load(self.id)
+
+        def process_activities(activities):
+            is_deleted = is_deleted_from_activities(activities)
+            if not is_deleted:
+                return None
+            activities = sorted(
+                [a for a in activities], key=lambda a: (a.dismissed_at)
+            )
+            if not activities:
+                return "-"
+            deleted_by_id = activities[-1].dismiss_author_id
+            if deleted_by_id:
+                deleted_by_user = g.dataloaders["users"].load(deleted_by_id)
+            return deleted_by_user.then(
+                lambda user: user.display_name if user else "-"
+            )
+
+        return activities.then(process_activities)
+
+    def resolve_vehicle(self, info):
+        if not self.vehicle_id:
+            return None
+
+        return g.dataloaders["vehicles"].load(self.vehicle_id)
 
 
 class MissionConnection(graphene.Connection):

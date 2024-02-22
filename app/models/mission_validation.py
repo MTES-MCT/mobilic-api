@@ -5,6 +5,7 @@ import graphene
 from app import db
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.event import UserEventBaseModel
+from app.models.mixins.user_resolver import ResolveUser
 
 
 class MissionValidation(UserEventBaseModel):
@@ -33,7 +34,7 @@ class MissionValidation(UserEventBaseModel):
     )
 
 
-class MissionValidationOutput(BaseSQLAlchemyObjectType):
+class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = MissionValidation
         only_fields = (

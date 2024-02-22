@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 from graphene.types.generic import GenericScalar
 
 from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
@@ -12,9 +13,10 @@ from app.helpers.graphene_types import (
 )
 from app.models import Activity, ActivityVersion
 from app.models.activity import ActivityType
+from app.models.mixins.user_resolver import ResolveUser
 
 
-class ActivityVersionOutput(BaseSQLAlchemyObjectType):
+class ActivityVersionOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = ActivityVersion
         only_fields = (
@@ -53,7 +55,7 @@ class ActivityVersionOutput(BaseSQLAlchemyObjectType):
     )
 
 
-class ActivityOutput(BaseSQLAlchemyObjectType):
+class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = Activity
         only_fields = (
@@ -140,9 +142,16 @@ class ActivityOutput(BaseSQLAlchemyObjectType):
 
     def resolve_versions(self, info):
         max_reception_time = retrieve_max_reception_time(info)
-        if max_reception_time:
-            return filter_out_future_events(self.versions, max_reception_time)
-        return self.versions
+        versions = g.dataloaders["activity_versions_in_activities"].load(
+            self.id
+        )
+
+        def process_versions(versions):
+            if max_reception_time:
+                return filter_out_future_events(versions, max_reception_time)
+            return versions
+
+        return versions.then(process_versions)
 
 
 class ActivityConnection(graphene.Connection):

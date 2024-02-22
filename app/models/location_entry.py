@@ -11,6 +11,7 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import Mission, Vehicle
 from app.models.address import BaseAddressOutput
 from app.models.event import EventBaseModel
+from app.models.mixins.user_resolver import ResolveUser
 from app.models.utils import enum_column
 
 
@@ -99,7 +100,7 @@ class LocationEntry(EventBaseModel):
         self.kilometer_reading_received_at = time
 
 
-class LocationEntryOutput(BaseSQLAlchemyObjectType):
+class LocationEntryOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = LocationEntry
         interfaces = (BaseAddressOutput,)
