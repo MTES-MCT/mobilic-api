@@ -400,6 +400,7 @@ def _generate_work_days_pdf(
             d["is_sunday_or_bank_holiday"] = is_sunday_or_bank_holiday(
                 d["date"]
             )
+            d["is_off_day"] = d.get("off", 0) > 0
 
         week["days"].sort(key=lambda d: d["date"])
         current_group_count += 1
@@ -417,6 +418,7 @@ def _generate_work_days_pdf(
     has_any_week_comment_modified_after_self_validation = any(
         [w["has_day_modified_after_self_validation"] for w in weeks]
     )
+    has_any_week_off_days = any([w["off_days"] > 0 for w in weeks])
 
     include_support_column = (
         include_support_activity or total[ActivityType.SUPPORT] > 0
@@ -450,6 +452,7 @@ def _generate_work_days_pdf(
         has_any_week_comment_not_validated_by_self=has_any_week_comment_not_validated_by_self,
         has_any_week_comment_not_validated_by_admin=has_any_week_comment_not_validated_by_admin,
         has_any_week_comment_modified_after_self_validation=has_any_week_comment_modified_after_self_validation,
+        has_any_week_off_days=has_any_week_off_days,
         months=months,
         total=total,
         show_month_total=len(months) > 1,
