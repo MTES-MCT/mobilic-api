@@ -2,10 +2,9 @@ from mailjet_rest import Client
 from contextlib import contextmanager
 import jwt
 from enum import Enum
-import os
 from cached_property import cached_property
 from flask import render_template
-from datetime import datetime, date
+from datetime import datetime
 from markupsafe import Markup
 
 from app import app
@@ -818,6 +817,27 @@ class Mailer:
                 subject="Votre activité sur Mobilic peut vous mener à l’obtention du certificat",
                 user=admin,
                 type_=EmailType.COMPANY_ACTIVE_THEN_INACTIVE,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_worker_holiday_logging_notification(
+        self, admin, user, company, title, periods
+    ):
+        history_link = Markup(
+            f"{app.config['FRONTEND_URL']}/app/history?day={periods[0][0].strftime('%Y-%m-%d')}"
+        )
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="holiday_logging_email.html",
+                user=user,
+                subject="Enregistrement d’un congé ou d’une absence par votre gestionnaire",
+                type_=EmailType.HOLIDAY_LOGGING_BY_ADMIN,
+                history_link=history_link,
+                admin_full_name=admin.display_name,
+                company_name=company.name,
+                title=title,
+                periods=periods,
             ),
             _apply_whitelist_if_not_prod=True,
         )
