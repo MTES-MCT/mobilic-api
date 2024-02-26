@@ -183,7 +183,12 @@ def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
 
 
 def compute_not_too_many_changes(company, start, end, activities):
-    nb_total_activities = len(activities)
+    activities_on = [
+        activity
+        for activity in activities
+        if activity.type != ActivityType.OFF
+    ]
+    nb_total_activities = len(activities_on)
     if nb_total_activities == 0:
         return True
 
@@ -194,7 +199,7 @@ def compute_not_too_many_changes(company, start, end, activities):
     company_admin_ids = [admin.id for admin in company.get_admins(start, end)]
 
     modified_count = 0
-    for activity in activities:
+    for activity in activities_on:
         if _has_activity_been_created_or_modified_by_an_admin(
             activity=activity, admin_ids=company_admin_ids
         ):
@@ -260,7 +265,12 @@ def _is_activity_in_real_time(activity):
 
 
 def compute_log_in_real_time(activities):
-    nb_activities = len(activities)
+    activities_on = [
+        activity
+        for activity in activities
+        if activity.type != ActivityType.OFF
+    ]
+    nb_activities = len(activities_on)
     if nb_activities == 0:
         return True
 
@@ -271,7 +281,7 @@ def compute_log_in_real_time(activities):
     )
 
     nb_activities_in_real_time = 0
-    for activity in activities:
+    for activity in activities_on:
         if _is_activity_in_real_time(activity):
             nb_activities_in_real_time += 1
         if nb_activities_in_real_time >= target_nb_activities_in_real_time:
