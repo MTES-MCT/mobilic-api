@@ -131,28 +131,16 @@ COLUMN_VEHICLES = ExcelColumn(
 )
 COLUMN_START = ExcelColumn(
     "Début",
-    lambda wday: "-"
-    if wday.is_first_mission_overlapping_with_previous_day
-    else to_fr_tz(wday.start_time)
-    if wday.start_time
-    else None,
-    lambda wday: get_time_format()
-    if not wday.is_first_mission_overlapping_with_previous_day
-    else "center",
+    lambda wday: wday.excel_start_time[0],
+    lambda wday: wday.excel_start_time[1],
     15,
     light_green_hex,
     False,
 )
 COLUMN_END = ExcelColumn(
     "Fin",
-    lambda wday: "-"
-    if wday.is_last_mission_overlapping_with_next_day
-    else to_fr_tz(wday.end_time)
-    if wday.end_time
-    else None,
-    lambda wday: get_time_format()
-    if not wday.is_last_mission_overlapping_with_next_day
-    else "center",
+    lambda wday: wday.excel_end_time[0],
+    lambda wday: wday.excel_end_time[1],
     15,
     light_green_hex,
     False,
@@ -218,7 +206,7 @@ COLUMN_BREAK = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.service_duration
         - wday.total_work_duration
-        - sum([wday.activity_durations[t] for t in NOT_WORK_ACTIVITIES])
+        - wday.activity_durations[ActivityType.TRANSFER]
     ),
     lambda wday: get_duration_format(),
     13,

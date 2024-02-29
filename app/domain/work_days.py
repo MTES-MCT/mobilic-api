@@ -14,6 +14,7 @@ from app.helpers.time import (
     to_timestamp,
     to_tz,
     min_or_none,
+    to_fr_tz,
 )
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
@@ -30,14 +31,27 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
     if not periods:
         return {}
     timers = defaultdict(lambda: 0)
-    end_time = periods[-1].end_time if periods[-1].end_time else datetime.now()
-    start_time = periods[0].start_time
-    if min_time and min_time > start_time:
-        start_time = min_time
-    if max_time and max_time < end_time:
-        end_time = max_time
 
-    timers["total_service"] = to_timestamp(end_time) - to_timestamp(start_time)
+    end_time = None
+    start_time = None
+    timers["total_service"] = 0
+    not_off_periods = [p for p in periods if p.type != ActivityType.OFF]
+    if len(not_off_periods) > 0:
+        end_time = (
+            not_off_periods[-1].end_time
+            if not_off_periods[-1].end_time
+            else datetime.now()
+        )
+        start_time = not_off_periods[0].start_time
+        if min_time and min_time > start_time:
+            start_time = min_time
+        if max_time and max_time < end_time:
+            end_time = max_time
+
+        timers["total_service"] = to_timestamp(end_time) - to_timestamp(
+            start_time
+        )
+
     for period in periods:
         total_duration = int(
             period.duration_over(min_time, max_time).total_seconds()
@@ -199,26 +213,42 @@ class WorkDay:
     def end_of_day(self):
         return self.start_of_day + timedelta(days=1)
 
-    @property
-    def start_time(self):
+    def get_start_time(self, include_off_activities=True):
         self._sort_activities()
         start_of_day = self.start_of_day
-        if self.activities:
-            return max(self.activities[0].start_time, start_of_day)
+        activities = (
+            self.activities
+            if include_off_activities
+            else [a for a in self.activities if a.type != ActivityType.OFF]
+        )
+        if activities:
+            return max(activities[0].start_time, start_of_day)
         return None
 
-    @property
-    def end_time(self):
+    def get_end_time(self, include_off_activities=True):
         self._sort_activities()
         end_of_day = self.end_of_day
-        if self.activities:
-            acts_end_time = self.activities[-1].end_time
+        activities = (
+            self.activities
+            if include_off_activities
+            else [a for a in self.activities if a.type != ActivityType.OFF]
+        )
+        if activities:
+            acts_end_time = activities[-1].end_time
             if acts_end_time:
                 return min(acts_end_time, end_of_day)
             if end_of_day >= datetime.now():
                 self._is_complete = False
                 return None
         return None
+
+    @property
+    def start_time(self):
+        return self.get_start_time()
+
+    @property
+    def end_time(self):
+        return self.get_end_time()
 
     @cached_property
     def expenditures(self):
@@ -300,6 +330,10 @@ class WorkDay:
         return first_mission_start < self.start_of_day
 
     @cached_property
+    def is_off_day(self):
+        return all([a.type == ActivityType.OFF for a in self.activities])
+
+    @cached_property
     def is_last_mission_overlapping_with_next_day(self):
         self._sort_activities()
         if not self.activities:
@@ -329,6 +363,30 @@ class WorkDay:
         return self.activities[-1].mission.end_location_at(
             self.max_reception_time
         )
+
+    @cached_property
+    def excel_start_time(self):
+        from app.helpers.xls.columns import get_time_format
+
+        if (
+            self.is_first_mission_overlapping_with_previous_day
+            or self.is_off_day
+        ):
+            return ("-", "center")
+        start_time = self.get_start_time(include_off_activities=False)
+        return (
+            to_fr_tz(start_time) if start_time else None,
+            get_time_format(),
+        )
+
+    @cached_property
+    def excel_end_time(self):
+        from app.helpers.xls.columns import get_time_format
+
+        if self.is_last_mission_overlapping_with_next_day or self.is_off_day:
+            return ("-", "center")
+        end_time = self.get_end_time(include_off_activities=False)
+        return (to_fr_tz(end_time) if end_time else None, get_time_format())
 
 
 class WorkDayStatsOnly:
