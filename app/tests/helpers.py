@@ -7,6 +7,7 @@ from datetime import datetime
 from app import db
 from app.helpers.time import to_timestamp
 from app.models import ControllerUser, User, RegulationCheck
+from app.models.activity import ActivityType
 from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
     test_post_graphql,
@@ -1152,3 +1153,52 @@ def insert_regulation_check(regulation_data):
             unit=regulation_data.unit,
         ),
     )
+
+
+class WorkPeriod:
+    def __init__(
+        self, start_time, end_time=None, user=None, activity_type=None
+    ):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.user = user
+        self.activity_type = (
+            ActivityType.WORK if activity_type is None else activity_type
+        )
+
+
+def _log_activities_in_mission(
+    submitter, company, user, work_periods, submission_time=None
+):
+    if submission_time is None:
+        submission_time = datetime.now()
+    create_mission_response = make_authenticated_request(
+        time=submission_time,
+        submitter_id=submitter.id,
+        query=ApiRequests.create_mission,
+        variables={"company_id": company.id},
+    )
+    mission_id = create_mission_response["data"]["activities"][
+        "createMission"
+    ]["id"]
+    for wp in work_periods:
+        _dict_variables = dict(
+            start_time=wp.start_time,
+            mission_id=mission_id,
+            type=wp.activity_type,
+        )
+        user = wp.user if wp.user else user
+        _dict_variables["user_id"] = user.id
+        if wp.end_time is None:
+            _dict_variables["switch"] = True
+        else:
+            _dict_variables["switch"] = False
+            _dict_variables["end_time"] = wp.end_time
+
+        make_authenticated_request(
+            time=submission_time,
+            submitter_id=submitter.id,
+            query=ApiRequests.log_activity,
+            variables=_dict_variables,
+        )
+    return mission_id

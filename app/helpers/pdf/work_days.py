@@ -14,8 +14,8 @@ COLOR_OFF = "#9BC0D1"
 COLOR_ACTIVITY = "#C9CBFF"
 COLOR_DAYS = "#CFDAC8"
 COLOR_EXPENDITURES = "#FFE5B9"
-LABEL_OFF_DAYS = "Jours de congés ou d'absence"
-LABEL_OFF_HOURS = "Heures de congés ou d'absence"
+LABEL_OFF_DAYS = "Jours de congé ou d'absence"
+LABEL_OFF_HOURS = "Heures de congé ou d'absence"
 
 
 def _get_summary_columns(
@@ -400,7 +400,9 @@ def _generate_work_days_pdf(
             d["is_sunday_or_bank_holiday"] = is_sunday_or_bank_holiday(
                 d["date"]
             )
-
+            d["is_off_day"] = (
+                d.get("off", 0) > 0 and d.get("total_work", 0) == 0
+            )
         week["days"].sort(key=lambda d: d["date"])
         current_group_count += 1
         if current_group_count == (3 if current_group_uses_extra_space else 4):
@@ -417,6 +419,7 @@ def _generate_work_days_pdf(
     has_any_week_comment_modified_after_self_validation = any(
         [w["has_day_modified_after_self_validation"] for w in weeks]
     )
+    has_any_week_off_days = any([w["off_days"] > 0 for w in weeks])
 
     include_support_column = (
         include_support_activity or total[ActivityType.SUPPORT] > 0
@@ -450,6 +453,7 @@ def _generate_work_days_pdf(
         has_any_week_comment_not_validated_by_self=has_any_week_comment_not_validated_by_self,
         has_any_week_comment_not_validated_by_admin=has_any_week_comment_not_validated_by_admin,
         has_any_week_comment_modified_after_self_validation=has_any_week_comment_modified_after_self_validation,
+        has_any_week_off_days=has_any_week_off_days,
         months=months,
         total=total,
         show_month_total=len(months) > 1,

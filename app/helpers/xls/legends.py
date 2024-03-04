@@ -37,11 +37,12 @@ def write_legend(
         sheet.write(
             next_row,
             start_col,
-            "xx/xx/xxxx",
+            datetime(2022, 1, 1, 0, 0),
             wb.add_format(
                 {
                     **formats.get("date_format"),
                     "border": 1,
+                    "bold": True,
                     "bg_color": blue_hex,
                 }
             ),

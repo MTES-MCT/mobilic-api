@@ -206,7 +206,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             Activity.query.filter(
                 Activity.user_id == self.id,
                 ~Activity.is_dismissed,
-                Activity.start_time > (date_time or VERY_LONG_AGO),
+                Activity.start_time >= (date_time or VERY_LONG_AGO),
             )
             .order_by(Activity.start_time)
             .first()

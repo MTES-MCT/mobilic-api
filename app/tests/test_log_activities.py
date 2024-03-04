@@ -1,10 +1,13 @@
 from datetime import datetime
 
+from app.helpers.errors import OverlappingMissionsError
 from app.models import Mission
 from app.models.activity import (
     ActivityType,
     Activity,
 )
+from app.seed import UserFactory, CompanyFactory
+from app.seed.helpers import get_time
 from app.tests import BaseTest
 from app.tests.helpers import (
     DBEntryUpdate,
@@ -12,8 +15,9 @@ from app.tests.helpers import (
     test_db_changes,
     make_authenticated_request,
     ApiRequests,
+    _log_activities_in_mission,
+    WorkPeriod,
 )
-from app.seed import UserFactory, CompanyFactory
 
 
 class TestLogActivities(BaseTest):
@@ -326,3 +330,71 @@ class TestLogActivities(BaseTest):
     def test_should_not_log_activity_twice(self):
         self.begin_mission(datetime(2020, 2, 7, 6))
         self.begin_mission(datetime(2020, 2, 7, 6), should_fail=True)
+
+    def test_can_not_log_mission_inside_mission_break(self):
+        # A mission with a break inside
+        _log_activities_in_mission(
+            submitter=self.team_leader,
+            company=self.company,
+            user=self.team_leader,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(2, 8), end_time=get_time(2, 10)
+                ),
+                WorkPeriod(
+                    start_time=get_time(2, 15), end_time=get_time(2, 16)
+                ),
+            ],
+        )
+
+        # Can't log a holiday inside the break
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=2, hour=21),
+            submitter_id=self.team_leader.id,
+            query=ApiRequests.log_holiday,
+            variables=dict(
+                companyId=self.company.id,
+                userId=self.team_leader.id,
+                startTime=get_time(how_many_days_ago=2, hour=11),
+                endTime=get_time(how_many_days_ago=2, hour=13),
+                title="Accident du travail",
+            ),
+        )
+        errors = response.get("errors")
+        self.assertEqual(
+            errors[0]["extensions"]["code"], OverlappingMissionsError.code
+        )
+
+    def test_can_not_log_mission_inside_mission_break_edge_case(self):
+        # A mission with a break inside
+        _log_activities_in_mission(
+            submitter=self.team_leader,
+            company=self.company,
+            user=self.team_leader,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(2, 8), end_time=get_time(2, 10)
+                ),
+                WorkPeriod(
+                    start_time=get_time(2, 15), end_time=get_time(2, 16)
+                ),
+            ],
+        )
+
+        # Can't log a holiday inside the break even if end time is same as start of PM work time
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=2, hour=21),
+            submitter_id=self.team_leader.id,
+            query=ApiRequests.log_holiday,
+            variables=dict(
+                companyId=self.company.id,
+                userId=self.team_leader.id,
+                startTime=get_time(how_many_days_ago=2, hour=11),
+                endTime=get_time(how_many_days_ago=2, hour=15),
+                title="Accident du travail",
+            ),
+        )
+        errors = response.get("errors")
+        self.assertEqual(
+            errors[0]["extensions"]["code"], OverlappingMissionsError.code
+        )

@@ -9,6 +9,8 @@ from app.tests import BaseTest
 from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
+    _log_activities_in_mission,
+    WorkPeriod,
 )
 
 
@@ -24,62 +26,25 @@ class TestCancelMission(BaseTest):
         )
 
     def begin_mission_single_user(self, time):
-        create_mission_response = make_authenticated_request(
-            time=time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.create_mission,
-            variables={"company_id": self.company.id},
-        )
-        mission_id = create_mission_response["data"]["activities"][
-            "createMission"
-        ]["id"]
-        make_authenticated_request(
-            time=time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.log_activity,
-            variables=dict(
-                start_time=time,
-                mission_id=mission_id,
-                type=ActivityType.WORK,
-                user_id=self.team_leader.id,
-                switch=True,
-            ),
+        mission_id = _log_activities_in_mission(
+            submitter=self.team_leader,
+            company=self.company,
+            user=self.team_leader,
+            work_periods=[WorkPeriod(start_time=time)],
+            submission_time=time,
         )
         return mission_id
 
     def begin_team_mission(self, time):
-        create_mission_response = make_authenticated_request(
-            time=time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.create_mission,
-            variables={"company_id": self.company.id},
-        )
-        mission_id = create_mission_response["data"]["activities"][
-            "createMission"
-        ]["id"]
-        make_authenticated_request(
-            time=time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.log_activity,
-            variables=dict(
-                start_time=time,
-                mission_id=mission_id,
-                type=ActivityType.WORK,
-                user_id=self.team_leader.id,
-                switch=True,
-            ),
-        )
-        make_authenticated_request(
-            time=time,
-            submitter_id=self.team_leader.id,
-            query=ApiRequests.log_activity,
-            variables=dict(
-                start_time=time,
-                mission_id=mission_id,
-                type=ActivityType.WORK,
-                user_id=self.team_mate.id,
-                switch=True,
-            ),
+        mission_id = _log_activities_in_mission(
+            submitter=self.team_leader,
+            company=self.company,
+            user=self.team_leader,
+            work_periods=[
+                WorkPeriod(start_time=time, user=self.team_leader),
+                WorkPeriod(start_time=time, user=self.team_mate),
+            ],
+            submission_time=time,
         )
         return mission_id
 

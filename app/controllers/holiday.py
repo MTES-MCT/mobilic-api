@@ -5,13 +5,14 @@ import graphene
 from app import db
 from app.controllers.utils import atomic_transaction
 from app.data_access.mission import MissionOutput
+from app.domain.holidays import send_email_log_holiday
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import check_company_against_scope_wrapper
 from app.helpers.graphene_types import TimeStamp
 from app.helpers.time import get_daily_periods
-from app.models import Company, Mission, MissionEnd, Comment, User
+from app.models import Company, Mission, Comment, User
 from app.models.activity import ActivityType
 
 
@@ -55,7 +56,7 @@ class LogHoliday(AuthenticatedMutation):
 
     Arguments = HolidayLogInput
 
-    Output = MissionOutput
+    Output = graphene.List(MissionOutput)
 
     @classmethod
     @check_company_against_scope_wrapper(
@@ -79,11 +80,13 @@ class LogHoliday(AuthenticatedMutation):
         if user_id:
             user = User.query.get(user_id)
 
+        company = Company.query.get(company_id)
+        periods = get_daily_periods(
+            start_date_time=start_time, end_date_time=end_time
+        )
+
         with atomic_transaction(commit_at_end=True):
-            company = Company.query.get(company_id)
-            periods = get_daily_periods(
-                start_date_time=start_time, end_date_time=end_time
-            )
+            missions = []
             for (start, end) in periods:
                 mission = Mission(
                     name=title,
@@ -117,4 +120,13 @@ class LogHoliday(AuthenticatedMutation):
                     mission=mission,
                     for_user=user,
                 )
-        return mission
+                missions.append(mission)
+
+        send_email_log_holiday(
+            admin=current_user,
+            user=user,
+            company=company,
+            title=title,
+            periods=periods,
+        )
+        return missions
