@@ -30,6 +30,15 @@ CERTIFICATE_LIFETIME_MONTH = 6
 CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE = 10
 
 
+def _filter_activities_on(activities):
+    activities_on = [
+        activity
+        for activity in activities
+        if activity.type != ActivityType.OFF
+    ]
+    return activities_on, len(activities_on)
+
+
 def is_employee_active(company, employee, start, end):
     activities = employee.query_activities_with_relations(
         start_time=start,
@@ -183,17 +192,13 @@ def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
 
 
 def compute_not_too_many_changes(company, start, end, activities):
-    activities_on = [
-        activity
-        for activity in activities
-        if activity.type != ActivityType.OFF
-    ]
-    nb_total_activities = len(activities_on)
-    if nb_total_activities == 0:
+    activities_on, nb_activities_on = _filter_activities_on(activities)
+
+    if nb_activities_on == 0:
         return True
 
     limit_nb_activities = math.ceil(
-        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100.0 * nb_total_activities
+        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100.0 * nb_activities_on
     )
 
     company_admin_ids = [admin.id for admin in company.get_admins(start, end)]
@@ -265,19 +270,15 @@ def _is_activity_in_real_time(activity):
 
 
 def compute_log_in_real_time(activities):
-    activities_on = [
-        activity
-        for activity in activities
-        if activity.type != ActivityType.OFF
-    ]
-    nb_activities = len(activities_on)
-    if nb_activities == 0:
+    activities_on, nb_activities_on = _filter_activities_on(activities)
+
+    if nb_activities_on == 0:
         return True
 
     target_nb_activities_in_real_time = math.ceil(
         REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
         / 100.0
-        * nb_activities
+        * nb_activities_on
     )
 
     nb_activities_in_real_time = 0
