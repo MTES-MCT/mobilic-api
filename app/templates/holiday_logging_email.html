@@ -10,11 +10,11 @@
         <p>Le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}} a modifié votre historique :</p>
         <ul>
             {% for period in periods %}
-                <li>sur la journée du <strong>{{period[0].date() | full_format_day}}</strong> : un <strong>{{ title }}</strong> a été ajouté de <strong>{{ period[0] | format_time(False) }}</strong> à <strong>{{ period[1] | format_time(False) }}</strong>.</li>
+                <li>sur la journée du <strong>{{period[0].date() | full_format_day}}</strong> : une absence de type <strong>{{ title | lower }}</strong> a été ajoutée de <strong>{{ period[0] | format_time(False) }}</strong> à <strong>{{ period[1] | format_time(False) }}</strong>.</li>
             {% endfor %}
         </ul>
     {% else %}
-        <p>Le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}} a modifié votre historique sur la journée du <strong>{{periods[0][0].date() | full_format_day}}</strong> : un <strong>{{ title }}</strong> a été ajouté de <strong>{{ periods[0][0] | format_time(False) }}</strong> à <strong>{{ periods[0][1] | format_time(False) }}</strong>.</p>
+        <p>Le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}} a modifié votre historique sur la journée du <strong>{{periods[0][0].date() | full_format_day}}</strong>. Une absence de type <strong>{{ title | lower }}</strong> a été ajoutée de <strong>{{ periods[0][0] | format_time(False) }}</strong> à <strong>{{ periods[0][1] | format_time(False) }}</strong>.</p>
     {% endif %}
     <p>Rendez-vous dans <a href="{{ history_link }}" target="_blank" rel="noopener">votre historique</a> pour consulter le nouveau détail de la journée. Si vous n'étiez pas absent(e), il s’agit peut-être d’une erreur. Nous vous invitons à le préciser dans la section “Observations” ou à en parler directement avec votre gestionnaire.</p>
     <p>Par ailleurs, pour chaque journée non travaillée, vous pouvez enregistrer votre motif d’absence vous-même depuis votre historique en cliquant sur “Renseigner un congé ou une absence”.</p>
