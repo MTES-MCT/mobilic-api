@@ -204,7 +204,7 @@ def _get_detail_columns(
                 ),
                 Column(
                     name="off_reasons",
-                    label="Motifs",
+                    label="Motif",
                     color=COLOR_OFF,
                 ),
             ]
