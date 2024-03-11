@@ -114,24 +114,24 @@ def write_details_sheet(wb, control, work_days_data, min_date, max_date):
                     additional_format,
                 )
                 row_idx += 1
-                merge_cells_if_needed(
-                    wb,
-                    sheet,
-                    mission_starting_row_idx,
-                    row_idx,
-                    col_idx,
-                    text_infractions,
-                    formats.get("merged_center"),
-                )
-                merge_cells_if_needed(
-                    wb,
-                    sheet,
-                    mission_starting_row_idx,
-                    row_idx,
-                    3,
-                    mission.name,
-                    formats.get("merged_center"),
-                )
+            merge_cells_if_needed(
+                wb,
+                sheet,
+                mission_starting_row_idx,
+                row_idx,
+                col_idx,
+                text_infractions,
+                formats.get("merged_center"),
+            )
+            merge_cells_if_needed(
+                wb,
+                sheet,
+                mission_starting_row_idx,
+                row_idx,
+                3,
+                mission.name,
+                formats.get("merged_center"),
+            )
             merge_cells_if_needed(
                 wb,
                 sheet,
