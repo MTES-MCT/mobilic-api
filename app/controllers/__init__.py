@@ -6,6 +6,7 @@ from app.controllers.certificate import (
     SnoozeCertificateInfo,
     AddScenarioTestingResult,
 )
+from app.controllers.holiday import LogHoliday
 from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
 from app.controllers.activity import CancelActivity, EditActivity, LogActivity
@@ -128,6 +129,7 @@ class Activities(graphene.ObjectType):
     change_mission_name = ChangeMissionName.Field()
     cancel_mission = CancelMission.Field()
     register_kilometer_at_location = RegisterKilometerAtLocation.Field()
+    log_holiday = LogHoliday.Field()
 
 
 class SignUp(graphene.ObjectType):

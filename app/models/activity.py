@@ -38,12 +38,14 @@ class ActivityType(str, Enum):
     WORK = "work"
     SUPPORT = "support"
     TRANSFER = "transfer"
+    OFF = "off"
     __description__ = """
 Enumération des valeurs suivantes.
 - "drive" : conduite du véhicule
 - "work" : travail sans déplacement du véhicule
 - "support" : accompagnement ou disponibilité
 - "transfer": liaison d'un point à un autre
+- "off: représente un congé, repos, formation, etc."
 """
 
 
@@ -180,6 +182,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             end_time=new["end_time"],
             bypass_overlap_check=bypass_overlap_check,
             bypass_auth_check=bypass_auth_check,
+            is_revision=True,
         ):
             revision = ActivityVersion(
                 activity=self,

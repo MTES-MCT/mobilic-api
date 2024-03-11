@@ -1,3 +1,4 @@
+from app.helpers.time import is_sunday_or_bank_holiday
 from app.helpers.xls.columns import *
 from app.helpers.xls.common import (
     formats,
@@ -5,6 +6,7 @@ from app.helpers.xls.common import (
     merge_cells_if_needed,
     write_cells,
     write_user_recap,
+    light_brown_hex,
 )
 from app.helpers.xls.companies.headers import write_sheet_header
 from app.helpers.xls.companies.legend import write_sheet_legend
@@ -36,6 +38,7 @@ def write_work_days_sheet(
         require_kilometer_data,
     )
     has_one_bank_holiday = False
+    has_one_day_off = False
 
     for user, work_days in sorted(
         wdays_by_user.items(), key=lambda u: u[0].display_name
@@ -46,8 +49,15 @@ def write_work_days_sheet(
         row_idx += 1
         user_starting_row_idx = row_idx
         for wday in sorted(work_days, key=lambda wd: wd.day):
+            bg_color = None
+            is_day_off = all([m.is_holiday() for m in wday.missions])
+            has_one_day_off = has_one_day_off or is_day_off
             if is_sunday_or_bank_holiday(wday.day):
                 has_one_bank_holiday = True
+                bg_color = light_brown_hex
+            if is_day_off:
+                bg_color = blue_hex
+
             col_idx = 0
             write_cells(
                 wb,
@@ -58,6 +68,7 @@ def write_work_days_sheet(
                 columns_in_main_sheet,
                 wday,
                 with_border=True,
+                bg_color=bg_color,
             )
             row_idx += 1
 
@@ -80,8 +91,13 @@ def write_work_days_sheet(
             wday.user.display_name,
         )
         row_idx += 4
-    if has_one_bank_holiday:
-        write_sheet_legend(wb, sheet)
+
+    write_sheet_legend(
+        wb=wb,
+        sheet=sheet,
+        has_bank_holiday=has_one_bank_holiday,
+        has_off_day=has_one_day_off,
+    )
 
 
 def get_columns_in_main_sheet(
@@ -156,6 +172,7 @@ def get_columns_in_main_sheet(
             ]
         )
 
+    columns_in_main_sheet.extend([COLUMN_OFF_HOURS, COLUMN_OFF_REASONS])
     columns_in_main_sheet.extend(
         [
             COLUMN_OBSERVATIONS,

@@ -267,6 +267,16 @@ class OverlappingActivitiesError(MobilicError):
             )
 
 
+class LogHolidayInNotEmptyMissionError(MobilicError):
+    code = "LOG_HOLIDAY_IN_MISSION_NOT_EMPTY"
+    default_message = "A holiday or time off should not be logged in a mission which is not empty."
+
+
+class LogActivityInHolidayMissionError(MobilicError):
+    code = "LOG_ACTIVITY_IN_HOLIDAY_MISSION"
+    default_message = "An activity should not be logged in a mission representing a holiday or time off."
+
+
 class MissionAlreadyEndedError(MobilicError):
     code = "MISSION_ALREADY_ENDED"
 

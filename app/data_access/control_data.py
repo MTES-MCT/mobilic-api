@@ -9,6 +9,7 @@ from app.data_access.employment import EmploymentOutput
 from app.data_access.mission import MissionOutput
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
+    get_regulation_check_by_type,
 )
 from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
@@ -167,9 +168,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             return observed_infractions
         for infraction in self.observed_infractions:
             check_type = infraction.get("check_type")
-            regulation_check = RegulationCheck.query.filter(
-                RegulationCheck.type == check_type
-            ).first()
+            regulation_check = get_regulation_check_by_type(type=check_type)
+            if regulation_check is None:
+                continue
 
             sanction = infraction.get("sanction")
             label = regulation_check.label if regulation_check else ""

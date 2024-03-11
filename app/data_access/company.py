@@ -1,3 +1,5 @@
+from flask import g
+
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -226,7 +228,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_users(self, info, from_date=None, to_date=None):
         info.context.company_ids_scope = [self.id]
-        return self.users_between(from_date, to_date)
+        return g.dataloaders["users"].load_many(
+            self.users_ids_between(from_date, to_date)
+        )
 
     @with_authorization_policy(
         has_any_employment_with_company_or_controller,
@@ -234,7 +238,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'vehicles' of company object.",
     )
     def resolve_vehicles(self, info):
-        return [v for v in self.vehicles if not v.is_terminated]
+        vehicles = g.dataloaders["vehicles_in_company"].load(self.id)
+        return vehicles.then(
+            lambda vehicles: [v for v in vehicles if not v.is_terminated]
+        )
 
     @with_authorization_policy(
         company_admin,
@@ -340,7 +347,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             after=after,
         )
         user_ids = set([row.user_id for row in work_day_stats])
-        users = {user_id: User.query.get(user_id) for user_id in user_ids}
+
+        users = User.query.filter(User.id.in_(user_ids))
+        users = {user.id: user for user in users}
         wds = [
             WorkDayStatsOnly(
                 day=row.day,

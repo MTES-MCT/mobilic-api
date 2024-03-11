@@ -7,6 +7,7 @@ from app.helpers.graphene_types import (
     TimeStamp,
 )
 from app.models.event import EventBaseModel, Dismissable
+from app.models.mixins.user_resolver import ResolveUser
 
 
 class Comment(EventBaseModel, Dismissable):
@@ -19,7 +20,7 @@ class Comment(EventBaseModel, Dismissable):
     text = db.Column(db.TEXT, nullable=False)
 
 
-class CommentOutput(BaseSQLAlchemyObjectType):
+class CommentOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = Comment
         only_fields = (

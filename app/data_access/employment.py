@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 
 from app.controllers.oauth_client import OAuth2ClientOutput
 from app.domain.permissions import only_self_employment
@@ -119,11 +120,29 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         return self.email
 
     def resolve_user(self, info):
-        if not self.hide_email:
-            return self.user
+        if not self.user_id:
+            return None
+        user = g.dataloaders["users"].load(self.user_id)
 
-        if self.user:
-            return get_user_with_hidden_email(self.user)
+        def hide_email_user(user):
+            if not self.hide_email:
+                return user
+
+            if not user:
+                return None
+            return get_user_with_hidden_email(user)
+
+        return user.then(hide_email_user)
+
+    def resolve_latest_invite_email_time(self, info):
+        emails = g.dataloaders["emails_in_employments"].load(self.id)
+
+        def return_most_recent_email(emails):
+            if not emails:
+                return None
+            return max([email_record.creation_time for email_record in emails])
+
+        return emails.then(return_most_recent_email)
 
 
 from app.data_access.team import TeamOutput

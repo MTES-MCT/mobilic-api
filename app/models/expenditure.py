@@ -9,8 +9,8 @@ from app.helpers.graphene_types import (
     TimeStamp,
 )
 from app.models.event import UserEventBaseModel, Dismissable
+from app.models.mixins.user_resolver import ResolveUser
 from app.models.utils import enum_column
-from app.helpers.db import DateTimeStoredAsUTC
 
 
 class ExpenditureType(str, Enum):
@@ -49,7 +49,7 @@ class Expenditure(UserEventBaseModel, Dismissable):
         return f"<Expenditure [{self.id}] : {self.type.value}>"
 
 
-class ExpenditureOutput(BaseSQLAlchemyObjectType):
+class ExpenditureOutput(BaseSQLAlchemyObjectType, ResolveUser):
     class Meta:
         model = Expenditure
         only_fields = (

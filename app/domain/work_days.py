@@ -14,6 +14,7 @@ from app.helpers.time import (
     to_timestamp,
     to_tz,
     min_or_none,
+    to_fr_tz,
 )
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
@@ -22,25 +23,41 @@ from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
+NOT_WORK_ACTIVITIES = [ActivityType.OFF, ActivityType.TRANSFER]
+
+
 def compute_aggregate_durations(periods, min_time=None, tz=None):
     max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
         return {}
     timers = defaultdict(lambda: 0)
-    end_time = periods[-1].end_time if periods[-1].end_time else datetime.now()
-    start_time = periods[0].start_time
-    if min_time and min_time > start_time:
-        start_time = min_time
-    if max_time and max_time < end_time:
-        end_time = max_time
 
-    timers["total_service"] = to_timestamp(end_time) - to_timestamp(start_time)
+    end_time = None
+    start_time = None
+    timers["total_service"] = 0
+    not_off_periods = [p for p in periods if p.type != ActivityType.OFF]
+    if len(not_off_periods) > 0:
+        end_time = (
+            not_off_periods[-1].end_time
+            if not_off_periods[-1].end_time
+            else datetime.now()
+        )
+        start_time = not_off_periods[0].start_time
+        if min_time and min_time > start_time:
+            start_time = min_time
+        if max_time and max_time < end_time:
+            end_time = max_time
+
+        timers["total_service"] = to_timestamp(end_time) - to_timestamp(
+            start_time
+        )
+
     for period in periods:
         total_duration = int(
             period.duration_over(min_time, max_time).total_seconds()
         )
         timers[period.type] += total_duration
-        if period.type != ActivityType.TRANSFER and min_time:
+        if period.type not in NOT_WORK_ACTIVITIES and min_time:
             user_timezone = gettz(period.user.timezone_name)
             day_duration_tarification = int(
                 period.duration_over(
@@ -86,7 +103,7 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
         [
             timers[a_type]
             for a_type in ActivityType
-            if a_type != ActivityType.TRANSFER
+            if a_type not in NOT_WORK_ACTIVITIES
         ],
     )
 
@@ -196,26 +213,42 @@ class WorkDay:
     def end_of_day(self):
         return self.start_of_day + timedelta(days=1)
 
-    @property
-    def start_time(self):
+    def get_start_time(self, include_off_activities=True):
         self._sort_activities()
         start_of_day = self.start_of_day
-        if self.activities:
-            return max(self.activities[0].start_time, start_of_day)
+        activities = (
+            self.activities
+            if include_off_activities
+            else [a for a in self.activities if a.type != ActivityType.OFF]
+        )
+        if activities:
+            return max(activities[0].start_time, start_of_day)
         return None
 
-    @property
-    def end_time(self):
+    def get_end_time(self, include_off_activities=True):
         self._sort_activities()
         end_of_day = self.end_of_day
-        if self.activities:
-            acts_end_time = self.activities[-1].end_time
+        activities = (
+            self.activities
+            if include_off_activities
+            else [a for a in self.activities if a.type != ActivityType.OFF]
+        )
+        if activities:
+            acts_end_time = activities[-1].end_time
             if acts_end_time:
                 return min(acts_end_time, end_of_day)
             if end_of_day >= datetime.now():
                 self._is_complete = False
                 return None
         return None
+
+    @property
+    def start_time(self):
+        return self.get_start_time()
+
+    @property
+    def end_time(self):
+        return self.get_end_time()
 
     @cached_property
     def expenditures(self):
@@ -297,6 +330,10 @@ class WorkDay:
         return first_mission_start < self.start_of_day
 
     @cached_property
+    def is_off_day(self):
+        return all([a.type == ActivityType.OFF for a in self.activities])
+
+    @cached_property
     def is_last_mission_overlapping_with_next_day(self):
         self._sort_activities()
         if not self.activities:
@@ -326,6 +363,30 @@ class WorkDay:
         return self.activities[-1].mission.end_location_at(
             self.max_reception_time
         )
+
+    @cached_property
+    def excel_start_time(self):
+        from app.helpers.xls.columns import get_time_format
+
+        if (
+            self.is_first_mission_overlapping_with_previous_day
+            or self.is_off_day
+        ):
+            return ("-", "center")
+        start_time = self.get_start_time(include_off_activities=False)
+        return (
+            to_fr_tz(start_time) if start_time else None,
+            get_time_format(),
+        )
+
+    @cached_property
+    def excel_end_time(self):
+        from app.helpers.xls.columns import get_time_format
+
+        if self.is_last_mission_overlapping_with_next_day or self.is_off_day:
+            return ("-", "center")
+        end_time = self.get_end_time(include_off_activities=False)
+        return (to_fr_tz(end_time) if end_time else None, get_time_format())
 
 
 class WorkDayStatsOnly:
@@ -378,6 +439,7 @@ def group_user_events_by_day_with_limit(
     from_date=None,
     until_date=None,
     tz=FR_TIMEZONE,
+    include_holidays=True,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
     only_missions_validated_by_user=False,
@@ -394,6 +456,12 @@ def group_user_events_by_day_with_limit(
             raise InvalidParamsError("Invalid pagination cursor")
         until_date = min(max_date, until_date) if until_date else max_date
 
+    def additional_activity_filters(query):
+        query = query.order_by(desc(Activity.start_time), desc(Activity.id))
+        if not include_holidays:
+            query = query.filter(Activity.type != ActivityType.OFF)
+        return query
+
     missions, has_next = user.query_missions_with_limit(
         include_deleted_missions=True,
         include_revisions=True,  # To be updated locally on init regulation alerts only!
@@ -408,9 +476,7 @@ def group_user_events_by_day_with_limit(
         restrict_to_company_ids=(consultation_scope.company_ids or None)
         if consultation_scope
         else None,
-        additional_activity_filters=lambda query: query.order_by(
-            desc(Activity.start_time), desc(Activity.id)
-        ),
+        additional_activity_filters=additional_activity_filters,
         limit_fetch_activities=max(first * 5, 200) if first else None,
         max_reception_time=max_reception_time,
     )

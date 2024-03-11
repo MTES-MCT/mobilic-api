@@ -2,7 +2,8 @@ from collections import namedtuple
 from datetime import timedelta
 
 from app.domain.history import LogActionType
-from app.helpers.time import is_sunday_or_bank_holiday, to_fr_tz
+from app.domain.work_days import NOT_WORK_ACTIVITIES
+from app.helpers.time import to_fr_tz
 from app.helpers.xls.common import (
     light_grey_hex,
     light_yellow_hex,
@@ -11,6 +12,7 @@ from app.helpers.xls.common import (
     light_orange_hex,
     light_red_hex,
     very_light_red_hex,
+    blue_hex,
 )
 from app.models.activity import ActivityType, Activity
 from app.templates.filters import format_activity_type
@@ -29,37 +31,25 @@ ExcelColumn = namedtuple(
 )
 
 
-def get_duration_format(wday, default_format="duration_format", is_bold=False):
-    if wday and is_sunday_or_bank_holiday(wday.day):
-        return (
-            "bank_holiday_bold_duration_format"
-            if is_bold
-            else "bank_holiday_duration_format"
-        )
-    return default_format
+def get_duration_format(is_bold=False):
+    if is_bold:
+        return "bold_duration_format"
+    return "duration_format"
 
 
-def get_date_format(wday):
-    if wday and is_sunday_or_bank_holiday(wday.day):
-        return "bank_holiday_date_format"
+def get_date_format():
     return "date_format"
 
 
-def get_time_format(wday):
-    if wday and is_sunday_or_bank_holiday(wday.day):
-        return "bank_holiday_time_format"
+def get_time_format():
     return "time_format"
 
 
-def get_center_format(wday):
-    if wday and is_sunday_or_bank_holiday(wday.day):
-        return "bank_holiday_center"
+def get_center_format():
     return "center"
 
 
-def get_wrap_format(wday):
-    if wday and is_sunday_or_bank_holiday(wday.day):
-        return "bank_holiday_wrap"
+def get_wrap_format():
     return "wrap"
 
 
@@ -100,7 +90,7 @@ COLUMN_EMPLOYEE = ExcelColumn(
 COLUMN_DAY = ExcelColumn(
     "Jour",
     lambda wday: wday.day,
-    lambda wday: get_date_format(wday),
+    lambda wday: get_date_format(),
     20,
     light_yellow_hex,
     False,
@@ -114,8 +104,10 @@ COLUMN_DETAILS_DAY = ExcelColumn(
 )
 COLUMN_MISSIONS = ExcelColumn(
     "Mission(s)",
-    lambda wday: ", ".join([m.name for m in wday.missions if m.name]),
-    lambda wday: get_wrap_format(wday),
+    lambda wday: ", ".join(
+        [m.name for m in wday.missions if m.name and not m.is_holiday()]
+    ),
+    lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
     False,
@@ -132,35 +124,23 @@ COLUMN_VEHICLES = ExcelColumn(
     lambda wday: ", ".join(
         set([m.vehicle.name for m in wday.missions if m.vehicle is not None])
     ),
-    lambda wday: get_wrap_format(wday),
+    lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
     False,
 )
 COLUMN_START = ExcelColumn(
     "Début",
-    lambda wday: "-"
-    if wday.is_first_mission_overlapping_with_previous_day
-    else to_fr_tz(wday.start_time)
-    if wday.start_time
-    else None,
-    lambda wday: get_time_format(wday)
-    if not wday.is_first_mission_overlapping_with_previous_day
-    else "center",
+    lambda wday: wday.excel_start_time[0],
+    lambda wday: wday.excel_start_time[1],
     15,
     light_green_hex,
     False,
 )
 COLUMN_END = ExcelColumn(
     "Fin",
-    lambda wday: "-"
-    if wday.is_last_mission_overlapping_with_next_day
-    else to_fr_tz(wday.end_time)
-    if wday.end_time
-    else None,
-    lambda wday: get_time_format(wday)
-    if not wday.is_last_mission_overlapping_with_next_day
-    else "center",
+    lambda wday: wday.excel_end_time[0],
+    lambda wday: wday.excel_end_time[1],
     15,
     light_green_hex,
     False,
@@ -170,9 +150,7 @@ COLUMN_DRIVE = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.activity_durations[ActivityType.DRIVE]
     ),
-    lambda wday: "bank_holiday_duration_format"
-    if wday and is_sunday_or_bank_holiday(wday.day)
-    else "duration_format",
+    lambda _: "bold_duration_format",
     13,
     light_green_hex,
     True,
@@ -182,7 +160,7 @@ COLUMN_SUPPORT = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.activity_durations[ActivityType.SUPPORT]
     ),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     True,
@@ -190,7 +168,7 @@ COLUMN_SUPPORT = ExcelColumn(
 COLUMN_OTHER_TASK = ExcelColumn(
     "Autre tâche",
     lambda wday: timedelta(seconds=wday.activity_durations[ActivityType.WORK]),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     True,
@@ -198,9 +176,7 @@ COLUMN_OTHER_TASK = ExcelColumn(
 COLUMN_TOTAL_WORK = ExcelColumn(
     "Total travail",
     lambda wday: timedelta(seconds=wday.total_work_duration),
-    lambda wday: get_duration_format(
-        wday, default_format="bold_duration_format", is_bold=True
-    ),
+    lambda wday: get_duration_format(is_bold=True),
     13,
     light_green_hex,
     True,
@@ -210,7 +186,7 @@ COLUMN_NIGHTLY_HOURS = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.total_night_work_tarification_duration
     ),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     True,
@@ -220,7 +196,7 @@ COLUMN_TRANSFER = ExcelColumn(
     lambda wday: timedelta(
         seconds=wday.activity_durations[ActivityType.TRANSFER]
     ),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     True,
@@ -232,7 +208,7 @@ COLUMN_BREAK = ExcelColumn(
         - wday.total_work_duration
         - wday.activity_durations[ActivityType.TRANSFER]
     ),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     True,
@@ -240,7 +216,7 @@ COLUMN_BREAK = ExcelColumn(
 COLUMN_AMPLITUDE = ExcelColumn(
     "Amplitude",
     lambda wday: timedelta(seconds=wday.service_duration),
-    lambda wday: get_duration_format(wday),
+    lambda wday: get_duration_format(),
     13,
     light_green_hex,
     False,
@@ -250,7 +226,7 @@ COLUMN_START_LOCATION = ExcelColumn(
     lambda wday: wday.start_location.address.format()
     if wday.start_location
     else "",
-    lambda wday: get_wrap_format(wday),
+    lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
     False,
@@ -260,7 +236,7 @@ COLUMN_END_LOCATION = ExcelColumn(
     lambda wday: wday.end_location.address.format()
     if wday.end_location
     else "",
-    lambda wday: get_wrap_format(wday),
+    lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
     False,
@@ -268,7 +244,7 @@ COLUMN_END_LOCATION = ExcelColumn(
 COLUMN_START_KM = ExcelColumn(
     "Relevé km de début de service (si même véhicule utilisé au cours de la journée)",
     lambda wday: format_kilometer_reading(wday.start_location, wday),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     30,
     light_blue_hex,
     False,
@@ -276,7 +252,7 @@ COLUMN_START_KM = ExcelColumn(
 COLUMN_END_KM = ExcelColumn(
     "Relevé km de fin de service (si même véhicule utilisé au cours de la journée)",
     lambda wday: format_kilometer_reading(wday.end_location, wday),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     30,
     light_blue_hex,
     False,
@@ -284,7 +260,7 @@ COLUMN_END_KM = ExcelColumn(
 COLUMN_TOTAL_KM = ExcelColumn(
     "Nombre de kilomètres parcourus",
     lambda wday: format_kilometer_driven_in_wday(wday),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     30,
     light_blue_hex,
     True,
@@ -292,7 +268,7 @@ COLUMN_TOTAL_KM = ExcelColumn(
 COLUMN_EXPENDITURE_DAY_MEAL = ExcelColumn(
     "Repas midi",
     lambda wday: wday.expenditures.get("day_meal", 0),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     13,
     light_orange_hex,
     True,
@@ -300,7 +276,7 @@ COLUMN_EXPENDITURE_DAY_MEAL = ExcelColumn(
 COLUMN_EXPENDITURE_NIGHT_MEAL = ExcelColumn(
     "Repas soir",
     lambda wday: wday.expenditures.get("night_meal", 0),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     13,
     light_orange_hex,
     True,
@@ -308,7 +284,7 @@ COLUMN_EXPENDITURE_NIGHT_MEAL = ExcelColumn(
 COLUMN_EXPENDITURE_SLEEP_OVER = ExcelColumn(
     "Découché",
     lambda wday: wday.expenditures.get("sleep_over", 0),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     13,
     light_orange_hex,
     True,
@@ -316,7 +292,7 @@ COLUMN_EXPENDITURE_SLEEP_OVER = ExcelColumn(
 COLUMN_EXPENDITURE_SNACK = ExcelColumn(
     "Casse-croûte",
     lambda wday: wday.expenditures.get("snack", 0),
-    lambda wday: get_center_format(wday),
+    lambda wday: get_center_format(),
     13,
     light_orange_hex,
     True,
@@ -324,9 +300,25 @@ COLUMN_EXPENDITURE_SNACK = ExcelColumn(
 COLUMN_OBSERVATIONS = ExcelColumn(
     "Observations",
     lambda wday: "\n".join([" - " + c.text for c in wday.comments]),
-    lambda wday: get_wrap_format(wday),
+    lambda wday: get_wrap_format(),
     50,
     light_red_hex,
+    False,
+)
+COLUMN_OFF_HOURS = ExcelColumn(
+    "Heures congés ou absences",
+    lambda wday: timedelta(seconds=wday.activity_durations[ActivityType.OFF]),
+    lambda wday: get_duration_format(is_bold=True),
+    50,
+    blue_hex,
+    True,
+)
+COLUMN_OFF_REASONS = ExcelColumn(
+    "Motif congé ou absence",
+    lambda wday: "/".join([m.name for m in wday.missions if m.is_holiday()]),
+    lambda wday: get_wrap_format(),
+    50,
+    blue_hex,
     False,
 )
 COLUMN_NB_INFRACTIONS = ExcelColumn(

@@ -1,4 +1,5 @@
 import graphene
+from flask import g
 
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models import User
@@ -46,7 +47,7 @@ class TeamOutput(BaseSQLAlchemyObjectType):
 
     def resolve_users(self, info):
         user_ids = [e.user_id for e in self.employments]
-        users = User.query.filter(User.id.in_(user_ids))
+        users = g.dataloaders["users"].load_many(user_ids)
         return users
 
 
