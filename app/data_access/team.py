@@ -46,7 +46,9 @@ class TeamOutput(BaseSQLAlchemyObjectType):
         return [a for a in self.known_addresses if not a.is_dismissed]
 
     def resolve_users(self, info):
-        user_ids = [e.user_id for e in self.employments]
+        user_ids = [
+            e.user_id for e in self.employments if e.user_id is not None
+        ]
         users = g.dataloaders["users"].load_many(user_ids)
         return users
 
