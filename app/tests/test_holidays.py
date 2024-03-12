@@ -16,6 +16,7 @@ from app.tests import (
     BaseTest,
     AuthenticatedUserContext,
 )
+from app.tests.helpers import ApiRequests, make_authenticated_request
 
 
 class TestHolidays(BaseTest):
@@ -23,7 +24,13 @@ class TestHolidays(BaseTest):
         super().setUp()
         self.company = CompanyFactory.create()
         self.current_user = UserFactory.create(
-            first_name="Tim", last_name="Leader", post__company=self.company
+            first_name="The", last_name="Employee", post__company=self.company
+        )
+        self.admin_user = UserFactory.create(
+            first_name="The",
+            last_name="Manager",
+            post__company=self.company,
+            post__has_admin_rights=True,
         )
         self._app_context = AppContext(app)
         self.current_user_context = AuthenticatedUserContext(
@@ -96,4 +103,34 @@ class TestHolidays(BaseTest):
                 activity_type=ActivityType.OFF,
                 start_time=get_time(2, 14, 0),
                 end_time=get_time(2, 18, 0),
+            )
+
+    def test_cancel_mission_holiday(self):
+        mission = self._create_mission()
+        activity = self._log_activity(
+            mission=mission,
+            activity_type=ActivityType.OFF,
+            start_time=get_time(2, 7, 0),
+            end_time=get_time(2, 16, 0),
+        )
+        self.assertIsNotNone(activity)
+
+        cancel_mission_response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_user.id,
+            query=ApiRequests.cancel_mission,
+            variables=dict(
+                mission_id=mission.id,
+                user_id=self.current_user.id,
+            ),
+        )
+        self.assertEqual(
+            cancel_mission_response["data"]["activities"]["cancelMission"][
+                "activities"
+            ][0]["id"],
+            activity.id,
+        )
+        if "errors" in cancel_mission_response:
+            self.fail(
+                f"Cancel mission returned an error: {cancel_mission_response}"
             )
