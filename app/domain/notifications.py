@@ -21,6 +21,8 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
     ):
         start_time, end_time, timers = compute_aggregate_durations(
             [a for a in all_user_activities if not a.is_dismissed]
+            # do not include off service if mission is holiday
+            # because this notification is handled in LogHoliday
         )
         try:
             mailer.send_information_email_about_new_mission(
@@ -45,14 +47,16 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
             old_end_time,
             old_timers,
         ) = compute_aggregate_durations(
-            activity_versions_at(all_user_activities, latest_user_action_time)
+            activity_versions_at(all_user_activities, latest_user_action_time),
+            mission.is_holiday(),
         )
         (
             new_start_time,
             new_end_time,
             new_timers,
         ) = compute_aggregate_durations(
-            [a for a in all_user_activities if not a.is_dismissed]
+            [a for a in all_user_activities if not a.is_dismissed],
+            mission.is_holiday(),
         )
         if (
             old_start_time != new_start_time
@@ -70,6 +74,7 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                     new_end_time=new_end_time,
                     old_timers=old_timers,
                     new_timers=new_timers,
+                    is_holiday=mission.is_holiday(),
                 )
             except MailjetError as e:
                 app.logger.exception(e)

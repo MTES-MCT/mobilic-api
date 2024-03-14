@@ -70,6 +70,12 @@ class LocationEntry(EventBaseModel):
     def register_kilometer_reading(self, km, reception_time=None):
         if not km:
             return
+
+        if not self.mission.vehicle_id:
+            raise InvalidParamsError(
+                "kilometerReading can only be specified if the mission has an associated vehicle"
+            )
+
         time = reception_time or datetime.now()
 
         # We perform a consistency check : kilometer reading at end of mission should be superior to kilometer reading at start.
@@ -91,7 +97,7 @@ class LocationEntry(EventBaseModel):
             end_kilometer_reading = (
                 km if is_mission_end else other_location.kilometer_reading
             )
-            if not start_kilometer_reading <= end_kilometer_reading:
+            if start_kilometer_reading > end_kilometer_reading:
                 raise InvalidParamsError(
                     "Kilometer reading at end of mission should be superior to kilometer reading at start"
                 )
@@ -140,6 +146,12 @@ def set_last_kilometer_vehicle(mapper, connect, target):
         and target.kilometer_reading
     ):
         mission = Mission.query.get(target.mission_id)
+
+        if not mission or not mission.vehicle_id:
+            raise InvalidParamsError(
+                "kilometerReading can only be specified if the mission has an associated vehicle"
+            )
+
         vehicle = Vehicle.query.get(mission.vehicle_id)
         connect.execute(
             Vehicle.__table__.update()

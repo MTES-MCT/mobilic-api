@@ -95,6 +95,7 @@ class ApiRequests:
             $geoApiData: GenericScalar
             $manualAddress: String
             $companyKnownAddressId: Int
+            $kilometerReading: Int
         ) {
             activities {
                 logLocation(
@@ -103,6 +104,7 @@ class ApiRequests:
                     geoApiData: $geoApiData
                     manualAddress: $manualAddress
                     companyKnownAddressId: $companyKnownAddressId
+                    kilometerReading: $kilometerReading
                 ) {
                     id
                     name
