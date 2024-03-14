@@ -647,10 +647,22 @@ class Mailer:
             template = "holiday_changes_warning_email.html"
             subject = f"Modification de votre {mission.name.lower()} du {mission_day}"
             type_ = EmailType.HOLIDAY_CHANGES_WARNING
+            old_work_duration = old_timers["total_service"]
+            new_work_duration = (
+                new_timers["total_service"]
+                if new_timers["total_service"] != old_timers["total_service"]
+                else None
+            )
         else:
             template = "mission_changes_warning_email.html"
             subject = f"Modifications sur votre mission {mission.name} du {mission_day}"
             type_ = EmailType.MISSION_CHANGES_WARNING
+            old_work_duration = old_timers["total_work"]
+            new_work_duration = (
+                new_timers["total_work"]
+                if new_timers["total_work"] != old_timers["total_work"]
+                else None
+            )
 
         self._send_single(
             self._create_message_from_flask_template(
@@ -674,10 +686,8 @@ class Mailer:
                 new_end_time=new_end_time
                 if new_end_time != old_end_time
                 else None,
-                old_work_duration=old_timers["total_work"],
-                new_work_duration=new_timers["total_work"]
-                if new_timers["total_work"] != old_timers["total_work"]
-                else None,
+                old_work_duration=old_work_duration,
+                new_work_duration=new_work_duration,
                 show_dates=len(
                     set(
                         [
