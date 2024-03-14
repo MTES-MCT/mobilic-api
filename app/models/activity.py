@@ -219,6 +219,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             end_time=None,
             bypass_overlap_check=True,
             reopen_mission_if_needed=False,
+            is_revision=True,
         ):
             super().dismiss(dismiss_time, context)
             self.last_update_time = self.dismissed_at
