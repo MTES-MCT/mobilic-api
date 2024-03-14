@@ -26,7 +26,9 @@ from sqlalchemy import desc
 NOT_WORK_ACTIVITIES = [ActivityType.OFF, ActivityType.TRANSFER]
 
 
-def compute_aggregate_durations(periods, min_time=None, tz=None):
+def compute_aggregate_durations(
+    periods, include_off_in_service=False, min_time=None, tz=None
+):
     max_time = min_time + timedelta(days=1) if min_time else None
     if not periods:
         return {}
@@ -35,14 +37,18 @@ def compute_aggregate_durations(periods, min_time=None, tz=None):
     end_time = None
     start_time = None
     timers["total_service"] = 0
-    not_off_periods = [p for p in periods if p.type != ActivityType.OFF]
-    if len(not_off_periods) > 0:
+    service_periods = (
+        [p for p in periods if p.type != ActivityType.OFF]
+        if not include_off_in_service
+        else periods
+    )
+    if len(service_periods) > 0:
         end_time = (
-            not_off_periods[-1].end_time
-            if not_off_periods[-1].end_time
+            service_periods[-1].end_time
+            if service_periods[-1].end_time
             else datetime.now()
         )
-        start_time = not_off_periods[0].start_time
+        start_time = service_periods[0].start_time
         if min_time and min_time > start_time:
             start_time = min_time
         if max_time and max_time < end_time:
@@ -287,7 +293,7 @@ class WorkDay:
     def _activity_timers(self):
         self._sort_activities()
         return compute_aggregate_durations(
-            self.activities, self.start_of_day, self.tz
+            self.activities, False, self.start_of_day, self.tz
         )[2]
 
     @property
