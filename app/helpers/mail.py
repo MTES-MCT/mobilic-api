@@ -28,18 +28,18 @@ class MailingContactList(str, Enum):
 
 
 MAILJET_CONTACT_LIST_IDS = {
-    MailingContactList.EMPLOYEES: (
-        58466 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    ),
-    MailingContactList.ADMINS: (
-        58293 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    ),
-    MailingContactList.CONTROLLERS: (
-        58467 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    ),
-    MailingContactList.SOFTWARES: (
-        58468 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
-    ),
+    MailingContactList.EMPLOYEES: 58466
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.ADMINS: 58293
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.CONTROLLERS: 58467
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
+    MailingContactList.SOFTWARES: 58468
+    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
+    else 58470,
 }
 
 
@@ -373,9 +373,9 @@ class Mailer:
             "invitation_email.html",
             subject=subject,
             type_=EmailType.INVITATION,
-            recipient=(
-                employment.user.email if employment.user else employment.email
-            ),
+            recipient=employment.user.email
+            if employment.user
+            else employment.email,
             user=employment.user,
             employment=employment,
             first_name=employment.user.first_name if employment.user else None,
@@ -444,11 +444,9 @@ class Mailer:
         self._send_single(
             self._create_message_from_flask_template(
                 "account_activation_email.html",
-                subject=(
-                    "Activez votre compte Mobilic"
-                    if create_account
-                    else "Confirmez l'adresse email de votre compte Mobilic"
-                ),
+                subject="Activez votre compte Mobilic"
+                if create_account
+                else "Confirmez l'adresse email de votre compte Mobilic",
                 type_=EmailType.ACCOUNT_ACTIVATION,
                 user=user,
                 user_id=Markup(id),
@@ -648,7 +646,7 @@ class Mailer:
         if is_holiday:
             template = "holiday_changes_warning_email.html"
             subject = f"Modification de votre {mission.name.lower()} du {mission_day}"
-            type_ = (EmailType.HOLIDAY_CHANGES_WARNING,)
+            type_ = EmailType.HOLIDAY_CHANGES_WARNING
         else:
             template = "mission_changes_warning_email.html"
             subject = f"Modifications sur votre mission {mission.name} du {mission_day}"
@@ -669,21 +667,17 @@ class Mailer:
                     f"{app.config['FRONTEND_URL']}/app/history?mission={mission.id}"
                 ),
                 old_start_time=old_start_time,
-                new_start_time=(
-                    new_start_time
-                    if new_start_time != old_start_time
-                    else None
-                ),
+                new_start_time=new_start_time
+                if new_start_time != old_start_time
+                else None,
                 old_end_time=old_end_time,
-                new_end_time=(
-                    new_end_time if new_end_time != old_end_time else None
-                ),
+                new_end_time=new_end_time
+                if new_end_time != old_end_time
+                else None,
                 old_work_duration=old_timers["total_work"],
-                new_work_duration=(
-                    new_timers["total_work"]
-                    if new_timers["total_work"] != old_timers["total_work"]
-                    else None
-                ),
+                new_work_duration=new_timers["total_work"]
+                if new_timers["total_work"] != old_timers["total_work"]
+                else None,
                 show_dates=len(
                     set(
                         [
