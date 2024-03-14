@@ -639,14 +639,25 @@ class Mailer:
         new_end_time,
         old_timers,
         new_timers,
+        is_holiday,
     ):
         mission_day = to_fr_tz(old_start_time).strftime("%d/%m")
+
+        if is_holiday:
+            template = "holiday_changes_warning_email.html"
+            subject = f"Modification de votre {mission.name.lower()} du {mission_day}"
+            type_ = EmailType.HOLIDAY_CHANGES_WARNING
+        else:
+            template = "mission_changes_warning_email.html"
+            subject = f"Modifications sur votre mission {mission.name} du {mission_day}"
+            type_ = EmailType.MISSION_CHANGES_WARNING
+
         self._send_single(
             self._create_message_from_flask_template(
-                "mission_changes_warning_email.html",
-                subject=f"Modifications sur votre mission {mission.name} du {mission_day}",
+                template,
+                subject=subject,
                 user=user,
-                type_=EmailType.MISSION_CHANGES_WARNING,
+                type_=type_,
                 first_name=user.first_name,
                 mission_name=mission.name,
                 company_name=mission.company.name,

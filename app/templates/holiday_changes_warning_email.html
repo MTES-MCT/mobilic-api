@@ -1,0 +1,65 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+Modification de votre {{ mission_name | lower }} du {{ mission_day }}
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour {{first_name | capitalize }},</p>
+    <p>Le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}} a apporté les modifications suivantes à votre <strong>{{ mission_name | lower }}</strong> du <strong>{{ mission_day }}</strong>.</p>
+    <ul>
+        {% if new_start_time and new_work_duration and not new_end_time %}
+            <li>
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
+            </li>
+        {% elif new_end_time and new_work_duration and not new_start_time %}
+             <li>
+                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                La fin est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
+            </li>
+        {% elif new_end_time and new_work_duration and new_start_time %}
+            <li>
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                La fin est passé de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
+            </li>
+        {% elif new_work_duration %}
+            <li>
+                Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
+            </li>
+            <li>
+                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
+            </li>
+        {% elif new_start_time and new_end_time %}
+            <li>
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                La fin est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+            </li>
+            <li>
+                Le temps total est resté inchangé à <strong>{{ old_work_duration | format_duration }}</strong>.
+            </li>
+        {% else %}{% endif %}
+    </ul>
+    <p>Vous pouvez consulter dans votre <a href="{{mission_link}}" target="_blank">historique</a> le nouveau détail de votre {{ mission_name | lower }}.</p>
+    <strong>L'équipe Mobilic</strong>
+{% endblock %}
