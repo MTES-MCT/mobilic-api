@@ -15,6 +15,7 @@ from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.scalingo_logs import get_long_requests, get_user_requests
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.models.controller_control import ControllerControl
 from app.models.user import User
@@ -303,3 +304,14 @@ def load_company_stats():
 def temp_command_generate_xm_control(id):
     control = ControllerControl.query.get(id)
     temp_write_greco_xml(control)
+
+
+@app.cli.command("log_long_requests", with_appcontext=False)
+def log_long_requests():
+    get_long_requests(nb_results=20, nb_lines=100000)
+
+
+@app.cli.command("log_user_requests", with_appcontext=False)
+@click.argument("user_id", required=True)
+def log_user_requests(user_id):
+    get_user_requests(user_id=user_id, nb_results=20, nb_lines=1000000)
