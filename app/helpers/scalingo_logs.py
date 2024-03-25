@@ -56,3 +56,15 @@ def get_long_requests(nb_results=20, nb_lines=10000):
                 [f"{ms} ms", ts, endpoint, f"id={userid}", f"name={username}"]
             )
         )
+
+
+def get_user_requests(user_id, nb_results=20, nb_lines=10000):
+    cmd = f"scalingo --region osc-fr1 --app mobilic-api logs --lines {nb_lines} | grep 'user_id={user_id}'"
+
+    lines = [
+        l.decode("utf-8")
+        for l in subprocess.check_output(cmd, shell=True).splitlines()
+    ]
+
+    for l in lines[:nb_results]:
+        print(l)
