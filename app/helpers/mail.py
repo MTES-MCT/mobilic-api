@@ -188,8 +188,13 @@ class Mailer:
                 for m in messages
                 if m.actual_recipient in app.config["BATCH_EMAIL_WHITELIST"]
             ]
-            if len(messages) == 0:
-                return
+        messages = [
+            m
+            for m in messages
+            if m.actual_recipient not in app.config["USERS_BLACKLIST"]
+        ]
+        if len(messages) == 0:
+            return
 
         response = self.mailjet.send.create(
             data={"Messages": [m.payload for m in messages]},
