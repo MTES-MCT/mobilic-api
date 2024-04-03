@@ -1,23 +1,20 @@
 {% extends "transactional_base.html" %}
-{% import 'button.html' as button %}
 
 {% block subject %}
-L'entreprise {{ company_name }} a bien été créée sur Mobilic
+L'entreprise {{ company_name }} est créée sur Mobilic
 {% endblock %}
 
 {% block body %}
     <p>Bonjour{% if first_name %} {{first_name | capitalize}}{% endif %},</p>
     <p>L'entreprise <strong>{{company_name | upper}}</strong> associée au numéro SIREN <strong>{{company_siren}}</strong> a bien été créée sur Mobilic 🎉.</p>
     <p>Vous pouvez dès à présent inviter vos salariés à rejoindre Mobilic depuis votre <a href="{{website_link}}">interface gestionnaire</a>.</p>
-    <p>Pour apprendre à utiliser Mobilic, l'équipe vous propose d’assister à un webinaire de formation. Lors de cet événement, vous découvrirez l’ensemble des fonctionnalités de l’outil et pourrez poser toutes vos questions :</p>
-    {{button.button('S’inscrire à un webinaire', webinars_link)}}
-    <p>Vous trouverez également sur notre <a href="{{documentation_link}}">page documentation</a> les documents suivants :</p>
+    <p>Pour vous aider à mettre en place Mobilic, vous trouverez sur notre <a href="{{documentation_link}}">page documentation</a> les documents suivants :</p>
     <ul>
-        <li>une notice de prise en main de Mobilic par les salariés</li>
+        <li>une notice de prise en main de Mobilic par les travailleurs mobiles</li>
         <li>une notice de prise en main de Mobilic par le gestionnaire</li>
         <li>des tutoriels à destination du gestionnaire et des salariés</li>
     </ul>
-    <p>Si, toutefois, vous aviez des questions supplémentaires sur l’utilisation de Mobilic ou son déploiement, nous sommes à votre disposition pour y répondre par mail. N’hésitez pas à nous contacter : <a href="mailto:{{contact_email}}">{{contact_email}}</a>.</p>
+    <p>Si, toutefois, vous aviez des questions sur l’utilisation de Mobilic ou son déploiement, nous sommes à votre disposition pour y répondre au cours d'une visioconférence. N’hésitez pas à nous contacter : <a href="mailto:{{contact_email}}">{{contact_email}}</a>.</p>
     <p>Cordialement,</p>
     <strong>L'équipe Mobilic</strong>
 {% endblock %}
