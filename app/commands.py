@@ -15,7 +15,11 @@ from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
-from app.helpers.scalingo_logs import get_long_requests, get_user_requests
+from app.helpers.scalingo_logs import (
+    get_long_requests,
+    get_user_requests,
+    get_status_5xx_requests_all,
+)
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.models.controller_control import ControllerControl
 from app.models.user import User
@@ -315,3 +319,18 @@ def log_long_requests():
 @click.argument("user_id", required=True)
 def log_user_requests(user_id):
     get_user_requests(user_id=user_id, nb_results=20, nb_lines=1000000)
+
+
+@app.cli.command("log_status_5xx_requests_all", with_appcontext=False)
+@click.argument("nb_lines", required=True, type=int)
+@click.option(
+    "--source",
+    required=True,
+    type=click.Choice(["scalingo", "file"]),
+    help="'scalingo' or 'file'.",
+)
+@click.option("--file_path", required=False, type=str, help="File path.")
+def log_status_5xx_requests_all(nb_lines, source, file_path):
+    get_status_5xx_requests_all(
+        nb_lines=nb_lines, source_type=source, file_path=file_path
+    )
