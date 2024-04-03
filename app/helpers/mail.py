@@ -466,14 +466,12 @@ class Mailer:
         )
 
     def send_company_creation_email(self, company, user):
-        webinars_link = f"{app.config['FRONTEND_URL']}/#webinaires"
         self._send_single(
             self._create_message_from_flask_template(
                 "company_creation_email.html",
-                subject=f"L'entreprise {company.name} a bien été créée sur Mobilic !",
+                subject=f"L'entreprise {company.name} est créée sur Mobilic !",
                 user=user,
                 type_=EmailType.COMPANY_CREATION,
-                webinars_link=webinars_link,
                 first_name=user.first_name,
                 website_link=Markup(f"{app.config['FRONTEND_URL']}"),
                 documentation_link=Markup(
