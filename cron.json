@@ -2,7 +2,7 @@
   "jobs": [
     {
       "command": "0 4 1 * * flask run_certificate",
-      "size": "XL"
+      "size": "2XL"
     },
     {
       "command": "0 3 * * * flask send_onboarding_emails"
