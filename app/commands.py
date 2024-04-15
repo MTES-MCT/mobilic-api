@@ -243,11 +243,15 @@ def create_api_key(client_id):
 
 @app.cli.command("run_certificate", with_appcontext=True)
 @click.argument("as_of_date", required=False)
-def run_certificate(as_of_date=None):
+@click.argument("computation_only", type=click.BOOL, required=False)
+def run_certificate(as_of_date=None, computation_only=False):
     """
     Run certificate as of today
 
     as_of_date is an optional date with format 2023-03-01
+    computation_only is an optional boolean
+
+    Example: flask run_certificate 2023-03-01 true
     """
 
     today = (
@@ -259,13 +263,19 @@ def run_certificate(as_of_date=None):
     compute_company_certifications(today)
     app.logger.info("Process run_certificate done")
 
-    app.logger.info("Process send_about_to_lose_certificate_emails began")
-    send_about_to_lose_certificate_emails(today)
-    app.logger.info("Process send_about_to_lose_certificate_emails done")
+    if not computation_only:
+        app.logger.info("Process send_about_to_lose_certificate_emails began")
+        send_about_to_lose_certificate_emails(today)
+        app.logger.info("Process send_about_to_lose_certificate_emails done")
 
-    app.logger.info("Process send_active_then_inactive_companies_emails began")
-    send_active_then_inactive_companies_emails(today)
-    app.logger.info("Process send_active_then_inactive_companies_emails done")
+        app.logger.info(
+            "Process send_active_then_inactive_companies_emails began"
+        )
+        send_active_then_inactive_companies_emails(today)
+        app.logger.info(
+            "Process send_active_then_inactive_companies_emails done"
+        )
+
     if MOBILIC_ENV == "prod":
         send_certificate_compute_end_notification()
 

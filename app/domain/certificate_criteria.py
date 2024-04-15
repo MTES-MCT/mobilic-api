@@ -361,6 +361,7 @@ def compute_company_certifications(today):
     CompanyCertification.query.filter(
         CompanyCertification.attribution_date == today
     ).delete()
+    db.session.commit()
 
     start, end = previous_month_period(today)
 
