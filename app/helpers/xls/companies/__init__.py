@@ -62,9 +62,12 @@ def send_work_days_as_one_archive(batches, companies, min_date, max_date):
 def get_one_excel_file(wdays_data, companies, min_date, max_date):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     wdays_by_user = defaultdict(list)
+    wdays_by_user_deleted_missions = defaultdict(list)
     for work_day in complete_work_days:
         if len(work_day.activities) > 0:
             wdays_by_user[work_day.user].append(work_day)
+        elif len(work_day._all_activities) > 0:
+            wdays_by_user_deleted_missions[work_day.user].append(work_day)
 
     require_expenditures = any([c.require_expenditures for c in companies])
     require_mission_name = any([c.require_mission_name for c in companies])
@@ -93,6 +96,15 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         companies=companies,
         min_date=min_date,
         max_date=max_date,
+    )
+    write_day_details_sheet(
+        wb,
+        wdays_by_user_deleted_missions,
+        require_mission_name=require_mission_name,
+        companies=companies,
+        min_date=min_date,
+        max_date=max_date,
+        deleted_missions=True,
     )
     wb.close()
 
