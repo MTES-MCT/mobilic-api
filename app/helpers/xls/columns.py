@@ -2,7 +2,6 @@ from collections import namedtuple
 from datetime import timedelta
 
 from app.domain.history import LogActionType
-from app.domain.work_days import NOT_WORK_ACTIVITIES
 from app.helpers.time import to_fr_tz
 from app.helpers.xls.common import (
     light_grey_hex,
