@@ -82,20 +82,7 @@ def create_user(
     else:
         bind_user_to_pending_employments(user)
 
-    message = f"Signed up new user {user}"
-    if company:
-        message += f" of company {company}"
-
     g.user = user
-    app.logger.info(
-        message,
-        extra={
-            "post_to_mattermost": True,
-            "log_title": "New user signup",
-            "emoji": ":tada:",
-        },
-    )
-
     return user
 
 

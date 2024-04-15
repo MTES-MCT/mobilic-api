@@ -45,12 +45,6 @@ class Config:
     MATTERMOST_MAIN_CHANNEL = os.environ.get(
         "MATTERMOST_MAIN_CHANNEL", "#startup-mobilic"
     )
-    MATTERMOST_PRIMARY_LOG_CHANNEL = os.environ.get(
-        "MATTERMOST_PRIMARY_LOG_CHANNEL", "#startup-mobilic-alerts"
-    )
-    MATTERMOST_SECONDARY_LOG_CHANNEL = os.environ.get(
-        "MATTERMOST_SECONDARY_LOG_CHANNEL", "#mobilic-secondary-alerts"
-    )
     JWT_TOKEN_LOCATION = ["headers", "cookies"]
     JWT_COOKIE_CSRF_PROTECT = False
     JWT_ACCESS_COOKIE_NAME = "at"
