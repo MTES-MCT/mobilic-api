@@ -70,6 +70,7 @@ def create_mission(
         vehicle=vehicle,
     )
     db.session.add(mission)
+    db.session.flush()
     if add_location_entry:
         location_entry = LocationEntry(
             _address=address.address,
@@ -80,9 +81,10 @@ def create_mission(
             type=LocationEntryType.MISSION_START_LOCATION,
             creation_time=datetime.datetime.now(),
         )
-        location_entry.register_kilometer_reading(
-            2500, datetime.datetime.now()
-        )
+        if vehicle is not None:
+            location_entry.register_kilometer_reading(
+                2500, datetime.datetime.now()
+            )
         db.session.add(location_entry)
     return mission
 
