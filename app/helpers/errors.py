@@ -474,13 +474,7 @@ def handle_database_error(db_error):
             if error_generator:
                 caught_error = error_generator(db_error.orig)
 
-    app.logger.exception(
-        db_error,
-        extra={
-            "post_to_mattermost": caught_error is None,
-            "log_title": "Unidentified DB Error",
-        },
-    )
+    app.logger.exception(db_error)
     if caught_error:
         raise caught_error
 
