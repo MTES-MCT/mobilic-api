@@ -112,6 +112,10 @@ class AgentConnectAuthenticationError(MobilicError):
     code = "AGENT_CONNECT_ERROR"
 
 
+class AgentConnectOrganizationalUnitError(MobilicError):
+    code = "AGENT_CONNECT_ORGANIZATIONAL_UNIT_NOT_FOUND_ERROR"
+
+
 class InvalidTokenError(MobilicError):
     code = "INVALID_TOKEN"
     default_should_alert_team = False
@@ -474,13 +478,7 @@ def handle_database_error(db_error):
             if error_generator:
                 caught_error = error_generator(db_error.orig)
 
-    app.logger.exception(
-        db_error,
-        extra={
-            "post_to_mattermost": caught_error is None,
-            "log_title": "Unidentified DB Error",
-        },
-    )
+    app.logger.exception(db_error)
     if caught_error:
         raise caught_error
 

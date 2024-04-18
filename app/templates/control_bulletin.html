@@ -153,9 +153,13 @@
                             <td class="frame-item-left primary-color">Salarié contrôlé :</td>
                             <td class="frame-item-right secondary-color">{{ controlled_employee }}</td>
                         </tr>
-                        <tr style="padding-bottom: 4px;">
+                        <tr>
                             <td class="frame-item-left primary-color">Entreprise de rattachement :</td>
                             <td class="frame-item-right secondary-color">{{ controlled_company | format_none_bdc }}</td>
+                        </tr>
+                        <tr style="padding-bottom: 4px;">
+                            <td class="frame-item-left primary-color">Adresse de l'entreprise :</td>
+                            <td class="frame-item-right secondary-color">{{ controller_company_address }}</td>
                         </tr>
                     </table>
                 </td>

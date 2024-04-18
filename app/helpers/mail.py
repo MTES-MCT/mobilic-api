@@ -13,7 +13,7 @@ from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
 from config import MOBILIC_ENV
 
-SENDER_ADDRESS = "mobilic@beta.gouv.fr"
+SENDER_ADDRESS = "nepasrepondre@mobilic.beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
 

@@ -187,101 +187,6 @@ def add_request_and_user_context(record):
     return True
 
 
-def post_to_mattermost(
-    message, emoji, color, title=None, is_secondary=False, fields_=None
-):
-    requests.post(
-        app.config["MATTERMOST_WEBHOOK"],
-        json=dict(
-            channel=app.config["MATTERMOST_PRIMARY_LOG_CHANNEL"]
-            if not is_secondary
-            else app.config["MATTERMOST_SECONDARY_LOG_CHANNEL"],
-            username=f"Mobilic backend - {MOBILIC_ENV.capitalize()}",
-            icon_emoji=emoji,
-            attachments=[
-                dict(
-                    fallback=title or message,
-                    color=color,
-                    title=title,
-                    text=message,
-                    fields=[
-                        {"title": f[0], "value": f[1], "short": f[2]}
-                        for f in fields_
-                    ]
-                    if fields_
-                    else [],
-                )
-            ],
-        ),
-    )
-
-
-class MattermostHandler(logging.Handler):
-    def emit(self, record):
-        if record.levelno >= logging.ERROR:
-            emoji = ":rotating_light:"
-            color = "#a6343c"
-        elif record.levelno >= logging.WARNING:
-            emoji = ":warning:"
-            color = "#ffba20"
-        else:
-            emoji = ":information_source:"
-            color = "#36a64f"
-        em = getattr(record, "emoji", None)
-        if em:
-            emoji = em
-
-        should_log_to_secondary_channel = getattr(
-            record, "to_secondary_slack_channel", None
-        )
-
-        if should_log_to_secondary_channel is None:
-            should_log_to_secondary_channel = False
-            if record.exc_info and type(record.exc_info) is tuple:
-                exception = record.exc_info[1]
-                if isinstance(exception, MobilicError):
-                    should_log_to_secondary_channel = (
-                        not exception.should_alert_team
-                    )
-                if isinstance(exception, HTTPException):
-                    should_log_to_secondary_channel = exception.code in [404]
-
-        title = getattr(record, "log_title", None)
-        if not title and record.exc_info and type(record.exc_info) is tuple:
-            exception = record.exc_info[1]
-            if isinstance(exception, MobilicError):
-                title = exception.__class__.__name__
-            elif isinstance(exception, HTTPException):
-                title = f"Flask error : {exception.code} {exception.name}"
-
-        return post_to_mattermost(
-            self.format(record),
-            emoji,
-            color,
-            title=title,
-            is_secondary=should_log_to_secondary_channel,
-            fields_=[
-                ("User", record.user, True),
-                ("Device", record.device, True),
-                ("Email", record.email, True),
-                ("Metabase", record.metabase, True),
-                ("Endpoint", record.endpoint, True),
-            ],
-        )
-
-
-class MattermostFormatter(logging.Formatter):
-    def format(self, record):
-        s = super().format(record)
-        lines = s.split()
-        if len(lines) >= 2 and lines[0] == lines[1]:
-            return "\n".join([lines[0], *lines[2:]])
-        return s
-
-    def formatException(self, ei):
-        return f"{ei[1]}"
-
-
 app.logger.setLevel(logging.INFO)
 app.logger.addFilter(add_request_and_user_context)
 
@@ -318,21 +223,6 @@ other_handler.setFormatter(
     )
 )
 root_logger.addHandler(other_handler)
-
-
-if app.config["MATTERMOST_WEBHOOK"]:
-    mattermost_handler = MattermostHandler()
-    mattermost_handler.addFilter(
-        lambda r: getattr(
-            r,
-            "post_to_mattermost",
-            r.levelno >= logging.WARNING
-            and r.name != "graphql.execution.utils",
-        )
-    )
-    mattermost_handler.addFilter(add_request_and_user_context)
-    mattermost_handler.setFormatter(MattermostFormatter("%(message)s"))
-    root_logger.addHandler(mattermost_handler)
 
 
 class OVHLogSchema(LDPSchema):
