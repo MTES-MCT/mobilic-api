@@ -1,12 +1,17 @@
 from flask import g
 from sqlalchemy import func
 
-from app import db
+from app import app, db
 from app.models.controller_user import ControllerUser
 from app.helpers.validation import clean_email_string
+from app.helpers.errors import AgentConnectOrganizationalUnitError
 
 
 def create_controller_user(ac_info):
+    if not ac_info.get("organizational_unit"):
+        raise AgentConnectOrganizationalUnitError(
+            "Controlleur must be linked to an organizational unit in agent connect"
+        )
     controller = ControllerUser(
         agent_connect_id=ac_info.get("sub"),
         first_name=ac_info.get("given_name"),
