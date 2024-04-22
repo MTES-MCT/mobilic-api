@@ -76,7 +76,7 @@ def write_work_days_sheet(
             wb,
             sheet,
             user_starting_row_idx,
-            row_idx,
+            row_idx + 1 if row_idx == (user_starting_row_idx + 1) else row_idx,
             0,
             f"{wday.user.display_name}\nIdentifiant : {wday.user.id}",
             formats.get("merged_top"),
