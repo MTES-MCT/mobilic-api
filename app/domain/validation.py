@@ -19,6 +19,39 @@ MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
 
 
+def _get_regulations_times(
+    activities_to_validate, is_admin_validation, user, mission
+):
+    start_time = activities_to_validate[0].start_time
+    end_time = activities_to_validate[-1].end_time
+
+    if not is_admin_validation:
+        return start_time, end_time
+
+    employee_validation = mission.validation_of(user=user)
+
+    if employee_validation is None:
+        return start_time, end_time
+
+    activities_at_employee_validation_time = mission.activities_for(
+        user=user,
+        max_reception_time=employee_validation.reception_time,
+    )
+    start_time = min(
+        start_time,
+        activities_at_employee_validation_time[0].start_time,
+    )
+    employee_validation_end_time = activities_at_employee_validation_time[
+        -1
+    ].end_time
+    if employee_validation_end_time is not None and end_time is not None:
+        end_time = max(end_time, employee_validation_end_time)
+    else:
+        end_time = None
+
+    return start_time, end_time
+
+
 def validate_mission(mission, submitter, for_user, creation_time=None):
     validation_time = datetime.now()
     is_admin_validation = company_admin(submitter, mission.company_id)
@@ -78,8 +111,18 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
     )
 
     if not mission.is_holiday():
+        regulations_start_time, regulations_end_time = _get_regulations_times(
+            activities_to_validate=activities_to_validate,
+            is_admin_validation=is_admin_validation,
+            user=for_user,
+            mission=mission,
+        )
+
         _compute_regulations_after_validation(
-            activities_to_validate, is_admin_validation, for_user
+            start_time=regulations_start_time,
+            end_time=regulations_end_time,
+            is_admin_validation=is_admin_validation,
+            user=for_user,
         )
 
     return validation
@@ -115,17 +158,12 @@ def _get_or_create_validation(
 
 
 def _compute_regulations_after_validation(
-    activities_to_validate, is_admin_validation, user
+    start_time, end_time, is_admin_validation, user
 ):
     user_timezone = gettz(user.timezone_name)
-    mission_start = to_tz(
-        activities_to_validate[0].start_time, user_timezone
-    ).date()
-    mission_end = (
-        to_tz(activities_to_validate[-1].end_time, user_timezone).date()
-        if to_tz(activities_to_validate[-1].end_time, user_timezone)
-        else None
-    )
+    mission_start = to_tz(start_time, user_timezone).date()
+    end_time_user_tz = to_tz(end_time, user_timezone)
+    mission_end = end_time_user_tz.date() if end_time_user_tz else None
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )
