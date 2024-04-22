@@ -38,8 +38,6 @@ class TestDifferentPeriods(RegulationsTest):
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
 
-        self.assertEqual(3, len(employee_computations))
-
         # Admin cancel first and last activities and validates
         # Mission is now on only one day from the admin perspective
         make_authenticated_request(
@@ -62,4 +60,5 @@ class TestDifferentPeriods(RegulationsTest):
         ).all()
 
         # There should be the same number of regulation computations of type Employee and Admin
+        self.assertEqual(3, len(employee_computations))
         self.assertEqual(len(employee_computations), len(admin_computations))
