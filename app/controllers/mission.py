@@ -11,6 +11,7 @@ from app.controllers.expenditure import (
     log_expenditure_,
 )
 from app.controllers.utils import atomic_transaction
+from app.domain.mission import get_start_end_time_at_employee_validation
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
@@ -297,6 +298,13 @@ class ValidateMission(AuthenticatedMutation):
         expenditures_cancel_ids=[],
         expenditures_inputs=[],
     ):
+        mission = Mission.query.get(mission_id)
+        initial_start_end_time_by_user = (
+            get_start_end_time_at_employee_validation(
+                mission=mission, users_ids=users_ids
+            )
+        )
+
         with atomic_transaction(commit_at_end=True):
             play_bulk_activity_items(activity_items)
 
@@ -306,19 +314,26 @@ class ValidateMission(AuthenticatedMutation):
             for expenditure_input in expenditures_inputs:
                 log_expenditure_(expenditure_input)
 
-            mission = Mission.query.get(mission_id)
-
             for user_id in users_ids:
                 user = User.query.get(user_id)
                 if not user:
                     raise AuthorizationError(
                         "Actor is not authorized to validate the mission for the user"
                     )
+                initial_start_end_times = initial_start_end_time_by_user.get(
+                    user_id, None
+                )
                 mission_validation = validate_mission(
                     submitter=current_user,
                     mission=mission,
                     creation_time=creation_time,
                     for_user=user,
+                    employee_version_start_time=initial_start_end_times[0]
+                    if initial_start_end_times
+                    else None,
+                    employee_version_end_time=initial_start_end_times[1]
+                    if initial_start_end_times
+                    else None,
                 )
                 try:
                     if mission_validation.is_admin:

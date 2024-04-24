@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 
 from dateutil.tz import gettz
 
-from app import db, app
+from app import db
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
+from app.helpers.authorization import AuthorizationError
 from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
@@ -13,46 +14,19 @@ from app.helpers.errors import (
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
-from app.helpers.authorization import AuthorizationError
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
 
 
-def _get_regulations_times(
-    activities_to_validate, is_admin_validation, user, mission
+def validate_mission(
+    mission,
+    submitter,
+    for_user,
+    creation_time=None,
+    employee_version_start_time=None,
+    employee_version_end_time=None,
 ):
-    start_time = activities_to_validate[0].start_time
-    end_time = activities_to_validate[-1].end_time
-
-    if not is_admin_validation:
-        return start_time, end_time
-
-    employee_validation = mission.validation_of(user=user)
-
-    if employee_validation is None:
-        return start_time, end_time
-
-    activities_at_employee_validation_time = mission.activities_for(
-        user=user,
-        max_reception_time=employee_validation.reception_time,
-    )
-    start_time = min(
-        start_time,
-        activities_at_employee_validation_time[0].start_time,
-    )
-    employee_validation_end_time = activities_at_employee_validation_time[
-        -1
-    ].end_time
-    if employee_validation_end_time is not None and end_time is not None:
-        end_time = max(end_time, employee_validation_end_time)
-    else:
-        end_time = None
-
-    return start_time, end_time
-
-
-def validate_mission(mission, submitter, for_user, creation_time=None):
     validation_time = datetime.now()
     is_admin_validation = company_admin(submitter, mission.company_id)
 
@@ -111,16 +85,17 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
     )
 
     if not mission.is_holiday():
-        regulations_start_time, regulations_end_time = _get_regulations_times(
-            activities_to_validate=activities_to_validate,
-            is_admin_validation=is_admin_validation,
-            user=for_user,
-            mission=mission,
-        )
+
+        start_time = activities_to_validate[0].start_time
+        if employee_version_start_time:
+            start_time = min(start_time, employee_version_start_time)
+        end_time = activities_to_validate[-1].end_time
+        if employee_version_end_time:
+            end_time = max(end_time, employee_version_end_time)
 
         _compute_regulations_after_validation(
-            start_time=regulations_start_time,
-            end_time=regulations_end_time,
+            start_time=start_time,
+            end_time=end_time,
             is_admin_validation=is_admin_validation,
             user=for_user,
         )
