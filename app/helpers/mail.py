@@ -13,6 +13,7 @@ from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
 from config import MOBILIC_ENV
 
+CONTACT_ADDRESS = "contact@mobilic.beta.gouv.fr"
 SENDER_ADDRESS = "nepasrepondre@mobilic.beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
@@ -479,7 +480,7 @@ class Mailer:
                 ),
                 company_name=company.name,
                 company_siren=Markup(company.siren),
-                contact_email=Markup(SENDER_ADDRESS),
+                contact_email=Markup(CONTACT_ADDRESS),
             )
         )
 
@@ -501,7 +502,7 @@ class Mailer:
                 companies=companies,
                 nb_companies=len(companies),
                 companies_siren=Markup(siren),
-                contact_email=Markup(SENDER_ADDRESS),
+                contact_email=Markup(CONTACT_ADDRESS),
             )
         )
 
