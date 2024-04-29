@@ -915,6 +915,34 @@ class ApiRequests:
         }
     """
 
+    regulation_computations_by_day = """
+        query getUserRegulationComputations(
+            $userId: Int!
+            $fromDate: Date
+            $toDate: Date
+          ) {
+            user(id: $userId) {
+              regulationComputationsByDay(fromDate: $fromDate, toDate: $toDate) {
+                day
+                regulationComputations {
+                  day
+                  submitterType
+                  regulationChecks {
+                    type
+                    label
+                    description
+                    regulationRule
+                    unit
+                    alert {
+                      extra
+                    }
+                  }
+                }
+              }
+            }
+          }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
