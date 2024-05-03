@@ -4,25 +4,45 @@ from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
     merge_cells_if_needed,
+    red_hex,
 )
 from app.helpers.xls.companies.headers import write_sheet_header
 
 
 def write_day_details_sheet(
-    wb, wdays_by_user, require_mission_name, companies, min_date, max_date
+    wb,
+    wdays_by_user,
+    require_mission_name,
+    companies,
+    min_date,
+    max_date,
+    deleted_missions=False,
 ):
-    sheet = wb.add_worksheet("Détail")
+    if deleted_missions:
+        sheet = wb.add_worksheet("Missions supprimées")
+        all_columns = [
+            *deleted_workday_columns,
+            *get_mission_columns(require_mission_name),
+            *event_columns,
+        ]
+    else:
+        sheet = wb.add_worksheet("Détail")
+        all_columns = [
+            *workday_columns,
+            *get_mission_columns(require_mission_name),
+            *event_columns,
+        ]
     sheet.protect()
-    sheet.freeze_panes(3, 2)
-    write_sheet_header(wb, sheet, companies, max_date, min_date)
 
-    all_columns = [
-        *workday_columns,
-        *get_mission_columns(require_mission_name),
-        *event_columns,
-    ]
-
-    row_idx = 3
+    row_idx = write_sheet_header(
+        wb,
+        sheet,
+        companies,
+        max_date,
+        min_date,
+        deleted_missions=deleted_missions,
+    )
+    sheet.freeze_panes(row_idx, 2)
 
     for user, work_days in sorted(
         wdays_by_user.items(), key=lambda u: u[0].display_name
@@ -34,10 +54,19 @@ def write_day_details_sheet(
             for mission in sorted(
                 wday.missions, key=lambda mi: mi.creation_time
             ):
-                if mission.is_holiday():
+                if deleted_missions and not mission.is_deleted():
+                    continue
+                if not deleted_missions and (
+                    mission.is_holiday() or mission.is_deleted()
+                ):
                     continue
                 first_activities_for_user = next(
-                    iter(mission.activities_for(user, True)), None
+                    iter(
+                        mission.activities_for(
+                            user=user, include_dismissed_activities=True
+                        )
+                    ),
+                    None,
                 )
                 mission_starting_row_idx = row_idx
                 if (
@@ -62,6 +91,12 @@ def write_day_details_sheet(
                             "text_wrap": True,
                             "valign": "top",
                         }
+                        if (
+                            deleted_missions
+                            and history_event.type == LogActionType.DELETE
+                        ):
+                            additional_format["color"] = red_hex
+
                         if mission_starting_row_idx == row_idx:
                             additional_format["top"] = 1
                         col_idx = write_cells(
@@ -70,7 +105,9 @@ def write_day_details_sheet(
                             column_base_formats,
                             col_idx,
                             row_idx,
-                            workday_columns,
+                            deleted_workday_columns
+                            if deleted_missions
+                            else workday_columns,
                             wday,
                         )
                         col_idx = write_cells(
@@ -110,7 +147,7 @@ def write_day_details_sheet(
                 workday_starting_row_idx,
                 row_idx,
                 1,
-                to_fr_tz(wday.start_time),
+                to_fr_tz(wday.start_time) if wday.start_time else wday.day,
                 formats.get("merged_date_format"),
             )
         merge_cells_if_needed(
@@ -138,6 +175,7 @@ workday_columns = [
     COLUMN_EMPLOYEE,
     COLUMN_DETAILS_DAY,
 ]
+deleted_workday_columns = [COLUMN_EMPLOYEE, COLUMN_DAY]
 
 
 def get_mission_columns(require_mission_name):
