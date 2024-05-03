@@ -20,14 +20,21 @@ def write_day_details_sheet(
 ):
     if deleted_missions:
         sheet = wb.add_worksheet("Missions supprimées")
+        all_columns = [
+            *deleted_workday_columns,
+            *get_mission_columns(require_mission_name),
+            *event_columns,
+        ]
     else:
         sheet = wb.add_worksheet("Détail")
+        all_columns = [
+            *workday_columns,
+            *get_mission_columns(require_mission_name),
+            *event_columns,
+        ]
     sheet.protect()
-    if deleted_missions:
-        sheet.freeze_panes(4, 2)
-    else:
-        sheet.freeze_panes(3, 2)
-    write_sheet_header(
+
+    row_idx = write_sheet_header(
         wb,
         sheet,
         companies,
@@ -35,21 +42,7 @@ def write_day_details_sheet(
         min_date,
         deleted_missions=deleted_missions,
     )
-
-    if deleted_missions:
-        all_columns = [
-            *deleted_workday_columns,
-            *get_mission_columns(require_mission_name),
-            *event_columns,
-        ]
-        row_idx = 4
-    else:
-        all_columns = [
-            *workday_columns,
-            *get_mission_columns(require_mission_name),
-            *event_columns,
-        ]
-        row_idx = 3
+    sheet.freeze_panes(row_idx, 2)
 
     for user, work_days in sorted(
         wdays_by_user.items(), key=lambda u: u[0].display_name
@@ -63,7 +56,9 @@ def write_day_details_sheet(
             ):
                 if deleted_missions and not mission.is_deleted():
                     continue
-                if not deleted_missions and mission.is_holiday():
+                if not deleted_missions and (
+                    mission.is_holiday() or mission.is_deleted()
+                ):
                     continue
                 first_activities_for_user = next(
                     iter(

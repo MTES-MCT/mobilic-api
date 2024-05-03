@@ -34,3 +34,6 @@ def write_sheet_header(
                 }
             ),
         )
+        return 4
+    else:
+        return 3

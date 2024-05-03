@@ -66,7 +66,8 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
     for work_day in complete_work_days:
         if len(work_day.activities) > 0:
             wdays_by_user[work_day.user].append(work_day)
-        elif len(work_day._all_activities) > 0:
+
+        if len(work_day._all_activities) > 0:
             wdays_by_user_deleted_missions[work_day.user].append(work_day)
 
     require_expenditures = any([c.require_expenditures for c in companies])
