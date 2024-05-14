@@ -54,7 +54,7 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
             datetime.now() - last_activity_start
             > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
         )
-        if not (mission_old_enough and last_activity_long_enough):
+        if not (mission_old_enough or last_activity_long_enough):
             raise MissionNotAlreadyValidatedByUserError()
 
     if not mission.ended_for(for_user):
