@@ -360,7 +360,7 @@ COLUMN_EVENT_DESC = ExcelColumn(
 )
 
 
-def get_activites_effectuees(event):
+def get_executed_activities(event):
     if (
         type(event.resource) is Activity
         and event.type == LogActionType.CREATE
@@ -376,7 +376,7 @@ def get_activites_effectuees(event):
 
 COLUMN_EVENT_ACTIVITIES = ExcelColumn(
     "Activités effectuées",
-    lambda event: get_activites_effectuees(event),
+    lambda event: get_executed_activities(event),
     lambda _: None,
     15,
     light_blue_hex,
