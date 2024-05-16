@@ -358,13 +358,25 @@ COLUMN_EVENT_DESC = ExcelColumn(
     60,
     light_green_hex,
 )
+
+
+def get_activites_effectuees(event):
+    if (
+        type(event.resource) is Activity
+        and event.type == LogActionType.CREATE
+        and not event.resource.dismissed_at
+    ):
+        return (
+            event.holiday_mission_name
+            if event.holiday_mission_name != ""
+            else format_activity_type(event.resource.type)
+        )
+    return None
+
+
 COLUMN_EVENT_ACTIVITIES = ExcelColumn(
     "Activités effectuées",
-    lambda event: format_activity_type(event.resource.type)
-    if type(event.resource) is Activity
-    and event.type == LogActionType.CREATE
-    and not event.resource.dismissed_at
-    else None,
+    lambda event: get_activites_effectuees(event),
     lambda _: None,
     15,
     light_blue_hex,

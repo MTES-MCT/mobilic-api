@@ -54,12 +54,10 @@ def write_day_details_sheet(
             for mission in sorted(
                 wday.missions, key=lambda mi: mi.creation_time
             ):
-                if deleted_missions and not mission.is_deleted():
+                # xor: bool(a) != bool(b)
+                if deleted_missions != mission.is_deleted():
                     continue
-                if not deleted_missions and (
-                    mission.is_holiday() or mission.is_deleted()
-                ):
-                    continue
+
                 first_activities_for_user = next(
                     iter(
                         mission.activities_for(
