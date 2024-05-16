@@ -143,6 +143,26 @@ class TestPermissionMissions(BaseTest):
         if "errors" in response:
             self.fail(f"Validate mission returned an error: {response}")
 
+    def test_admin_can_validate_mission_not_validated_by_employee_if_last_activity_has_more_than_24_hours(
+        self,
+    ):
+        # Si la dernière activité court depuis plus de 24 heures,
+        # j'obtiens alors les droits pour y apporter des modifications et la valider
+
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(hours=25),
+            end_time=datetime.now() - timedelta(hours=24),
+        )
+
+        response = self._validate_mission(
+            submitter=self.admin, user=self.worker, mission=mission
+        )
+
+        if "errors" in response:
+            self.fail(f"Validate mission returned an error: {response}")
+
     def test_admin_can_validate_mission_not_validated_by_all_employees_with_team_mode(
         self,
     ):
