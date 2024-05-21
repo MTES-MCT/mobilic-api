@@ -42,6 +42,7 @@ def create_user(
     ssn=None,
     fc_info=None,
     way_heard_of_mobilic=None,
+    phone_number=None,
 ):
     user = User(
         first_name=first_name,
@@ -55,6 +56,7 @@ def create_user(
         france_connect_info=fc_info,
         france_connect_id=fc_info.get("sub") if fc_info else None,
         way_heard_of_mobilic=way_heard_of_mobilic,
+        phone_number=phone_number,
     )
     db.session.add(user)
     db.session.flush()

@@ -48,6 +48,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "first_name",
             "last_name",
             "email",
+            "phone_number",
             "has_confirmed_email",
             "has_activated_email",
             "disabled_warnings",
@@ -72,6 +73,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         required=False,
         description="Adresse email, qui sert également d'identifiant de connexion",
+    )
+    phone_number = graphene.Field(
+        graphene.String,
+        required=False,
+        description="Numéro de téléphone",
     )
     timezone_name = graphene.Field(
         graphene.String,

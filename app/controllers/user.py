@@ -102,10 +102,12 @@ class UserSignUp(graphene.Mutation):
         timezone_name = graphene.String(
             required=False, description=TIMEZONE_DESC
         )
-
         way_heard_of_mobilic = graphene.String(
             required=False,
             description="Façon dont l'utilisateur a connu Mobilic.",
+        )
+        phone_number = graphene.String(
+            required=False, description="Numéro de téléphone"
         )
 
     Output = UserTokens
@@ -760,4 +762,31 @@ class ChangeName(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             user.last_name = new_last_name
             user.first_name = new_first_name
+        return user
+
+
+class ChangePhoneNumber(AuthenticatedMutation):
+    class Arguments:
+        user_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'utilisateur dont le numéro de téléphone doit être changé",
+        )
+
+        new_phone_number = graphene.String(
+            required=True,
+            description="Nouveau numéro de téléphone",
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, user_id, new_phone_number):
+        user = User.query.get(user_id)
+        with atomic_transaction(commit_at_end=True):
+            user.phone_number = new_phone_number
         return user

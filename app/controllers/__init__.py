@@ -79,6 +79,7 @@ from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
     ChangeName,
+    ChangePhoneNumber,
     ChangeTimezone,
     ConfirmFranceConnectEmail,
     DisableWarning,
@@ -158,6 +159,7 @@ class PrivateAuth(graphene.ObjectType):
 class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     change_name = ChangeName.Field()
+    change_phone_number = ChangePhoneNumber.Field()
     change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
     reset_password_connected = ResetPasswordConnected.Field()
