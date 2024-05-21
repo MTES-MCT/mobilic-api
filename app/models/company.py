@@ -13,6 +13,10 @@ from app import db
 class Company(BaseModel, WithEmploymentHistory):
     usual_name = db.Column(db.String(255), nullable=False)
 
+    phone_number = db.Column(
+        db.String(30), unique=False, nullable=True, default=None
+    )
+
     siren = db.Column(db.String(9), unique=False, nullable=True)
 
     short_sirets = db.Column(db.ARRAY(db.Integer), nullable=True)
