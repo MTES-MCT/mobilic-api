@@ -35,18 +35,26 @@ def pre_check_validate_mission_by_admin(mission, admin_submitter, for_user):
     ):
         return
 
+    # Special case #1 - mission started more than 10d ago
     mission_start = activities_to_validate[0].start_time
-    last_activity_start = activities_to_validate[-1].start_time
     mission_old_enough = (
         datetime.now() - mission_start
         > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
     )
+    if mission_old_enough:
+        return
+
+    # Special case #2 - last activity started more than 24h ago and still running
+    last_activity_start = activities_to_validate[-1].start_time
+    last_activity_is_running = not activities_to_validate[-1].end_time
     last_activity_long_enough = (
         datetime.now() - last_activity_start
         > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
     )
-    if not (mission_old_enough or last_activity_long_enough):
-        raise MissionNotAlreadyValidatedByUserError()
+    if last_activity_long_enough and last_activity_is_running:
+        return
+
+    raise MissionNotAlreadyValidatedByUserError()
 
 
 def validate_mission(mission, submitter, for_user, creation_time=None):
