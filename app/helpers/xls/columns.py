@@ -2,7 +2,6 @@ from collections import namedtuple
 from datetime import timedelta
 
 from app.domain.history import LogActionType
-from app.domain.work_days import NOT_WORK_ACTIVITIES
 from app.helpers.time import to_fr_tz
 from app.helpers.xls.common import (
     light_grey_hex,
@@ -359,13 +358,25 @@ COLUMN_EVENT_DESC = ExcelColumn(
     60,
     light_green_hex,
 )
+
+
+def get_executed_activities(event):
+    if (
+        type(event.resource) is Activity
+        and event.type == LogActionType.CREATE
+        and not event.resource.dismissed_at
+    ):
+        return (
+            event.holiday_mission_name
+            if event.holiday_mission_name != ""
+            else format_activity_type(event.resource.type)
+        )
+    return None
+
+
 COLUMN_EVENT_ACTIVITIES = ExcelColumn(
     "Activités effectuées",
-    lambda event: format_activity_type(event.resource.type)
-    if type(event.resource) is Activity
-    and event.type == LogActionType.CREATE
-    and not event.resource.dismissed_at
-    else None,
+    lambda event: get_executed_activities(event),
     lambda _: None,
     15,
     light_blue_hex,
