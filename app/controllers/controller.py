@@ -37,7 +37,11 @@ from app.helpers.authorization import (
     controller_only,
     with_authorization_policy,
 )
-from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.errors import (
+    AuthorizationError,
+    InvalidControlToken,
+    ControlNotFound,
+)
 from app.helpers.graphene_types import TimeStamp
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
@@ -471,6 +475,11 @@ def controller_download_control_c1b_file(
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
             ).one_or_none()
+
+            if control is None:
+                raise ControlNotFound(
+                    message=f"Control #{control_id} not found"
+                )
 
             archive = get_tachograph_archive_control(
                 control=control,
