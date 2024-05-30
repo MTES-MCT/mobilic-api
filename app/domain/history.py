@@ -45,6 +45,7 @@ class UserChange(NamedTuple):
     resource: any
     type: LogActionType
     version: any = None
+    holiday_mission_name: str = ""
 
     @property
     def is_validation(self):
@@ -90,19 +91,24 @@ class UserChange(NamedTuple):
                 f"a {'ajouté' if self.type == LogActionType.CREATE else 'supprimé'} le frais {format_expenditure_label(self.resource.type)}"
             ]
 
+        activity_name = (
+            self.holiday_mission_name
+            if self.holiday_mission_name != ""
+            else format_activity_type(self.resource.type)
+        )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
                 if self.version.end_time:
                     return [
-                        f"a ajouté l'activité {format_activity_type(self.resource.type)} du {format_time(self.version.start_time, True)} au {format_time(self.version.end_time, True)}"
+                        f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True)} au {format_time(self.version.end_time, True)}"
                     ]
                 return [
-                    f"s'est mis en {format_activity_type(self.resource.type)} le {format_time(self.version.start_time, True)}"
+                    f"s'est mis en {activity_name} le {format_time(self.version.start_time, True)}"
                 ]
 
             if self.type == LogActionType.DELETE:
                 return [
-                    f"a supprimé l'activité {format_activity_type(self.resource.type)} démarrée le {format_time(self.resource.start_time, True)}"
+                    f"a supprimé l'activité {activity_name} démarrée le {format_time(self.resource.start_time, True)}"
                 ]
 
             previous_version = self.version.previous_version
@@ -110,20 +116,20 @@ class UserChange(NamedTuple):
             if self.version.end_time != previous_version.end_time:
                 if not self.version.end_time:
                     texts.append(
-                        f"a repris l'activité {format_activity_type(self.resource.type)} le {format_time(self.time, True)}"
+                        f"a repris l'activité {activity_name} le {format_time(self.time, True)}"
                     )
                 elif not previous_version.end_time:
                     texts.append(
-                        f"a mis fin à l'activité {format_activity_type(self.resource.type)} le {format_time(self.version.end_time, True)}"
+                        f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
                     )
                 else:
                     texts.append(
-                        f"a décalé la fin de l'activité {format_activity_type(self.resource.type)} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
+                        f"a décalé la fin de l'activité {activity_name} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
                     )
 
             if self.version.start_time != previous_version.start_time:
                 texts.append(
-                    f"a décalé le début de l'activité {format_activity_type(self.resource.type)} du {format_time(previous_version.start_time, True)} au {format_time(self.version.start_time, True)}"
+                    f"a décalé le début de l'activité {activity_name} du {format_time(previous_version.start_time, True)} au {format_time(self.version.start_time, True)}"
                 )
             return texts
 
@@ -138,6 +144,7 @@ class LogAction(NamedTuple):
     text: str
     picto: str
     version: any = None
+    holiday_mission_name: str = ""
 
 
 def actions_history(
@@ -170,6 +177,10 @@ def actions_history(
 
     user_validation = mission.validation_of(user, max_reception_time)
 
+    holiday_mission_name = ""
+    if mission.is_holiday():
+        holiday_mission_name = mission.name
+
     user_changes = []
     for resource in relevant_resources:
         if resource is not None:
@@ -189,6 +200,7 @@ def actions_history(
                     version=resource.version_at(resource.reception_time)
                     if type(resource) is Activity
                     else None,
+                    holiday_mission_name=holiday_mission_name,
                 )
             )
 
@@ -206,6 +218,7 @@ def actions_history(
                         < resource.dismissed_at
                         if user_validation
                         else False,
+                        holiday_mission_name=holiday_mission_name,
                     )
                 )
 
@@ -232,6 +245,7 @@ def actions_history(
                             if user_validation
                             else False,
                             version=revision,
+                            holiday_mission_name=holiday_mission_name,
                         )
                     )
 
@@ -254,6 +268,7 @@ def actions_history(
                     version=user_change.version,
                     text=text,
                     picto=user_change.picto(),
+                    holiday_mission_name=holiday_mission_name,
                 )
             )
     return sorted(actions, key=lambda a: (a.time, a.type))

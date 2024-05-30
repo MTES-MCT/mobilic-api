@@ -21,7 +21,7 @@ class NoSirenAPICredentialsError(MobilicError):
 
 SIREN_API_TOKEN_ENDPOINT = "https://api.insee.fr/token"
 SIREN_API_SIREN_INFO_ENDPOINT = (
-    "https://api.insee.fr/entreprises/sirene/V3/siret/"
+    "https://api.insee.fr/entreprises/sirene/siret/"
 )
 SIREN_API_PAGE_SIZE = 100
 
@@ -131,8 +131,7 @@ class SirenAPIClient:
 
     def _request_siren_info(self, siren, retry_if_bad_token=True):
         # From :
-        # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/item-info.jag?name=Sirene&version=V3&provider=insee
-        # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Services-V3.9.pdf
+        # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/item-info.jag?name=Sirene&version=V3.11&provider=insee
         if not self.access_token:
             self._generate_access_token()
         siren_response = requests.get(
