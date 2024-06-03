@@ -36,6 +36,9 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     last_name = db.Column(db.String(255), nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
+    phone_number = db.Column(
+        db.String(30), unique=False, nullable=True, default=None
+    )
 
     latest_token_revocation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
