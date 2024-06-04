@@ -410,13 +410,17 @@ class EditCompanySettings(AuthenticatedMutation):
         return company
 
 
-class UpdateCompanyName(AuthenticatedMutation):
+class UpdateCompanyDetails(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
             required=True, description="Identifiant de l'entreprise"
         )
         new_name = graphene.String(
             required=True, description="Nouveau nom de l'entreprise"
+        )
+        new_phone_number = graphene.String(
+            required=True,
+            description="Nouveau numéro de téléphone de l'entreprise",
         )
 
     Output = CompanyOutput
@@ -429,16 +433,23 @@ class UpdateCompanyName(AuthenticatedMutation):
         ),
         error_message="You need to be a company admin to be able to edit company name",
     )
-    def mutate(cls, _, info, company_id, new_name):
+    def mutate(cls, _, info, company_id, new_name, new_phone_number):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
             current_name = company.usual_name
+            current_phone_number = company.phone_number
             if current_name != new_name:
                 company.usual_name = new_name
                 db.session.add(company)
                 app.logger.info(
                     f"Company name changed from {current_name} to {new_name}"
+                )
+            if current_phone_number != new_phone_number:
+                company.phone_number = new_phone_number
+                db.session.add(company)
+                app.logger.info(
+                    f"Company phone number changed from {current_phone_number} to {new_phone_number}"
                 )
 
         return company
