@@ -16,6 +16,7 @@ blinker==1.4
 Brotli==1.0.9
 cached-property==1.5.1
 cachetools==4.2.2
+celery==5.4.0
 certifi==2023.7.22
 cffi==1.14.6
 cfgv==2.0.1
