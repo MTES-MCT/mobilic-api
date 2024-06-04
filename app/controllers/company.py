@@ -191,7 +191,7 @@ def create_company_by_third_party(usual_name, siren, siret):
 
 
 def sign_up_company(
-    usual_name, siren, phone_number, sirets=[], send_email=True
+    usual_name, siren, phone_number="", sirets=[], send_email=True
 ):
     with atomic_transaction(commit_at_end=True):
         company = store_company(siren, sirets, usual_name, phone_number)
