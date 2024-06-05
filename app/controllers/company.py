@@ -115,17 +115,25 @@ class CompanySignUp(AuthenticatedMutation):
         siren = graphene.String(
             required=True, description="Numéro SIREN de l'entreprise"
         )
+        phone_number = graphene.String(
+            required=False,
+            description="Numéro de téléphone de l'entreprise",
+        )
 
     Output = CompanySignUpOutput
 
     @classmethod
-    def mutate(cls, _, info, usual_name, siren):
-        return sign_up_company(usual_name, siren)
+    def mutate(cls, _, info, usual_name, siren, phone_number=""):
+        return sign_up_company(usual_name, siren, phone_number)
 
 
 class CompanySiret(graphene.InputObjectType):
     siret = graphene.String()
     usual_name = graphene.String()
+    phone_number = graphene.String(
+        required=False,
+        description="Numéro de téléphone de l'entreprise",
+    )
 
 
 class CompaniesSignUp(AuthenticatedMutation):
@@ -155,9 +163,10 @@ class CompaniesSignUp(AuthenticatedMutation):
 def sign_up_companies(siren, companies):
     created_companies = [
         sign_up_company(
-            company.get("usual_name"),
-            siren,
-            [company.get("siret")],
+            usual_name=company.get("usual_name"),
+            siren=siren,
+            phone_number=company.get("phone_number", ""),
+            sirets=[company.get("siret")],
             send_email=len(companies) == 1,
         )
         for company in companies
@@ -181,9 +190,11 @@ def create_company_by_third_party(usual_name, siren, siret):
     return created_company
 
 
-def sign_up_company(usual_name, siren, sirets=[], send_email=True):
+def sign_up_company(
+    usual_name, siren, phone_number="", sirets=[], send_email=True
+):
     with atomic_transaction(commit_at_end=True):
-        company = store_company(siren, sirets, usual_name)
+        company = store_company(siren, sirets, usual_name, phone_number)
 
         now = datetime.now()
         admin_employment = Employment(
@@ -244,7 +255,7 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
 
-def store_company(siren, sirets, usual_name):
+def store_company(siren, sirets, usual_name, phone_number=""):
     registration_status, _ = get_siren_registration_status(siren)
 
     if (
@@ -282,6 +293,7 @@ def store_company(siren, sirets, usual_name):
         require_kilometer_data=require_kilometer_data,
         require_support_activity=require_support_activity,
         require_mission_name=True,
+        phone_number=phone_number,
     )
     db.session.add(company)
     db.session.flush()  # Early check for SIRET duplication
@@ -398,13 +410,17 @@ class EditCompanySettings(AuthenticatedMutation):
         return company
 
 
-class UpdateCompanyName(AuthenticatedMutation):
+class UpdateCompanyDetails(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
             required=True, description="Identifiant de l'entreprise"
         )
         new_name = graphene.String(
-            required=True, description="Nouveau nom de l'entreprise"
+            required=False, description="Nouveau nom de l'entreprise"
+        )
+        new_phone_number = graphene.String(
+            required=False,
+            description="Nouveau numéro de téléphone de l'entreprise",
         )
 
     Output = CompanyOutput
@@ -415,19 +431,29 @@ class UpdateCompanyName(AuthenticatedMutation):
         get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
             kwargs["company_id"]
         ),
-        error_message="You need to be a company admin to be able to edit company name",
+        error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
-    def mutate(cls, _, info, company_id, new_name):
+    def mutate(cls, _, info, company_id, new_name="", new_phone_number=""):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
             current_name = company.usual_name
-            if current_name != new_name:
+            current_phone_number = company.phone_number
+            if current_name != new_name and new_name != "":
                 company.usual_name = new_name
-                db.session.add(company)
                 app.logger.info(
                     f"Company name changed from {current_name} to {new_name}"
                 )
+            if (
+                current_phone_number != new_phone_number
+                and new_phone_number != ""
+            ):
+                company.phone_number = new_phone_number
+                app.logger.info(
+                    f"Company phone number changed from {current_phone_number} to {new_phone_number}"
+                )
+
+            db.session.add(company)
 
         return company
 

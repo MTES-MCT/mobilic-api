@@ -19,6 +19,10 @@ class Company(BaseModel, WithEmploymentHistory):
 
     siren_api_info = db.Column(JSONB(none_as_null=True), nullable=True)
 
+    phone_number = db.Column(
+        db.String(30), unique=False, nullable=True, default=None
+    )
+
     # Parameters of work day logging
     allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)
 
