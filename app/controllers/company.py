@@ -433,18 +433,21 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         ),
         error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
-    def mutate(cls, _, info, company_id, new_name, new_phone_number):
+    def mutate(cls, _, info, company_id, new_name="", new_phone_number=""):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
             current_name = company.usual_name
             current_phone_number = company.phone_number
-            if current_name != new_name:
+            if current_name != new_name and new_name != "":
                 company.usual_name = new_name
                 app.logger.info(
                     f"Company name changed from {current_name} to {new_name}"
                 )
-            if current_phone_number != new_phone_number:
+            if (
+                current_phone_number != new_phone_number
+                and new_phone_number != ""
+            ):
                 company.phone_number = new_phone_number
                 app.logger.info(
                     f"Company phone number changed from {current_phone_number} to {new_phone_number}"
