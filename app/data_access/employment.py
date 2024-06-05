@@ -2,6 +2,7 @@ import graphene
 from flask import g
 
 from app.controllers.oauth_client import OAuth2ClientOutput
+from app.data_access.business import BusinessOutput
 from app.domain.permissions import only_self_employment
 from app.domain.user import get_user_with_hidden_email, HIDDEN_EMAIL
 from app.helpers.authorization import with_authorization_policy
@@ -29,6 +30,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "team_id",
             "team",
             "hide_email",
+            "business",
         )
 
     id = graphene.Field(
@@ -93,6 +95,10 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     hide_email = graphene.Field(
         graphene.Boolean,
         description="Indique si ce salarié souhaite rendre visible son adresse email ou non",
+    )
+    business = graphene.Field(
+        lambda: BusinessOutput,
+        description="Type d'activités effectuées par le salarié pour l'entreprise",
     )
 
     def resolve_should_see_certificate_info(self, info):

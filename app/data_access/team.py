@@ -2,7 +2,6 @@ import graphene
 from flask import g
 
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
-from app.models import User
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.team import Team
 from app.models.vehicle import VehicleOutput
