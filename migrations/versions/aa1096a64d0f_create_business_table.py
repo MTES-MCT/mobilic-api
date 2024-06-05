@@ -49,6 +49,7 @@ def upgrade():
                 native_enum=False,
             ),
             nullable=False,
+            unique=True,
         ),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
