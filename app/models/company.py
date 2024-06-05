@@ -8,9 +8,10 @@ from app.helpers.time import to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
+from app.models.mixins.has_business import HasBusiness
 
 
-class Company(BaseModel, WithEmploymentHistory):
+class Company(BaseModel, WithEmploymentHistory, HasBusiness):
     usual_name = db.Column(db.String(255), nullable=False)
 
     siren = db.Column(db.String(9), unique=False, nullable=True)
