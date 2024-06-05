@@ -416,10 +416,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=True, description="Identifiant de l'entreprise"
         )
         new_name = graphene.String(
-            required=True, description="Nouveau nom de l'entreprise"
+            required=False, description="Nouveau nom de l'entreprise"
         )
         new_phone_number = graphene.String(
-            required=True,
+            required=False,
             description="Nouveau numéro de téléphone de l'entreprise",
         )
 
@@ -431,7 +431,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
             kwargs["company_id"]
         ),
-        error_message="You need to be a company admin to be able to edit company name",
+        error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
     def mutate(cls, _, info, company_id, new_name, new_phone_number):
         with atomic_transaction(commit_at_end=True):
