@@ -441,16 +441,16 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             current_phone_number = company.phone_number
             if current_name != new_name:
                 company.usual_name = new_name
-                db.session.add(company)
                 app.logger.info(
                     f"Company name changed from {current_name} to {new_name}"
                 )
             if current_phone_number != new_phone_number:
                 company.phone_number = new_phone_number
-                db.session.add(company)
                 app.logger.info(
                     f"Company phone number changed from {current_phone_number} to {new_phone_number}"
                 )
+
+            db.session.add(company)
 
         return company
 
