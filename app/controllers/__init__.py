@@ -22,6 +22,7 @@ from app.controllers.company import (
     EditCompanySettings,
     CompanySoftwareRegistration,
     UpdateCompanyDetails,
+    EditCompanyBusinessType,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.control import AddControlNote
@@ -256,6 +257,7 @@ class PrivateMutations(graphene.ObjectType):
         Locations, resolver=lambda root, info: Locations()
     )
     edit_company_settings = EditCompanySettings.Field()
+    edit_company_business_type = EditCompanyBusinessType.Field()
 
     controller_scan_code = ControllerScanCode.Field()
     controller_save_control_bulletin = ControllerSaveControlBulletin.Field()

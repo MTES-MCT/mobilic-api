@@ -40,6 +40,7 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
+    InvalidParamsError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
@@ -434,6 +435,45 @@ class EditCompanySettings(AuthenticatedMutation):
             app.logger.info(f"Updated fields: {', '.join(updated_fields)}")
 
             db.session.add(company)
+
+        return company
+
+
+class EditCompanyBusinessType(AuthenticatedMutation):
+    class Arguments:
+        company_id = graphene.Int(
+            required=True, description="Identifiant de l'entreprise"
+        )
+        business_type = graphene.String(
+            required=True,
+            description="Nouveau type d'activité de transport de l'entreprise.",
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
+            kwargs["company_id"]
+        ),
+        error_message="You need to be a company admin to be able to edit company settings",
+    )
+    def mutate(cls, _, info, company_id, business_type):
+        with atomic_transaction(commit_at_end=True):
+            company = Company.query.get(company_id)
+            business = Business.query.filter(
+                Business.business_type == BusinessType[business_type].value
+            ).one_or_none()
+
+            if not business:
+                raise InvalidParamsError(
+                    f"Business type {business_type} not found"
+                )
+
+            if business.id != company.business_id:
+                company.business = business
+                db.session.add(company)
 
         return company
 
