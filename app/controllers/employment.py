@@ -48,7 +48,8 @@ from app.helpers.graphene_types import Email
 from app.helpers.mail import MailjetError
 from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
-from app.models import Company, User, Team
+from app.models import Company, User, Team, Business
+from app.models.business import BusinessType
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
@@ -666,6 +667,47 @@ class ChangeEmployeeRole(AuthenticatedMutation):
         if not has_admin_rights:
             remove_admin_from_teams(employment.user_id, employment.company_id)
         db.session.commit()
+
+        return Company.query.get(employment.company_id)
+
+
+class ChangeEmployeeBusinessType(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du rattachement pour lequel le rôle doit être changé",
+        )
+        business_type = graphene.Argument(
+            graphene.String,
+            required=True,
+            description="Nouveau type d'activité de transport effectué par l'employé pour l'entreprise",
+        )
+
+    Output = CompanyOutput
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
+            kwargs["employment_id"]
+        ).company_id,
+        error_message="Actor is not authorized to change employee business type",
+    )
+    def mutate(cls, _, info, employment_id, business_type):
+        employment = Employment.query.get(employment_id)
+        business = Business.query.filter(
+            Business.business_type == BusinessType[business_type].value
+        ).one_or_none()
+
+        if not business:
+            raise InvalidParamsError(
+                f"Business type {business_type} not found"
+            )
+
+        if business.id != employment.business_id:
+            employment.business = business
+            db.session.commit()
 
         return Company.query.get(employment.company_id)
 

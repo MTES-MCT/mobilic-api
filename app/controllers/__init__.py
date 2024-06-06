@@ -58,6 +58,7 @@ from app.controllers.employment import (
     ValidateEmployment,
     SyncThirdPartyEmployees,
     UpdateHideEmail,
+    ChangeEmployeeBusinessType,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -181,6 +182,7 @@ class Employments(graphene.ObjectType):
     send_invitation_reminder = SendInvitationReminder.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
+    change_employee_business_type = ChangeEmployeeBusinessType.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
     update_hide_email = UpdateHideEmail.Field()
 

@@ -23,4 +23,4 @@ class Business(BaseModel):
     business_type = enum_column(BusinessType, nullable=False)
 
     def __repr__(self):
-        return f"<Business {self.transport_type} ({TransportType[self.transport_type]}) : {self.business_type} ({BusinessType[self.business_type]})"
+        return f"<Business {self.transport_type} - {self.business_type}"
