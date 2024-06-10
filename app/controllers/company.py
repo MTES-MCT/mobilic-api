@@ -439,45 +439,6 @@ class EditCompanySettings(AuthenticatedMutation):
         return company
 
 
-class EditCompanyBusinessType(AuthenticatedMutation):
-    class Arguments:
-        company_id = graphene.Int(
-            required=True, description="Identifiant de l'entreprise"
-        )
-        business_type = graphene.String(
-            required=True,
-            description="Nouveau type d'activité de transport de l'entreprise.",
-        )
-
-    Output = CompanyOutput
-
-    @classmethod
-    @with_authorization_policy(
-        company_admin,
-        get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
-            kwargs["company_id"]
-        ),
-        error_message="You need to be a company admin to be able to edit company settings",
-    )
-    def mutate(cls, _, info, company_id, business_type):
-        with atomic_transaction(commit_at_end=True):
-            company = Company.query.get(company_id)
-            business = Business.query.filter(
-                Business.business_type == BusinessType[business_type].value
-            ).one_or_none()
-
-            if not business:
-                raise InvalidParamsError(
-                    f"Business type {business_type} not found"
-                )
-
-            if business.id != company.business_id:
-                company.business = business
-                db.session.add(company)
-
-        return company
-
-
 class UpdateCompanyDetails(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
@@ -490,6 +451,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau numéro de téléphone de l'entreprise",
         )
+        new_business_type = graphene.String(
+            required=False,
+            description="Nouveau type d'activité de transport de l'entreprise.",
+        )
 
     Output = CompanyOutput
 
@@ -501,7 +466,15 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         ),
         error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
-    def mutate(cls, _, info, company_id, new_name="", new_phone_number=""):
+    def mutate(
+        cls,
+        _,
+        info,
+        company_id,
+        new_name="",
+        new_phone_number="",
+        new_business_type="",
+    ):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
@@ -520,6 +493,17 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 app.logger.info(
                     f"Company phone number changed from {current_phone_number} to {new_phone_number}"
                 )
+            if new_business_type != "":
+                new_business = Business.query.filter(
+                    Business.business_type
+                    == BusinessType[new_business_type].value
+                ).one_or_none()
+                if new_business is None:
+                    raise InvalidParamsError(
+                        f"Business type {new_business_type} not found"
+                    )
+                if new_business.id != company.business_id:
+                    company.business = new_business
 
             db.session.add(company)
 
