@@ -239,3 +239,9 @@ def check_company_has_no_activities(company_id):
         .all()
     )
     return len(company_activities) == 0
+
+
+def apply_business_type_to_company_employees(company, new_business):
+    company_employments = company.employments
+    for employment in company_employments:
+        employment.business = new_business

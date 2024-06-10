@@ -17,6 +17,7 @@ from app.domain.company import (
     SirenRegistrationStatus,
     get_siren_registration_status,
     link_company_to_software,
+    apply_business_type_to_company_employees,
 )
 from app.domain.permissions import (
     is_employed_by_company_over_period,
@@ -455,6 +456,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau type d'activité de transport de l'entreprise.",
         )
+        apply_business_type_to_employees = graphene.Boolean(
+            required=False,
+            description="Indique si l'on souhaite appliquer le nouveau type d'activité à tous les salariés de l'entreprise.",
+        )
 
     Output = CompanyOutput
 
@@ -474,6 +479,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         new_name="",
         new_phone_number="",
         new_business_type="",
+        apply_business_type_to_employees=False,
     ):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
@@ -504,6 +510,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                     )
                 if new_business.id != company.business_id:
                     company.business = new_business
+                    if apply_business_type_to_employees:
+                        apply_business_type_to_company_employees(
+                            company, new_business
+                        )
 
             db.session.add(company)
 
