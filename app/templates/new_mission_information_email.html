@@ -6,7 +6,7 @@ La mission {{ mission_name }} du {{ mission_day }} a été rajoutée à votre hi
 
 {% block body %}
     <p>Bonjour {{first_name | capitalize }},</p>
-    <p>Du temps de travail a été rajouté à votre historique : la mission <strong>{{ mission_name }}</strong> du <strong>{{ mission_day }}</strong>, validée par le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}}.</p>
+    <p>Du temps de travail a été rajouté à votre historique : la mission <strong>{{ mission_name }}</strong> du <strong>{{ mission_day }}</strong>, validée par le gestionnaire <strong>{{ admin_full_name }}</strong> de votre entreprise {{company_name | upper}}.</p>
     <p>Vos horaires d'activité sur cette mission sont : </p>
     <ul>
         <li>
@@ -20,5 +20,4 @@ La mission {{ mission_name }} du {{ mission_day }} a été rajoutée à votre hi
         </li>
     </ul>
     <p>Vous pouvez consulter ici le <a href="{{mission_link}}" target="_blank">détail de la mission</a>. En cas de désaccord avec les temps saisis, nous vous invitons à vous adresser directement à votre gestionnaire et/ou à exprimer une réserve dans les observations.</p>
-    <strong>L'équipe Mobilic</strong>
 {% endblock %}
