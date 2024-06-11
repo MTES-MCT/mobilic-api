@@ -3,7 +3,7 @@ import os
 import sentry_sdk
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
-from flask import Flask, g
+from flask import Flask, g, jsonify, request
 from flask_apispec.extension import FlaskApiSpec
 from flask_compress import Compress
 from flask_cors import CORS
@@ -18,11 +18,36 @@ from app.helpers.siren import SirenAPIClient
 from app.templates.filters import JINJA_CUSTOM_FILTERS
 from config import MOBILIC_ENV
 
+from celery import Celery
+
+
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
     traces_sample_rate=os.environ.get("SENTRY_SAMPLE_RATE", 0),
 )
 app = Flask(__name__)
+
+app.config["CELERY_BROKER_URL"] = "redis://localhost:6379/0"
+app.config["CELERY_RESULT_BACKEND"] = "redis://localhost:6379/0"
+
+celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
+celery.conf.update(app.config)
+
+
+@celery.task
+def add(x, y):
+    return x + y
+
+
+@celery.task
+def insert_user(email, first_name, last_name, admin=False):
+    new_user = User(
+        email=email, first_name=first_name, last_name=last_name, admin=admin
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    return new_user.id
+
 
 Compress(app)
 # See list of possible settings at https://pypi.org/project/Flask-Compress/1.13/
@@ -186,3 +211,31 @@ def load_loaders():
 def cleanup_loaders(response):
     del g.dataloaders
     return response
+
+
+@app.route("/toto")
+def index():
+    result = add.delay(3, 5)
+    # result = add.apply_async(args=[4, 5], countdown=1)
+    # print("Task submitted. Waiting for result...")
+    # print("Task result:", result.get())
+    return str(result.get())
+
+
+from app.models import User
+
+
+@app.route("/add_user", methods=["POST"])
+def add_user():
+    data = request.get_json()
+    email = data.get("email")
+    first_name = data.get("first_name")
+    last_name = data.get("last_name")
+    admin = data.get("admin", False)
+
+    task = insert_user.apply_async(args=[email, first_name, last_name, admin])
+    return jsonify({"task_id": task.id}), 202
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

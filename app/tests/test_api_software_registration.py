@@ -17,7 +17,7 @@ class TestApiSoftwareRegistration(BaseTest):
         oauth2_client = OAuth2Client.create_client(
             name="test", redirect_uris="http://localhost:3000"
         )
-        # print(oauth2_client)
+        print(oauth2_client)
         self.assertIsNotNone(oauth2_client)
         self.client_id = oauth2_client.get_client_id()
         self.client_secret = oauth2_client.secret
