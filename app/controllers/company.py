@@ -210,20 +210,26 @@ def sign_up_company(
         db.session.add(admin_employment)
 
     try:
-        contact_id = brevo.create_contact(
-            CreateContactData(
-                email=current_user.email,
-                admin_first_name=current_user.first_name,
-                admin_last_name=current_user.last_name,
-                company_name=company.usual_name,
-                siren=int(company.siren),
-            )
+        contact_data = CreateContactData(
+            email=current_user.email,
+            admin_first_name=current_user.first_name,
+            admin_last_name=current_user.last_name,
+            company_name=company.usual_name,
+            siren=int(company.siren),
+            phone_number=current_user.phone_number
+            if current_user.phone_number
+            else None,
         )
+
+        contact_id = brevo.create_contact(contact_data)
 
         company_id = brevo.create_company(
             CreateCompanyData(
                 company_name=company.usual_name,
                 siren=int(company.siren),
+                phone_number=company.phone_number
+                if company.phone_number
+                else None,
             )
         )
 

@@ -1,5 +1,6 @@
 from functools import wraps
 from typing import NamedTuple
+from typing import Optional
 
 import requests
 import sib_api_v3_sdk
@@ -9,6 +10,7 @@ from app import app
 from app.helpers.errors import MobilicError
 from config import BREVO_API_KEY_ENV
 
+# use list number 22 to test :https://app.brevo.com/contact/list/id/22
 BREVO_COMPANY_SUBSCRIBE_LIST = 19
 
 
@@ -23,11 +25,13 @@ class CreateContactData(NamedTuple):
     admin_first_name: str
     company_name: str
     siren: int
+    phone_number: Optional[str] = None
 
 
 class CreateCompanyData(NamedTuple):
     company_name: str
     siren: int
+    phone_number: Optional[str] = None
 
 
 class LinkCompanyContactData(NamedTuple):
@@ -70,15 +74,20 @@ class BrevoApiClient:
     @check_api_key
     def create_contact(self, data: CreateContactData):
         try:
+            attributes = {
+                "NOM": data.admin_last_name,
+                "PRENOM": data.admin_first_name,
+                "SIREN": data.siren,
+                "NOM_ENTREPRISE": data.company_name,
+            }
+
+            if data.phone_number:
+                attributes["SMS"] = data.phone_number
+
             create_contact = sib_api_v3_sdk.CreateContact(
                 email=data.email,
                 update_enabled=True,
-                attributes={
-                    "NOM": data.admin_last_name,
-                    "PRENOM": data.admin_first_name,
-                    "SIREN": data.siren,
-                    "NOM_ENTREPRISE": data.company_name,
-                },
+                attributes=attributes,
                 list_ids=[BREVO_COMPANY_SUBSCRIBE_LIST],
             )
             api_response = self._api_instance.create_contact(create_contact)
@@ -90,13 +99,21 @@ class BrevoApiClient:
     def create_company(self, data: CreateCompanyData):
         try:
             url = f"{self.BASE_URL}companies"
+            attributes = {
+                "activation_mobilic": "Inscrite",
+                "siren": data.siren,
+                "owner": "Pathtech PATHTECH",
+            }
+
+            if data.phone_number:
+                phone_number = data.phone_number
+                if phone_number.startswith("+"):
+                    phone_number = phone_number[1:]
+                attributes["phone_number"] = phone_number
+
             create_company_payload = {
                 "name": data.company_name,
-                "attributes": {
-                    "activation_mobilic": "Inscrite",
-                    "siren": data.siren,
-                    "owner": "Pathtech PATHTECH",
-                },
+                "attributes": attributes,
             }
             response = self._session.post(url, json=create_company_payload)
             return response.json()["id"]
