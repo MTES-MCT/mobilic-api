@@ -1,9 +1,10 @@
+import os
 from datetime import datetime
 
 from argon2 import PasswordHasher
 from freezegun import freeze_time
 
-from app import db
+from app import db, app
 from app.helpers.oauth.models import OAuth2Client, ThirdPartyClientEmployment
 from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.models import Employment
@@ -797,3 +798,32 @@ class TestApiAdminQueries(BaseTest):
             },
         )
         self.assertEqual(export_c1b_response.status_code, 200)
+
+    def test_export_xls(self):
+        company_id = 1
+        user_id = 1
+        min_date = "2021-12-16"
+        max_date = "2022-02-14"
+
+        export_excel_response = test_post_rest(
+            "/companies/download_activity_report",
+            json={
+                "company_ids": [company_id],
+                "user_ids": [user_id],
+                "min_date": min_date,
+                "max_date": max_date,
+                "one_file_by_employee": False,
+            },
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-EMPLOYMENT-TOKEN": self.access_token,
+            },
+        )
+
+        self.assertEqual(export_excel_response.status_code, 200)
+        with open("exported_report.xlsx", "wb") as f:
+            f.write(export_excel_response.data)
+        self.assertTrue(os.path.exists("exported_report.xlsx"))
+
+        # comment to see the xls file
+        os.remove("exported_report.xlsx")
