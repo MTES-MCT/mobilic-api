@@ -1,19 +1,17 @@
 from datetime import datetime, timedelta
 
-from dateutil.tz import gettz
-
-from app import db, app
+from app import db
+from app.domain.mission import get_mission_start_and_end_from_activities
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
+from app.helpers.authorization import AuthorizationError
 from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
-from app.helpers.authorization import AuthorizationError
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
@@ -136,14 +134,8 @@ def _get_or_create_validation(
 def _compute_regulations_after_validation(
     activities_to_validate, is_admin_validation, user
 ):
-    user_timezone = gettz(user.timezone_name)
-    mission_start = to_tz(
-        activities_to_validate[0].start_time, user_timezone
-    ).date()
-    mission_end = (
-        to_tz(activities_to_validate[-1].end_time, user_timezone).date()
-        if to_tz(activities_to_validate[-1].end_time, user_timezone)
-        else None
+    mission_start, mission_end = get_mission_start_and_end_from_activities(
+        activities=activities_to_validate, user=user
     )
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE

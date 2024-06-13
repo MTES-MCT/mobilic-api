@@ -8,6 +8,7 @@ from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
+from app.domain.mission import had_user_enough_break_last_mission
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
@@ -197,6 +198,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
 
     survey_actions = graphene.List(UserSurveyActionsOutput)
+
+    had_enough_break_last_mission = graphene.Boolean(
+        required=False,
+        description="Indique si le salarié a pris suffisament de pause lors de sa dernière mission validée.",
+    )
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
@@ -464,6 +470,14 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_survey_actions(self, info):
         return self.survey_actions
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'had_enough_break_last_mission' of user object. The field is only accessible to the user himself.",
+    )
+    def resolve_had_enough_break_last_mission(self, info):
+        return had_user_enough_break_last_mission(self)
 
 
 from app.data_access.company import CompanyOutput
