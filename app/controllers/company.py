@@ -510,9 +510,15 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                     )
                 if new_business.id != company.business_id:
                     company.business = new_business
+                    app.logger.info(
+                        f"Company business type changed to {new_business}"
+                    )
                     if apply_business_type_to_employees:
                         apply_business_type_to_company_employees(
                             company, new_business
+                        )
+                        app.logger.info(
+                            f"New business type applied to all employees"
                         )
 
             db.session.add(company)
