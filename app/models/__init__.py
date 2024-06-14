@@ -21,6 +21,7 @@ from .comment import Comment
 from .control_location import ControlLocation
 from .user_read_token import UserReadToken
 from .email import Email
+from app.helpers.tachograph.rsa_keys import C1BSigningKey
 from .naf_code import NafCode
 from .regulation_check import RegulationCheck
 from .regulatory_alert import RegulatoryAlert
