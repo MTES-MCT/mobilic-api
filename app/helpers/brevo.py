@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import NamedTuple
+from dataclasses import dataclass
 from typing import Optional
 
 import requests
@@ -10,16 +10,14 @@ from app import app
 from app.helpers.errors import MobilicError
 from config import BREVO_API_KEY_ENV
 
-# use list number 22 to test :https://app.brevo.com/contact/list/id/22
-BREVO_COMPANY_SUBSCRIBE_LIST = 19
-
 
 class BrevoRequestError(MobilicError):
     code = "BREVO_API_ERROR"
     default_message = "Request to Brevo API failed"
 
 
-class CreateContactData(NamedTuple):
+@dataclass
+class CreateContactData:
     email: str
     admin_last_name: str
     admin_first_name: str
@@ -28,13 +26,15 @@ class CreateContactData(NamedTuple):
     phone_number: Optional[str] = None
 
 
-class CreateCompanyData(NamedTuple):
+@dataclass
+class CreateCompanyData:
     company_name: str
     siren: int
     phone_number: Optional[str] = None
 
 
-class LinkCompanyContactData(NamedTuple):
+@dataclass
+class LinkCompanyContactData:
     company_id: int
     contact_id: int
 
@@ -82,7 +82,7 @@ class BrevoApiClient:
             }
 
             if data.phone_number:
-                attributes["SMS"] = data.phone_number
+                attributes["SMS"] = self.remove_plus_sign(data.phone_number)
 
             create_contact = sib_api_v3_sdk.CreateContact(
                 email=data.email,
@@ -106,16 +106,16 @@ class BrevoApiClient:
             }
 
             if data.phone_number:
-                phone_number = data.phone_number
-                if phone_number.startswith("+"):
-                    phone_number = phone_number[1:]
-                attributes["phone_number"] = phone_number
+                attributes["phone_number"] = self.remove_plus_sign(
+                    data.phone_number
+                )
 
             create_company_payload = {
                 "name": data.company_name,
                 "attributes": attributes,
             }
             response = self._session.post(url, json=create_company_payload)
+            response.raise_for_status()
             return response.json()["id"]
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
@@ -130,5 +130,20 @@ class BrevoApiClient:
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
+    @staticmethod
+    def remove_plus_sign(phone_number):
+        if phone_number.startswith("+"):
+            return phone_number[1:]
+        return phone_number
+
+
+# list number 19  is for prod only : https://app.brevo.com/contact/list/id/19
+# use list number 22 for testing purpose : https://app.brevo.com/contact/list/id/22
+try:
+    BREVO_COMPANY_SUBSCRIBE_LIST = int(
+        app.config["BREVO_COMPANY_SUBSCRIBE_LIST"]
+    )
+except (ValueError, TypeError):
+    raise ValueError("BREVO_COMPANY_SUBSCRIBE_LIST must be an integer")
 
 brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
