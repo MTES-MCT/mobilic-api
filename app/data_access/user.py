@@ -201,7 +201,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     had_enough_break_last_mission = graphene.Boolean(
         required=False,
-        description="Indique si le salarié a pris suffisament de pause lors de sa dernière mission validée.",
+        description="Indique si le salarié a pris suffisamment de pause lors de sa dernière mission validée.",
     )
 
     @user_resolver_with_consultation_scope(
