@@ -9,8 +9,8 @@ class HasBusiness:
         return db.Column(
             db.Integer,
             db.ForeignKey("business.id"),
-            index=False,
-            nullable=False,
+            index=True,
+            nullable=True,
         )
 
     @declared_attr

@@ -65,6 +65,19 @@ def upgrade():
         None, "employment", "business", ["business_id"], ["id"]
     )
 
+    op.create_index(
+        op.f("ix_company_business_id"),
+        "company",
+        ["business_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_employment_business_id"),
+        "employment",
+        ["business_id"],
+        unique=False,
+    )
+
     op.bulk_insert(
         business_table,
         [
@@ -98,6 +111,8 @@ def upgrade():
 
 
 def downgrade():
+    op.drop_index(op.f("ix_employment_business_id"), table_name="employment")
+    op.drop_index(op.f("ix_company_business_id"), table_name="company")
     op.drop_constraint(
         "employment_business_id_fkey", "employment", type_="foreignkey"
     )
