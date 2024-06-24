@@ -1,5 +1,6 @@
 from .user import User
 from .controller_user import ControllerUser
+from .business import Business
 from .company import Company
 from .address import Address
 from .company_known_address import CompanyKnownAddress
