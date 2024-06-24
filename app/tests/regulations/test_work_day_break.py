@@ -20,8 +20,6 @@ class TestWorkDayBreak(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="8h30 work with 30m break",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -57,8 +55,6 @@ class TestWorkDayBreak(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="9h30 work with 30m break",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -189,8 +185,6 @@ class TestWorkDayBreak(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

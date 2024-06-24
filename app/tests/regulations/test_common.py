@@ -59,8 +59,6 @@ class TestRegulationsCommon(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="5h work",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -91,8 +89,6 @@ class TestRegulationsCommon(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="long night",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -181,8 +177,6 @@ class TestRegulationsCommon(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="super long mission",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

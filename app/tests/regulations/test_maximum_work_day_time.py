@@ -22,8 +22,6 @@ class TestMaximumWorkDayTime(RegulationsTest):
         how_many_days_ago = 2
         self._log_and_validate_mission(
             mission_name="Transfer & night work tarification but not legislation",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -55,8 +53,6 @@ class TestMaximumWorkDayTime(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="3h work (night) + 8h drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -100,8 +96,6 @@ class TestMaximumWorkDayTime(RegulationsTest):
         how_many_days_ago = 2
         self._log_and_validate_mission(
             mission_name="5h work + 8h drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -147,8 +141,6 @@ class TestMaximumWorkDayTime(RegulationsTest):
 
         mission = self._log_and_validate_mission(
             mission_name="3h work (night) + 10h drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
