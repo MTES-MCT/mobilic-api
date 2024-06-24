@@ -17,6 +17,7 @@ from app.domain.company import (
     SirenRegistrationStatus,
     get_siren_registration_status,
     link_company_to_software,
+    apply_business_type_to_company_employees,
 )
 from app.domain.permissions import (
     is_employed_by_company_over_period,
@@ -40,6 +41,7 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
+    InvalidParamsError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
@@ -47,7 +49,8 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.helpers.xls.companies import send_work_days_as_excel
-from app.models import Company, Employment
+from app.models import Company, Employment, Business
+from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
@@ -119,12 +122,18 @@ class CompanySignUp(AuthenticatedMutation):
             required=False,
             description="Numéro de téléphone de l'entreprise",
         )
+        business_type = graphene.String(
+            required=False,
+            description="Type d'activité de transport effectué par l'entreprise",
+        )
 
     Output = CompanySignUpOutput
 
     @classmethod
-    def mutate(cls, _, info, usual_name, siren, phone_number=""):
-        return sign_up_company(usual_name, siren, phone_number)
+    def mutate(
+        cls, _, info, usual_name, siren, business_type="", phone_number=""
+    ):
+        return sign_up_company(usual_name, siren, business_type, phone_number)
 
 
 class CompanySiret(graphene.InputObjectType):
@@ -133,6 +142,10 @@ class CompanySiret(graphene.InputObjectType):
     phone_number = graphene.String(
         required=False,
         description="Numéro de téléphone de l'entreprise",
+    )
+    business_type = graphene.String(
+        required=False,
+        description="Type d'activité de transport de l'entreprise",
     )
 
 
@@ -166,6 +179,7 @@ def sign_up_companies(siren, companies):
             usual_name=company.get("usual_name"),
             siren=siren,
             phone_number=company.get("phone_number", ""),
+            business_type=company.get("business_type", ""),
             sirets=[company.get("siret")],
             send_email=len(companies) == 1,
         )
@@ -191,10 +205,23 @@ def create_company_by_third_party(usual_name, siren, siret):
 
 
 def sign_up_company(
-    usual_name, siren, phone_number="", sirets=[], send_email=True
+    usual_name,
+    siren,
+    business_type="",
+    phone_number="",
+    sirets=[],
+    send_email=True,
 ):
+    business = None
+    if business_type:
+        business = Business.query.filter(
+            Business.business_type == BusinessType[business_type].value
+        ).one_or_none()
+
     with atomic_transaction(commit_at_end=True):
-        company = store_company(siren, sirets, usual_name, phone_number)
+        company = store_company(
+            siren, sirets, usual_name, business, phone_number
+        )
 
         now = datetime.now()
         admin_employment = Employment(
@@ -206,6 +233,7 @@ def sign_up_company(
             has_admin_rights=True,
             reception_time=now,
             submitter_id=current_user.id,
+            business=business,
         )
         db.session.add(admin_employment)
 
@@ -255,7 +283,7 @@ def sign_up_company(
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
 
-def store_company(siren, sirets, usual_name, phone_number=""):
+def store_company(siren, sirets, usual_name, business=None, phone_number=""):
     registration_status, _ = get_siren_registration_status(siren)
 
     if (
@@ -283,6 +311,7 @@ def store_company(siren, sirets, usual_name, phone_number=""):
         if legal_unit.activity_code == "49.42Z":
             require_kilometer_data = False
             require_support_activity = True
+
     company = Company(
         usual_name=usual_name,
         siren=siren,
@@ -294,6 +323,7 @@ def store_company(siren, sirets, usual_name, phone_number=""):
         require_support_activity=require_support_activity,
         require_mission_name=True,
         phone_number=phone_number,
+        business=business,
     )
     db.session.add(company)
     db.session.flush()  # Early check for SIRET duplication
@@ -422,6 +452,14 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau numéro de téléphone de l'entreprise",
         )
+        new_business_type = graphene.String(
+            required=False,
+            description="Nouveau type d'activité de transport de l'entreprise.",
+        )
+        apply_business_type_to_employees = graphene.Boolean(
+            required=False,
+            description="Indique si l'on souhaite appliquer le nouveau type d'activité à tous les salariés de l'entreprise.",
+        )
 
     Output = CompanyOutput
 
@@ -433,7 +471,16 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         ),
         error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
-    def mutate(cls, _, info, company_id, new_name="", new_phone_number=""):
+    def mutate(
+        cls,
+        _,
+        info,
+        company_id,
+        new_name="",
+        new_phone_number="",
+        new_business_type="",
+        apply_business_type_to_employees=False,
+    ):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
@@ -452,6 +499,27 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 app.logger.info(
                     f"Company phone number changed from {current_phone_number} to {new_phone_number}"
                 )
+            if new_business_type != "":
+                new_business = Business.query.filter(
+                    Business.business_type
+                    == BusinessType[new_business_type].value
+                ).one_or_none()
+                if new_business is None:
+                    raise InvalidParamsError(
+                        f"Business type {new_business_type} not found"
+                    )
+                if new_business.id != company.business_id:
+                    company.business = new_business
+                    app.logger.info(
+                        f"Company business type changed to {new_business}"
+                    )
+                    if apply_business_type_to_employees:
+                        apply_business_type_to_company_employees(
+                            company, new_business
+                        )
+                        app.logger.info(
+                            f"New business type applied to all employees"
+                        )
 
             db.session.add(company)
 

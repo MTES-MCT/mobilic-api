@@ -283,6 +283,7 @@ class CreateEmployment(AuthenticatedMutation):
                 email=employment_input.get("mail"),
                 team_id=team_id,
                 hide_email=user_email is None,
+                business=company.business,
             )
             db.session.add(employment)
 
@@ -343,6 +344,7 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                     has_admin_rights=False,
                     invite_token=uuid4().hex,
                     email=mail,
+                    business=company.business,
                 )
                 for mail in mails
             ]
