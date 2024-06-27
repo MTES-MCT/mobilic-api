@@ -37,6 +37,10 @@ def is_deleted_from_activities(activities):
 
 def get_mission_start_and_end(mission, user):
     activities = mission.activities_for(user=user)
+
+    if len(activities) == 0:
+        return None, None
+
     return get_mission_start_and_end_from_activities(
         activities=activities, user=user
     )
@@ -77,6 +81,9 @@ def had_user_enough_break_last_mission(user):
     mission_start, mission_end = get_mission_start_and_end(
         mission=last_mission, user=user
     )
+
+    if mission_start is None or mission_end is None:
+        return True
 
     alerts = RegulatoryAlert.query.filter(
         RegulatoryAlert.user == user,
