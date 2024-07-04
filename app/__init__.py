@@ -186,3 +186,6 @@ def load_loaders():
 def cleanup_loaders(response):
     del g.dataloaders
     return response
+
+
+from app.helpers.celery import *
