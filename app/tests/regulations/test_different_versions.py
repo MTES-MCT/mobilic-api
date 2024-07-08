@@ -17,8 +17,6 @@ class TestDifferentVersions(RegulationsTest):
         # Employee logs a mission with insufficient break
         mission = self._log_and_validate_mission(
             mission_name="6h30 work with 15m break",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

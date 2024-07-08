@@ -368,6 +368,11 @@ class InvalidControlToken(MobilicError):
     default_message = "The Control QR Code can not be read"
 
 
+class ControlNotFound(MobilicError):
+    code = "CONTROL_NOT_FOUND"
+    http_status_code = 404
+
+
 class OverlappingEmploymentsError(MobilicError):
     code = "OVERLAPPING_EMPLOYMENTS"
 

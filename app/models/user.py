@@ -1,24 +1,24 @@
 from datetime import date, datetime, timedelta
 from enum import Enum
+from uuid import uuid4
 
+from cached_property import cached_property
+from sqlalchemy import desc, or_
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import (
     synonym,
     joinedload,
     selectinload,
     contains_eager,
 )
-from sqlalchemy import desc, or_
 from werkzeug.security import generate_password_hash, check_password_hash
-from cached_property import cached_property
-from uuid import uuid4
-from sqlalchemy.dialects.postgresql import JSONB
 
+from app import db, mailer
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO
 from app.helpers.validation import validate_email_field_in_db
 from app.models.base import BaseModel, RandomNineIntId
-from app import db, mailer
 from app.models.utils import enum_column
 
 
@@ -36,6 +36,9 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     last_name = db.Column(db.String(255), nullable=False)
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
+    phone_number = db.Column(
+        db.String(30), unique=False, nullable=True, default=None
+    )
 
     latest_token_revocation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True

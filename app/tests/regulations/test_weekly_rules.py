@@ -23,8 +23,6 @@ class TestWeeklyRules(RegulationsTest):
             how_many_days_ago = 3 + i * 7
             self._log_and_validate_mission(
                 mission_name=f"mission #{i}",
-                company=self.company,
-                reception_time=datetime.now(),
                 submitter=self.employee,
                 work_periods=[
                     [

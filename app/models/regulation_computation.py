@@ -1,5 +1,3 @@
-from sqlalchemy.dialects.postgresql import JSONB
-
 from app import db
 from app.helpers.submitter_type import SubmitterType
 from app.models.base import BaseModel

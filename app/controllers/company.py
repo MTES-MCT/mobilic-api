@@ -17,6 +17,7 @@ from app.domain.company import (
     SirenRegistrationStatus,
     get_siren_registration_status,
     link_company_to_software,
+    apply_business_type_to_company_employees,
 )
 from app.domain.permissions import (
     is_employed_by_company_over_period,
@@ -40,6 +41,7 @@ from app.helpers.authorization import (
 )
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
+    InvalidParamsError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
@@ -47,7 +49,8 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.helpers.xls.companies import send_work_days_as_excel
-from app.models import Company, Employment
+from app.models import Company, Employment, Business
+from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
@@ -115,17 +118,35 @@ class CompanySignUp(AuthenticatedMutation):
         siren = graphene.String(
             required=True, description="Numéro SIREN de l'entreprise"
         )
+        phone_number = graphene.String(
+            required=False,
+            description="Numéro de téléphone de l'entreprise",
+        )
+        business_type = graphene.String(
+            required=False,
+            description="Type d'activité de transport effectué par l'entreprise",
+        )
 
     Output = CompanySignUpOutput
 
     @classmethod
-    def mutate(cls, _, info, usual_name, siren):
-        return sign_up_company(usual_name, siren)
+    def mutate(
+        cls, _, info, usual_name, siren, business_type="", phone_number=""
+    ):
+        return sign_up_company(usual_name, siren, business_type, phone_number)
 
 
 class CompanySiret(graphene.InputObjectType):
     siret = graphene.String()
     usual_name = graphene.String()
+    phone_number = graphene.String(
+        required=False,
+        description="Numéro de téléphone de l'entreprise",
+    )
+    business_type = graphene.String(
+        required=False,
+        description="Type d'activité de transport de l'entreprise",
+    )
 
 
 class CompaniesSignUp(AuthenticatedMutation):
@@ -155,9 +176,11 @@ class CompaniesSignUp(AuthenticatedMutation):
 def sign_up_companies(siren, companies):
     created_companies = [
         sign_up_company(
-            company.get("usual_name"),
-            siren,
-            [company.get("siret")],
+            usual_name=company.get("usual_name"),
+            siren=siren,
+            phone_number=company.get("phone_number", ""),
+            business_type=company.get("business_type", ""),
+            sirets=[company.get("siret")],
             send_email=len(companies) == 1,
         )
         for company in companies
@@ -181,9 +204,24 @@ def create_company_by_third_party(usual_name, siren, siret):
     return created_company
 
 
-def sign_up_company(usual_name, siren, sirets=[], send_email=True):
+def sign_up_company(
+    usual_name,
+    siren,
+    business_type="",
+    phone_number="",
+    sirets=[],
+    send_email=True,
+):
+    business = None
+    if business_type:
+        business = Business.query.filter(
+            Business.business_type == BusinessType[business_type].value
+        ).one_or_none()
+
     with atomic_transaction(commit_at_end=True):
-        company = store_company(siren, sirets, usual_name)
+        company = store_company(
+            siren, sirets, usual_name, business, phone_number
+        )
 
         now = datetime.now()
         admin_employment = Employment(
@@ -195,24 +233,31 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
             has_admin_rights=True,
             reception_time=now,
             submitter_id=current_user.id,
+            business=business,
         )
         db.session.add(admin_employment)
 
     try:
-        contact_id = brevo.create_contact(
-            CreateContactData(
-                email=current_user.email,
-                admin_first_name=current_user.first_name,
-                admin_last_name=current_user.last_name,
-                company_name=company.usual_name,
-                siren=int(company.siren),
-            )
+        contact_data = CreateContactData(
+            email=current_user.email,
+            admin_first_name=current_user.first_name,
+            admin_last_name=current_user.last_name,
+            company_name=company.usual_name,
+            siren=int(company.siren),
+            phone_number=current_user.phone_number
+            if current_user.phone_number
+            else None,
         )
+
+        contact_id = brevo.create_contact(contact_data)
 
         company_id = brevo.create_company(
             CreateCompanyData(
                 company_name=company.usual_name,
                 siren=int(company.siren),
+                phone_number=company.phone_number
+                if company.phone_number
+                else None,
             )
         )
 
@@ -244,7 +289,7 @@ def sign_up_company(usual_name, siren, sirets=[], send_email=True):
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
 
-def store_company(siren, sirets, usual_name):
+def store_company(siren, sirets, usual_name, business=None, phone_number=""):
     registration_status, _ = get_siren_registration_status(siren)
 
     if (
@@ -272,6 +317,7 @@ def store_company(siren, sirets, usual_name):
         if legal_unit.activity_code == "49.42Z":
             require_kilometer_data = False
             require_support_activity = True
+
     company = Company(
         usual_name=usual_name,
         siren=siren,
@@ -282,6 +328,8 @@ def store_company(siren, sirets, usual_name):
         require_kilometer_data=require_kilometer_data,
         require_support_activity=require_support_activity,
         require_mission_name=True,
+        phone_number=phone_number,
+        business=business,
     )
     db.session.add(company)
     db.session.flush()  # Early check for SIRET duplication
@@ -398,13 +446,25 @@ class EditCompanySettings(AuthenticatedMutation):
         return company
 
 
-class UpdateCompanyName(AuthenticatedMutation):
+class UpdateCompanyDetails(AuthenticatedMutation):
     class Arguments:
         company_id = graphene.Int(
             required=True, description="Identifiant de l'entreprise"
         )
         new_name = graphene.String(
-            required=True, description="Nouveau nom de l'entreprise"
+            required=False, description="Nouveau nom de l'entreprise"
+        )
+        new_phone_number = graphene.String(
+            required=False,
+            description="Nouveau numéro de téléphone de l'entreprise",
+        )
+        new_business_type = graphene.String(
+            required=False,
+            description="Nouveau type d'activité de transport de l'entreprise.",
+        )
+        apply_business_type_to_employees = graphene.Boolean(
+            required=False,
+            description="Indique si l'on souhaite appliquer le nouveau type d'activité à tous les salariés de l'entreprise.",
         )
 
     Output = CompanyOutput
@@ -415,19 +475,59 @@ class UpdateCompanyName(AuthenticatedMutation):
         get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
             kwargs["company_id"]
         ),
-        error_message="You need to be a company admin to be able to edit company name",
+        error_message="You need to be a company admin to be able to edit company name and/or phone number",
     )
-    def mutate(cls, _, info, company_id, new_name):
+    def mutate(
+        cls,
+        _,
+        info,
+        company_id,
+        new_name="",
+        new_phone_number="",
+        new_business_type="",
+        apply_business_type_to_employees=False,
+    ):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
 
             current_name = company.usual_name
-            if current_name != new_name:
+            current_phone_number = company.phone_number
+            if current_name != new_name and new_name != "":
                 company.usual_name = new_name
-                db.session.add(company)
                 app.logger.info(
                     f"Company name changed from {current_name} to {new_name}"
                 )
+            if (
+                current_phone_number != new_phone_number
+                and new_phone_number != ""
+            ):
+                company.phone_number = new_phone_number
+                app.logger.info(
+                    f"Company phone number changed from {current_phone_number} to {new_phone_number}"
+                )
+            if new_business_type != "":
+                new_business = Business.query.filter(
+                    Business.business_type
+                    == BusinessType[new_business_type].value
+                ).one_or_none()
+                if new_business is None:
+                    raise InvalidParamsError(
+                        f"Business type {new_business_type} not found"
+                    )
+                if new_business.id != company.business_id:
+                    company.business = new_business
+                    app.logger.info(
+                        f"Company business type changed to {new_business}"
+                    )
+                    if apply_business_type_to_employees:
+                        apply_business_type_to_company_employees(
+                            company, new_business
+                        )
+                        app.logger.info(
+                            f"New business type applied to all employees"
+                        )
+
+            db.session.add(company)
 
         return company
 

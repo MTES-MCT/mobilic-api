@@ -8,9 +8,10 @@ from app.helpers.time import to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
+from app.models.mixins.has_business import HasBusiness
 
 
-class Company(BaseModel, WithEmploymentHistory):
+class Company(BaseModel, WithEmploymentHistory, HasBusiness):
     usual_name = db.Column(db.String(255), nullable=False)
 
     siren = db.Column(db.String(9), unique=False, nullable=True)
@@ -18,6 +19,10 @@ class Company(BaseModel, WithEmploymentHistory):
     short_sirets = db.Column(db.ARRAY(db.Integer), nullable=True)
 
     siren_api_info = db.Column(JSONB(none_as_null=True), nullable=True)
+
+    phone_number = db.Column(
+        db.String(30), unique=False, nullable=True, default=None
+    )
 
     # Parameters of work day logging
     allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)

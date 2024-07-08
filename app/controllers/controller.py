@@ -37,11 +37,18 @@ from app.helpers.authorization import (
     controller_only,
     with_authorization_policy,
 )
-from app.helpers.errors import AuthorizationError, InvalidControlToken
+from app.helpers.errors import (
+    AuthorizationError,
+    InvalidControlToken,
+    ControlNotFound,
+)
 from app.helpers.graphene_types import TimeStamp
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
-from app.helpers.tachograph import get_tachograph_archive_controller
+from app.helpers.tachograph import (
+    get_tachograph_archive_controller,
+    get_tachograph_archive_control,
+)
 from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
@@ -443,6 +450,47 @@ def controller_download_tachograph_files(
                 mimetype="application/zip",
                 as_attachment=True,
                 download_name="fichiers_C1B.zip",
+            )
+
+
+@app.route("/controllers/download_control_c1b", methods=["POST"])
+@doc(
+    description="Génération d'un fichier C1B contenant les données d'activité du salarié liées à un contrôle"
+)
+@with_authorization_policy(controller_only)
+@use_kwargs(
+    {
+        "control_id": fields.Int(required=True),
+        "with_digital_signatures": fields.Boolean(required=False),
+        "employee_version": fields.Boolean(required=False),
+    },
+    apply=True,
+)
+def controller_download_control_c1b_file(
+    control_id, with_digital_signatures=False, employee_version=False
+):
+    with atomic_transaction(commit_at_end=False):
+        with db.session.no_autoflush:
+            db.session().execute("SET CONSTRAINTS ALL DEFERRED")
+            control = ControllerControl.query.filter(
+                ControllerControl.id == control_id
+            ).one_or_none()
+
+            if control is None:
+                raise ControlNotFound(
+                    message=f"Control #{control_id} not found"
+                )
+
+            archive = get_tachograph_archive_control(
+                control=control,
+                with_signatures=with_digital_signatures,
+                employee_version=employee_version,
+            )
+            return send_file(
+                archive,
+                mimetype="application/zip",
+                as_attachment=True,
+                download_name=f"fichiers_C1B_#{control_id}.zip",
             )
 
 

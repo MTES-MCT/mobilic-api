@@ -6,6 +6,7 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.errors import AuthorizationError, InvalidResourceError
 from app.helpers.validation import validate_email_field_in_db
 from app.models.event import Dismissable, UserEventBaseModel
+from app.models.mixins.has_business import HasBusiness
 from app.models.team import Team
 from app.models.utils import enum_column
 
@@ -16,7 +17,7 @@ class EmploymentRequestValidationStatus(str, Enum):
     REJECTED = "rejected"
 
 
-class Employment(UserEventBaseModel, Dismissable):
+class Employment(UserEventBaseModel, Dismissable, HasBusiness):
     backref_base_name = "employments"
 
     validation_time = db.Column(DateTimeStoredAsUTC, nullable=True)

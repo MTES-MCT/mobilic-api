@@ -12,8 +12,6 @@ class TestMisc(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="Formation de 10h",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

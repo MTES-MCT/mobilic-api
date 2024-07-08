@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask.ctx import AppContext
 
 from app import app, db
@@ -60,12 +62,19 @@ class RegulationsTest(BaseTest):
         super().tearDown()
 
     def _log_and_validate_mission(
-        self, mission_name, company, reception_time, submitter, work_periods
+        self,
+        mission_name,
+        submitter,
+        work_periods,
+        company=None,
+        reception_time=None,
     ):
         mission = Mission(
             name=mission_name,
-            company=company,
-            reception_time=reception_time,
+            company=company if company else self.company,
+            reception_time=reception_time
+            if reception_time
+            else datetime.now(),
             submitter=submitter,
         )
         db.session.add(mission)

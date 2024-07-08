@@ -16,8 +16,6 @@ class TestUninterruptedWorkTime(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="5h15 drive - 30m pause - 2h15 work",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -54,8 +52,6 @@ class TestUninterruptedWorkTime(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="6h15 drive - 30m pause - 2h15 work",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -110,8 +106,6 @@ class TestUninterruptedWorkTime(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="Mission on two days",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -148,8 +142,6 @@ class TestUninterruptedWorkTime(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="Mission on two days",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
