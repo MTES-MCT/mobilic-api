@@ -14,7 +14,7 @@ from app.seed import (
     AuthenticatedUserContext,
 )
 from app.tests import BaseTest
-from app.tests.helpers import init_regulation_checks_data
+from app.tests.helpers import init_regulation_checks_data, init_businesses_data
 
 ADMIN_EMAIL = "admin@email.com"
 EMPLOYEE_EMAIL = "employee@email.com"
@@ -25,6 +25,7 @@ class RegulationsTest(BaseTest):
         super().setUp()
 
         init_regulation_checks_data()
+        init_businesses_data()
 
         company = CompanyFactory.create(
             usual_name="Company Name", siren="1122334", allow_transfers=True

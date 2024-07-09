@@ -6,8 +6,9 @@ from datetime import datetime
 
 from app import db
 from app.helpers.time import to_timestamp
-from app.models import ControllerUser, User, RegulationCheck
+from app.models import ControllerUser, User, RegulationCheck, Business
 from app.models.activity import ActivityType
+from app.services.get_businesses import get_businesses
 from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
     test_post_graphql,
@@ -1181,6 +1182,41 @@ def insert_regulation_check(regulation_data):
             regulation_rule=regulation_data.regulation_rule,
             variables=json.dumps(regulation_data.variables),
             unit=regulation_data.unit,
+        ),
+    )
+
+
+def init_businesses_data():
+    business = Business.query.first()
+    if not business:
+        businesses = get_businesses()
+        for b in businesses:
+            insert_businesses(b)
+        business = Business.query.first()
+    return business
+
+
+def insert_businesses(business_data):
+    db.session.execute(
+        """
+            INSERT INTO business(
+              creation_time,
+              transport_type,
+              business_type,
+              id
+            )
+            VALUES
+            (
+              NOW(),
+              :transport_type,
+              :business_type,
+              :id
+            )
+            """,
+        dict(
+            transport_type=business_data.transport_type,
+            business_type=business_data.business_type,
+            id=business_data.id,
         ),
     )
 
