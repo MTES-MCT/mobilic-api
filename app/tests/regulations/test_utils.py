@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.domain.regulations import resolve_variables
+from app.domain.regulations_helper import resolve_variables
 from app.models import Business
 from app.models.business import TransportType, BusinessType
 
