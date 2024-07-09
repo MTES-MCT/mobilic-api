@@ -157,3 +157,13 @@ def get_user_with_hidden_email(user):
     del modified_user_data["password"]
     modified_user = User(**modified_user_data)
     return modified_user
+
+
+def get_current_employment_in_company(user, company):
+    employments = user.active_employments_at(
+        date_=date.today(), include_pending_ones=False
+    )
+    for e in employments:
+        if e.company_id == company.id:
+            return e
+    return None
