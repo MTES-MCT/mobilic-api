@@ -1,6 +1,7 @@
 from sqlalchemy import desc
 
 from app import db
+from app.domain.regulations_helper import resolve_variables
 from app.helpers.errors import InvalidResourceError
 from app.helpers.regulations_utils import HOUR, ComputationResult
 from app.models.regulation_check import RegulationCheck, RegulationCheckType
@@ -9,7 +10,7 @@ from app.models.regulatory_alert import RegulatoryAlert
 NATINF_13152 = "NATINF 13152"
 
 
-def compute_regulations_per_week(user, week, submitter_type):
+def compute_regulations_per_week(user, business, week, submitter_type):
 
     for type, computation in WEEKLY_REGULATION_CHECKS.items():
         # IMPROVE: instead of using the latest, use the one valid for the day target
@@ -29,7 +30,7 @@ def compute_regulations_per_week(user, week, submitter_type):
                 f"Missing regulation check of type {type}"
             )
 
-        success, extra = computation(week, regulation_check)
+        success, extra = computation(week, regulation_check, business)
 
         if not success:
             regulatory_alert = RegulatoryAlert(
@@ -42,11 +43,10 @@ def compute_regulations_per_week(user, week, submitter_type):
             db.session.add(regulatory_alert)
 
 
-def check_max_worked_day_in_week(week, regulation_check):
-    MAXIMUM_DAY_WORKED_BY_WEEK = regulation_check.variables[
-        "MAXIMUM_DAY_WORKED_BY_WEEK"
-    ]
-    MINIMUM_WEEKLY_BREAK_IN_HOURS = regulation_check.variables[
+def check_max_worked_day_in_week(week, regulation_check, business):
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    MAXIMUM_DAY_WORKED_BY_WEEK = dict_variables["MAXIMUM_DAY_WORKED_BY_WEEK"]
+    MINIMUM_WEEKLY_BREAK_IN_HOURS = dict_variables[
         "MINIMUM_WEEKLY_BREAK_IN_HOURS"
     ]
     extra = dict(
