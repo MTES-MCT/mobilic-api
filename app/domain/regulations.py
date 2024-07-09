@@ -107,7 +107,6 @@ def clean_current_alerts(
     week_compute_end,
     submitter_type,
 ):
-
     condition_day = and_(
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.DAY
@@ -280,3 +279,22 @@ def mark_day_as_computed(user, day, submitter_type):
     )
 
     db.session.execute(stmt)
+
+
+def resolve_variables(dict_var, business):
+    res_dict = {}
+    for key, val in dict_var.items():
+        if isinstance(val, dict):
+            for transport_type, val2 in val.items():
+                if transport_type != business.transport_type.name:
+                    continue
+                if isinstance(val2, dict):
+                    for business_type, val3 in val2.items():
+                        if business_type != business.business_type.name:
+                            continue
+                        res_dict[key] = val3
+                else:
+                    res_dict[key] = val2
+        else:
+            res_dict[key] = val
+    return res_dict
