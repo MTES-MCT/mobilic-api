@@ -22,6 +22,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     make_protected_request,
     init_regulation_checks_data,
+    init_businesses_data,
 )
 
 
@@ -375,6 +376,7 @@ class TestApiAdminQueries(BaseTest):
         )
         self.company_unlinked_id = company_unlinked.id
         init_regulation_checks_data()
+        init_businesses_data()
 
     def test_create_vehicle_success(self):
         _create_vehicle_success(self)
