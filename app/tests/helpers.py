@@ -1,10 +1,12 @@
 import re
-import json
 from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime
 
+from freezegun import freeze_time
+
 from app import db
+from app.helpers.regulations_utils import insert_regulation_check
 from app.helpers.time import to_timestamp
 from app.models import ControllerUser, User, RegulationCheck, Business
 from app.models.activity import ActivityType
@@ -15,7 +17,6 @@ from app.tests import (
     test_post_graphql_protected,
     test_post_graphql_unexposed,
 )
-from freezegun import freeze_time
 
 INVALID_TOKEN = "Invalid token"
 INVALID_API_KEY_MESSAGE = "Invalid API Key"
@@ -1141,49 +1142,11 @@ def init_regulation_checks_data():
     if not regulation_check:
         regulation_checks = get_regulation_checks()
         for r in regulation_checks:
-            insert_regulation_check(r)
+            insert_regulation_check(
+                session=db.session, regulation_check_data=r
+            )
         regulation_check = RegulationCheck.query.first()
     return regulation_check
-
-
-def insert_regulation_check(regulation_data):
-    db.session.execute(
-        """
-            INSERT INTO regulation_check(
-              creation_time,
-              type,
-              label,
-              description,
-              date_application_start,
-              date_application_end,
-              regulation_rule,
-              variables,
-              unit
-            )
-            VALUES
-            (
-              NOW(),
-              :type,
-              :label,
-              :description,
-              :date_application_start,
-              :date_application_end,
-              :regulation_rule,
-              :variables,
-              :unit
-            )
-            """,
-        dict(
-            type=regulation_data.type,
-            label=regulation_data.label,
-            description=regulation_data.description,
-            date_application_start=regulation_data.date_application_start,
-            date_application_end=regulation_data.date_application_end,
-            regulation_rule=regulation_data.regulation_rule,
-            variables=json.dumps(regulation_data.variables),
-            unit=regulation_data.unit,
-        ),
-    )
 
 
 def init_businesses_data():

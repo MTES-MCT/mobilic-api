@@ -37,6 +37,7 @@ class RegulationCheckType(str, Enum):
     MAXIMUM_UNINTERRUPTED_WORK_TIME = "maximumUninterruptedWorkTime"
     MAXIMUM_WORKED_DAY_IN_WEEK = "maximumWorkedDaysInWeek"
     NO_LIC = "noLic"
+    MAXIMUM_WORK_IN_CALENDAR_WEEK = "maximumWorkInCalendarWeek"
     __description__ = """
 Enumération des valeurs suivantes.
 - "minimumDailyRest" : non-respect(s) du repos quotidien
@@ -45,6 +46,7 @@ Enumération des valeurs suivantes.
 - "maximumUninterruptedWorkTime" : dépassement(s) de la durée maximale du travail ininterrompu
 - "maximumWorkedDaysInWeek" : non-respect(s) du repos hebdomadaire
 - "noLic" : pas de LIC présenté lors du contrôle
+- "maximumWorkInCalendarWeek": Dépassement(s) de la durée maximale de travail hebdomadaire sur une semaine civile isolée
 """
 
 
