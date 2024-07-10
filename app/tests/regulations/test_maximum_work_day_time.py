@@ -173,11 +173,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
-        trv_business = Business.query.filter(
-            Business.business_type == BusinessType.FREQUENT.value
-        ).one_or_none()
-        self.employee.employments[0].business = trv_business
-        db.session.commit()
+        self.convert_employee_to_trv()
 
         how_many_days_ago = 2
 

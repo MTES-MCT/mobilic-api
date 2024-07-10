@@ -5,8 +5,9 @@ from flask.ctx import AppContext
 from app import app, db
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.models import Mission
+from app.models import Mission, Business
 from app.models.activity import ActivityType
+from app.models.business import BusinessType
 from app.seed import (
     CompanyFactory,
     UserFactory,
@@ -99,3 +100,17 @@ class RegulationsTest(BaseTest):
                 submitter=submitter, mission=mission, for_user=submitter
             )
         return mission
+
+    def convert_employee_to_trv(self):
+        trv_business = Business.query.filter(
+            Business.business_type == BusinessType.FREQUENT.value
+        ).one_or_none()
+        self.employee.employments[0].business = trv_business
+        db.session.commit()
+
+    def convert_employee_to_trm_short_distance(self):
+        trm_short_distance_business = Business.query.filter(
+            Business.business_type == BusinessType.SHORT_DISTANCE.value
+        ).one_or_none()
+        self.employee.employments[0].business = trm_short_distance_business
+        db.session.commit()
