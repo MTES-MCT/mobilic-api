@@ -177,6 +177,8 @@ class TestInvitations(BaseTest):
 
         self.check_has_pending_invite(new_employee, self.company)
 
+        self.assertEqual(new_employee.email, future_employee_email.lower())
+
     # TO BE REMOVED (used only to debug below test)
     def print_employments(self):
         print(f"-----")
