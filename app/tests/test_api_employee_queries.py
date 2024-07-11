@@ -22,6 +22,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     make_protected_request,
     init_regulation_checks_data,
+    init_businesses_data,
 )
 
 
@@ -328,6 +329,7 @@ class TestApiEmployeeQueries(BaseTest):
         )
         self.company_unlinked_id = company_unlinked.id
         init_regulation_checks_data()
+        init_businesses_data()
 
     def test_create_mission_fails_with_no_client_id(self):
         create_mission_response = _create_mission(

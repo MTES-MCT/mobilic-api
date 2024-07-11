@@ -24,13 +24,14 @@ from app.seed import (
     AuthenticatedUserContext,
 )
 from app.tests import BaseTest
-from app.tests.helpers import init_regulation_checks_data
+from app.tests.helpers import init_regulation_checks_data, init_businesses_data
 
 
 class TestCertificateBeCompliant(BaseTest):
     def setUp(self):
         super().setUp()
         init_regulation_checks_data()
+        init_businesses_data()
         self.company = CompanyFactory.create()
         self.admin = UserFactory.create(
             post__company=self.company, post__has_admin_rights=True
