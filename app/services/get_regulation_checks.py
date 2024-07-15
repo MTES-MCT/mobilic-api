@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
-from app.models.business import TransportType
+from app.models.business import TransportType, BusinessType
 from app.models.regulation_check import (
     RegulationCheckType,
     RegulationRule,
@@ -21,6 +21,26 @@ class RegulationCheckData:
     unit: UnitType
     date_application_start: date = datetime(2019, 11, 1)
     date_application_end: Optional[date] = None
+
+
+REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
+    id=6,
+    type=RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK,
+    label="Dépassement(s) de la durée maximale de travail hebdomadaire",
+    description="La durée de travail hebdomadaire sur une semaine isolée est limitée à 56 heures (article R.3312-50 du Code des transports).",
+    regulation_rule="weeklyWork",
+    variables=dict(
+        MAXIMUM_WEEKLY_WORK_IN_HOURS={
+            str(TransportType.TRM.name): {
+                str(BusinessType.LONG_DISTANCE.name): 56,
+                str(BusinessType.SHORT_DISTANCE.name): 52,
+                str(BusinessType.SHIPPING.name): 48,
+            },
+            str(TransportType.TRV.name): 48,
+        }
+    ),
+    unit=UnitType.WEEK,
+)
 
 
 def get_regulation_checks():
@@ -87,4 +107,5 @@ def get_regulation_checks():
             ),
             unit=UnitType.WEEK,
         ),
+        REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK,
     ]

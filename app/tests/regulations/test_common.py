@@ -129,7 +129,9 @@ class TestRegulationsCommon(RegulationsTest):
             variables=None,
             unit=UnitType.DAY,
         )
-        insert_regulation_check(expired_regulation_data)
+        insert_regulation_check(
+            session=db.session, regulation_check_data=expired_regulation_data
+        )
 
         mission = Mission(
             name="any mission",

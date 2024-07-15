@@ -167,6 +167,7 @@ def group_user_events_by_week(
                 "end": current_week + timedelta(days=6),
                 "worked_days": 0,
                 "days": [],
+                "work_duration_s": 0,
             }
         )
         current_week += timedelta(days=7)
@@ -191,6 +192,7 @@ def group_user_events_by_week(
                 "overlap_next_day": wd.is_last_mission_overlapping_with_next_day,
             }
         )
+        week["work_duration_s"] += wd.total_work_duration
 
     # compute rest duration for each week
     for week in weeks:
