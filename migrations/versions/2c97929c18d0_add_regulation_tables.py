@@ -11,6 +11,9 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm.session import Session
 
 import json
+
+from app.helpers.regulations_utils import insert_regulation_check
+from app.models.regulation_check import RegulationCheckType
 from app.services.get_regulation_checks import get_regulation_checks
 
 # revision identifiers, used by Alembic.
@@ -24,41 +27,9 @@ def fill_regulation_checks():
     session = Session(bind=op.get_bind())
     regulation_check_data = get_regulation_checks()
     for r in regulation_check_data:
-        session.execute(
-            sa.text(
-                """
-            INSERT INTO regulation_check(
-              creation_time,
-              type,
-              label,
-              description,
-              date_application_start,
-              regulation_rule,
-              variables,
-              unit
-            )
-            VALUES
-            (
-              NOW(),
-              :type,
-              :label,
-              :description,
-              TIMESTAMP '2019-11-01',
-              :regulation_rule,
-              :variables,
-              :unit
-            )
-            """
-            ),
-            dict(
-                type=r.type,
-                label=r.label,
-                description=r.description,
-                regulation_rule=r.regulation_rule,
-                variables=json.dumps(r.variables),
-                unit=r.unit,
-            ),
-        )
+        if r.type == RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK:
+            continue
+        insert_regulation_check(session=session, regulation_check_data=r)
 
 
 def upgrade():

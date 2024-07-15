@@ -8,8 +8,15 @@ from app.domain.regulations_per_day import NATINF_32083, NATINF_11292
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import HOUR
 from app.helpers.submitter_type import SubmitterType
-from app.models import Mission, RegulatoryAlert, User, RegulationCheck
+from app.models import (
+    Mission,
+    RegulatoryAlert,
+    User,
+    RegulationCheck,
+    Business,
+)
 from app.models.activity import ActivityType
+from app.models.business import BusinessType
 from app.models.regulation_check import RegulationCheckType
 from app.seed import UserFactory, EmploymentFactory, AuthenticatedUserContext
 from app.seed.helpers import get_time, get_date
@@ -94,6 +101,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
 
     def test_max_work_day_time_by_employee_no_night_work_failure(self):
         how_many_days_ago = 2
+
         self._log_and_validate_mission(
             mission_name="5h work + 8h drive",
             submitter=self.employee,
@@ -135,6 +143,65 @@ class TestMaximumWorkDayTime(RegulationsTest):
             get_time(how_many_days_ago, hour=21),
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_11292)
+
+    def test_max_work_day_time_depending_on_business(self):
+        how_many_days_ago = 5
+
+        ## By default, employee is TRM
+        self._log_and_validate_mission(
+            mission_name="11h - ok",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                ],
+            ],
+        )
+
+        # 11h  is fine, no alert
+        day_start = get_date(how_many_days_ago)
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNone(regulatory_alert)
+
+        self.convert_employee_to_trv()
+
+        how_many_days_ago = 2
+
+        ## now employee is TRV
+        self._log_and_validate_mission(
+            mission_name="11h - ko",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                ],
+            ],
+        )
+
+        # 11h  is above limit, alert
+        day_start = get_date(how_many_days_ago)
+        regulatory_alert = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(regulatory_alert)
 
     def test_max_work_day_time_by_admin_failure(self):
         how_many_days_ago = 2
