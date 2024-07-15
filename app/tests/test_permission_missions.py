@@ -17,6 +17,7 @@ from app.tests.helpers import (
     init_regulation_checks_data,
     make_authenticated_request,
     ApiRequests,
+    init_businesses_data,
 )
 
 
@@ -24,6 +25,7 @@ class TestPermissionMissions(BaseTest):
     def setUp(self):
         super().setUp()
         init_regulation_checks_data()
+        init_businesses_data()
 
         self.company = CompanyFactory.create()
         self.admin = UserFactory.create(

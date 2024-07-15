@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import desc
 
 from app import db
+from app.domain.regulations_helper import resolve_variables
 from app.helpers.errors import InvalidResourceError
 from app.helpers.regulations_utils import (
     HOUR,
@@ -46,7 +47,12 @@ def filter_work_days_to_current_and_next_day(
 
 
 def compute_regulations_per_day(
-    user, day, submitter_type, work_days_over_current_past_and_next_days, tz
+    user,
+    business,
+    day,
+    submitter_type,
+    work_days_over_current_past_and_next_days,
+    tz,
 ):
     day_start_time = to_datetime(day, tz_for_date=tz)
     day_end_time = day_start_time + timedelta(days=1)
@@ -80,6 +86,7 @@ def compute_regulations_per_day(
             activity_groups_to_take_into_account,
             regulation_check,
             day_start_time,
+            business,
         )
 
         if not success:
@@ -94,9 +101,10 @@ def compute_regulations_per_day(
 
 
 def check_min_daily_rest(
-    activity_groups, regulation_check, day_to_check_start_time
+    activity_groups, regulation_check, day_to_check_start_time, business
 ):
-    LONG_BREAK_DURATION_IN_HOURS = regulation_check.variables[
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    LONG_BREAK_DURATION_IN_HOURS = dict_variables[
         "LONG_BREAK_DURATION_IN_HOURS"
     ]
     extra = dict(min_daily_break_in_hours=LONG_BREAK_DURATION_IN_HOURS)
@@ -234,11 +242,13 @@ def get_long_breaks(activities, regulation_check):
     return long_breaks
 
 
-def check_max_work_day_time(activity_groups, regulation_check):
-    MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS = regulation_check.variables[
+def check_max_work_day_time(activity_groups, regulation_check, business):
+
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS = dict_variables[
         "MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS"
     ]
-    MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS = regulation_check.variables[
+    MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS = dict_variables[
         "MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS"
     ]
     extra = None
@@ -266,20 +276,22 @@ def check_max_work_day_time(activity_groups, regulation_check):
     return ComputationResult(success=True, extra=extra)
 
 
-def check_min_work_day_break(activity_groups, regulation_check):
-    MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN = regulation_check.variables[
+def check_min_work_day_break(activity_groups, regulation_check, business):
+
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN = dict_variables[
         "MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN"
     ]
-    MINIMUM_DURATION_WORK_IN_HOURS_1 = regulation_check.variables[
+    MINIMUM_DURATION_WORK_IN_HOURS_1 = dict_variables[
         "MINIMUM_DURATION_WORK_IN_HOURS_1"
     ]
-    MINIMUM_DURATION_WORK_IN_HOURS_2 = regulation_check.variables[
+    MINIMUM_DURATION_WORK_IN_HOURS_2 = dict_variables[
         "MINIMUM_DURATION_WORK_IN_HOURS_2"
     ]
-    MINIMUM_DURATION_BREAK_IN_MIN_1 = regulation_check.variables[
+    MINIMUM_DURATION_BREAK_IN_MIN_1 = dict_variables[
         "MINIMUM_DURATION_BREAK_IN_MIN_1"
     ]
-    MINIMUM_DURATION_BREAK_IN_MIN_2 = regulation_check.variables[
+    MINIMUM_DURATION_BREAK_IN_MIN_2 = dict_variables[
         "MINIMUM_DURATION_BREAK_IN_MIN_2"
     ]
     # IMPROVE: we may store a map key-value for these period values
@@ -336,12 +348,14 @@ def check_min_work_day_break(activity_groups, regulation_check):
     return ComputationResult(success=True)
 
 
-def check_max_uninterrupted_work_time(activity_groups, regulation_check):
-    MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS = (
-        regulation_check.variables[
-            "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
-        ]
-    )
+def check_max_uninterrupted_work_time(
+    activity_groups, regulation_check, business
+):
+
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS = dict_variables[
+        "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
+    ]
 
     # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
@@ -398,20 +412,20 @@ DAILY_REGULATION_CHECKS = {
         filter_work_days_to_current_and_next_day,
     ],
     RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
-        lambda activity_groups, regulation_check, _: check_max_work_day_time(
-            activity_groups, regulation_check
+        lambda activity_groups, regulation_check, _, business: check_max_work_day_time(
+            activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],
     RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
-        lambda activity_groups, regulation_check, _: check_min_work_day_break(
-            activity_groups, regulation_check
+        lambda activity_groups, regulation_check, _, business: check_min_work_day_break(
+            activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],
     RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
-        lambda activity_groups, regulation_check, _: check_max_uninterrupted_work_time(
-            activity_groups, regulation_check
+        lambda activity_groups, regulation_check, _, business: check_max_uninterrupted_work_time(
+            activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],

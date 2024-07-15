@@ -4,6 +4,7 @@ from app import db
 from app.domain.mission import get_mission_start_and_end_from_activities
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
+from app.domain.user import get_current_employment_in_company
 from app.helpers.authorization import AuthorizationError
 from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
@@ -95,8 +96,14 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
     )
 
     if not mission.is_holiday():
+        employment = get_current_employment_in_company(
+            user=for_user, company=mission.company
+        )
         _compute_regulations_after_validation(
-            activities_to_validate, is_admin_validation, for_user
+            activities_to_validate,
+            is_admin_validation,
+            for_user,
+            business=employment.business if employment else None,
         )
 
     return validation
@@ -132,7 +139,7 @@ def _get_or_create_validation(
 
 
 def _compute_regulations_after_validation(
-    activities_to_validate, is_admin_validation, user
+    activities_to_validate, is_admin_validation, user, business=None
 ):
     mission_start, mission_end = get_mission_start_and_end_from_activities(
         activities=activities_to_validate, user=user
@@ -145,4 +152,5 @@ def _compute_regulations_after_validation(
         period_start=mission_start,
         period_end=mission_end,
         submitter_type=submitter_type,
+        business=business,
     )

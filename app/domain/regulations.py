@@ -1,8 +1,9 @@
-from datetime import date, datetime, timedelta, timezone
-from sqlalchemy.orm import aliased
+from datetime import timedelta
+
+from dateutil.tz import gettz
 from sqlalchemy import or_, and_
 
-from app import app, db
+from app import db
 from app.domain.regulations_per_day import (
     compute_regulations_per_day,
     filter_work_days_to_current_day,
@@ -21,14 +22,16 @@ from app.helpers.time import (
     to_datetime,
     get_uninterrupted_datetime_ranges,
 )
-from app.models import RegulationCheck
+from app.models import RegulationCheck, Business
+from app.models.business import BusinessType
 from app.models.regulation_check import UnitType
 from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
-from dateutil.tz import gettz
 
 
-def compute_regulations(user, period_start, period_end, submitter_type):
+def compute_regulations(
+    user, period_start, period_end, submitter_type, business=None
+):
     period_start = period_start - timedelta(days=1)
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
@@ -60,10 +63,16 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         include_holidays=False,
     )
 
+    if business is None:
+        business = Business.query.filter(
+            Business.business_type == BusinessType.SHIPPING
+        ).one_or_none()
+
     # Compute daily rules for each day
     for day in get_dates_range(period_start, period_end):
         compute_regulations_per_day(
             user,
+            business,
             day,
             submitter_type,
             work_days_over_current_past_and_next_days,
@@ -82,7 +91,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         tz=user_timezone,
     )
     for week in weeks:
-        compute_regulations_per_week(user, week, submitter_type)
+        compute_regulations_per_week(user, business, week, submitter_type)
 
 
 def activity_to_compute_in_day(
@@ -107,7 +116,6 @@ def clean_current_alerts(
     week_compute_end,
     submitter_type,
 ):
-
     condition_day = and_(
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.DAY

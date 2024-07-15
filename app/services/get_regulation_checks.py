@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
+
+from app.models.business import TransportType
 from app.models.regulation_check import (
     RegulationCheckType,
     RegulationRule,
@@ -42,7 +44,10 @@ def get_regulation_checks():
             regulation_rule="dailyWork",
             variables=dict(
                 MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS=10,
-                MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS=12,
+                MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS={
+                    str(TransportType.TRM.name): 12,
+                    str(TransportType.TRV.name): 10,
+                },
             ),
             unit=UnitType.DAY,
         ),
