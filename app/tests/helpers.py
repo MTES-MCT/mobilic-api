@@ -1193,7 +1193,6 @@ def init_businesses_data():
         for b in businesses:
             insert_businesses(b)
         business = Business.query.first()
-    return business
 
 
 def insert_businesses(business_data):
