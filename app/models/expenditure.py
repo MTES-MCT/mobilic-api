@@ -22,7 +22,7 @@ class ExpenditureType(str, Enum):
 Enumération des valeurs suivantes.
 - "day_meal" : repas midi
 - "night_meal" : repas soir
-- "sleep_over" : découché
+- "sleep_over" : découcher
 - "snack" : casse-croûte
 """
 

@@ -83,7 +83,7 @@ def format_expenditure_label(expenditure_type):
     if expenditure_type == ExpenditureType.NIGHT_MEAL:
         return "repas soir"
     if expenditure_type == ExpenditureType.SLEEP_OVER:
-        return "découché(s)"
+        return "découcher(s)"
 
 
 def format_expenditures_string_from_count(expenditures_count):
