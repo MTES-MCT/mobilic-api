@@ -1184,6 +1184,40 @@ def insert_businesses(business_data):
     )
 
 
+def init_businesses_data():
+    business = Business.query.first()
+    if not business:
+        businesses = get_businesses()
+        for b in businesses:
+            insert_businesses(b)
+        business = Business.query.first()
+
+
+def insert_businesses(business_data):
+    db.session.execute(
+        """
+            INSERT INTO business(
+              creation_time,
+              transport_type,
+              business_type,
+              id
+            )
+            VALUES
+            (
+              NOW(),
+              :transport_type,
+              :business_type,
+              :id
+            )
+            """,
+        dict(
+            transport_type=business_data.transport_type,
+            business_type=business_data.business_type,
+            id=business_data.id,
+        ),
+    )
+
+
 class WorkPeriod:
     def __init__(
         self, start_time, end_time=None, user=None, activity_type=None
