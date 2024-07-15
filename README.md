@@ -125,7 +125,7 @@ Il faut ensuite lancer le worker celery:
 ```
 DOTENV_FILE=.env/.env.local venv/bin/celery -A app.celery worker --loglevel=info 
 ```
-En développement, penser à relancer le worker si l'action qu'il est censé effectuer a changée.
+En développement, penser à relancer le worker si son implémentation change.
 
 ## Infos complémentaires
 
