@@ -24,7 +24,7 @@ class RegulationCheckData:
 
 
 REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
-    id=7,
+    id=6,
     type=RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK,
     label="Dépassement(s) de la durée maximale de travail hebdomadaire",
     description="La durée de travail hebdomadaire sur une semaine isolée est limitée à 56 heures (article R.3312-50 du Code des transports).",
