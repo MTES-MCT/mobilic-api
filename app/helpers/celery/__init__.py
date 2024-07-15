@@ -3,11 +3,13 @@ import base64
 from celery import Celery
 
 from app import app, mailer, Company
+from app.domain.permissions import ConsultationScope
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.xls.companies import (
     get_one_excel_file,
     get_archive_excel_file,
 )
+from app.models import User
 
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
@@ -15,9 +17,12 @@ celery.conf.update(app.config)
 
 @celery.task()
 def async_export_excel(
-    scope, admin, users, company_ids, min_date, max_date, one_file_by_employee
+    admin_id, user_ids, company_ids, min_date, max_date, one_file_by_employee
 ):
     with app.app_context():
+        admin = User.query.get(admin_id)
+        users = User.query.filter(User.id.in_(user_ids)).all()
+        scope = ConsultationScope(company_ids=company_ids)
         if one_file_by_employee:
             user_wdays_batches = []
             for user in users:
@@ -70,7 +75,7 @@ def async_export_excel(
         base64_content = base64.b64encode(file_content).decode("utf-8")
         file_obj["Base64Content"] = base64_content
 
-    try:
-        mailer.send_admin_export_excel(admin=admin, file=file_obj)
-    except Exception as e:
-        app.logger.exception(e)
+        try:
+            mailer.send_admin_export_excel(admin=admin, file=file_obj)
+        except Exception as e:
+            app.logger.exception(e)

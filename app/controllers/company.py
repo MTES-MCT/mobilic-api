@@ -602,14 +602,12 @@ def download_activity_report(
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
     )
-    scope = ConsultationScope(company_ids=company_ids)
 
     from app.helpers.celery import async_export_excel
 
-    async_export_excel(
-        scope=scope,
-        admin=current_user,
-        users=users,
+    async_export_excel.delay(
+        admin_id=current_user.id,
+        user_ids=[user.id for user in users],
         company_ids=company_ids,
         min_date=min_date,
         max_date=max_date,
