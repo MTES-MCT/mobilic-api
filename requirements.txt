@@ -22,7 +22,7 @@ cffi==1.14.6
 cfgv==2.0.1
 chardet==3.0.4
 charset-normalizer==2.0.6
-click==8.0.1
+click==8.1.2
 cryptography==41.0.6
 cssselect2==0.7.0
 decorator==4.4.1
@@ -84,7 +84,7 @@ pyparsing==2.4.7
 PyPDF3==1.0.6
 python-bidi==0.4.2
 python-cas==1.6.0
-python-dateutil==2.8.1
+python-dateutil==2.8.2
 python-dotenv==0.15.0
 python-editor==1.0.4
 python-utils==3.3.3
