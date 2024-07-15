@@ -119,7 +119,7 @@ Par exemple l'envoi des exports excel gestionnaire (envoi de l'export par email 
 Un service `redis` est défini dans le `docker-compose.yml`. On peut inspecter les logs pour voir s'il fonctionne bien 
 avec la commande
 ```
-docker logs --tail 1000 -f e2cd84b922b428f4c0bbe73a3419c6c404c50ab74c8240e553307d99ecd77e3f
+docker logs --tail 1000 -f mobilic-api-redis-1
 ```
 Il faut ensuite lancer le worker celery:
 ```
