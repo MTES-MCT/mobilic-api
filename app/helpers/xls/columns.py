@@ -281,7 +281,7 @@ COLUMN_EXPENDITURE_NIGHT_MEAL = ExcelColumn(
     True,
 )
 COLUMN_EXPENDITURE_SLEEP_OVER = ExcelColumn(
-    "Découché",
+    "Découcher",
     lambda wday: wday.expenditures.get("sleep_over", 0),
     lambda wday: get_center_format(),
     13,
