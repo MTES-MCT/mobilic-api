@@ -87,7 +87,7 @@ def _get_summary_columns(
                 ),
                 Column(
                     name=ExpenditureType.SLEEP_OVER.value,
-                    label="Découché",
+                    label="Découcher",
                     color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
@@ -227,7 +227,7 @@ def _get_detail_columns(
                 ),
                 Column(
                     name=ExpenditureType.SLEEP_OVER.value,
-                    label="Découché",
+                    label="Découcher",
                     color=COLOR_EXPENDITURES,
                     secondary=True,
                 ),
