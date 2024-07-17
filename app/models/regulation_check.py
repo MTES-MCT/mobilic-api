@@ -2,6 +2,7 @@ from enum import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
+from app.domain.regulations_helper import resolve_variables
 from app.models.base import BaseModel
 from app.models.utils import enum_column
 
@@ -55,12 +56,20 @@ class RegulationCheck(BaseModel):
 
     type = enum_column(RegulationCheckType, nullable=False)
     label = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.TEXT, nullable=True)
     date_application_start = db.Column(db.Date, nullable=False)
     date_application_end = db.Column(db.Date, nullable=True)
     regulation_rule = enum_column(RegulationRule, nullable=False)
     variables = db.Column(JSONB(none_as_null=True), nullable=True)
     unit = enum_column(UnitType, nullable=False)
+
+    @property
+    def resolved_variables(self):
+        from app.domain.regulations import get_default_business
+
+        business = self.business
+        if business is None:
+            business = get_default_business()
+        return resolve_variables(self.variables, business)
 
     def __repr__(self):
         return f"<RegulationCheck [{self.id}] : {self.type}>"
