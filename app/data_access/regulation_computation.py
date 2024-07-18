@@ -85,7 +85,10 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
                 RegulatoryAlert.regulation_check_id == regulation_check.id
             ).one_or_none()
             setattr(regulation_check, "alert", regulatory_alert)
-            setattr(regulation_check, "business", current_employment.business)
+            if current_employment:
+                setattr(
+                    regulation_check, "business", current_employment.business
+                )
             regulation_checks_extended.append(regulation_check)
 
         return regulation_checks_extended

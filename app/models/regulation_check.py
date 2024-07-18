@@ -66,7 +66,7 @@ class RegulationCheck(BaseModel):
     def resolved_variables(self):
         from app.domain.regulations import get_default_business
 
-        business = self.business
+        business = getattr(self, "business", None)
         if business is None:
             business = get_default_business()
         return resolve_variables(self.variables, business)
