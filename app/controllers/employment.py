@@ -256,7 +256,7 @@ class CreateEmployment(AuthenticatedMutation):
                 user_email = user_email.lower()
                 user = (
                     User.query.options(selectinload(User.employments))
-                    .filter(func.lower(User.email) == func.lower(user_email))
+                    .filter(func.lower(User.email) == user_email)
                     .one_or_none()
                 )
             if user:
