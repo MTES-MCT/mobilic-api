@@ -484,6 +484,11 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_had_enough_break_last_mission(self, info):
         return had_user_enough_break_last_mission(self)
 
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'user_agreement_status' of user object. The field is only accessible to the user himself.",
+    )
     def resolve_user_agreement_status(self, info):
         return UserAgreement.get_or_create(user_id=self.id)
 

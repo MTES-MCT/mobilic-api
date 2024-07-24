@@ -66,3 +66,10 @@ class UserAgreement(BaseModel):
         db.session.commit()
 
         return new_user_agreement
+
+    @staticmethod
+    def get(user_id, cgu_version):
+        return UserAgreement.query.filter(
+            UserAgreement.user_id == user_id,
+            UserAgreement.cgu_version == cgu_version,
+        ).one_or_none()
