@@ -34,3 +34,7 @@ class UserAgreement(BaseModel):
     expires_at = db.Column(db.DateTime)
     has_transferred_data = db.Column(db.DateTime)
     is_blacklisted = db.Column(db.Boolean)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "cgu_version", name="unique_user_cgu"),
+    )
