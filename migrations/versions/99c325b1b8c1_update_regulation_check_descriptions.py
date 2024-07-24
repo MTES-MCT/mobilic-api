@@ -19,18 +19,7 @@ depends_on = None
 
 
 def upgrade():
-    session = Session(bind=op.get_bind())
-    regulation_check_data = get_regulation_checks()
-    for r in regulation_check_data:
-        session.execute(
-            sa.text(
-                "UPDATE regulation_check SET description = :description WHERE type = :type;"
-            ),
-            dict(
-                description=r.description,
-                type=r.type,
-            ),
-        )
+    pass
 
 
 def downgrade():

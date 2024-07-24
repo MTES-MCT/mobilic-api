@@ -21,7 +21,6 @@ def insert_regulation_check(session, regulation_check_data):
               creation_time,
               type,
               label,
-              description,
               date_application_start,
               regulation_rule,
               variables,
@@ -32,7 +31,6 @@ def insert_regulation_check(session, regulation_check_data):
               NOW(),
               :type,
               :label,
-              :description,
               TIMESTAMP '2019-11-01',
               :regulation_rule,
               :variables,
@@ -43,7 +41,6 @@ def insert_regulation_check(session, regulation_check_data):
         dict(
             type=regulation_check_data.type,
             label=regulation_check_data.label,
-            description=regulation_check_data.description,
             regulation_rule=regulation_check_data.regulation_rule,
             variables=json.dumps(regulation_check_data.variables),
             unit=regulation_check_data.unit,
