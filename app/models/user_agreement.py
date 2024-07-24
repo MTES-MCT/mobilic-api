@@ -17,6 +17,9 @@ class UserAgreementStatus(str, Enum):
     """
 
 
+CGU_INITIAL_VERSION = "v1.0"
+
+
 class UserAgreement(BaseModel):
     backref_base_name = "user_agreements"
 
