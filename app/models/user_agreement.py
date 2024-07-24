@@ -1,11 +1,11 @@
 from sqlalchemy.orm import backref
 from app import db
+from app.models.base import BaseModel
 
 
-class UserAgreement(db.Model):
+class UserAgreement(BaseModel):
     backref_base_name = "user_agreements"
 
-    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
     )
@@ -18,7 +18,7 @@ class UserAgreement(db.Model):
     )
     status = db.Column(db.String(10), nullable=False)
     expires_at = db.Column(db.DateTime)
-    have_transfer_data = db.Column(db.DateTime)
+    has_transferred_data = db.Column(db.DateTime)
     is_blacklisted = db.Column(db.Boolean)
 
     __table_args__ = (
