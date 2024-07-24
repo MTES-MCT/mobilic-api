@@ -8,6 +8,7 @@ from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
+from app.data_access.user_agreement import UserAgreementOutput
 from app.domain.mission import had_user_enough_break_last_mission
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
@@ -35,7 +36,7 @@ from app.helpers.time import (
     max_or_none,
     min_or_none,
 )
-from app.models import User, Company, Activity
+from app.models import User, Company, Activity, UserAgreement
 from app.models.controller_control import ControllerControl
 from app.models.user_survey_actions import UserSurveyActionsOutput
 
@@ -168,6 +169,10 @@ class UserOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Retourne uniquement les entreprises correspondant à ces ids.",
         ),
+    )
+    user_agreement_status = graphene.Field(
+        lambda: UserAgreementOutput,
+        description="Indique si l'utilisateur a accepté ou non les CGU en vigueur",
     )
 
     disabled_warnings = graphene.List(
@@ -478,6 +483,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_had_enough_break_last_mission(self, info):
         return had_user_enough_break_last_mission(self)
+
+    def resolve_user_agreement_status(self, info):
+        return UserAgreement.get_or_create(user_id=self.id)
 
 
 from app.data_access.company import CompanyOutput

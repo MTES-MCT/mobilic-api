@@ -1,7 +1,8 @@
+import datetime
 from enum import Enum
 
 from sqlalchemy.orm import backref
-from app import db
+from app import db, app
 from app.models.base import BaseModel
 from app.models.utils import enum_column
 
@@ -41,3 +42,27 @@ class UserAgreement(BaseModel):
     __table_args__ = (
         db.UniqueConstraint("user_id", "cgu_version", name="unique_user_cgu"),
     )
+
+    @staticmethod
+    def get_or_create(user_id, cgu_version=""):
+        if cgu_version == "":
+            cgu_version = app.config["CGU_VERSION"]
+
+        existing_user_agreement = UserAgreement.query.filter(
+            UserAgreement.user_id == user_id,
+            UserAgreement.cgu_version == cgu_version,
+        ).one_or_none()
+        if existing_user_agreement:
+            return existing_user_agreement
+
+        new_user_agreement = UserAgreement(
+            user_id=user_id,
+            cgu_version=cgu_version,
+            status=UserAgreementStatus.PENDING,
+            creation_time=datetime.datetime.now(),
+            is_blacklisted=False,
+        )
+        db.session.add(new_user_agreement)
+        db.session.commit()
+
+        return new_user_agreement
