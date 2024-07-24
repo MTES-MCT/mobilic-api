@@ -21,7 +21,7 @@ class UserAgreement(BaseModel):
     backref_base_name = "user_agreements"
 
     user_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
+        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
     )
     user = db.relationship(
         "User", backref=backref("user_agreements", lazy=True)
