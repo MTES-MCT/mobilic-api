@@ -119,9 +119,10 @@ class RejectCgu(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             current_user_agreement.status = UserAgreementStatus.REJECTED
             current_user_agreement.is_blacklisted = False
-            current_user_agreement.expires_at = (
-                datetime.date.today()
-                + datetime.timedelta(days=CGU_DELETE_ACCOUNT_DELAY_IN_DAYS)
+            current_user_agreement.expires_at = datetime.datetime.combine(
+                datetime.datetime.today()
+                + datetime.timedelta(days=CGU_DELETE_ACCOUNT_DELAY_IN_DAYS),
+                datetime.time.min,
             )
             current_user_agreement.answer_date = datetime.datetime.now()
         return current_user_agreement
