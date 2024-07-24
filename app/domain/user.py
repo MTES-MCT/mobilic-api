@@ -47,7 +47,7 @@ def create_user(
     user = User(
         first_name=first_name,
         last_name=last_name,
-        email=email,
+        email=email.lower(),
         password=password,
         password_update_time=datetime.now(),
         ssn=ssn,
