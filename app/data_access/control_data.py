@@ -20,7 +20,6 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulationCheck
 from app.models.controller_control import ControllerControl, ControlType
 
 
@@ -175,11 +174,16 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             sanction = infraction.get("sanction")
             label = regulation_check.label if regulation_check else ""
             description = (
-                regulation_check.description if regulation_check else ""
+                regulation_check.resolved_variables["DESCRIPTION"]
+                if regulation_check
+                else ""
             )
             if sanction == NATINF_32083:
                 label = label.replace("quotidien", "de nuit")
-                description = f"{description}. Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures"
+                night_work_description = regulation_check.resolved_variables[
+                    "NIGHT_WORK_DESCRIPTION"
+                ]
+                description = f"{description} {night_work_description}"
 
             extra = infraction.get("extra")
             convert_extra_datetime_to_user_tz(extra, self.user_id)

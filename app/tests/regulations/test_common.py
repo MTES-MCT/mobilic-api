@@ -122,7 +122,6 @@ class TestRegulationsCommon(RegulationsTest):
             id=6,
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
-            description="Règlementation expirée",
             date_application_start=get_datetime_tz(2018, 1, 1),
             date_application_end=get_datetime_tz(2019, 11, 1),
             regulation_rule="dailyRest",
