@@ -879,9 +879,9 @@ class Mailer:
                     type_=EmailType.EMPLOYEE_REJECTS_CGU,
                     employee_full_name=employee.display_name,
                     employee_id=employee.id,
-                    release_date=date(2024, 8, 1),
+                    release_date=app.config["CGU_RELEASE_DATE"],
                 ),
-                _apply_whitelist_if_not_prod=True,
+                _apply_whitelist_if_not_prod=False,
             )
 
 

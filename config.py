@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 from dotenv import load_dotenv
 import os
 
@@ -94,6 +94,9 @@ class Config:
         "BREVO_COMPANY_SUBSCRIBE_LIST", 19
     )
     CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
+    CGU_RELEASE_DATE = datetime.strptime(
+        os.environ.get("CGU_RELEASE_DATE", "2024-08-01"), "%Y-%m-%d"
+    ).date()
 
 
 class DevConfig(Config):
