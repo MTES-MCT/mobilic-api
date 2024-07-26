@@ -60,8 +60,9 @@ from app.helpers.tachograph import (
 )
 from app.helpers.time import min_or_none, max_or_none
 from app.models.queries import add_mission_relations
+from app.models.user_agreement import UserAgreementStatus
 from app.templates.filters import full_format_day
-from app.models import User, Mission
+from app.models import User, Mission, UserAgreement
 from app import app, db, mailer
 from app.models.email import Email
 
@@ -137,6 +138,10 @@ class UserSignUp(graphene.Mutation):
                 user.subscribe_to_contact_list(newsletter_to_subscribe_to)
             except Exception as e:
                 app.logger.exception(e)
+
+        UserAgreement.get_or_create(
+            user_id=user.id, initial_status=UserAgreementStatus.ACCEPTED
+        )
 
         tokens = create_access_tokens_for(user)
 
