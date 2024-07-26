@@ -5,10 +5,7 @@
       "size": "2XL"
     },
     {
-      "command": "0 3 * * * flask send_onboarding_emails"
-    },
-    {
-      "command": "30 3 * * * flask send_never_active_companies_emails"
+      "command": "0 3 * * * flask send_daily_emails"
     },
     {
       "command": "0 5 * * * flask load_company_stats"
