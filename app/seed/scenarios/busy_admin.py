@@ -25,9 +25,9 @@ from app.seed.helpers import (
     DEFAULT_PASSWORD,
 )
 
-NB_COMPANIES = 2
-NB_EMPLOYEES = 2
-NB_HISTORY = 7
+NB_COMPANIES = 1
+NB_EMPLOYEES = 300
+NB_HISTORY = 120
 INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
 
