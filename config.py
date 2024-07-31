@@ -93,6 +93,7 @@ class Config:
     BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
         "BREVO_COMPANY_SUBSCRIBE_LIST", 19
     )
+    CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
 
 
 class DevConfig(Config):
