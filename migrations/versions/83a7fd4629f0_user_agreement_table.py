@@ -71,23 +71,25 @@ def upgrade():
 
     # Insert one row for each user
     session = Session(bind=op.get_bind())
-    users = session.execute(sa.text("""SELECT id FROM "user" u """)).fetchall()
-    for user in users:
-        session.execute(
-            sa.text(
-                """
-                INSERT INTO user_agreement (user_id, cgu_version, creation_time, answer_date, status, is_blacklisted)
-                VALUES (:user_id, :cgu_version, :creation_time, :answer_date, :status, :is_blacklisted)
-                """
-            ).params(
-                user_id=user.id,
-                cgu_version=CGU_INITIAL_VERSION,
-                creation_time=INITIAL_TIME,
-                answer_date=INITIAL_TIME,
-                status="accepted",
-                is_blacklisted=False,
-            )
+    session.execute(
+        sa.text(
+            """
+            INSERT INTO user_agreement (user_id, cgu_version, creation_time, answer_date, status, is_blacklisted)
+            SELECT 
+                u.id AS user_id,
+                :cgu_version AS cgu_version,
+                :creation_time AS creation_time,
+                :answer_date AS answer_date,
+                'accepted' AS status,
+                FALSE AS is_blacklisted
+            FROM "user" u
+            """
+        ).params(
+            cgu_version=CGU_INITIAL_VERSION,
+            creation_time=INITIAL_TIME,
+            answer_date=INITIAL_TIME,
         )
+    )
 
 
 def downgrade():
