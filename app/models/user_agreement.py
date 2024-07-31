@@ -19,6 +19,7 @@ class UserAgreementStatus(str, Enum):
 
 
 CGU_INITIAL_VERSION = "v1.0"
+CGU_DELETE_ACCOUNT_DELAY_IN_DAYS = 10
 
 
 class UserAgreement(BaseModel):

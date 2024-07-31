@@ -9,7 +9,10 @@ from app.domain.permissions import only_self
 from app.helpers.errors import InvalidParamsError
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import UserAgreement
-from app.models.user_agreement import UserAgreementStatus
+from app.models.user_agreement import (
+    UserAgreementStatus,
+    CGU_DELETE_ACCOUNT_DELAY_IN_DAYS,
+)
 
 
 class UserAgreementOutput(BaseSQLAlchemyObjectType):
@@ -76,5 +79,45 @@ class AcceptCgu(AuthenticatedMutation):
             current_user_agreement.status = UserAgreementStatus.ACCEPTED
             current_user_agreement.is_blacklisted = False
             current_user_agreement.expired_at = None
+            current_user_agreement.answer_date = datetime.datetime.now()
+        return current_user_agreement
+
+
+class RejectCgu(AuthenticatedMutation):
+    class Arguments:
+        user_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'utilisateur qui refuse les CGU",
+        )
+        cgu_version = graphene.String(
+            required=True,
+            description="Version des CGU que refuse l'utilisateur",
+        )
+
+    Output = UserAgreementOutput
+
+    @classmethod
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda *args, **kwargs: kwargs["user_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, user_id, cgu_version):
+        current_user_agreement = UserAgreement.get(
+            user_id=user_id, cgu_version=cgu_version
+        )
+        if current_user_agreement is None:
+            raise InvalidParamsError(
+                f"User agreement does not exist for user_id={user_id} and cgu_version={cgu_version}"
+            )
+
+        with atomic_transaction(commit_at_end=True):
+            current_user_agreement.status = UserAgreementStatus.REJECTED
+            current_user_agreement.is_blacklisted = False
+            current_user_agreement.expires_at = datetime.datetime.combine(
+                datetime.datetime.today()
+                + datetime.timedelta(days=CGU_DELETE_ACCOUNT_DELAY_IN_DAYS),
+                datetime.time.min,
+            )
             current_user_agreement.answer_date = datetime.datetime.now()
         return current_user_agreement

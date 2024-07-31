@@ -107,7 +107,7 @@ from app.controllers.vehicle import (
     EditVehicle,
     TerminateVehicle,
 )
-from app.data_access.user_agreement import AcceptCgu
+from app.data_access.user_agreement import AcceptCgu, RejectCgu
 from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
 
@@ -169,6 +169,7 @@ class Account(graphene.ObjectType):
     resend_activation_email = ResendActivationEmail.Field()
     disable_warning = DisableWarning.Field()
     accept_cgu = AcceptCgu.Field()
+    reject_cgu = RejectCgu.Field()
 
 
 class Employments(graphene.ObjectType):
