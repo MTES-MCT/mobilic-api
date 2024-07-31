@@ -63,6 +63,8 @@ import sentry_sdk
 
 from app.services.exports import export_activity_report
 
+from app.models.user import User
+
 
 class CompanySignUpOutput(graphene.ObjectType):
     company = graphene.Field(CompanyOutput)
@@ -615,6 +617,71 @@ def download_activity_report(
     )
 
     return jsonify({"result": "ok"}), 200
+
+
+@app.route("/companies/download_data", methods=["POST"])
+@doc(description="Téléchargement des données utilisateur au format ZIP")
+@use_kwargs(
+    {
+        "company_ids": fields.List(
+            fields.Int(), required=True, validate=lambda l: len(l) > 0
+        ),
+        "user_id": fields.Int(required=True),
+        "min_date": fields.Date(required=False),
+        "max_date": fields.Date(required=False),
+    },
+    apply=True,
+)
+def download_user_data(company_ids, user_id, min_date=None, max_date=None):
+    user_ids = [user_id]
+
+    # Utiliser la fonction pour récupérer la liste des utilisateurs autorisés
+    users = check_auth_and_get_users_list(
+        company_ids, user_ids, min_date, max_date
+    )
+
+    user = users[0]
+    min_date = min_date if min_date else user.creation_date
+    max_date = max_date if max_date else datetime.now()
+
+    user_wdays_batches = [
+        (
+            user,
+            group_user_events_by_day_with_limit(
+                user,
+                from_date=min_date,
+                until_date=max_date,
+                include_dismissed_or_empty_days=True,
+            )[0],
+        )
+    ]
+
+    additional_users = []
+    for company_id in company_ids:
+        company_users = User.query.filter(User.company_id == company_id).all()
+        for company_user in company_users:
+            if (
+                company_user.id != user.id
+                and company_user not in additional_users
+            ):
+                additional_users.append(company_user)
+                user_wdays_batches.append(
+                    (
+                        company_user,
+                        group_user_events_by_day_with_limit(
+                            company_user,
+                            from_date=min_date,
+                            until_date=max_date,
+                            include_dismissed_or_empty_days=True,
+                        )[0],
+                    )
+                )
+
+    companies = Company.query.filter(Company.id.in_(company_ids)).all()
+
+    return send_work_days_as_excel(
+        user_wdays_batches, companies, min_date, max_date
+    )
 
 
 class TachographGenerationScopeSchema(TachographBaseOptionsSchema):
