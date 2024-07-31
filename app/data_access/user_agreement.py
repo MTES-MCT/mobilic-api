@@ -16,13 +16,8 @@ class UserAgreementOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = UserAgreement
         only_fields = (
-            "user_id",
-            "user",
             "cgu_version",
-            "status",
-            "has_transferred_data",
             "is_blacklisted",
-            "expires_at",
             "answer_date",
         )
 
