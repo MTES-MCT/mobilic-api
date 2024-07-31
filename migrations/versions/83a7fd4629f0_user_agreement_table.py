@@ -6,8 +6,8 @@ Create Date: 2024-07-24 12:02:58.929733
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.orm.session import Session
 
 from app.services.init_user_agreement import init_user_agreement
