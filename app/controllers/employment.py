@@ -253,9 +253,10 @@ class CreateEmployment(AuthenticatedMutation):
                         "Invalid user id", should_alert_team=False
                     )
             if user_email:
+                user_email = user_email.lower()
                 user = (
                     User.query.options(selectinload(User.employments))
-                    .filter(func.lower(User.email) == func.lower(user_email))
+                    .filter(func.lower(User.email) == user_email)
                     .one_or_none()
                 )
             if user:
@@ -280,7 +281,7 @@ class CreateEmployment(AuthenticatedMutation):
                 user=user,
                 user_id=user_id,
                 invite_token=invite_token,
-                email=employment_input.get("mail"),
+                email=user_email,
                 team_id=team_id,
                 hide_email=user_email is None,
                 business=company.business,
