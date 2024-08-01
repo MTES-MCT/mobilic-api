@@ -63,68 +63,68 @@ class SeedScenario:
 
 
 scenarios = [
-    # SeedScenario(
-    #     "Rules breachers",
-    #     f"Creates a company where everybody break rules !",
-    #     [BREACH_EMPLOYEE_EMAIL],
-    #     run_scenario_breach_rules,
-    # ),
-    # SeedScenario(
-    #     "Certificated company",
-    #     "Creates a company which should be compliant enough to get a Mobilic certificate",
-    #     [CERTIFICATED_ADMIN_EMAIL, CERTIFICATED_EMPLOYEE_EMAIL],
-    #     run_scenario_certificated,
-    # ),
+    SeedScenario(
+        "Rules breachers",
+        f"Creates a company where everybody break rules !",
+        [BREACH_EMPLOYEE_EMAIL],
+        run_scenario_breach_rules,
+    ),
+    SeedScenario(
+        "Certificated company",
+        "Creates a company which should be compliant enough to get a Mobilic certificate",
+        [CERTIFICATED_ADMIN_EMAIL, CERTIFICATED_EMPLOYEE_EMAIL],
+        run_scenario_certificated,
+    ),
     SeedScenario(
         "Busy Admin",
         f"Creates an admin managing {NB_COMPANIES} companies with {NB_EMPLOYEES} employees each, logging some time in missions",
         [ADMIN_EMAIL],
         run_scenario_busy_admin,
     ),
-    # SeedScenario(
-    #     "Temps de Liaison",
-    #     f"Creates an admin managing a company with one employee",
-    #     [ADMIN_TEMPS_DE_LIAISON, EMPLOYEE_TEMPS_DE_LIAISON],
-    #     run_scenario_temps_de_liaison,
-    # ),
-    # SeedScenario(
-    #     "Invitations",
-    #     "Creates one admin, one employee with no job",
-    #     [ADMIN_INVITATIONS, EMPLOYEE_INVITATIONS],
-    #     run_scenario_invitations,
-    # ),
-    # SeedScenario(
-    #     "Export Excel Admin",
-    #     "Creates one admin, two companies, to test excel export",
-    #     [ADMIN_EXPORT],
-    #     run_scenario_export_excel,
-    # ),
-    # SeedScenario(
-    #     "Third party",
-    #     "Creates one company with client and 4 employees",
-    #     [
-    #         ADMIN_THIRD_PARTY,
-    #         EMPLOYEE_NOT_INVITED_EMAIL,
-    #         EMPLOYEE_INVITED_EMAIL,
-    #         EMPLOYEE_DISMISSED_EMAIL,
-    #         EMPLOYEE_CONFIRMED_EMAIL,
-    #     ],
-    #     run_scenario_third_party,
-    # ),
-    # SeedScenario(
-    #     "Team mode",
-    #     "Creates one company with one team",
-    #     [
-    #         SUPER_ADMIN_EMAIL,
-    #         "team.admin{i}@test.com",
-    #         "team.employee{i}@test.com",
-    #     ],
-    #     run_scenario_team_mode,
-    # ),
-    # SeedScenario(
-    #     "Controls",
-    #     "Creates one controller user",
-    #     [],
-    #     run_scenario_controls,
-    # ),
+    SeedScenario(
+        "Temps de Liaison",
+        f"Creates an admin managing a company with one employee",
+        [ADMIN_TEMPS_DE_LIAISON, EMPLOYEE_TEMPS_DE_LIAISON],
+        run_scenario_temps_de_liaison,
+    ),
+    SeedScenario(
+        "Invitations",
+        "Creates one admin, one employee with no job",
+        [ADMIN_INVITATIONS, EMPLOYEE_INVITATIONS],
+        run_scenario_invitations,
+    ),
+    SeedScenario(
+        "Export Excel Admin",
+        "Creates one admin, two companies, to test excel export",
+        [ADMIN_EXPORT],
+        run_scenario_export_excel,
+    ),
+    SeedScenario(
+        "Third party",
+        "Creates one company with client and 4 employees",
+        [
+            ADMIN_THIRD_PARTY,
+            EMPLOYEE_NOT_INVITED_EMAIL,
+            EMPLOYEE_INVITED_EMAIL,
+            EMPLOYEE_DISMISSED_EMAIL,
+            EMPLOYEE_CONFIRMED_EMAIL,
+        ],
+        run_scenario_third_party,
+    ),
+    SeedScenario(
+        "Team mode",
+        "Creates one company with one team",
+        [
+            SUPER_ADMIN_EMAIL,
+            "team.admin{i}@test.com",
+            "team.employee{i}@test.com",
+        ],
+        run_scenario_team_mode,
+    ),
+    SeedScenario(
+        "Controls",
+        "Creates one controller user",
+        [],
+        run_scenario_controls,
+    ),
 ]
