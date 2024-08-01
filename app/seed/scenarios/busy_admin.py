@@ -1,17 +1,10 @@
 import datetime
 
 from app import db
-from app.domain.expenditure import log_expenditure
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
-from app.models import (
-    MissionEnd,
-    Vehicle,
-    CompanyKnownAddress,
-    Address,
-)
+from app.models import MissionEnd
 from app.models.activity import ActivityType
-from app.models.expenditure import ExpenditureType
 from app.seed import (
     CompanyFactory,
     UserFactory,
@@ -19,33 +12,18 @@ from app.seed import (
     AuthenticatedUserContext,
 )
 from app.seed.helpers import (
+    add_employee,
     get_time,
-    get_date,
     create_mission,
     DEFAULT_PASSWORD,
 )
+from app.seed.scenarios import load_missions
 
-NB_COMPANIES = 1
-NB_EMPLOYEES = 300
-NB_HISTORY = 120
+NB_COMPANIES = 2
+NB_EMPLOYEES = 2
+NB_HISTORY = 7
 INTERVAL_HISTORY = 1
 ADMIN_EMAIL = "busy.admin@test.com"
-
-
-def _add_employee(email, first_name, last_name, company, admin):
-    employee = UserFactory.create(
-        email=email,
-        password=DEFAULT_PASSWORD,
-        first_name=first_name,
-        last_name=last_name,
-    )
-    EmploymentFactory.create(
-        company=company,
-        submitter=admin,
-        user=employee,
-        has_admin_rights=False,
-    )
-    return employee
 
 
 def run_scenario_busy_admin():
@@ -63,192 +41,20 @@ def run_scenario_busy_admin():
         last_name="Admin",
     )
 
-    for idx_company, company in enumerate(companies):
-
+    for company in companies:
         EmploymentFactory.create(
             company=company, submitter=admin, user=admin, has_admin_rights=True
         )
-
-        ## Vehicles
-        vehicles = []
-        for idx_vehicle in range(1, 3):
-            vehicle = Vehicle(
-                registration_number=f"XXX-00{idx_vehicle}-CORP{idx_company + 1}",
-                alias=f"Vehicule {idx_vehicle} - Corp {idx_company + 1}",
-                submitter=admin,
-                company_id=company.id,
-            )
-            db.session.add(vehicle)
-            vehicles.append(vehicle)
-
-        ## Addresses
-        addresses = []
-        address = CompanyKnownAddress(
-            alias=f"Entrepot Corp {idx_company + 1}",
-            address=Address.get_or_create(
-                geo_api_data=None, manual_address="1, rue de Paris"
-            ),
-            company_id=company.id,
+        load_missions.run(
+            company, admin, NB_EMPLOYEES, NB_HISTORY, INTERVAL_HISTORY
         )
-        db.session.add(address)
-        addresses.append(address)
-
-        for i in range(NB_EMPLOYEES):
-            employee = _add_employee(
-                email=f"busy.employee{i + 1}@busycorp{idx_company + 1}.com",
-                first_name=f"Bérénice {i + 1}",
-                last_name=f"Corp {idx_company + 1}",
-                company=company,
-                admin=admin,
-            )
-
-            # TODAY: a mission still pending
-            today_mission = create_mission(
-                name=f"Mission Pending {idx_company + 1}:{i + 1}",
-                company=company,
-                time=datetime.datetime.now(),
-                submitter=employee,
-                vehicle=vehicles[0],
-                address=addresses[0],
-                add_location_entry=True,
-            )
-
-            # YESTERDAY: a mission to validate
-            yesterday_mission = create_mission(
-                name=f"Mission To Validate {idx_company + 1}:{i + 1}",
-                company=company,
-                time=get_time(how_many_days_ago=2, hour=8),
-                submitter=employee,
-                vehicle=vehicles[0],
-                address=addresses[0],
-                add_location_entry=True,
-            )
-
-            # CREATES HISTORY MISSIONS
-            history_missions = {}
-            for idx_history in range(NB_HISTORY):
-                how_many_days_ago = 3 + idx_history * INTERVAL_HISTORY
-                tmp_mission = create_mission(
-                    name=f"Mission Past {how_many_days_ago} {idx_company + 1}:{i + 1}",
-                    company=company,
-                    time=get_time(how_many_days_ago=how_many_days_ago, hour=8),
-                    submitter=employee,
-                    vehicle=vehicles[0],
-                    address=addresses[0],
-                    add_location_entry=True,
-                )
-                history_missions[idx_history] = tmp_mission
-            db.session.commit()
-
-            with AuthenticatedUserContext(user=employee):
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=today_mission,
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=get_time(how_many_days_ago=1, hour=15),
-                    start_time=get_time(how_many_days_ago=1, hour=14),
-                    end_time=get_time(how_many_days_ago=1, hour=15),
-                )
-                log_activity(
-                    submitter=employee,
-                    user=employee,
-                    mission=yesterday_mission,
-                    type=ActivityType.DRIVE,
-                    switch_mode=False,
-                    reception_time=get_time(how_many_days_ago=2, hour=15),
-                    start_time=get_time(how_many_days_ago=2, hour=14),
-                    end_time=get_time(how_many_days_ago=2, hour=15),
-                )
-                db.session.add(
-                    MissionEnd(
-                        submitter=employee,
-                        reception_time=get_time(how_many_days_ago=2, hour=15),
-                        user=employee,
-                        mission=yesterday_mission,
-                    )
-                )
-                log_expenditure(
-                    submitter=employee,
-                    user=employee,
-                    mission=yesterday_mission,
-                    type=ExpenditureType.DAY_MEAL,
-                    reception_time=get_time(how_many_days_ago=2, hour=15),
-                    spending_date=get_date(how_many_days_ago=2),
-                )
-                validate_mission(
-                    submitter=employee,
-                    mission=yesterday_mission,
-                    for_user=employee,
-                )
-
-            for idx_history, history_mission in history_missions.items():
-                how_many_days_ago = 3 + idx_history * INTERVAL_HISTORY
-                with AuthenticatedUserContext(user=employee):
-                    log_activity(
-                        submitter=employee,
-                        user=employee,
-                        mission=history_mission,
-                        type=ActivityType.DRIVE,
-                        switch_mode=False,
-                        reception_time=get_time(
-                            how_many_days_ago=(how_many_days_ago),
-                            hour=15,
-                        ),
-                        start_time=get_time(
-                            how_many_days_ago=(how_many_days_ago),
-                            hour=14,
-                        ),
-                        end_time=get_time(
-                            how_many_days_ago=(how_many_days_ago),
-                            hour=15,
-                        ),
-                    )
-                    db.session.add(
-                        MissionEnd(
-                            submitter=employee,
-                            reception_time=get_time(
-                                how_many_days_ago=(how_many_days_ago),
-                                hour=15,
-                            ),
-                            user=employee,
-                            mission=history_mission,
-                        )
-                    )
-                    for expenditure_type in ExpenditureType:
-                        log_expenditure(
-                            submitter=employee,
-                            user=employee,
-                            mission=history_mission,
-                            type=expenditure_type,
-                            reception_time=get_time(
-                                how_many_days_ago=how_many_days_ago,
-                                hour=15,
-                            ),
-                            spending_date=get_date(
-                                how_many_days_ago=how_many_days_ago
-                            ),
-                        )
-                    validate_mission(
-                        submitter=employee,
-                        mission=history_mission,
-                        for_user=employee,
-                    )
-                with AuthenticatedUserContext(user=admin):
-                    validate_mission(
-                        submitter=admin,
-                        mission=history_mission,
-                        for_user=employee,
-                    )
-                db.session.commit()
 
     db.session.commit()
 
     from app.tests.helpers import make_authenticated_request, ApiRequests
 
     ## An employee who takes holidays
-    holiday_employee = _add_employee(
+    holiday_employee = add_employee(
         email="holiday@busycorp.com",
         first_name="Holly",
         last_name="Day",
@@ -318,7 +124,7 @@ def run_scenario_busy_admin():
         )
 
     ## An employee with deleted activities and missions
-    deleted_mission_employee = _add_employee(
+    deleted_mission_employee = add_employee(
         email="deleted.mission@busycorp.com",
         first_name="Agathe",
         last_name="Ortega",
