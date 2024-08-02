@@ -49,9 +49,10 @@ class UserAgreement(BaseModel):
         if cgu_version == "":
             cgu_version = app.config["CGU_VERSION"]
 
-        existing_user_agreement = UserAgreement.get(
-            user_id=user_id, cgu_version=cgu_version
-        )
+        existing_user_agreement = UserAgreement.query.filter(
+            UserAgreement.user_id == user_id,
+            UserAgreement.cgu_version == cgu_version,
+        ).one_or_none()
         if existing_user_agreement:
             return existing_user_agreement
 
