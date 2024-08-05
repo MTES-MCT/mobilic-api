@@ -35,7 +35,7 @@ def create_account_get_user(
         ),
     )
 
-    return User.query.filter_by(email=email).first()
+    return User.query.filter_by(email=email.lower()).first()
 
 
 def invite_user_by_userid(admin, user_id, company):
@@ -142,7 +142,7 @@ class TestInvitations(BaseTest):
         self.assertIn("Invalid user id", error_messages)
 
     def test_invite_future_employee_with_token(self):
-        future_employee_email = "future_employee@toto.com"
+        future_employee_email = "Future_Employee@toto.com"
 
         # admin invites an employee who doesn't exist
         invite_response = invite_user_by_email(
@@ -162,7 +162,7 @@ class TestInvitations(BaseTest):
         self.check_is_working_for(new_employee, self.company)
 
     def test_invite_future_employee_with_email(self):
-        future_employee_email = "future_employee@titi.com"
+        future_employee_email = "Future_Employee@titi.com"
 
         # admin invites an employee who doesn't exist
         invite_user_by_email(self.admin, future_employee_email, self.company)
@@ -176,6 +176,8 @@ class TestInvitations(BaseTest):
         )
 
         self.check_has_pending_invite(new_employee, self.company)
+
+        self.assertEqual(new_employee.email, future_employee_email.lower())
 
     # TO BE REMOVED (used only to debug below test)
     def print_employments(self):

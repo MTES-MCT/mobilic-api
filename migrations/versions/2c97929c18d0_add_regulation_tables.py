@@ -29,6 +29,8 @@ def fill_regulation_checks():
     for r in regulation_check_data:
         if r.type == RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK:
             continue
+        if r.type == RegulationCheckType.NO_LIC:
+            continue
         insert_regulation_check(session=session, regulation_check_data=r)
 
 

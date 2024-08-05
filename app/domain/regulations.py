@@ -29,6 +29,12 @@ from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 
 
+def get_default_business():
+    return Business.query.filter(
+        Business.business_type == BusinessType.SHIPPING
+    ).one_or_none()
+
+
 def compute_regulations(
     user, period_start, period_end, submitter_type, business=None
 ):
@@ -64,9 +70,7 @@ def compute_regulations(
     )
 
     if business is None:
-        business = Business.query.filter(
-            Business.business_type == BusinessType.SHIPPING
-        ).one_or_none()
+        business = get_default_business()
 
     # Compute daily rules for each day
     for day in get_dates_range(period_start, period_end):
