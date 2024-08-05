@@ -39,7 +39,7 @@ def run(company, admin, nb_employees, nb_history, interval_history):
 
     for i in range(nb_employees):
         employee = add_employee(
-            email=fake.email(),
+            email=f"busy.{fake.email()}",
             first_name=fake.first_name(),
             last_name=fake.last_name(),
             company=company,
