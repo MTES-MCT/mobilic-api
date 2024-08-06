@@ -33,6 +33,7 @@ from app.models import (
     Vehicle,
     Team,
     UserSurveyActions,
+    UserAgreement,
 )
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
@@ -44,6 +45,7 @@ from app.seed.factories import (
 from app.seed.helpers import AuthenticatedUserContext
 from app.seed.scenarios import run_scenario_busy_admin
 from app.seed.scenarios import scenarios
+from app.services.init_user_agreement import init_user_agreement
 from config import MOBILIC_ENV
 
 
@@ -99,6 +101,7 @@ def clean():
     ControllerRefreshToken.query.delete()
     ControllerUser.query.delete()
 
+    UserAgreement.query.delete()
     ScenarioTesting.query.delete()
     UserSurveyActions.query.delete()
     User.query.delete()
@@ -114,3 +117,6 @@ def seed():
 
     for scenario in scenarios:
         scenario.run()
+
+    init_user_agreement(session=db.session, cgu_version="v2.0")
+    db.session.commit()
