@@ -44,7 +44,7 @@ class UserAgreement(BaseModel):
     )
 
     @staticmethod
-    def get_or_create(user_id, cgu_version=""):
+    def get_or_create(user_id, cgu_version="", initial_status=None):
         if cgu_version == "":
             cgu_version = app.config["CGU_VERSION"]
 
@@ -58,7 +58,9 @@ class UserAgreement(BaseModel):
         new_user_agreement = UserAgreement(
             user_id=user_id,
             cgu_version=cgu_version,
-            status=UserAgreementStatus.PENDING,
+            status=initial_status
+            if initial_status
+            else UserAgreementStatus.PENDING,
             creation_time=datetime.datetime.now(),
             is_blacklisted=False,
         )
