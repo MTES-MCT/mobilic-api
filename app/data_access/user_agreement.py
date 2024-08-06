@@ -22,6 +22,7 @@ class UserAgreementOutput(BaseSQLAlchemyObjectType):
             "cgu_version",
             "is_blacklisted",
             "answer_date",
+            "expires_at",
         )
 
     should_accept_cgu = graphene.Field(

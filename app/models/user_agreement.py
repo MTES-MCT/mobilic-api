@@ -74,3 +74,28 @@ class UserAgreement(BaseModel):
             UserAgreement.user_id == user_id,
             UserAgreement.cgu_version == cgu_version,
         ).one_or_none()
+
+    @staticmethod
+    def is_user_blacklisted(user_id):
+        cgu_version = app.config["CGU_VERSION"]
+        existing_user_agreement = UserAgreement.get(
+            user_id=user_id, cgu_version=cgu_version
+        )
+        if existing_user_agreement is None:
+            return False
+
+        if existing_user_agreement.is_blacklisted:
+            return True
+
+        if existing_user_agreement.status != UserAgreementStatus.REJECTED:
+            return False
+
+        if not existing_user_agreement.expires_at:
+            return False
+
+        if existing_user_agreement.expires_at < datetime.datetime.now():
+            existing_user_agreement.is_blacklisted = True
+            db.session.commit()
+            return True
+
+        return False
