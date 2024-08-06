@@ -10,6 +10,9 @@ MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
 
 BREVO_API_KEY_ENV = "BREVO_API_KEY"
 
+CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
+CGU_INITIAL_VERSION = "v1.0"
+
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get(
@@ -94,9 +97,13 @@ class Config:
         "BREVO_COMPANY_SUBSCRIBE_LIST", 19
     )
     CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
-    CGU_RELEASE_DATE = datetime.strptime(
-        os.environ.get("CGU_RELEASE_DATE", "2024-08-01"), "%Y-%m-%d"
-    ).date()
+    CGU_RELEASE_DATE = (
+        datetime.strptime(
+            os.environ.get("CGU_RELEASE_DATE"), "%Y-%m-%d"
+        ).date()
+        if os.environ.get("CGU_RELEASE_DATE")
+        else CGU_INITIAL_RELASE_DATE
+    )
 
 
 class DevConfig(Config):

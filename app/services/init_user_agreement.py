@@ -1,10 +1,6 @@
-from datetime import datetime
-
 import sqlalchemy as sa
 
-from app.models.user_agreement import CGU_INITIAL_VERSION
-
-INITIAL_TIME = datetime(2022, 1, 1)
+from config import CGU_INITIAL_RELASE_DATE, CGU_INITIAL_VERSION
 
 
 def init_user_agreement(session, cgu_version=""):
@@ -26,7 +22,7 @@ def init_user_agreement(session, cgu_version=""):
             """
         ).params(
             cgu_version=cgu_version,
-            creation_time=INITIAL_TIME,
-            answer_date=INITIAL_TIME,
+            creation_time=CGU_INITIAL_RELASE_DATE,
+            answer_date=CGU_INITIAL_RELASE_DATE,
         )
     )
