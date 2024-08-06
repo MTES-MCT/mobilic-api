@@ -280,23 +280,26 @@ def run_certificate(as_of_date=None, computation_only=False):
         send_certificate_compute_end_notification()
 
 
-@app.cli.command("send_onboarding_emails", with_appcontext=True)
-def send_onboarding_emails():
+@app.cli.command("send_daily_emails", with_appcontext=True)
+def send_daily_emails():
     from app.services.send_onboarding_emails import send_onboarding_emails
     from datetime import date
 
-    app.logger.info("Beginning send_onboarding_emails task")
-
+    app.logger.info("Beginning task send_onboarding_emails")
     send_onboarding_emails(date.today())
-    app.logger.info("Ending send_onboarding_emails task")
+    app.logger.info("Ending task send_onboarding_emails")
 
-
-@app.cli.command("send_never_active_companies_emails", with_appcontext=True)
-def command_send_never_active_companies_emails():
-    app.logger.info("Beginning send_never_active_companies_emails task")
-
+    app.logger.info("Beginning task send_never_active_companies_emails")
     send_never_active_companies_emails(datetime.datetime.now())
-    app.logger.info("Ending send_lost_companies_emails task")
+    app.logger.info("Ending task send_never_active_companies_emails")
+
+    from app.services.send_suspended_company_account_due_to_cgu import (
+        send_suspended_company_account_due_to_cgu,
+    )
+
+    app.logger.info("Beginning task send_suspended_company_account_due_to_cgu")
+    send_suspended_company_account_due_to_cgu(datetime.datetime.now())
+    app.logger.info("Ending task send_suspended_company_account_due_to_cgu")
 
 
 @app.cli.command("load_company_stats", with_appcontext=True)

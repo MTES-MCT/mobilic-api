@@ -1,17 +1,17 @@
-import datetime
-
 import graphene
 
 from app.controllers.utils import atomic_transaction
-from app.helpers.authorization import with_authorization_policy
-from app.helpers.authentication import AuthenticatedMutation
+from app.domain.notifications import (
+    send_email_to_admins_when_employee_rejects_cgu,
+)
 from app.domain.permissions import only_self
+from app.helpers.authentication import AuthenticatedMutation, current_user
+from app.helpers.authorization import with_authorization_policy
 from app.helpers.errors import InvalidParamsError
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models import UserAgreement
 from app.models.user_agreement import (
     UserAgreementStatus,
-    CGU_DELETE_ACCOUNT_DELAY_IN_DAYS,
 )
 
 
@@ -77,10 +77,8 @@ class AcceptCgu(AuthenticatedMutation):
             )
 
         with atomic_transaction(commit_at_end=True):
-            current_user_agreement.status = UserAgreementStatus.ACCEPTED
-            current_user_agreement.is_blacklisted = False
-            current_user_agreement.expired_at = None
-            current_user_agreement.answer_date = datetime.datetime.now()
+            current_user_agreement.accept()
+
         return current_user_agreement
 
 
@@ -113,12 +111,8 @@ class RejectCgu(AuthenticatedMutation):
             )
 
         with atomic_transaction(commit_at_end=True):
-            current_user_agreement.status = UserAgreementStatus.REJECTED
-            current_user_agreement.is_blacklisted = False
-            current_user_agreement.expires_at = datetime.datetime.combine(
-                datetime.datetime.today()
-                + datetime.timedelta(days=CGU_DELETE_ACCOUNT_DELAY_IN_DAYS),
-                datetime.time.min,
-            )
-            current_user_agreement.answer_date = datetime.datetime.now()
+            current_user_agreement.reject()
+
+        send_email_to_admins_when_employee_rejects_cgu(employee=current_user)
+
         return current_user_agreement

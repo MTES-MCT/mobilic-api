@@ -18,7 +18,6 @@ class UserAgreementStatus(str, Enum):
     """
 
 
-CGU_INITIAL_VERSION = "v1.0"
 CGU_DELETE_ACCOUNT_DELAY_IN_DAYS = 10
 
 
@@ -99,3 +98,19 @@ class UserAgreement(BaseModel):
             return True
 
         return False
+
+    def reject(self):
+        self.status = UserAgreementStatus.REJECTED
+        self.is_blacklisted = False
+        self.expires_at = datetime.datetime.combine(
+            datetime.datetime.today()
+            + datetime.timedelta(days=CGU_DELETE_ACCOUNT_DELAY_IN_DAYS),
+            datetime.time.min,
+        )
+        self.answer_date = datetime.datetime.now()
+
+    def accept(self):
+        self.status = UserAgreementStatus.ACCEPTED
+        self.is_blacklisted = False
+        self.expires_at = None
+        self.answer_date = datetime.datetime.now()

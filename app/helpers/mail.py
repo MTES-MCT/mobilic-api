@@ -4,7 +4,7 @@ import jwt
 from enum import Enum
 from cached_property import cached_property
 from flask import render_template
-from datetime import datetime
+from datetime import datetime, date
 from markupsafe import Markup
 
 from app import app
@@ -868,6 +868,34 @@ class Mailer:
             ),
             _apply_whitelist_if_not_prod=True,
         )
+
+    def send_admin_employee_rejects_cgu_email(self, admins, employee):
+        for admin in admins:
+            self._send_single(
+                self._create_message_from_flask_template(
+                    template="cgu_employee_rejected.html",
+                    subject="Suppression prochaine du compte d’un salarié",
+                    user=admin,
+                    type_=EmailType.EMPLOYEE_REJECTS_CGU,
+                    employee_full_name=employee.display_name,
+                    employee_id=employee.id,
+                    release_date=app.config["CGU_RELEASE_DATE"],
+                ),
+                _apply_whitelist_if_not_prod=True,
+            )
+
+    def send_admins_company_suspended_cgu_email(self, admins):
+        for admin in admins:
+            self._send_single(
+                self._create_message_from_flask_template(
+                    template="cgu_suspended_company.html",
+                    subject="Suppression de votre compte entreprise Mobilic",
+                    user=admin,
+                    type_=EmailType.COMPANY_SUSPENDED_CGU,
+                    release_date=app.config["CGU_RELEASE_DATE"],
+                ),
+                _apply_whitelist_if_not_prod=True,
+            )
 
 
 mailer = Mailer()

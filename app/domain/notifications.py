@@ -1,4 +1,5 @@
 from app import mailer, app
+from app.domain.user import get_employee_current_admins
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.mail import MailjetError
 from app.models.activity import activity_versions_at
@@ -81,3 +82,13 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
             return True
 
     return False
+
+
+def send_email_to_admins_when_employee_rejects_cgu(employee):
+    try:
+        admins = get_employee_current_admins(employee=employee)
+        mailer.send_admin_employee_rejects_cgu_email(
+            employee=current_user, admins=admins
+        )
+    except MailjetError as e:
+        app.logger.exception(e)
