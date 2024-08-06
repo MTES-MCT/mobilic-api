@@ -3,7 +3,7 @@ from flask import after_this_request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import app, db
-from app.controllers.utils import Void, atomic_transaction
+from app.controllers.utils import Void
 from app.domain.user import (
     increment_user_password_tries,
     reset_user_password_tries,
@@ -49,8 +49,7 @@ class LoginMutation(graphene.Mutation):
 
         user = User.query.filter(User.email == email).one_or_none()
 
-        with atomic_transaction(commit_at_end=True):
-            is_blacklisted = UserAgreement.is_user_blacklisted(user_id=user.id)
+        is_blacklisted = UserAgreement.is_user_blacklisted(user_id=user.id)
 
         if is_blacklisted:
             raise AuthenticationError(

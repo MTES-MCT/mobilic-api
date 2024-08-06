@@ -95,7 +95,7 @@ class UserAgreement(BaseModel):
 
         if existing_user_agreement.expires_at < datetime.datetime.now():
             existing_user_agreement.is_blacklisted = True
-            db.session.add(existing_user_agreement)
+            db.session.commit()
             return True
 
         return False
