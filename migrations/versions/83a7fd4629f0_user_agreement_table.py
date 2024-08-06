@@ -5,21 +5,18 @@ Revises: 061ed7650780
 Create Date: 2024-07-24 12:02:58.929733
 
 """
-from datetime import datetime
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.orm.session import Session
 
-from app.models.user_agreement import CGU_INITIAL_VERSION
+from app.services.init_user_agreement import init_user_agreement
 
 # revision identifiers, used by Alembic.
 revision = "83a7fd4629f0"
 down_revision = "061ed7650780"
 branch_labels = None
 depends_on = None
-
-INITIAL_TIME = datetime(2022, 1, 1)
 
 
 def upgrade():
@@ -71,23 +68,7 @@ def upgrade():
 
     # Insert one row for each user
     session = Session(bind=op.get_bind())
-    users = session.execute(sa.text("""SELECT id FROM "user" u """)).fetchall()
-    for user in users:
-        session.execute(
-            sa.text(
-                """
-                INSERT INTO user_agreement (user_id, cgu_version, creation_time, answer_date, status, is_blacklisted)
-                VALUES (:user_id, :cgu_version, :creation_time, :answer_date, :status, :is_blacklisted)
-                """
-            ).params(
-                user_id=user.id,
-                cgu_version=CGU_INITIAL_VERSION,
-                creation_time=INITIAL_TIME,
-                answer_date=INITIAL_TIME,
-                status="accepted",
-                is_blacklisted=False,
-            )
-        )
+    init_user_agreement(session=session)
 
 
 def downgrade():
