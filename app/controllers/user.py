@@ -110,11 +110,16 @@ class UserSignUp(graphene.Mutation):
         phone_number = graphene.String(
             required=False, description="Numéro de téléphone"
         )
+        accept_cgu = graphene.Boolean(
+            required=False,
+            description="Indique si l'utilisateur accepte les CGUs en vigueur",
+        )
 
     Output = UserTokens
 
     @classmethod
     def mutate(cls, _, info, **data):
+        accept_cgu = data.pop("accept_cgu", False)
         with atomic_transaction(commit_at_end=True):
             has_subscribed_to_newsletter = data.pop(
                 "subscribe_to_newsletter", False
@@ -140,7 +145,10 @@ class UserSignUp(graphene.Mutation):
                 app.logger.exception(e)
 
         UserAgreement.get_or_create(
-            user_id=user.id, initial_status=UserAgreementStatus.ACCEPTED
+            user_id=user.id,
+            initial_status=UserAgreementStatus.ACCEPTED
+            if accept_cgu
+            else UserAgreementStatus.PENDING,
         )
 
         tokens = create_access_tokens_for(user)
