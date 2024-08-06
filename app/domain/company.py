@@ -8,7 +8,7 @@ from sqlalchemy.sql.functions import now
 
 from app import db
 from app.helpers.mail_type import EmailType
-from app.models import Company, CompanyCertification
+from app.models import Company, CompanyCertification, UserAgreement
 from app.models import (
     Employment,
     Email,
@@ -16,6 +16,7 @@ from app.models import (
     Activity,
 )
 from app.models.employment import EmploymentRequestValidationStatus
+from app.models.user_agreement import UserAgreementStatus
 
 
 class SirenRegistrationStatus(str, Enum):
@@ -245,3 +246,18 @@ def apply_business_type_to_company_employees(company, new_business):
     for employment in company_employments:
         employment.business = new_business
     db.session.flush()
+
+
+def has_any_active_admin(company):
+    admins = company.get_admins(
+        start=datetime.date.today(), end=datetime.date.today()
+    )
+    if len(admins) == 0:
+        return False
+
+    blacklisted_admins = UserAgreement.query.filter(
+        UserAgreement.user_id.in_([admin.id for admin in admins]),
+        UserAgreement.status == UserAgreementStatus.REJECTED,
+    ).all()
+
+    return len(admins) > len(blacklisted_admins)
