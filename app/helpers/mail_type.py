@@ -25,3 +25,4 @@ class EmailType(str, Enum):
     HOLIDAY_CHANGES_WARNING = "holiday_changes_warning"
     EMPLOYEE_REJECTS_CGU = "employee_rejects_cgu"
     COMPANY_SUSPENDED_CGU = "company_suspended_cgu"
+    EXPIRY_WARNING_CGU = "expiry_warning_cgu"

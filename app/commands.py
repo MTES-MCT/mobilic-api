@@ -293,7 +293,13 @@ def send_daily_emails():
     send_never_active_companies_emails(datetime.datetime.now())
     app.logger.info("Ending task send_never_active_companies_emails")
 
-    from app.services.send_suspended_company_account_due_to_cgu import (
+    from app.jobs.emails.cgu.send_expiry_warning_email import (
+        send_expiry_warning_email,
+    )
+
+    send_expiry_warning_email()
+
+    from app.jobs.emails.cgu.send_suspended_company_account_due_to_cgu import (
         send_suspended_company_account_due_to_cgu,
     )
 
