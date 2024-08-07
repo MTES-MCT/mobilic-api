@@ -946,6 +946,21 @@ class ApiRequests:
           }
     """
 
+    query_user_cgu_status = """
+        query getUserCguStatus(
+            $userId: Int!
+          ) {
+            user(id: $userId) {
+                userAgreementStatus {
+                    shouldAcceptCgu
+                    hasAcceptedCgu
+                    hasRejectedCgu
+                    isBlacklisted
+                }
+            }
+          }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
