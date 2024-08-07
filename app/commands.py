@@ -20,17 +20,12 @@ from app.models.controller_control import ControllerControl
 from app.models.user import User
 from app.seed import clean as seed_clean
 from app.seed import seed as seed_seed
-from app.jobs.emails.certificate.send_about_to_lose_certificate_emails import (
+from app.jobs.emails.certificate import (
     send_about_to_lose_certificate_emails,
-)
-from app.jobs.emails.certificate.send_active_then_inactive_companies_emails import (
     send_active_then_inactive_companies_emails,
 )
 from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,
-)
-from app.jobs.emails.send_lost_companies_emails import (
-    send_never_active_companies_emails,
 )
 from config import TestConfig, MOBILIC_ENV
 
@@ -275,22 +270,20 @@ def run_certificate(as_of_date=None, computation_only=False):
 def send_daily_emails():
     from datetime import date
 
-    from app.jobs.emails.send_onboarding_emails import send_onboarding_emails
-
-    send_onboarding_emails(date.today())
-
-    send_never_active_companies_emails(datetime.datetime.now())
-
-    from app.jobs.emails.cgu.send_expiry_warning_email import (
-        send_expiry_warning_email,
+    from app.jobs.emails import (
+        send_onboarding_emails,
+        send_never_active_companies_emails,
     )
 
-    send_expiry_warning_email()
+    send_onboarding_emails(date.today())
+    send_never_active_companies_emails(datetime.datetime.now())
 
-    from app.jobs.emails.cgu.send_email_to_last_company_suspended_admins import (
+    from app.jobs.emails.cgu import (
+        send_expiry_warning_email,
         send_email_to_last_company_suspended_admins,
     )
 
+    send_expiry_warning_email()
     send_email_to_last_company_suspended_admins(datetime.datetime.now())
 
 
