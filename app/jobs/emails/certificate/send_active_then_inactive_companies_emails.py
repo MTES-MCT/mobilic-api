@@ -6,8 +6,10 @@ from app.domain.company import (
     find_companies_by_ids,
 )
 from app.helpers.time import previous_month_period
+from app.jobs import log_execution
 
 
+@log_execution
 def send_active_then_inactive_companies_emails(today):
     last_month_start, last_month_end = previous_month_period(today)
     two_months_ago_start, two_months_ago_end = previous_month_period(

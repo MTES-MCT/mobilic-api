@@ -4,10 +4,12 @@ from sqlalchemy import func, exists, and_
 
 from app import mailer, app
 from app.helpers.mail_type import EmailType
+from app.jobs import log_execution
 from app.models import Employment, Email
 from app.models.employment import EmploymentRequestValidationStatus
 
 
+@log_execution
 def send_onboarding_emails(today):
     signup_date = today - timedelta(days=7)
 

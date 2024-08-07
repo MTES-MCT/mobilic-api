@@ -8,7 +8,7 @@ from app.models import CompanyCertification
 from app.seed import (
     CompanyFactory,
 )
-from app.services.send_about_to_lose_certificate_emails import (
+from app.jobs.emails.certificate.send_about_to_lose_certificate_emails import (
     companies_about_to_lose_certification,
     NB_MONTHS_AGO,
 )

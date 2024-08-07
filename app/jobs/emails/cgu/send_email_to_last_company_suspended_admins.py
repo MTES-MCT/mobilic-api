@@ -1,11 +1,13 @@
 from app import app, db, mailer
 from app.helpers.mail import MailjetError
+from app.jobs import log_execution
 from app.models import UserAgreement, Employment, Company, User
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
 
 
-def send_suspended_company_account_due_to_cgu(now):
+@log_execution
+def send_email_to_last_company_suspended_admins(now):
 
     cgu_version = app.config["CGU_VERSION"]
 
