@@ -3,8 +3,11 @@ from enum import Enum
 
 from sqlalchemy.orm import backref
 from app import db, app
+from app.models import User
 from app.models.base import BaseModel
 from app.models.utils import enum_column
+
+from app.controllers.utils import atomic_transaction
 
 
 class UserAgreementStatus(str, Enum):
@@ -95,11 +98,28 @@ class UserAgreement(BaseModel):
             return False
 
         if existing_user_agreement.expires_at < datetime.datetime.now():
-            existing_user_agreement.is_blacklisted = True
-            db.session.commit()
+            UserAgreement.blacklist_user(user_id=user_id)
             return True
 
         return False
+
+    @staticmethod
+    def blacklist_user(user_id):
+        cgu_version = app.config["CGU_VERSION"]
+        existing_user_agreement = UserAgreement.get(
+            user_id=user_id, cgu_version=cgu_version
+        )
+        if existing_user_agreement is None:
+            return
+
+        with atomic_transaction(commit_at_end=True):
+            today = datetime.date.today()
+            existing_user_agreement.is_blacklisted = True
+
+            user = User.query.get(user_id)
+            employments = user.active_employments_at(today)
+            for employment in employments:
+                employment.end_date = today - datetime.timedelta(days=1)
 
     def reject(self):
         self.status = UserAgreementStatus.REJECTED
