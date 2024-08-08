@@ -10,6 +10,21 @@ DELAY_HOURS = 72
 
 @log_execution
 def send_expiry_warning_email():
+    users, expiry_date = get_users_expiring_soon()
+
+    for user in users:
+        try:
+            is_admin = user.is_an_admin
+            mailer.send_cgu_expiry_warning_email(
+                user=user,
+                expiry_date=expiry_date,
+                is_admin=is_admin,
+            )
+        except MailjetError as e:
+            app.logger.exception(e)
+
+
+def get_users_expiring_soon():
     cgu_version = app.config["CGU_VERSION"]
 
     trigger_datetime_max = datetime.now() + timedelta(hours=DELAY_HOURS)
@@ -27,13 +42,4 @@ def send_expiry_warning_email():
         .all()
     )
 
-    for user in users:
-        try:
-            is_admin = user.is_an_admin
-            mailer.send_cgu_expiry_warning_email(
-                user=user,
-                expiry_date=trigger_datetime_max.date(),
-                is_admin=is_admin,
-            )
-        except MailjetError as e:
-            app.logger.exception(e)
+    return users, trigger_datetime_max.date()

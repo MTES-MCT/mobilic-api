@@ -7,6 +7,16 @@ from app.models.user_agreement import UserAgreementStatus
 
 @log_execution
 def send_email_to_last_company_suspended_admins(now):
+    target_users = get_last_admins_and_blacklist_expiring_users(now)
+
+    for user in target_users:
+        try:
+            mailer.send_admin_company_suspended_cgu_email(admin=user)
+        except MailjetError as e:
+            app.logger.exception(e)
+
+
+def get_last_admins_and_blacklist_expiring_users(now):
     cgu_version = app.config["CGU_VERSION"]
 
     users_expiring_today = (
@@ -21,6 +31,7 @@ def send_email_to_last_company_suspended_admins(now):
         .all()
     )
     today = now.date()
+    users = []
     for user in users_expiring_today:
         admin_company_ids = user.current_company_ids_with_admin_rights
 
@@ -40,7 +51,6 @@ def send_email_to_last_company_suspended_admins(now):
             if len(admins) > 0:
                 continue
 
-            try:
-                mailer.send_admin_company_suspended_cgu_email(admin=user)
-            except MailjetError as e:
-                app.logger.exception(e)
+            users.append(user)
+
+    return users

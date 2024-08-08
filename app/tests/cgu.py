@@ -3,11 +3,21 @@ import datetime
 from flask.ctx import AppContext
 
 from app import app, db
+from app.jobs.emails.cgu.send_email_to_last_company_suspended_admins import (
+    get_last_admins_and_blacklist_expiring_users,
+)
+from app.jobs.emails.cgu.send_expiry_warning_email import (
+    get_users_expiring_soon,
+    DELAY_HOURS,
+)
 from app.models import UserAgreement
 from app.models.user_agreement import UserAgreementStatus
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
+
+PASSWORD = "password"
+EMAIL = "user@email.com"
 
 
 class TestCGU(BaseTest):
@@ -19,8 +29,8 @@ class TestCGU(BaseTest):
         )
 
         user = UserFactory.create(
-            email="user@email.com",
-            password="password",
+            email=EMAIL,
+            password=PASSWORD,
             first_name="Admin",
             last_name="Admin",
         )
@@ -47,6 +57,14 @@ class TestCGU(BaseTest):
             .get("data")
             .get("user")
             .get("userAgreementStatus")
+        )
+
+    def _login(self):
+        make_authenticated_request(
+            time=datetime.datetime.now(),
+            submitter_id=self.user.id,
+            query=ApiRequests.login_query,
+            variables={"email": EMAIL, "password": PASSWORD},
         )
 
     def test_init_cgu(self):
@@ -107,11 +125,52 @@ class TestCGU(BaseTest):
             len(self.user.active_employments_at(datetime.date.today())), 0
         )
 
-    def test_trying_to_connect_after_expiry_date_blacklist_user(self):
-        pass
+    def test_trying_to_connect_after_expiry_date_blacklists_user(self):
+        user_agreement = UserAgreement.get_or_create(user_id=self.user.id)
+        user_agreement.reject()
+        db.session.add(user_agreement)
+        self.assertFalse(UserAgreement.is_user_blacklisted(self.user.id))
+
+        user_agreement.expires_at = datetime.datetime.combine(
+            datetime.datetime.today(),
+            datetime.time.min,
+        )
+
+        self._login()
+        self.assertTrue(UserAgreement.is_user_blacklisted(self.user.id))
 
     def test_expiry_warning_email_targets(self):
-        pass
+        user_agreement = UserAgreement.get_or_create(user_id=self.user.id)
+        user_agreement.reject()
+        db.session.add(user_agreement)
+
+        users, _ = get_users_expiring_soon()
+        self.assertEqual(len(users), 0)
+
+        user_agreement.expires_at = (
+            datetime.datetime.now() + datetime.timedelta(hours=DELAY_HOURS)
+        )
+
+        users, _ = get_users_expiring_soon()
+        self.assertEqual(len(users), 1)
 
     def test_last_company_admin_job_blacklists_user(self):
-        pass
+        user_agreement = UserAgreement.get_or_create(user_id=self.user.id)
+        user_agreement.reject()
+        db.session.add(user_agreement)
+
+        users = get_last_admins_and_blacklist_expiring_users(
+            datetime.datetime.now()
+        )
+        self.assertEqual(len(users), 0)
+
+        user_agreement.expires_at = datetime.datetime.combine(
+            datetime.datetime.today(),
+            datetime.time.min,
+        )
+
+        users = get_last_admins_and_blacklist_expiring_users(
+            datetime.datetime.now()
+        )
+        self.assertEqual(len(users), 1)
+        self.assertTrue(UserAgreement.is_user_blacklisted(self.user.id))
