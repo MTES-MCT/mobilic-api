@@ -961,6 +961,17 @@ class ApiRequests:
           }
     """
 
+    login_query = """
+        mutation ($email: String!, $password: String!) {
+            auth {
+                login (email: $email, password: $password) {
+                    accessToken
+                    refreshToken
+                }
+            }
+        }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
