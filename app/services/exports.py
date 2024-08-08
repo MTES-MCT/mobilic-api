@@ -14,6 +14,10 @@ def export_activity_report(
         nb_users=nb_users, nb_days=nb_days, NxD_max=app.config["EXPORT_MAX"]
     )
 
+    app.logger.info(
+        f"Export request nb_users={nb_users} nb_days={nb_days} - will split in {nb_buckets} bucket(s) with {bucket_size} employee(s) per bucket"
+    )
+
     from app.helpers.celery import async_export_excel
 
     for i in range(0, nb_users, bucket_size):
