@@ -96,7 +96,7 @@ class Config:
     CELERY_BROKER_URL = os.environ.get(
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
-    EXPORT_MAX = os.environ.get("EXPORT_MAX", 1000)
+    EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
 
 
 class DevConfig(Config):
