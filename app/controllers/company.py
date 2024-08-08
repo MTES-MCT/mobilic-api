@@ -61,6 +61,8 @@ from app.helpers.brevo import (
 )
 import sentry_sdk
 
+from app.services.exports import export_activity_report
+
 
 class CompanySignUpOutput(graphene.ObjectType):
     company = graphene.Field(CompanyOutput)
@@ -603,12 +605,10 @@ def download_activity_report(
         company_ids, user_ids, min_date, max_date
     )
 
-    from app.helpers.celery import async_export_excel
-
-    async_export_excel.delay(
-        admin_id=current_user.id,
-        user_ids=[user.id for user in users],
+    export_activity_report(
+        admin=current_user,
         company_ids=company_ids,
+        users=users,
         min_date=min_date,
         max_date=max_date,
         one_file_by_employee=one_file_by_employee,
