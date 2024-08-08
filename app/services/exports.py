@@ -13,7 +13,7 @@ def export_activity_report(
     nb_buckets, bucket_size = get_buckets_params(
         nb_users=nb_users,
         nb_days=nb_days,
-        NxD_max=int(app.config["EXPORT_MAX"] / 10)
+        NxD_max=int(app.config["EXPORT_MAX"] / 2)
         if one_file_by_employee
         else app.config["EXPORT_MAX"],
     )
