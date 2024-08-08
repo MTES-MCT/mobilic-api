@@ -24,6 +24,7 @@ def export_activity_report(
 
     from app.helpers.celery import async_export_excel
 
+    users.sort(key=lambda u: u.last_name, reverse=True)
     for i in range(0, nb_users, bucket_size):
         bucket_users = users[i : i + bucket_size]
 
