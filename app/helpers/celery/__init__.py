@@ -76,6 +76,10 @@ def async_export_excel(
         file_obj["Base64Content"] = base64_content
 
         try:
-            mailer.send_admin_export_excel(admin=admin, file=file_obj)
+            mailer.send_admin_export_excel(
+                admin=admin,
+                company_name=companies[0].usual_name,
+                file=file_obj,
+            )
         except Exception as e:
             app.logger.exception(e)
