@@ -8,6 +8,7 @@ from app.helpers.time import FR_TIMEZONE, from_tz
 from app.models import Mission, LocationEntry, MissionEnd, MissionValidation
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
+from app.seed.factories import EmploymentFactory, UserFactory
 
 DEFAULT_PASSWORD = "password123!"
 
@@ -154,3 +155,19 @@ def log_and_validate_mission(
         )
 
     return mission
+
+
+def add_employee(email, first_name, last_name, company, admin):
+    employee = UserFactory.create(
+        email=email,
+        password=DEFAULT_PASSWORD,
+        first_name=first_name,
+        last_name=last_name,
+    )
+    EmploymentFactory.create(
+        company=company,
+        submitter=admin,
+        user=employee,
+        has_admin_rights=False,
+    )
+    return employee
