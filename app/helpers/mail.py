@@ -884,18 +884,30 @@ class Mailer:
                 _apply_whitelist_if_not_prod=True,
             )
 
-    def send_admins_company_suspended_cgu_email(self, admins):
-        for admin in admins:
-            self._send_single(
-                self._create_message_from_flask_template(
-                    template="cgu_suspended_company.html",
-                    subject="Suppression de votre compte entreprise Mobilic",
-                    user=admin,
-                    type_=EmailType.COMPANY_SUSPENDED_CGU,
-                    release_date=app.config["CGU_RELEASE_DATE"],
-                ),
-                _apply_whitelist_if_not_prod=True,
-            )
+    def send_admin_company_suspended_cgu_email(self, admin):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="cgu_suspended_company.html",
+                subject="Suppression de votre compte entreprise Mobilic",
+                user=admin,
+                type_=EmailType.COMPANY_SUSPENDED_CGU,
+                release_date=app.config["CGU_RELEASE_DATE"],
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_cgu_expiry_warning_email(self, user, expiry_date, is_admin):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="cgu_warning_suspension.html",
+                subject="Votre compte Mobilic sera supprimé dans 72 heures",
+                user=user,
+                type_=EmailType.EXPIRY_WARNING_CGU,
+                is_admin=is_admin,
+                expiry_date=expiry_date,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
 
 
 mailer = Mailer()

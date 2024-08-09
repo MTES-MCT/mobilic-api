@@ -305,6 +305,10 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         ]
 
     @cached_property
+    def is_an_admin(self):
+        return len(self.current_company_ids_with_admin_rights) > 0
+
+    @cached_property
     def current_company_ids_without_admin_rights(self):
         return [
             e.company_id

@@ -1,0 +1,17 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+{{subject}}
+{% endblock %}
+
+{% block body %}
+    <p>Madame, Monsieur,</p>
+    <p>Nous vous informons que <b>votre compte Mobilic sera supprimé le {{expiry_date | full_format_day}}</b> car vous avez refusé les conditions générales d’utilisation.</p>
+    {% if is_admin %}
+        <p>Pour rappel, vous avez pour <b>obligation de conserver les temps de travail de vos salariés pendant une durée de 5 ans. Veuillez les télécharger</b> avant la suppression du compte en vous connectant à Mobilic.</p>
+    {% else %}
+        <p><b>Veillez à télécharger l'ensemble de vos données</b> avant la suppression du compte en vous connectant à Mobilic, <b>cela pourrait vous être utile en cas de différend avec votre employeur</b>.</p>
+    {% endif %}
+    <p>S’il s’agit d’une erreur, vous pourrez également accepter les conditions générales d’utilisation à la connexion. Vous aurez alors à nouveau accès aux fonctionnalités de Mobilic.</p>
+    <p>Cordialement,</p>
+{% endblock %}

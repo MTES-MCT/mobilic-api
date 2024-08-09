@@ -5,22 +5,13 @@ from time import sleep
 from app.tests import BaseTest, test_post_graphql
 from app import app, db
 from app.seed import UserFactory
+from app.tests.helpers import ApiRequests
 
 
 class TestAuthentication(BaseTest):
     def setUp(self):
         super().setUp()
         self.user = UserFactory.create(password="passwd")
-        self.login_query = """
-            mutation ($email: String!, $password: String!) {
-                    auth {
-                        login (email: $email, password: $password) {
-                            accessToken
-                            refreshToken
-                        }
-                    }
-                }
-            """
 
         self.refresh_query = """
             mutation {
@@ -44,14 +35,14 @@ class TestAuthentication(BaseTest):
 
     def test_login_fails_on_wrong_email(self):
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email="random-junk", password="passwd"),
         )
         self.assertIsNotNone(login_response.json.get("errors"))
         self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email="testt@test.test", password="passwd"),
         )
         self.assertIsNotNone(login_response.json.get("errors"))
@@ -59,21 +50,21 @@ class TestAuthentication(BaseTest):
 
     def test_login_fails_on_wrong_password(self):
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passw"),
         )
         self.assertIsNotNone(login_response.json.get("errors"))
         self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwdd"),
         )
         self.assertIsNotNone(login_response.json.get("errors"))
         self.assertIsNone(login_response.json["data"]["auth"]["login"])
 
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email="random-junk", password="passwdd"),
         )
         self.assertIsNotNone(login_response.json.get("errors"))
@@ -84,7 +75,7 @@ class TestAuthentication(BaseTest):
         # Step 1 : login
         with freeze_time(base_time):
             login_response = test_post_graphql(
-                self.login_query,
+                ApiRequests.login_query,
                 variables=dict(email=self.user.email, password="passwd"),
             )
             self.assertEqual(login_response.status_code, 200)
@@ -177,7 +168,7 @@ class TestAuthentication(BaseTest):
         # Step 1 : login
         with freeze_time(base_time):
             login_response = test_post_graphql(
-                self.login_query,
+                ApiRequests.login_query,
                 variables=dict(email=self.user.email, password="passwd"),
             )
             self.assertEqual(login_response.status_code, 200)
@@ -212,7 +203,7 @@ class TestAuthentication(BaseTest):
 
     def test_refresh_fails_on_bad_token(self):
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwd"),
         )
         self.assertEqual(login_response.status_code, 200)
@@ -251,7 +242,7 @@ class TestAuthentication(BaseTest):
     def test_tokens_fail_on_revoked_user(self):
         # Step 1 : login
         login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwd"),
         )
         self.assertEqual(login_response.status_code, 200)
@@ -293,7 +284,7 @@ class TestAuthentication(BaseTest):
     def test_blocking_account(self):
         for i in range(0, 10):
             login_response = test_post_graphql(
-                self.login_query,
+                ApiRequests.login_query,
                 variables=dict(email=self.user.email, password="wrong_passwd"),
             )
         self.assertEqual(
@@ -301,7 +292,7 @@ class TestAuthentication(BaseTest):
             login_response.json["errors"][0]["extensions"]["code"],
         )
         good_login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwd"),
         )
         self.assertEqual(
@@ -312,20 +303,20 @@ class TestAuthentication(BaseTest):
     def test_reset_bad_password_counter(self):
         for i in range(0, 8):
             test_post_graphql(
-                self.login_query,
+                ApiRequests.login_query,
                 variables=dict(email=self.user.email, password="wrong_passwd"),
             )
         test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwd"),
         )
         for i in range(0, 8):
             test_post_graphql(
-                self.login_query,
+                ApiRequests.login_query,
                 variables=dict(email=self.user.email, password="wrong_passwd"),
             )
         good_login_response = test_post_graphql(
-            self.login_query,
+            ApiRequests.login_query,
             variables=dict(email=self.user.email, password="passwd"),
         )
         self.assertIsNotNone(
