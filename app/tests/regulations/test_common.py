@@ -181,8 +181,8 @@ class TestRegulationsCommon(RegulationsTest):
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(how_many_days_ago=18, hour=4),
-                    get_time(how_many_days_ago=3, hour=5),
+                    get_datetime_tz(2024, 7, 25, 4, 0),
+                    get_datetime_tz(2024, 8, 9, 5, 0),
                 ],
             ],
         )
@@ -194,4 +194,4 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(computations_done), 16)
+        self.assertEqual(len(computations_done), 17)
