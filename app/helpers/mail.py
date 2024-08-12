@@ -86,6 +86,7 @@ class MailjetMessage:
         html=None,
         template_id=None,
         template_vars=None,
+        attachment=None,
     ):
         if not html and not template_id:
             raise ValueError(
@@ -101,6 +102,7 @@ class MailjetMessage:
         self.template_id = template_id
         self.template_vars = template_vars
         self.response = None
+        self.attachment = attachment
 
     @cached_property
     def actual_recipient(self):
@@ -122,6 +124,8 @@ class MailjetMessage:
             payload["From"] = {"Email": SENDER_ADDRESS, "Name": SENDER_NAME}
         if self.subject:
             payload["Subject"] = self.subject
+        if self.attachment:
+            payload["Attachments"] = [self.attachment]
 
         return payload
 
@@ -266,6 +270,7 @@ class Mailer:
         recipient=None,
         user=None,
         _disable_commit=False,
+        attachment=None,
         **kwargs,
     ):
         html = render_template(template, **kwargs)
@@ -277,6 +282,7 @@ class Mailer:
             email_type=type_,
             add_sender=True,
             employment=kwargs.get("employment"),
+            attachment=attachment,
         )
 
     @contextmanager
@@ -907,6 +913,18 @@ class Mailer:
                 expiry_date=expiry_date,
             ),
             _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_admin_export_excel(self, admin, file):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="admin_export_excel.html",
+                user=admin,
+                subject="Vos données",
+                type_=EmailType.ADMIN_EXPORT_EXCEL,
+                attachment=file,
+            ),
+            _apply_whitelist_if_not_prod=False,
         )
 
 

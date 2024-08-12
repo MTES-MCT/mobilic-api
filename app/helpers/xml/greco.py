@@ -5,6 +5,8 @@ from io import BytesIO
 
 from flask import send_file
 
+from app.domain.regulations import get_default_business
+from app.domain.regulations_helper import resolve_variables
 from app.models import ControlLocation, ControllerUser, RegulationCheck
 
 TRANSPORT_TYPES = {
@@ -490,6 +492,12 @@ def get_greco_xml_and_filename(control):
             date_start = datetime.fromisoformat(extra.get("work_range_start"))
             date_end = datetime.fromisoformat(extra.get("work_range_end"))
 
+        # use business from infraction when it will be available
+        dict_variables = resolve_variables(
+            regulation_check.variables, get_default_business()
+        )
+        description = dict_variables["DESCRIPTION"]
+
         infractions.append(
             GrecoInfraction(
                 natinf=natinf,
@@ -498,7 +506,7 @@ def get_greco_xml_and_filename(control):
                 date_start=date_start,
                 date_end=date_end,
                 label=regulation_check.label,
-                object=regulation_check.description,
+                object=description,
             )
         )
 

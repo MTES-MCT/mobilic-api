@@ -2,40 +2,15 @@ import zipfile
 from collections import defaultdict
 from io import BytesIO
 
-from flask import after_this_request, send_file
 from xlsxwriter import Workbook
 
-from app.helpers.xls.common import clean_string, send_excel_file
+from app.helpers.xls.common import clean_string
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
 from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 
-def send_work_days_as_excel(user_wdays_batches, companies, min_date, max_date):
-    @after_this_request
-    def change_cache_control_header(response):
-        response.headers["Cache-Control"] = "no-cache"
-        return response
-
-    if len(user_wdays_batches) == 1:
-        return send_work_days_as_one_excel_file(
-            user_wdays_batches[0][1], companies, min_date, max_date
-        )
-    else:
-        return send_work_days_as_one_archive(
-            user_wdays_batches, companies, min_date, max_date
-        )
-
-
-def send_work_days_as_one_excel_file(
-    user_wdays, companies, min_date, max_date
-):
-    excel_file = get_one_excel_file(user_wdays, companies, min_date, max_date)
-
-    return send_excel_file(file=excel_file, name="rapport_activité.xlsx")
-
-
-def send_work_days_as_one_archive(batches, companies, min_date, max_date):
+def get_archive_excel_file(batches, companies, min_date, max_date):
     memory_file = BytesIO()
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
@@ -51,12 +26,7 @@ def send_work_days_as_one_archive(batches, companies, min_date, max_date):
             zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
 
     memory_file.seek(0)
-    return send_file(
-        memory_file,
-        mimetype="zip",
-        as_attachment=True,
-        download_name="rapport_activités.zip",
-    )
+    return memory_file
 
 
 def get_one_excel_file(wdays_data, companies, min_date, max_date):

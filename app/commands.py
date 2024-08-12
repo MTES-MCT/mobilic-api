@@ -16,9 +16,10 @@ from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
 from app.helpers.xml.greco import temp_write_greco_xml
+from app.models.company import Company
 from app.models.controller_control import ControllerControl
 from app.models.user import User
-from app.seed import clean as seed_clean
+from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
 from app.jobs.emails.certificate import (
     send_about_to_lose_certificate_emails,
@@ -68,6 +69,25 @@ def clean():
 def seed():
     """Inject tests data in database."""
     seed_seed()
+
+
+@app.cli.command("load_missions", with_appcontext=True)
+@click.argument("company_id", required=True)
+@click.argument("nb_employees", type=click.INT, required=True)
+@click.argument("nb_days", type=click.INT, required=True)
+def load_missions(company_id, nb_employees, nb_days):
+    exit_if_prod()
+
+    from app.seed.scenarios import load_missions
+
+    company = Company.query.get(company_id)
+    admins = company.get_admins(date.today(), None)
+
+    if len(admins) == 0:
+        print(f"No admin in company {company_id}")
+        sys.exit(0)
+
+    load_missions.run(company, admins[0], nb_employees, nb_days, 1)
 
 
 def _clean_vehicle():

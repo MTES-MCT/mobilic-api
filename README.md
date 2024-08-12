@@ -112,6 +112,21 @@ Pour vider la base
 flask clean
 ```
 
+## Tâches asynchrones
+On utilise `celery` pour effectuer certaines tâches de manière asynchrones pour ne pas surcharger l'application.
+Par exemple l'envoi des exports excel gestionnaire (envoi de l'export par email plutôt que par téléchargement direct).
+
+Un service `redis` est défini dans le `docker-compose.yml`. On peut inspecter les logs pour voir s'il fonctionne bien 
+avec la commande
+```
+docker logs --tail 1000 -f mobilic-api-redis-1
+```
+Il faut ensuite lancer le worker celery:
+```
+DOTENV_FILE=.env/.env.local venv/bin/celery -A app.celery worker --loglevel=info 
+```
+En développement, penser à relancer le worker si son implémentation change.
+
 ## Infos complémentaires
 
 Les différentes technos/frameworks utilisés par le back sont :

@@ -55,8 +55,14 @@ def exit_if_prod():
         sys.exit(0)
 
 
+def exit_if_no_local():
+    if MOBILIC_ENV != "dev":
+        print("Seeding available ONLY on local environment")
+        sys.exit(0)
+
+
 def clean():
-    exit_if_prod()
+    exit_if_no_local()
 
     print("------ CLEANING DATA -------")
 
