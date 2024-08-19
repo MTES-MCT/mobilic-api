@@ -96,6 +96,7 @@ def compute_regulations(
     )
     for week in weeks:
         compute_regulations_per_week(user, business, week, submitter_type)
+        mark_day_as_computed(user, week.get("start"), submitter_type)
 
 
 def activity_to_compute_in_day(
