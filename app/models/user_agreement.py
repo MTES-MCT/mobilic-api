@@ -104,6 +104,16 @@ class UserAgreement(BaseModel):
         return False
 
     @staticmethod
+    def has_user_rejected(user_id):
+        cgu_version = app.config["CGU_VERSION"]
+        existing_user_agreement = UserAgreement.get(
+            user_id=user_id, cgu_version=cgu_version
+        )
+        if existing_user_agreement is None:
+            return False
+        return existing_user_agreement.status == UserAgreementStatus.REJECTED
+
+    @staticmethod
     def blacklist_user(user_id):
         cgu_version = app.config["CGU_VERSION"]
         existing_user_agreement = UserAgreement.get(

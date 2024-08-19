@@ -3,6 +3,7 @@ import graphene
 from app.controllers.utils import atomic_transaction
 from app.domain.notifications import (
     send_email_to_admins_when_employee_rejects_cgu,
+    warn_if_company_has_no_admin_left,
 )
 from app.domain.permissions import only_self
 from app.helpers.authentication import AuthenticatedMutation, current_user
@@ -114,5 +115,11 @@ class RejectCgu(AuthenticatedMutation):
             current_user_agreement.reject()
 
         send_email_to_admins_when_employee_rejects_cgu(employee=current_user)
+
+        warn_if_company_has_no_admin_left(
+            company_ids=current_user.current_company_ids_with_admin_rights,
+            last_admin=current_user,
+            expiry_date=current_user_agreement.expires_at,
+        )
 
         return current_user_agreement
