@@ -1,15 +1,14 @@
 from datetime import datetime
-
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulationComputation
-from app.seed.helpers import get_time
-from app.tests.helpers import make_authenticated_request, ApiRequests
+from app.seed.helpers import get_datetime_tz
+from app.tests.helpers import ApiRequests, make_authenticated_request
 from app.tests.regulations import RegulationsTest
 
 
 class TestDifferentPeriods(RegulationsTest):
     def test_regulation_computations_applied_on_initial_time_range(self):
-        how_many_days_ago = 3
+        employee_id = self.employee.id
 
         # Employee logs a mission over three days
         mission = self._log_and_validate_mission(
@@ -17,24 +16,19 @@ class TestDifferentPeriods(RegulationsTest):
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(how_many_days_ago=how_many_days_ago + 1, hour=21),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=3),
+                    get_datetime_tz(2024, 8, 14, 21, 0),
+                    get_datetime_tz(2024, 8, 15, 3, 0),
                 ],
                 [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                    get_datetime_tz(2024, 8, 15, 18, 0),
+                    get_datetime_tz(2024, 8, 15, 23, 0),
                 ],
                 [
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=2),
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=5),
+                    get_datetime_tz(2024, 8, 16, 2, 0),
+                    get_datetime_tz(2024, 8, 16, 5, 0),
                 ],
             ],
         )
-
-        employee_computations = RegulationComputation.query.filter(
-            RegulationComputation.user_id == self.employee.id,
-            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
 
         # Admin cancel first and last activities and validates
         # Mission is now on only one day from the admin perspective
@@ -52,11 +46,18 @@ class TestDifferentPeriods(RegulationsTest):
             ),
         )
 
+        employee_computations = RegulationComputation.query.filter(
+            RegulationComputation.user_id == employee_id,
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+
+        # 3 days + 1 week computed
+        self.assertEqual(4, len(employee_computations))
+
         admin_computations = RegulationComputation.query.filter(
-            RegulationComputation.user_id == self.employee.id,
+            RegulationComputation.user_id == employee_id,
             RegulationComputation.submitter_type == SubmitterType.ADMIN,
         ).all()
 
         # There should be the same number of regulation computations of type Employee and Admin
-        self.assertEqual(3, len(employee_computations))
         self.assertEqual(len(employee_computations), len(admin_computations))
