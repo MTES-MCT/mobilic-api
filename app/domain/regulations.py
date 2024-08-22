@@ -61,7 +61,7 @@ def compute_regulations(user, period_start, period_end, submitter_type):
     )
 
     # Compute daily rules for each day
-    for day in get_dates_range(period_start, period_end):
+    for index, day in enumerate(get_dates_range(period_start, period_end)):
         compute_regulations_per_day(
             user,
             day,
@@ -69,7 +69,8 @@ def compute_regulations(user, period_start, period_end, submitter_type):
             work_days_over_current_past_and_next_days,
             tz=user_timezone,
         )
-        if activity_to_compute_in_day(
+        # Do not mark empty previous day as computed
+        if index != 0 or activity_to_compute_in_day(
             day, work_days_over_current_past_and_next_days, user_timezone
         ):
             mark_day_as_computed(user, day, submitter_type)

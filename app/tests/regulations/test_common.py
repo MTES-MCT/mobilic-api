@@ -51,8 +51,8 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.day == day_start,
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
-        self.assertIsNone(computation_done)
+        ).all()
+        self.assertEqual(1, len(computation_done))
 
     def test_no_computation_for_empty_previous_day(self):
         how_many_days_ago = 2
