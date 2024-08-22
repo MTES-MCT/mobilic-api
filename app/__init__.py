@@ -8,7 +8,6 @@ from flask_apispec.extension import FlaskApiSpec
 from flask_compress import Compress
 from flask_cors import CORS
 from flask_migrate import Migrate
-from promise.dataloader import DataLoader
 from werkzeug.exceptions import HTTPException
 
 import config
@@ -164,7 +163,6 @@ from .helpers.dataloaders import (
     LocationEntriesInMissionLoader,
     ActivitiesInMissionLoader,
     ActivityVersionsInActivityLoader,
-    batch_load_regulatory_alerts,
 )
 
 
@@ -181,7 +179,6 @@ def load_loaders():
         "location_entries_in_missions": LocationEntriesInMissionLoader(),
         "activities_in_missions": ActivitiesInMissionLoader(),
         "activity_versions_in_activities": ActivityVersionsInActivityLoader(),
-        "regulatory_alerts": DataLoader(batch_load_regulatory_alerts),
     }
 
 
@@ -189,3 +186,6 @@ def load_loaders():
 def cleanup_loaders(response):
     del g.dataloaders
     return response
+
+
+from app.helpers.celery import *

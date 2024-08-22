@@ -1,14 +1,14 @@
 import datetime
 from enum import Enum
 
-from sqlalchemy import func, or_, desc
-
+from sqlalchemy import desc
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
 from sqlalchemy.sql.functions import now
 
 from app import db
 from app.helpers.mail_type import EmailType
+from app.models import Company, CompanyCertification
 from app.models import (
     Employment,
     Email,
@@ -16,7 +16,6 @@ from app.models import (
     Activity,
 )
 from app.models.employment import EmploymentRequestValidationStatus
-from app.models import Company, CompanyCertification
 
 
 class SirenRegistrationStatus(str, Enum):
@@ -239,3 +238,10 @@ def check_company_has_no_activities(company_id):
         .all()
     )
     return len(company_activities) == 0
+
+
+def apply_business_type_to_company_employees(company, new_business):
+    company_employments = company.employments
+    for employment in company_employments:
+        employment.business = new_business
+    db.session.flush()

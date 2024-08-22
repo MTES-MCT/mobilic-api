@@ -14,8 +14,6 @@ class TestDifferentPeriods(RegulationsTest):
         # Employee logs a mission over three days
         mission = self._log_and_validate_mission(
             mission_name="Mission over three days",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

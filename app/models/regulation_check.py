@@ -2,6 +2,7 @@ from enum import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
+from app.domain.regulations_helper import resolve_variables
 from app.models.base import BaseModel
 from app.models.utils import enum_column
 
@@ -37,6 +38,7 @@ class RegulationCheckType(str, Enum):
     MAXIMUM_UNINTERRUPTED_WORK_TIME = "maximumUninterruptedWorkTime"
     MAXIMUM_WORKED_DAY_IN_WEEK = "maximumWorkedDaysInWeek"
     NO_LIC = "noLic"
+    MAXIMUM_WORK_IN_CALENDAR_WEEK = "maximumWorkInCalendarWeek"
     __description__ = """
 Enumération des valeurs suivantes.
 - "minimumDailyRest" : non-respect(s) du repos quotidien
@@ -45,6 +47,7 @@ Enumération des valeurs suivantes.
 - "maximumUninterruptedWorkTime" : dépassement(s) de la durée maximale du travail ininterrompu
 - "maximumWorkedDaysInWeek" : non-respect(s) du repos hebdomadaire
 - "noLic" : pas de LIC présenté lors du contrôle
+- "maximumWorkInCalendarWeek": Dépassement(s) de la durée maximale de travail hebdomadaire sur une semaine civile isolée
 """
 
 
@@ -53,12 +56,20 @@ class RegulationCheck(BaseModel):
 
     type = enum_column(RegulationCheckType, nullable=False)
     label = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.TEXT, nullable=True)
     date_application_start = db.Column(db.Date, nullable=False)
     date_application_end = db.Column(db.Date, nullable=True)
     regulation_rule = enum_column(RegulationRule, nullable=False)
     variables = db.Column(JSONB(none_as_null=True), nullable=True)
     unit = enum_column(UnitType, nullable=False)
+
+    @property
+    def resolved_variables(self):
+        from app.domain.regulations import get_default_business
+
+        business = getattr(self, "business", None)
+        if business is None:
+            business = get_default_business()
+        return resolve_variables(self.variables, business)
 
     def __repr__(self):
         return f"<RegulationCheck [{self.id}] : {self.type}>"

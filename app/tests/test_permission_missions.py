@@ -17,6 +17,7 @@ from app.tests.helpers import (
     init_regulation_checks_data,
     make_authenticated_request,
     ApiRequests,
+    init_businesses_data,
 )
 
 
@@ -24,6 +25,7 @@ class TestPermissionMissions(BaseTest):
     def setUp(self):
         super().setUp()
         init_regulation_checks_data()
+        init_businesses_data()
 
         self.company = CompanyFactory.create()
         self.admin = UserFactory.create(
@@ -39,7 +41,9 @@ class TestPermissionMissions(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def _create_mission(self, submitter, user, start_time, end_time):
+    def _create_mission(
+        self, submitter, user, start_time, end_time, reception_time=None
+    ):
         with AuthenticatedUserContext(user=submitter):
             mission = Mission.create(
                 submitter=submitter,
@@ -52,7 +56,7 @@ class TestPermissionMissions(BaseTest):
                 mission=mission,
                 type=ActivityType.WORK,
                 switch_mode=True,
-                reception_time=end_time,
+                reception_time=reception_time if reception_time else end_time,
                 start_time=start_time,
                 end_time=end_time,
             )
@@ -76,7 +80,7 @@ class TestPermissionMissions(BaseTest):
             )
         db.session.commit()
 
-    def _validate_mission(self, submitter, user, mission):
+    def _validate_mission(self, submitter, user, mission, activity_items=[]):
         return make_authenticated_request(
             time=datetime.now(),
             submitter_id=submitter.id,
@@ -84,6 +88,7 @@ class TestPermissionMissions(BaseTest):
             variables=dict(
                 missionId=mission.id,
                 usersIds=[user.id],
+                activityItems=activity_items,
             ),
         )
 
@@ -138,6 +143,128 @@ class TestPermissionMissions(BaseTest):
 
         response = self._validate_mission(
             submitter=self.admin, user=self.worker, mission=mission
+        )
+
+        if "errors" in response:
+            self.fail(f"Validate mission returned an error: {response}")
+
+    def test_admin_can_validate_mission_not_validated_by_employee_if_last_activity_has_more_than_24_hours(
+        self,
+    ):
+        # Si la dernière activité court depuis plus de 24 heures,
+        # j'obtiens alors les droits pour y apporter des modifications et la valider
+
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(hours=25),
+            end_time=None,
+            reception_time=datetime.now(),
+        )
+
+        new_end_time = datetime.now() - timedelta(hours=2)
+        response = self._validate_mission(
+            submitter=self.admin,
+            user=self.worker,
+            mission=mission,
+            activity_items=[
+                {
+                    "edit": {
+                        "activityId": mission.activities[0].id,
+                        "endTime": new_end_time,
+                    }
+                }
+            ],
+        )
+
+        if "errors" in response:
+            self.fail(f"Validate mission returned an error: {response}")
+
+    def test_admin_can_not_validate_mission_not_validated_by_employee_if_last_activity_has_more_than_24_hours_but_has_end_time(
+        self,
+    ):
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(hours=25),
+            end_time=datetime.now() - timedelta(hours=2),
+            reception_time=datetime.now(),
+        )
+
+        response = self._validate_mission(
+            submitter=self.admin, user=self.worker, mission=mission
+        )
+
+        if "errors" not in response:
+            self.fail(f"Admin should not be able to validate")
+
+    def test_admin_can_validate_mission_old_enough_even_if_updating_start_date_case_24h(
+        self,
+    ):
+        # A mission has last activity started more than 24h ago
+        # Admin can validate in this special case
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(hours=25),
+            end_time=None,
+            reception_time=datetime.now(),
+        )
+
+        # Admin will validate while modifying start time of activity
+        new_start_time = datetime.now() - timedelta(hours=19)
+        new_end_time = datetime.now() - timedelta(hours=1)
+        response = self._validate_mission(
+            submitter=self.admin,
+            user=self.worker,
+            mission=mission,
+            activity_items=[
+                {
+                    "edit": {
+                        "activityId": mission.activities[0].id,
+                        "startTime": new_start_time,
+                    }
+                },
+                {
+                    "edit": {
+                        "activityId": mission.activities[0].id,
+                        "endTime": new_end_time,
+                    }
+                },
+            ],
+        )
+
+        if "errors" in response:
+            self.fail(f"Validate mission returned an error: {response}")
+
+    def test_admin_can_validate_mission_old_enough_even_if_updating_start_date_case_10d(
+        self,
+    ):
+        # A mission has last activity started more than 24h ago
+        # Admin can validate in this special case
+        mission = self._create_mission(
+            submitter=self.worker,
+            user=self.worker,
+            start_time=datetime.now() - timedelta(days=11),
+            end_time=datetime.now() - timedelta(days=9) + timedelta(hours=8),
+        )
+
+        # Admin will validate while modifying start time of activity
+        new_start_time = (
+            datetime.now() - timedelta(days=9) + timedelta(hours=2)
+        )
+        response = self._validate_mission(
+            submitter=self.admin,
+            user=self.worker,
+            mission=mission,
+            activity_items=[
+                {
+                    "edit": {
+                        "activityId": mission.activities[0].id,
+                        "startTime": new_start_time,
+                    }
+                }
+            ],
         )
 
         if "errors" in response:

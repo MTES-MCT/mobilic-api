@@ -112,6 +112,10 @@ class AgentConnectAuthenticationError(MobilicError):
     code = "AGENT_CONNECT_ERROR"
 
 
+class AgentConnectOrganizationalUnitError(MobilicError):
+    code = "AGENT_CONNECT_ORGANIZATIONAL_UNIT_NOT_FOUND_ERROR"
+
+
 class InvalidTokenError(MobilicError):
     code = "INVALID_TOKEN"
     default_should_alert_team = False
@@ -362,6 +366,11 @@ class DuplicateExpendituresError(MobilicError):
 class InvalidControlToken(MobilicError):
     code = "INVALID_CONTROL_TOKEN"
     default_message = "The Control QR Code can not be read"
+
+
+class ControlNotFound(MobilicError):
+    code = "CONTROL_NOT_FOUND"
+    http_status_code = 404
 
 
 class OverlappingEmploymentsError(MobilicError):

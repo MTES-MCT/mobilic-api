@@ -1,8 +1,9 @@
-from datetime import date, datetime, timedelta, timezone
-from sqlalchemy.orm import aliased
+from datetime import timedelta
+
+from dateutil.tz import gettz
 from sqlalchemy import or_, and_
 
-from app import app, db
+from app import db
 from app.domain.regulations_per_day import (
     compute_regulations_per_day,
     filter_work_days_to_current_day,
@@ -21,14 +22,22 @@ from app.helpers.time import (
     to_datetime,
     get_uninterrupted_datetime_ranges,
 )
-from app.models import RegulationCheck
+from app.models import RegulationCheck, Business
+from app.models.business import BusinessType
 from app.models.regulation_check import UnitType
 from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
-from dateutil.tz import gettz
 
 
-def compute_regulations(user, period_start, period_end, submitter_type):
+def get_default_business():
+    return Business.query.filter(
+        Business.business_type == BusinessType.SHIPPING
+    ).one_or_none()
+
+
+def compute_regulations(
+    user, period_start, period_end, submitter_type, business=None
+):
     period_start = period_start - timedelta(days=1)
     week_period_start = get_first_day_of_week(period_start)
     week_period_end = get_last_day_of_week(period_end)
@@ -60,10 +69,14 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         include_holidays=False,
     )
 
+    if business is None:
+        business = get_default_business()
+
     # Compute daily rules for each day
     for index, day in enumerate(get_dates_range(period_start, period_end)):
         compute_regulations_per_day(
             user,
+            business,
             day,
             submitter_type,
             work_days_over_current_past_and_next_days,
@@ -83,7 +96,8 @@ def compute_regulations(user, period_start, period_end, submitter_type):
         tz=user_timezone,
     )
     for week in weeks:
-        compute_regulations_per_week(user, week, submitter_type)
+        compute_regulations_per_week(user, business, week, submitter_type)
+        mark_day_as_computed(user, week.get("start"), submitter_type)
 
 
 def activity_to_compute_in_day(
@@ -108,7 +122,6 @@ def clean_current_alerts(
     week_compute_end,
     submitter_type,
 ):
-
     condition_day = and_(
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.unit == UnitType.DAY
@@ -160,6 +173,7 @@ def group_user_events_by_week(
                 "end": current_week + timedelta(days=6),
                 "worked_days": 0,
                 "days": [],
+                "work_duration_s": 0,
             }
         )
         current_week += timedelta(days=7)
@@ -184,6 +198,7 @@ def group_user_events_by_week(
                 "overlap_next_day": wd.is_last_mission_overlapping_with_next_day,
             }
         )
+        week["work_duration_s"] += wd.total_work_duration
 
     # compute rest duration for each week
     for week in weeks:

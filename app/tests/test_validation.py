@@ -8,7 +8,7 @@ class TestEmailValidation(BaseTest):
             "prenom.nom@beta.gouv.fr",
             "prenom.nom@gmail.com",
             "prenom.nom@developpement-durable.gouv.fr",
-            "mobilic@beta.gouv.fr",
+            "nepasrepondre@mobilic.beta.gouv.fr",
             "prenom.nom+123@hotmail.fr",
             "prenom-nom@domain-with-dash.fr",
             "prenom123nom@domain456.sth",

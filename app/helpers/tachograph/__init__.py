@@ -869,6 +869,52 @@ def get_tachograph_archive_controller(controls, with_signatures):
     return archive
 
 
+def get_tachograph_archive_control(control, with_signatures, employee_version):
+    archive = BytesIO()
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as f:
+        control_max_date = control.history_end_date
+        control_min_date = control.history_start_date
+        tachograph_data = generate_tachograph_parts(
+            control.user,
+            start_date=control_min_date,
+            end_date=control_max_date,
+            only_activities_validated_by_admin=False,
+            do_not_generate_if_empty=False,
+            max_reception_time=control.qr_code_generation_time,
+            min_reception_datetime=datetime.combine(control_min_date, time()),
+            with_signatures=with_signatures,
+            include_dismissed_or_empty_days=True,
+        )
+        f.writestr(
+            generate_tachograph_file_name(
+                control.user,
+                "-VersionGestionnaire" if employee_version else "",
+            ),
+            write_tachograph_archive(tachograph_data),
+        )
+        if employee_version:
+            tachograph_data = generate_tachograph_parts(
+                control.user,
+                start_date=control_min_date,
+                end_date=control_max_date,
+                only_activities_validated_by_admin=False,
+                do_not_generate_if_empty=False,
+                max_reception_time=control.qr_code_generation_time,
+                min_reception_datetime=datetime.combine(
+                    control_min_date, time()
+                ),
+                with_signatures=with_signatures,
+                include_dismissed_or_empty_days=True,
+                employee_version=True,
+            )
+            f.writestr(
+                generate_tachograph_file_name(control.user, "-VersionSalarie"),
+                write_tachograph_archive(tachograph_data),
+            )
+    archive.seek(0)
+    return archive
+
+
 def get_tachograph_archive_company(
     users, min_date, max_date, scope, with_signatures, employee_version
 ):

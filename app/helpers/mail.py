@@ -13,7 +13,8 @@ from app.helpers.time import to_fr_tz
 from app.helpers.mail_type import EmailType
 from config import MOBILIC_ENV
 
-SENDER_ADDRESS = "mobilic@beta.gouv.fr"
+CONTACT_ADDRESS = "contact@mobilic.beta.gouv.fr"
+SENDER_ADDRESS = "nepasrepondre@mobilic.beta.gouv.fr"
 SENDER_NAME = "Mobilic"
 
 
@@ -85,6 +86,7 @@ class MailjetMessage:
         html=None,
         template_id=None,
         template_vars=None,
+        attachment=None,
     ):
         if not html and not template_id:
             raise ValueError(
@@ -100,6 +102,7 @@ class MailjetMessage:
         self.template_id = template_id
         self.template_vars = template_vars
         self.response = None
+        self.attachment = attachment
 
     @cached_property
     def actual_recipient(self):
@@ -121,6 +124,8 @@ class MailjetMessage:
             payload["From"] = {"Email": SENDER_ADDRESS, "Name": SENDER_NAME}
         if self.subject:
             payload["Subject"] = self.subject
+        if self.attachment:
+            payload["Attachments"] = [self.attachment]
 
         return payload
 
@@ -265,6 +270,7 @@ class Mailer:
         recipient=None,
         user=None,
         _disable_commit=False,
+        attachment=None,
         **kwargs,
     ):
         html = render_template(template, **kwargs)
@@ -276,6 +282,7 @@ class Mailer:
             email_type=type_,
             add_sender=True,
             employment=kwargs.get("employment"),
+            attachment=attachment,
         )
 
     @contextmanager
@@ -479,7 +486,7 @@ class Mailer:
                 ),
                 company_name=company.name,
                 company_siren=Markup(company.siren),
-                contact_email=Markup(SENDER_ADDRESS),
+                contact_email=Markup(CONTACT_ADDRESS),
             )
         )
 
@@ -501,7 +508,7 @@ class Mailer:
                 companies=companies,
                 nb_companies=len(companies),
                 companies_siren=Markup(siren),
-                contact_email=Markup(SENDER_ADDRESS),
+                contact_email=Markup(CONTACT_ADDRESS),
             )
         )
 
@@ -866,6 +873,18 @@ class Mailer:
                 periods=periods,
             ),
             _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_admin_export_excel(self, admin, company_name, file):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="admin_export_excel.html",
+                user=admin,
+                subject=f"Téléchargement des données Mobilic de l’entreprise {company_name}",
+                type_=EmailType.ADMIN_EXPORT_EXCEL,
+                attachment=file,
+            ),
+            _apply_whitelist_if_not_prod=False,
         )
 
 

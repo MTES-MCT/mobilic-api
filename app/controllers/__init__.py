@@ -21,7 +21,7 @@ from app.controllers.company import (
     CompanySignUp,
     EditCompanySettings,
     CompanySoftwareRegistration,
-    UpdateCompanyName,
+    UpdateCompanyDetails,
 )
 from app.controllers.company import Query as CompanyQuery
 from app.controllers.control import AddControlNote
@@ -58,6 +58,7 @@ from app.controllers.employment import (
     ValidateEmployment,
     SyncThirdPartyEmployees,
     UpdateHideEmail,
+    ChangeEmployeeBusinessType,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -79,6 +80,7 @@ from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
     ChangeName,
+    ChangePhoneNumber,
     ChangeTimezone,
     ConfirmFranceConnectEmail,
     DisableWarning,
@@ -158,6 +160,7 @@ class PrivateAuth(graphene.ObjectType):
 class Account(graphene.ObjectType):
     change_email = ChangeEmail.Field()
     change_name = ChangeName.Field()
+    change_phone_number = ChangePhoneNumber.Field()
     change_timezone = ChangeTimezone.Field()
     reset_password = ResetPassword.Field()
     reset_password_connected = ResetPasswordConnected.Field()
@@ -179,6 +182,7 @@ class Employments(graphene.ObjectType):
     send_invitation_reminder = SendInvitationReminder.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
+    change_employee_business_type = ChangeEmployeeBusinessType.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
     update_hide_email = UpdateHideEmail.Field()
 
@@ -232,7 +236,7 @@ class Mutations(graphene.ObjectType):
         Employments, resolver=lambda root, info: Employments()
     )
     teams = graphene.Field(Teams, resolver=lambda root, info: Teams())
-    update_company_name = UpdateCompanyName.Field()
+    update_company_details = UpdateCompanyDetails.Field()
 
 
 class ProtectedMutations(graphene.ObjectType):

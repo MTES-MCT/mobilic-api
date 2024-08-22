@@ -16,8 +16,6 @@ class TestDailyRest(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="5h drive J",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -28,8 +26,6 @@ class TestDailyRest(RegulationsTest):
         )
         self._log_and_validate_mission(
             mission_name="2h drive J+1",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -40,8 +36,6 @@ class TestDailyRest(RegulationsTest):
         )
         self._log_and_validate_mission(
             mission_name="6h drive J+2",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -64,8 +58,6 @@ class TestDailyRest(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="3 + 1 + 4 on two days",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -92,14 +84,11 @@ class TestDailyRest(RegulationsTest):
         self.assertIsNone(regulatory_alert)
 
     def test_min_daily_rest_by_employee_failure_one_minute(self):
-        company = self.company
         employee = self.employee
         how_many_days_ago = 4
 
         self._log_and_validate_mission(
             mission_name="Missing one minute break",
-            company=company,
-            reception_time=datetime.now(),
             submitter=employee,
             work_periods=[
                 [
@@ -145,8 +134,6 @@ class TestDailyRest(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="4h drive / 9h45 break / drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -219,8 +206,6 @@ class TestDailyRest(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="Several 1h drives, 5h10 break then long drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=work_periods,
         )
@@ -250,14 +235,11 @@ class TestDailyRest(RegulationsTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
-        company = self.company
         employee = self.employee
         how_many_days_ago = 3
 
         self._log_and_validate_mission(
             mission_name="6h drive / 2h break / 7h drive / 11h break / 12h drive",
-            company=company,
-            reception_time=datetime.now(),
             submitter=employee,
             work_periods=[
                 [
@@ -302,8 +284,6 @@ class TestDailyRest(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="6h drive / 1h break / 9h drive",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -344,8 +324,6 @@ class TestDailyRest(RegulationsTest):
     def test_min_daily_rest_by_employee_failure_complex_case(self):
         self._log_and_validate_mission(
             mission_name="4hD/30mB/4hD/15mB/3hD/5h15B/4hD/3hB/7hD",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -399,8 +377,6 @@ class TestDailyRest(RegulationsTest):
     ):
         self._log_and_validate_mission(
             mission_name="4hD/30mB/4hD/15mB/3hD/5h15B/4hD/3hB/7h30D",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -451,8 +427,6 @@ class TestDailyRest(RegulationsTest):
         how_many_days_ago = 5
         self._log_and_validate_mission(
             mission_name="Longue mission",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -485,8 +459,6 @@ class TestDailyRest(RegulationsTest):
         how_many_days_ago = 3
         self._log_and_validate_mission(
             mission_name="Mission de nuit",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [

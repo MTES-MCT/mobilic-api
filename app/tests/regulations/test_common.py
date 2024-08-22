@@ -51,16 +51,14 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.day == day_start,
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
-        ).all()
-        self.assertEqual(1, len(computation_done))
+        ).one_or_none()
+        self.assertIsNone(computation_done)
 
     def test_no_computation_for_empty_previous_day(self):
         how_many_days_ago = 2
 
         self._log_and_validate_mission(
             mission_name="5h work",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -82,8 +80,8 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.day == day_before,
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
-        self.assertIsNone(computation_done)
+        ).all()
+        self.assertEqual(1, len(computation_done))
 
     def test_computation_for_non_empty_day(self):
         self.employee
@@ -91,8 +89,6 @@ class TestRegulationsCommon(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="long night",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
@@ -126,14 +122,15 @@ class TestRegulationsCommon(RegulationsTest):
             id=6,
             type="minimumDailyRest",
             label="Non-respect(s) du repos quotidien",
-            description="Règlementation expirée",
             date_application_start=get_datetime_tz(2018, 1, 1),
             date_application_end=get_datetime_tz(2019, 11, 1),
             regulation_rule="dailyRest",
             variables=None,
             unit=UnitType.DAY,
         )
-        insert_regulation_check(expired_regulation_data)
+        insert_regulation_check(
+            session=db.session, regulation_check_data=expired_regulation_data
+        )
 
         mission = Mission(
             name="any mission",
@@ -181,13 +178,11 @@ class TestRegulationsCommon(RegulationsTest):
 
         self._log_and_validate_mission(
             mission_name="super long mission",
-            company=self.company,
-            reception_time=datetime.now(),
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(how_many_days_ago=18, hour=4),
-                    get_time(how_many_days_ago=3, hour=5),
+                    get_datetime_tz(2024, 7, 25, 4, 0),
+                    get_datetime_tz(2024, 8, 9, 5, 0),
                 ],
             ],
         )
@@ -199,4 +194,4 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(computations_done), 16)
+        self.assertEqual(len(computations_done), 17)

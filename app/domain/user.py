@@ -42,11 +42,12 @@ def create_user(
     ssn=None,
     fc_info=None,
     way_heard_of_mobilic=None,
+    phone_number=None,
 ):
     user = User(
         first_name=first_name,
         last_name=last_name,
-        email=email,
+        email=email.lower(),
         password=password,
         password_update_time=datetime.now(),
         ssn=ssn,
@@ -55,6 +56,7 @@ def create_user(
         france_connect_info=fc_info,
         france_connect_id=fc_info.get("sub") if fc_info else None,
         way_heard_of_mobilic=way_heard_of_mobilic,
+        phone_number=phone_number,
     )
     db.session.add(user)
     db.session.flush()
@@ -155,3 +157,13 @@ def get_user_with_hidden_email(user):
     del modified_user_data["password"]
     modified_user = User(**modified_user_data)
     return modified_user
+
+
+def get_current_employment_in_company(user, company):
+    employments = user.active_employments_at(
+        date_=date.today(), include_pending_ones=False
+    )
+    for e in employments:
+        if e.company_id == company.id:
+            return e
+    return None

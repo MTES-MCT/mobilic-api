@@ -6,7 +6,7 @@ Modification de votre {{ mission_name | lower }} du {{ mission_day }}
 
 {% block body %}
     <p>Bonjour {{first_name | capitalize }},</p>
-    <p>Le gestionnaire <strong>{{ admin_full_name | capitalize }}</strong> de votre entreprise {{company_name | upper}} a apporté les modifications suivantes à votre <strong>{{ mission_name | lower }}</strong> du <strong>{{ mission_day }}</strong>.</p>
+    <p>Le gestionnaire <strong>{{ admin_full_name }}</strong> de votre entreprise {{company_name | upper}} a apporté les modifications suivantes à votre <strong>{{ mission_name | lower }}</strong> du <strong>{{ mission_day }}</strong>.</p>
     <ul>
         {% if new_start_time and new_work_duration and not new_end_time %}
             <li>
@@ -61,5 +61,4 @@ Modification de votre {{ mission_name | lower }} du {{ mission_day }}
         {% else %}{% endif %}
     </ul>
     <p>Vous pouvez consulter dans votre <a href="{{mission_link}}" target="_blank">historique</a> le nouveau détail de votre {{ mission_name | lower }}.</p>
-    <strong>L'équipe Mobilic</strong>
 {% endblock %}

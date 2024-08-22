@@ -7,6 +7,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.models import RegulatoryAlert
 from app.models.regulation_check import RegulationCheck, UnitType
 from app.models.regulation_computation import RegulationComputation
 
@@ -67,25 +68,30 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
         if not regulation_checks:
             return None
 
-        key = (self.user_id, self.day, self.submitter_type)
-        alerts = g.dataloaders["regulatory_alerts"].load(key)
+        regulatory_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user_id == self.user.id,
+            RegulatoryAlert.day == self.day,
+            RegulatoryAlert.submitter_type == self.submitter_type,
+        )
+        regulation_checks_extended = []
 
-        def process_alerts(alerts):
-            regulation_checks_extended = []
-            for regulation_check in regulation_checks:
-                matching_alert = next(
-                    (
-                        alert
-                        for alert in alerts
-                        if alert.regulation_check_id == regulation_check.id
-                    ),
-                    None,
+        current_employments = self.user.active_employments_at(self.day)
+        current_employment = (
+            current_employments[0] if len(current_employments) > 0 else None
+        )
+
+        for regulation_check in regulation_checks:
+            regulatory_alert = regulatory_alerts.filter(
+                RegulatoryAlert.regulation_check_id == regulation_check.id
+            ).one_or_none()
+            setattr(regulation_check, "alert", regulatory_alert)
+            if current_employment:
+                setattr(
+                    regulation_check, "business", current_employment.business
                 )
-                setattr(regulation_check, "alert", matching_alert)
-                regulation_checks_extended.append(regulation_check)
-            return regulation_checks_extended
+            regulation_checks_extended.append(regulation_check)
 
-        return alerts.then(process_alerts)
+        return regulation_checks_extended
 
 
 class RegulationComputationByDayOutput(graphene.ObjectType):

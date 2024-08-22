@@ -1,20 +1,23 @@
 import re
-import json
 from collections import namedtuple
 from contextlib import contextmanager
 from datetime import datetime
 
+from freezegun import freeze_time
+
 from app import db
+from app.helpers.regulations_utils import insert_regulation_check
 from app.helpers.time import to_timestamp
-from app.models import ControllerUser, User, RegulationCheck
+from app.models import ControllerUser, User, RegulationCheck, Business
 from app.models.activity import ActivityType
+from app.models.regulation_check import RegulationCheckType
+from app.services.get_businesses import get_businesses
 from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
     test_post_graphql,
     test_post_graphql_protected,
     test_post_graphql_unexposed,
 )
-from freezegun import freeze_time
 
 INVALID_TOKEN = "Invalid token"
 INVALID_API_KEY_MESSAGE = "Invalid API Key"
@@ -917,26 +920,30 @@ class ApiRequests:
 
     regulation_computations_by_day = """
         query getUserRegulationComputations(
-          $userId: Int!
-          $fromDate: Date
-          $toDate: Date
-        ) {
-          user(id: $userId) {
-            regulationComputationsByDay(fromDate: $fromDate, toDate: $toDate) {
-              day
-              regulationComputations {
+            $userId: Int!
+            $fromDate: Date
+            $toDate: Date
+          ) {
+            user(id: $userId) {
+              regulationComputationsByDay(fromDate: $fromDate, toDate: $toDate) {
                 day
-                submitterType
-                regulationChecks {
-                  type
-                  alert {
-                    id
+                regulationComputations {
+                  day
+                  submitterType
+                  regulationChecks {
+                    type
+                    label
+                    description
+                    regulationRule
+                    unit
+                    alert {
+                      extra
+                    }
                   }
                 }
               }
             }
           }
-        }
     """
 
 
@@ -1136,47 +1143,80 @@ def init_regulation_checks_data():
     if not regulation_check:
         regulation_checks = get_regulation_checks()
         for r in regulation_checks:
-            insert_regulation_check(r)
+            if r.type == RegulationCheckType.NO_LIC:
+                continue
+            insert_regulation_check(
+                session=db.session, regulation_check_data=r
+            )
         regulation_check = RegulationCheck.query.first()
     return regulation_check
 
 
-def insert_regulation_check(regulation_data):
+def init_businesses_data():
+    business = Business.query.first()
+    if not business:
+        businesses = get_businesses()
+        for b in businesses:
+            insert_businesses(b)
+        business = Business.query.first()
+    return business
+
+
+def insert_businesses(business_data):
     db.session.execute(
         """
-            INSERT INTO regulation_check(
+            INSERT INTO business(
               creation_time,
-              type,
-              label,
-              description,
-              date_application_start,
-              date_application_end,
-              regulation_rule,
-              variables,
-              unit
+              transport_type,
+              business_type,
+              id
             )
             VALUES
             (
               NOW(),
-              :type,
-              :label,
-              :description,
-              :date_application_start,
-              :date_application_end,
-              :regulation_rule,
-              :variables,
-              :unit
+              :transport_type,
+              :business_type,
+              :id
             )
             """,
         dict(
-            type=regulation_data.type,
-            label=regulation_data.label,
-            description=regulation_data.description,
-            date_application_start=regulation_data.date_application_start,
-            date_application_end=regulation_data.date_application_end,
-            regulation_rule=regulation_data.regulation_rule,
-            variables=json.dumps(regulation_data.variables),
-            unit=regulation_data.unit,
+            transport_type=business_data.transport_type,
+            business_type=business_data.business_type,
+            id=business_data.id,
+        ),
+    )
+
+
+def init_businesses_data():
+    business = Business.query.first()
+    if not business:
+        businesses = get_businesses()
+        for b in businesses:
+            insert_businesses(b)
+        business = Business.query.first()
+
+
+def insert_businesses(business_data):
+    db.session.execute(
+        """
+            INSERT INTO business(
+              creation_time,
+              transport_type,
+              business_type,
+              id
+            )
+            VALUES
+            (
+              NOW(),
+              :transport_type,
+              :business_type,
+              :id
+            )
+            """,
+        dict(
+            transport_type=business_data.transport_type,
+            business_type=business_data.business_type,
+            id=business_data.id,
         ),
     )
 

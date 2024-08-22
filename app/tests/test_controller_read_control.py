@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.helpers.submitter_type import SubmitterType
+from app.models.regulation_check import RegulationCheckType
 from app.seed import UserFactory
 from app.seed.factories import (
     ControllerControlFactory,
@@ -101,11 +102,22 @@ class TestControllerReadControl(BaseTest):
         first_day_regulations = regulations_by_day[0]["regulationComputations"]
         self.assertEqual(
             len(first_day_regulations[0]["regulationChecks"]),
-            5,
+            6,
         )
-        self.assertIsNotNone(
-            first_day_regulations[0]["regulationChecks"][0]["alert"]
-        )
-        self.assertIsNone(
-            first_day_regulations[0]["regulationChecks"][1]["alert"]
-        )
+        checks = [
+            c
+            for c in first_day_regulations[0]["regulationChecks"]
+            if c is not None
+        ]
+        minimumDailyRestCheck = [
+            c
+            for c in checks
+            if c["type"] == RegulationCheckType.MINIMUM_DAILY_REST
+        ][0]
+        minimumWorkDayBreakCheck = [
+            c
+            for c in checks
+            if c["type"] == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        ][0]
+        self.assertIsNotNone(minimumDailyRestCheck["alert"])
+        self.assertIsNone(minimumWorkDayBreakCheck["alert"])

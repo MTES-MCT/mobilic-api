@@ -1,6 +1,7 @@
+from datetime import datetime
+
 import graphene
 from graphene.types.generic import GenericScalar
-from datetime import datetime
 from sqlalchemy.orm import selectinload
 
 from app import app, db
@@ -11,39 +12,38 @@ from app.controllers.expenditure import (
     log_expenditure_,
 )
 from app.controllers.utils import atomic_transaction
+from app.data_access.mission import MissionOutput
 from app.domain.mission import get_start_end_time_at_employee_validation
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
-from app.domain.validation import validate_mission
+from app.domain.permissions import (
+    check_actor_can_write_on_mission,
+    get_employment_over_period,
+    can_actor_read_mission,
+    company_admin,
+    check_actor_can_write_on_mission_for_user,
+)
+from app.domain.validation import (
+    validate_mission,
+    pre_check_validate_mission_by_admin,
+)
 from app.domain.vehicle import find_or_create_vehicle
+from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.authorization import (
     with_authorization_policy,
     active,
     check_company_against_scope_wrapper,
 )
-from app.helpers.graphene_types import TimeStamp
-from app.models.mission import Mission
-from app.models import Company, Vehicle, User, Activity
-from app.models.mission_end import MissionEnd
-from app.models.mission_validation import (
-    MissionValidationOutput,
-)
-from app.data_access.mission import MissionOutput
-from app.domain.permissions import (
-    check_actor_can_write_on_mission,
-    get_employment_over_period,
-    is_employed_by_company_over_period,
-    can_actor_read_mission,
-    company_admin,
-    check_actor_can_write_on_mission_for_user,
-)
-from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
 )
+from app.helpers.graphene_types import TimeStamp
+from app.models import Company, User, Activity
+from app.models.mission import Mission
+from app.models.mission_end import MissionEnd
 from app.models.vehicle import VehicleOutput
 
 
@@ -304,6 +304,16 @@ class ValidateMission(AuthenticatedMutation):
                 mission=mission, users_ids=users_ids
             )
         )
+        is_admin_validation = company_admin(current_user, mission.company_id)
+
+        if is_admin_validation:
+            for user_id in users_ids:
+                user = User.query.get(user_id)
+                pre_check_validate_mission_by_admin(
+                    mission=mission,
+                    admin_submitter=current_user,
+                    for_user=user,
+                )
 
         with atomic_transaction(commit_at_end=True):
             play_bulk_activity_items(activity_items)

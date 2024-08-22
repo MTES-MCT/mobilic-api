@@ -10,6 +10,8 @@ light_orange_hex = "#fff0e4"
 light_red_hex = "#d9d2e9"
 green_hex = "#a8d08d"
 very_light_red_hex = "#fcb4b4"
+red_hex = "#ff0000"
+white_hex = "#ffffff"
 
 EXCEL_MIMETYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

@@ -90,6 +90,13 @@ class Config:
     )
     USERS_BLACKLIST = json.loads(os.environ.get("USERS_BLACKLIST", "[]"))
     SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
+    BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
+        "BREVO_COMPANY_SUBSCRIBE_LIST", 19
+    )
+    CELERY_BROKER_URL = os.environ.get(
+        "CELERY_BROKER_URL", "redis://localhost:6379/0"
+    )
+    EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
 
 
 class DevConfig(Config):
@@ -101,6 +108,12 @@ class DevConfig(Config):
         minutes=os.environ.get("MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 2)
     )
     API_KEY_PREFIX = os.environ.get("API_KEY_PREFIX", "mobilic_dev_")
+    BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
+        "BREVO_COMPANY_SUBSCRIBE_LIST", 22
+    )
+    CELERY_BROKER_URL = os.environ.get(
+        "CELERY_BROKER_URL", "redis://localhost:6379/0"
+    )
 
 
 class StagingConfig(Config):

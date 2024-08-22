@@ -22,6 +22,11 @@ services:
       POSTGRES_USER: mobilic-test
       POSTGRES_PASSWORD: mobilic-test
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
 
 volumes:
   mobilic-postgresql-data:

@@ -1,5 +1,6 @@
 from flask import g
 
+from app.data_access.business import BusinessOutput
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -86,10 +87,7 @@ class CertificateCriterias(graphene.ObjectType):
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
-        only_fields = (
-            "id",
-            "siren",
-        )
+        only_fields = ("id", "siren", "phone_number", "business")
 
     id = graphene.Field(
         graphene.Int, required=True, description="Identifiant de l'entreprise"
@@ -98,6 +96,15 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         required=False,
         description="Numéro SIREN de l'entreprise",
+    )
+    phone_number = graphene.Field(
+        graphene.String,
+        required=False,
+        description="Numéro de téléphone de l'entreprise",
+    )
+    business = graphene.Field(
+        lambda: BusinessOutput,
+        description="Type d'activités effectuées par l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     legal_name = graphene.Field(

@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 
-from dateutil.tz import gettz
-
 from app import db
+from app.domain.mission import get_mission_start_and_end_from_activities
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
+from app.domain.user import get_current_employment_in_company
 from app.helpers.authorization import AuthorizationError
 from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
@@ -12,11 +12,86 @@ from app.helpers.errors import (
     MissionStillRunningError,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.helpers.time import to_tz
 from app.models import MissionValidation, MissionEnd
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
+
+
+# In case an admin wants to validate a mission for an employee who did not yet validate its mission
+# He should not be able to do it, except for two special cases
+def pre_check_validate_mission_by_admin(mission, admin_submitter, for_user):
+    activities_to_validate = mission.activities_for(for_user)
+
+    # Checks if employee has already validated its mission
+    if len(mission.validations_for(for_user)) > 0:
+        return
+
+    # Evacuates case where admin is validating for himself
+    if (
+        for_user.id == admin_submitter.id
+        or mission.submitter_id == admin_submitter.id
+    ):
+        return
+
+    # Special case #1 - mission started more than 10d ago
+    mission_start = activities_to_validate[0].start_time
+    mission_old_enough = (
+        datetime.now() - mission_start
+        > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+    )
+    if mission_old_enough:
+        return
+
+    # Special case #2 - last activity started more than 24h ago and still running
+    last_activity_start = activities_to_validate[-1].start_time
+    last_activity_is_running = not activities_to_validate[-1].end_time
+    last_activity_long_enough = (
+        datetime.now() - last_activity_start
+        > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+    )
+    if last_activity_long_enough and last_activity_is_running:
+        return
+
+    raise MissionNotAlreadyValidatedByUserError()
+
+
+# In case an admin wants to validate a mission for an employee who did not yet validate its mission
+# He should not be able to do it, except for two special cases
+def pre_check_validate_mission_by_admin(mission, admin_submitter, for_user):
+    activities_to_validate = mission.activities_for(for_user)
+
+    # Checks if employee has already validated its mission
+    if len(mission.validations_for(for_user)) > 0:
+        return
+
+    # Evacuates case where admin is validating for himself
+    if (
+        for_user.id == admin_submitter.id
+        or mission.submitter_id == admin_submitter.id
+    ):
+        return
+
+    # Special case #1 - mission started more than 10d ago
+    mission_start = activities_to_validate[0].start_time
+    mission_old_enough = (
+        datetime.now() - mission_start
+        > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+    )
+    if mission_old_enough:
+        return
+
+    # Special case #2 - last activity started more than 24h ago and still running
+    last_activity_start = activities_to_validate[-1].start_time
+    last_activity_is_running = not activities_to_validate[-1].end_time
+    last_activity_long_enough = (
+        datetime.now() - last_activity_start
+        > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
+    )
+    if last_activity_long_enough and last_activity_is_running:
+        return
+
+    raise MissionNotAlreadyValidatedByUserError()
 
 
 def validate_mission(
@@ -45,25 +120,6 @@ def validate_mission(
     if any([not a.end_time for a in activities_to_validate]):
         raise MissionStillRunningError()
 
-    if (
-        is_admin_validation
-        and for_user.id != submitter.id
-        and mission.submitter_id != submitter.id
-        and len(mission.validations_for(for_user)) == 0
-    ):
-        mission_start = activities_to_validate[0].start_time
-        last_activity_start = activities_to_validate[-1].start_time
-        mission_old_enough = (
-            datetime.now() - mission_start
-            > MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
-        )
-        last_activity_long_enough = (
-            datetime.now() - last_activity_start
-            > MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION
-        )
-        if not (mission_old_enough and last_activity_long_enough):
-            raise MissionNotAlreadyValidatedByUserError()
-
     if not mission.ended_for(for_user):
         db.session.add(
             MissionEnd(
@@ -85,19 +141,16 @@ def validate_mission(
     )
 
     if not mission.is_holiday():
-
-        start_time = activities_to_validate[0].start_time
-        if employee_version_start_time:
-            start_time = min(start_time, employee_version_start_time)
-        end_time = activities_to_validate[-1].end_time
-        if employee_version_end_time:
-            end_time = max(end_time, employee_version_end_time)
-
+        employment = get_current_employment_in_company(
+            user=for_user, company=mission.company
+        )
         _compute_regulations_after_validation(
-            start_time=start_time,
-            end_time=end_time,
+            activities=activities_to_validate,
             is_admin_validation=is_admin_validation,
             user=for_user,
+            business=employment.business if employment else None,
+            employee_version_start_time=employee_version_start_time,
+            employee_version_end_time=employee_version_end_time,
         )
 
     return validation
@@ -133,18 +186,33 @@ def _get_or_create_validation(
 
 
 def _compute_regulations_after_validation(
-    start_time, end_time, is_admin_validation, user
+    activities,
+    is_admin_validation,
+    user,
+    business=None,
+    employee_version_start_time=None,
+    employee_version_end_time=None,
 ):
-    user_timezone = gettz(user.timezone_name)
-    mission_start = to_tz(start_time, user_timezone).date()
-    end_time_user_tz = to_tz(end_time, user_timezone)
-    mission_end = end_time_user_tz.date() if end_time_user_tz else None
+    mission_start, mission_end = get_mission_start_and_end_from_activities(
+        activities=activities, user=user
+    )
+    start_time = (
+        min(mission_start, employee_version_start_time)
+        if employee_version_start_time
+        else mission_start
+    )
+    end_time = (
+        max(mission_end, employee_version_end_time)
+        if employee_version_end_time
+        else mission_end
+    )
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )
     compute_regulations(
         user=user,
-        period_start=mission_start,
-        period_end=mission_end,
+        period_start=start_time,
+        period_end=end_time,
         submitter_type=submitter_type,
+        business=business,
     )

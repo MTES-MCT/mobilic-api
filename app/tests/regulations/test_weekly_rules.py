@@ -5,7 +5,13 @@ from app.domain.log_activities import log_activity
 from app.domain.regulations_per_week import NATINF_13152
 from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert, User, RegulationCheck, Mission
+from app.models import (
+    RegulatoryAlert,
+    User,
+    RegulationCheck,
+    Mission,
+    RegulationComputation,
+)
 from app.models.activity import ActivityType
 from app.models.regulation_check import RegulationCheckType
 from app.seed.helpers import (
@@ -23,8 +29,6 @@ class TestWeeklyRules(RegulationsTest):
             how_many_days_ago = 3 + i * 7
             self._log_and_validate_mission(
                 mission_name=f"mission #{i}",
-                company=self.company,
-                reception_time=datetime.now(),
                 submitter=self.employee,
                 work_periods=[
                     [
@@ -216,3 +220,35 @@ class TestWeeklyRules(RegulationsTest):
         self.assertFalse(extra_info["too_many_days"])
         self.assertEqual(extra_info["rest_duration_s"], 111600)
         self.assertEqual(extra_info["sanction_code"], NATINF_13152)
+
+    def test_weekly_rule_should_mark_beginning_of_week_as_computed(self):
+
+        self._log_and_validate_mission(
+            mission_name="Work on end of weeks",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_datetime_tz(2024, 8, 2, 8, 0),
+                    get_datetime_tz(2024, 8, 2, 18, 0),
+                ],
+                [
+                    get_datetime_tz(2024, 8, 9, 8, 0),
+                    get_datetime_tz(2024, 8, 9, 18, 0),
+                ],
+            ],
+        )
+
+        # Should have regulation computations on mondays
+        res = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == date(2024, 8, 5),
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(res)
+
+        res = RegulationComputation.query.filter(
+            RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulationComputation.day == date(2024, 7, 29),
+            RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
+        self.assertIsNotNone(res)

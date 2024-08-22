@@ -23,3 +23,4 @@ class EmailType(str, Enum):
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
     HOLIDAY_LOGGING_BY_ADMIN = "holiday_logging_by_admin"
     HOLIDAY_CHANGES_WARNING = "holiday_changes_warning"
+    ADMIN_EXPORT_EXCEL = "admin_export_excel"
