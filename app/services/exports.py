@@ -9,7 +9,7 @@ def export_activity_report(
     users = list(users)
 
     nb_users = len(users)
-    nb_days = (max_date - min_date).days
+    nb_days = (max_date - min_date).days + 1
     nb_buckets, bucket_size = get_buckets_params(
         nb_users=nb_users,
         nb_days=nb_days,
