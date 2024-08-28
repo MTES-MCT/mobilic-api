@@ -1,4 +1,3 @@
-from flask import jsonify
 from datetime import datetime
 
 import graphene
@@ -556,29 +555,43 @@ class Query(graphene.ObjectType):
 
 @require_auth
 def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
-    if not set(company_ids) <= set(
-        current_user.current_company_ids_with_admin_rights
-    ):
-        raise AuthorizationError("Forbidden access")
+    users = set()
 
     check_company_ids_against_scope(company_ids)
-    companies = (
-        Company.query.options(
-            selectinload(Company.employments).selectinload(Employment.user)
-        )
-        .filter(Company.id.in_(company_ids))
-        .all()
-    )
-    users = set(
-        [
-            user
-            for company in companies
-            for user in company.users_between(min_date, max_date)
-        ]
-    )
+
+    for company_id in company_ids:
+        if current_user.has_admin_rights(company_id):
+            company = (
+                Company.query.options(
+                    selectinload(Company.employments).selectinload(
+                        Employment.user
+                    )
+                )
+                .filter(Company.id == company_id)
+                .one_or_none()
+            )
+
+            if company:
+                users.update(company.users_between(min_date, max_date))
+        else:
+            if not any(
+                employment.company_id == company_id
+                for employment in current_user.employments
+            ):
+                raise AuthorizationError("Forbidden access")
+
+            users.add(current_user)
+
     if user_ids:
         users = [u for u in users if u.id in user_ids]
     return users
+
+
+def validate_company_ids(data):
+    if not data.get("ensure_full_date_range") and not data.get("company_ids"):
+        raise InvalidParamsError(
+            "company_ids is required unless ensure_full_date_range is true."
+        )
 
 
 @app.route("/companies/download_activity_report", methods=["POST"])
@@ -589,7 +602,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
 @use_kwargs(
     {
         "company_ids": fields.List(
-            fields.Int(), required=True, validate=lambda l: len(l) > 0
+            fields.Int(), required=False, validate=validate_company_ids
         ),
         "user_ids": fields.List(fields.Int(), required=False),
         "min_date": fields.Date(required=False),
@@ -604,13 +617,35 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
     apply=True,
 )
 def download_activity_report(
-    company_ids,
+    company_ids=None,
     user_ids=None,
     min_date=None,
     max_date=None,
     one_file_by_employee=False,
     ensure_full_date_range=False,
 ):
+    if ensure_full_date_range:
+        company_ids = set()
+        for user_id in user_ids:
+            user = User.query.get(user_id)
+            if user:
+                user_company_ids = [
+                    employment.company_id for employment in user.employments
+                ]
+                company_ids.update(user_company_ids)
+        user_ids = [employment.user_id for employment in user.employments]
+        company_ids = list(company_ids)
+
+    elif not company_ids:
+        return (
+            jsonify(
+                {
+                    "error": "company_ids is required unless ensure_full_date_range is true"
+                }
+            ),
+            400,
+        )
+
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
     )
