@@ -1,7 +1,8 @@
+from flask import jsonify, make_response
 from datetime import datetime
 
 import graphene
-from flask import send_file, jsonify
+from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
@@ -555,107 +556,57 @@ class Query(graphene.ObjectType):
 
 @require_auth
 def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
-    users = set()
+    if not set(company_ids) <= set(
+        current_user.current_company_ids_with_admin_rights
+    ):
+        raise AuthorizationError("Forbidden access")
 
     check_company_ids_against_scope(company_ids)
-
-    for company_id in company_ids:
-        if current_user.has_admin_rights(company_id):
-            company = (
-                Company.query.options(
-                    selectinload(Company.employments).selectinload(
-                        Employment.user
-                    )
-                )
-                .filter(Company.id == company_id)
-                .one_or_none()
-            )
-
-            if company:
-                users.update(company.users_between(min_date, max_date))
-        else:
-            if not any(
-                employment.company_id == company_id
-                for employment in current_user.employments
-            ):
-                raise AuthorizationError("Forbidden access")
-
-            users.add(current_user)
-
+    companies = (
+        Company.query.options(
+            selectinload(Company.employments).selectinload(Employment.user)
+        )
+        .filter(Company.id.in_(company_ids))
+        .all()
+    )
+    users = set(
+        [
+            user
+            for company in companies
+            for user in company.users_between(min_date, max_date)
+        ]
+    )
     if user_ids:
         users = [u for u in users if u.id in user_ids]
     return users
 
 
-def validate_company_ids(data):
-    if not data.get("ensure_full_date_range") and not data.get("company_ids"):
-        raise InvalidParamsError(
-            "company_ids is required unless ensure_full_date_range is true."
-        )
-
-
 @app.route("/companies/download_activity_report", methods=["POST"])
 @doc(
-    description="Demande d'envoi du rapport d'activité au format Excel par email. "
-    "Si ensure_full_date_range est true, le rapport inclut toutes les données de l'utilisateur depuis son arrivée jusqu'à aujourd'hui."
+    description="Demande d'envoi du rapport d'activité au format Excel par email"
 )
 @use_kwargs(
     {
         "company_ids": fields.List(
-            fields.Int(), required=False, validate=validate_company_ids
+            fields.Int(), required=True, validate=lambda l: len(l) > 0
         ),
         "user_ids": fields.List(fields.Int(), required=False),
         "min_date": fields.Date(required=False),
         "max_date": fields.Date(required=False),
         "one_file_by_employee": fields.Boolean(required=False),
-        "ensure_full_date_range": fields.Boolean(
-            missing=False,
-            required=False,
-            description="Indique si le rapport doit inclure toutes les données depuis l'arrivée de l'utilisateur jusqu'à aujourd'hui.",
-        ),
     },
     apply=True,
 )
 def download_activity_report(
-    company_ids=None,
+    company_ids,
     user_ids=None,
     min_date=None,
     max_date=None,
     one_file_by_employee=False,
-    ensure_full_date_range=False,
 ):
-    if ensure_full_date_range:
-        company_ids = set()
-        for user_id in user_ids:
-            user = User.query.get(user_id)
-            if user:
-                user_company_ids = [
-                    employment.company_id for employment in user.employments
-                ]
-                company_ids.update(user_company_ids)
-        user_ids = [employment.user_id for employment in user.employments]
-        company_ids = list(company_ids)
-
-    elif not company_ids:
-        return (
-            jsonify(
-                {
-                    "error": "company_ids is required unless ensure_full_date_range is true"
-                }
-            ),
-            400,
-        )
-
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
     )
-
-    if ensure_full_date_range:
-        if min_date is None:
-            min_date = min(user.creation_time.date() for user in users)
-
-        if max_date is None:
-            max_date = datetime.now().date()
 
     export_activity_report(
         admin=current_user,
@@ -667,6 +618,61 @@ def download_activity_report(
     )
 
     return jsonify({"result": "ok"}), 200
+
+
+@app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
+@doc(
+    description="Demande d'envoi du rapport d'activité complet en cas de refus des CGU"
+)
+@use_kwargs(
+    {"user_id": fields.Int(required=True)},
+    apply=True,
+)
+def download_full_data_report(user_id):
+    try:
+        company_ids = set(
+            employment.company_id for employment in current_user.employments
+        )
+        users = set()
+
+        for company_id in company_ids:
+            if current_user.has_admin_rights(company_id):
+                company = (
+                    Company.query.options(
+                        selectinload(Company.employments).selectinload(
+                            Employment.user
+                        )
+                    )
+                    .filter(Company.id == company_id)
+                    .one_or_none()
+                )
+
+                if company:
+                    users.update(
+                        company.users_between(min_date=None, max_date=None)
+                    )
+            else:
+                users.add(current_user)
+
+        users = list(users)
+
+        export_activity_report(
+            admin=current_user,
+            company_ids=list(company_ids),
+            users=users,
+            min_date=min(user.creation_time.date() for user in users),
+            max_date=datetime.now().date(),
+            one_file_by_employee=False,
+        )
+
+        response = make_response(jsonify({"result": "ok"}), 200)
+        response.headers["Content-Type"] = "application/json"
+        return response
+
+    except Exception as e:
+        response = make_response(jsonify({"error": str(e)}), 500)
+        response.headers["Content-Type"] = "application/json"
+        return response
 
 
 class TachographGenerationScopeSchema(TachographBaseOptionsSchema):
