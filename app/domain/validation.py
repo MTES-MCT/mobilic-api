@@ -56,7 +56,14 @@ def pre_check_validate_mission_by_admin(mission, admin_submitter, for_user):
     raise MissionNotAlreadyValidatedByUserError()
 
 
-def validate_mission(mission, submitter, for_user, creation_time=None):
+def validate_mission(
+    mission,
+    submitter,
+    for_user,
+    creation_time=None,
+    employee_version_start_time=None,
+    employee_version_end_time=None,
+):
     validation_time = datetime.now()
     is_admin_validation = company_admin(submitter, mission.company_id)
 
@@ -100,10 +107,12 @@ def validate_mission(mission, submitter, for_user, creation_time=None):
             user=for_user, company=mission.company
         )
         _compute_regulations_after_validation(
-            activities_to_validate,
-            is_admin_validation,
-            for_user,
+            activities=activities_to_validate,
+            is_admin_validation=is_admin_validation,
+            user=for_user,
             business=employment.business if employment else None,
+            employee_version_start_time=employee_version_start_time,
+            employee_version_end_time=employee_version_end_time,
         )
 
     return validation
@@ -139,18 +148,33 @@ def _get_or_create_validation(
 
 
 def _compute_regulations_after_validation(
-    activities_to_validate, is_admin_validation, user, business=None
+    activities,
+    is_admin_validation,
+    user,
+    business=None,
+    employee_version_start_time=None,
+    employee_version_end_time=None,
 ):
     mission_start, mission_end = get_mission_start_and_end_from_activities(
-        activities=activities_to_validate, user=user
+        activities=activities, user=user
+    )
+    period_start = (
+        min(mission_start, employee_version_start_time.date())
+        if employee_version_start_time
+        else mission_start
+    )
+    period_end = (
+        max(mission_end, employee_version_end_time.date())
+        if employee_version_end_time
+        else mission_end
     )
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )
     compute_regulations(
         user=user,
-        period_start=mission_start,
-        period_end=mission_end,
+        period_start=period_start,
+        period_end=period_end,
         submitter_type=submitter_type,
         business=business,
     )

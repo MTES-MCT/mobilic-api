@@ -932,12 +932,8 @@ class ApiRequests:
                   submitterType
                   regulationChecks {
                     type
-                    label
-                    description
-                    regulationRule
-                    unit
                     alert {
-                      extra
+                      id
                     }
                   }
                 }
