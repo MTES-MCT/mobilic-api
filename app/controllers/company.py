@@ -648,9 +648,7 @@ def download_full_data_report(user_id):
                 )
 
                 if company:
-                    users.update(
-                        company.users_between(min_date=None, max_date=None)
-                    )
+                    users.update(company.users_between(start=None, end=None))
             else:
                 users.add(current_user)
 
