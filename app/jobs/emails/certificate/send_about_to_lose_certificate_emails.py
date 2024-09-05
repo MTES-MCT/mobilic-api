@@ -1,18 +1,19 @@
 from datetime import date
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy.sql.functions import now
 
 from app import app, mailer
 from app.domain.company import get_start_last_certification_period
 from app.domain.email import check_email_exists
 from app.helpers.mail_type import EmailType
-from app.models.company import Company
+from app.jobs import log_execution
 from app.models import CompanyCertification
+from app.models.company import Company
 
 NB_MONTHS_AGO = 3
 
 
+@log_execution
 def send_about_to_lose_certificate_emails(today):
     max_attribution_date = today.replace(day=1) - relativedelta(
         months=NB_MONTHS_AGO

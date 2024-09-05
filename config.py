@@ -1,5 +1,5 @@
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 from dotenv import load_dotenv
 import os
 
@@ -9,6 +9,9 @@ if os.environ.get("DOTENV_FILE", False):
 MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
 
 BREVO_API_KEY_ENV = "BREVO_API_KEY"
+
+CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
+CGU_INITIAL_VERSION = "v1.0"
 
 
 class Config:
@@ -97,6 +100,14 @@ class Config:
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
     EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
+    CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
+    CGU_RELEASE_DATE = (
+        datetime.strptime(
+            os.environ.get("CGU_RELEASE_DATE"), "%Y-%m-%d"
+        ).date()
+        if os.environ.get("CGU_RELEASE_DATE")
+        else CGU_INITIAL_RELASE_DATE
+    )
 
 
 class DevConfig(Config):

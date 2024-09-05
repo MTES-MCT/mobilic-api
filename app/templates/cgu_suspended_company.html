@@ -1,0 +1,14 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+{{subject}}
+{% endblock %}
+
+{% block body %}
+    <p>Madame, Monsieur,</p>
+    <p>Nous vous avons adressé la mise à jour de nos conditions générales d’utilisation en date du {{release_date | full_format_day}}. En l’absence d’acceptation de ces conditions générales d’utilisation dans le délai de 10 jours ouvrés, nous avons été dans l’obligation de suspendre votre compte.</p>
+    <p>Nous souhaiterions indiquer que vos salariés ont accepté les conditions mais ne peuvent continuer à utiliser l’application Mobilic en l’absence de gestionnaire désigné sur votre entreprise.</p>
+    <p>L'équipe Mobilic tient à vous rappeler que, conformément aux articles R3312-19 et R3312-58 du Code des transports, le suivi du temps de travail de vos salariés doit s’effectuer soit par le livret individuel de contrôle au format papier, soit au format numérique par Mobilic.</p>
+    <p>Si vous souhaitez conserver le format numérique assurant une fiabilité et la facilité de saisie pour vos salariés, nous vous invitons à écrire à l’adresse <a href="mailto:assistance@mobilic.beta.gouv.fr">assistance@mobilic.beta.gouv.fr</a>.</p>
+    <p>Au plaisir de vous retrouver !</p>
+{% endblock %}

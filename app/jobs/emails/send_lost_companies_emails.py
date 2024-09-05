@@ -2,8 +2,10 @@ from datetime import timedelta
 
 from app import mailer, app
 from app.domain.company import get_admin_of_companies_without_activity
+from app.jobs import log_execution
 
 
+@log_execution
 def send_never_active_companies_emails(today):
     min_inactivity_period = today - timedelta(days=6)
     old_companies_signup_threshold = today - timedelta(days=14)

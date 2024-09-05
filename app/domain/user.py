@@ -4,7 +4,7 @@ from flask import g
 from sqlalchemy import func
 
 from app import app, db, mailer
-from app.models import User, Employment
+from app.models import User, Employment, Company
 from app.models.user import UserAccountStatus
 
 HIDDEN_EMAIL = "***"
@@ -167,3 +167,15 @@ def get_current_employment_in_company(user, company):
         if e.company_id == company.id:
             return e
     return None
+
+
+def get_employee_current_admins(employee):
+    admin_ids = []
+    company_ids = employee.current_company_ids_without_admin_rights
+    companies = Company.query.filter(Company.id.in_(company_ids)).all()
+    for company in companies:
+        admin_ids += [
+            a.id
+            for a in company.get_admins(start=date.today(), end=date.today())
+        ]
+    return User.query.filter(User.id.in_(admin_ids)).all()
