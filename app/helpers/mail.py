@@ -4,7 +4,7 @@ import jwt
 from enum import Enum
 from cached_property import cached_property
 from flask import render_template
-from datetime import datetime, date
+from datetime import datetime
 from markupsafe import Markup
 
 from app import app
@@ -915,12 +915,12 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
-    def send_admin_export_excel(self, admin, file):
+    def send_admin_export_excel(self, admin, company_name, file):
         self._send_single(
             self._create_message_from_flask_template(
                 template="admin_export_excel.html",
                 user=admin,
-                subject="Vos données",
+                subject=f"Téléchargement des données Mobilic de l’entreprise {company_name}",
                 type_=EmailType.ADMIN_EXPORT_EXCEL,
                 attachment=file,
             ),

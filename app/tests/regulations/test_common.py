@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from app import db
@@ -52,24 +52,23 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.day == day_start,
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
-        self.assertIsNone(computation_done)
+        self.assertIsNotNone(computation_done)
 
     def test_no_computation_for_empty_previous_day(self):
-        how_many_days_ago = 2
-
+        start_time = get_datetime_tz(2024, 8, 21, 10, 0)
+        end_time = get_datetime_tz(2024, 8, 21, 15, 0)
         self._log_and_validate_mission(
             mission_name="5h work",
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=10),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=15),
+                    start_time,
+                    end_time,
                 ],
             ],
         )
-
-        day_start = get_date(how_many_days_ago)
-        day_before = get_date(how_many_days_ago + 1)
+        day_start = start_time.date()
+        day_before = start_time.date() - timedelta(days=1)
         computation_done = RegulationComputation.query.filter(
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.day == day_start,
@@ -181,8 +180,8 @@ class TestRegulationsCommon(RegulationsTest):
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(how_many_days_ago=18, hour=4),
-                    get_time(how_many_days_ago=3, hour=5),
+                    get_datetime_tz(2024, 7, 25, 4, 0),
+                    get_datetime_tz(2024, 8, 9, 5, 0),
                 ],
             ],
         )
@@ -194,4 +193,4 @@ class TestRegulationsCommon(RegulationsTest):
             RegulationComputation.user.has(User.email == EMPLOYEE_EMAIL),
             RegulationComputation.submitter_type == SubmitterType.EMPLOYEE,
         ).all()
-        self.assertEqual(len(computations_done), 16)
+        self.assertEqual(len(computations_done), 17)
