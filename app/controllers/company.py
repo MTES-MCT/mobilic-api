@@ -1,4 +1,3 @@
-from flask import jsonify, make_response
 from datetime import datetime
 
 import graphene
@@ -48,7 +47,7 @@ from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
-from app.models import Company, Employment, Business
+from app.models import Company, Employment, Business, UserAgreement
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -630,13 +629,14 @@ def download_activity_report(
 )
 def download_full_data_report(user_id):
     try:
+        user = User.query.get(user_id)
         company_ids = set(
-            employment.company_id for employment in current_user.employments
+            employment.company_id for employment in user.employments
         )
         users = set()
 
         for company_id in company_ids:
-            if current_user.has_admin_rights(company_id):
+            if user.has_admin_rights(company_id):
                 company = (
                     Company.query.options(
                         selectinload(Company.employments).selectinload(
@@ -650,18 +650,20 @@ def download_full_data_report(user_id):
                 if company:
                     users.update(company.users_between(start=None, end=None))
             else:
-                users.add(current_user)
+                users.add(user)
 
         users = list(users)
 
         export_activity_report(
-            admin=current_user,
+            admin=user,
             company_ids=list(company_ids),
             users=users,
             min_date=min(user.creation_time.date() for user in users),
             max_date=datetime.now().date(),
             one_file_by_employee=False,
         )
+
+        UserAgreement.has_downloaded_data(user.id)
 
         response = make_response(jsonify({"result": "ok"}), 200)
         response.headers["Content-Type"] = "application/json"

@@ -131,6 +131,20 @@ class UserAgreement(BaseModel):
             for employment in employments:
                 employment.end_date = today - datetime.timedelta(days=1)
 
+    @staticmethod
+    def has_downloaded_data(user_id):
+        cgu_version = app.config["CGU_VERSION"]
+        existing_user_agreement = UserAgreement.get(
+            user_id=user_id, cgu_version=cgu_version
+        )
+        if existing_user_agreement is None:
+            return
+
+        with atomic_transaction(commit_at_end=True):
+            existing_user_agreement.has_transferred_data = (
+                datetime.datetime.now()
+            )
+
     def reject(self):
         self.status = UserAgreementStatus.REJECTED
         self.is_blacklisted = False
