@@ -8,9 +8,13 @@ from sqlalchemy.ext.mutable import MutableDict
 
 from app import db, app
 from app.domain.controller_control import get_no_lic_observed_infractions
-from app.domain.regulation_computations import get_regulatory_alerts
+from app.domain.regulation_computations import (
+    get_regulatory_alerts,
+    get_regulatory_computations,
+)
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
+from app.helpers.submitter_type import SubmitterType
 from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
@@ -128,8 +132,31 @@ class ControllerControl(BaseModel, RandomNineIntId):
             start_date=self.history_start_date,
             end_date=self.history_end_date,
         )
+        regulation_computations = get_regulatory_computations(
+            user_id=self.user.id,
+            start_date=self.history_start_date,
+            end_date=self.history_end_date,
+        )
         observed_infractions = []
         for regulatory_alert in regulatory_alerts:
+            regulation_computations_for_the_day = [
+                rc
+                for rc in regulation_computations
+                if rc.day == regulatory_alert.day
+            ]
+            if len(regulation_computations_for_the_day) == 0:
+                continue
+            if (
+                len(regulation_computations_for_the_day) == 2
+                and regulatory_alert.submitter_type != SubmitterType.ADMIN
+            ):
+                continue
+            if (
+                regulation_computations_for_the_day[0].submitter_type
+                != regulatory_alert.submitter_type
+            ):
+                continue
+
             extra = regulatory_alert.extra
             if not extra or not "sanction_code" in extra:
                 continue

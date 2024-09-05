@@ -12,6 +12,10 @@ From any machine connected to the target database, run the command:
 flask init_regulation_alerts [part] [nb_parts] [nb_fork]
 ```
 
+## How to ensure empty days won't be added in regulation_computation?
+
+Remove `index != 0` condition in method `compute_regulations` of file `app/domain/regulations.py`.
+
 ## How to improve performance?
 
 Running the command locally allow to make some changes that will improve performance.
