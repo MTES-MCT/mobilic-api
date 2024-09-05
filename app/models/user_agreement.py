@@ -39,7 +39,7 @@ class UserAgreement(BaseModel):
     )
     status = enum_column(UserAgreementStatus, nullable=False)
     expires_at = db.Column(db.DateTime)
-    has_transferred_data = db.Column(db.DateTime)
+    transferred_data_date = db.Column(db.DateTime)
     is_blacklisted = db.Column(db.Boolean)
 
     __table_args__ = (
@@ -132,7 +132,7 @@ class UserAgreement(BaseModel):
                 employment.end_date = today - datetime.timedelta(days=1)
 
     @staticmethod
-    def has_downloaded_data(user_id):
+    def set_transferred_data_date(user_id):
         cgu_version = app.config["CGU_VERSION"]
         existing_user_agreement = UserAgreement.get(
             user_id=user_id, cgu_version=cgu_version
@@ -141,7 +141,7 @@ class UserAgreement(BaseModel):
             return
 
         with atomic_transaction(commit_at_end=True):
-            existing_user_agreement.has_transferred_data = (
+            existing_user_agreement.transferred_data_date = (
                 datetime.datetime.now()
             )
 

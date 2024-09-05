@@ -663,7 +663,7 @@ def download_full_data_report(user_id):
             one_file_by_employee=False,
         )
 
-        UserAgreement.has_downloaded_data(user.id)
+        UserAgreement.set_transferred_data_date(user.id)
 
         response = make_response(jsonify({"result": "ok"}), 200)
         response.headers["Content-Type"] = "application/json"
