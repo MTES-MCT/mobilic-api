@@ -43,7 +43,7 @@ def upgrade():
             nullable=False,
         ),
         sa.Column("expires_at", sa.DateTime(), nullable=True),
-        sa.Column("has_transferred_data", sa.DateTime(), nullable=True),
+        sa.Column("transferred_data_date", sa.DateTime(), nullable=True),
         sa.Column("is_blacklisted", sa.Boolean(), nullable=True),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(

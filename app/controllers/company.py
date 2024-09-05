@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import graphene
-from flask import send_file, jsonify
+from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
@@ -47,7 +47,7 @@ from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
-from app.models import Company, Employment, Business
+from app.models import Company, Employment, Business, UserAgreement
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -62,6 +62,8 @@ from app.helpers.brevo import (
 import sentry_sdk
 
 from app.services.exports import export_activity_report
+
+from app.models.user import User
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -615,6 +617,62 @@ def download_activity_report(
     )
 
     return jsonify({"result": "ok"}), 200
+
+
+@app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
+@doc(
+    description="Demande d'envoi du rapport d'activité complet en cas de refus des CGU"
+)
+@use_kwargs(
+    {"user_id": fields.Int(required=True)},
+    apply=True,
+)
+def download_full_data_report(user_id):
+    try:
+        user = User.query.get(user_id)
+        company_ids = set(
+            employment.company_id for employment in user.employments
+        )
+        users = set()
+
+        for company_id in company_ids:
+            if user.has_admin_rights(company_id):
+                company = (
+                    Company.query.options(
+                        selectinload(Company.employments).selectinload(
+                            Employment.user
+                        )
+                    )
+                    .filter(Company.id == company_id)
+                    .one_or_none()
+                )
+
+                if company:
+                    users.update(company.users_between(start=None, end=None))
+            else:
+                users.add(user)
+
+        users = list(users)
+
+        export_activity_report(
+            admin=user,
+            company_ids=list(company_ids),
+            users=users,
+            min_date=min(user.creation_time.date() for user in users),
+            max_date=datetime.now().date(),
+            one_file_by_employee=False,
+        )
+
+        UserAgreement.set_transferred_data_date(user.id)
+
+        response = make_response(jsonify({"result": "ok"}), 200)
+        response.headers["Content-Type"] = "application/json"
+        return response
+
+    except Exception as e:
+        response = make_response(jsonify({"error": str(e)}), 500)
+        response.headers["Content-Type"] = "application/json"
+        return response
 
 
 class TachographGenerationScopeSchema(TachographBaseOptionsSchema):
