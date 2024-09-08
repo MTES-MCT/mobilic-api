@@ -17,7 +17,14 @@ celery.conf.update(app.config)
 
 @celery.task()
 def async_export_excel(
-    admin_id, user_ids, company_ids, min_date, max_date, one_file_by_employee
+    admin_id,
+    user_ids,
+    company_ids,
+    min_date,
+    max_date,
+    one_file_by_employee,
+    idx_bucket=1,
+    nb_buckets=1,
 ):
     with app.app_context():
         admin = User.query.get(admin_id)
@@ -80,6 +87,9 @@ def async_export_excel(
                 admin=admin,
                 company_name=companies[0].usual_name,
                 file=file_obj,
+                subject_suffix=f" ({idx_bucket}/{nb_buckets})"
+                if nb_buckets > 1
+                else "",
             )
         except Exception as e:
             app.logger.exception(e)
