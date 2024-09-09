@@ -23,7 +23,7 @@ def export_activity_report(
     from app.helpers.celery import async_export_excel
 
     users.sort(key=lambda u: u.last_name)
-    for i in range(0, nb_users, bucket_size):
+    for idx_bucket, i in enumerate(range(0, nb_users, bucket_size)):
         bucket_users = users[i : i + bucket_size]
 
         async_export_excel.delay(
@@ -33,6 +33,8 @@ def export_activity_report(
             min_date=min_date,
             max_date=max_date,
             one_file_by_employee=one_file_by_employee,
+            idx_bucket=idx_bucket + 1,
+            nb_buckets=nb_buckets,
         )
 
 

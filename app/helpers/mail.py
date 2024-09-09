@@ -915,12 +915,14 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
-    def send_admin_export_excel(self, admin, company_name, file):
+    def send_admin_export_excel(
+        self, admin, company_name, file, subject_suffix=""
+    ):
         self._send_single(
             self._create_message_from_flask_template(
                 template="admin_export_excel.html",
                 user=admin,
-                subject=f"Téléchargement des données Mobilic de l’entreprise {company_name}",
+                subject=f"Téléchargement des données Mobilic de l’entreprise {company_name}{subject_suffix}",
                 type_=EmailType.ADMIN_EXPORT_EXCEL,
                 attachment=file,
             ),
