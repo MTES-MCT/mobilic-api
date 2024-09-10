@@ -608,7 +608,7 @@ def download_activity_report(
     )
 
     export_activity_report(
-        admin=current_user,
+        exporter=current_user,
         company_ids=company_ids,
         users=users,
         min_date=min_date,
@@ -633,35 +633,45 @@ def download_full_data_report(user_id):
         company_ids = set(
             employment.company_id for employment in user.employments
         )
-        users = set()
 
         for company_id in company_ids:
-            if user.has_admin_rights(company_id):
-                company = (
-                    Company.query.options(
-                        selectinload(Company.employments).selectinload(
-                            Employment.user
-                        )
+            company = (
+                Company.query.options(
+                    selectinload(Company.employments).selectinload(
+                        Employment.user
                     )
-                    .filter(Company.id == company_id)
-                    .one_or_none()
                 )
+                .filter(Company.id == company_id)
+                .one_or_none()
+            )
+            if company is None:
+                continue
 
-                if company:
-                    users.update(company.users_between(start=None, end=None))
+            users = set()
+            is_user_admin = user.has_admin_rights(company_id)
+            if is_user_admin:
+                users.update(company.users_between(start=None, end=None))
             else:
                 users.add(user)
 
-        users = list(users)
+            min_date = min(user.creation_time.date() for user in users)
+            max_date = datetime.now().date()
 
-        export_activity_report(
-            admin=user,
-            company_ids=list(company_ids),
-            users=users,
-            min_date=min(user.creation_time.date() for user in users),
-            max_date=datetime.now().date(),
-            one_file_by_employee=False,
-        )
+            if is_user_admin:
+                file_name = f"{company.usual_name}_rapport_activités_{min_date.strftime('%d/%m/%Y')} au {max_date.strftime('%d/%m/%Y')}"
+            else:
+                file_name = f"Relevé d'heures de {user.display_name} - {min_date.strftime('%d/%m/%Y')} au {max_date.strftime('%d/%m/%Y')} - {company.usual_name}"
+
+            export_activity_report(
+                exporter=user,
+                company_ids=[company_id],
+                users=users,
+                min_date=min_date,
+                max_date=max_date,
+                one_file_by_employee=False,
+                file_name=file_name,
+                is_admin=is_user_admin,
+            )
 
         UserAgreement.set_transferred_data_date(user.id)
 

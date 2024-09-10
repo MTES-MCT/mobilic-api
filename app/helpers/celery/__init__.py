@@ -14,10 +14,12 @@ from app.models import User
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
 
+DEFAULT_FILE_NAME = "rapport_activités"
+
 
 @celery.task()
 def async_export_excel(
-    admin_id,
+    exporter_id,
     user_ids,
     company_ids,
     min_date,
@@ -25,9 +27,11 @@ def async_export_excel(
     one_file_by_employee,
     idx_bucket=1,
     nb_buckets=1,
+    file_name=DEFAULT_FILE_NAME,
+    is_admin=True,
 ):
     with app.app_context():
-        admin = User.query.get(admin_id)
+        exporter = User.query.get(exporter_id)
         users = User.query.filter(User.id.in_(user_ids)).all()
         scope = ConsultationScope(company_ids=company_ids)
         if one_file_by_employee:
@@ -67,7 +71,7 @@ def async_export_excel(
             file_obj[
                 "ContentType"
             ] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            file_obj["Filename"] = "rapport_activité.xlsx"
+            file_obj["Filename"] = f"{file_name}.xlsx"
         else:
             file = get_archive_excel_file(
                 batches=user_wdays_batches,
@@ -76,20 +80,21 @@ def async_export_excel(
                 max_date=max_date,
             )
             file_obj["ContentType"] = "application/zip"
-            file_obj["Filename"] = "rapport_activités.zip"
+            file_obj["Filename"] = f"{file_name}.zip"
 
         file_content = file.read()
         base64_content = base64.b64encode(file_content).decode("utf-8")
         file_obj["Base64Content"] = base64_content
 
         try:
-            mailer.send_admin_export_excel(
-                admin=admin,
+            mailer.send_export_excel(
+                user=exporter,
                 company_name=companies[0].usual_name,
                 file=file_obj,
                 subject_suffix=f" ({idx_bucket}/{nb_buckets})"
                 if nb_buckets > 1
                 else "",
+                is_admin=is_admin,
             )
         except Exception as e:
             app.logger.exception(e)
