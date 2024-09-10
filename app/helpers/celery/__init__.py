@@ -19,7 +19,7 @@ DEFAULT_FILE_NAME = "rapport_activités"
 
 @celery.task()
 def async_export_excel(
-    admin_id,
+    exporter_id,
     user_ids,
     company_ids,
     min_date,
@@ -28,9 +28,10 @@ def async_export_excel(
     idx_bucket=1,
     nb_buckets=1,
     file_name=DEFAULT_FILE_NAME,
+    is_admin=True,
 ):
     with app.app_context():
-        admin = User.query.get(admin_id)
+        exporter = User.query.get(exporter_id)
         users = User.query.filter(User.id.in_(user_ids)).all()
         scope = ConsultationScope(company_ids=company_ids)
         if one_file_by_employee:
@@ -86,13 +87,14 @@ def async_export_excel(
         file_obj["Base64Content"] = base64_content
 
         try:
-            mailer.send_admin_export_excel(
-                admin=admin,
+            mailer.send_export_excel(
+                user=exporter,
                 company_name=companies[0].usual_name,
                 file=file_obj,
                 subject_suffix=f" ({idx_bucket}/{nb_buckets})"
                 if nb_buckets > 1
                 else "",
+                is_admin=is_admin,
             )
         except Exception as e:
             app.logger.exception(e)

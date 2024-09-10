@@ -4,13 +4,14 @@ from app import app
 
 
 def export_activity_report(
-    admin,
+    exporter,
     company_ids,
     users,
     min_date,
     max_date,
     one_file_by_employee,
     file_name=None,
+    is_admin=True,
 ):
     users = list(users)
 
@@ -33,7 +34,7 @@ def export_activity_report(
         bucket_users = users[i : i + bucket_size]
 
         async_export_excel.delay(
-            admin_id=admin.id,
+            exporter_id=exporter.id,
             user_ids=[user.id for user in bucket_users],
             company_ids=company_ids,
             min_date=min_date,
@@ -44,6 +45,7 @@ def export_activity_report(
             file_name=file_name
             if file_name is not None
             else DEFAULT_FILE_NAME,
+            is_admin=is_admin,
         )
 
 
