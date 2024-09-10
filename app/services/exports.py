@@ -4,7 +4,13 @@ from app import app
 
 
 def export_activity_report(
-    admin, company_ids, users, min_date, max_date, one_file_by_employee
+    admin,
+    company_ids,
+    users,
+    min_date,
+    max_date,
+    one_file_by_employee,
+    file_name=None,
 ):
     users = list(users)
 
@@ -20,7 +26,7 @@ def export_activity_report(
         f"Export request nb_users={nb_users} nb_days={nb_days} - will split in {nb_buckets} bucket(s) with {bucket_size} employee(s) per bucket"
     )
 
-    from app.helpers.celery import async_export_excel
+    from app.helpers.celery import async_export_excel, DEFAULT_FILE_NAME
 
     users.sort(key=lambda u: u.last_name)
     for idx_bucket, i in enumerate(range(0, nb_users, bucket_size)):
@@ -35,6 +41,9 @@ def export_activity_report(
             one_file_by_employee=one_file_by_employee,
             idx_bucket=idx_bucket + 1,
             nb_buckets=nb_buckets,
+            file_name=file_name
+            if file_name is not None
+            else DEFAULT_FILE_NAME,
         )
 
 

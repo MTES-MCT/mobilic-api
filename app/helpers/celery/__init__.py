@@ -14,6 +14,8 @@ from app.models import User
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
 
+DEFAULT_FILE_NAME = "rapport_activités"
+
 
 @celery.task()
 def async_export_excel(
@@ -25,6 +27,7 @@ def async_export_excel(
     one_file_by_employee,
     idx_bucket=1,
     nb_buckets=1,
+    file_name=DEFAULT_FILE_NAME,
 ):
     with app.app_context():
         admin = User.query.get(admin_id)
@@ -67,7 +70,7 @@ def async_export_excel(
             file_obj[
                 "ContentType"
             ] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            file_obj["Filename"] = "rapport_activité.xlsx"
+            file_obj["Filename"] = f"{file_name}.xlsx"
         else:
             file = get_archive_excel_file(
                 batches=user_wdays_batches,
@@ -76,7 +79,7 @@ def async_export_excel(
                 max_date=max_date,
             )
             file_obj["ContentType"] = "application/zip"
-            file_obj["Filename"] = "rapport_activités.zip"
+            file_obj["Filename"] = f"{file_name}.zip"
 
         file_content = file.read()
         base64_content = base64.b64encode(file_content).decode("utf-8")
