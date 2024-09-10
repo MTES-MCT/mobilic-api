@@ -104,9 +104,14 @@ def warn_if_company_has_no_admin_left(company_ids, last_admin, expiry_date):
     for company in companies:
         admins = company.get_admins(start=today, end=today)
 
+        has_at_least_one_admin = False
         for admin in admins:
             if not UserAgreement.has_user_rejected(user_id=admin.id):
-                continue
+                has_at_least_one_admin = True
+                break
+
+        if has_at_least_one_admin:
+            continue
 
         send_mattermost_message(
             thread_title="Entreprise sans gestionnaire",
