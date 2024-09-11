@@ -92,6 +92,14 @@ def write_work_days_sheet(
         )
         row_idx += 4
 
+    if len(wdays_by_user) == 0:
+        sheet.write(
+            row_idx - 1,
+            0,
+            "Cette période ne contient pas de temps de travail.",
+            wb.add_format({"bold": True}),
+        )
+
     write_sheet_legend(
         wb=wb,
         sheet=sheet,
