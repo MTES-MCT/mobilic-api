@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import graphene
-from flask import send_file, jsonify
+from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
@@ -47,7 +47,7 @@ from app.helpers.mail import MailingContactList
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
-from app.models import Company, Employment, Business
+from app.models import Company, Employment, Business, UserAgreement
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -62,6 +62,8 @@ from app.helpers.brevo import (
 import sentry_sdk
 
 from app.services.exports import export_activity_report
+
+from app.models.user import User
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -606,7 +608,7 @@ def download_activity_report(
     )
 
     export_activity_report(
-        admin=current_user,
+        exporter=current_user,
         company_ids=company_ids,
         users=users,
         min_date=min_date,
@@ -615,6 +617,72 @@ def download_activity_report(
     )
 
     return jsonify({"result": "ok"}), 200
+
+
+@app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
+@doc(
+    description="Demande d'envoi du rapport d'activité complet en cas de refus des CGU"
+)
+@use_kwargs(
+    {"user_id": fields.Int(required=True)},
+    apply=True,
+)
+def download_full_data_report(user_id):
+    try:
+        user = User.query.get(user_id)
+        company_ids = set(
+            employment.company_id for employment in user.employments
+        )
+
+        for company_id in company_ids:
+            company = (
+                Company.query.options(
+                    selectinload(Company.employments).selectinload(
+                        Employment.user
+                    )
+                )
+                .filter(Company.id == company_id)
+                .one_or_none()
+            )
+            if company is None:
+                continue
+
+            users = set()
+            is_user_admin = user.has_admin_rights(company_id)
+            if is_user_admin:
+                users.update(company.users_between(start=None, end=None))
+            else:
+                users.add(user)
+
+            min_date = min(user.creation_time.date() for user in users)
+            max_date = datetime.now().date()
+
+            if is_user_admin:
+                file_name = f"{company.usual_name}_rapport_activités_{min_date.strftime('%d/%m/%Y')} au {max_date.strftime('%d/%m/%Y')}"
+            else:
+                file_name = f"Relevé d'heures de {user.display_name} - {min_date.strftime('%d/%m/%Y')} au {max_date.strftime('%d/%m/%Y')} - {company.usual_name}"
+
+            export_activity_report(
+                exporter=user,
+                company_ids=[company_id],
+                users=users,
+                min_date=min_date,
+                max_date=max_date,
+                one_file_by_employee=False,
+                file_name=file_name,
+                is_admin=is_user_admin,
+            )
+
+        UserAgreement.set_transferred_data_date(user.id)
+
+        response = make_response(jsonify({"result": "ok"}), 200)
+        response.headers["Content-Type"] = "application/json"
+        return response
+
+    except Exception as e:
+        response = make_response(jsonify({"error": str(e)}), 500)
+        response.headers["Content-Type"] = "application/json"
+        return response
 
 
 class TachographGenerationScopeSchema(TachographBaseOptionsSchema):

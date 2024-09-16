@@ -21,17 +21,12 @@ from app.models.controller_control import ControllerControl
 from app.models.user import User
 from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
-from app.services.send_about_to_lose_certificate_emails import (
+from app.jobs.emails.certificate import (
     send_about_to_lose_certificate_emails,
-)
-from app.services.send_active_then_inactive_companies_emails import (
     send_active_then_inactive_companies_emails,
 )
 from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,
-)
-from app.services.send_lost_companies_emails import (
-    send_never_active_companies_emails,
 )
 from config import TestConfig, MOBILIC_ENV
 
@@ -284,39 +279,32 @@ def run_certificate(as_of_date=None, computation_only=False):
     app.logger.info("Process run_certificate done")
 
     if not computation_only:
-        app.logger.info("Process send_about_to_lose_certificate_emails began")
         send_about_to_lose_certificate_emails(today)
-        app.logger.info("Process send_about_to_lose_certificate_emails done")
-
-        app.logger.info(
-            "Process send_active_then_inactive_companies_emails began"
-        )
         send_active_then_inactive_companies_emails(today)
-        app.logger.info(
-            "Process send_active_then_inactive_companies_emails done"
-        )
 
     if MOBILIC_ENV == "prod":
         send_certificate_compute_end_notification()
 
 
-@app.cli.command("send_onboarding_emails", with_appcontext=True)
-def send_onboarding_emails():
-    from app.services.send_onboarding_emails import send_onboarding_emails
+@app.cli.command("send_daily_emails", with_appcontext=True)
+def send_daily_emails():
     from datetime import date
 
-    app.logger.info("Beginning send_onboarding_emails task")
+    from app.jobs.emails import (
+        send_onboarding_emails,
+        send_never_active_companies_emails,
+    )
 
     send_onboarding_emails(date.today())
-    app.logger.info("Ending send_onboarding_emails task")
-
-
-@app.cli.command("send_never_active_companies_emails", with_appcontext=True)
-def command_send_never_active_companies_emails():
-    app.logger.info("Beginning send_never_active_companies_emails task")
-
     send_never_active_companies_emails(datetime.datetime.now())
-    app.logger.info("Ending send_lost_companies_emails task")
+
+    from app.jobs.emails.cgu import (
+        send_expiry_warning_email,
+        send_email_to_last_company_suspended_admins,
+    )
+
+    send_expiry_warning_email()
+    send_email_to_last_company_suspended_admins(datetime.datetime.now())
 
 
 @app.cli.command("load_company_stats", with_appcontext=True)

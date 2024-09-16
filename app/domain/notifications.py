@@ -1,9 +1,14 @@
+from datetime import datetime
+
 from app import mailer, app
+from app.domain.user import get_employee_current_admins
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.mail import MailjetError
+from app.helpers.mattermost import send_mattermost_message
 from app.models.activity import activity_versions_at
 from app.helpers.authentication import current_user
 from app.models.mission import UserMissionModificationStatus
+from app.models import Company, UserAgreement
 
 
 def warn_if_mission_changes_since_latest_user_action(mission, user):
@@ -81,3 +86,59 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
             return True
 
     return False
+
+
+def send_email_to_admins_when_employee_rejects_cgu(employee):
+    try:
+        admins = get_employee_current_admins(employee=employee)
+        mailer.send_admin_employee_rejects_cgu_email(
+            employee=current_user, admins=admins
+        )
+    except MailjetError as e:
+        app.logger.exception(e)
+
+
+def warn_if_company_has_no_admin_left(company_ids, last_admin, expiry_date):
+    today = datetime.now().date()
+    companies = Company.query.filter(Company.id.in_(company_ids)).all()
+    for company in companies:
+        admins = company.get_admins(start=today, end=today)
+
+        has_at_least_one_admin = False
+        for admin in admins:
+            if not UserAgreement.has_user_rejected(user_id=admin.id):
+                has_at_least_one_admin = True
+                break
+
+        if has_at_least_one_admin:
+            continue
+
+        send_mattermost_message(
+            thread_title="Entreprise sans gestionnaire",
+            main_title="Une entreprise n'a plus de gestionnaire",
+            main_value=f"Le dernier gestionnaire de l'entreprise a refusé les CGUs, son compte sera supprimé le {expiry_date.strftime('%Y-%m-%d')}",
+            items=[
+                {
+                    "title": "Identifiant de l'entreprise",
+                    "value": company.id,
+                    "short": True,
+                },
+                {
+                    "title": "Nom de l'entreprise",
+                    "value": company.usual_name,
+                    "short": True,
+                },
+                {
+                    "title": "Email du gestionnaire",
+                    "value": last_admin.email,
+                    "short": True,
+                },
+                {
+                    "title": "Numéro de téléphone du gestionnaire",
+                    "value": last_admin.phone_number
+                    if last_admin.phone_number
+                    else "-",
+                    "short": True,
+                },
+            ],
+        )

@@ -16,6 +16,7 @@ from app.domain.company import (
     get_last_day_of_certification,
     get_start_last_certification_period,
     check_company_has_no_activities,
+    has_any_active_admin,
 )
 from app.domain.permissions import (
     company_admin,
@@ -220,6 +221,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     current_admins = graphene.List(
         lambda: UserOutput,
         description="Liste des gestionnaires actuellement rattachés à l'entreprise",
+    )
+
+    has_no_active_admins = graphene.Boolean(
+        description="Indique si l'entreprise n'a aucun gestionnaire ayant accepté les CGU"
     )
 
     def resolve_name(self, info):
@@ -452,3 +457,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_current_admins(self, info):
         return self.get_admins(date.today(), None)
+
+    def resolve_has_no_active_admins(self, info):
+        return not has_any_active_admin(self)

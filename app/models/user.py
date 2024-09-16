@@ -304,6 +304,18 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             if e.has_admin_rights
         ]
 
+    @cached_property
+    def is_an_admin(self):
+        return len(self.current_company_ids_with_admin_rights) > 0
+
+    @cached_property
+    def current_company_ids_without_admin_rights(self):
+        return [
+            e.company_id
+            for e in self.active_employments_at(date.today())
+            if not e.has_admin_rights
+        ]
+
     def get_user_id(self):
         return self.id
 

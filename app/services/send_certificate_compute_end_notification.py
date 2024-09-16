@@ -1,9 +1,8 @@
-import requests
 from sqlalchemy.sql.functions import now
 
-from app import app, db
+from app import db
+from app.helpers.mattermost import send_mattermost_message
 from app.models import CompanyCertification
-from config import MOBILIC_ENV
 
 
 def send_certificate_compute_end_notification():
@@ -20,29 +19,21 @@ def send_certificate_compute_end_notification():
         .distinct()
         .count()
     )
-    requests.post(
-        app.config["MATTERMOST_WEBHOOK"],
-        json=dict(
-            channel=app.config["MATTERMOST_MAIN_CHANNEL"],
-            username=f"Calcul des certificats - {MOBILIC_ENV.capitalize()}",
-            icon_emoji=":robot:",
-            attachments=[
-                dict(
-                    title="Calcul des certificats",
-                    text="Le calcul des certificats s'est bien terminé :v:",
-                    fields=[
-                        {
-                            "title": "Nombre d'entreprises certifiées",
-                            "value": nb_certified_companies,
-                            "short": True,
-                        },
-                        {
-                            "title": "Tableau metabase de suivi des certifications",
-                            "value": "https://metabase.mobilic.beta.gouv.fr/dashboard/21-evolution-entreprises-certifiees",
-                            "short": True,
-                        },
-                    ],
-                )
-            ],
-        ),
+
+    send_mattermost_message(
+        thread_title="Calcul des certificats",
+        main_title="Calcul des certificats",
+        main_value="Le calcul des certificats s'est bien terminé :v:",
+        items=[
+            {
+                "title": "Nombre d'entreprises certifiées",
+                "value": nb_certified_companies,
+                "short": True,
+            },
+            {
+                "title": "Tableau metabase de suivi des certifications",
+                "value": "https://metabase.mobilic.beta.gouv.fr/dashboard/21-evolution-entreprises-certifiees",
+                "short": True,
+            },
+        ],
     )

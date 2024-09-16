@@ -24,3 +24,7 @@ class EmailType(str, Enum):
     HOLIDAY_LOGGING_BY_ADMIN = "holiday_logging_by_admin"
     HOLIDAY_CHANGES_WARNING = "holiday_changes_warning"
     ADMIN_EXPORT_EXCEL = "admin_export_excel"
+    EMPLOYEE_EXPORT_EXCEL = "employee_export_excel"
+    EMPLOYEE_REJECTS_CGU = "employee_rejects_cgu"
+    COMPANY_SUSPENDED_CGU = "company_suspended_cgu"
+    EXPIRY_WARNING_CGU = "expiry_warning_cgu"
