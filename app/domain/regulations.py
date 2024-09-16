@@ -61,7 +61,7 @@ def compute_regulations(
     ) = group_user_events_by_day_with_limit(
         user,
         from_date=week_period_start,
-        until_date=min(week_period_end, day_after_period_end),
+        until_date=max(week_period_end, day_after_period_end),
         tz=user_timezone,
         only_missions_validated_by_admin=submitter_type == SubmitterType.ADMIN,
         only_missions_validated_by_user=submitter_type
