@@ -830,6 +830,18 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
+    def send_companies_with_employees_but_with_no_activity(self, employment):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="company_with_employees_but_with_no_activity.html",
+                subject="Commencez à enregistrer du temps de travail sur Mobilic !",
+                employment=employment,
+                user=employment.user,
+                type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
     def send_active_then_inactive_companies_email(self, admin):
         self._send_single(
             self._create_message_from_flask_template(

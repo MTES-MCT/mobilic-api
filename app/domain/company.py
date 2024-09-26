@@ -276,3 +276,44 @@ def find_admins_of_companies_without_any_employee_invitations(
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
     ).all()
+
+
+def find_admins_of_companies_with_an_employee_but_without_any_activity(
+    first_employee_invitation_date,
+):
+
+    companies_with_no_activities_and_with_at_least_one_employee_before_trigger_date = Company.query.filter(
+        ~exists().where(Mission.company_id == Company.id),
+        exists().where(
+            and_(
+                Employment.company_id == Company.id,
+                Employment.has_admin_rights == False,
+                Employment.creation_time
+                <= datetime.datetime.combine(
+                    first_employee_invitation_date,
+                    datetime.datetime.min.time(),
+                ),
+            )
+        ),
+    ).all()
+
+    return Employment.query.filter(
+        ~exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type
+                == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+            )
+        ),
+        Employment.has_admin_rights,
+        ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
+        Employment.company_id.in_(
+            [
+                company.id
+                for company in companies_with_no_activities_and_with_at_least_one_employee_before_trigger_date
+            ]
+        ),
+    ).all()
