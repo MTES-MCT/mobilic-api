@@ -237,7 +237,7 @@ def has_any_active_admin(company):
     return len(admins) > len(blacklisted_admins)
 
 
-def find_admins_of_companies_without_any_invitations(
+def find_admins_of_companies_without_any_employee_invitations(
     company_creation_from_date, company_creation_to_date
 ):
 
@@ -246,6 +246,7 @@ def find_admins_of_companies_without_any_invitations(
         and_(
             Employment.company_id == outer_employment.company_id,
             Employment.id != outer_employment.id,
+            Employment.has_admin_rights == False,
         )
     )
 
