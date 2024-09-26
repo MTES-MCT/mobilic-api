@@ -1,0 +1,19 @@
+{% extends "transactional_base.html" %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>
+        Vous avez créé un compte Mobilic pour votre entreprise il y a deux semaines, nous vous en remercions.
+    </p>
+    <p>Pour <b>commencer à enregistrer le temps de travail de vos salariés</b>, vous devez les rattacher à votre entreprise en suivant la procédure suivante :</p>
+    <ol>
+        <li>Connectez-vous sur <a href="{{interface_link}}">votre interface Mobilic</a>.</li>
+        <li>Dans l’onglet “Entreprise(s)”, cliquez sur “Salariés”.</li>
+        <li>Cliquez sur “Inviter un nouveau salarié” (si vous en avez un grand nombre, vous pouvez tous les inviter en même temps en cliquant sur “Inviter une liste d’email”).</li>
+        <li>Dans l’encadré prévu à cet effet, ajoutez l’adresse e-mail du salarié et choisissez de lui donner, ou non, les accès gestionnaire.</li>
+        <li>Le salarié recevra ensuite un e-mail lui demandant de créer un compte Mobilic.</li>
+        <li>Une fois son compte créé, il sera rattaché à votre entreprise et le salarié pourra commencer à saisir du temps de travail sur Mobilic.</li>
+    </ol>
+    <p>Pour plus d’informations sur l’utilisation de Mobilic au quotidien, nous vous invitons à vous <b>inscrire à l’un de nos webinaires</b> : https://mobilic.beta.gouv.fr/#webinaires ; ou à <b>consulter nos ressources documentaires</b> : https://mobilic.beta.gouv.fr/resources/admin.</p>
+    <p>Cordialement,</p>
+{% endblock %}

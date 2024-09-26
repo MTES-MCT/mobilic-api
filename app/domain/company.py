@@ -4,6 +4,7 @@ from enum import Enum
 from sqlalchemy import desc
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql.functions import now
 
 from app import db
@@ -234,3 +235,43 @@ def has_any_active_admin(company):
     ).all()
 
     return len(admins) > len(blacklisted_admins)
+
+
+def find_admins_of_companies_without_any_invitations(
+    company_creation_from_date, company_creation_to_date
+):
+
+    outer_employment = aliased(Employment)
+    no_other_employments_in_same_company = exists().where(
+        and_(
+            Employment.company_id == outer_employment.company_id,
+            Employment.id != outer_employment.id,
+        )
+    )
+
+    return Employment.query.filter(
+        Employment.company.has(
+            Company.creation_time
+            <= datetime.datetime.combine(
+                company_creation_to_date, datetime.datetime.min.time()
+            )
+        ),
+        Employment.company.has(
+            Company.creation_time
+            >= datetime.datetime.combine(
+                company_creation_from_date, datetime.datetime.min.time()
+            )
+        ),
+        ~no_other_employments_in_same_company,
+        ~exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type == EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+            )
+        ),
+        Employment.has_admin_rights,
+        ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
+    ).all()

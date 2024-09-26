@@ -815,6 +815,21 @@ class Mailer:
             )
         )
 
+    def send_companies_without_invitations_email(self, employment):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="company_without_any_invitation.html",
+                subject="Commencez à utiliser Mobilic en invitant vos salariés !",
+                employment=employment,
+                user=employment.user,
+                type_=EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+                interface_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/admin/company"
+                ),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
     def send_active_then_inactive_companies_email(self, admin):
         self._send_single(
             self._create_message_from_flask_template(

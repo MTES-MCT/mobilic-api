@@ -18,6 +18,7 @@ class EmailType(str, Enum):
     BLOCKED_ACCOUNT = "blocked_account"
     TEAM_AFFECTATION = "team_affectation"
     TEAM_NEW_COLLEAGUE = "team_new_colleague"
+    COMPANY_WITHOUT_ANY_INVITATION = "company_without_any_invitation"
     COMPANY_ACTIVE_THEN_INACTIVE = "company_active_then_inactive"
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
     HOLIDAY_LOGGING_BY_ADMIN = "holiday_logging_by_admin"
