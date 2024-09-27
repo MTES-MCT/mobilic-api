@@ -292,11 +292,13 @@ def send_daily_emails():
 
     from app.jobs.emails import (
         send_onboarding_emails,
-        send_never_active_companies_emails,
+        send_companies_without_any_employee_invitation_emails,
+        send_companies_with_employees_but_without_activities_emails,
     )
 
     send_onboarding_emails(date.today())
-    send_never_active_companies_emails(datetime.datetime.now())
+    send_companies_without_any_employee_invitation_emails(date.today())
+    send_companies_with_employees_but_without_activities_emails(date.today())
 
     from app.jobs.emails.cgu import (
         send_expiry_warning_email,

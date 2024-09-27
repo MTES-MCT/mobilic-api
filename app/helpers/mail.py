@@ -815,30 +815,29 @@ class Mailer:
             )
         )
 
-    def send_old_never_active_companies_email(self, employment):
+    def send_companies_without_invitations_email(self, employment):
         self._send_single(
             self._create_message_from_flask_template(
-                template="old_never_active_companies.html",
-                subject="Commencez à enregistrer et valider les temps de travail sur Mobilic",
-                type_=EmailType.COMPANY_NEVER_ACTIVE,
+                template="company_without_any_invitation.html",
+                subject="Commencez à utiliser Mobilic en invitant vos salariés !",
                 employment=employment,
                 user=employment.user,
+                type_=EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+                interface_link=Markup(
+                    f"{app.config['FRONTEND_URL']}/admin/company"
+                ),
             ),
             _apply_whitelist_if_not_prod=True,
         )
 
-    def send_recent_never_active_companies_email(
-        self, employment, signup_date, company_name
-    ):
+    def send_companies_with_employees_but_with_no_activity(self, employment):
         self._send_single(
             self._create_message_from_flask_template(
-                template="recent_never_active_companies.html",
-                subject="Votre entreprise est inscrite sur Mobilic ! Découvrez la prochaine étape dans ce mail",
+                template="company_with_employees_but_with_no_activity.html",
+                subject="Commencez à enregistrer du temps de travail sur Mobilic !",
                 employment=employment,
-                company_name=company_name,
-                signup_date=signup_date,
-                type_=EmailType.COMPANY_NEVER_ACTIVE,
                 user=employment.user,
+                type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
             ),
             _apply_whitelist_if_not_prod=True,
         )
