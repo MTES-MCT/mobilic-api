@@ -16,6 +16,9 @@ def send_companies_without_any_employee_invitation_emails(today):
     admin_employments = (
         find_admins_of_companies_without_any_employee_invitations(
             company_creation_trigger_date=trigger_date,
+            companies_to_exclude=app.config[
+                "COMPANY_EXCLUDE_ONBOARDING_EMAILS"
+            ],
         )
     )
 

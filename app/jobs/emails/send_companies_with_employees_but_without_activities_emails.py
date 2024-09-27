@@ -15,7 +15,10 @@ def send_companies_with_employees_but_without_activities_emails(today):
     trigger_date = today - timedelta(days=NB_DAYS_AGO)
     admin_employments = (
         find_admins_of_companies_with_an_employee_but_without_any_activity(
-            first_employee_invitation_date=trigger_date
+            first_employee_invitation_date=trigger_date,
+            companies_to_exclude=app.config[
+                "COMPANY_EXCLUDE_ONBOARDING_EMAILS"
+            ],
         )
     )
 

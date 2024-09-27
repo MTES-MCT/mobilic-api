@@ -238,7 +238,7 @@ def has_any_active_admin(company):
 
 
 def find_admins_of_companies_without_any_employee_invitations(
-    company_creation_trigger_date,
+    company_creation_trigger_date, companies_to_exclude=None
 ):
 
     outer_employment = aliased(Employment)
@@ -269,6 +269,7 @@ def find_admins_of_companies_without_any_employee_invitations(
                 ),
             )
         ),
+        Employment.company_id.in_(companies_to_exclude or []),
         Employment.has_admin_rights,
         ~Employment.is_dismissed,
         Employment.end_date.is_(None),
@@ -278,7 +279,7 @@ def find_admins_of_companies_without_any_employee_invitations(
 
 
 def find_admins_of_companies_with_an_employee_but_without_any_activity(
-    first_employee_invitation_date,
+    first_employee_invitation_date, companies_to_exclude=None
 ):
 
     companies_with_no_activities_and_with_at_least_one_employee_before_trigger_date = Company.query.filter(
@@ -308,6 +309,7 @@ def find_admins_of_companies_with_an_employee_but_without_any_activity(
                 ),
             )
         ),
+        Employment.company_id.in_(companies_to_exclude or []),
         Employment.has_admin_rights,
         ~Employment.is_dismissed,
         Employment.end_date.is_(None),
