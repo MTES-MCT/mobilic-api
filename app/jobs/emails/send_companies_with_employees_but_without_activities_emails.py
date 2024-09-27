@@ -22,14 +22,10 @@ def send_companies_with_employees_but_without_activities_emails(today):
         )
     )
 
-    app.logger.info(
-        f"{len(admin_employments)} mails to send for companies with employee but without any activity"
-    )
+    app.logger.info(f"-- will send {len(admin_employments)} emails")
     for admin_employment in admin_employments:
         try:
-            app.logger.info(
-                f"Sending company with employee but without any activity email to admin #{admin_employment.user.id}"
-            )
+            app.logger.info(f"-- sending email to {admin_employment}")
             mailer.send_companies_with_employees_but_with_no_activity(
                 employment=admin_employment
             )

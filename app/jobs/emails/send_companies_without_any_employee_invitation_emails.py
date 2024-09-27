@@ -22,14 +22,10 @@ def send_companies_without_any_employee_invitation_emails(today):
         )
     )
 
-    app.logger.info(
-        f"{len(admin_employments)} mails to send for companies without any invitations"
-    )
+    app.logger.info(f"-- will send {len(admin_employments)} emails")
     for admin_employment in admin_employments:
         try:
-            app.logger.info(
-                f"Sending company without any invitation email to admin #{admin_employment.user.id}"
-            )
+            app.logger.info(f"-- sending email to {admin_employment}")
             mailer.send_companies_without_invitations_email(
                 employment=admin_employment
             )

@@ -4,7 +4,6 @@ from enum import Enum
 from sqlalchemy import desc
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
-from sqlalchemy.orm import aliased
 from sqlalchemy.sql.functions import now
 
 from app import db
@@ -241,14 +240,14 @@ def find_admins_of_companies_without_any_employee_invitations(
     company_creation_trigger_date, companies_to_exclude=None
 ):
 
-    outer_employment = aliased(Employment)
-    no_other_employments_in_same_company = exists().where(
-        and_(
-            Employment.company_id == outer_employment.company_id,
-            Employment.id != outer_employment.id,
-            Employment.has_admin_rights == False,
+    companies_without_any_employee = Company.query.filter(
+        ~exists().where(
+            and_(
+                Employment.company_id == Company.id,
+                Employment.has_admin_rights == False,
+            )
         )
-    )
+    ).all()
 
     return Employment.query.filter(
         Employment.company.has(
@@ -257,7 +256,6 @@ def find_admins_of_companies_without_any_employee_invitations(
                 company_creation_trigger_date, datetime.datetime.max.time()
             )
         ),
-        ~no_other_employments_in_same_company,
         ~exists().where(
             and_(
                 Email.employment_id == Employment.id,
@@ -269,7 +267,10 @@ def find_admins_of_companies_without_any_employee_invitations(
                 ),
             )
         ),
-        Employment.company_id.in_(companies_to_exclude or []),
+        Employment.company_id.notin_(companies_to_exclude or []),
+        Employment.company_id.in_(
+            [company.id for company in companies_without_any_employee]
+        ),
         Employment.has_admin_rights,
         ~Employment.is_dismissed,
         Employment.end_date.is_(None),
@@ -309,7 +310,7 @@ def find_admins_of_companies_with_an_employee_but_without_any_activity(
                 ),
             )
         ),
-        Employment.company_id.in_(companies_to_exclude or []),
+        Employment.company_id.notin_(companies_to_exclude or []),
         Employment.has_admin_rights,
         ~Employment.is_dismissed,
         Employment.end_date.is_(None),
