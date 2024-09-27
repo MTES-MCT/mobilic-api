@@ -267,7 +267,12 @@ def find_admins_of_companies_without_any_employee_invitations(
         ~exists().where(
             and_(
                 Email.employment_id == Employment.id,
-                Email.type == EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+                Email.type.in_(
+                    [
+                        EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+                        EmailType.COMPANY_NEVER_ACTIVE,
+                    ]
+                ),
             )
         ),
         Employment.has_admin_rights,
@@ -301,8 +306,12 @@ def find_admins_of_companies_with_an_employee_but_without_any_activity(
         ~exists().where(
             and_(
                 Email.employment_id == Employment.id,
-                Email.type
-                == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+                Email.type.in_(
+                    [
+                        EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+                        EmailType.COMPANY_NEVER_ACTIVE,
+                    ]
+                ),
             )
         ),
         Employment.has_admin_rights,
