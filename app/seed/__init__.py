@@ -88,7 +88,7 @@ def clean():
         DELETE FROM team_vehicle;
         """
     )
-
+    Email.query.delete()
     CompanyStats.query.delete()
     CompanyCertification.query.delete()
     CompanyKnownAddress.query.delete()
@@ -99,7 +99,6 @@ def clean():
 
     RefreshToken.query.delete()
     UserReadToken.query.delete()
-    Email.query.delete()
     RegulatoryAlert.query.delete()
     RegulationComputation.query.delete()
 

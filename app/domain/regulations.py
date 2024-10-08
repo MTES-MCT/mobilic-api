@@ -187,6 +187,8 @@ def group_user_events_by_week(
             ),
             None,
         )
+        if not week:
+            continue
         week["worked_days"] += 1
         week["days"].append(
             {
