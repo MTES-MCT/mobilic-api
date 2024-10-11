@@ -125,6 +125,7 @@ class DevConfig(Config):
     CELERY_BROKER_URL = os.environ.get(
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
+    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
 
 
 class StagingConfig(Config):
@@ -140,6 +141,7 @@ class TestConfig(Config):
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
     CERTIFICATION_API_KEY = "1234"
+    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
 
 
 class ProdConfig(Config):
