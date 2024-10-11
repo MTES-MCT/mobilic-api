@@ -39,6 +39,24 @@ class LinkCompanyContactData:
     contact_id: int
 
 
+@dataclass
+class GetDealData:
+    deal_id: str
+
+
+@dataclass
+class UpdateDealStageData:
+    deal_id: str
+    pipeline_id: str
+    stage_id: str
+
+
+@dataclass
+class GetDealsByPipelineData:
+    pipeline_id: str
+    limit: Optional[int] = None
+
+
 def check_api_key(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
@@ -129,6 +147,101 @@ class BrevoApiClient:
             return response
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_deal(self, data: GetDealData):
+        try:
+            url = f"{self.BASE_URL}crm/deals/{data.deal_id}"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def update_deal_stage(self, data: UpdateDealStageData):
+        try:
+            url = f"{self.BASE_URL}crm/deals/{data.deal_id}"
+            payload = {
+                "attributes": {
+                    "pipeline": data.pipeline_id,
+                    "deal_stage": data.stage_id,
+                }
+            }
+            response = self._session.patch(url, json=payload)
+            response.raise_for_status()
+
+            if response.status_code == 204:
+                return {"message": "Deal stage updated successfully"}
+
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_deals_by_pipeline(self, data: GetDealsByPipelineData):
+        try:
+            url = f"{self.BASE_URL}crm/deals"
+            params = {
+                "filters[attributes.pipeline]": data.pipeline_id,
+                "limit": data.limit,
+            }
+            response = self._session.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_all_pipelines(self):
+        try:
+            url = f"{self.BASE_URL}crm/pipeline/details/all"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_pipeline_details(self, pipeline_id: str):
+        try:
+            url = f"{self.BASE_URL}crm/pipeline/details/{pipeline_id}"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_stage_name(self, pipeline_id: str, stage_id: str):
+        pipeline_details = self.get_pipeline_details(pipeline_id)
+
+        if isinstance(pipeline_details, list):
+            pipeline = next(
+                (
+                    item
+                    for item in pipeline_details
+                    if item.get("pipeline") == pipeline_id
+                ),
+                None,
+            )
+            if not pipeline:
+                app.logger.warning(
+                    f"Pipeline with ID {pipeline_id} not found."
+                )
+                return None
+        else:
+            pipeline = pipeline_details
+
+        stages = pipeline.get("stages", [])
+        for stage in stages:
+            if stage["id"] == stage_id:
+                return stage["name"]
+
+        app.logger.warning(
+            f"Stage with ID {stage_id} not found in pipeline {pipeline_id}."
+        )
+        return None
 
     @staticmethod
     def remove_plus_sign(phone_number):
