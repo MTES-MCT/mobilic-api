@@ -490,7 +490,9 @@ class CancelMission(AuthenticatedMutation):
                 current_user, mission.company_id
             )
             should_recompute_regulations = (
-                not mission.is_holiday() and is_current_user_admin
+                not mission.is_holiday()
+                and is_current_user_admin
+                and len(activities_to_update) > 0
             )
 
             for activity in activities_to_update:
