@@ -1,14 +1,44 @@
-import sys
+from app import db
 from app.helpers.brevo import (
     BrevoApiClient,
     UpdateDealStageData,
     GetDealsByPipelineData,
 )
-from app import app
-from config import BREVO_API_KEY_ENV
 
 
-def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str) -> str:
+def sync_companies_with_brevo(brevo: BrevoApiClient, pipeline_names: list):
+    """
+    Launches the synchronization of companies between the database and Brevo for each specified pipeline.
+    """
+    for pipeline_name in pipeline_names:
+        try:
+            # Retrieve the pipeline ID from its name
+            pipeline_id = get_pipeline_id_by_name(brevo, pipeline_name)
+
+            # Create a mapping between stages and statuses in the database
+            stage_mapping = create_stage_mapping(brevo, pipeline_id)
+
+            # Retrieve companies from the database using the stored function get_companies_status()
+            db_companies = get_companies_from_db_via_function()
+
+            # Retrieve companies from Brevo
+            brevo_companies = get_companies_from_brevo(brevo, pipeline_id)
+
+            # Compare the data and identify necessary updates
+            updates_needed = compare_companies(
+                db_companies, brevo_companies, stage_mapping
+            )
+
+            # Update statuses in Brevo
+            update_companies_in_brevo(
+                brevo, updates_needed, stage_mapping, pipeline_id
+            )
+
+        except ValueError as e:
+            print(f"Error syncing pipeline '{pipeline_name}': {e}")
+
+
+def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str):
     """
     Retrieve the ID of a pipeline by its name.
     """
@@ -19,7 +49,7 @@ def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str) -> str:
     raise ValueError(f"Pipeline '{pipeline_name}' not found.")
 
 
-def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str) -> dict:
+def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str):
     """
     Create a mapping between stage names and stage IDs for a given pipeline.
     """
@@ -31,11 +61,24 @@ def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str) -> dict:
     return stage_mapping
 
 
-def get_companies_from_db(session: Session):
+def get_companies_from_db_via_function():
     """
-    Retrieve companies and their statuses from the database.
+    Call the stored function 'get_companies_status' from the database.
     """
-    return session.query(Company.id, Company.name, Company.status).all()
+    result = db.session.execute(
+        "SELECT * FROM get_companies_status()"
+    ).fetchall()
+
+    # Transform the result into a list of dictionaries
+    companies = [
+        {
+            "id": row[0],
+            "name": row[1],
+            "status": row[2],
+        }
+        for row in result
+    ]
+    return companies
 
 
 def get_companies_from_brevo(brevo: BrevoApiClient, pipeline_id: str):
@@ -67,16 +110,16 @@ def compare_companies(db_companies, brevo_companies, stage_mapping):
     brevo_dict = {company["name"]: company for company in brevo_companies}
 
     for db_company in db_companies:
-        brevo_company = brevo_dict.get(db_company.name)
+        brevo_company = brevo_dict.get(db_company["name"])
         if brevo_company:
-            db_status_id = stage_mapping.get(db_company.status)
+            db_status_id = stage_mapping.get(db_company["status"])
             brevo_status_id = brevo_company["status"]
             if db_status_id and db_status_id != brevo_status_id:
                 updates_needed.append(
                     {
-                        "db_company_id": db_company.id,
+                        "db_company_id": db_company["id"],
                         "brevo_deal_id": brevo_company["id"],
-                        "new_status": db_company.status,
+                        "new_status": db_company["status"],
                     }
                 )
     return updates_needed
@@ -100,62 +143,3 @@ def update_companies_in_brevo(
             print(
                 f"Updated deal {update['brevo_deal_id']} to stage '{update['new_status']}' in Brevo."
             )
-
-
-def sync_companies_with_brevo(
-    session: Session, brevo: BrevoApiClient, pipeline_names: list
-):
-    """
-    Launches the synchronization of companies between the database and Brevo for each specified pipeline.
-    """
-    for pipeline_name in pipeline_names:
-        try:
-            # Retrieve the pipeline ID from its name
-            pipeline_id = get_pipeline_id_by_name(brevo, pipeline_name)
-
-            # Create a mapping between stages and statuses in the database
-            stage_mapping = create_stage_mapping(brevo, pipeline_id)
-
-            # Retrieve companies from the database
-            db_companies = get_companies_from_db(session)
-
-            # Retrieve companies from Brevo
-            brevo_companies = get_companies_from_brevo(brevo, pipeline_id)
-
-            # Compare the data and identify necessary updates
-            updates_needed = compare_companies(
-                db_companies, brevo_companies, stage_mapping
-            )
-
-            # Update statuses in Brevo
-            update_companies_in_brevo(
-                brevo, updates_needed, stage_mapping, pipeline_id
-            )
-
-        except ValueError as e:
-            print(f"Error syncing pipeline '{pipeline_name}': {e}")
-
-
-if __name__ == "__main__":
-    # Initialize Brevo API
-    brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
-
-    # Pipeline names could be passed as command-line arguments or retrieved from a config file
-    # Accept pipeline names as command-line arguments
-    pipeline_names = sys.argv[1:]
-
-    if not pipeline_names:
-        print("Please provide at least one pipeline name.")
-        sys.exit(1)
-
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
-    engine = create_engine(app.config["SQLALCHEMY_DATABASE_URI"])
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
-    try:
-        sync_companies_with_brevo(session, brevo, pipeline_names)
-    finally:
-        session.close()

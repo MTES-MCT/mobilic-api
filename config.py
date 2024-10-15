@@ -78,7 +78,10 @@ class Config:
     ENABLE_NEWSLETTER_SUBSCRIPTION = os.environ.get(
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )
-    APISPEC_FORMAT_RESPONSE = lambda x: x
+
+    def APISPEC_FORMAT_RESPONSE(x):
+        return x
+
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
@@ -144,6 +147,10 @@ class TestConfig(Config):
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
     CERTIFICATION_API_KEY = "1234"
+    BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
+        "BREVO_COMPANY_SUBSCRIBE_LIST", 22
+    )
+    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
 
 
 class ProdConfig(Config):

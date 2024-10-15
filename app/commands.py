@@ -323,3 +323,32 @@ def load_company_stats():
 def temp_command_generate_xm_control(id):
     control = ControllerControl.query.get(id)
     temp_write_greco_xml(control)
+
+
+@app.cli.command("sync_brevo", with_appcontext=True)
+@click.argument("pipeline_names", nargs=-1)
+def sync_brevo_command(pipeline_names):
+    """
+    Command to sync companies between the database and Brevo.
+    You can specify one or more pipeline names as arguments.
+    Example usage: flask sync_brevo "Test Dev churn"
+    """
+    from app.services.sync_companies_with_brevo import (
+        sync_companies_with_brevo,
+    )
+    from app.helpers.brevo import BrevoApiClient
+    from config import BREVO_API_KEY_ENV
+
+    if not pipeline_names:
+        print("Please provide at least one pipeline name.")
+        return
+
+    brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
+
+    app.logger.info(
+        f"Process sync companies with Brevo began for pipelines: {pipeline_names}"
+    )
+
+    sync_companies_with_brevo(brevo, list(pipeline_names))
+
+    app.logger.info("Process sync companies with Brevo done")
