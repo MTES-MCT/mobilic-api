@@ -132,6 +132,7 @@ class StagingConfig(Config):
     BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
         "BREVO_COMPANY_SUBSCRIBE_LIST", 22
     )
+    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
 
 
 class TestConfig(Config):

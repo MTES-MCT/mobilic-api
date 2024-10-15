@@ -10,7 +10,7 @@ from config import BREVO_API_KEY_ENV
 
 def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str) -> str:
     """
-    Récupère l'ID d'une pipeline à partir de son nom.
+    Retrieve the ID of a pipeline by its name.
     """
     pipelines = brevo.get_all_pipelines()
     for pipeline in pipelines:
@@ -21,7 +21,7 @@ def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str) -> str:
 
 def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str) -> dict:
     """
-    Crée un mapping entre les noms de stages et les IDs de stages pour une pipeline donnée.
+    Create a mapping between stage names and stage IDs for a given pipeline.
     """
     pipeline_details = brevo.get_pipeline_details(pipeline_id)
     stage_mapping = {
@@ -33,14 +33,14 @@ def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str) -> dict:
 
 def get_companies_from_db(session: Session):
     """
-    Récupère les entreprises de la base de données et leur statut.
+    Retrieve companies and their statuses from the database.
     """
     return session.query(Company.id, Company.name, Company.status).all()
 
 
 def get_companies_from_brevo(brevo: BrevoApiClient, pipeline_id: str):
     """
-    Récupère les deals (entreprises) de Brevo à partir de l'ID de la pipeline.
+    Retrieve deals (companies) from Brevo using the pipeline ID.
     """
     deals_data = brevo.get_deals_by_pipeline(
         GetDealsByPipelineData(pipeline_id=pipeline_id, limit=100)
@@ -60,8 +60,8 @@ def get_companies_from_brevo(brevo: BrevoApiClient, pipeline_id: str):
 
 def compare_companies(db_companies, brevo_companies, stage_mapping):
     """
-    Compare les entreprises en base avec celles de Brevo.
-    Retourne une liste d'entreprises dont le statut doit être mis à jour.
+    Compare the companies in the database with those in Brevo.
+    Returns a list of companies whose statuses need to be updated.
     """
     updates_needed = []
     brevo_dict = {company["name"]: company for company in brevo_companies}
@@ -86,7 +86,7 @@ def update_companies_in_brevo(
     brevo: BrevoApiClient, updates_needed, stage_mapping, pipeline_id: str
 ):
     """
-    Met à jour les statuts des entreprises dans Brevo.
+    Update the statuses of companies in Brevo.
     """
     for update in updates_needed:
         stage_id = stage_mapping.get(update["new_status"])
@@ -106,28 +106,28 @@ def sync_companies_with_brevo(
     session: Session, brevo: BrevoApiClient, pipeline_names: list
 ):
     """
-    Lance la synchronisation des entreprises entre la base de données et Brevo pour chaque pipeline spécifiée.
+    Launches the synchronization of companies between the database and Brevo for each specified pipeline.
     """
     for pipeline_name in pipeline_names:
         try:
-            # Récupérer l'ID de la pipeline à partir de son nom
+            # Retrieve the pipeline ID from its name
             pipeline_id = get_pipeline_id_by_name(brevo, pipeline_name)
 
-            # Créer un mapping entre les stages et les statuts en base de données
+            # Create a mapping between stages and statuses in the database
             stage_mapping = create_stage_mapping(brevo, pipeline_id)
 
-            # Récupérer les entreprises de la base de données
+            # Retrieve companies from the database
             db_companies = get_companies_from_db(session)
 
-            # Récupérer les entreprises de Brevo
+            # Retrieve companies from Brevo
             brevo_companies = get_companies_from_brevo(brevo, pipeline_id)
 
-            # Comparer les données et identifier les mises à jour nécessaires
+            # Compare the data and identify necessary updates
             updates_needed = compare_companies(
                 db_companies, brevo_companies, stage_mapping
             )
 
-            # Mettre à jour les statuts dans Brevo
+            # Update statuses in Brevo
             update_companies_in_brevo(
                 brevo, updates_needed, stage_mapping, pipeline_id
             )
@@ -137,7 +137,7 @@ def sync_companies_with_brevo(
 
 
 if __name__ == "__main__":
-    # Initialisation de l'API Brevo
+    # Initialize Brevo API
     brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
 
     # Pipeline names could be passed as command-line arguments or retrieved from a config file
@@ -148,7 +148,6 @@ if __name__ == "__main__":
         print("Please provide at least one pipeline name.")
         sys.exit(1)
 
-    # Démarrer une session SQLAlchemy (à adapter selon votre configuration)
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
