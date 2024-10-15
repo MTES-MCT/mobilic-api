@@ -129,7 +129,9 @@ class DevConfig(Config):
 
 
 class StagingConfig(Config):
-    pass
+    BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
+        "BREVO_COMPANY_SUBSCRIBE_LIST", 22
+    )
 
 
 class TestConfig(Config):
@@ -141,7 +143,6 @@ class TestConfig(Config):
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
     CERTIFICATION_API_KEY = "1234"
-    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
 
 
 class ProdConfig(Config):
