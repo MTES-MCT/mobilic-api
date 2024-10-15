@@ -8,7 +8,6 @@ from sib_api_v3_sdk.rest import ApiException
 
 from app import app
 from app.helpers.errors import MobilicError
-from config import BREVO_API_KEY_ENV
 
 
 class BrevoRequestError(MobilicError):
@@ -61,7 +60,7 @@ def check_api_key(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.api_key is None:
-            app.logger.warning(f"{BREVO_API_KEY_ENV} not found.")
+            app.logger.warning("BREVO_API_KEY not found.")
             return None
         else:
             return func(self, *args, **kwargs)
@@ -259,4 +258,4 @@ try:
 except (ValueError, TypeError):
     raise ValueError("BREVO_COMPANY_SUBSCRIBE_LIST must be an integer")
 
-brevo = BrevoApiClient(app.config[BREVO_API_KEY_ENV])
+brevo = BrevoApiClient(app.config["BREVO_API_KEY"])

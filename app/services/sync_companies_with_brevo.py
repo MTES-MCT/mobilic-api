@@ -1,3 +1,4 @@
+import logging
 from app import db
 from app.helpers.brevo import (
     BrevoApiClient,
@@ -6,42 +7,49 @@ from app.helpers.brevo import (
 )
 
 
-def sync_companies_with_brevo(brevo: BrevoApiClient, pipeline_names: list):
-    """
-    Launches the synchronization of companies between the database and Brevo for each specified pipeline.
-    """
+logger = logging.getLogger(__name__)
+
+
+logger = logging.getLogger(__name__)
+
+
+def sync_companies_with_brevo(
+    brevo: BrevoApiClient, pipeline_names: list, verbose=False
+):
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+
     for pipeline_name in pipeline_names:
         try:
-            # Retrieve the pipeline ID from its name
+            logger.debug(f"Syncing pipeline: {pipeline_name}")
+
             pipeline_id = get_pipeline_id_by_name(brevo, pipeline_name)
+            logger.debug(f"Pipeline ID: {pipeline_id}")
 
-            # Create a mapping between stages and statuses in the database
             stage_mapping = create_stage_mapping(brevo, pipeline_id)
+            logger.debug(f"Stage mapping: {stage_mapping}")
 
-            # Retrieve companies from the database using the stored function get_companies_status()
             db_companies = get_companies_from_db_via_function()
+            logger.debug(f"Companies from DB: {db_companies}")
 
-            # Retrieve companies from Brevo
             brevo_companies = get_companies_from_brevo(brevo, pipeline_id)
+            logger.debug(f"Companies from Brevo: {brevo_companies}")
 
-            # Compare the data and identify necessary updates
             updates_needed = compare_companies(
                 db_companies, brevo_companies, stage_mapping
             )
+            logger.debug(f"Updates needed: {updates_needed}")
 
-            # Update statuses in Brevo
             update_companies_in_brevo(
                 brevo, updates_needed, stage_mapping, pipeline_id
             )
+            logger.debug(f"Update complete for pipeline: {pipeline_name}")
 
         except ValueError as e:
-            print(f"Error syncing pipeline '{pipeline_name}': {e}")
+            logger.error(f"Error syncing pipeline '{pipeline_name}': {e}")
 
 
 def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str):
-    """
-    Retrieve the ID of a pipeline by its name.
-    """
     pipelines = brevo.get_all_pipelines()
     for pipeline in pipelines:
         if pipeline["pipeline_name"] == pipeline_name:
@@ -49,11 +57,17 @@ def get_pipeline_id_by_name(brevo: BrevoApiClient, pipeline_name: str):
     raise ValueError(f"Pipeline '{pipeline_name}' not found.")
 
 
-def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str):
-    """
-    Create a mapping between stage names and stage IDs for a given pipeline.
-    """
+def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str) -> dict:
     pipeline_details = brevo.get_pipeline_details(pipeline_id)
+
+    if isinstance(pipeline_details, list):
+        pipeline_details = next(
+            (p for p in pipeline_details if p["pipeline"] == pipeline_id), None
+        )
+
+    if not pipeline_details:
+        raise ValueError(f"Pipeline with ID {pipeline_id} not found.")
+
     stage_mapping = {
         stage["name"]: stage["id"]
         for stage in pipeline_details.get("stages", [])
@@ -62,19 +76,15 @@ def create_stage_mapping(brevo: BrevoApiClient, pipeline_id: str):
 
 
 def get_companies_from_db_via_function():
-    """
-    Call the stored function 'get_companies_status' from the database.
-    """
     result = db.session.execute(
         "SELECT * FROM get_companies_status()"
     ).fetchall()
 
-    # Transform the result into a list of dictionaries
     companies = [
         {
             "id": row[0],
             "name": row[1],
-            "status": row[2],
+            "status": row[6],
         }
         for row in result
     ]
@@ -102,24 +112,21 @@ def get_companies_from_brevo(brevo: BrevoApiClient, pipeline_id: str):
 
 
 def compare_companies(db_companies, brevo_companies, stage_mapping):
-    """
-    Compare the companies in the database with those in Brevo.
-    Returns a list of companies whose statuses need to be updated.
-    """
     updates_needed = []
     brevo_dict = {company["name"]: company for company in brevo_companies}
 
     for db_company in db_companies:
         brevo_company = brevo_dict.get(db_company["name"])
         if brevo_company:
-            db_status_id = stage_mapping.get(db_company["status"])
-            brevo_status_id = brevo_company["status"]
+            db_status_id = stage_mapping.get(db_company["status"].lower())
+            brevo_status_id = brevo_company["status"].lower()
             if db_status_id and db_status_id != brevo_status_id:
                 updates_needed.append(
                     {
                         "db_company_id": db_company["id"],
                         "brevo_deal_id": brevo_company["id"],
                         "new_status": db_company["status"],
+                        "name": db_company["name"],
                     }
                 )
     return updates_needed
@@ -128,18 +135,26 @@ def compare_companies(db_companies, brevo_companies, stage_mapping):
 def update_companies_in_brevo(
     brevo: BrevoApiClient, updates_needed, stage_mapping, pipeline_id: str
 ):
-    """
-    Update the statuses of companies in Brevo.
-    """
     for update in updates_needed:
-        stage_id = stage_mapping.get(update["new_status"])
+        stage_id = stage_mapping.get(update["new_status"].lower())
         if stage_id:
             update_data = UpdateDealStageData(
                 deal_id=update["brevo_deal_id"],
                 pipeline_id=pipeline_id,
                 stage_id=stage_id,
             )
-            brevo.update_deal_stage(update_data)
+            try:
+                brevo.update_deal_stage(update_data)
+                company_name = update.get("name", "Unknown Company")
+                print(
+                    f"Updated deal '{company_name}' (ID: {update['brevo_deal_id']}) "
+                    f"to stage '{update['new_status']}' in Brevo."
+                )
+            except Exception as e:
+                print(
+                    f"Failed to update deal {update['brevo_deal_id']} to stage '{update['new_status']}' in Brevo. Error: {e}"
+                )
+        else:
             print(
-                f"Updated deal {update['brevo_deal_id']} to stage '{update['new_status']}' in Brevo."
+                f"Stage ID for status '{update['new_status']}' not found. Skipping update for deal {update['brevo_deal_id']}."
             )

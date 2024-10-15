@@ -6,15 +6,14 @@ from app.helpers.brevo import (
     GetDealsByPipelineData,
 )
 from app import app
-from config import BREVO_API_KEY_ENV
 
 
 class TestBrevoApiClient(unittest.TestCase):
     def setUp(self):
-        self.api_key = app.config[BREVO_API_KEY_ENV]
+        self.api_key = app.config["BREVO_API_KEY"]
         if not self.api_key:
             raise ValueError(
-                "API Key is missing. Ensure that BREVO_API_KEY_ENV is set correctly in the configuration."
+                "API Key is missing. Ensure that BREVO_API_KEY is set correctly in the configuration."
             )
 
         self.brevo = BrevoApiClient(self.api_key)
