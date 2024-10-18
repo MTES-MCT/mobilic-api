@@ -111,24 +111,29 @@ def get_companies_from_brevo(brevo: BrevoApiClient, pipeline_id: str):
     return companies_in_brevo
 
 
+def normalize_status(status):
+    return status.strip().lower()
+
+
 def compare_companies(db_companies, brevo_companies, stage_mapping):
     updates_needed = []
     brevo_dict = {company["name"]: company for company in brevo_companies}
 
     for db_company in db_companies:
         brevo_company = brevo_dict.get(db_company["name"])
-        if brevo_company:
-            db_status_id = stage_mapping.get(db_company["status"].lower())
-            brevo_status_id = brevo_company["status"].lower()
-            if db_status_id and db_status_id != brevo_status_id:
-                updates_needed.append(
-                    {
-                        "db_company_id": db_company["id"],
-                        "brevo_deal_id": brevo_company["id"],
-                        "new_status": db_company["status"],
-                        "name": db_company["name"],
-                    }
-                )
+        db_status = normalize_status(db_company["status"])
+        brevo_status = normalize_status(brevo_company["status"])
+        db_status_id = stage_mapping.get(db_status)
+        brevo_status_id = stage_mapping.get(brevo_status)
+        if db_status_id and db_status_id != brevo_status_id:
+            updates_needed.append(
+                {
+                    "db_company_id": db_company["id"],
+                    "brevo_deal_id": brevo_company["id"],
+                    "new_status": db_company["status"],
+                    "name": db_company["name"],
+                }
+            )
     return updates_needed
 
 
