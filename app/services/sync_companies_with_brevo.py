@@ -6,10 +6,6 @@ from app.helpers.brevo import (
     GetDealsByPipelineData,
 )
 
-
-logger = logging.getLogger(__name__)
-
-
 logger = logging.getLogger(__name__)
 
 
