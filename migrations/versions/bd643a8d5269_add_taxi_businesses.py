@@ -1,7 +1,7 @@
 """add taxi businesses
 
 Revision ID: bd643a8d5269
-Revises: 83a7fd4629f0
+Revises: 0d842a23583f
 Create Date: 2024-10-22 12:03:34.022199
 
 """
@@ -12,7 +12,7 @@ from app.models.business import TransportType, BusinessType
 
 # revision identifiers, used by Alembic.
 revision = "bd643a8d5269"
-down_revision = "83a7fd4629f0"
+down_revision = "0d842a23583f"
 branch_labels = None
 depends_on = None
 
