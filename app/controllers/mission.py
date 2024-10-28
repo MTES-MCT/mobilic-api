@@ -13,7 +13,10 @@ from app.controllers.expenditure import (
 )
 from app.controllers.utils import atomic_transaction
 from app.data_access.mission import MissionOutput
-from app.domain.mission import get_start_end_time_at_employee_validation
+from app.domain.mission import (
+    get_start_end_time_at_employee_validation,
+    get_mission_start_and_end_from_activities,
+)
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
 )
@@ -24,6 +27,8 @@ from app.domain.permissions import (
     company_admin,
     check_actor_can_write_on_mission_for_user,
 )
+from app.domain.regulations import compute_regulations
+from app.domain.user import get_current_employment_in_company
 from app.domain.validation import (
     validate_mission,
     pre_check_validate_mission_by_admin,
@@ -41,6 +46,7 @@ from app.helpers.errors import (
     UnavailableSwitchModeError,
 )
 from app.helpers.graphene_types import TimeStamp
+from app.helpers.submitter_type import SubmitterType
 from app.models import Company, User, Activity
 from app.models.mission import Mission
 from app.models.mission_end import MissionEnd
@@ -480,8 +486,37 @@ class CancelMission(AuthenticatedMutation):
             mission = Mission.query.get(mission_id)
             user = User.query.get(user_id)
             activities_to_update = mission.activities_for(user)
+            is_current_user_admin = company_admin(
+                current_user, mission.company_id
+            )
+            should_recompute_regulations = (
+                not mission.is_holiday()
+                and is_current_user_admin
+                and len(activities_to_update) > 0
+            )
+
             for activity in activities_to_update:
                 activity.dismiss()
+
+            if should_recompute_regulations:
+                employment = get_current_employment_in_company(
+                    user=user, company=mission.company
+                )
+                business = employment.business if employment else None
+                (
+                    mission_start,
+                    mission_end,
+                ) = get_mission_start_and_end_from_activities(
+                    activities=activities_to_update, user=user
+                )
+                compute_regulations(
+                    user=user,
+                    period_start=mission_start,
+                    period_end=mission_end,
+                    submitter_type=SubmitterType.ADMIN,
+                    business=business,
+                )
+
         return mission
 
 
