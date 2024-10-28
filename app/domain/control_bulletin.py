@@ -21,6 +21,8 @@ def save_control_bulletin(
     license_copy_number=None,
     observation=None,
     is_vehicle_immobilized=False,
+    business_type=None,
+    is_day_page_filled=None,
 ):
     if control.control_bulletin:
         existing_bulletin = control.control_bulletin
@@ -31,6 +33,7 @@ def save_control_bulletin(
     control.user_last_name = user_last_name
     control.vehicle_registration_number = vehicle_registration_number
     control.company_name = company_name
+    control.is_day_page_filled = is_day_page_filled
     existing_bulletin["user_birth_date"] = (
         user_birth_date.isoformat() if user_birth_date else None
     )
@@ -52,4 +55,5 @@ def save_control_bulletin(
     existing_bulletin["license_copy_number"] = license_copy_number
     existing_bulletin["observation"] = observation
     existing_bulletin["is_vehicle_immobilized"] = is_vehicle_immobilized
+    existing_bulletin["business_type"] = business_type
     control.control_bulletin = existing_bulletin

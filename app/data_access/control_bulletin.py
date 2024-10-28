@@ -21,3 +21,4 @@ class ControlBulletinFields(graphene.ObjectType):
     is_vehicle_immobilized = graphene.Boolean(
         required=False, default_value=False
     )
+    business_type = graphene.String(required=False)

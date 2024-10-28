@@ -48,6 +48,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
     user_first_name = db.Column(db.String(255), nullable=True)
     user_last_name = db.Column(db.String(255), nullable=True)
     vehicle_registration_number = db.Column(db.TEXT, nullable=True)
+    is_day_page_filled = db.Column(db.Boolean, nullable=True)
     nb_controlled_days = db.Column(db.Integer, nullable=True)
     control_bulletin = db.Column(
         MutableDict.as_mutable(JSONB(none_as_null=True)), nullable=True
@@ -187,6 +188,22 @@ class ControllerControl(BaseModel, RandomNineIntId):
                 datetime.date.today()
             ),
             nb_controlled_days=7,
+        )
+        db.session.add(new_control)
+        db.session.commit()
+        return new_control
+
+    @staticmethod
+    def create_lic_papier_control(controller_id, is_day_page_filled):
+        new_control = ControllerControl(
+            control_type=ControlType.lic_papier,
+            controller_id=controller_id,
+            observed_infractions=get_no_lic_observed_infractions(
+                datetime.date.today()
+            )
+            if not is_day_page_filled
+            else [],
+            nb_controlled_days=7,  # TODO LIC PAPIER
         )
         db.session.add(new_control)
         db.session.commit()
