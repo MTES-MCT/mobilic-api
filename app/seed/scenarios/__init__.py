@@ -12,7 +12,6 @@ from app.seed.scenarios.busy_admin import (
     run_scenario_busy_admin,
 )
 from app.seed.scenarios.certificated_company import run_scenario_certificated
-from app.seed.scenarios.run_certificate import scenario_run_certificate
 from app.seed.scenarios.temps_de_liaison import (
     ADMIN_EMAIL as ADMIN_TEMPS_DE_LIAISON,
     EMPLOYEE_EMAIL as EMPLOYEE_TEMPS_DE_LIAISON,
@@ -127,11 +126,5 @@ scenarios = [
         "Creates one controller user",
         [],
         run_scenario_controls,
-    ),
-    SeedScenario(
-        "Certificate computation",
-        "Run certificate computation",
-        [],
-        scenario_run_certificate,
     ),
 ]

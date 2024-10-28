@@ -8,6 +8,8 @@ if os.environ.get("DOTENV_FILE", False):
 
 MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
 
+BREVO_API_KEY_ENV = "BREVO_API_KEY"
+
 CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
 CGU_INITIAL_VERSION = "v1.0"
 
@@ -29,7 +31,7 @@ class Config:
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
     MAILJET_API_SECRET = os.environ.get("MAILJET_API_SECRET")
-    BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+    BREVO_API_KEY = os.environ.get(BREVO_API_KEY_ENV)
     FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
     FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
     FC_URL = os.environ.get(
@@ -77,7 +79,6 @@ class Config:
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )
     APISPEC_FORMAT_RESPONSE = lambda x: x
-
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
@@ -124,7 +125,6 @@ class DevConfig(Config):
     CELERY_BROKER_URL = os.environ.get(
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
-    BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
 
 class StagingConfig(Config):
@@ -140,9 +140,6 @@ class TestConfig(Config):
     DISABLE_EMAIL = True
     CONTROL_SIGNING_KEY = "abc"
     CERTIFICATION_API_KEY = "1234"
-    BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
-        "BREVO_COMPANY_SUBSCRIBE_LIST", 22
-    )
 
 
 class ProdConfig(Config):

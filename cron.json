@@ -9,10 +9,6 @@
     },
     {
       "command": "0 5 * * * flask load_company_stats"
-    },
-    {
-      "command": "0 2 * * * flask sync_companies_with_brevo 'Test Dev churn'",
-      "size": "2XL"
     }
   ]
 }
