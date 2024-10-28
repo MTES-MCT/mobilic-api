@@ -10,11 +10,17 @@ class TransportType(str, Enum):
 
 
 class BusinessType(str, Enum):
+    # TRM
     LONG_DISTANCE = "Longue distance"
     SHORT_DISTANCE = "Courte distance"
     SHIPPING = "Messagerie, Fonds et valeur"
+    # TRV
     FREQUENT = "Lignes régulières"
     INFREQUENT = "Occasionnels"
+    TAXI_GENERAL = "Taxi général"
+    TAXI_REGULATED = "Taxi conventionné"
+    VTC = "VTC"
+    LOTI = "LOTI"
 
 
 class Business(BaseModel):
