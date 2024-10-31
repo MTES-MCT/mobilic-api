@@ -11,8 +11,7 @@
       "command": "0 5 * * * flask load_company_stats"
     },
     {
-      "command": "0 2 * * * flask sync_companies_with_brevo 'pipeline churn'",
-      "size": "2XL"
+      "command": "0 2 * * * flask sync_companies_with_brevo 'pipeline churn'"
     }
   ]
 }
