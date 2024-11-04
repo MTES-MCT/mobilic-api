@@ -203,7 +203,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             )
             if not is_day_page_filled
             else [],
-            nb_controlled_days=7,  # TODO LIC PAPIER
+            nb_controlled_days=7,
         )
         db.session.add(new_control)
         db.session.commit()
