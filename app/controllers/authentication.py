@@ -1,7 +1,10 @@
 import graphene
 from flask import after_this_request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
+from flask_jwt_extended import (
+    jwt_required,
+    get_jwt_identity,
+    current_user as current_actor,
+)
 from app import app, db
 from app.controllers.utils import Void
 from app.domain.user import (
@@ -124,6 +127,9 @@ class RefreshMutation(graphene.Mutation):
 @jwt_required(refresh=True)
 def rest_refresh_token():
     try:
+        if not current_actor:
+            raise AuthenticationError("Current user not found")
+
         identity = get_jwt_identity()
         if identity and identity.get("controller"):
             tokens = refresh_controller_token()
