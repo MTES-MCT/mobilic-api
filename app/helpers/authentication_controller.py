@@ -26,11 +26,13 @@ def wrap_jwt_errors(f):
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (NoAuthorizationError, InvalidHeaderError):
+        except (NoAuthorizationError, InvalidHeaderError) as e:
+            app.logger.info(f"Authorization error: {str(e)}")
             raise AuthenticationError(
                 "Unable to find a valid cookie or authorization header"
             )
-        except (JWTExtendedException, PyJWTError):
+        except (JWTExtendedException, PyJWTError) as e:
+            app.logger.info(f"JWT error: {str(e)}")
             raise AuthenticationError("Invalid token")
 
     return wrapper
