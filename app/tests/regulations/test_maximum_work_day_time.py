@@ -13,14 +13,11 @@ from app.models import (
     RegulatoryAlert,
     User,
     RegulationCheck,
-    Business,
 )
 from app.models.activity import ActivityType
-from app.models.business import BusinessType
 from app.models.regulation_check import RegulationCheckType
 from app.seed import UserFactory, EmploymentFactory, AuthenticatedUserContext
 from app.seed.helpers import get_time, get_date
-from app.tests import BaseTest
 from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
 
