@@ -96,6 +96,7 @@ def compute_regulations_per_day(
                 submitter_type=submitter_type,
                 user=user,
                 regulation_check_id=regulation_check.id,
+                business=business,
             )
             db.session.add(regulatory_alert)
 
