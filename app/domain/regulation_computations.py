@@ -45,7 +45,11 @@ def get_regulatory_alerts(user_id, start_date=None, end_date=None):
 
 
 def get_regulatory_computations(user_id, start_date=None, end_date=None):
-    return RegulationComputation.query.filter(
-        RegulationComputation.user_id == user_id,
-        RegulationComputation.day.between(start_date, end_date),
-    ).all()
+    return (
+        RegulationComputation.query.filter(
+            RegulationComputation.user_id == user_id,
+            RegulationComputation.day.between(start_date, end_date),
+        )
+        .order_by(RegulationComputation.creation_time)
+        .all()
+    )
