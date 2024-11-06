@@ -139,26 +139,29 @@ class ControllerControl(BaseModel, RandomNineIntId):
         )
         observed_infractions = []
         for regulatory_alert in regulatory_alerts:
+
+            extra = regulatory_alert.extra
+            if not extra or not "sanction_code" in extra:
+                continue
+
             regulation_computations_for_the_day = [
                 rc
                 for rc in regulation_computations
                 if rc.day == regulatory_alert.day
             ]
-            if len(regulation_computations_for_the_day) == 0:
+            nb_rc_for_the_day = len(regulation_computations_for_the_day)
+            if nb_rc_for_the_day == 0:
                 continue
             if (
-                len(regulation_computations_for_the_day) == 2
+                nb_rc_for_the_day == 2
                 and regulatory_alert.submitter_type != SubmitterType.ADMIN
             ):
                 continue
             if (
-                regulation_computations_for_the_day[0].submitter_type
+                nb_rc_for_the_day == 1
+                and regulation_computations_for_the_day[0].submitter_type
                 != regulatory_alert.submitter_type
             ):
-                continue
-
-            extra = regulatory_alert.extra
-            if not extra or not "sanction_code" in extra:
                 continue
             sanction_code = extra.get("sanction_code")
             is_reportable = "NATINF" in sanction_code
