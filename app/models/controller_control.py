@@ -139,6 +139,11 @@ class ControllerControl(BaseModel, RandomNineIntId):
         )
         observed_infractions = []
         for regulatory_alert in regulatory_alerts:
+
+            extra = regulatory_alert.extra
+            if not extra or not "sanction_code" in extra:
+                continue
+
             regulation_computations_for_the_day = [
                 rc
                 for rc in regulation_computations
