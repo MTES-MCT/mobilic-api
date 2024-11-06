@@ -68,13 +68,13 @@ class RegulationCheckOutput(BaseSQLAlchemyObjectType):
         return self.label
 
     def resolve_description(self, info):
-        description = self.resolved_variables["DESCRIPTION"]
+        description = self.resolve_variables()["DESCRIPTION"]
         sanction = get_alert_sanction(self.alert)
         if not sanction:
             return description
 
         if sanction == NATINF_32083:
-            night_description = self.resolved_variables[
+            night_description = self.resolve_variables()[
                 "NIGHT_WORK_DESCRIPTION"
             ]
             return f"{description} {night_description}"
