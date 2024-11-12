@@ -340,7 +340,6 @@ def sync_brevo_command(pipeline_names, verbose):
     """
     Command to sync companies between the database and Brevo.
     You can specify one or more pipeline names as arguments.
-    Example usage: flask sync_brevo "Test Dev churn"
     """
     from app.services.sync_companies_with_brevo import (
         sync_companies_with_brevo,
@@ -360,3 +359,25 @@ def sync_brevo_command(pipeline_names, verbose):
     sync_companies_with_brevo(brevo, list(pipeline_names), verbose=verbose)
 
     app.logger.info("Process sync companies with Brevo done")
+
+
+@app.cli.command("migrate_anonymize_mission", with_appcontext=True)
+@click.argument("time_interval")
+def migrate_anonymize_mission(time_interval):
+    """
+    Migrate data to anonymized tables.
+    You can specify time interval as arguments.
+    """
+    from app.services.anonymize_tables import migrate_anonymize_mission
+
+    if not time_interval:
+        print(
+            "Please provide time interval e.g. : '< now() - interval '1 year' "
+        )
+        return
+
+    app.logger.info("Process with data migration and anonymization began")
+
+    migrate_anonymize_mission(time_interval)
+
+    app.logger.info("Process with data migration and anonymization done")
