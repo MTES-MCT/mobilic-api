@@ -361,14 +361,19 @@ def sync_brevo_command(pipeline_names, verbose):
     app.logger.info("Process sync companies with Brevo done")
 
 
-@app.cli.command("migrate_anonymize_mission", with_appcontext=True)
+@app.cli.command("migrate_anonymize_data", with_appcontext=True)
 @click.argument("time_interval")
-def migrate_anonymize_mission(time_interval):
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for more detailed output",
+)
+def migrate_anonymize_mission(time_interval, verbose):
     """
     Migrate data to anonymized tables.
     You can specify time interval as arguments.
     """
-    from app.services.anonymize_tables import migrate_anonymize_mission
+    from app.services.anonymize_tables import migrate_anonymized_data
 
     if not time_interval:
         print(
@@ -378,6 +383,6 @@ def migrate_anonymize_mission(time_interval):
 
     app.logger.info("Process with data migration and anonymization began")
 
-    migrate_anonymize_mission(time_interval)
+    migrate_anonymized_data(time_interval, verbose=verbose)
 
     app.logger.info("Process with data migration and anonymization done")
