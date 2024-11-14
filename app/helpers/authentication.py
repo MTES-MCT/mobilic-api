@@ -58,6 +58,7 @@ def verify_oauth_token_in_request():
     ).one_or_none()
 
     if not matching_token or matching_token.revoked:
+        app.logger.info(f"Invalid oauth token")
         raise AuthenticationError("Invalid token")
 
     g.user = matching_token.user
@@ -75,6 +76,7 @@ def check_employment_token():
         return
 
     if not client_id.isnumeric():
+        app.logger.info(f"Invalid {CLIENT_ID_HTTP_HEADER_NAME}")
         raise AuthenticationError("Invalid token")
 
     matching_token = ThirdPartyClientEmployment.query.filter(
@@ -83,6 +85,7 @@ def check_employment_token():
         ~ThirdPartyClientEmployment.is_dismissed,
     ).one_or_none()
     if not matching_token:
+        app.logger.info(f"Invalid {EMPLOYMENT_TOKEN_HTTP_HEADER_NAME}")
         raise AuthenticationError("Invalid token")
 
     if not check_protected_client_id_company_id(
@@ -115,11 +118,13 @@ def check_auth():
         return
     try:
         verify_jwt_in_request()
-    except (NoAuthorizationError, InvalidHeaderError):
+    except (NoAuthorizationError, InvalidHeaderError) as e:
+        app.logger.info(f"Authorization error: {str(e)}")
         raise AuthenticationError(
             "Unable to find a valid cookie or authorization header"
         )
-    except UserLookupError:
+    except UserLookupError as e:
+        app.logger.info(f"User lookup error: {str(e)}")
         raise AuthenticationError("Invalid token")
     except (JWTExtendedException, PyJWTError):
         verify_oauth_token_in_request()
@@ -150,11 +155,13 @@ def wrap_jwt_errors(f):
     def wrapper(*args, **kwargs):
         try:
             return f(*args, **kwargs)
-        except (NoAuthorizationError, InvalidHeaderError):
+        except (NoAuthorizationError, InvalidHeaderError) as e:
+            app.logger.info(f"Authorization error: {str(e)}")
             raise AuthenticationError(
                 "Unable to find a valid cookie or authorization header"
             )
-        except (JWTExtendedException, PyJWTError):
+        except (JWTExtendedException, PyJWTError) as e:
+            app.logger.info(f"JWT error: {str(e)}")
             raise AuthenticationError("Invalid token")
 
     return wrapper
@@ -390,7 +397,6 @@ def logout():
     db.session.commit()
 
 
-@jwt_required(refresh=True)
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
     from app.models.controller_refresh_token import ControllerRefreshToken

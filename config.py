@@ -146,7 +146,7 @@ class TestConfig(Config):
 
 
 class ProdConfig(Config):
-    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=100)
+    ACCESS_TOKEN_EXPIRATION = timedelta(minutes=960)  # 16h
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
 
 

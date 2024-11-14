@@ -1,3 +1,4 @@
+import time
 from functools import wraps
 from dataclasses import dataclass
 from typing import Optional
@@ -39,6 +40,11 @@ class LinkCompanyContactData:
 
 
 @dataclass
+class GetCompanyData:
+    company_id: str
+
+
+@dataclass
 class GetDealData:
     deal_id: str
 
@@ -51,9 +57,8 @@ class UpdateDealStageData:
 
 
 @dataclass
-class GetDealsByPipelineData:
+class GetAllDealsByPipelineData:
     pipeline_id: str
-    limit: Optional[int] = None
 
 
 def check_api_key(func):
@@ -69,7 +74,7 @@ def check_api_key(func):
 
 
 class BrevoApiClient:
-    BASE_URL = "https://api.brevo.com/v3/"
+    BASE_URL = "https://api.brevo.com/v3"
 
     def __init__(self, api_key):
         self._configuration = sib_api_v3_sdk.Configuration()
@@ -115,7 +120,7 @@ class BrevoApiClient:
     @check_api_key
     def create_company(self, data: CreateCompanyData):
         try:
-            url = f"{self.BASE_URL}companies"
+            url = f"{self.BASE_URL}/companies"
             attributes = {
                 "activation_mobilic": "Inscrite",
                 "siren": data.siren,
@@ -140,7 +145,7 @@ class BrevoApiClient:
     @check_api_key
     def link_company_and_contact(self, data: LinkCompanyContactData):
         try:
-            url = f"{self.BASE_URL}companies/link-unlink/{data.company_id}"
+            url = f"{self.BASE_URL}/companies/link-unlink/{data.company_id}"
             payload = {"linkContactIds": [data.contact_id]}
             response = self._session.patch(url, json=payload)
             return response
@@ -148,9 +153,19 @@ class BrevoApiClient:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
+    def get_company(self, data: GetCompanyData):
+        try:
+            url = f"{self.BASE_URL}/companies/{data.company_id}"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
     def get_deal(self, data: GetDealData):
         try:
-            url = f"{self.BASE_URL}crm/deals/{data.deal_id}"
+            url = f"{self.BASE_URL}/crm/deals/{data.deal_id}"
             response = self._session.get(url)
             response.raise_for_status()
             return response.json()
@@ -160,7 +175,7 @@ class BrevoApiClient:
     @check_api_key
     def update_deal_stage(self, data: UpdateDealStageData):
         try:
-            url = f"{self.BASE_URL}crm/deals/{data.deal_id}"
+            url = f"{self.BASE_URL}/crm/deals/{data.deal_id}"
             payload = {
                 "attributes": {
                     "pipeline": data.pipeline_id,
@@ -178,23 +193,45 @@ class BrevoApiClient:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
-    def get_deals_by_pipeline(self, data: GetDealsByPipelineData):
+    def get_all_deals_by_pipeline(self, data: GetAllDealsByPipelineData):
         try:
-            url = f"{self.BASE_URL}crm/deals"
-            params = {
-                "filters[attributes.pipeline]": data.pipeline_id,
-                "limit": data.limit,
-            }
-            response = self._session.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-        except ApiException as e:
+            all_deals = []
+            offset = 0
+            limit = 10000
+            # Brevo's maximum request limit per hour request (https://developers.brevo.com/docs/api-limits#general-rate-limiting)
+            max_attempts = 100
+
+            for _ in range(max_attempts):
+                params = {
+                    "filters[attributes.pipeline]": data.pipeline_id,
+                    "offset": offset,
+                    "limit": limit,
+                }
+
+                response = self._session.get(
+                    f"{self.BASE_URL}/crm/deals", params=params
+                )
+                # Retry after delay if rate-limited (https://developers.brevo.com/docs/api-limits#rate-limit-reset)
+                if response.status_code == 429:
+                    app.logger.warning("Rate limit exceeded. Stopping batch.")
+                    break
+
+                response.raise_for_status()
+                deals = response.json().get("items", [])
+                if not deals:
+                    break
+
+                all_deals.extend(deals)
+                offset += limit
+
+            return {"items": all_deals}
+        except requests.exceptions.RequestException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
     def get_all_pipelines(self):
         try:
-            url = f"{self.BASE_URL}crm/pipeline/details/all"
+            url = f"{self.BASE_URL}/crm/pipeline/details/all"
             response = self._session.get(url)
             response.raise_for_status()
             return response.json()
@@ -204,7 +241,7 @@ class BrevoApiClient:
     @check_api_key
     def get_pipeline_details(self, pipeline_id: str):
         try:
-            url = f"{self.BASE_URL}crm/pipeline/details/{pipeline_id}"
+            url = f"{self.BASE_URL}/crm/pipeline/details/{pipeline_id}"
             response = self._session.get(url)
             response.raise_for_status()
             return response.json()
