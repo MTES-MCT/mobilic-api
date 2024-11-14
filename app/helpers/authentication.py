@@ -393,7 +393,7 @@ def refresh_token():
 
 @wrap_jwt_errors
 def logout():
-    delete_refresh_token_on_logout()
+    delete_refresh_token()
     db.session.commit()
 
 
@@ -414,21 +414,3 @@ def delete_refresh_token():
     if not matching_refresh_token:
         raise AuthenticationError("Refresh token is invalid")
     db.session.delete(matching_refresh_token)
-
-
-def delete_refresh_token_on_logout():
-    from app.models.refresh_token import RefreshToken
-    from app.models.controller_refresh_token import ControllerRefreshToken
-
-    identity = get_jwt_identity()
-    if current_actor:
-        if identity.get("controller"):
-            db.session.query(ControllerRefreshToken).filter_by(
-                controller_user_id=current_actor.id
-            ).delete()
-        else:
-            db.session.query(RefreshToken).filter_by(
-                user_id=current_actor.id
-            ).delete()
-    else:
-        app.logger.warning("Current user not found")
