@@ -392,6 +392,7 @@ def refresh_token():
 
 
 @wrap_jwt_errors
+@jwt_required()
 def logout():
     delete_refresh_token_on_logout()
     db.session.commit()
@@ -420,8 +421,8 @@ def delete_refresh_token_on_logout():
     from app.models.refresh_token import RefreshToken
     from app.models.controller_refresh_token import ControllerRefreshToken
 
-    identity = get_jwt_identity()
     if current_actor:
+        identity = get_jwt_identity()
         if identity.get("controller"):
             db.session.query(ControllerRefreshToken).filter_by(
                 controller_user_id=current_actor.id
