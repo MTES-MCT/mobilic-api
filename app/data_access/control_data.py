@@ -95,6 +95,10 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     company_address = graphene.String()
     mission_address_begin = graphene.String()
     control_type = graphene.String()
+    is_day_page_filled = graphene.Boolean(
+        required=False,
+        description="Indique si la page du jour est remplie lors du contrôle d'un LIC papier.",
+    )
     observed_infractions = graphene.List(
         ObservedInfraction,
         required=False,

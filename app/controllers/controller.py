@@ -41,6 +41,7 @@ from app.helpers.errors import (
     AuthorizationError,
     InvalidControlToken,
     ControlNotFound,
+    InvalidParamsError,
 )
 from app.helpers.graphene_types import TimeStamp
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
@@ -128,6 +129,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
 
     class Arguments:
         control_id = graphene.Int(required=False)
+        type = graphene.String(required=False)
         user_first_name = graphene.String(required=False)
         user_last_name = graphene.String(required=False)
         user_birth_date = graphene.Date(required=False)
@@ -151,6 +153,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         is_vehicle_immobilized = graphene.Boolean(
             required=False, default_value=False
         )
+        business_type = graphene.String(required=False)
+        is_day_page_filled = graphene.Boolean(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -159,6 +163,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         _,
         info,
         control_id=None,
+        type=None,
         user_first_name=None,
         user_last_name=None,
         user_nationality=None,
@@ -180,6 +185,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         license_copy_number=None,
         observation=None,
         is_vehicle_immobilized=None,
+        business_type=None,
+        is_day_page_filled=None,
     ):
         if control_id:
             controller_can_see_control(current_user, control_id)
@@ -188,8 +195,19 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             ).one()
             if not control.control_bulletin_creation_time:
                 control.control_bulletin_creation_time = datetime.now()
-        else:
+        elif type == ControlType.sans_lic.name:
             control = ControllerControl.create_no_lic_control(current_user.id)
+        elif (
+            type == ControlType.lic_papier.name
+            and is_day_page_filled is not None
+        ):
+            control = ControllerControl.create_lic_papier_control(
+                current_user.id, is_day_page_filled
+            )
+        else:
+            raise InvalidParamsError(
+                "Cannot save control: 'type' or 'is_day_page_filled' is missing."
+            )
 
         save_control_bulletin(
             control,
@@ -214,6 +232,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             license_copy_number,
             observation,
             is_vehicle_immobilized,
+            business_type,
+            is_day_page_filled,
         )
         db.session.commit()
         return control
