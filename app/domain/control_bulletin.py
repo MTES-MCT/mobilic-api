@@ -1,3 +1,7 @@
+from app.helpers.errors import InvalidParamsError
+from app.models.business import Business, BusinessType
+
+
 def save_control_bulletin(
     control,
     user_first_name=None,
@@ -55,5 +59,15 @@ def save_control_bulletin(
     existing_bulletin["license_copy_number"] = license_copy_number
     existing_bulletin["observation"] = observation
     existing_bulletin["is_vehicle_immobilized"] = is_vehicle_immobilized
-    existing_bulletin["business_type"] = business_type
+
+    if business_type is not None:
+        business = Business.query.filter(
+            Business.business_type == BusinessType[business_type].value
+        ).one_or_none()
+        if not business:
+            raise InvalidParamsError(
+                f"Business type {business_type} not found"
+            )
+        existing_bulletin["business_id"] = business.id
+
     control.control_bulletin = existing_bulletin
