@@ -830,6 +830,18 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
+    def send_companies_reminder_no_invitation_email(self, employment):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="",
+                subject="Rappel : rattachez vos salariés à votre compte Mobilic",
+                employment=employment,
+                user=employment.user,
+                type_=EmailType.COMPANY_REMINDER_NO_INVITATION,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
     def send_companies_with_employees_but_with_no_activity(self, employment):
         self._send_single(
             self._create_message_from_flask_template(
