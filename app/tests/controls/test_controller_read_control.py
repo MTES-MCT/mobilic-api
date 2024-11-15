@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.domain.regulations import get_default_business
 from app.helpers.submitter_type import SubmitterType
 from app.models.regulation_check import RegulationCheckType
 from app.seed import UserFactory
@@ -83,6 +84,7 @@ class TestControllerReadControl(BaseTest):
             submitter_type=SubmitterType.EMPLOYEE,
             user=self.controlled_user,
             regulation_check=regulation_check,
+            business=get_default_business(),
         )
 
         control_id = self.create_controller_control(self.controller_user_1)
