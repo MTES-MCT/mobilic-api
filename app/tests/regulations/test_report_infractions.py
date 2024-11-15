@@ -1,6 +1,7 @@
 import datetime
 
 from app import db
+from app.domain.regulations import get_default_business
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulationComputation, RegulatoryAlert, RegulationCheck
 from app.models.controller_control import ControllerControl, ControlType
@@ -32,6 +33,7 @@ class TestReportInfractions(RegulationsTest):
                 user=self.employee,
                 extra={"sanction_code": "Code"},
                 regulation_check=random_regulation_check,
+                business=get_default_business(),
             )
         )
 

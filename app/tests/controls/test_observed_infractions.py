@@ -1,3 +1,4 @@
+from app.domain.regulations import get_default_business
 from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulationCheck
@@ -40,6 +41,7 @@ class TestObservedInfractions(RegulationsTest):
                     == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
                 ).first(),
                 extra=dict(sanction_code=NATINF_32083, message=message),
+                business=get_default_business(),
             )
 
         insert_computation(submitter_type=SubmitterType.EMPLOYEE)

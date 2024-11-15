@@ -7,7 +7,12 @@ from flask import send_file
 
 from app.domain.regulations import get_default_business
 from app.domain.regulations_helper import resolve_variables
-from app.models import ControlLocation, ControllerUser, RegulationCheck
+from app.models import (
+    ControlLocation,
+    ControllerUser,
+    RegulationCheck,
+    Business,
+)
 
 TRANSPORT_TYPES = {
     "unknown": -1,
@@ -469,6 +474,12 @@ def get_greco_xml_and_filename(control):
     infractions = []
     for idx_r, r in enumerate(control.reported_infractions):
         extra = r.get("extra")
+        business_id = r.get("business_id", None)
+        business = (
+            Business.query.filter(Business.id == business_id).one()
+            if business_id
+            else get_default_business()
+        )
         natinf = extra.get("sanction_code").replace("NATINF ", "")
         check_type = r.get("check_type")
         regulation_check = RegulationCheck.query.filter(
@@ -492,9 +503,8 @@ def get_greco_xml_and_filename(control):
             date_start = datetime.fromisoformat(extra.get("work_range_start"))
             date_end = datetime.fromisoformat(extra.get("work_range_end"))
 
-        # use business from infraction when it will be available
         dict_variables = resolve_variables(
-            regulation_check.variables, get_default_business()
+            regulation_check.variables, business
         )
         description = dict_variables["DESCRIPTION"]
 

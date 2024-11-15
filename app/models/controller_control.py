@@ -176,6 +176,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
                     "is_reported": is_reportable,
                     "check_type": check_type,
                     "check_unit": check_unit,
+                    "business_id": regulatory_alert.business.id,
                 }
             )
         self.observed_infractions = observed_infractions
