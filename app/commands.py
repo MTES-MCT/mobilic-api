@@ -290,7 +290,7 @@ def run_certificate(as_of_date=None, computation_only=False):
 def send_daily_emails():
     from datetime import date
 
-    from app.jobs.emails import (
+    from app.jobs.emails.bizdev import (
         send_onboarding_emails,
         send_companies_without_any_employee_invitation_emails,
         send_companies_with_employees_but_without_activities_emails,
