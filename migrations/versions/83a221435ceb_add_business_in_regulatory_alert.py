@@ -23,7 +23,7 @@ def upgrade():
         sa.Column("business_id", sa.Integer(), nullable=True),
     )
 
-    default_buiness = get_default_business()
+    default_business = get_default_business()
     connection = (
         op.get_bind()
     )  # Get the database connection from Alembic's operation context
@@ -31,7 +31,7 @@ def upgrade():
         sa.text(
             "UPDATE regulatory_alert SET business_id = :business_id WHERE business_id IS NULL"
         ),
-        {"business_id": default_buiness.id},
+        {"business_id": default_business.id},
     )
 
     op.create_foreign_key(
