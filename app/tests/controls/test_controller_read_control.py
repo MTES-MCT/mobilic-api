@@ -15,6 +15,7 @@ from app.tests.helpers import (
     ApiRequests,
     make_authenticated_request,
     init_regulation_checks_data,
+    init_businesses_data,
 )
 
 
@@ -75,6 +76,7 @@ class TestControllerReadControl(BaseTest):
         )
 
         regulation_check = init_regulation_checks_data()
+        init_businesses_data()
 
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),
