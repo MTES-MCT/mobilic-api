@@ -3,6 +3,7 @@ from datetime import datetime, date
 import factory
 
 from app import db
+from app.domain.regulations import get_default_business
 from app.models import (
     User,
     Employment,
@@ -133,6 +134,8 @@ class ControllerControlFactory(BaseFactory):
 class RegulatoryAlertFactory(BaseFactory):
     class Meta:
         model = RegulatoryAlert
+
+    business = get_default_business()
 
 
 class RegulationComputationFactory(BaseFactory):
