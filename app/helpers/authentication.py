@@ -397,6 +397,7 @@ def logout():
     db.session.commit()
 
 
+@jwt_required(refresh=True)
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
     from app.models.controller_refresh_token import ControllerRefreshToken
