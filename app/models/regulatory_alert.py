@@ -1,4 +1,3 @@
-from enum import Enum
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
@@ -27,6 +26,14 @@ class RegulatoryAlert(BaseModel):
     )
     regulation_check = db.relationship("RegulationCheck")
 
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey("business.id"),
+        index=False,
+        nullable=False,
+    )
+    business = db.relationship("Business")
+
     __table_args__ = (
         db.UniqueConstraint(
             "day",
@@ -38,10 +45,11 @@ class RegulatoryAlert(BaseModel):
     )
 
     def __repr__(self):
-        return "<RegulatoryAlert [{}] : {}, {}, {}, {}>".format(
+        return "<RegulatoryAlert [{}] : {}, {}, {}, {}, {}>".format(
             self.id,
             self.user,
             self.submitter_type,
             self.regulation_check,
             self.day,
+            self.business,
         )

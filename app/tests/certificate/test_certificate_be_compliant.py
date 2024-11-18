@@ -12,6 +12,7 @@ from app.domain.certificate_criteria import (
     COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES,
 )
 from app.domain.log_activities import log_activity
+from app.domain.regulations import get_default_business
 from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import previous_month_period
@@ -59,6 +60,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "breach_period_max_break_in_seconds": 10 * 60 * 60
                 - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES + 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -78,6 +80,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "breach_period_max_break_in_seconds": 10 * 60 * 60
                 - (COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES - 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -98,6 +101,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "work_range_in_seconds": 10 * 60 * 60
                 + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES + 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -118,6 +122,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "work_range_in_seconds": 10 * 60 * 60
                 + (COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES - 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -138,6 +143,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "total_break_time_in_seconds": 45 * 60
                 - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES + 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -158,6 +164,7 @@ class TestCertificateBeCompliant(BaseTest):
                 "total_break_time_in_seconds": 45 * 60
                 - (COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES - 2) * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -182,6 +189,7 @@ class TestCertificateBeCompliant(BaseTest):
                 )
                 * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()
@@ -206,6 +214,7 @@ class TestCertificateBeCompliant(BaseTest):
                 )
                 * 60,
             },
+            business=get_default_business(),
         )
         db.session.add(regulatory_alert)
         db.session.commit()

@@ -4,6 +4,7 @@ import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
 
+from app.data_access.business import BusinessOutput
 from app.data_access.control_bulletin import ControlBulletinFields
 from app.data_access.employment import EmploymentOutput
 from app.data_access.mission import MissionOutput
@@ -13,6 +14,7 @@ from app.data_access.regulation_computation import (
 )
 from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
+from app.domain.regulations import get_default_business
 from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
@@ -20,6 +22,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
 
 
@@ -43,6 +46,10 @@ class ObservedInfraction(ObjectType):
     )
     is_reported = graphene.Boolean(
         description="Indique si le contrôleur a relevé l'alerte ou non"
+    )
+    business = graphene.Field(
+        BusinessOutput,
+        description="Type d'activité effectuée par le salarié au moment du calcul du seuil règlementaire",
     )
 
 
@@ -175,18 +182,27 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             if regulation_check is None:
                 continue
 
+            business_id = infraction.get("business_id")
+            business = (
+                Business.query.filter(Business.id == business_id).one_or_none()
+                if business_id
+                else get_default_business()
+            )
+
             sanction = infraction.get("sanction")
             label = regulation_check.label if regulation_check else ""
             description = (
-                regulation_check.resolved_variables["DESCRIPTION"]
+                regulation_check.resolve_variables(business=business)[
+                    "DESCRIPTION"
+                ]
                 if regulation_check
                 else ""
             )
             if sanction == NATINF_32083:
                 label = label.replace("quotidien", "de nuit")
-                night_work_description = regulation_check.resolved_variables[
-                    "NIGHT_WORK_DESCRIPTION"
-                ]
+                night_work_description = regulation_check.resolve_variables(
+                    business=business
+                )["NIGHT_WORK_DESCRIPTION"]
                 description = f"{description} {night_work_description}"
 
             extra = infraction.get("extra")
@@ -205,6 +221,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                     type=infraction.get("check_type"),
                     unit=infraction.get("check_unit"),
                     extra=extra,
+                    business=business,
                 )
             )
         return observed_infractions
