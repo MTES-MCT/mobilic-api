@@ -93,9 +93,9 @@ def compute_aggregate_durations(
                         tz,
                     ),
                     from_tz(
-                        to_tz(min_time, user_timezone).replace(
-                            hour=22, minute=0
-                        ),
+                        to_tz(
+                            min_time + timedelta(days=1), user_timezone
+                        ).replace(hour=0, minute=0),
                         tz,
                     ),
                 ).total_seconds()
