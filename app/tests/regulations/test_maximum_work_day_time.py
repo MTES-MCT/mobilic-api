@@ -285,3 +285,125 @@ class TestMaximumWorkDayTime(RegulationsTest):
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
+
+    def test_no_night_work_hours_start(self):
+        how_many_days_ago = 2
+        mission_no_night_hours = self._log_and_validate_mission(
+            mission_name="Pas de travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=11),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=50
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+        with AuthenticatedUserContext(user=self.admin):
+            validate_mission(
+                submitter=self.admin,
+                mission=mission_no_night_hours,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = TestMaximumWorkDayTime._get_alert(
+            days_ago=how_many_days_ago
+        )
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], False)
+
+    def test_no_night_work_hours_end(self):
+        how_many_days_ago = 2
+        mission_no_night_hours = self._log_and_validate_mission(
+            mission_name="Pas de travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=5, minute=5
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=17, minute=35
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+        with AuthenticatedUserContext(user=self.admin):
+            validate_mission(
+                submitter=self.admin,
+                mission=mission_no_night_hours,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = TestMaximumWorkDayTime._get_alert(
+            days_ago=how_many_days_ago
+        )
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], False)
+
+    def test_night_work_hours_start(self):
+        how_many_days_ago = 2
+        mission_night_hours = self._log_and_validate_mission(
+            mission_name="Travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=0,
+                        minute=30,
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+        with AuthenticatedUserContext(user=self.admin):
+            validate_mission(
+                submitter=self.admin,
+                mission=mission_night_hours,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = TestMaximumWorkDayTime._get_alert(
+            days_ago=how_many_days_ago
+        )
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], True)
+
+    def test_night_work_hours_end(self):
+        how_many_days_ago = 2
+        mission_night_hours = self._log_and_validate_mission(
+            mission_name="Travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=4, minute=50
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=17, minute=10
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+        with AuthenticatedUserContext(user=self.admin):
+            validate_mission(
+                submitter=self.admin,
+                mission=mission_night_hours,
+                for_user=self.employee,
+            )
+
+        regulatory_alert = TestMaximumWorkDayTime._get_alert(
+            days_ago=how_many_days_ago
+        )
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], True)
