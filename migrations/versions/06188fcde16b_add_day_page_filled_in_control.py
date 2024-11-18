@@ -1,7 +1,7 @@
 """add day page filled in control
 
 Revision ID: 06188fcde16b
-Revises: bd643a8d5269
+Revises: 83a221435ceb
 Create Date: 2024-10-28 19:04:03.717178
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "06188fcde16b"
-down_revision = "bd643a8d5269"
+down_revision = "83a221435ceb"
 branch_labels = None
 depends_on = None
 
