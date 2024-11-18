@@ -7,7 +7,9 @@ Suppression prochaine du compte d’un salarié
 {% block body %}
     <p>Madame, Monsieur,</p>
     <p>Nous vous informons que votre salarié <b>{{employee_full_name }}</b> (identifiant Mobilic : <b>{{employee_id }}</b>) n’a pas accepté nos nouvelles conditions générales d’utilisation adressées le {{release_date | full_format_day}}.</p>
-    <p>Ainsi, son compte est désormais bloqué et sera supprimé dans 10 jours. Il ne peut donc plus saisir de temps de travail via Mobilic pour votre entreprise. Pour être en règle en cas de contrôle, il doit, dès maintenant, utiliser le livret individuel de contrôle (articles R3312-19 et R3312-58 du Code des transports).</p>
-    <p>S’il s’agit d’une erreur, votre salarié peut nous contacter à l’adresse suivante : <a href="mailto:assistance@mobilic.beta.gouv.fr">assistance@mobilic.beta.gouv.fr</a>. Nous pourrons ainsi réactiver son compte.</p>
+    <p>Ainsi, son compte est désormais bloqué et sera supprimé dans 10 jours.</p>
+    <p>S’il s’agit d’une erreur, <b>votre salarié peut encore modifier son choix</b> avant la suppression définitive du compte. Pour cela, il doit se connecter sur Mobilic et accepter les CGU.</p>
+    <p>S’il ne le fait pas, il ne pourra plus saisir de temps de travail via Mobilic pour votre entreprise. Pour être en règle en cas de contrôle, il doit, dès maintenant, utiliser le livret individuel de contrôle (articles R3312-19 et R3312-58 du Code des transports).</p>
+    <p>Si la période de 10 jours est déjà passée, votre salarié peut nous contacter à l’adresse suivante : <a href="mailto:assistance@mobilic.beta.gouv.fr">assistance@mobilic.beta.gouv.fr</a>. Nous pourrons ainsi réactiver son compte.</p>
     <p>Cordialement,</p>
 {% endblock %}
