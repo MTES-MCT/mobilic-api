@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from app import app
+from app import app, mailer
 from app.domain.company import find_admins_still_without_invitations
 from app.jobs import log_execution
 
@@ -20,7 +20,7 @@ def send_reminder_no_invitation_emails(today):
     for admin_employment in admin_employments:
         try:
             app.logger.info(f"-- sending email to {admin_employment}")
-            mailer.send_companies_without_invitations_email(
+            mailer.send_companies_reminder_no_invitation_email(
                 employment=admin_employment
             )
         except Exception as e:

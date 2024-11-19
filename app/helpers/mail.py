@@ -831,13 +831,17 @@ class Mailer:
         )
 
     def send_companies_reminder_no_invitation_email(self, employment):
+        resources_link = Markup(
+            f"{app.config['FRONTEND_URL']}/resources/admin"
+        )
         self._send_single(
             self._create_message_from_flask_template(
-                template="",
+                template="company_reminder_no_invitation.html",
                 subject="Rappel : rattachez vos salariés à votre compte Mobilic",
                 employment=employment,
                 user=employment.user,
                 type_=EmailType.COMPANY_REMINDER_NO_INVITATION,
+                resources_link=resources_link,
             ),
             _apply_whitelist_if_not_prod=True,
         )
