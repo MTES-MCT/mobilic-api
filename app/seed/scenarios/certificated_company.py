@@ -93,7 +93,6 @@ def run_scenario_certificated():
             ],
             company=company,
             employee=employee,
-            vehicle=vehicle,
             admin_validating=admin,
         )
 
@@ -123,7 +122,6 @@ def run_scenario_certificated():
             ],
             company=company,
             employee=employee,
-            vehicle=vehicle,
             admin_validating=admin,
         )
 
@@ -153,6 +151,5 @@ def run_scenario_certificated():
             ],
             company=company,
             employee=employee,
-            vehicle=vehicle,
             admin_validating=admin,
         )

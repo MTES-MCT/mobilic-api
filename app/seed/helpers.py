@@ -100,10 +100,12 @@ def log_and_validate_mission(
     work_periods,
     company,
     employee,
-    vehicle,
+    vehicle=None,
     validate=True,
     admin_validating=None,
 ):
+    if not vehicle and company.vehicles:
+        vehicle = company.vehicles[0]
     mission = create_mission(
         name=mission_name,
         company=company,
