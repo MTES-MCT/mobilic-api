@@ -20,7 +20,7 @@ from app.tests.helpers import (
 )
 
 
-class TestControllerReadControl(BaseTest):
+class TestReadControlData(BaseTest):
     def setUp(self):
         super().setUp()
         self.controller_user_1 = ControllerUserFactory.create()

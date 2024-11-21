@@ -17,7 +17,7 @@ COMPANY_NAME_1 = "Company 1"
 VEHICLE_ID_1 = "Company 1"
 
 
-class TestControls(BaseTest):
+class TestCreateMobilicControl(BaseTest):
     def setUp(self):
         super().setUp()
         self.company1 = CompanyFactory.create(usual_name=COMPANY_NAME_1)

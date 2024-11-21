@@ -16,7 +16,7 @@ MESSAGE_EMPLOYEE = "Alerte version salarié"
 MESSAGE_ADMIN = "Alerte version gestionnaire"
 
 
-class TestObservedInfractions(RegulationsTest):
+class TestReportInfractions(RegulationsTest):
     def setUp(self):
         super().setUp()
         self.controller_user = ControllerUserFactory.create()
