@@ -24,6 +24,17 @@ from app.helpers.graphene_types import (
 from app.helpers.submitter_type import SubmitterType
 from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
+from app.models.regulation_check import RegulationCheckType
+
+# TODO refactor sanction code in regulations_per_day and here for consistency
+check_type_by_sanction = {
+    "NATINF 23103": RegulationCheckType.NO_LIC,
+    "NATINF 11292": RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+    "NATINF 20525": RegulationCheckType.MINIMUM_DAILY_REST,
+    "NATINF 32083": RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+    "NATINF 13152": RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK,
+    "NATINF 11298": RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK,
+}
 
 
 class ObservedInfraction(ObjectType):
@@ -174,54 +185,140 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     def resolve_observed_infractions(self, info):
         observed_infractions = []
-        if not self.observed_infractions:
-            return observed_infractions
-        for infraction in self.observed_infractions:
-            check_type = infraction.get("check_type")
-            regulation_check = get_regulation_check_by_type(type=check_type)
-            if regulation_check is None:
-                continue
 
-            business_id = infraction.get("business_id")
+        if self.control_type in (ControlType.mobilic, ControlType.sans_lic):
+            for infraction in self.observed_infractions:
+                check_type = infraction.get("check_type")
+                regulation_check = get_regulation_check_by_type(
+                    type=check_type
+                )
+                if regulation_check is None:
+                    continue
+
+                business_id = infraction.get("business_id")
+                business = (
+                    Business.query.filter(
+                        Business.id == business_id
+                    ).one_or_none()
+                    if business_id
+                    else get_default_business()
+                )
+
+                sanction = infraction.get("sanction")
+                label = regulation_check.label if regulation_check else ""
+                description = (
+                    regulation_check.resolve_variables(business=business)[
+                        "DESCRIPTION"
+                    ]
+                    if regulation_check
+                    else ""
+                )
+                if sanction == NATINF_32083:
+                    label = label.replace("quotidien", "de nuit")
+                    night_work_description = (
+                        regulation_check.resolve_variables(business=business)[
+                            "NIGHT_WORK_DESCRIPTION"
+                        ]
+                    )
+                    description = f"{description} {night_work_description}"
+
+                extra = infraction.get("extra")
+                convert_extra_datetime_to_user_tz(extra, self.user_id)
+
+                observed_infractions.append(
+                    ObservedInfraction(
+                        sanction=sanction,
+                        date=datetime.datetime.fromisoformat(
+                            infraction.get("date")
+                        ),
+                        is_reportable=infraction.get("is_reportable"),
+                        is_reported=infraction.get("is_reported"),
+                        label=label,
+                        description=description,
+                        type=infraction.get("check_type"),
+                        unit=infraction.get("check_unit"),
+                        extra=extra,
+                        business=business,
+                    )
+                )
+
+        elif self.control_type == ControlType.lic_papier:
+            remaining_possible_sanctions = check_type_by_sanction.copy()
+
+            # Only one business for lic papier controls
+            business_id = self.control_bulletin.get("business_id")
             business = (
                 Business.query.filter(Business.id == business_id).one_or_none()
                 if business_id
                 else get_default_business()
             )
 
-            sanction = infraction.get("sanction")
-            label = regulation_check.label if regulation_check else ""
-            description = (
-                regulation_check.resolve_variables(business=business)[
-                    "DESCRIPTION"
-                ]
-                if regulation_check
-                else ""
-            )
-            if sanction == NATINF_32083:
-                label = label.replace("quotidien", "de nuit")
-                night_work_description = regulation_check.resolve_variables(
-                    business=business
-                )["NIGHT_WORK_DESCRIPTION"]
-                description = f"{description} {night_work_description}"
+            # First we handle observed infractions
+            if self.observed_infractions is not None:
+                for infraction in self.observed_infractions:
+                    check_type = infraction.get("check_type")
+                    regulation_check = get_regulation_check_by_type(
+                        type=check_type
+                    )
+                    if regulation_check is None:
+                        continue
 
-            extra = infraction.get("extra")
-            convert_extra_datetime_to_user_tz(extra, self.user_id)
+                    sanction = infraction.get("sanction")
+                    label = regulation_check.label if regulation_check else ""
+                    description = (
+                        regulation_check.resolve_variables(business=business)[
+                            "DESCRIPTION"
+                        ]
+                        if regulation_check
+                        else ""
+                    )
+                    observed_infractions.append(
+                        ObservedInfraction(
+                            sanction=sanction,
+                            date=datetime.datetime.fromisoformat(
+                                infraction.get("date")
+                            ),
+                            is_reportable=infraction.get("is_reportable"),
+                            is_reported=infraction.get("is_reported"),
+                            label=label,
+                            description=description,
+                            type=infraction.get("check_type"),
+                            unit=infraction.get("check_unit"),
+                            business=business,
+                        )
+                    )
+                    remaining_possible_sanctions.pop(sanction)
 
-            observed_infractions.append(
-                ObservedInfraction(
-                    sanction=sanction,
-                    date=datetime.datetime.fromisoformat(
-                        infraction.get("date")
-                    ),
-                    is_reportable=infraction.get("is_reportable"),
-                    is_reported=infraction.get("is_reported"),
-                    label=label,
-                    description=description,
-                    type=infraction.get("check_type"),
-                    unit=infraction.get("check_unit"),
-                    extra=extra,
-                    business=business,
+            # Then, we add remaining possible infractions
+            for sanction, check_type in remaining_possible_sanctions.items():
+
+                regulation_check = get_regulation_check_by_type(
+                    type=check_type
                 )
-            )
+                if regulation_check is None:
+                    continue
+
+                label = regulation_check.label if regulation_check else ""
+                description = (
+                    regulation_check.resolve_variables(business=business)[
+                        "DESCRIPTION"
+                    ]
+                    if regulation_check
+                    else ""
+                )
+
+                observed_infractions.append(
+                    ObservedInfraction(
+                        sanction=sanction,
+                        date=None,  # with no date!
+                        is_reportable=True,
+                        is_reported=False,
+                        label=label,
+                        description=description,
+                        type=regulation_check.type,
+                        unit=regulation_check.unit,
+                        business=business,
+                    )
+                )
+
         return observed_infractions

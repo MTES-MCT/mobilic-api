@@ -315,6 +315,31 @@ class ApiRequests:
     }
     """
 
+    read_control_data_no_lic = """
+    query readControlDataNoLic($controlId: Int!) {
+      controlData(controlId: $controlId) {
+        id
+        controlType
+        observedInfractions {
+          sanction
+          date
+          isReportable
+          isReported
+          label
+          description
+          type
+          unit
+          extra
+          business {
+            id
+            transportType
+            businessType
+          }
+        }
+      }
+    }
+    """
+
     get_controller_user_info = """
       query controllerUser($id: Int!, $fromDate: Date) {
         controllerUser(id: $id) {
@@ -1165,8 +1190,6 @@ def init_regulation_checks_data():
     if not regulation_check:
         regulation_checks = get_regulation_checks()
         for r in regulation_checks:
-            if r.type == RegulationCheckType.NO_LIC:
-                continue
             insert_regulation_check(
                 session=db.session, regulation_check_data=r
             )
