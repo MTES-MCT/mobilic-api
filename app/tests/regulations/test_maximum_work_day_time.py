@@ -21,6 +21,19 @@ from app.seed.helpers import get_time, get_date
 from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
 
+def _get_alert(days_ago, submitter_type=SubmitterType.EMPLOYEE):
+    day_start = get_date(days_ago)
+
+    return RegulatoryAlert.query.filter(
+        RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+        RegulatoryAlert.regulation_check.has(
+            RegulationCheck.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+        ),
+        RegulatoryAlert.day == day_start,
+        RegulatoryAlert.submitter_type == submitter_type,
+    ).one_or_none()
+
+
 class TestMaximumWorkDayTime(RegulationsTest):
     def test_max_work_day_time_by_employee_success(self):
         how_many_days_ago = 2
@@ -39,17 +52,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
                 ],
             ],
         )
-        day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNone(regulatory_alert)
 
     def test_max_work_day_time_by_employee_failure(self):
@@ -70,17 +73,8 @@ class TestMaximumWorkDayTime(RegulationsTest):
                 ],
             ],
         )
-        day_start = get_date(how_many_days_ago)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], True)
@@ -115,17 +109,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
             ],
         )
 
-        day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], False)
@@ -162,12 +146,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         )
 
         # 11h  is fine, no alert
-        day_start = get_date(how_many_days_ago)
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNone(regulatory_alert)
 
         self.convert_employee_to_trv()
@@ -192,12 +171,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         )
 
         # 11h  is above limit, alert
-        day_start = get_date(how_many_days_ago)
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNotNone(regulatory_alert)
 
     def test_max_work_day_time_by_admin_failure(self):
@@ -223,17 +197,9 @@ class TestMaximumWorkDayTime(RegulationsTest):
                 submitter=self.admin, mission=mission, for_user=self.employee
             )
 
-        day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
-        ).one_or_none()
+        regulatory_alert = _get_alert(
+            days_ago=how_many_days_ago, submitter_type=SubmitterType.ADMIN
+        )
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], True)
@@ -299,15 +265,103 @@ class TestMaximumWorkDayTime(RegulationsTest):
                 submitter=employee, mission=mission, for_user=employee
             )
 
-        day_start = get_date(how_many_days_ago)
-
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
+        regulatory_alert = _get_alert(
+            days_ago=how_many_days_ago, submitter_type=SubmitterType.ADMIN
+        )
         self.assertIsNone(regulatory_alert)
+
+    def test_night_hours_start(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=13, minute=55
+                    ),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=0),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], True)
+
+    def test_no_night_hours_start(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Pas de travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=9, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=23, minute=55
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], False)
+
+    def test_night_hours_end(self):
+        how_many_days_ago = 2
+
+        # Let's check night hours ends at 5am
+        self._log_and_validate_mission(
+            mission_name="Travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=4, minute=50
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=14, minute=55
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], True)
+
+    def test_no_night_hours_end(self):
+        how_many_days_ago = 2
+
+        # Let's check night hours ends at 5am
+        self._log_and_validate_mission(
+            mission_name="Pas de travail de nuit",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=5, minute=5
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
+                    ),
+                    ActivityType.WORK,
+                ],
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["night_work"], False)
