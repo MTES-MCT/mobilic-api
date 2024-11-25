@@ -312,7 +312,7 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
             description="Identifiant de l'entreprise de rattachement",
         )
         mails = graphene.Argument(
-            graphene.List(graphene.String),
+            graphene.List(Email),
             required=True,
             description="Liste d'emails à rattacher.",
         )
