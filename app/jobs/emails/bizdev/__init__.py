@@ -5,3 +5,6 @@ from .send_companies_without_any_employee_invitation_emails import (
 from .send_companies_with_employees_but_without_activities_emails import (
     send_companies_with_employees_but_without_activities_emails,
 )
+from .send_reminder_no_invitation_emails import (
+    send_reminder_no_invitation_emails,
+)

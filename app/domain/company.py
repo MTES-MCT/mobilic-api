@@ -236,11 +236,8 @@ def has_any_active_admin(company):
     return len(admins) > len(blacklisted_admins)
 
 
-def find_admins_of_companies_without_any_employee_invitations(
-    company_creation_trigger_date, companies_to_exclude=None
-):
-
-    companies_without_any_employee = Company.query.filter(
+def _get_companies_without_any_employee():
+    return Company.query.filter(
         ~exists().where(
             and_(
                 Employment.company_id == Company.id,
@@ -248,6 +245,13 @@ def find_admins_of_companies_without_any_employee_invitations(
             )
         )
     ).all()
+
+
+def find_admins_of_companies_without_any_employee_invitations(
+    company_creation_trigger_date, companies_to_exclude=None
+):
+
+    companies_without_any_employee = _get_companies_without_any_employee()
 
     return Employment.query.filter(
         Employment.company.has(
@@ -322,4 +326,39 @@ def find_admins_of_companies_with_an_employee_but_without_any_activity(
                 for company in companies_with_no_activities_and_with_at_least_one_employee_before_trigger_date
             ]
         ),
+    ).all()
+
+
+def find_admins_still_without_invitations(
+    received_first_email_before_date, companies_to_exclude=None
+):
+    companies_without_any_employee = _get_companies_without_any_employee()
+
+    return Employment.query.filter(
+        ~exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type == EmailType.COMPANY_REMINDER_NO_INVITATION,
+            )
+        ),
+        exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type == EmailType.COMPANY_WITHOUT_ANY_INVITATION,
+                Email.creation_time
+                <= datetime.datetime.combine(
+                    received_first_email_before_date,
+                    datetime.datetime.max.time(),
+                ),
+            )
+        ),
+        Employment.company_id.notin_(companies_to_exclude or []),
+        Employment.company_id.in_(
+            [company.id for company in companies_without_any_employee]
+        ),
+        Employment.has_admin_rights,
+        ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
     ).all()

@@ -1,0 +1,25 @@
+{% extends "transactional_base.html" %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>
+        Le {{ company_creation_time | full_format_day }}, vous avez inscrit votre entreprise sur Mobilic. Félicitations pour cette première étape dans la gestion simplifiée et réglementaire du temps de travail de vos salariés !
+    </p>
+    <p>Pour tirer pleinement parti de Mobilic, il ne vous reste qu'à inviter vos équipes à rejoindre votre entreprise sur l'application. Voici comment procéder&nbsp;:</p>
+    <ol>
+        <li><b>Connectez-vous à votre interface Mobilic</b>.</li>
+        <li><b>Suivez les étapes indiquées dans notre tutoriel</b> pour inviter vos collaborateurs et configurer votre entreprise.</li>
+    </ol>
+    <!-- use https://githubraw.com/ to generate url from repo asset file -->
+    <p><img src="https://githubraw.com/MTES-MCT/mobilic-api/feat/bizdev-reminder-email-no-invitation/app/static/images/invite_employees.gif" alt="Invitez vos salariés"/></p>
+    <p><b>Besoin d’aide pour démarrer&nbsp;?</b></p>
+    <p>Notre équipe est là pour vous accompagner. Vous avez plusieurs options&nbsp;:</p>
+    <ul>
+        <li>📌 <b>Participez à une formation gestionnaire</b> pour maîtriser l’outil en 45 minutes.</li>
+        <li>🧾 <b>Accédez à nos ressources documentaires</b> pour une utilisation autonome&nbsp;: <a href="{{ resources_link }}" target="_blank" rel="noopener">Lien vers les ressources</a>.</li>
+    </ul>
+    <p>💡 <b>N'oubliez pas&nbsp;:&nbsp;Le suivi du temps de travail des salariés est obligatoire via Mobilic ou le LIC</b>.</p>
+    <p>Nous restons à votre disposition pour toute question et pour vous assurer une prise en main rapide et efficace de Mobilic.</p>
+    <p>Cordialement,</p>
+{% endblock %}
+
