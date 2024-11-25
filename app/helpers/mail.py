@@ -840,6 +840,7 @@ class Mailer:
                 subject="Rappel : rattachez vos salariés à votre compte Mobilic",
                 employment=employment,
                 user=employment.user,
+                company_creation_time=employment.company.creation_time,
                 type_=EmailType.COMPANY_REMINDER_NO_INVITATION,
                 resources_link=resources_link,
             ),
