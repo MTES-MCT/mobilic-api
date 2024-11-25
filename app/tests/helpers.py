@@ -198,7 +198,7 @@ class ApiRequests:
     """
 
     invite = """
-        mutation ($userId: Int, $companyId: Int!, $mail: String, $teamId: Int) {
+        mutation ($userId: Int, $companyId: Int!, $mail: Email, $teamId: Int) {
             employments {
                 createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId) {
                     id

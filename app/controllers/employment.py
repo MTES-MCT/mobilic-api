@@ -194,7 +194,7 @@ class CreateEmployment(AuthenticatedMutation):
             description="Identifiant du travailleur à rattacher. Optionnel, soit un identifiant soit un email doit être transmis.",
         )
         mail = graphene.Argument(
-            graphene.String,
+            Email,
             required=False,
             description="Email du travailleur pour invitation. Optionnel, soit un identifiant soit un email doit être transmis.",
         )
