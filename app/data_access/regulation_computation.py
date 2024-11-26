@@ -75,19 +75,14 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
         )
         regulation_checks_extended = []
 
-        current_employments = self.user.active_employments_at(self.day)
-        current_employment = (
-            current_employments[0] if len(current_employments) > 0 else None
-        )
-
         for regulation_check in regulation_checks:
             regulatory_alert = regulatory_alerts.filter(
                 RegulatoryAlert.regulation_check_id == regulation_check.id
             ).one_or_none()
             setattr(regulation_check, "alert", regulatory_alert)
-            if current_employment:
+            if regulatory_alert:
                 setattr(
-                    regulation_check, "business", current_employment.business
+                    regulation_check, "business", regulatory_alert.business
                 )
             regulation_checks_extended.append(regulation_check)
 

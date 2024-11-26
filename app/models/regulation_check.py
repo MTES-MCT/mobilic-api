@@ -62,13 +62,13 @@ class RegulationCheck(BaseModel):
     variables = db.Column(JSONB(none_as_null=True), nullable=True)
     unit = enum_column(UnitType, nullable=False)
 
-    @property
-    def resolved_variables(self):
-        from app.domain.regulations import get_default_business
+    def resolve_variables(self, business=None):
+        if not business:
+            from app.domain.regulations import get_default_business
 
-        business = getattr(self, "business", None)
-        if business is None:
-            business = get_default_business()
+            business = getattr(self, "business", None)
+            if business is None:
+                business = get_default_business()
         return resolve_variables(self.variables, business)
 
     def __repr__(self):

@@ -12,6 +12,7 @@ from app.seed.scenarios.busy_admin import (
     run_scenario_busy_admin,
 )
 from app.seed.scenarios.certificated_company import run_scenario_certificated
+from app.seed.scenarios.multi_businesses import run_scenario_multi_businesses
 from app.seed.scenarios.run_certificate import scenario_run_certificate
 from app.seed.scenarios.temps_de_liaison import (
     ADMIN_EMAIL as ADMIN_TEMPS_DE_LIAISON,
@@ -43,6 +44,10 @@ from app.seed.scenarios.third_party import (
 from app.seed.scenarios.team_mode import (
     SUPER_ADMIN_EMAIL,
     run_scenario_team_mode,
+)
+from app.seed.scenarios.multi_businesses import (
+    ADMIN_EMAIL as MULTI_ADMIN_EMAIL,
+    EMPLOYEE_EMAIL as MULTI_EMPLOYEE_EMAIL,
 )
 
 
@@ -121,6 +126,12 @@ scenarios = [
             "team.employee{i}@test.com",
         ],
         run_scenario_team_mode,
+    ),
+    SeedScenario(
+        "Multi businesses",
+        "Crée une entreprise et un salarié avec des alertes portant sur plusieurs types d'activité différentes",
+        [MULTI_ADMIN_EMAIL, MULTI_EMPLOYEE_EMAIL],
+        run_scenario_multi_businesses,
     ),
     SeedScenario(
         "Controls",

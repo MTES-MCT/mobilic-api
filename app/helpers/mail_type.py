@@ -21,6 +21,7 @@ class EmailType(str, Enum):
     # Deprecated since https://github.com/MTES-MCT/mobilic-api/pull/435
     COMPANY_NEVER_ACTIVE = "company_never_active"
     COMPANY_WITHOUT_ANY_INVITATION = "company_without_any_invitation"
+    COMPANY_REMINDER_NO_INVITATION = "company_reminder_no_invitation"
     COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY = "company_without_activity"
     COMPANY_ACTIVE_THEN_INACTIVE = "company_active_then_inactive"
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"

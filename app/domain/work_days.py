@@ -94,7 +94,9 @@ def compute_aggregate_durations(
                     ),
                     from_tz(
                         to_tz(min_time, user_timezone).replace(
-                            hour=22, minute=0
+                            hour=23,
+                            minute=59,
+                            second=59,  # Trick used so that night hour appears on the same day
                         ),
                         tz,
                     ),

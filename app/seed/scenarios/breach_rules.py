@@ -62,7 +62,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=18, hour=20),
             ]
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -81,7 +80,6 @@ def run_scenario_breach_rules():
                     get_time(how_many_days_ago=10 + i, hour=14),
                 ],
             ],
-            vehicle=vehicle,
             company=company,
             employee=employee,
         )
@@ -103,7 +101,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=9, hour=20, minute=30),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -121,7 +118,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=8, hour=14),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -134,7 +130,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=7, hour=14, minute=5),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -151,7 +146,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=6, hour=20),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -164,7 +158,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=5, hour=3, minute=55),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -181,7 +174,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=4, hour=20),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -194,7 +186,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=3, hour=4),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -215,7 +206,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=2, hour=19, minute=45),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )
@@ -232,7 +222,6 @@ def run_scenario_breach_rules():
                 get_time(how_many_days_ago=1, hour=15),
             ],
         ],
-        vehicle=vehicle,
         company=company,
         employee=employee,
     )

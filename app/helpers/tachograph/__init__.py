@@ -312,7 +312,7 @@ def _card_like_id(user):
     return f"MBLIC{user.id}"
 
 
-def build_identification_file(user):
+def build_identification_file(user, employee_version=False):
     # 143 bytes ("EF Identification" at https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=235), divided in two parts
     # - card identification (65 bytes)
     # - card holder identification (78 bytes)
@@ -321,8 +321,11 @@ def build_identification_file(user):
     # 1. Card identification
     # - first byte is the code of the country member (\x11 for France)
     content.extend(b"\x11")
-    # - 16 next bytes are the card number, which is required to be a unique ID by reading softwares (SOLID). We use "MBLIC{mobilic_id}".
-    card_like_id = f"{_card_like_id(user)}00"  # len 16
+    # - 16 next bytes are the card number, which is required to be a unique ID by reading softwares (SOLID). We use "MBLIC{mobilic_id}0{S|G}"
+    # S: employee version, G: admin version
+    card_like_id = (
+        f"{_card_like_id(user)}0{'S' if employee_version else 'G'}"  # len 16
+    )
     content.extend(card_like_id.encode())
     # - 36 next bytes give the name of the authority that delivered the card. We use "MOBILIC".
     content.extend(_serialize_name("MOBILIC", 36))
@@ -754,7 +757,7 @@ def generate_tachograph_parts(
         File(spec=FileSpecs.APPLICATION_IDENTIFICATION),
         File(spec=FileSpecs.CARD_CERTIFICATE),
         File(spec=FileSpecs.CA_CERTIFICATE),
-        build_identification_file(user),
+        build_identification_file(user, employee_version),
         File(spec=FileSpecs.CARD_DOWNLOAD),
         File(spec=FileSpecs.EVENTS_DATA),
         File(spec=FileSpecs.FAULTS_DATA),
