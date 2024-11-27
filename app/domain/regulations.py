@@ -29,7 +29,14 @@ from app.models.regulation_computation import RegulationComputation
 from app.models.regulatory_alert import RegulatoryAlert
 
 
-def get_default_business():
+def get_default_business(business_id=None):
+    if business_id:
+        business = Business.query.filter(
+            Business.id == business_id
+        ).one_or_none()
+        if business:
+            return business
+
     return Business.query.filter(
         Business.business_type == BusinessType.SHIPPING
     ).one_or_none()

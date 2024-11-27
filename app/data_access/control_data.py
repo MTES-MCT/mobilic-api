@@ -22,7 +22,6 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.regulation_check import RegulationCheckType
 
@@ -62,6 +61,85 @@ class ObservedInfraction(ObjectType):
         BusinessOutput,
         description="Type d'activité effectuée par le salarié au moment du calcul du seuil règlementaire",
     )
+
+    @classmethod
+    def _get_label_and_description(cls, regulation_check, business, sanction):
+        _label = regulation_check.label if regulation_check else ""
+        _description = (
+            regulation_check.resolve_variables(business=business)[
+                "DESCRIPTION"
+            ]
+            if regulation_check
+            else ""
+        )
+        if sanction == NATINF_32083:
+            _label = _label.replace("quotidien", "de nuit")
+            night_work_description = regulation_check.resolve_variables(
+                business=business
+            )["NIGHT_WORK_DESCRIPTION"]
+            _description = f"{_description} {night_work_description}"
+
+        return _label, _description
+
+    @classmethod
+    def get_dummy_from_regulation_check_and_sanction(
+        cls, check_type, sanction, business_id
+    ):
+        regulation_check = get_regulation_check_by_type(type=check_type)
+        if regulation_check is None:
+            return None
+        business = get_default_business(business_id=business_id)
+
+        _label, _description = cls._get_label_and_description(
+            regulation_check=regulation_check,
+            business=business,
+            sanction=sanction,
+        )
+
+        return cls(
+            sanction=sanction,
+            date=None,
+            is_reportable=True,
+            is_reported=False,
+            label=_label,
+            description=_description,
+            type=regulation_check.type,
+            unit=regulation_check.unit,
+            business=business,
+        )
+
+    @classmethod
+    def from_infraction(cls, infraction, user_id):
+        check_type = infraction.get("check_type")
+        regulation_check = get_regulation_check_by_type(type=check_type)
+        if regulation_check is None:
+            return None
+
+        business_id = infraction.get("business_id")
+        business = get_default_business(business_id=business_id)
+
+        sanction = infraction.get("sanction")
+        _label, _description = cls._get_label_and_description(
+            regulation_check=regulation_check,
+            business=business,
+            sanction=sanction,
+        )
+        extra = infraction.get("extra", None)
+        if extra:
+            convert_extra_datetime_to_user_tz(extra, user_id)
+
+        return cls(
+            sanction=sanction,
+            date=datetime.datetime.fromisoformat(infraction.get("date")),
+            is_reportable=infraction.get("is_reportable"),
+            is_reported=infraction.get("is_reported"),
+            label=_label,
+            description=_description,
+            type=infraction.get("check_type"),
+            unit=infraction.get("check_unit"),
+            extra=extra,
+            business=business,
+        )
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -188,57 +266,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
         if self.control_type in (ControlType.mobilic, ControlType.sans_lic):
             for infraction in self.observed_infractions:
-                check_type = infraction.get("check_type")
-                regulation_check = get_regulation_check_by_type(
-                    type=check_type
-                )
-                if regulation_check is None:
-                    continue
-
-                business_id = infraction.get("business_id")
-                business = (
-                    Business.query.filter(
-                        Business.id == business_id
-                    ).one_or_none()
-                    if business_id
-                    else get_default_business()
-                )
-
-                sanction = infraction.get("sanction")
-                label = regulation_check.label if regulation_check else ""
-                description = (
-                    regulation_check.resolve_variables(business=business)[
-                        "DESCRIPTION"
-                    ]
-                    if regulation_check
-                    else ""
-                )
-                if sanction == NATINF_32083:
-                    label = label.replace("quotidien", "de nuit")
-                    night_work_description = (
-                        regulation_check.resolve_variables(business=business)[
-                            "NIGHT_WORK_DESCRIPTION"
-                        ]
-                    )
-                    description = f"{description} {night_work_description}"
-
-                extra = infraction.get("extra")
-                convert_extra_datetime_to_user_tz(extra, self.user_id)
-
                 observed_infractions.append(
-                    ObservedInfraction(
-                        sanction=sanction,
-                        date=datetime.datetime.fromisoformat(
-                            infraction.get("date")
-                        ),
-                        is_reportable=infraction.get("is_reportable"),
-                        is_reported=infraction.get("is_reported"),
-                        label=label,
-                        description=description,
-                        type=infraction.get("check_type"),
-                        unit=infraction.get("check_unit"),
-                        extra=extra,
-                        business=business,
+                    ObservedInfraction.from_infraction(
+                        infraction=infraction, user_id=self.user_id
                     )
                 )
 
@@ -247,79 +277,33 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
             # Only one business for lic papier controls
             business_id = self.control_bulletin.get("business_id")
-            business = (
-                Business.query.filter(Business.id == business_id).one_or_none()
-                if business_id
-                else get_default_business()
-            )
 
             # First we handle observed infractions
             if self.observed_infractions is not None:
                 for infraction in self.observed_infractions:
-                    check_type = infraction.get("check_type")
-                    regulation_check = get_regulation_check_by_type(
-                        type=check_type
-                    )
-                    if regulation_check is None:
-                        continue
-
-                    sanction = infraction.get("sanction")
-                    label = regulation_check.label if regulation_check else ""
-                    description = (
-                        regulation_check.resolve_variables(business=business)[
-                            "DESCRIPTION"
-                        ]
-                        if regulation_check
-                        else ""
-                    )
                     observed_infractions.append(
-                        ObservedInfraction(
-                            sanction=sanction,
-                            date=datetime.datetime.fromisoformat(
-                                infraction.get("date")
-                            ),
-                            is_reportable=infraction.get("is_reportable"),
-                            is_reported=infraction.get("is_reported"),
-                            label=label,
-                            description=description,
-                            type=infraction.get("check_type"),
-                            unit=infraction.get("check_unit"),
-                            business=business,
+                        ObservedInfraction.from_infraction(
+                            infraction=infraction, user_id=self.user_id
                         )
                     )
-                    if sanction in remaining_possible_sanctions:
-                        remaining_possible_sanctions.pop(sanction)
+
+            already_seen_sanctions = [
+                infraction.sanction for infraction in observed_infractions
+            ]
 
             # Then, we add remaining possible infractions
             for sanction, check_type in remaining_possible_sanctions.items():
-
-                regulation_check = get_regulation_check_by_type(
-                    type=check_type
-                )
-                if regulation_check is None:
+                if sanction in already_seen_sanctions:
                     continue
-
-                label = regulation_check.label if regulation_check else ""
-                description = (
-                    regulation_check.resolve_variables(business=business)[
-                        "DESCRIPTION"
-                    ]
-                    if regulation_check
-                    else ""
-                )
-
                 observed_infractions.append(
-                    ObservedInfraction(
+                    ObservedInfraction.get_dummy_from_regulation_check_and_sanction(
+                        check_type=check_type,
                         sanction=sanction,
-                        date=None,  # with no date!
-                        is_reportable=True,
-                        is_reported=False,
-                        label=label,
-                        description=description,
-                        type=regulation_check.type,
-                        unit=regulation_check.unit,
-                        business=business,
+                        business_id=business_id,
                     )
                 )
 
+        observed_infractions = [
+            i for i in observed_infractions if i is not None
+        ]
         return observed_infractions
