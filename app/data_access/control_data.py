@@ -287,7 +287,8 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
                             business=business,
                         )
                     )
-                    remaining_possible_sanctions.pop(sanction)
+                    if sanction in remaining_possible_sanctions:
+                        remaining_possible_sanctions.pop(sanction)
 
             # Then, we add remaining possible infractions
             for sanction, check_type in remaining_possible_sanctions.items():

@@ -12,7 +12,6 @@ from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
-from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
@@ -22,6 +21,7 @@ from app.domain.controller import (
     get_controller_from_ac_info,
 )
 from app.domain.permissions import controller_can_see_control
+from app.domain.regulations import get_default_business
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.agent_connect import get_agent_connect_user_info
 from app.helpers.authentication import (
@@ -256,6 +256,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
 class ReportedInfractionInput(InputObjectType):
     sanction = graphene.String()
     date = graphene.Field(TimeStamp)
+    type = graphene.String()
+    unit = graphene.String()
 
 
 class ControllerSaveReportedInfractions(graphene.Mutation):
@@ -277,16 +279,44 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
         control.reported_infractions_last_update_time = now
+        print(control.control_type)
 
-        observed_infractions = copy.deepcopy(control.observed_infractions)
-        for infraction in observed_infractions:
-            infraction["is_reported"] = any(
-                ri.date
-                == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
-                and ri.sanction == infraction.get("sanction")
-                for ri in reported_infractions
+        if control.control_type == ControlType.lic_papier:
+            control.observed_infractions = []
+            business_id = control.control_bulletin.get("business_id")
+            business = (
+                Business.query.filter(Business.id == business_id).one_or_none()
+                if business_id
+                else get_default_business()
             )
-        control.observed_infractions = observed_infractions
+            new_observed_infractions = list()
+            for reported_infraction in reported_infractions:
+                print(reported_infraction)
+                new_observed_infractions.append(
+                    {
+                        "sanction": reported_infraction.sanction,
+                        "date": reported_infraction.get("date").strftime(
+                            "%Y-%m-%d"
+                        ),
+                        "is_reportable": True,
+                        "is_reported": True,
+                        "extra": None,
+                        "business_id": business.id,
+                        "check_type": reported_infraction.get("type"),
+                        "check_unit": reported_infraction.get("unit"),
+                    }
+                )
+            control.observed_infractions = new_observed_infractions
+        else:
+            observed_infractions = copy.deepcopy(control.observed_infractions)
+            for infraction in observed_infractions:
+                infraction["is_reported"] = any(
+                    ri.date
+                    == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
+                    and ri.sanction == infraction.get("sanction")
+                    for ri in reported_infractions
+                )
+            control.observed_infractions = observed_infractions
 
         db.session.commit()
         return control
