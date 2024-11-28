@@ -31,6 +31,11 @@ def migrate_anonymized_data(interval: str, verbose=False):
             migrated_activity_ids, connection, cursor
         )
 
+        logger.debug("Migrate expenditure for migrated mission")
+        migrate_anonymized_expenditure(
+            migrated_mission_ids, connection, cursor
+        )
+
         logger.debug("Delete original data")
         delete_original_data(
             migrated_mission_ids, migrated_activity_ids, connection
@@ -121,6 +126,7 @@ def migrate_anonymized_activity(
         print("No mission data to migrate activities for.")
         return []
 
+    # TO DO : garder l'intervalle de temps entre activité pour les stats
     select_query = """
         SELECT 
             id,
@@ -269,6 +275,84 @@ def migrate_anonymized_activity_version(
     except Exception as e:
         connection.rollback()
         print(f"Error when copying activity version data: {e}")
+        raise
+
+    finally:
+        csv_buffer.close()
+
+
+def migrate_anonymized_expenditure(
+    migrated_mission_ids: list, connection, cursor
+):
+    if not migrated_mission_ids:
+        print("No expenditure data to migrate versions for.")
+        return
+
+    select_query = """
+        SELECT 
+            id,
+            mission_id,
+            type,
+            NULL AS user_id,
+            NULL AS submitter_id,
+            NULL AS dismiss_author_id,
+            date_trunc('month', creation_time) AS creation_time,
+            date_trunc('month', reception_time) AS reception_time,
+            date_trunc('month', dismissed_at) AS dismissed_at,
+            date_trunc('month', spending_date) AS spending__date,
+            dismiss_context::jsonb AS dismiss_context
+        FROM expenditure
+        WHERE mission_id = ANY(:mission_ids);
+    """
+
+    result = db.session.execute(
+        text(select_query), {"mission_ids": migrated_mission_ids}
+    )
+    rows = result.fetchall()
+
+    if not rows:
+        print("No expenditure data to migrate.")
+        return
+
+    csv_buffer = StringIO()
+    csv_writer = csv.writer(csv_buffer)
+
+    for row in rows:
+        row_as_list = list(row)
+
+        if isinstance(row_as_list[-1], dict):
+            row_as_list[-1] = json.dumps(row_as_list[-1])
+
+        csv_writer.writerow(row_as_list)
+
+    csv_buffer.seek(0)
+
+    try:
+        cursor.copy_expert(
+            """
+            COPY expenditure_anonymized (
+                id,
+                mission_d,
+                type,
+                user_id,
+                submitter_id,
+                dismiss_author_id,
+                creation_time,
+                reception_time,
+                dismissed_at,
+                spending__date,
+                dismiss_context
+            )
+            FROM STDIN WITH (FORMAT CSV)
+            """,
+            csv_buffer,
+        )
+
+        print("Anonymized expenditure migration successful.")
+
+    except Exception as e:
+        connection.rollback()
+        print(f"Error when copying expenditure data: {e}")
         raise
 
     finally:
