@@ -184,12 +184,12 @@ class ControllerControl(BaseModel, RandomNineIntId):
         db.session.commit()
 
     @staticmethod
-    def create_no_lic_control(controller_id):
+    def create_no_lic_control(controller_id, business_id):
         new_control = ControllerControl(
             control_type=ControlType.sans_lic,
             controller_id=controller_id,
             observed_infractions=get_no_lic_observed_infractions(
-                datetime.date.today()
+                datetime.date.today(), business_id
             ),
             nb_controlled_days=7,
         )
@@ -198,12 +198,14 @@ class ControllerControl(BaseModel, RandomNineIntId):
         return new_control
 
     @staticmethod
-    def create_lic_papier_control(controller_id, is_day_page_filled):
+    def create_lic_papier_control(
+        controller_id, business_id, is_day_page_filled
+    ):
         new_control = ControllerControl(
             control_type=ControlType.lic_papier,
             controller_id=controller_id,
             observed_infractions=get_no_lic_observed_infractions(
-                datetime.date.today()
+                datetime.date.today(), business_id
             )
             if not is_day_page_filled
             else [],

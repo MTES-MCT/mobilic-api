@@ -12,7 +12,6 @@ from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
-from app.controllers.user import TachographBaseOptionsSchema
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
@@ -53,6 +52,7 @@ from app.helpers.tachograph import (
 from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
+from app.models.business import Business, BusinessType
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.controller_user import ControllerUser
 from app.models.queries import add_mission_relations, query_controls
@@ -188,6 +188,17 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         business_type=None,
         is_day_page_filled=None,
     ):
+        business_id = None
+        if business_type is not None:
+            business = Business.query.filter(
+                Business.business_type == BusinessType[business_type].value
+            ).one_or_none()
+            if not business:
+                raise InvalidParamsError(
+                    f"Cannot save control: business type {business_type} not found"
+                )
+            business_id = business.id
+
         if control_id:
             controller_can_see_control(current_user, control_id)
             control = ControllerControl.query.filter(
@@ -196,13 +207,15 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             if not control.control_bulletin_creation_time:
                 control.control_bulletin_creation_time = datetime.now()
         elif type == ControlType.sans_lic.name:
-            control = ControllerControl.create_no_lic_control(current_user.id)
+            control = ControllerControl.create_no_lic_control(
+                current_user.id, business_id
+            )
         elif (
             type == ControlType.lic_papier.name
             and is_day_page_filled is not None
         ):
             control = ControllerControl.create_lic_papier_control(
-                current_user.id, is_day_page_filled
+                current_user.id, business_id, is_day_page_filled
             )
         else:
             raise InvalidParamsError(
@@ -232,7 +245,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             license_copy_number,
             observation,
             is_vehicle_immobilized,
-            business_type,
+            business_id,
             is_day_page_filled,
         )
         db.session.commit()
@@ -242,6 +255,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
 class ReportedInfractionInput(InputObjectType):
     sanction = graphene.String()
     date = graphene.Field(TimeStamp)
+    type = graphene.String()
+    unit = graphene.String()
 
 
 class ControllerSaveReportedInfractions(graphene.Mutation):
@@ -264,15 +279,34 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
             control.reported_infractions_first_update_time = now
         control.reported_infractions_last_update_time = now
 
-        observed_infractions = copy.deepcopy(control.observed_infractions)
-        for infraction in observed_infractions:
-            infraction["is_reported"] = any(
-                ri.date
-                == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
-                and ri.sanction == infraction.get("sanction")
-                for ri in reported_infractions
-            )
-        control.observed_infractions = observed_infractions
+        if control.control_type == ControlType.lic_papier:
+            control.observed_infractions = []
+            business_id = control.control_bulletin.get("business_id")
+            control.observed_infractions = [
+                {
+                    "sanction": reported_infraction.sanction,
+                    "date": reported_infraction.get("date").strftime(
+                        "%Y-%m-%d"
+                    ),
+                    "is_reportable": True,
+                    "is_reported": True,
+                    "extra": None,
+                    "business_id": business_id,
+                    "check_type": reported_infraction.get("type"),
+                    "check_unit": reported_infraction.get("unit"),
+                }
+                for reported_infraction in reported_infractions
+            ]
+        else:
+            observed_infractions = copy.deepcopy(control.observed_infractions)
+            for infraction in observed_infractions:
+                infraction["is_reported"] = any(
+                    ri.date
+                    == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
+                    and ri.sanction == infraction.get("sanction")
+                    for ri in reported_infractions
+                )
+            control.observed_infractions = observed_infractions
 
         db.session.commit()
         return control

@@ -1,7 +1,7 @@
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
-def get_no_lic_observed_infractions(control_date):
+def get_no_lic_observed_infractions(control_date, business_id):
     return [
         {
             "sanction": "NATINF 23103",
@@ -11,5 +11,6 @@ def get_no_lic_observed_infractions(control_date):
             "extra": None,
             "check_unit": UnitType.DAY,
             "check_type": RegulationCheckType.NO_LIC,
+            "business_id": business_id,
         }
     ]

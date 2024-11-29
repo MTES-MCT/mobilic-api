@@ -25,7 +25,7 @@ def save_control_bulletin(
     license_copy_number=None,
     observation=None,
     is_vehicle_immobilized=False,
-    business_type=None,
+    business_id=None,
     is_day_page_filled=None,
 ):
     if control.control_bulletin:
@@ -59,15 +59,6 @@ def save_control_bulletin(
     existing_bulletin["license_copy_number"] = license_copy_number
     existing_bulletin["observation"] = observation
     existing_bulletin["is_vehicle_immobilized"] = is_vehicle_immobilized
-
-    if business_type is not None:
-        business = Business.query.filter(
-            Business.business_type == BusinessType[business_type].value
-        ).one_or_none()
-        if not business:
-            raise InvalidParamsError(
-                f"Business type {business_type} not found"
-            )
-        existing_bulletin["business_id"] = business.id
+    existing_bulletin["business_id"] = business_id
 
     control.control_bulletin = existing_bulletin

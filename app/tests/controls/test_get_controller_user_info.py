@@ -9,7 +9,7 @@ from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 
-class TestControllerReadControl(BaseTest):
+class TestGetControllerUserInfo(BaseTest):
     def setUp(self):
         super().setUp()
         self.controller_user_1 = ControllerUserFactory.create()
