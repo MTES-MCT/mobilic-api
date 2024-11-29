@@ -58,7 +58,7 @@ class RegulationCheck(BaseModel):
     label = db.Column(db.String(255), nullable=False)
     date_application_start = db.Column(db.Date, nullable=False)
     date_application_end = db.Column(db.Date, nullable=True)
-    regulation_rule = enum_column(RegulationRule, nullable=False)
+    regulation_rule = enum_column(RegulationRule, nullable=True)
     variables = db.Column(JSONB(none_as_null=True), nullable=True)
     unit = enum_column(UnitType, nullable=False)
 

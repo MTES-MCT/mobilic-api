@@ -475,11 +475,7 @@ def get_greco_xml_and_filename(control):
     for idx_r, r in enumerate(control.reported_infractions):
         extra = r.get("extra")
         business_id = r.get("business_id", None)
-        business = (
-            Business.query.filter(Business.id == business_id).one()
-            if business_id
-            else get_default_business()
-        )
+        business = get_default_business(business_id=business_id)
         natinf = extra.get("sanction_code").replace("NATINF ", "")
         check_type = r.get("check_type")
         regulation_check = RegulationCheck.query.filter(
