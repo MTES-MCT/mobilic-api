@@ -362,3 +362,39 @@ def find_admins_still_without_invitations(
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
     ).all()
+
+
+def find_employee_for_invitation(
+    first_employee_invitation_date, companies_to_exclude=None
+):
+    return (
+        db.session.query(
+            Employment.id,
+            Employment.creation_time,
+            Employment.has_admin_rights,
+            Employment.user_id,
+            Employment.company_id,
+        )
+        .join(Email, Email.employment_id == Employment.id)
+        .filter(
+            Email.type == EmailType.INVITATION,
+            Email.user_id.is_(None),
+            Employment.creation_time
+            <= datetime.datetime.combine(
+                first_employee_invitation_date,
+                datetime.datetime.max.time(),
+            ),
+            Employment.has_admin_rights == False,
+            Employment.user_id.is_(None),
+            Employment.company_id.notin_(companies_to_exclude or []),
+        )
+        .with_entities(
+            Employment.id,
+            Employment.creation_time,
+            Employment.has_admin_rights,
+            Employment.user_id,
+            Employment.company_id,
+        )
+        .yield_per(100)
+        .all()
+    )
