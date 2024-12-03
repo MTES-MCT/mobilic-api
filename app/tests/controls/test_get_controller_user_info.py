@@ -14,13 +14,13 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         self.assertEquals(len(response_data["controls"]), 0)
 
     def test_load_controller_info_controls(self):
-        self._create_control(self.controller_user_1, self.controlled_user_1)
+        self._create_control(self.controlled_user_1, self.controller_user_1)
         self._create_control(
-            self.controller_user_1,
             self.controlled_user_1,
+            self.controller_user_1,
             get_time(how_many_days_ago=2, hour=10),
         )
-        self._create_control(self.controller_user_1, self.controlled_user_2)
+        self._create_control(self.controlled_user_2, self.controller_user_1)
 
         response_data = self._query_controller_info(self.controller_user_1)
 
@@ -28,8 +28,8 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         self.assertEquals(len(response_data["controls"]), 3)
 
     def test_retrieves_only_own_controls(self):
-        self._create_control(self.controller_user_1, self.controlled_user_1)
-        self._create_control(self.controller_user_2, self.controlled_user_1)
+        self._create_control(self.controlled_user_1, self.controller_user_1)
+        self._create_control(self.controlled_user_1, self.controller_user_2)
 
         response_data = self._query_controller_info(self.controller_user_1)
 
@@ -39,8 +39,8 @@ class TestGetControllerUserInfo(ControlsTestSimple):
     def test_retrieves_only_controls_after_from_date(self):
         for days_ago in range(1, 20):
             self._create_control(
-                self.controller_user_1,
                 self.controlled_user_1,
+                self.controller_user_1,
                 get_time(how_many_days_ago=days_ago, hour=9),
             )
         response_data = self._query_controller_info(

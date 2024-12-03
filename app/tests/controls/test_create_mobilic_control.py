@@ -1,4 +1,3 @@
-from app.models.activity import ActivityType
 from app.models.controller_control import ControllerControl
 from app.seed.helpers import get_time
 from app.tests.controls import ControlsTest, COMPANY_NAME_1, VEHICLE_ID_1
@@ -11,24 +10,6 @@ class TestCreateMobilicControl(ControlsTest):
             employee=self.employee_1,
             company=self.company1,
             vehicle=self.vehicle1,
-        )
-
-    def log_drive_in_mission(
-        self, mission_id, employee, start_time, end_time=None
-    ):
-        make_authenticated_request(
-            time=None,
-            submitter_id=employee.id,
-            query=ApiRequests.log_activity,
-            variables=dict(
-                start_time=start_time,
-                end_time=end_time,
-                mission_id=mission_id,
-                type=ActivityType.DRIVE,
-                user_id=employee.id,
-                switch=False,
-            ),
-            request_should_fail_with=None,
         )
 
     def end_mission(self, mission_id, end_time, user_id):
@@ -50,13 +31,6 @@ class TestCreateMobilicControl(ControlsTest):
             qr_code_generation_time=get_time(how_many_days_ago=1, hour=11),
         )
 
-    def control_user_during_work(self):
-        ControllerControl.get_or_create_mobilic_control(
-            controller_id=self.controller_user_1.id,
-            user_id=self.employee_1.id,
-            qr_code_generation_time=get_time(how_many_days_ago=1, hour=11),
-        )
-
     def control_user_after_work(self):
         ControllerControl.get_or_create_mobilic_control(
             controller_id=self.controller_user_1.id,
@@ -69,7 +43,7 @@ class TestCreateMobilicControl(ControlsTest):
         mission_id = self.create_mission()
 
         start_time = get_time(how_many_days_ago=1, hour=10)
-        self.log_drive_in_mission(mission_id, self.employee_1, start_time)
+        self._log_drive_in_mission(mission_id, self.employee_1, start_time)
 
         # WHEN he gets controlled
         self.control_user_during_work()
@@ -86,7 +60,7 @@ class TestCreateMobilicControl(ControlsTest):
             mission_id = self.create_mission()
             start_time = get_time(how_many_days_ago=days_ago, hour=10)
             end_time = get_time(how_many_days_ago=days_ago, hour=11)
-            self.log_drive_in_mission(
+            self._log_drive_in_mission(
                 mission_id, self.employee_1, start_time, end_time
             )
 
@@ -103,7 +77,7 @@ class TestCreateMobilicControl(ControlsTest):
         mission_id = self.create_mission()
         start_time = get_time(how_many_days_ago=64, hour=10)
         end_time = get_time(how_many_days_ago=64, hour=11)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time, end_time
         )
 
@@ -120,12 +94,12 @@ class TestCreateMobilicControl(ControlsTest):
         mission_id = self.create_mission()
         start_time1 = get_time(how_many_days_ago=4, hour=10)
         end_time1 = get_time(how_many_days_ago=4, hour=11)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time1, end_time1
         )
         start_time2 = get_time(how_many_days_ago=4, hour=16)
         end_time2 = get_time(how_many_days_ago=4, hour=17)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time2, end_time2
         )
 
@@ -142,7 +116,7 @@ class TestCreateMobilicControl(ControlsTest):
         mission_id = self.create_mission()
         start_time = get_time(how_many_days_ago=4, hour=20)
         end_time = get_time(how_many_days_ago=3, hour=5)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time, end_time
         )
 
@@ -161,7 +135,7 @@ class TestCreateMobilicControl(ControlsTest):
 
         start_time = get_time(how_many_days_ago=1, hour=10)
         end_time = get_time(how_many_days_ago=1, hour=11)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time, end_time=end_time
         )
 
@@ -181,7 +155,7 @@ class TestCreateMobilicControl(ControlsTest):
 
         start_time = get_time(how_many_days_ago=1, hour=10)
         end_time = get_time(how_many_days_ago=1, hour=11)
-        self.log_drive_in_mission(
+        self._log_drive_in_mission(
             mission_id, self.employee_1, start_time, end_time=end_time
         )
         self.end_mission(

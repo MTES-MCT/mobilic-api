@@ -1,7 +1,11 @@
 from datetime import datetime
 
-from app import db
-from app.models import Vehicle
+from flask.ctx import AppContext
+
+from app import db, app
+from app.models import Vehicle, Business
+from app.models.activity import ActivityType
+from app.models.business import BusinessType
 from app.seed import ControllerUserFactory, UserFactory, CompanyFactory
 from app.seed.factories import ControllerControlFactory
 from app.tests import BaseTest
@@ -27,8 +31,14 @@ class ControlsTestSimple(BaseTest):
         self.controlled_user_2 = UserFactory.create()
 
     def _create_control(
-        self, controller_user, controlled_user, qr_code_generation_time=None
+        self,
+        controlled_user,
+        controller_user=None,
+        qr_code_generation_time=None,
     ):
+        if not controller_user:
+            controller_user = self.controller_user_1
+
         controller_control = (
             ControllerControlFactory.create(
                 user_id=controlled_user.id,
@@ -75,6 +85,13 @@ class ControlsTest(ControlsTestSimple):
         db.session.add(self.vehicle1)
         db.session.commit()
 
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
     def _create_mission(self, employee, company, vehicle, time=None):
         create_mission_response = make_authenticated_request(
             time=time,
@@ -88,3 +105,35 @@ class ControlsTest(ControlsTestSimple):
         return create_mission_response["data"]["activities"]["createMission"][
             "id"
         ]
+
+    def _convert_employee_to_trm_short_distance(self):
+        trm_short_distance_business = Business.query.filter(
+            Business.business_type == BusinessType.SHORT_DISTANCE.value
+        ).one_or_none()
+        self.employee_1.employments[0].business = trm_short_distance_business
+        db.session.commit()
+
+    def _convert_employee_to_trm_long_distance(self):
+        trm_long_distance_business = Business.query.filter(
+            Business.business_type == BusinessType.LONG_DISTANCE.value
+        ).one_or_none()
+        self.employee_1.employments[0].business = trm_long_distance_business
+        db.session.commit()
+
+    def _log_drive_in_mission(
+        self, mission_id, employee, start_time, end_time=None
+    ):
+        make_authenticated_request(
+            time=None,
+            submitter_id=employee.id,
+            query=ApiRequests.log_activity,
+            variables=dict(
+                start_time=start_time,
+                end_time=end_time,
+                mission_id=mission_id,
+                type=ActivityType.DRIVE,
+                user_id=employee.id,
+                switch=False,
+            ),
+            request_should_fail_with=None,
+        )
