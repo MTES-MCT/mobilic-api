@@ -5,6 +5,7 @@ from sqlalchemy import desc
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
 from sqlalchemy.sql.functions import now
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.helpers.mail_type import EmailType
@@ -367,19 +368,15 @@ def find_admins_still_without_invitations(
 def find_employee_for_invitation(
     first_employee_invitation_date, companies_to_exclude=None
 ):
+
     return (
-        db.session.query(
-            Employment.id,
-            Employment.creation_time,
-            Employment.has_admin_rights,
-            Employment.user_id,
-            Employment.company_id,
-        )
+        db.session.query(Employment)
+        .options(joinedload(Employment.company))
         .join(Email, Email.employment_id == Employment.id)
         .filter(
             Email.type == EmailType.INVITATION,
             Email.user_id.is_(None),
-            Employment.creation_time
+            Email.creation_time
             <= datetime.datetime.combine(
                 first_employee_invitation_date,
                 datetime.datetime.max.time(),
@@ -387,14 +384,9 @@ def find_employee_for_invitation(
             Employment.has_admin_rights == False,
             Employment.user_id.is_(None),
             Employment.company_id.notin_(companies_to_exclude or []),
+            Employment.validation_status
+            == EmploymentRequestValidationStatus.PENDING,
         )
-        .with_entities(
-            Employment.id,
-            Employment.creation_time,
-            Employment.has_admin_rights,
-            Employment.user_id,
-            Employment.company_id,
-        )
-        .yield_per(100)
+        .yield_per(1000)
         .all()
     )
