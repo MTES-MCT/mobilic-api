@@ -20,7 +20,9 @@ def send_invitation_emails(today):
 
     if employments:
         try:
-            mailer.batch_send_employee_invites(employments, reminder=True)
+            mailer.batch_send_employee_invites(
+                employments, reminder=False, scheduled_reminder=True
+            )
             app.logger.info(f"Emails sent for {len(employments)} employments.")
         except Exception as e:
             app.logger.error("Error during batch email sending.")
