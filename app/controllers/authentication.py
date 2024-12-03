@@ -26,6 +26,7 @@ from app.helpers.errors import (
     BlockedAccountError,
     BadPasswordError,
 )
+from app.helpers.graphene_types import Email
 from app.models import User, UserAgreement
 from app.models.user import UserAccountStatus
 
@@ -38,7 +39,10 @@ class LoginMutation(graphene.Mutation):
     """
 
     class Arguments:
-        email = graphene.String(required=True)
+        email = graphene.Argument(
+            Email,
+            required=True,
+        )
         password = graphene.String(required=True)
 
     Output = UserTokens
