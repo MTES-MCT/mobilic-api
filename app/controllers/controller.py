@@ -254,7 +254,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
 
 class ReportedInfractionInput(InputObjectType):
     sanction = graphene.String()
-    date = graphene.Field(TimeStamp)
+    date_str = graphene.String()
     type = graphene.String()
     unit = graphene.String()
 
@@ -285,9 +285,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
             control.observed_infractions = [
                 {
                     "sanction": reported_infraction.sanction,
-                    "date": reported_infraction.get("date").strftime(
-                        "%Y-%m-%d"
-                    ),
+                    "date": reported_infraction.date_str,
                     "is_reportable": True,
                     "is_reported": True,
                     "extra": None,
