@@ -37,7 +37,7 @@ check_type_by_sanction = {
 
 
 class ObservedInfraction(ObjectType):
-    date = graphene.Field(TimeStamp)
+    date = graphene.String()
     label = graphene.String(
         description="Nom de la règle du seuil règlementaire"
     )
