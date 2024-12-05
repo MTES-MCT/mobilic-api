@@ -38,8 +38,7 @@ class TestAuthentication(BaseTest):
             ApiRequests.login_query,
             variables=dict(email="random-junk", password="passwd"),
         )
-        self.assertIsNotNone(login_response.json.get("errors"))
-        self.assertIsNone(login_response.json["data"]["auth"]["login"])
+        self.assertEqual(400, login_response.status_code)
 
         login_response = test_post_graphql(
             ApiRequests.login_query,
@@ -67,8 +66,7 @@ class TestAuthentication(BaseTest):
             ApiRequests.login_query,
             variables=dict(email="random-junk", password="passwdd"),
         )
-        self.assertIsNotNone(login_response.json.get("errors"))
-        self.assertIsNone(login_response.json["data"]["auth"]["login"])
+        self.assertEqual(400, login_response.status_code)
 
     def test_auth_token_flow_works_correctly(self):
         base_time = datetime.now()

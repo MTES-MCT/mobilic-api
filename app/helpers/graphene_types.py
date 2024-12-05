@@ -1,4 +1,3 @@
-import re
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphene_sqlalchemy.converter import convert_sqlalchemy_type
@@ -11,6 +10,10 @@ from sqlalchemy import types
 
 from app.helpers.password_policy import is_valid_password
 from app.helpers.time import to_timestamp, from_timestamp
+from app.helpers.validation import (
+    clean_email_string,
+    validate_clean_email_string,
+)
 
 
 class TimeStamp(DateTime):
@@ -114,19 +117,20 @@ class BaseSQLAlchemyObjectType(SQLAlchemyObjectType):
         return super().is_type_of(root, info)
 
 
-def is_valid_email(email):
-    regex_email = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-    if re.fullmatch(regex_email, email):
-        return True
-    return False
-
-
 class Email(graphene.String):
     @staticmethod
     def parse_literal(node):
         if isinstance(node, ast.StringValue):
-            if is_valid_email(node.value):
-                return node.value
+            clean_value = clean_email_string(node.value)
+            if validate_clean_email_string(clean_value):
+                return clean_value
+        raise GraphQLError(f"Invalid Email")
+
+    @staticmethod
+    def parse_value(value):
+        clean_value = clean_email_string(value)
+        if validate_clean_email_string(clean_value):
+            return clean_value
         raise GraphQLError(f"Invalid Email")
 
 

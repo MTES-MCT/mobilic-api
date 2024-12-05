@@ -194,7 +194,7 @@ class CreateEmployment(AuthenticatedMutation):
             description="Identifiant du travailleur à rattacher. Optionnel, soit un identifiant soit un email doit être transmis.",
         )
         mail = graphene.Argument(
-            graphene.String,
+            Email,
             required=False,
             description="Email du travailleur pour invitation. Optionnel, soit un identifiant soit un email doit être transmis.",
         )
@@ -300,9 +300,9 @@ class CreateEmployment(AuthenticatedMutation):
 
 class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     """
-    Invitation de rattachement d'un travailleur mobile à une entreprise. L'invitation doit être approuvée par le salarié pour être effective.
+    Invitation d'un groupe de travailleurs mobile à une entreprise. Les invitations doivent être approuvées par les salariés pour être effectives.
 
-    Retourne le rattachement.
+    Retourne la liste des rattachements.
     """
 
     class Arguments:
@@ -312,9 +312,9 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
             description="Identifiant de l'entreprise de rattachement",
         )
         mails = graphene.Argument(
-            graphene.List(graphene.String),
+            graphene.List(Email),
             required=True,
-            description="Liste d'emais à rattacher.",
+            description="Liste d'emails à rattacher.",
         )
 
     Output = graphene.List(EmploymentOutput)

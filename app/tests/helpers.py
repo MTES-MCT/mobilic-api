@@ -187,7 +187,7 @@ class ApiRequests:
     """
 
     create_account = """
-        mutation ($email: String!, $password: Password!, $firstName: String!, $lastName: String!, $inviteToken: String) {
+        mutation ($email: Email!, $password: Password!, $firstName: String!, $lastName: String!, $inviteToken: String) {
             signUp {
                 user(email: $email, password: $password, inviteToken: $inviteToken, firstName: $firstName,
                                                 lastName: $lastName) {
@@ -198,7 +198,7 @@ class ApiRequests:
     """
 
     invite = """
-        mutation ($userId: Int, $companyId: Int!, $mail: String, $teamId: Int) {
+        mutation ($userId: Int, $companyId: Int!, $mail: Email, $teamId: Int) {
             employments {
                 createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId) {
                     id
@@ -312,6 +312,31 @@ class ApiRequests:
             }
           }
         }
+    }
+    """
+
+    read_control_data_no_lic = """
+    query readControlDataNoLic($controlId: Int!) {
+      controlData(controlId: $controlId) {
+        id
+        controlType
+        observedInfractions {
+          sanction
+          date
+          isReportable
+          isReported
+          label
+          description
+          type
+          unit
+          extra
+          business {
+            id
+            transportType
+            businessType
+          }
+        }
+      }
     }
     """
 
@@ -958,7 +983,7 @@ class ApiRequests:
     """
 
     login_query = """
-        mutation ($email: String!, $password: String!) {
+        mutation ($email: Email!, $password: String!) {
             auth {
                 login (email: $email, password: $password) {
                     accessToken
@@ -1165,8 +1190,6 @@ def init_regulation_checks_data():
     if not regulation_check:
         regulation_checks = get_regulation_checks()
         for r in regulation_checks:
-            if r.type == RegulationCheckType.NO_LIC:
-                continue
             insert_regulation_check(
                 session=db.session, regulation_check_data=r
             )

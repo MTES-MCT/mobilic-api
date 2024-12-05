@@ -3,7 +3,7 @@ import jwt
 from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 from urllib.parse import quote, urlencode, unquote
 from io import BytesIO
 
@@ -65,6 +65,7 @@ from app.templates.filters import full_format_day
 from app.models import User, Mission, UserAgreement
 from app import app, db, mailer
 from app.models.email import Email
+from app.helpers.graphene_types import Email as EmailGrapheneType
 
 TIMEZONE_DESC = "Fuseau horaire de l'utilisateur"
 
@@ -77,7 +78,8 @@ class UserSignUp(graphene.Mutation):
     """
 
     class Arguments:
-        email = graphene.String(
+        email = graphene.Argument(
+            EmailGrapheneType,
             required=True,
             description="Adresse email, utilisée comme identifiant pour la connexion",
         )
@@ -163,7 +165,8 @@ class UserSignUp(graphene.Mutation):
 
 class ConfirmFranceConnectEmail(AuthenticatedMutation):
     class Arguments:
-        email = graphene.String(
+        email = graphene.Argument(
+            EmailGrapheneType,
             required=True,
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
@@ -230,7 +233,8 @@ class ChangeTimezone(AuthenticatedMutation):
 
 class ChangeEmail(AuthenticatedMutation):
     class Arguments:
-        email = graphene.String(
+        email = graphene.Argument(
+            EmailGrapheneType,
             required=True,
             description="Adresse email de contact, utilisée comme identifiant pour la connexion",
         )
@@ -335,7 +339,7 @@ class ActivateEmail(graphene.Mutation):
 
 class RequestPasswordReset(graphene.Mutation):
     class Arguments:
-        mail = graphene.String(required=True)
+        mail = graphene.Argument(EmailGrapheneType, required=True)
 
     Output = Void
 
@@ -353,7 +357,7 @@ class RequestPasswordReset(graphene.Mutation):
 
 class ResendActivationEmail(AuthenticatedMutation):
     class Arguments:
-        email = graphene.String(required=True)
+        email = graphene.Argument(EmailGrapheneType, required=True)
 
     Output = Void
 
