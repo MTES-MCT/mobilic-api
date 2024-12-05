@@ -130,7 +130,7 @@ class ObservedInfraction(ObjectType):
 
         return cls(
             sanction=sanction,
-            date=datetime.datetime.fromisoformat(infraction.get("date")),
+            date=infraction.get("date"),
             is_reportable=infraction.get("is_reportable"),
             is_reported=infraction.get("is_reported"),
             label=_label,

@@ -301,8 +301,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
             observed_infractions = copy.deepcopy(control.observed_infractions)
             for infraction in observed_infractions:
                 infraction["is_reported"] = any(
-                    ri.date
-                    == datetime.strptime(infraction.get("date"), "%Y-%m-%d")
+                    ri.date_str == infraction.get("date")
                     and ri.sanction == infraction.get("sanction")
                     for ri in reported_infractions
                 )
