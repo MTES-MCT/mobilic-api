@@ -1,50 +1,32 @@
 from datetime import datetime, timedelta
 
 from app.models.activity import ActivityType
-from app.seed import UserFactory
-from app.seed.factories import (
-    ControllerUserFactory,
-    ControllerControlFactory,
-    CompanyFactory,
-)
-from app.tests import BaseTest
+from app.tests.controls import ControlsTest
 from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
 
 
-class TestControlFrozenData(BaseTest):
-    def setUp(self):
-        super().setUp()
-        self.company = CompanyFactory.create()
-        self.controller_user = ControllerUserFactory.create()
-        self.controlled_user = UserFactory.create(
-            first_name="Tim", last_name="Leader", post__company=self.company
-        )
-
+class TestControlFrozenData(ControlsTest):
     def begin_mission(self, time):
-        create_mission_response = make_authenticated_request(
+        return self._create_mission(
+            employee=self.employee_1,
+            company=self.company1,
+            vehicle=self.vehicle1,
             time=time,
-            submitter_id=self.controlled_user.id,
-            query=ApiRequests.create_mission,
-            variables={"company_id": self.company.id},
         )
-        mission_id = create_mission_response["data"]["activities"][
-            "createMission"
-        ]["id"]
-        return mission_id
 
     def begin_activity(self, time, mission_id):
         response = make_authenticated_request(
             time=time,
-            submitter_id=self.controlled_user.id,
+            submitter_id=self.employee_1.id,
             query=ApiRequests.log_activity,
             variables=dict(
                 start_time=time,
                 mission_id=mission_id,
                 type=ActivityType.WORK,
-                user_id=self.controlled_user.id,
+                user_id=self.employee_1.id,
                 switch=True,
             ),
         )
@@ -54,7 +36,7 @@ class TestControlFrozenData(BaseTest):
     def end_activity(self, time, activity_id):
         make_authenticated_request(
             time=time,
-            submitter_id=self.controlled_user.id,
+            submitter_id=self.employee_1.id,
             query=ApiRequests.edit_activity,
             variables=dict(
                 activity_id=activity_id,
@@ -65,7 +47,7 @@ class TestControlFrozenData(BaseTest):
     def edit_activity(self, time, start_time, end_time, activity_id):
         make_authenticated_request(
             time=time,
-            submitter_id=self.controlled_user.id,
+            submitter_id=self.employee_1.id,
             query=ApiRequests.edit_activity,
             variables=dict(
                 activity_id=activity_id,
@@ -77,12 +59,11 @@ class TestControlFrozenData(BaseTest):
     def create_controller_control(
         self, controller_user, qr_code_generation_time
     ):
-        controller_control = ControllerControlFactory.create(
-            user_id=self.controlled_user.id,
-            controller_id=controller_user.id,
+        return self._create_control(
+            controller_user=controller_user,
+            controlled_user=self.employee_1,
             qr_code_generation_time=qr_code_generation_time,
         )
-        return controller_control.id
 
     def test_freeze_activity_edition(self):
         initial_mission_start_time = datetime(2022, 2, 18, 6, 0, 0)
@@ -95,7 +76,7 @@ class TestControlFrozenData(BaseTest):
         )
         self.end_activity(initial_mission_end_time, activity_id)
         control_id = self.create_controller_control(
-            self.controller_user,
+            self.controller_user_1,
             qr_code_generation_time=initial_mission_end_time,
         )
         self.edit_activity(
@@ -106,7 +87,7 @@ class TestControlFrozenData(BaseTest):
         )
         response = make_authenticated_request(
             time=datetime.now(),
-            submitter_id=self.controller_user.id,
+            submitter_id=self.controller_user_1.id,
             query=ApiRequests.read_control_data,
             variables=dict(
                 control_id=control_id,
@@ -151,7 +132,7 @@ class TestControlFrozenData(BaseTest):
         self.end_activity(first_activity_end_time, first_activity_id)
 
         control_id = self.create_controller_control(
-            self.controller_user,
+            self.controller_user_1,
             qr_code_generation_time=first_activity_end_time,
         )
 
@@ -162,7 +143,7 @@ class TestControlFrozenData(BaseTest):
 
         response = make_authenticated_request(
             time=datetime.now(),
-            submitter_id=self.controller_user.id,
+            submitter_id=self.controller_user_1.id,
             query=ApiRequests.read_control_data,
             variables=dict(
                 control_id=control_id,

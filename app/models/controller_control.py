@@ -229,10 +229,17 @@ class ControllerControl(BaseModel, RandomNineIntId):
             return existing_control
         else:
             controlled_user = User.query.get(user_id)
+            current_employments = controlled_user.active_employments_at(
+                date_=qr_code_generation_time.date()
+            )
             company_name = ""
             vehicle_registration_number = ""
-            control_bulletin = {}
-
+            control_bulletin = {
+                "employments_business_types": {
+                    e.id: e.business.id if e.business else None
+                    for e in current_employments
+                }
+            }
             latest_activity_before = controlled_user.latest_activity_before(
                 qr_code_generation_time
             )
@@ -270,6 +277,16 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         control_bulletin[
                             "mission_address_begin"
                         ] = latest_mission.start_location.address.format()
+
+                    current_employments_for_company = [
+                        e
+                        for e in current_employments
+                        if e.company_id == latest_mission.company.id
+                    ]
+                    if len(current_employments_for_company) > 0:
+                        control_bulletin[
+                            "business_id"
+                        ] = current_employments_for_company[0].business_id
 
             work_days = group_user_events_by_day_with_limit(
                 user=controlled_user,

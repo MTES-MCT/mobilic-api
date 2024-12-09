@@ -10,7 +10,6 @@ from app.helpers.regulations_utils import insert_regulation_check
 from app.helpers.time import to_timestamp
 from app.models import ControllerUser, User, RegulationCheck, Business
 from app.models.activity import ActivityType
-from app.models.regulation_check import RegulationCheckType
 from app.services.get_businesses import get_businesses
 from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
@@ -275,6 +274,20 @@ class ApiRequests:
               startTime
               endTime
               userId
+            }
+          }
+          currentBusinessType {
+            businessType
+            transportType
+          }
+          employments {
+            id
+            company {
+              name
+            }
+            business {
+              businessType
+              transportType
             }
           }
         }

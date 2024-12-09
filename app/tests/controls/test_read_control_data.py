@@ -2,39 +2,25 @@ from datetime import datetime
 
 from app.domain.regulations import get_default_business
 from app.helpers.submitter_type import SubmitterType
-from app.models.regulation_check import RegulationCheckType
-from app.seed import UserFactory
+from app.models.regulation_check import RegulationCheckType, RegulationCheck
 from app.seed.factories import (
-    ControllerControlFactory,
-    ControllerUserFactory,
     RegulationComputationFactory,
     RegulatoryAlertFactory,
 )
 from app.seed.helpers import get_date
-from app.tests import BaseTest
+from app.tests.controls import ControlsTestSimple
 from app.tests.helpers import (
     ApiRequests,
     make_authenticated_request,
-    init_regulation_checks_data,
-    init_businesses_data,
 )
 
 
-class TestReadControlData(BaseTest):
-    def setUp(self):
-        super().setUp()
-        self.controller_user_1 = ControllerUserFactory.create()
-        self.controller_user_2 = ControllerUserFactory.create()
-        self.controlled_user = UserFactory.create()
-
-    def create_controller_control(self, controller_user):
-        controller_control = ControllerControlFactory.create(
-            user_id=self.controlled_user.id, controller_id=controller_user.id
-        )
-        return controller_control.id
-
+class TestReadControlData(ControlsTestSimple):
     def test_read_control_data(self):
-        control_id = self.create_controller_control(self.controller_user_1)
+        control_id = self._create_control(
+            controller_user=self.controller_user_1,
+            controlled_user=self.controlled_user_1,
+        )
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.controller_user_1.id,
@@ -48,7 +34,10 @@ class TestReadControlData(BaseTest):
         self.assertEqual(response["data"]["controlData"]["id"], control_id)
 
     def test_can_not_read_control_of_other_controller(self):
-        control_id = self.create_controller_control(self.controller_user_2)
+        control_id = self._create_control(
+            controller_user=self.controller_user_2,
+            controlled_user=self.controlled_user_1,
+        )
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.controller_user_1.id,
@@ -67,27 +56,30 @@ class TestReadControlData(BaseTest):
         RegulationComputationFactory.create(
             day=get_date(how_many_days_ago=30),
             submitter_type=SubmitterType.EMPLOYEE,
-            user=self.controlled_user,
+            user=self.controlled_user_1,
         )
 
         RegulationComputationFactory.create(
             day=get_date(how_many_days_ago=1),
             submitter_type=SubmitterType.EMPLOYEE,
-            user=self.controlled_user,
+            user=self.controlled_user_1,
         )
 
-        regulation_check = init_regulation_checks_data()
-        init_businesses_data()
+        regulation_check = RegulationCheck.query.first()
+        # init_businesses_data()
 
         RegulatoryAlertFactory.create(
             day=get_date(how_many_days_ago=1),
             submitter_type=SubmitterType.EMPLOYEE,
-            user=self.controlled_user,
+            user=self.controlled_user_1,
             regulation_check=regulation_check,
             business=get_default_business(),
         )
 
-        control_id = self.create_controller_control(self.controller_user_1)
+        control_id = self._create_control(
+            controller_user=self.controller_user_1,
+            controlled_user=self.controlled_user_1,
+        )
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.controller_user_1.id,
