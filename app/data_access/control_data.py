@@ -22,6 +22,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
+from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.regulation_check import RegulationCheckType
 
@@ -190,6 +191,10 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
+    business_type_during_control = graphene.Field(
+        lambda: BusinessOutput,
+        description="Type d'activité effectuée par le salarié au moment du contrôle",
+    )
     control_type = graphene.String()
     is_day_page_filled = graphene.Boolean(
         required=False,
@@ -228,6 +233,17 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             key=lambda e: e.start_date,
             reverse=True,
         )
+        employment_businesses = {
+            int(k): v
+            for k, v in self.control_bulletin.get(
+                "employments_business_types", {}
+            ).items()
+        }
+        for employment in employments:
+            if not employment.id in employment_businesses:
+                continue
+            employment.business_id = employment_businesses[employment.id]
+
         return employments
 
     def resolve_missions(self, info, mission_id=None):
@@ -260,6 +276,14 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             )
             for day_, computations_ in regulation_computations_by_day.items()
         ]
+
+    def resolve_business_type_during_control(self, info):
+        business_id = self.control_bulletin.get("business_id")
+        if business_id:
+            return Business.query.filter(
+                Business.id == self.control_bulletin.get("business_id")
+            ).one_or_none()
+        return None
 
     def resolve_observed_infractions(self, info):
         observed_infractions = []

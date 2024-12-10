@@ -4,27 +4,18 @@ from app.domain.controller_control import get_no_lic_observed_infractions
 from app.models.controller_control import ControlType
 from app.seed.factories import (
     ControllerControlFactory,
-    ControllerUserFactory,
 )
-from app.tests import BaseTest
+from app.tests.controls import ControlsTestSimple
 from app.tests.helpers import (
     ApiRequests,
-    init_businesses_data,
-    init_regulation_checks_data,
     make_authenticated_request,
 )
 
 
-class TestReadControlDataNoMobilic(BaseTest):
-    def setUp(self):
-        super().setUp()
-        init_regulation_checks_data()
-        init_businesses_data()
-        self.controller_user = ControllerUserFactory.create()
-
+class TestReadControlDataNoMobilic(ControlsTestSimple):
     def test_control_lic_papier_without_infractions(self):
         lic_papier_control = ControllerControlFactory.create(
-            controller_id=self.controller_user.id,
+            controller_id=self.controller_user_1.id,
             control_type=ControlType.lic_papier,
             control_bulletin={"business_id": 1},
             observed_infractions=[],
@@ -32,7 +23,7 @@ class TestReadControlDataNoMobilic(BaseTest):
 
         response = make_authenticated_request(
             time=datetime.now(),
-            submitter_id=self.controller_user.id,
+            submitter_id=self.controller_user_1.id,
             query=ApiRequests.read_control_data_no_lic,
             variables=dict(
                 control_id=lic_papier_control.id,
@@ -54,7 +45,7 @@ class TestReadControlDataNoMobilic(BaseTest):
     def test_control_lic_papier_with_infractions(self):
         business_id = 2
         lic_papier_control = ControllerControlFactory.create(
-            controller_id=self.controller_user.id,
+            controller_id=self.controller_user_1.id,
             control_type=ControlType.lic_papier,
             control_bulletin={"business_id": business_id},
             observed_infractions=get_no_lic_observed_infractions(
@@ -64,7 +55,7 @@ class TestReadControlDataNoMobilic(BaseTest):
 
         response = make_authenticated_request(
             time=datetime.now(),
-            submitter_id=self.controller_user.id,
+            submitter_id=self.controller_user_1.id,
             query=ApiRequests.read_control_data_no_lic,
             variables=dict(
                 control_id=lic_papier_control.id,
