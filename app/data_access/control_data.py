@@ -191,7 +191,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
-    current_business_type = graphene.Field(
+    business_type_during_control = graphene.Field(
         lambda: BusinessOutput,
         description="Type d'activité effectuée par le salarié au moment du contrôle",
     )
@@ -277,7 +277,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             for day_, computations_ in regulation_computations_by_day.items()
         ]
 
-    def resolve_current_business_type(self, info):
+    def resolve_business_type_during_control(self, info):
         business_id = self.control_bulletin.get("business_id")
         if business_id:
             return Business.query.filter(

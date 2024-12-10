@@ -10,7 +10,7 @@ from app.tests.controls import ControlsTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 
-class TestReadControlData(ControlsTest):
+class TestBusinessTypeInControl(ControlsTest):
     def create_mission(self):
         return self._create_mission(
             employee=self.employee_1,
