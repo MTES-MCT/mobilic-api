@@ -276,7 +276,7 @@ class ApiRequests:
               userId
             }
           }
-          currentBusinessType {
+          businessTypeDuringControl {
             businessType
             transportType
           }

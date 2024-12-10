@@ -32,7 +32,7 @@ class TestBusinessTypeInControl(ControlsTest):
 
     def _get_control_data_business_type(self, control):
         response = self._get_control_data_(control=control)
-        return response["data"]["controlData"]["currentBusinessType"]
+        return response["data"]["controlData"]["businessTypeDuringControl"]
 
     def test_employee_controlled_without_mission_no_business_id(self):
         # When flashing an employee not currently working
