@@ -386,6 +386,10 @@ def find_employee_for_invitation(
             Employment.company_id.notin_(companies_to_exclude or []),
             Employment.validation_status
             == EmploymentRequestValidationStatus.PENDING,
+            ~exists().where(
+                (Email.employment_id == Employment.id)
+                & (Email.type == EmailType.SCHEDULED_INVITATION)
+            ),
         )
         .yield_per(1000)
         .all()
