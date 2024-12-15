@@ -24,6 +24,8 @@ from flask_jwt_extended.view_decorators import (
 )
 from jwt import PyJWTError
 from werkzeug.local import LocalProxy
+from app import app, db
+from app.helpers.errors import AuthenticationError, AuthorizationError
 
 CLIENT_ID_HTTP_HEADER_NAME = "X-CLIENT-ID"
 EMPLOYMENT_TOKEN_HTTP_HEADER_NAME = "X-EMPLOYMENT-TOKEN"
@@ -39,10 +41,10 @@ def current_flask_user():
 
 current_user = LocalProxy(lambda: g.get("user") or current_flask_user())
 
-from app.models.controller_user import ControllerUser
-from app.models.user import User
-from app import app, db
-from app.helpers.errors import AuthenticationError, AuthorizationError
+from app.models import ControllerUser, User, RefreshToken
+from app.helpers.authentication_controller import (
+    delete_controller_refresh_token,
+)
 
 jwt = JWTManager(app)
 
@@ -378,40 +380,88 @@ class CheckQuery(graphene.ObjectType):
 @wrap_jwt_errors
 @jwt_required(refresh=True)
 def refresh_token():
-    delete_refresh_token()
-    tokens = create_access_tokens_for(
-        current_actor, client_id=g.get("client_id")
-    )
+    try:
+        identity = get_jwt_identity()
+        matching_token = RefreshToken.get_token(
+            token=identity.get("token"), user_id=identity.get("id")
+        )
+        if not matching_token:
+            app.logger.error(
+                f"Invalid refresh token for user {identity.get('id')}. Token not found in database."
+            )
+            raise AuthenticationError("Refresh token is invalid")
 
-    @after_this_request
-    def set_cookies(response):
-        set_auth_cookies(response, user_id=current_actor.id, **tokens)
-        return response
+        tokens = create_access_tokens_for(
+            current_actor, client_id=g.get("client_id")
+        )
 
-    return tokens
+        db.session.delete(matching_token)
+        db.session.commit()
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(response, user_id=current_actor.id, **tokens)
+            return response
+
+        return tokens
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Token refresh error: {str(e)}")
+
+        @after_this_request
+        def clear_cookies(response):
+            unset_auth_cookies(response)
+            return response
+
+        raise
 
 
 @wrap_jwt_errors
 def logout():
-    delete_refresh_token()
-    db.session.commit()
+    try:
+        delete_refresh_token()
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Logout error: {str(e)}")
+
+        @after_this_request
+        def clear_cookies(response):
+            unset_auth_cookies(response)
+            return response
+
+        raise
 
 
 @jwt_required(refresh=True)
 def delete_refresh_token():
-    from app.models.refresh_token import RefreshToken
-    from app.models.controller_refresh_token import ControllerRefreshToken
-
     identity = get_jwt_identity()
     if identity.get("controller"):
-        matching_refresh_token = ControllerRefreshToken.get_token(
-            token=identity.get("token"),
-            controller_user_id=identity.get("controllerUserId"),
-        )
+        delete_controller_refresh_token()
     else:
+        user_id = identity.get("id")
         matching_refresh_token = RefreshToken.get_token(
-            token=identity.get("token"), user_id=identity.get("id")
+            token=identity.get("token"),
+            user_id=user_id,
         )
-    if not matching_refresh_token:
-        raise AuthenticationError("Refresh token is invalid")
-    db.session.delete(matching_refresh_token)
+
+        if matching_refresh_token:
+            db.session.delete(matching_refresh_token)
+            app.logger.info(
+                f"Matching refresh token {identity.get('token')} deleted for user {user_id}"
+            )
+        else:
+            refresh_tokens = RefreshToken.query.filter_by(
+                user_id=user_id
+            ).all()
+
+            app.logger.warning(
+                f"No matching refresh token found. Deleting all {len(refresh_tokens)} tokens for user {user_id}"
+            )
+
+            for token in refresh_tokens:
+                db.session.delete(token)
+
+        db.session.commit()
+        app.logger.info(f"Completed token cleanup for user {user_id}")
