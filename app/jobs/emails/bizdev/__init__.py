@@ -8,3 +8,6 @@ from .send_companies_with_employees_but_without_activities_emails import (
 from .send_reminder_no_invitation_emails import (
     send_reminder_no_invitation_emails,
 )
+from .send_invitation_emails import (
+    send_invitation_emails,
+)
