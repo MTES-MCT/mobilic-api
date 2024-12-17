@@ -400,18 +400,36 @@ def logout():
 @jwt_required(refresh=True)
 def delete_refresh_token():
     from app.models.refresh_token import RefreshToken
-    from app.models.controller_refresh_token import ControllerRefreshToken
+    from app.helpers.authentication_controller import (
+        delete_controller_refresh_token,
+    )
 
     identity = get_jwt_identity()
     if identity.get("controller"):
-        matching_refresh_token = ControllerRefreshToken.get_token(
-            token=identity.get("token"),
-            controller_user_id=identity.get("controllerUserId"),
-        )
+        delete_controller_refresh_token()
     else:
+        user_id = identity.get("id")
         matching_refresh_token = RefreshToken.get_token(
-            token=identity.get("token"), user_id=identity.get("id")
+            token=identity.get("token"),
+            user_id=user_id,
         )
-    if not matching_refresh_token:
-        raise AuthenticationError("Refresh token is invalid")
-    db.session.delete(matching_refresh_token)
+
+        if matching_refresh_token:
+            db.session.delete(matching_refresh_token)
+            app.logger.info(
+                f"Matching refresh token {identity.get('token')} deleted for user {user_id}"
+            )
+        else:
+            refresh_tokens = RefreshToken.query.filter_by(
+                user_id=user_id
+            ).all()
+
+            app.logger.warning(
+                f"No matching refresh token found. Deleting all {len(refresh_tokens)} tokens for user {user_id}"
+            )
+
+            for token in refresh_tokens:
+                db.session.delete(token)
+
+        db.session.commit()
+        app.logger.info(f"Completed token cleanup for user {user_id}")
