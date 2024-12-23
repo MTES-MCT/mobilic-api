@@ -1,32 +1,32 @@
 {% extends "transactional_base.html" %}
 {% import 'button.html' as button %}
 
+{% block subject %}
+{{ company_name }} vous invite à rejoindre Mobilic
+{% endblock %}
+
 {% block body %}
-    <p>Bonjour{% if first_name %} {{ first_name | capitalize }}{% endif %},</p>
-    {% if scheduled_reminder %}
-        <p>L'entreprise <strong>{{ company_name | upper }}</strong> vous rappelle que vous avez été invité à créer votre compte
-            sur <strong>Mobilic</strong>, l'outil numérique pour suivre et protéger vos droits en tant que salarié.</p>
-        <p>Grâce à <strong>Mobilic</strong>, vous pourrez facilement :</p>
-        <ul>
-            <li>Enregistrer vos heures de travail en toute simplicité</li>
-            <li>Assurer le respect de vos droits au quotidien</li>
-        </ul>
-        <p><strong>Il vous suffit de quelques clics pour activer votre compte et être prêt(e) à l'utiliser ! </strong></p>
-        <p>Cliquez sur le bouton ci-dessous pour créer votre compte ou l'associer à <strong>{{ company_name | upper }}</strong> :</p>
-        {{ button.button('Activer mon compte', invitation_link) }}
-        <p><strong>Petit rappel important :</strong> L’enregistrement de votre temps de travail via Mobilic ou le livret
-            individuel de contrôle (LIC) est obligatoire dans votre secteur.</p>
-        <p>À très bientôt sur Mobilic !</p>
+    <p>Bonjour{% if first_name %} {{first_name | capitalize}}{% endif %},</p>
+    {% if not first_name %}
+        <p>
+            {% if reminder %}
+                L'entreprise <strong>{{company_name | upper}}</strong> vous rappelle que vous avez été invité
+            {% else %}
+                Vous avez été invité(e) par l’entreprise <strong>{{company_name | upper}}</strong>
+            {% endif %} à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
+        <p>Mobilic est la plateforme gouvernementale qui simplifie <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement.</p>
+        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le bouton d'activation suivant :</p>
+        {{button.button('Activer mon compte', invitation_link)}}
     {% else %}
         <p>
             {% if reminder %}
-                L'entreprise <strong>{{ company_name | upper }}</strong> vous rappelle que vous avez été invité
+                L'entreprise <strong>{{company_name | upper}}</strong> vous rappelle que vous avez été invité à la rejoindre
             {% else %}
-                Vous avez été invité(e) par l’entreprise <strong>{{ company_name | upper }}</strong>
-            {% endif %} à créer un compte Mobilic pour enregistrer votre temps de travail.</p>
-        <p>Mobilic est la plateforme gouvernementale qui simplifie <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement.</p>
-        <p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{ company_name | upper }}</strong> cliquez sur le bouton d'activation suivant :</p>
-        {{ button.button('Activer mon compte', invitation_link) }}
+                Vous avez été invité(e) à rejoindre l'entreprise <strong>{{company_name | upper}}</strong>
+            {% endif %} sur Mobilic.
+        </p>
+        <p>Pour rattacher votre compte à l'entreprise <strong>{{company_name | upper}}</strong> cliquez sur le bouton d'activation suivant :</p>
+        {{button.button('Activer mon compte', invitation_link)}}
     {% endif %}
     <p>Bien à vous,</p>
 {% endblock %}
