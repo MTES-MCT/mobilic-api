@@ -413,7 +413,11 @@ class Mailer:
         )
 
     def batch_send_employee_invites(
-        self, employments, reminder=False, scheduled_reminder=False
+        self,
+        employments,
+        reminder=False,
+        disable_commit=True,
+        scheduled_reminder=False,
     ):
         messages = [
             self.generate_employee_invite(
@@ -421,7 +425,7 @@ class Mailer:
             )
             for e in employments
         ]
-        self.send_batch(messages, _disable_commit=True)
+        self.send_batch(messages, _disable_commit=disable_commit)
         return messages
 
     def send_activation_email(
