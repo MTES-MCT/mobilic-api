@@ -366,9 +366,7 @@ class Mailer:
             email, contact_list, action=MailjetSubscriptionActions.REMOVE
         )
 
-    def generate_employee_invite(
-        self, employment, reminder=False, scheduled_reminder=False
-    ):
+    def generate_employee_invite(self, employment, reminder=False):
         if not employment.invite_token:
             raise ValueError(
                 f"Cannot send invite for employment {employment} : it is already bound to a user"
@@ -381,18 +379,12 @@ class Mailer:
             invitation_link = f"{app.config['FRONTEND_URL']}/invite?token={employment.invite_token}"
 
         company_name = employment.company.name
-        subject = (
-            f"{'Rappel : Urgent ! ' if scheduled_reminder else ''}"
-            f"{'Rappel : ' if reminder else ''}"
-            f"Votre entreprise {company_name} vous invite à rejoindre Mobilic."
-        )
+        subject = f"{'Rappel : ' if reminder else ''}{company_name} vous invite à rejoindre Mobilic."
 
         return Mailer._create_message_from_flask_template(
-            template="invitation_email.html",
+            "invitation_email.html",
             subject=subject,
-            type_=EmailType.SCHEDULED_INVITATION
-            if scheduled_reminder
-            else EmailType.INVITATION,
+            type_=EmailType.INVITATION,
             recipient=employment.user.email
             if employment.user
             else employment.email,
@@ -403,7 +395,6 @@ class Mailer:
             invitation_link=Markup(invitation_link),
             company_name=company_name,
             reminder=reminder,
-            scheduled_reminder=scheduled_reminder,
         )
 
     def send_employee_invite(self, employment, reminder=False):
@@ -412,13 +403,9 @@ class Mailer:
             _disable_commit=True,
         )
 
-    def batch_send_employee_invites(
-        self, employments, reminder=False, scheduled_reminder=False
-    ):
+    def batch_send_employee_invites(self, employments, reminder=False):
         messages = [
-            self.generate_employee_invite(
-                e, reminder=reminder, scheduled_reminder=scheduled_reminder
-            )
+            self.generate_employee_invite(e, reminder=reminder)
             for e in employments
         ]
         self.send_batch(messages, _disable_commit=True)
