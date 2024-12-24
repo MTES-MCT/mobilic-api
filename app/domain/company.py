@@ -366,10 +366,11 @@ def find_admins_still_without_invitations(
 
 
 def find_employee_for_invitation(
-    first_employee_invitation_date, companies_to_exclude=None
+    first_employee_invitation_date,
+    max_start_date=None,
+    companies_to_exclude=None,
 ):
-
-    return (
+    query = (
         db.session.query(Employment)
         .options(joinedload(Employment.company))
         .join(Email, Email.employment_id == Employment.id)
@@ -393,6 +394,12 @@ def find_employee_for_invitation(
             )
             .correlate(Employment),
         )
-        .yield_per(50)
-        .all()
     )
+    if max_start_date:
+        query = query.filter(
+            Employment.creation_time
+            >= datetime.datetime.combine(
+                max_start_date, datetime.datetime.min.time()
+            )
+        )
+    return query.yield_per(100).all()

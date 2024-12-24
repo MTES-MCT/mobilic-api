@@ -107,6 +107,13 @@ class Config:
         if os.environ.get("CGU_RELEASE_DATE")
         else CGU_INITIAL_RELASE_DATE
     )
+    START_DATE_FOR_SCHEDULED_INVITATION = (
+        datetime.strptime(
+            os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION"), "%Y-%m-%d"
+        ).date()
+        if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
+        else datetime(2024, 12, 31)
+    )
 
 
 class DevConfig(Config):
