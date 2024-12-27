@@ -46,7 +46,7 @@ class TestReportInfractions(RegulationsTest):
             controller_id=controller_user.id,
             company_name=self.company.name,
             vehicle_registration_number="AAA 11 BBB",
-            nb_controlled_days=56,
+            nb_controlled_days=28,
         )
         db.session.add(new_control)
         db.session.commit()
