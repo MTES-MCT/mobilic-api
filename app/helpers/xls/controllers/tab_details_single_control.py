@@ -31,13 +31,12 @@ COLUMNS_ALL = [
 ]
 
 
-def write_details_sheet(wb, control, work_days_data, min_date, max_date):
+def write_details_sheet(wb, control, work_days_data):
     sheet = wb.add_worksheet(f"Détail Contrôle #{control.id}")
     sheet.protect()
 
-    write_header(wb, sheet, control, min_date, max_date)
+    row_idx = write_header(wb, sheet, control)
 
-    row_idx = 6
     column_base_formats = write_tab_headers(wb, sheet, row_idx, COLUMNS_ALL)
     row_idx += 1
 
