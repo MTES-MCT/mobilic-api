@@ -324,7 +324,7 @@ COLUMN_NB_INFRACTIONS = ExcelColumn(
     "Nombre d'infractions retenues",
     lambda wday: wday.nb_infractions_for_day,
     lambda _: "center",
-    50,
+    40,
     very_light_red_hex,
     False,
 )
