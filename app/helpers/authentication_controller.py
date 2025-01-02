@@ -148,10 +148,31 @@ def delete_controller_refresh_token():
     from app.models.controller_refresh_token import ControllerRefreshToken
 
     identity = get_jwt_identity()
+    controller_user_id = identity.get("controllerUserId")
+
     matching_refresh_token = ControllerRefreshToken.get_token(
         token=identity.get("token"),
-        controller_user_id=identity.get("controllerUserId"),
+        controller_user_id=controller_user_id,
     )
-    if not matching_refresh_token:
-        raise AuthenticationError("Refresh token is invalid")
-    db.session.delete(matching_refresh_token)
+
+    if matching_refresh_token:
+        db.session.delete(matching_refresh_token)
+        app.logger.info(
+            f"Matching refresh token {identity.get('token')} deleted for controller {controller_user_id}"
+        )
+    else:
+        refresh_tokens = ControllerRefreshToken.query.filter_by(
+            controller_user_id=controller_user_id
+        ).all()
+
+        app.logger.warning(
+            f"No matching refresh token found. Deleting all {len(refresh_tokens)} tokens for controller {controller_user_id}"
+        )
+
+        for token in refresh_tokens:
+            db.session.delete(token)
+
+    db.session.commit()
+    app.logger.info(
+        f"Completed token cleanup for controller {controller_user_id}"
+    )
