@@ -65,7 +65,7 @@ class Config:
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
     USER_CONTROL_HISTORY_DEPTH = timedelta(
-        days=os.environ.get("USER_CONTROL_HISTORY_DEPTH", 28)
+        days=int(os.environ.get("USER_CONTROL_HISTORY_DEPTH", 28))
     )
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get(
