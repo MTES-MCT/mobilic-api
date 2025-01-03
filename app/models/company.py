@@ -24,6 +24,8 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
         db.String(30), unique=False, nullable=True, default=None
     )
 
+    number_workers = db.Column(db.Integer(), nullable=True)
+
     # Parameters of work day logging
     allow_team_mode = db.Column(db.Boolean, nullable=False, default=True)
 
