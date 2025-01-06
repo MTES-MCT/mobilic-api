@@ -128,14 +128,27 @@ class CompanySignUp(AuthenticatedMutation):
             required=False,
             description="Type d'activité de transport effectué par l'entreprise",
         )
+        nb_workers = graphene.Int(
+            required=False,
+            description="Nombre de chauffeurs et/ou travailleurs mobiles",
+        )
 
     Output = CompanySignUpOutput
 
     @classmethod
     def mutate(
-        cls, _, info, usual_name, siren, business_type="", phone_number=""
+        cls,
+        _,
+        info,
+        usual_name,
+        siren,
+        business_type="",
+        phone_number="",
+        nb_workers=None,
     ):
-        return sign_up_company(usual_name, siren, business_type, phone_number)
+        return sign_up_company(
+            usual_name, siren, business_type, phone_number, nb_workers
+        )
 
 
 class CompanySiret(graphene.InputObjectType):
@@ -148,6 +161,10 @@ class CompanySiret(graphene.InputObjectType):
     business_type = graphene.String(
         required=False,
         description="Type d'activité de transport de l'entreprise",
+    )
+    nb_workers = graphene.Int(
+        required=False,
+        description="Nombre de chauffeurs et/ou travailleurs mobiles",
     )
 
 
@@ -182,6 +199,7 @@ def sign_up_companies(siren, companies):
             siren=siren,
             phone_number=company.get("phone_number", ""),
             business_type=company.get("business_type", ""),
+            nb_workers=company.get("nb_workers", None),
             sirets=[company.get("siret")],
             send_email=len(companies) == 1,
         )
@@ -211,6 +229,7 @@ def sign_up_company(
     siren,
     business_type="",
     phone_number="",
+    nb_workers=None,
     sirets=[],
     send_email=True,
 ):
@@ -222,7 +241,7 @@ def sign_up_company(
 
     with atomic_transaction(commit_at_end=True):
         company = store_company(
-            siren, sirets, usual_name, business, phone_number
+            siren, sirets, usual_name, business, phone_number, nb_workers
         )
 
         now = datetime.now()
@@ -291,7 +310,9 @@ def sign_up_company(
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
 
-def store_company(siren, sirets, usual_name, business=None, phone_number=""):
+def store_company(
+    siren, sirets, usual_name, business=None, phone_number="", nb_workers=None
+):
     registration_status, _ = get_siren_registration_status(siren)
 
     if (
@@ -332,6 +353,7 @@ def store_company(siren, sirets, usual_name, business=None, phone_number=""):
         require_mission_name=True,
         phone_number=phone_number,
         business=business,
+        number_workers=nb_workers,
     )
     db.session.add(company)
     db.session.flush()  # Early check for SIRET duplication
