@@ -9,6 +9,7 @@ from app.models.event import Dismissable, UserEventBaseModel
 from app.models.mixins.has_business import HasBusiness
 from app.models.team import Team
 from app.models.utils import enum_column
+from sqlalchemy import Index, text
 
 
 class EmploymentRequestValidationStatus(str, Enum):
@@ -56,6 +57,17 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
     __table_args__ = (
         db.Constraint(name="no_simultaneous_enrollments_for_the_same_company"),
         db.Constraint(name="no_undefined_employment_type_for_user"),
+        Index(
+            "idx_employment_filters",
+            "email",
+            "user_id",
+            "has_admin_rights",
+            "validation_status",
+            "creation_time",
+            postgresql_where=text(
+                "user_id IS NULL AND has_admin_rights = false"
+            ),
+        ),
     )
 
     def __repr__(self):
@@ -90,14 +102,13 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
             email.user_id = user.id
 
     def validate_by(self, user, time=None, reject=False):
-        if not self.user_id == user.id:
+        if self.user_id != user.id:
             raise AuthorizationError(
                 "Actor is not authorized to review the employment"
             )
 
         if (
-            not self.validation_status
-            == EmploymentRequestValidationStatus.PENDING
+            self.validation_status != EmploymentRequestValidationStatus.PENDING
             or self.is_dismissed
         ):
             raise InvalidResourceError(
