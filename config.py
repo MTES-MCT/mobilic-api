@@ -114,7 +114,7 @@ class Config:
             os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION"), "%Y-%m-%d"
         ).date()
         if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
-        else datetime(2024, 12, 6)
+        else datetime(2024, 12, 30)
     )
 
 

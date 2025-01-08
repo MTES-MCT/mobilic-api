@@ -370,10 +370,17 @@ def find_employee_for_invitation(
     max_start_date=None,
     companies_to_exclude=None,
 ):
-    query = (
+    scheduled_invitations = (
+        db.session.query(Email.address)
+        .filter(Email.type == EmailType.SCHEDULED_INVITATION)
+        .subquery()
+    )
+
+    base_query = (
         db.session.query(Employment)
         .options(joinedload(Employment.company))
-        .join(Email, Email.employment_id == Employment.id)
+        .join(Email, Email.address == Employment.email)
+        .distinct(Email.address)
         .filter(
             Email.type == EmailType.INVITATION,
             Email.user_id.is_(None),
@@ -384,22 +391,23 @@ def find_employee_for_invitation(
             ),
             Employment.has_admin_rights == False,
             Employment.user_id.is_(None),
-            Employment.company_id.notin_(companies_to_exclude or []),
             Employment.validation_status
             == EmploymentRequestValidationStatus.PENDING,
-            ~exists()
-            .where(
-                (Email.employment_id == Employment.id)
-                & (Email.type == EmailType.SCHEDULED_INVITATION)
-            )
-            .correlate(Employment),
+            ~Employment.email.in_(scheduled_invitations),
         )
     )
+    if companies_to_exclude:
+        base_query = base_query.filter(
+            Employment.company_id.notin_(companies_to_exclude)
+        )
     if max_start_date:
-        query = query.filter(
+        base_query = base_query.filter(
             Employment.creation_time
             >= datetime.datetime.combine(
                 max_start_date, datetime.datetime.min.time()
             )
         )
+
+    query = base_query.order_by(Email.address, Email.creation_time.desc())
+
     return query.yield_per(100).all()
