@@ -6,6 +6,7 @@ class EmailType(str, Enum):
     COMPANY_CREATION = "company_creation"
     EMPLOYMENT_VALIDATION = "employment_validation_confirmation"
     INVITATION = "invitation"
+    SCHEDULED_INVITATION = "scheduled_invitation"
     MISSION_CHANGES_WARNING = "mission_changes_warning"
     NEW_MISSION_INFORMATION = "new_mission_information"
     RESET_PASSWORD = "reset_password"
