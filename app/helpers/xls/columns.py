@@ -58,7 +58,7 @@ COLUMN_ENTREPRISE = ExcelColumn(
         set([m.company.name for m in wday.missions if m.company is not None])
     ),
     lambda _: "bold",
-    30,
+    35,
     light_grey_hex,
     False,
 )

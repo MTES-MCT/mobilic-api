@@ -5,6 +5,8 @@ from app.templates.filters import MONTHS
 
 def write_header(wb, sheet, control):
 
+    is_control_mobilic = control.control_type == ControlType.mobilic
+
     control_date_time = (
         control.qr_code_generation_time
         if control.qr_code_generation_time
@@ -25,8 +27,22 @@ def write_header(wb, sheet, control):
     )
     items.append(("Nom du salarié", control_user_name))
 
-    items.append(("Entreprise", control.company_name))
-    items.append(("Véhicule", control.vehicle_registration_number))
+    items.append(
+        (
+            "Entreprise au moment du contrôle"
+            if is_control_mobilic
+            else "Entreprise",
+            control.company_name,
+        )
+    )
+    items.append(
+        (
+            "Véhicule au moment du contrôle"
+            if is_control_mobilic
+            else "Véhicule",
+            control.vehicle_registration_number,
+        )
+    )
 
     if control.user:
         items.append(("Identifiant du salarié", f"{control.user.id}"))
@@ -40,7 +56,7 @@ def write_header(wb, sheet, control):
         )
     )
 
-    if control.control_type == ControlType.mobilic:
+    if is_control_mobilic:
         max_date = control.history_end_date
         min_date = control.history_start_date
         items.append(
