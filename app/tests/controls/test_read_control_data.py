@@ -54,7 +54,7 @@ class TestReadControlData(ControlsTestSimple):
 
     def test_can_read_alerts(self):
         RegulationComputationFactory.create(
-            day=get_date(how_many_days_ago=30),
+            day=get_date(how_many_days_ago=60),
             submitter_type=SubmitterType.EMPLOYEE,
             user=self.controlled_user_1,
         )

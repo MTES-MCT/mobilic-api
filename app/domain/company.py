@@ -5,6 +5,7 @@ from sqlalchemy import desc
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
 from sqlalchemy.sql.functions import now
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.helpers.mail_type import EmailType
@@ -362,3 +363,51 @@ def find_admins_still_without_invitations(
         Employment.validation_status
         == EmploymentRequestValidationStatus.APPROVED,
     ).all()
+
+
+def find_employee_for_invitation(
+    first_employee_invitation_date,
+    max_start_date=None,
+    companies_to_exclude=None,
+):
+    scheduled_invitations = (
+        db.session.query(Email.address)
+        .filter(Email.type == EmailType.SCHEDULED_INVITATION)
+        .subquery()
+    )
+
+    base_query = (
+        db.session.query(Employment)
+        .options(joinedload(Employment.company))
+        .join(Email, Email.address == Employment.email)
+        .distinct(Email.address)
+        .filter(
+            Email.type == EmailType.INVITATION,
+            Email.user_id.is_(None),
+            Email.creation_time
+            <= datetime.datetime.combine(
+                first_employee_invitation_date,
+                datetime.datetime.max.time(),
+            ),
+            Employment.has_admin_rights == False,
+            Employment.user_id.is_(None),
+            Employment.validation_status
+            == EmploymentRequestValidationStatus.PENDING,
+            ~Employment.email.in_(scheduled_invitations),
+        )
+    )
+    if companies_to_exclude:
+        base_query = base_query.filter(
+            Employment.company_id.notin_(companies_to_exclude)
+        )
+    if max_start_date:
+        base_query = base_query.filter(
+            Employment.creation_time
+            >= datetime.datetime.combine(
+                max_start_date, datetime.datetime.min.time()
+            )
+        )
+
+    query = base_query.order_by(Email.address, Email.creation_time.desc())
+
+    return query.yield_per(100).all()

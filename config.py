@@ -64,7 +64,9 @@ class Config:
         "USER_READ_TOKEN_EXPIRATION", timedelta(days=7)
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
-    USER_CONTROL_HISTORY_DEPTH = timedelta(days=28)
+    USER_CONTROL_HISTORY_DEPTH = timedelta(
+        days=int(os.environ.get("USER_CONTROL_HISTORY_DEPTH", 28))
+    )
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get(
             "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 24
@@ -106,6 +108,13 @@ class Config:
         ).date()
         if os.environ.get("CGU_RELEASE_DATE")
         else CGU_INITIAL_RELASE_DATE
+    )
+    START_DATE_FOR_SCHEDULED_INVITATION = (
+        datetime.strptime(
+            os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION"), "%Y-%m-%d"
+        ).date()
+        if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
+        else datetime(2024, 12, 30)
     )
 
 
