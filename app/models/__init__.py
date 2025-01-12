@@ -30,7 +30,3 @@ from .company_certification import CompanyCertification
 from .scenario_testing import ScenarioTesting
 from .user_survey_actions import UserSurveyActions
 from .user_agreement import UserAgreement
-from .anonymized.mission import MissionAnonymized
-from .anonymized.activity import ActivityAnonymized
-from .anonymized.activity_version import ActivityVersionAnonymized
-from .anonymized.expenditure import ExpenditureAnonymized

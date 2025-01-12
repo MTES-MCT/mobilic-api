@@ -362,27 +362,22 @@ def sync_brevo_command(pipeline_names, verbose):
 
 
 @app.cli.command("migrate_anonymize_data", with_appcontext=True)
-@click.argument("time_interval")
 @click.option(
     "--verbose",
     is_flag=True,
     help="Enable verbose mode for more detailed output",
 )
-def migrate_anonymize_mission(time_interval, verbose):
+@click.option(
+    "--test",
+    is_flag=True,
+    help="Test mode: rollback all changes at the end",
+)
+def migrate_anonymize_mission(verbose, test):
     """
-    Migrate data to anonymized tables.
-    You can specify time interval as arguments.
+    Migrate data older than one year to anonymized tables and delete original data.
     """
     from app.services.anonymize_tables import migrate_anonymized_data
 
-    if not time_interval:
-        print(
-            "Please provide time interval e.g. : '< now() - interval '1 year' "
-        )
-        return
-
-    app.logger.info("Process with data migration and anonymization began")
-
-    migrate_anonymized_data(time_interval, verbose=verbose)
-
-    app.logger.info("Process with data migration and anonymization done")
+    app.logger.info("Starting data anonymization process")
+    migrate_anonymized_data(verbose=verbose, test_mode=test)
+    app.logger.info("Data anonymization process completed")

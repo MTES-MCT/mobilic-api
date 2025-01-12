@@ -1,393 +1,148 @@
-import logging
-import csv
-from io import StringIO
-from sqlalchemy import text
 from app import db
-import json
+from typing import List
+from datetime import datetime, timedelta
+from app.models import Activity, ActivityVersion, Mission
+from app.models.anonymized import (
+    ActivityAnonymized,
+    ActivityVersionAnonymized,
+    MissionAnonymized,
+    IdMapping,
+)
+from app.services.table_dependency_manager import TableDependencyManager
+import logging
 
 logger = logging.getLogger(__name__)
 
 
-def migrate_anonymized_data(interval: str, verbose=False):
+def migrate_anonymized_data(verbose=False, test_mode=False):
     if verbose:
         logger.setLevel(logging.DEBUG)
 
-    connection = db.get_engine().raw_connection()
-    cursor = connection.cursor()
+    dependency_manager = TableDependencyManager(db.session)
+    anonymizer = TableAnonymizer(db.session)
 
+    transaction = db.session.begin_nested()
     try:
-        logger.debug(f"Migrate mission for interval: {interval}")
-        migrated_mission_ids = migrate_anonymized_mission(
-            interval, connection, cursor
-        )
+        logger.info("Clearing ID mapping table...")
+        IdMapping.query.delete()
 
-        logger.debug("Migrate activity for migrated missions")
-        migrated_activity_ids = migrate_anonymized_activity(
-            migrated_mission_ids, connection, cursor
-        )
+        cutoff_date = datetime.now() - timedelta(days=365)
+        logger.info(f"Processing data older than: {cutoff_date}")
 
-        logger.debug("Migrate activity version for migrated activities")
-        migrate_anonymized_activity_version(
-            migrated_activity_ids, connection, cursor
-        )
+        anonymization_order = dependency_manager.get_anonymization_order()
 
-        logger.debug("Migrate expenditure for migrated mission")
-        migrate_anonymized_expenditure(
-            migrated_mission_ids, connection, cursor
-        )
+        for level_tables in anonymization_order:
+            for table_name in level_tables:
+                logger.info(f"Anonymizing table: {table_name}")
 
-        logger.debug("Delete original data")
-        delete_original_data(
-            migrated_mission_ids, migrated_activity_ids, connection
-        )
+                if table_name == "mission":
+                    anonymizer.anonymize_mission(cutoff_date)
+                elif table_name == "activity":
+                    anonymizer.anonymize_activities_for_missions([])
+                elif table_name == "activity_version":
+                    pass
 
-        logger.debug(f"Migration complete for interval: {interval}")
-        connection.commit()
+        logger.info("Cleaning up ID mapping table...")
+        IdMapping.query.delete()
 
-    except ValueError as e:
-        logger.error(f"Error during migration for interval '{interval}': {e}")
-        connection.rollback()
-    finally:
-        cursor.close()
-        connection.close()
-
-
-def migrate_anonymized_mission(interval: str, connection, cursor):
-    select_query = f"""
-        SELECT 
-            id,
-            anon.fake_last_name() AS name,
-            NULL AS submitter_id,
-            NULL AS company_id,
-            vehicle_id,
-            date_trunc('month', creation_time) AS creation_time,
-            date_trunc('month', reception_time) AS reception_time,
-            context::jsonb AS context
-        FROM mission
-        WHERE creation_time {interval};
-    """
-
-    result = db.session.execute(text(select_query))
-    rows = result.fetchall()
-
-    if not rows:
-        print("No mission data to migrate.")
-        return []
-
-    csv_buffer = StringIO()
-    csv_writer = csv.writer(csv_buffer)
-
-    migrated_mission_ids = []
-    for row in rows:
-        row_as_list = list(row)
-        migrated_mission_ids.append(row_as_list[0])
-
-        if isinstance(row_as_list[-1], dict):
-            row_as_list[-1] = json.dumps(row_as_list[-1])
-
-        csv_writer.writerow(row_as_list)
-
-    csv_buffer.seek(0)
-
-    try:
-        cursor.copy_expert(
-            """
-            COPY mission_anonymized (
-                id,
-                name,
-                submitter_id,
-                company_id,
-                vehicle_id,
-                creation_time,
-                reception_time,
-                context
-            )
-            FROM STDIN WITH (FORMAT CSV)
-            """,
-            csv_buffer,
-        )
-
-        print("Anonymized mission migration successful.")
-        return migrated_mission_ids
+        if test_mode:
+            logger.info("Test mode: rolling back all changes")
+            transaction.rollback()
+        else:
+            logger.info("Committing changes...")
+            transaction.commit()
 
     except Exception as e:
-        connection.rollback()
-        print(f"Error when copying mission data: {e}")
+        logger.error(f"Error during anonymization: {e}")
+        transaction.rollback()
         raise
 
-    finally:
-        csv_buffer.close()
 
+class TableAnonymizer:
+    def __init__(self, db_session):
+        self.db = db_session
 
-def migrate_anonymized_activity(
-    migrated_mission_ids: list, connection, cursor
-):
-    if not migrated_mission_ids:
-        print("No mission data to migrate activities for.")
-        return []
-
-    # TO DO : garder l'intervalle de temps entre activité pour les stats
-    select_query = """
-        SELECT 
-            id,
-            type,
-            NULL AS user_id,
-            NULL AS submitter_id,
-            mission_id,
-            NULL AS dismiss_author_id,
-            date_trunc('month', dismissed_at) AS dismissed_at,
-            date_trunc('month', creation_time) AS creation_time,
-            date_trunc('month', reception_time) AS reception_time,
-            date_trunc('month', start_time) AS start_time,
-            date_trunc('month', end_time) AS end_time,
-            date_trunc('month', last_update_time) AS last_update_time,
-            NULL AS last_submitter_id,
-            dismiss_context::jsonb AS dismiss_context
-        FROM activity
-        WHERE mission_id = ANY(:mission_ids);
-    """
-
-    result = db.session.execute(
-        text(select_query), {"mission_ids": migrated_mission_ids}
-    )
-    rows = result.fetchall()
-
-    if not rows:
-        print("No activity data to migrate.")
-        return []
-
-    csv_buffer = StringIO()
-    csv_writer = csv.writer(csv_buffer)
-
-    migrated_activity_ids = []
-    for row in rows:
-        row_as_list = list(row)
-        migrated_activity_ids.append(row_as_list[0])
-
-        if isinstance(row_as_list[-1], dict):
-            row_as_list[-1] = json.dumps(row_as_list[-1])
-
-        csv_writer.writerow(row_as_list)
-
-    csv_buffer.seek(0)
-
-    try:
-        cursor.copy_expert(
-            """
-            COPY activity_anonymized (
-                id,
-                type,
-                user_id,
-                submitter_id,
-                mission_id,
-                dismiss_author_id,
-                dismissed_at,
-                creation_time,
-                reception_time,
-                start_time,
-                end_time,
-                last_update_time,
-                last_submitter_id,
-                dismiss_context
-            )
-            FROM STDIN WITH (FORMAT CSV)
-            """,
-            csv_buffer,
-        )
-
-        print("Anonymized activity migration successful.")
-        return migrated_activity_ids
-
-    except Exception as e:
-        connection.rollback()
-        print(f"Error when copying activity data: {e}")
-        raise
-
-    finally:
-        csv_buffer.close()
-
-
-def migrate_anonymized_activity_version(
-    migrated_activity_ids: list, connection, cursor
-):
-    if not migrated_activity_ids:
-        print("No activity data to migrate versions for.")
-        return
-
-    select_query = """
-        SELECT 
-            id,
-            activity_id,
-            version_number,
-            NULL AS submitter_id,
-            date_trunc('month', creation_time) AS creation_time,
-            date_trunc('month', reception_time) AS reception_time,
-            date_trunc('month', start_time) AS start_time,
-            date_trunc('month', end_time) AS end_time,
-            context::jsonb AS context
-        FROM activity_version
-        WHERE activity_id = ANY(:activity_ids);
-    """
-
-    result = db.session.execute(
-        text(select_query), {"activity_ids": migrated_activity_ids}
-    )
-    rows = result.fetchall()
-
-    if not rows:
-        print("No activity version data to migrate.")
-        return
-
-    csv_buffer = StringIO()
-    csv_writer = csv.writer(csv_buffer)
-
-    for row in rows:
-        row_as_list = list(row)
-
-        if isinstance(row_as_list[-1], dict):
-            row_as_list[-1] = json.dumps(row_as_list[-1])
-
-        csv_writer.writerow(row_as_list)
-
-    csv_buffer.seek(0)
-
-    try:
-        cursor.copy_expert(
-            """
-            COPY activity_version_anonymized (
-                id,
-                activity_id,
-                version_number,
-                submitter_id,
-                creation_time,
-                reception_time,
-                start_time,
-                end_time,
-                context
-            )
-            FROM STDIN WITH (FORMAT CSV)
-            """,
-            csv_buffer,
-        )
-
-        print("Anonymized activity version migration successful.")
-
-    except Exception as e:
-        connection.rollback()
-        print(f"Error when copying activity version data: {e}")
-        raise
-
-    finally:
-        csv_buffer.close()
-
-
-def migrate_anonymized_expenditure(
-    migrated_mission_ids: list, connection, cursor
-):
-    if not migrated_mission_ids:
-        print("No expenditure data to migrate versions for.")
-        return
-
-    select_query = """
-        SELECT 
-            id,
-            mission_id,
-            type,
-            NULL AS user_id,
-            NULL AS submitter_id,
-            NULL AS dismiss_author_id,
-            date_trunc('month', creation_time) AS creation_time,
-            date_trunc('month', reception_time) AS reception_time,
-            date_trunc('month', dismissed_at) AS dismissed_at,
-            date_trunc('month', spending_date) AS spending__date,
-            dismiss_context::jsonb AS dismiss_context
-        FROM expenditure
-        WHERE mission_id = ANY(:mission_ids);
-    """
-
-    result = db.session.execute(
-        text(select_query), {"mission_ids": migrated_mission_ids}
-    )
-    rows = result.fetchall()
-
-    if not rows:
-        print("No expenditure data to migrate.")
-        return
-
-    csv_buffer = StringIO()
-    csv_writer = csv.writer(csv_buffer)
-
-    for row in rows:
-        row_as_list = list(row)
-
-        if isinstance(row_as_list[-1], dict):
-            row_as_list[-1] = json.dumps(row_as_list[-1])
-
-        csv_writer.writerow(row_as_list)
-
-    csv_buffer.seek(0)
-
-    try:
-        cursor.copy_expert(
-            """
-            COPY expenditure_anonymized (
-                id,
-                mission_d,
-                type,
-                user_id,
-                submitter_id,
-                dismiss_author_id,
-                creation_time,
-                reception_time,
-                dismissed_at,
-                spending__date,
-                dismiss_context
-            )
-            FROM STDIN WITH (FORMAT CSV)
-            """,
-            csv_buffer,
-        )
-
-        print("Anonymized expenditure migration successful.")
-
-    except Exception as e:
-        connection.rollback()
-        print(f"Error when copying expenditure data: {e}")
-        raise
-
-    finally:
-        csv_buffer.close()
-
-
-def delete_original_data(
-    migrated_mission_ids, migrated_activity_ids, connection
-):
-    try:
-        delete_activity_version_query = """
-            DELETE FROM activity_version WHERE activity_id = ANY(:activity_ids);
+    def anonymize_activities_for_missions(self, mission_ids: List[int]):
         """
-        db.session.execute(
-            text(delete_activity_version_query),
-            {"activity_ids": migrated_activity_ids},
-        )
-
-        delete_activity_query = """
-            DELETE FROM activity WHERE mission_id = ANY(:mission_ids);
+        Anonymize all activities linked to specified missions, regardless of their creation date
+        to maintain data consistency
         """
-        db.session.execute(
-            text(delete_activity_query), {"mission_ids": migrated_mission_ids}
+        activities = Activity.query.filter(
+            Activity.mission_id.in_(mission_ids)
+        ).all()
+
+        if not activities:
+            logger.info("No activities found for these missions")
+            return
+
+        logger.info(
+            f"Found {len(activities)} activities linked to missions to anonymize"
+        )
+        activity_ids = [a.id for a in activities]
+
+        activity_versions = ActivityVersion.query.filter(
+            ActivityVersion.activity_id.in_(activity_ids)
+        ).all()
+
+        logger.info(
+            f"Found {len(activity_versions)} activity versions to anonymize"
         )
 
-        delete_mission_query = """
-            DELETE FROM mission WHERE id = ANY(:ids);
+        for activity_version in activity_versions:
+            anonymized = ActivityVersionAnonymized.anonymize(activity_version)
+            self.db.add(anonymized)
+
+        logger.info(
+            f"Deleting {len(activity_ids)} original activities_version"
+        )
+        ActivityVersion.query.filter(
+            ActivityVersion.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
+
+        logger.info("Processing activities...")
+        for activity in activities:
+            anonymized = ActivityAnonymized.anonymize(activity)
+            self.db.add(anonymized)
+
+        logger.info(f"Deleting {len(activity_ids)} original activities")
+        Activity.query.filter(Activity.id.in_(activity_ids)).delete(
+            synchronize_session=False
+        )
+
+    def anonymize_mission(self, cutoff_date: datetime) -> List[int]:
         """
-        db.session.execute(
-            text(delete_mission_query), {"ids": migrated_mission_ids}
-        )
+        Anonymize missions older than cutoff_date and all their related data
+        """
+        try:
+            missions_to_migrate = Mission.query.filter(
+                Mission.creation_time < cutoff_date
+            ).all()
 
-        print("Anonymized data deletion successful.")
+            if not missions_to_migrate:
+                logger.info("No missions to anonymize")
+                return []
 
-    except Exception as e:
-        connection.rollback()
-        print(f"Error during data deletion: {e}")
-        raise
+            logger.info(
+                f"Found {len(missions_to_migrate)} missions to anonymize"
+            )
+            mission_ids = [m.id for m in missions_to_migrate]
+
+            logger.info("Processing activities linked to missions...")
+            self.anonymize_activities_for_missions(mission_ids)
+
+            logger.info("Processing missions...")
+            for mission in missions_to_migrate:
+                anonymized = MissionAnonymized.anonymize(mission)
+                self.db.add(anonymized)
+
+            logger.info(f"Deleting {len(mission_ids)} original missions")
+            Mission.query.filter(Mission.id.in_(mission_ids)).delete(
+                synchronize_session=False
+            )
+
+            logger.info("Mission anonymization completed")
+            return mission_ids
+
+        except Exception as e:
+            logger.error(f"Error anonymizing missions: {e}")
+            raise

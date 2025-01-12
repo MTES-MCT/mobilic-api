@@ -1,19 +1,24 @@
-from app import db
-from app.models.mission import Mission
+from .base import AnonymizedModel
+from sqlalchemy import Column, Integer, DateTime
 
 
-class MissionAnonymized(Mission):
-    backref_base_name = "mission_anonymized"
-    __mapper_args__ = {"concrete": True}
+class MissionAnonymized(AnonymizedModel):
+    __tablename__ = "mission_anonymized"
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=True)
-    submitter_id = db.Column(db.Integer, nullable=True)
-    company_id = db.Column(db.Integer, nullable=True)
-    vehicle_id = db.Column(db.Integer, nullable=True)
-    creation_time = db.Column(db.DateTime, nullable=True)
-    reception_time = db.Column(db.DateTime, nullable=True)
-    context = db.Column(db.JSON, nullable=True)
+    id = Column(Integer, primary_key=True)
+    submitter_id = Column(Integer, nullable=True)
+    company_id = Column(Integer, nullable=True)
+    creation_time = Column(DateTime, nullable=True)
+    reception_time = Column(DateTime, nullable=True)
 
-    def __repr__(self):
-        return f"<MissionAnonymized(id={self.id}, name={self.name}, creation_time={self.creation_time})>"
+    @classmethod
+    def anonymize(cls, mission):
+        anonymized = cls()
+        anonymized.id = cls.get_new_id("mission", mission.id)
+        anonymized.submitter_id = cls.get_new_id("user", mission.submitter_id)
+        anonymized.company_id = cls.get_new_id("company", mission.company_id)
+        anonymized.creation_time = cls.truncate_to_month(mission.creation_time)
+        anonymized.reception_time = cls.truncate_to_month(
+            mission.reception_time
+        )
+        return anonymized

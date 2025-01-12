@@ -1,20 +1,34 @@
-from app import db
-from app.models.activity_version import ActivityVersion
+from .base import AnonymizedModel
+from sqlalchemy import Column, Integer, DateTime, JSON
 
 
-class ActivityVersionAnonymized(ActivityVersion):
-    backref_base_name = "activity_version_anonymized"
-    __mapper_args__ = {"concrete": True}
+class ActivityVersionAnonymized(AnonymizedModel):
+    __tablename__ = "activity_version_anonymized"
 
-    id = db.Column(db.Integer, primary_key=True)
-    activity_id = db.Column(db.Integer, nullable=True)
-    version_number = db.Column(db.Integer, nullable=True)
-    submitter_id = db.Column(db.Integer, nullable=True)
-    creation_time = db.Column(db.DateTime, nullable=True)
-    reception_time = db.Column(db.DateTime, nullable=True)
-    start_time = db.Column(db.DateTime, nullable=True)
-    end_time = db.Column(db.DateTime, nullable=True)
-    context = db.Column(db.JSON, nullable=True)
+    id = Column(Integer, primary_key=True)
+    activity_id = Column(Integer, nullable=True)
+    version_number = Column(Integer, nullable=True)
+    submitter_id = Column(Integer, nullable=True)
+    creation_time = Column(DateTime, nullable=True)
+    reception_time = Column(DateTime, nullable=True)
+    start_time = Column(DateTime, nullable=True)
+    end_time = Column(DateTime, nullable=True)
+    context = Column(JSON, nullable=True)
 
-    def __repr__(self):
-        return f"<ActivityVersionAnonymized(id={self.id}, activity_id={self.activity_id}, version_number={self.version_number})>"
+    @classmethod
+    def anonymize(cls, version):
+        anonymized = cls()
+        anonymized.id = cls.get_new_id("activity_version", version.id)
+        anonymized.activity_id = cls.get_new_id(
+            "activity", version.activity_id
+        )
+        anonymized.version_number = version.version_number
+        anonymized.submitter_id = cls.get_new_id("user", version.submitter_id)
+        anonymized.creation_time = cls.truncate_to_month(version.creation_time)
+        anonymized.reception_time = cls.truncate_to_month(
+            version.reception_time
+        )
+        anonymized.start_time = cls.truncate_to_month(version.start_time)
+        anonymized.end_time = cls.truncate_to_month(version.end_time)
+        anonymized.context = None
+        return anonymized
