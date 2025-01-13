@@ -1,5 +1,3 @@
-import datetime
-
 import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
@@ -29,6 +27,7 @@ from app.models.regulation_check import RegulationCheckType
 # TODO refactor sanction code in regulations_per_day and here for consistency
 check_type_by_sanction = {
     "NATINF 23103": RegulationCheckType.NO_LIC,
+    "NATINF 25666": RegulationCheckType.NO_LIC,
     "NATINF 11292": RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
     "NATINF 20525": RegulationCheckType.MINIMUM_DAILY_REST,
     "NATINF 32083": RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
