@@ -1,15 +1,15 @@
+from app import db
 from .base import AnonymizedModel
-from sqlalchemy import Column, Integer, DateTime
 
 
 class MissionAnonymized(AnonymizedModel):
     __tablename__ = "mission_anonymized"
 
-    id = Column(Integer, primary_key=True)
-    submitter_id = Column(Integer, nullable=True)
-    company_id = Column(Integer, nullable=True)
-    creation_time = Column(DateTime, nullable=True)
-    reception_time = Column(DateTime, nullable=True)
+    id = db.Column(db.Integer, primary_key=True)
+    creation_time = db.Column(db.DateTime, nullable=False)
+    reception_time = db.Column(db.DateTime, nullable=False)
+    submitter_id = db.Column(db.Integer, nullable=False)
+    company_id = db.Column(db.Integer, nullable=False)
 
     @classmethod
     def anonymize(cls, mission):
@@ -21,4 +21,5 @@ class MissionAnonymized(AnonymizedModel):
         anonymized.reception_time = cls.truncate_to_month(
             mission.reception_time
         )
+
         return anonymized

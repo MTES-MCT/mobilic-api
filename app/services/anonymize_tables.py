@@ -1,52 +1,79 @@
-from app import db
+from app import app, db
 from typing import List
-from datetime import datetime, timedelta
-from app.models import Activity, ActivityVersion, Mission
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from app.models import (
+    Activity,
+    ActivityVersion,
+    Mission,
+    Company,
+    MissionEnd,
+    MissionValidation,
+    LocationEntry,
+    Expenditure,
+)
 from app.models.anonymized import (
+    IdMapping,
     ActivityAnonymized,
     ActivityVersionAnonymized,
     MissionAnonymized,
-    IdMapping,
+    MissionEndAnonymized,
+    MissionValidationAnonymized,
+    LocationEntryAnonymized,
+    # CompanyAnonymized
 )
-from app.services.table_dependency_manager import TableDependencyManager
+
+# from app.services.table_dependency_manager import TableDependencyManager
 import logging
 
 logger = logging.getLogger(__name__)
+
+""" priority order and dependancies with mission as reference point
+mission
+  ├─ activity
+  │   └─ activity_version
+  ├─ mission_end
+  ├─ mission_validation
+  ├─ location_entry
+  │   ├─ address
+  │   └─ company_known_address
+  |- expenditure => no need to anonymize, only delete
+  └─ company => todo
+      ├─ company_certification => todo
+      ├─ company_stats => todo
+      └─ business => todo
+"""
+
+years = app.config["NUMBER_OF_YEAR_TO_SUBSTRACT_FOR_ANONYMISATION"]
 
 
 def migrate_anonymized_data(verbose=False, test_mode=False):
     if verbose:
         logger.setLevel(logging.DEBUG)
 
-    dependency_manager = TableDependencyManager(db.session)
     anonymizer = TableAnonymizer(db.session)
 
     transaction = db.session.begin_nested()
     try:
-        logger.info("Clearing ID mapping table...")
         IdMapping.query.delete()
+        cutoff_date = datetime.now() - relativedelta(years=years)
 
-        cutoff_date = datetime.now() - timedelta(days=365)
-        logger.info(f"Processing data older than: {cutoff_date}")
+        mission_ids = anonymizer.get_missions_to_anonymize(cutoff_date)
+        if not mission_ids:
+            logger.info("No missions to anonymize")
+            return
 
-        anonymization_order = dependency_manager.get_anonymization_order()
+        # Process all dependencies
+        anonymizer.process_activities(mission_ids)
+        anonymizer.process_mission_ends(mission_ids)
+        anonymizer.process_mission_validations(mission_ids)
+        anonymizer.process_location_entries(mission_ids)
+        anonymizer.delete_expenditures(mission_ids)
 
-        for level_tables in anonymization_order:
-            for table_name in level_tables:
-                logger.info(f"Anonymizing table: {table_name}")
-
-                if table_name == "mission":
-                    anonymizer.anonymize_mission(cutoff_date)
-                elif table_name == "activity":
-                    anonymizer.anonymize_activities_for_missions([])
-                elif table_name == "activity_version":
-                    pass
-
-        logger.info("Cleaning up ID mapping table...")
-        IdMapping.query.delete()
+        anonymizer.process_missions(mission_ids)
 
         if test_mode:
-            logger.info("Test mode: rolling back all changes")
+            logger.info("Test mode: rolling back changes")
             transaction.rollback()
         else:
             logger.info("Committing changes...")
@@ -61,88 +88,144 @@ def migrate_anonymized_data(verbose=False, test_mode=False):
 class TableAnonymizer:
     def __init__(self, db_session):
         self.db = db_session
+        self.processed_ids = {}
 
-    def anonymize_activities_for_missions(self, mission_ids: List[int]):
-        """
-        Anonymize all activities linked to specified missions, regardless of their creation date
-        to maintain data consistency
-        """
+    def get_missions_to_anonymize(self, cutoff_date: datetime) -> List[int]:
+        """Get missions to anonymize based on cutoff date"""
+        missions = Mission.query.filter(
+            Mission.creation_time < cutoff_date
+        ).all()
+
+        if not missions:
+            return []
+
+        mission_ids = [m.id for m in missions]
+        logger.info(f"Found {len(mission_ids)} missions to anonymize")
+        return mission_ids
+
+    def process_activities(self, mission_ids: List[int]) -> List[int]:
+        """Process activities and their versions"""
         activities = Activity.query.filter(
             Activity.mission_id.in_(mission_ids)
         ).all()
 
         if not activities:
             logger.info("No activities found for these missions")
-            return
+            return []
 
-        logger.info(
-            f"Found {len(activities)} activities linked to missions to anonymize"
-        )
         activity_ids = [a.id for a in activities]
 
-        activity_versions = ActivityVersion.query.filter(
-            ActivityVersion.activity_id.in_(activity_ids)
-        ).all()
+        # Process activity versions first
+        self.process_activity_versions(activity_ids)
 
-        logger.info(
-            f"Found {len(activity_versions)} activity versions to anonymize"
-        )
-
-        for activity_version in activity_versions:
-            anonymized = ActivityVersionAnonymized.anonymize(activity_version)
-            self.db.add(anonymized)
-
-        logger.info(
-            f"Deleting {len(activity_ids)} original activities_version"
-        )
-        ActivityVersion.query.filter(
-            ActivityVersion.activity_id.in_(activity_ids)
-        ).delete(synchronize_session=False)
-
-        logger.info("Processing activities...")
+        logger.info(f"Processing {len(activities)} activities...")
         for activity in activities:
             anonymized = ActivityAnonymized.anonymize(activity)
             self.db.add(anonymized)
 
-        logger.info(f"Deleting {len(activity_ids)} original activities")
         Activity.query.filter(Activity.id.in_(activity_ids)).delete(
             synchronize_session=False
         )
 
-    def anonymize_mission(self, cutoff_date: datetime) -> List[int]:
-        """
-        Anonymize missions older than cutoff_date and all their related data
-        """
-        try:
-            missions_to_migrate = Mission.query.filter(
-                Mission.creation_time < cutoff_date
-            ).all()
+        return activity_ids
 
-            if not missions_to_migrate:
-                logger.info("No missions to anonymize")
-                return []
+    def process_activity_versions(self, activity_ids: List[int]):
+        """Process activity versions for given activities"""
+        activity_versions = ActivityVersion.query.filter(
+            ActivityVersion.activity_id.in_(activity_ids)
+        ).all()
 
-            logger.info(
-                f"Found {len(missions_to_migrate)} missions to anonymize"
-            )
-            mission_ids = [m.id for m in missions_to_migrate]
+        if not activity_versions:
+            logger.info("No activity versions found")
+            return
 
-            logger.info("Processing activities linked to missions...")
-            self.anonymize_activities_for_missions(mission_ids)
+        logger.info(
+            f"Processing {len(activity_versions)} activity versions..."
+        )
 
-            logger.info("Processing missions...")
-            for mission in missions_to_migrate:
-                anonymized = MissionAnonymized.anonymize(mission)
-                self.db.add(anonymized)
+        for version in activity_versions:
+            anonymized = ActivityVersionAnonymized.anonymize(version)
+            self.db.add(anonymized)
 
-            logger.info(f"Deleting {len(mission_ids)} original missions")
-            Mission.query.filter(Mission.id.in_(mission_ids)).delete(
-                synchronize_session=False
-            )
+        ActivityVersion.query.filter(
+            ActivityVersion.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
 
-            logger.info("Mission anonymization completed")
-            return mission_ids
+    def process_mission_ends(self, mission_ids: List[int]):
+        """Process mission ends"""
+        mission_ends = MissionEnd.query.filter(
+            MissionEnd.mission_id.in_(mission_ids)
+        ).all()
 
-        except Exception as e:
-            logger.error(f"Error anonymizing missions: {e}")
-            raise
+        if not mission_ends:
+            logger.info("No mission ends found")
+            return
+
+        logger.info(f"Processing {len(mission_ends)} mission ends...")
+        for mission_end in mission_ends:
+            anonymized = MissionEndAnonymized.anonymize(mission_end)
+            self.db.add(anonymized)
+
+        MissionEnd.query.filter(MissionEnd.mission_id.in_(mission_ids)).delete(
+            synchronize_session=False
+        )
+
+    def process_mission_validations(self, mission_ids: List[int]):
+        """Process mission validations"""
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id.in_(mission_ids)
+        ).all()
+
+        if not validations:
+            logger.info("No mission validations found")
+            return
+
+        logger.info(f"Processing {len(validations)} mission validations...")
+        for validation in validations:
+            anonymized = MissionValidationAnonymized.anonymize(validation)
+            self.db.add(anonymized)
+
+        MissionValidation.query.filter(
+            MissionValidation.mission_id.in_(mission_ids)
+        ).delete(synchronize_session=False)
+
+    def process_location_entries(self, mission_ids: List[int]):
+        """Process location entries"""
+        entries = LocationEntry.query.filter(
+            LocationEntry.mission_id.in_(mission_ids)
+        ).all()
+
+        if not entries:
+            logger.info("No location entries found")
+            return
+
+        logger.info(f"Processing {len(entries)} location entries...")
+        for entry in entries:
+            anonymized = LocationEntryAnonymized.anonymize(entry)
+            self.db.add(anonymized)
+
+        LocationEntry.query.filter(
+            LocationEntry.mission_id.in_(mission_ids)
+        ).delete(synchronize_session=False)
+
+    def delete_expenditures(self, mission_ids: List[int]):
+        """Delete expenditures"""
+        deleted = Expenditure.query.filter(
+            Expenditure.mission_id.in_(mission_ids)
+        ).delete(synchronize_session=False)
+
+        if deleted:
+            logger.info(f"Deleted {deleted} expenditures")
+
+    def process_missions(self, mission_ids: List[int]):
+        """Process missions after all dependencies are handled"""
+        missions = Mission.query.filter(Mission.id.in_(mission_ids)).all()
+
+        logger.info(f"Processing {len(missions)} missions...")
+        for mission in missions:
+            anonymized = MissionAnonymized.anonymize(mission)
+            self.db.add(anonymized)
+
+        Mission.query.filter(Mission.id.in_(mission_ids)).delete(
+            synchronize_session=False
+        )

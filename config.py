@@ -116,6 +116,9 @@ class Config:
         if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
         else datetime(2024, 12, 30)
     )
+    NUMBER_OF_YEAR_TO_SUBSTRACT_FOR_ANONYMISATION = os.environ.get(
+        "NUMBER_OF_YEAR_TO_SUBSTRACT_FOR_ANONYMISATION", 1
+    )
 
 
 class DevConfig(Config):
