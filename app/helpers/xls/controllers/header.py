@@ -1,4 +1,5 @@
 from app.domain.regulations import get_default_business
+from app.models import Business
 from app.models.controller_control import ControlType
 from app.templates.filters import MONTHS
 
@@ -47,14 +48,29 @@ def write_header(wb, sheet, control):
         )
     )
 
-    business_id = control.control_bulletin.get("business_id", None)
-    business = get_default_business(business_id=business_id)
-    items.append(
-        (
-            "Type d'activité",
-            f"{business.transport_type} - {business.business_type}",
+    if is_control_mobilic:
+        business_ids = list(
+            control.control_bulletin.get("employments_business_types").values()
         )
-    )
+        businesses = Business.query.filter(Business.id.in_(business_ids)).all()
+        businesses_str = ", ".join(
+            [f"{b.transport_type} - {b.business_type}" for b in businesses]
+        )
+        items.append(
+            (
+                "Type(s) d’activité",
+                businesses_str,
+            )
+        )
+    else:
+        business_id = control.control_bulletin.get("business_id", None)
+        business = get_default_business(business_id=business_id)
+        items.append(
+            (
+                "Type d’activité",
+                f"{business.transport_type} - {business.business_type}",
+            )
+        )
 
     if is_control_mobilic:
         max_date = control.history_end_date
