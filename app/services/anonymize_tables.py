@@ -11,6 +11,8 @@ from app.models import (
     MissionValidation,
     LocationEntry,
     Expenditure,
+    Employment,
+    Email,
 )
 from app.models.anonymized import (
     IdMapping,
@@ -20,6 +22,8 @@ from app.models.anonymized import (
     MissionEndAnonymized,
     MissionValidationAnonymized,
     LocationEntryAnonymized,
+    EmploymentAnonymized,
+    EmailAnonymized,
     # CompanyAnonymized
 )
 
@@ -28,20 +32,25 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-""" priority order and dependancies with mission as reference point
-mission
-  ├─ activity
-  │   └─ activity_version
-  ├─ mission_end
-  ├─ mission_validation
-  ├─ location_entry
-  │   ├─ address
-  │   └─ company_known_address
-  |- expenditure => no need to anonymize, only delete
-  └─ company => todo
-      ├─ company_certification => todo
-      ├─ company_stats => todo
-      └─ business => todo
+""" 
+priority order and dependancies with mission as reference point
+    mission
+      ├─ activity
+      │   └─ activity_version
+      ├─ mission_end
+      ├─ mission_validation
+      ├─ location_entry
+      │   ├─ address
+      │   └─ company_known_address
+      |- expenditure => no need to anonymize, only delete
+      └─ company => todo
+          ├─ company_certification => todo
+          ├─ company_stats => todo
+          └─ business => todo
+
+priority order and dependancies with memployement as reference point
+    employement => only get the one with end_date not null
+      └─ email
 """
 
 years = app.config["NUMBER_OF_YEAR_TO_SUBSTRACT_FOR_ANONYMISATION"]
@@ -59,18 +68,22 @@ def migrate_anonymized_data(verbose=False, test_mode=False):
         cutoff_date = datetime.now() - relativedelta(years=years)
 
         mission_ids = anonymizer.get_missions_to_anonymize(cutoff_date)
-        if not mission_ids:
+        if mission_ids:
+            anonymizer.process_activities(mission_ids)
+            anonymizer.process_mission_ends(mission_ids)
+            anonymizer.process_mission_validations(mission_ids)
+            anonymizer.process_location_entries(mission_ids)
+            anonymizer.delete_expenditures(mission_ids)
+            anonymizer.process_missions(mission_ids)
+        else:
             logger.info("No missions to anonymize")
-            return
 
-        # Process all dependencies
-        anonymizer.process_activities(mission_ids)
-        anonymizer.process_mission_ends(mission_ids)
-        anonymizer.process_mission_validations(mission_ids)
-        anonymizer.process_location_entries(mission_ids)
-        anonymizer.delete_expenditures(mission_ids)
-
-        anonymizer.process_missions(mission_ids)
+        employment_ids = anonymizer.get_employments_to_anonymize(cutoff_date)
+        if employment_ids:
+            anonymizer.process_emails(employment_ids)
+            anonymizer.process_employments(employment_ids)
+        else:
+            logger.info("No employments to anonymize")
 
         if test_mode:
             logger.info("Test mode: rolling back changes")
@@ -227,5 +240,57 @@ class TableAnonymizer:
             self.db.add(anonymized)
 
         Mission.query.filter(Mission.id.in_(mission_ids)).delete(
+            synchronize_session=False
+        )
+
+    def get_employments_to_anonymize(self, cutoff_date: datetime) -> List[int]:
+        """Get employments to anonymize based on cutoff date and ended status"""
+        employments = Employment.query.filter(
+            Employment.creation_time < cutoff_date,
+            Employment.end_date.isnot(None),
+        ).all()
+
+        if not employments:
+            return []
+
+        employment_ids = [e.id for e in employments]
+        logger.info(f"Found {len(employment_ids)} employments to anonymize")
+        return employment_ids
+
+    def process_employments(self, employment_ids: List[int]):
+        """Process employments"""
+        employments = Employment.query.filter(
+            Employment.id.in_(employment_ids)
+        ).all()
+
+        if not employments:
+            logger.info("No employments found")
+            return
+
+        logger.info(f"Processing {len(employments)} employments...")
+        for employment in employments:
+            anonymized = EmploymentAnonymized.anonymize(employment)
+            self.db.add(anonymized)
+
+        Employment.query.filter(Employment.id.in_(employment_ids)).delete(
+            synchronize_session=False
+        )
+
+    def process_emails(self, employment_ids: List[int]):
+        """Process emails linked to employments"""
+        emails = Email.query.filter(
+            Email.employment_id.in_(employment_ids)
+        ).all()
+
+        if not emails:
+            logger.info("No emails found")
+            return
+
+        logger.info(f"Processing {len(emails)} emails...")
+        for email in emails:
+            anonymized = EmailAnonymized.anonymize(email)
+            self.db.add(anonymized)
+
+        Email.query.filter(Email.employment_id.in_(employment_ids)).delete(
             synchronize_session=False
         )

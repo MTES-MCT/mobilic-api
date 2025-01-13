@@ -119,6 +119,30 @@ def upgrade():
         sa.Column("company_known_address_id", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_table(
+        "employment_anonymized",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("validation_time", sa.DateTime(), nullable=True),
+        sa.Column("start_date", sa.Date(), nullable=False),
+        sa.Column("end_date", sa.Date(), nullable=True),
+        sa.Column("company_id", sa.Integer(), nullable=False),
+        sa.Column("has_admin_rights", sa.Boolean(), nullable=True),
+        sa.Column("user_id", sa.Integer(), nullable=True),
+        sa.Column("submitter_id", sa.Integer(), nullable=False),
+        sa.Column("team_id", sa.Integer(), nullable=True),
+        sa.Column("business_id", sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "email_anonymized",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("type", sa.String(34), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=True),
+        sa.Column("employment_id", sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+    )
 
 
 def downgrade():
@@ -130,3 +154,5 @@ def downgrade():
     op.drop_table("mission_end_anonymized")
     op.drop_table("mission_validation_anonymized")
     op.drop_table("location_entry_anonymized")
+    op.drop_table("employement_anonymized")
+    op.drop_table("email_anonymized")

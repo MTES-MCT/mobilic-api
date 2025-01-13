@@ -5,6 +5,8 @@ from .activity_version import ActivityVersionAnonymized
 from .mission_validation import MissionValidationAnonymized
 from .mission_end import MissionEndAnonymized
 from .location_entry import LocationEntryAnonymized
+from .employement import EmploymentAnonymized
+from .email import EmailAnonymized
 
 # from .adress import AdressAnonymized
 # from .company_known_address import CompanyKnownAdressAnonymized

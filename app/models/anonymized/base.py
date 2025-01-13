@@ -30,6 +30,8 @@ class AnonymizedModel(db.Model):
 
     @staticmethod
     def truncate_to_month(date):
-        if date is None:
-            return None
-        return date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if hasattr(date, "hour"):
+            return date.replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )
+        return date.replace(day=1)
