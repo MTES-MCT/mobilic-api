@@ -27,6 +27,9 @@ def write_header(wb, sheet, control):
     )
     items.append(("Nom du salarié", control_user_name))
 
+    if control.user:
+        items.append(("Identifiant du salarié", f"{control.user.id}"))
+
     items.append(
         (
             "Entreprise au moment du contrôle"
@@ -43,9 +46,6 @@ def write_header(wb, sheet, control):
             control.vehicle_registration_number,
         )
     )
-
-    if control.user:
-        items.append(("Identifiant du salarié", f"{control.user.id}"))
 
     business_id = control.control_bulletin.get("business_id", None)
     business = get_default_business(business_id=business_id)
