@@ -8,9 +8,9 @@ def get_no_lic_observed_infractions(control_date, business_id):
 
     return [
         {
-            "sanction": "NATINF 23103"
-            if business.transport_type == TransportType.TRM
-            else "NATINF 25666",
+            "sanction": "NATINF 25666"
+            if business.transport_type == TransportType.TRV
+            else "NATINF 23103",
             "date": control_date.isoformat(),
             "is_reportable": True,
             "is_reported": True,
