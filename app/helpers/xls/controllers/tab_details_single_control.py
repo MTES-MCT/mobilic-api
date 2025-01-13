@@ -1,5 +1,4 @@
-from datetime import datetime
-
+from app.domain.business import get_businesses_display_name
 from app.helpers.xls.common import (
     write_tab_headers,
     write_cells,
@@ -28,6 +27,7 @@ COLUMNS_ALL = [
     *COLUMNS_MISSION,
     *COLUMNS_EVENT,
     COLUMN_INFRACTIONS_FOR_DAY,
+    COLUMN_INFRACTIONS_BUSINESS_TYPES,
 ]
 
 
@@ -43,18 +43,23 @@ def write_details_sheet(wb, control, work_days_data):
     recap_start_row = row_idx
 
     for wday in sorted(work_days_data, key=lambda wd: wd.day):
-        infractions_for_day = [
-            infraction
-            for infraction in control.reported_infractions
-            if datetime.strptime(infraction.get("date"), "%Y-%m-%d").date()
-            == wday.day
-        ]
+        infractions_for_day = control.get_reported_infractions_for_day(
+            day=wday.day
+        )
         if len(infractions_for_day) == 0:
             text_infractions = "Pas d'infraction retenue"
+            infractions_business_types = ""
         else:
             text_infractions = ",\n".join(
                 [i.get("sanction", "") for i in infractions_for_day]
             )
+            infractions_business_ids = [
+                inf.get("business_id") for inf in infractions_for_day
+            ]
+            infractions_business_types = get_businesses_display_name(
+                business_ids=infractions_business_ids
+            )
+
         workday_starting_row_idx = row_idx
         for mission in sorted(
             wday.missions, key=lambda mission: mission.creation_time
@@ -120,6 +125,15 @@ def write_details_sheet(wb, control, work_days_data):
                 row_idx,
                 col_idx,
                 text_infractions,
+                formats.get("merged_center"),
+            )
+            merge_cells_if_needed(
+                wb,
+                sheet,
+                mission_starting_row_idx,
+                row_idx,
+                col_idx + 1,
+                infractions_business_types,
                 formats.get("merged_center"),
             )
             merge_cells_if_needed(

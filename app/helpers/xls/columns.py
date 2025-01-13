@@ -397,6 +397,13 @@ COLUMN_INFRACTIONS_FOR_DAY = ExcelColumn(
     60,
     very_light_red_hex,
 )
+COLUMN_INFRACTIONS_BUSINESS_TYPES = ExcelColumn(
+    "Type d'activité lié aux infractions",
+    lambda wday: wday.infractions_business_types,
+    lambda _: "center",
+    60,
+    very_light_red_hex,
+)
 
 
 def format_kilometer_reading(location, wday):

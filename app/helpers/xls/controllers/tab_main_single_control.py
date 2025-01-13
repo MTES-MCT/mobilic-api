@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.domain.business import get_businesses_display_name
 from app.helpers.time import is_sunday_or_bank_holiday
 from app.helpers.xls.common import (
     write_tab_headers,
@@ -41,6 +42,7 @@ COLUMNS_MAIN = [
     COLUMN_OFF_REASONS,
     COLUMN_OBSERVATIONS,
     COLUMN_NB_INFRACTIONS,
+    COLUMN_INFRACTIONS_BUSINESS_TYPES,
 ]
 
 COLUMNS_LIC_PAPIER = [
@@ -78,17 +80,20 @@ def _write_main_sheet_mobilic(wb, sheet, row_idx, work_days_data, control):
     has_one_day_off = False
     if work_days_data:
         for wday in sorted(work_days_data, key=lambda wd: wd.day):
-            nb_infractions_for_day = len(
-                [
-                    infraction
-                    for infraction in control.reported_infractions
-                    if datetime.strptime(
-                        infraction.get("date"), "%Y-%m-%d"
-                    ).date()
-                    == wday.day
-                ]
+            infractions_for_day = control.get_reported_infractions_for_day(
+                day=wday.day
             )
+            nb_infractions_for_day = len(infractions_for_day)
             wday.nb_infractions_for_day = nb_infractions_for_day
+
+            infractions_business_ids = [
+                inf.get("business_id") for inf in infractions_for_day
+            ]
+            infractions_business_types = get_businesses_display_name(
+                business_ids=infractions_business_ids
+            )
+            wday.infractions_business_types = infractions_business_types
+
             is_day_off = all([m.is_holiday() for m in wday.missions])
             is_sunday_or_bank_holiday_ = is_sunday_or_bank_holiday(wday.day)
             bg_color = None

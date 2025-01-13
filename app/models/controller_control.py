@@ -109,6 +109,16 @@ class ControllerControl(BaseModel, RandomNineIntId):
             if infraction.get("is_reported", False)
         ]
 
+    def get_reported_infractions_for_day(self, day):
+        return [
+            infraction
+            for infraction in self.reported_infractions
+            if datetime.datetime.strptime(
+                infraction.get("date"), "%Y-%m-%d"
+            ).date()
+            == day
+        ]
+
     @property
     def reported_infractions_labels(self):
         check_types = list(

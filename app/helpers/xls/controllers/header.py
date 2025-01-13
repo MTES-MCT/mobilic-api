@@ -1,5 +1,5 @@
+from app.domain.business import get_businesses_display_name
 from app.domain.regulations import get_default_business
-from app.models import Business
 from app.models.controller_control import ControlType
 from app.templates.filters import MONTHS
 
@@ -52,10 +52,7 @@ def write_header(wb, sheet, control):
         business_ids = list(
             control.control_bulletin.get("employments_business_types").values()
         )
-        businesses = Business.query.filter(Business.id.in_(business_ids)).all()
-        businesses_str = ", ".join(
-            [f"{b.transport_type} - {b.business_type}" for b in businesses]
-        )
+        businesses_str = get_businesses_display_name(business_ids=business_ids)
         items.append(
             (
                 "Type(s) d’activité",
@@ -68,7 +65,7 @@ def write_header(wb, sheet, control):
         items.append(
             (
                 "Type d’activité",
-                f"{business.transport_type} - {business.business_type}",
+                business.display_name,
             )
         )
 
