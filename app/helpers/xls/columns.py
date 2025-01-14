@@ -58,7 +58,7 @@ COLUMN_ENTREPRISE = ExcelColumn(
         set([m.company.name for m in wday.missions if m.company is not None])
     ),
     lambda _: "bold",
-    30,
+    35,
     light_grey_hex,
     False,
 )
@@ -324,7 +324,7 @@ COLUMN_NB_INFRACTIONS = ExcelColumn(
     "Nombre d'infractions retenues",
     lambda wday: wday.nb_infractions_for_day,
     lambda _: "center",
-    50,
+    40,
     very_light_red_hex,
     False,
 )
@@ -393,6 +393,13 @@ COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
 COLUMN_INFRACTIONS_FOR_DAY = ExcelColumn(
     "Détail infractions retenues",
     None,
+    lambda _: "center",
+    60,
+    very_light_red_hex,
+)
+COLUMN_INFRACTIONS_BUSINESS_TYPES = ExcelColumn(
+    "Type d'activité lié aux infractions",
+    lambda wday: wday.infractions_business_types,
     lambda _: "center",
     60,
     very_light_red_hex,
