@@ -17,7 +17,7 @@ def write_header(wb, sheet, control):
     items = [
         (
             "Contrôle",
-            f"{control_date_time.strftime('%d')} {MONTHS[month_id - 1]} {control_date_time.strftime('%Y à %Hh%M')}",
+            f"{control_date_time.strftime('%d')} {MONTHS[month_id - 1].lower()} {control_date_time.strftime('%Y à %Hh%M')}",
         )
     ]
 
@@ -104,5 +104,4 @@ def write_header(wb, sheet, control):
 
     nb_rows_used = len(items) + 2
     sheet.freeze_panes(nb_rows_used + 1, 0)
-    sheet.set_column(0, 2, 20)
     return nb_rows_used
