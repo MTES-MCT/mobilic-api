@@ -171,7 +171,9 @@ def _write_main_sheet_mobilic_lic_papier(wb, sheet, row_idx, control):
             row_idx,
             _col_idx,
             _value,
-            wb.add_format({**{"align": "center"}, **_additional_format}),
+            wb.add_format(
+                {**{"align": "center", "border": 1}, **_additional_format}
+            ),
         )
 
     for infraction_date in sorted(infractions_by_date):
@@ -193,3 +195,5 @@ def _write_main_sheet_mobilic_lic_papier(wb, sheet, row_idx, control):
             ),
         )
         row_idx += 1
+
+    sheet.set_column(0, 0, 32)
