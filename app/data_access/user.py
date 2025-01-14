@@ -9,6 +9,7 @@ from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
 )
 from app.data_access.user_agreement import UserAgreementOutput
+from app.domain.gender import GENDER_DESCRIPTION
 from app.domain.mission import had_user_enough_break_last_mission
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
@@ -49,6 +50,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "creation_time",
             "first_name",
             "last_name",
+            "gender",
             "email",
             "phone_number",
             "has_confirmed_email",
@@ -66,6 +68,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     last_name = graphene.Field(
         graphene.String, required=True, description="Nom"
+    )
+    gender = graphene.Field(
+        graphene.String, required=False, description=GENDER_DESCRIPTION
     )
     birth_date = graphene.Field(
         graphene.String,
@@ -208,6 +213,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Indique si le salarié a pris suffisamment de pause lors de sa dernière mission validée.",
     )
+
+    def resolve_gender(self, info):
+        return self.gender.value if self.gender else None
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."
