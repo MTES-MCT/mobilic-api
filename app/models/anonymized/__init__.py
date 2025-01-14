@@ -7,6 +7,7 @@ from .mission_end import MissionEndAnonymized
 from .location_entry import LocationEntryAnonymized
 from .employement import EmploymentAnonymized
 from .email import EmailAnonymized
+from .user import UserAnonymized
 
 # from .adress import AdressAnonymized
 # from .company_known_address import CompanyKnownAdressAnonymized

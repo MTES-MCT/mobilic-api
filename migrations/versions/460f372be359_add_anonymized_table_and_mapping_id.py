@@ -6,6 +6,8 @@ Create Date: 2025-01-12 17:23:15.103538
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+from app.models.user import UserAccountStatus
 
 
 # revision identifiers, used by Alembic.
@@ -16,6 +18,30 @@ depends_on = None
 
 
 def upgrade():
+    op.create_table(
+        "temp_id_mapping",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("entity_type", sa.String(length=50), nullable=True),
+        sa.Column("original_id", sa.Integer(), nullable=True),
+        sa.Column("anonymized_id", sa.Integer(), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "entity_type", "original_id", name="uix_entity_original"
+        ),
+        sa.UniqueConstraint(
+            "entity_type", "anonymized_id", name="uix_entity_anonymized"
+        ),
+    )
+    op.execute(
+        """
+        CREATE SEQUENCE IF NOT EXISTS anonymized_id_seq
+        START WITH 1
+        INCREMENT BY 1
+        NO MINVALUE
+        NO MAXVALUE
+        CACHE 1;
+    """
+    )
     op.create_table(
         "activity_anonymized",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -51,21 +77,6 @@ def upgrade():
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-    )
-
-    op.create_table(
-        "temp_id_mapping",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("entity_type", sa.String(length=50), nullable=True),
-        sa.Column("original_id", sa.Integer(), nullable=True),
-        sa.Column("anonymized_id", sa.Integer(), nullable=True),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "entity_type", "original_id", name="uix_entity_original"
-        ),
-        sa.UniqueConstraint(
-            "entity_type", "anonymized_id", name="uix_entity_anonymized"
-        ),
     )
     op.create_table(
         "company_anonymized",
@@ -143,16 +154,56 @@ def upgrade():
         sa.Column("employment_id", sa.Integer(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_table(
+        "user_anonymized",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column(
+            "admin", sa.Boolean(), nullable=False, server_default="false"
+        ),
+        sa.Column(
+            "has_confirmed_email",
+            sa.Boolean(),
+            nullable=False,
+            server_default="false",
+        ),
+        sa.Column(
+            "has_activated_email",
+            sa.Boolean(),
+            nullable=False,
+            server_default="false",
+        ),
+        sa.Column("way_heard_of_mobilic", sa.String(255), nullable=True),
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                UserAccountStatus,
+                name="user_account_status",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="active",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "ix_user_anonymized_creation_time",
+        "user_anonymized",
+        ["creation_time"],
+    )
 
 
 def downgrade():
+    op.drop_table("temp_id_mapping")
+    op.execute("DROP SEQUENCE IF EXISTS anonymized_id_seq")
     op.drop_table("activity_version_anonymized")
     op.drop_table("activity_anonymized")
     op.drop_table("mission_anonymized")
-    op.drop_table("temp_id_mapping")
     op.drop_table("company_anonymized")
     op.drop_table("mission_end_anonymized")
     op.drop_table("mission_validation_anonymized")
     op.drop_table("location_entry_anonymized")
-    op.drop_table("employement_anonymized")
+    op.drop_table("employment_anonymized")
     op.drop_table("email_anonymized")
+    op.drop_index("ix_user_anonymized_creation_time")
+    op.drop_table("user_anonymized")

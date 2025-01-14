@@ -1,13 +1,12 @@
 from app import db
 from .id_mapping import IdMapping
-import uuid
 
 
 class AnonymizedModel(db.Model):
     __abstract__ = True
 
-    @staticmethod
-    def get_new_id(entity_type: str, old_id: int):
+    @classmethod
+    def get_new_id(cls, entity_type: str, old_id: int):
         if old_id is None:
             return None
 
@@ -15,18 +14,19 @@ class AnonymizedModel(db.Model):
             entity_type=entity_type, original_id=old_id
         ).first()
 
-        if mapping is None:
-            # Compute modulo with 2^31 to ensure the generated ID fits within PostgreSQL INTEGER range (-2^31 to 2^31-1)
-            new_id = uuid.uuid4().int % (2**31)
-            mapping = IdMapping(
-                entity_type=entity_type,
-                original_id=old_id,
-                anonymized_id=new_id,
-            )
-            db.session.add(mapping)
-            db.session.flush()
+        if mapping is not None:
+            return mapping.anonymized_id
 
-        return mapping.anonymized_id
+        result = db.session.execute("SELECT nextval('anonymized_id_seq')")
+        new_id = result.scalar()
+
+        mapping = IdMapping(
+            entity_type=entity_type, original_id=old_id, anonymized_id=new_id
+        )
+        db.session.add(mapping)
+        db.session.flush()
+
+        return new_id
 
     @staticmethod
     def truncate_to_month(date):
