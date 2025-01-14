@@ -13,6 +13,7 @@ from marshmallow import Schema, validates_schema, ValidationError
 
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.user import UserOutput
+from app.domain.gender import GENDER_DESCRIPTION, Gender
 from app.domain.permissions import (
     self_or_have_common_company,
     can_actor_read_mission,
@@ -267,6 +268,23 @@ class ChangeEmail(AuthenticatedMutation):
                 db.session.rollback()
                 app.logger.exception(e)
 
+        return current_user
+
+
+class ChangeGender(AuthenticatedMutation):
+    class Arguments:
+        gender = graphene.Argument(
+            graphene_enum_type(Gender),
+            required=True,
+            description=GENDER_DESCRIPTION,
+        )
+
+    Output = UserOutput
+
+    @classmethod
+    def mutate(cls, _, info, gender):
+        with atomic_transaction(commit_at_end=True):
+            current_user.gender = gender
         return current_user
 
 
