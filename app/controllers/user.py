@@ -89,6 +89,11 @@ class UserSignUp(graphene.Mutation):
         )
         first_name = graphene.String(required=True, description="Prénom")
         last_name = graphene.String(required=True, description="Nom")
+        gender = graphene.Argument(
+            graphene_enum_type(Gender),
+            required=True,
+            description=GENDER_DESCRIPTION,
+        )
         invite_token = graphene.String(
             required=False, description="Lien d'invitation"
         )
