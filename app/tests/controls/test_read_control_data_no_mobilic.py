@@ -36,7 +36,7 @@ class TestReadControlDataNoMobilic(ControlsTestSimple):
             "observedInfractions"
         ]
         self.assertIsNotNone(observed_infractions)
-        self.assertEqual(len(observed_infractions), 6)
+        self.assertEqual(len(observed_infractions), 7)
 
         any_infraction = observed_infractions[0]
         self.assertIsNone(any_infraction["date"])
@@ -68,7 +68,7 @@ class TestReadControlDataNoMobilic(ControlsTestSimple):
             "observedInfractions"
         ]
         self.assertIsNotNone(observed_infractions)
-        self.assertEqual(len(observed_infractions), 6)
+        self.assertEqual(len(observed_infractions), 7)
 
         reported_infractions = [
             x for x in observed_infractions if x["isReported"]
