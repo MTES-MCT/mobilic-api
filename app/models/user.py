@@ -14,6 +14,7 @@ from sqlalchemy.orm import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db, mailer
+from app.domain.gender import Gender
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.time import VERY_LONG_AGO
@@ -34,6 +35,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     password_update_time = db.Column(DateTimeStoredAsUTC, nullable=True)
     first_name = db.Column(db.String(255), nullable=False)
     last_name = db.Column(db.String(255), nullable=False)
+    gender = enum_column(Gender, nullable=True)
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
     phone_number = db.Column(

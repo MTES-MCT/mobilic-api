@@ -186,10 +186,10 @@ class ApiRequests:
     """
 
     create_account = """
-        mutation ($email: Email!, $password: Password!, $firstName: String!, $lastName: String!, $inviteToken: String) {
+        mutation ($email: Email!, $password: Password!, $firstName: String!, $lastName: String!, $gender: GenderEnum!, $inviteToken: String) {
             signUp {
                 user(email: $email, password: $password, inviteToken: $inviteToken, firstName: $firstName,
-                                                lastName: $lastName) {
+                                                lastName: $lastName, gender: $gender) {
                     accessToken
                 }
             }
