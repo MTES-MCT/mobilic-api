@@ -80,6 +80,7 @@ def _write_main_sheet_mobilic(wb, sheet, row_idx, work_days_data, control):
     has_one_day_off = False
     if work_days_data:
         for wday in sorted(work_days_data, key=lambda wd: wd.day):
+            workday_starting_row_idx = row_idx
             infractions_for_day = control.get_reported_infractions_for_day(
                 day=wday.day
             )
@@ -116,11 +117,10 @@ def _write_main_sheet_mobilic(wb, sheet, row_idx, work_days_data, control):
                 with_border=True,
                 bg_color=bg_color,
             )
-            row_idx += 1
             merge_cells_if_needed(
                 wb,
                 sheet,
-                recap_start_row,
+                workday_starting_row_idx,
                 row_idx,
                 1,
                 COLUMN_SIREN.lambda_value(wday),
@@ -129,12 +129,13 @@ def _write_main_sheet_mobilic(wb, sheet, row_idx, work_days_data, control):
             merge_cells_if_needed(
                 wb,
                 sheet,
-                recap_start_row,
+                workday_starting_row_idx,
                 row_idx,
                 0,
                 COLUMN_ENTREPRISE.lambda_value(wday),
                 formats.get("merged_center"),
             )
+            row_idx += 1
 
     write_user_recap(
         wb,

@@ -161,22 +161,21 @@ def write_details_sheet(wb, control, work_days_data):
                     "",
                     wb.add_format({"top": 1}),
                 )
-
-        merge_cells_if_needed(
-            wb,
-            sheet,
-            recap_start_row,
-            row_idx,
-            1,
-            COLUMN_SIREN.lambda_value(wday),
-            formats.get("merged_center"),
-        )
-        merge_cells_if_needed(
-            wb,
-            sheet,
-            recap_start_row,
-            row_idx,
-            0,
-            COLUMN_ENTREPRISE.lambda_value(wday),
-            formats.get("merged_center"),
-        )
+            merge_cells_if_needed(
+                wb,
+                sheet,
+                workday_starting_row_idx,
+                row_idx,
+                1,
+                COLUMN_SIREN.lambda_value(wday),
+                formats.get("merged_center"),
+            )
+            merge_cells_if_needed(
+                wb,
+                sheet,
+                workday_starting_row_idx,
+                row_idx,
+                0,
+                COLUMN_ENTREPRISE.lambda_value(wday),
+                formats.get("merged_center"),
+            )
