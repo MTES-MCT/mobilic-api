@@ -1,6 +1,5 @@
 import unittest
 
-from app.domain.gender import Gender
 from app.seed import CompanyFactory, UserFactory
 from app.tests import (
     BaseTest,
@@ -32,7 +31,6 @@ def create_account_get_user(
             password=password,
             firstName=first_name,
             lastName=last_name,
-            gender=Gender.FEMALE.value,
             inviteToken=invite_token,
         ),
     )
