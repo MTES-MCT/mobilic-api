@@ -99,10 +99,10 @@ class BaseAnonymizer:
             ActivityVersion.activity_id.in_(activity_ids)
         ).all()
 
+        self.log_anonymization(len(activity_versions), "activity version")
         if not activity_versions:
             return 0
 
-        self.log_anonymization(len(activity_versions), "activity version")
         for version in activity_versions:
             anonymized = ActivityVersionAnonymized.anonymize(version)
             self.db.add(anonymized)

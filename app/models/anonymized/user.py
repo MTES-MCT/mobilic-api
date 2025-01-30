@@ -5,7 +5,7 @@ from app.models.user import UserAccountStatus
 
 
 class UserAnonymized(AnonymizedModel):
-    __tablename__ = "user_anonymized"
+    __tablename__ = "anon_user"
 
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)

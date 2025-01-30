@@ -3,7 +3,7 @@ from .base import AnonymizedModel
 
 
 class CompanyStatsAnonymized(AnonymizedModel):
-    __tablename__ = "company_stats_anonymized"
+    __tablename__ = "anon_company_stats"
 
     id = db.Column(db.Integer, primary_key=True)
     company_id = db.Column(db.Integer, nullable=False)
@@ -23,22 +23,39 @@ class CompanyStatsAnonymized(AnonymizedModel):
         anonymized.company_creation_date = cls.truncate_to_month(
             stats.company_creation_date
         )
+
         if stats.first_employee_invitation_date:
-            anonymized.first_employee_invitation_date = cls.truncate_to_month(
+            time_diff = (
                 stats.first_employee_invitation_date
+                - stats.company_creation_date
             )
+            anonymized.first_employee_invitation_date = (
+                anonymized.company_creation_date + time_diff
+            )
+
         if stats.first_mission_validation_by_admin_date:
+            time_diff = (
+                stats.first_mission_validation_by_admin_date
+                - stats.company_creation_date
+            )
             anonymized.first_mission_validation_by_admin_date = (
-                cls.truncate_to_month(
-                    stats.first_mission_validation_by_admin_date
-                )
+                anonymized.company_creation_date + time_diff
             )
+
         if stats.first_active_criteria_date:
-            anonymized.first_active_criteria_date = cls.truncate_to_month(
-                stats.first_active_criteria_date
+            time_diff = (
+                stats.first_active_criteria_date - stats.company_creation_date
             )
+            anonymized.first_active_criteria_date = (
+                anonymized.company_creation_date + time_diff
+            )
+
         if stats.first_certification_date:
-            anonymized.first_certification_date = cls.truncate_to_month(
-                stats.first_certification_date
+            time_diff = (
+                stats.first_certification_date - stats.company_creation_date
             )
+            anonymized.first_certification_date = (
+                anonymized.company_creation_date + time_diff
+            )
+
         return anonymized

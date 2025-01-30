@@ -3,7 +3,7 @@ from .base import AnonymizedModel
 
 
 class CompanyKnownAddressAnonymized(AnonymizedModel):
-    __tablename__ = "company_known_address_anonymized"
+    __tablename__ = "anon_company_known_address"
 
     id = db.Column(db.Integer, primary_key=True)
     company_id = db.Column(db.Integer, nullable=False)
