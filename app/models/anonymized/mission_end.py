@@ -3,11 +3,10 @@ from .base import AnonymizedModel
 
 
 class MissionEndAnonymized(AnonymizedModel):
-    __tablename__ = "mission_end_anonymized"
+    __tablename__ = "anon_mission_end"
 
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)
-    reception_time = db.Column(db.DateTime, nullable=False)
     mission_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
     submitter_id = db.Column(db.Integer, nullable=False)
@@ -25,9 +24,6 @@ class MissionEndAnonymized(AnonymizedModel):
         )
         anonymized.creation_time = cls.truncate_to_month(
             mission_end.creation_time
-        )
-        anonymized.reception_time = cls.truncate_to_month(
-            mission_end.reception_time
         )
 
         return anonymized

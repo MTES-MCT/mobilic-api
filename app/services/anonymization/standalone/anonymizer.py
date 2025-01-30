@@ -1,4 +1,5 @@
 from app import db
+from sqlalchemy import or_
 from typing import List, Tuple
 from datetime import datetime
 from app.services.anonymization.base import BaseAnonymizer
@@ -126,22 +127,30 @@ class StandaloneAnonymizer(BaseAnonymizer):
     def find_inactive_companies_by_siren(
         self, cutoff_date: datetime
     ) -> List[int]:
-        companies = Company.query.filter(
-            Company.creation_time < cutoff_date,
-            Company.siren_api_info["uniteLegale"][
-                "etatAdministratifUniteLegale"
-            ].astext
-            == "C",
-        ).all()
-
-        return [c.id for c in companies] if companies else []
+        company_ids = (
+            db.session.query(Company.id)
+            .filter(
+                Company.creation_time < cutoff_date,
+                Company.siren_api_info["uniteLegale"][
+                    "etatAdministratifUniteLegale"
+                ].astext
+                == "C",
+            )
+            .all()
+        )
+        return [id[0] for id in company_ids]
 
     def find_inactive_companies_by_employment(
         self, cutoff_date: datetime
     ) -> List[int]:
         active_companies = (
             db.session.query(Employment.company_id)
-            .filter(Employment.end_date.is_(None))
+            .filter(
+                or_(
+                    Employment.end_date.is_(None),
+                    Employment.dismissed_at.is_(None),
+                )
+            )
             .distinct()
             .subquery()
         )
@@ -175,7 +184,10 @@ class StandaloneAnonymizer(BaseAnonymizer):
     ) -> List[int]:
         query = Employment.query.filter(
             Employment.creation_time < cutoff_date,
-            Employment.end_date.isnot(None),
+            or_(
+                Employment.end_date.isnot(None),
+                Employment.dismissed_at.isnot(None),
+            ),
         )
 
         if exclude_company_ids:

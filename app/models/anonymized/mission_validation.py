@@ -3,11 +3,10 @@ from .base import AnonymizedModel
 
 
 class MissionValidationAnonymized(AnonymizedModel):
-    __tablename__ = "mission_validation_anonymized"
+    __tablename__ = "anon_mission_validation"
 
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)
-    reception_time = db.Column(db.DateTime, nullable=False)
     mission_id = db.Column(db.Integer, nullable=False)
     submitter_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=True)
@@ -23,17 +22,10 @@ class MissionValidationAnonymized(AnonymizedModel):
         anonymized.submitter_id = cls.get_new_id(
             "user", validation.submitter_id
         )
-        anonymized.user_id = (
-            cls.get_new_id("user", validation.user_id)
-            if validation.user_id
-            else None
-        )
+        anonymized.user_id = cls.get_new_id("user", validation.user_id)
         anonymized.is_admin = validation.is_admin
         anonymized.creation_time = cls.truncate_to_month(
             validation.creation_time
-        )
-        anonymized.reception_time = cls.truncate_to_month(
-            validation.reception_time
         )
 
         return anonymized

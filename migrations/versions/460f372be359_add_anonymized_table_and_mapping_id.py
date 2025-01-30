@@ -29,7 +29,7 @@ def upgrade():
             "entity_type", "original_id", name="uix_entity_original"
         ),
         sa.UniqueConstraint(
-            "entity_type", "anonymized_id", name="uix_entity_anonymized"
+            "entity_type", "anonymized_id", name="uix_anon_entity"
         ),
     )
     op.execute(
@@ -43,7 +43,7 @@ def upgrade():
     """
     )
     op.create_table(
-        "activity_anonymized",
+        "anon_activity",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("type", sa.String(length=8), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
@@ -56,10 +56,9 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "activity_version_anonymized",
+        "anon_activity_version",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
-        sa.Column("reception_time", sa.DateTime(), nullable=False),
         sa.Column("activity_id", sa.Integer(), nullable=False),
         sa.Column("start_time", sa.DateTime(), nullable=False),
         sa.Column("end_time", sa.DateTime(), nullable=True),
@@ -69,29 +68,26 @@ def upgrade():
     )
 
     op.create_table(
-        "mission_anonymized",
+        "anon_mission",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
-        sa.Column("reception_time", sa.DateTime(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "mission_end_anonymized",
+        "anon_mission_end",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
-        sa.Column("reception_time", sa.DateTime(), nullable=False),
         sa.Column("mission_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "mission_validation_anonymized",
+        "anon_mission_validation",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
-        sa.Column("reception_time", sa.DateTime(), nullable=False),
         sa.Column("mission_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=True),
@@ -99,8 +95,9 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "location_entry_anonymized",
+        "anon_location_entry",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("type", sa.String(length=22), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("mission_id", sa.Integer(), nullable=False),
@@ -109,10 +106,11 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "employment_anonymized",
+        "anon_employment",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("validation_time", sa.DateTime(), nullable=True),
+        sa.Column("validation_status", sa.String(50), nullable=False),
         sa.Column("start_date", sa.Date(), nullable=False),
         sa.Column("end_date", sa.Date(), nullable=True),
         sa.Column("company_id", sa.Integer(), nullable=False),
@@ -124,7 +122,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "email_anonymized",
+        "anon_email",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("type", sa.String(34), nullable=False),
@@ -133,7 +131,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "company_anonymized",
+        "anon_company",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("require_kilometer_data", sa.Boolean(), nullable=False),
@@ -141,21 +139,12 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "ix_company_anonymized_creation_time",
-        "company_anonymized",
+        "ix_anon_company_creation_time",
+        "anon_company",
         ["creation_time"],
     )
-    op.execute(
-        """
-        DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_account_status') THEN
-                CREATE TYPE user_account_status AS ENUM ('active', 'inactive', 'suspended');
-            END IF;
-        END $$;
-    """
-    )
     op.create_table(
-        "user_anonymized",
+        "anon_user",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column(
@@ -174,27 +163,16 @@ def upgrade():
             server_default="false",
         ),
         sa.Column("way_heard_of_mobilic", sa.String(255), nullable=True),
-        sa.Column(
-            "status",
-            postgresql.ENUM(
-                "active",
-                "inactive",
-                "suspended",
-                name="user_account_status",
-                create_type=False,
-            ),
-            nullable=False,
-            server_default="active",
-        ),
+        sa.Column("status", sa.String(20), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "ix_user_anonymized_creation_time",
-        "user_anonymized",
+        "ix_anon_user_creation_time",
+        "anon_user",
         ["creation_time"],
     )
     op.create_table(
-        "company_certification_anonymized",
+        "anon_company_certification",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
@@ -208,7 +186,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "company_stats_anonymized",
+        "anon_company_stats",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
@@ -222,39 +200,70 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "vehicle_anonymized",
+        "anon_vehicle",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("company_id", sa.Integer(), nullable=False),
         sa.Column("submitter_id", sa.Integer(), nullable=False),
         sa.Column("terminated_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
-        "company_known_address_anonymized",
+        "anon_company_known_address",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("company_id", sa.Integer(), nullable=False),
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("address_id", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_table(
+        "anon_team",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("company_id", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "anon_team_admin_user",
+        sa.Column("team_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("team_id", "user_id"),
+    )
+    op.create_table(
+        "anon_team_known_address",
+        sa.Column("team_id", sa.Integer(), nullable=False),
+        sa.Column("company_known_address_id", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("team_id", "company_known_address_id"),
+    )
+    op.execute(
+        """
+        CREATE INDEX idx_activity_gin ON activity
+        USING GIN (
+            (ARRAY[user_id, submitter_id, dismiss_author_id])
+        ) WITH (fastupdate = on);
+    """
+    )
 
 
 def downgrade():
     op.drop_table("temp_id_mapping")
     op.execute("DROP SEQUENCE IF EXISTS anonymized_id_seq")
-    op.drop_table("activity_version_anonymized")
-    op.drop_table("activity_anonymized")
-    op.drop_table("mission_anonymized")
-    op.drop_table("mission_end_anonymized")
-    op.drop_table("mission_validation_anonymized")
-    op.drop_table("location_entry_anonymized")
-    op.drop_table("employment_anonymized")
-    op.drop_table("email_anonymized")
-    op.drop_index("ix_company_anonymized_creation_time")
-    op.drop_table("company_anonymized")
-    op.drop_index("ix_user_anonymized_creation_time")
-    op.drop_table("user_anonymized")
-    op.execute("DROP TYPE IF EXISTS user_account_status")
-    op.drop_table("company_stats_anonymized")
-    op.drop_table("company_certification_anonymized")
-    op.drop_table("vehicle_anonymized")
-    op.drop_table("company_known_address_anonymized")
+    op.execute("DROP INDEX IF EXISTS idx_activity_gin;")
+    op.drop_table("anon_activity_version")
+    op.drop_table("anon_activity")
+    op.drop_table("anon_mission")
+    op.drop_table("anon_mission_end")
+    op.drop_table("anon_mission_validation")
+    op.drop_table("anon_location_entry")
+    op.drop_table("anon_employment")
+    op.drop_table("anon_email")
+    op.drop_index("ix_anon_company_creation_time")
+    op.drop_table("anon_company")
+    op.drop_index("ix_anon_user_creation_time")
+    op.drop_table("anon_user")
+    op.drop_table("anon_company_stats")
+    op.drop_table("anon_company_certification")
+    op.drop_table("anon_vehicle")
+    op.drop_table("anon_company_known_address")
+    op.drop_table("anon_team_known_address")
+    op.drop_table("anon_team_admin_user")
+    op.drop_table("anon_team")

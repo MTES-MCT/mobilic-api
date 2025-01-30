@@ -7,12 +7,12 @@ class AnonymizedModel(db.Model):
 
     @classmethod
     def get_new_id(cls, entity_type: str, old_id: int):
-        if old_id is None:
+        if not old_id:
             return None
 
         mapping = IdMapping.query.filter_by(
             entity_type=entity_type, original_id=old_id
-        ).first()
+        ).one_or_none()
 
         if mapping is not None:
             return mapping.anonymized_id

@@ -3,7 +3,7 @@ from .base import AnonymizedModel
 
 
 class ActivityAnonymized(AnonymizedModel):
-    __tablename__ = "activity_anonymized"
+    __tablename__ = "anon_activity"
 
     id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String(8), nullable=False)
@@ -32,9 +32,8 @@ class ActivityAnonymized(AnonymizedModel):
         )
         # keep the difference for stats
         if activity.end_time and activity.start_time:
-            start_time_anon = cls.truncate_to_month(activity.start_time)
             time_diff = activity.end_time - activity.start_time
-            anonymized.end_time = start_time_anon + time_diff
+            anonymized.end_time = anonymized.start_time + time_diff
         else:
             anonymized.end_time = None
 

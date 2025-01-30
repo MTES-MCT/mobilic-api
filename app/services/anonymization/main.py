@@ -8,7 +8,7 @@ from .standalone import StandaloneAnonymizer
 
 logger = logging.getLogger(__name__)
 
-years = app.config["NUMBER_OF_YEAR_TO_SUBSTRACT_FOR_ANONYMISATION"]
+years = app.config["ANONYMIZATION_THRESHOLD_YEAR"]
 
 
 def anonymize_expired_data(
