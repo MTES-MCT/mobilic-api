@@ -6,7 +6,7 @@ from app.domain.company import (
 )
 from app.jobs import log_execution
 
-NB_DAYS_AGO = 14
+NB_DAYS_AGO = 6
 
 
 @log_execution
