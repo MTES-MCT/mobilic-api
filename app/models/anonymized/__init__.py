@@ -1,3 +1,4 @@
+from .base import AnonymizedModel
 from .id_mapping import IdMapping
 from .mission import MissionAnonymized
 from .activity import ActivityAnonymized
