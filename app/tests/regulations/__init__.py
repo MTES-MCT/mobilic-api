@@ -101,16 +101,18 @@ class RegulationsTest(BaseTest):
             )
         return mission
 
-    def convert_employee_to_trv(self):
-        trv_business = Business.query.filter(
-            Business.business_type == BusinessType.FREQUENT.value
+    def _convert_employee_to_business(self, business_type):
+        business = Business.query.filter(
+            Business.business_type == business_type.value
         ).one_or_none()
-        self.employee.employments[0].business = trv_business
+        self.employee.employments[0].business = business
         db.session.commit()
 
+    def convert_employee_to_vtc(self):
+        self._convert_employee_to_business(BusinessType.VTC)
+
+    def convert_employee_to_trv(self):
+        self._convert_employee_to_business(BusinessType.FREQUENT)
+
     def convert_employee_to_trm_short_distance(self):
-        trm_short_distance_business = Business.query.filter(
-            Business.business_type == BusinessType.SHORT_DISTANCE.value
-        ).one_or_none()
-        self.employee.employments[0].business = trm_short_distance_business
-        db.session.commit()
+        self._convert_employee_to_business(BusinessType.SHORT_DISTANCE)
