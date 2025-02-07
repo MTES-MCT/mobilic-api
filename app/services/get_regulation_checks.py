@@ -164,7 +164,14 @@ def get_regulation_checks():
             label="Absence de livret individuel de contrôle à bord",
             regulation_rule=None,
             variables=dict(
-                DESCRIPTION="Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998)."
+                DESCRIPTION={
+                    str(
+                        TransportType.TRM.name
+                    ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998).",
+                    str(
+                        TransportType.TRV.name
+                    ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-19 du Code des transports + arrêté du 20 juillet 1998).",
+                }
             ),
             unit=UnitType.DAY,
         ),
