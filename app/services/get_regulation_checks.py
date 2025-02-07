@@ -1,3 +1,6 @@
+import json
+
+import sqlalchemy as sa
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
@@ -166,3 +169,17 @@ def get_regulation_checks():
             unit=UnitType.DAY,
         ),
     ]
+
+
+def update_regulation_check_variables(session):
+    regulation_check_data = get_regulation_checks()
+    for r in regulation_check_data:
+        session.execute(
+            sa.text(
+                "UPDATE regulation_check SET variables = :variables WHERE type = :type;"
+            ),
+            dict(
+                variables=json.dumps(r.variables),
+                type=r.type,
+            ),
+        )
