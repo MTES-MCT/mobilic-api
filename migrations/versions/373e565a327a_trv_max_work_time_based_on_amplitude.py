@@ -27,4 +27,5 @@ def upgrade():
 
 
 def downgrade():
+    # we don't maintain a history of regulation checks
     pass

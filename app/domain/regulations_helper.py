@@ -18,7 +18,7 @@ def resolve_variables(dict_var, business):
                             continue
                         res_dict[key] = val3
                         break
-                    if not (key in res_dict) and default_value:
+                    if key not in res_dict and default_value:
                         res_dict[key] = default_value
                 else:
                     res_dict[key] = val2
