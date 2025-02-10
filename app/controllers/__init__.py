@@ -82,6 +82,7 @@ from app.controllers.user import (
     ChangeName,
     ChangePhoneNumber,
     ChangeTimezone,
+    ChangeGender,
     ConfirmFranceConnectEmail,
     DisableWarning,
     FranceConnectLogin,
@@ -163,6 +164,7 @@ class Account(graphene.ObjectType):
     change_name = ChangeName.Field()
     change_phone_number = ChangePhoneNumber.Field()
     change_timezone = ChangeTimezone.Field()
+    change_gender = ChangeGender.Field()
     reset_password = ResetPassword.Field()
     reset_password_connected = ResetPasswordConnected.Field()
     request_reset_password = RequestPasswordReset.Field()

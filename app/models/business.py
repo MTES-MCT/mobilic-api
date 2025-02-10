@@ -28,5 +28,9 @@ class Business(BaseModel):
     transport_type = enum_column(TransportType, nullable=False)
     business_type = enum_column(BusinessType, nullable=False)
 
+    @property
+    def display_name(self):
+        return f"{self.transport_type.name} - {self.business_type}"
+
     def __repr__(self):
-        return f"<Business {self.transport_type} - {self.business_type}"
+        return f"<Business {self.display_name}"

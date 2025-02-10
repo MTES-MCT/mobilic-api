@@ -35,6 +35,7 @@ def create_user_by_third_party_if_needed(
 def create_user(
     first_name,
     last_name,
+    gender=None,
     timezone_name=None,
     email=None,
     password=None,
@@ -47,6 +48,7 @@ def create_user(
     user = User(
         first_name=first_name,
         last_name=last_name,
+        gender=gender,
         email=email.lower(),
         password=password,
         password_update_time=datetime.now(),

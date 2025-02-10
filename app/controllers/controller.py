@@ -441,18 +441,8 @@ def generate_mission_control_export(mission_id, control_id):
 )
 def download_control_report(control_id):
     control = ControllerControl.query.get(control_id)
-    max_date = control.history_end_date
-    min_date = control.history_start_date
-    work_days_data = group_user_events_by_day_with_limit(
-        control.user,
-        from_date=min_date,
-        until_date=max_date,
-        include_dismissed_or_empty_days=True,
-        max_reception_time=control.qr_code_generation_time,
-    )[0]
-    return send_control_as_one_excel_file(
-        control, work_days_data, min_date, max_date
-    )
+
+    return send_control_as_one_excel_file(control)
 
 
 @app.route("/controllers/download_control_xml", methods=["POST"])
