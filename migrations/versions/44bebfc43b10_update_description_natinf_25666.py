@@ -1,12 +1,10 @@
-"""update_trv_descriptions_max_work_time_based_on_amplitude
+"""update description natinf 25666
 
-Revision ID: 373e565a327a
-Revises: 7e8f71c49544
-Create Date: 2025-02-06 09:41:41.254918
+Revision ID: 44bebfc43b10
+Revises: 373e565a327a
+Create Date: 2025-02-07 10:39:30.719398
 
 """
-import json
-
 from alembic import op
 from sqlalchemy.orm import Session
 
@@ -15,8 +13,8 @@ from app.services.get_regulation_checks import (
 )
 
 # revision identifiers, used by Alembic.
-revision = "373e565a327a"
-down_revision = "7e8f71c49544"
+revision = "44bebfc43b10"
+down_revision = "373e565a327a"
 branch_labels = None
 depends_on = None
 
