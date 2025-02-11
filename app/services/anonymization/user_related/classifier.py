@@ -65,11 +65,13 @@ class UserClassifier:
             )
         )
 
-        return companies_ceased_siren.union(
-            companies_ceased_employment, companies_no_recent_missions
+        return tuple(
+            companies_ceased_siren.union(
+                companies_ceased_employment, companies_no_recent_missions
+            )
         )
 
-    def get_inactive_users_set(self) -> Set[int]:
+    def find_inactive_users(self) -> Set[int]:
         start_time = time.time()
         logger.info("Starting inactive users search...")
 
@@ -140,7 +142,7 @@ class UserClassifier:
         start_time = time.time()
         logger.info("Begin Classification...")
 
-        inactive_users = self.get_inactive_users_set()
+        inactive_users = self.find_inactive_users()
 
         full_anonymization = set(inactive_users)
         partial_anonymization = set()
@@ -214,7 +216,7 @@ class UserClassifier:
     def get_classification_summary(self) -> Dict[str, int]:
         classification = self.classify_users_for_anonymization()
         return {
-            "total_inactive": len(self.get_inactive_users_set()),
+            "total_inactive": len(self.find_inactive_users()),
             "full_anonymization_count": len(
                 classification["user_full_anonymization"]
             ),
