@@ -15,6 +15,13 @@ from app.models import (
     CompanyStats,
     Vehicle,
     CompanyKnownAddress,
+    User,
+    Team,
+)
+from app.models.team_association_tables import (
+    team_vehicle_association_table,
+    team_known_address_association_table,
+    team_admin_user_association_table,
 )
 from app.models.anonymized import (
     ActivityAnonymized,
@@ -30,6 +37,10 @@ from app.models.anonymized import (
     CompanyStatsAnonymized,
     VehicleAnonymized,
     CompanyKnownAddressAnonymized,
+    UserAnonymized,
+    TeamAnonymized,
+    TeamAdminUserAnonymized,
+    TeamKnownAddressAnonymized,
 )
 import logging
 
@@ -398,3 +409,110 @@ class BaseAnonymizer:
         CompanyKnownAddress.query.filter(
             CompanyKnownAddress.company_id.in_(company_ids)
         ).delete(synchronize_session=False)
+
+    def anonymize_users(self, user_ids: List[int]):
+        if not user_ids:
+            return
+
+        users = User.query.filter(User.id.in_(user_ids)).all()
+
+        self.log_anonymization(len(users), "user")
+        if not users:
+            return
+
+        for user in users:
+            anonymized = UserAnonymized.anonymize(user)
+            self.db.add(anonymized)
+
+        User.query.filter(User.id.in_(user_ids)).delete(
+            synchronize_session=False
+        )
+
+    def anonymize_team_and_dependencies(self, team_ids: List[int]):
+        if not team_ids:
+            return
+
+        self.delete_team_vehicles(team_ids)
+        self.anonymize_team_admin_users(team_ids)
+        self.anonymize_team_known_addresses(team_ids)
+        self.anonymize_teams(team_ids)
+
+    def delete_team_vehicles(self, team_ids: List[int]):
+        if not team_ids:
+            return
+
+        deleted = db.session.execute(
+            team_vehicle_association_table.delete().where(
+                team_vehicle_association_table.c.team_id.in_(team_ids)
+            )
+        ).rowcount
+
+        self.log_deletion(deleted, "team vehicle association")
+
+    def anonymize_team_admin_users(self, team_ids: List[int]):
+        if not team_ids:
+            return
+
+        relations = (
+            db.session.query(team_admin_user_association_table)
+            .filter(team_admin_user_association_table.c.team_id.in_(team_ids))
+            .all()
+        )
+
+        self.log_anonymization(len(relations), "team admin user relation")
+        if not relations:
+            return
+
+        for relation in relations:
+            anonymized = TeamAdminUserAnonymized.anonymize(relation)
+            self.db.add(anonymized)
+
+        db.session.execute(
+            team_admin_user_association_table.delete().where(
+                team_admin_user_association_table.c.team_id.in_(team_ids)
+            )
+        )
+
+    def anonymize_team_known_addresses(self, team_ids: List[int]):
+        if not team_ids:
+            return
+
+        relations = (
+            db.session.query(team_known_address_association_table)
+            .filter(
+                team_known_address_association_table.c.team_id.in_(team_ids)
+            )
+            .all()
+        )
+
+        self.log_anonymization(len(relations), "team known address relation")
+        if not relations:
+            return
+
+        for relation in relations:
+            anonymized = TeamKnownAddressAnonymized.anonymize(relation)
+            self.db.add(anonymized)
+
+        db.session.execute(
+            team_known_address_association_table.delete().where(
+                team_known_address_association_table.c.team_id.in_(team_ids)
+            )
+        )
+
+    def anonymize_teams(self, team_ids: List[int]):
+        if not team_ids:
+            return
+
+        teams = Team.query.filter(Team.id.in_(team_ids)).all()
+
+        self.log_anonymization(len(teams), "team")
+        if not teams:
+            return
+
+        for team in teams:
+            anonymized = TeamAnonymized.anonymize(team)
+            self.db.add(anonymized)
+
+        Team.query.filter(Team.id.in_(team_ids)).delete(
+            synchronize_session=False
+        )

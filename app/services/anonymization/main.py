@@ -4,9 +4,10 @@ from dateutil.relativedelta import relativedelta
 from app import app, db
 from app.models.anonymized import IdMapping
 from .standalone import StandaloneAnonymizer
-from .user_related import UserClassifier
+from .user_related import UserClassifier, UserAnonymizer
 
 logger = logging.getLogger(__name__)
+
 years = app.config["ANONYMIZATION_THRESHOLD_YEAR"]
 
 
@@ -19,7 +20,7 @@ def anonymize_expired_data(
     try:
         cutoff_date = datetime.now() - relativedelta(years=years)
         logger.info(
-            f"{'Test mode:' if test_mode else ''}Starting data anonymization process with cut-off date: {cutoff_date.date()}"
+            f"{'Test mode: ' if test_mode else ''}Starting data anonymization process with cut-off date: {cutoff_date.date()}"
         )
 
         logger.info("Starting user classification phase")
@@ -29,7 +30,6 @@ def anonymize_expired_data(
         partial_anon_users = classification["user_partial_anonymization"]
 
         summary = classifier.get_classification_summary()
-
         logger.info("Classification summary:")
         logger.info(f"Total inactive users: {summary['total_inactive']}")
         logger.info(
@@ -52,12 +52,17 @@ def anonymize_expired_data(
         clean_id_mapping()
         logger.info("Initial IdMapping cleaning complete")
 
-        anonymizer = StandaloneAnonymizer(db.session)
-        anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
+        logger.info("Starting user data anonymization")
+        user_anonymizer = UserAnonymizer(db.session)
+        user_anonymizer.anonymize_user_data(
+            full_anon_users, partial_anon_users, test_mode
+        )
+
+        standalone_anonymizer = StandaloneAnonymizer(db.session)
+        standalone_anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
 
         logger.info("Process complete: cleaning IdMapping table")
         clean_id_mapping()
-
         logger.info("Data anonymization completed successfully")
 
     except Exception as e:
