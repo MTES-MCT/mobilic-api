@@ -14,6 +14,9 @@ from .company_certification import CompanyCertificationAnonymized
 from .company_stats import CompanyStatsAnonymized
 from .vehicle import VehicleAnonymized
 from .company_known_address import CompanyKnownAddressAnonymized
+from .user_agreement import UserAgreementAnonymized
+from .regulation_computation import RegulationComputationAnonymized
+from .regulatory_alert import RegulatoryAlertAnonymized
 from .team_and_associatiation_tables import (
     TeamAnonymized,
     TeamAdminUserAnonymized,
