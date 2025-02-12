@@ -242,6 +242,36 @@ def upgrade():
         ) WITH (fastupdate = on);
     """
     )
+    op.create_table(
+        "anon_regulatory_alert",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("day", sa.Date(), nullable=False),
+        sa.Column("extra", sa.JSON(), nullable=True),
+        sa.Column("submitter_type", sa.String(length=50), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("regulation_check_id", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "anon_regulation_computation",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("day", sa.Date(), nullable=False),
+        sa.Column("submitter_type", sa.String(length=50), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "anon_user_agreement",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("status", sa.String(length=50), nullable=False),
+        sa.Column("expires_at", sa.DateTime(), nullable=True),
+        sa.Column("is_blacklisted", sa.Boolean(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
 
 
 def downgrade():
@@ -267,3 +297,6 @@ def downgrade():
     op.drop_table("anon_team_known_address")
     op.drop_table("anon_team_admin_user")
     op.drop_table("anon_team")
+    op.drop_table("anon_user_agreement")
+    op.drop_table("anon_regulation_computation")
+    op.drop_table("anon_regulatory_alert")
