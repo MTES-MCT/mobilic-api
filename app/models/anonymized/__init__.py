@@ -17,6 +17,8 @@ from .company_known_address import CompanyKnownAddressAnonymized
 from .user_agreement import UserAgreementAnonymized
 from .regulation_computation import RegulationComputationAnonymized
 from .regulatory_alert import RegulatoryAlertAnonymized
+from .controller_control import ControllerControlAnonymized
+from .controller_user import ControllerUserAnonymized
 from .team_and_associatiation_tables import (
     TeamAnonymized,
     TeamAdminUserAnonymized,
