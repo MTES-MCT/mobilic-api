@@ -272,6 +272,41 @@ def upgrade():
         sa.Column("is_blacklisted", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_table(
+        "anon_controller_control",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("controller_id", sa.Integer(), nullable=False),
+        sa.Column("control_type", sa.String(50), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("qr_code_generation_time", sa.DateTime(), nullable=True),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column(
+            "control_bulletin_creation_time", sa.DateTime(), nullable=True
+        ),
+        sa.Column(
+            "control_bulletin_first_download_time",
+            sa.DateTime(),
+            nullable=True,
+        ),
+        sa.Column("observed_infractions", sa.JSON(), nullable=True),
+        sa.Column(
+            "reported_infractions_last_update_time",
+            sa.DateTime(),
+            nullable=True,
+        ),
+        sa.Column(
+            "reported_infractions_first_update_time",
+            sa.DateTime(),
+            nullable=True,
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_table(
+        "anon_controller_user",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
 
 
 def downgrade():
@@ -300,3 +335,5 @@ def downgrade():
     op.drop_table("anon_user_agreement")
     op.drop_table("anon_regulation_computation")
     op.drop_table("anon_regulatory_alert")
+    op.drop_table("anon_controller_control")
+    op.drop_table("anon_controller_user")
