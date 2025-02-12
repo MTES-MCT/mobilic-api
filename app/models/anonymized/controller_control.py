@@ -30,7 +30,7 @@ class ControllerControlAnonymized(AnonymizedModel):
         anonymized.controller_id = cls.get_new_id(
             "user", control.controller_id
         )
-        anonymized.control_type = control.control_type
+        anonymized.control_type = control.control_type.value
         anonymized.user_id = cls.get_new_id("user", control.user_id)
         anonymized.qr_code_generation_time = cls.truncate_to_month(
             control.qr_code_generation_time

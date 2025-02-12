@@ -1,12 +1,10 @@
 from app import db
-from sqlalchemy import and_, or_, func
 from typing import List, Dict, Set, Tuple
 from datetime import datetime
 import logging
 import time
 
 from app.models import (
-    User,
     Mission,
     MissionEnd,
     MissionValidation,
@@ -71,12 +69,13 @@ class UserClassifier:
             )
         )
 
-    def find_inactive_users(self) -> Set[int]:
+    def find_inactive_users(self) -> Tuple[Set[int], Set[int]]:
         start_time = time.time()
         logger.info("Starting inactive users search...")
 
-        inactive_companies = self._get_inactive_companies()
         inactive_admin = set()
+
+        inactive_companies = self._get_inactive_companies()
 
         sql_query_non_admin = """
         SELECT DISTINCT u.id 
@@ -130,21 +129,42 @@ class UserClassifier:
                 )
             )
 
+        sql_query_controller = """
+        SELECT DISTINCT cu.id 
+          FROM controller_user cu
+          JOIN controller_control cc ON cu.id = cc.controller_id
+         WHERE cu.creation_time <= :cutoff_date
+         AND NOT EXISTS (
+            SELECT 1 
+              FROM controller_control cc2
+             WHERE cc2.creation_time > :cutoff_date
+               AND cc2.controller_id = cu.id
+        )
+        """
+
+        inactive_controllers = set(
+            row[0]
+            for row in db.session.execute(
+                sql_query_controller, {"cutoff_date": self.cutoff_date}
+            )
+        )
+
         all_inactive_users = inactive_non_admin | inactive_admin
 
         logger.info(
             f"Found {len(all_inactive_users)} inactive users "
             f"({len(inactive_non_admin)} non-admin, {len(inactive_admin)} admin) "
+            f"Found {len(inactive_controllers)} inactive controller "
             f"in {time.time() - start_time:.2f}s"
         )
 
-        return all_inactive_users
+        return all_inactive_users, inactive_controllers
 
     def classify_users_for_anonymization(self) -> Dict[str, Set[int]]:
         start_time = time.time()
         logger.info("Begin Classification...")
 
-        inactive_users = self.find_inactive_users()
+        inactive_users, inactive_controllers = self.find_inactive_users()
 
         full_anonymization = set(inactive_users)
         partial_anonymization = set()
@@ -214,8 +234,10 @@ class UserClassifier:
         logger.info(
             f"Users requiring partial anonymization: {len(partial_anonymization)}"
         )
+        logger.info(f"Total inactive controllers: {len(inactive_controllers)}")
 
         return {
             "user_full_anonymization": full_anonymization,
             "user_partial_anonymization": partial_anonymization,
+            "controller_user_anonymization": inactive_controllers,
         }

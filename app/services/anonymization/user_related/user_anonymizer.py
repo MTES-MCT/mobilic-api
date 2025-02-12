@@ -1,34 +1,9 @@
 from app import db
-from typing import List, Set
-from datetime import datetime
+from typing import Set, Dict, Tuple
 from app.services.anonymization.base import BaseAnonymizer
-from app.models import (
-    User,
-    Mission,
-    Employment,
-    ControllerControl,
-    RegulatoryAlert,
-    RegulationComputation,
-    UserAgreement,
-)
-from app.models.team_association_tables import (
-    team_admin_user_association_table,
-)
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-# TODO:
-# 1. Créer les modèles anonymisés:
-#    - TeamAnonymized
-#    - TeamAdminUserAnonymized
-#    - TeamKnownAddressAnonymized
-# 2. Pour team_vehicle: pas de modèle anonymisé, suppression directe
-# 3. Ajouter dans base.py une fonction anonymize_team_and_dependencies qui gère:
-#    - L'anonymisation de team
-#    - L'anonymisation des relations team_admin_user et team_known_address
-#    - La suppression des relations team_vehicle
 
 
 class UserAnonymizer(BaseAnonymizer):
@@ -36,69 +11,28 @@ class UserAnonymizer(BaseAnonymizer):
         self,
         full_anonymization_users: Set[int],
         partial_anonymization_users: Set[int],
+        controller_anonymization_users: Set[int],
         test_mode: bool = False,
-    ):
+    ) -> None:
         transaction = db.session.begin_nested()
         try:
             if full_anonymization_users:
+                self._process_full_anonymization(full_anonymization_users)
+
+            if controller_anonymization_users:
                 logger.info(
-                    f"Processing {len(full_anonymization_users)} users for full anonymization"
+                    f"Processing {len(controller_anonymization_users)} controllers"
                 )
-
-                # Récupération des IDs
-                user_mission_ids = self.find_user_missions(
-                    full_anonymization_users
+                self.anonymize_controller_and_dependencies(
+                    controller_anonymization_users
                 )
-                user_employment_ids = self.find_user_employments(
-                    full_anonymization_users
-                )
-                user_control_ids = self.find_user_controls(
-                    full_anonymization_users
-                )
-                user_regulatory_alert_ids = self.find_user_regulatory_alerts(
-                    full_anonymization_users
-                )
-                user_regulation_computation_ids = (
-                    self.find_user_regulation_computations(
-                        full_anonymization_users
-                    )
-                )
-                user_agreement_ids = self.find_user_agreements(
-                    full_anonymization_users
-                )
-                team_ids = self.find_team_admins_by_users(
-                    full_anonymization_users
-                )
-                team_ids.update(self.find_user_teams(full_anonymization_users))
-
-                # Anonymisation des données
-                if user_mission_ids:
-                    self.anonymize_mission_and_dependencies(
-                        list(user_mission_ids)
-                    )
-                if user_employment_ids:
-                    self.anonymize_employment_and_dependencies(
-                        list(user_employment_ids)
-                    )
-                if user_control_ids:
-                    self.anonymize_controller_controls(list(user_control_ids))
-                if user_regulatory_alert_ids:
-                    self.anonymize_regulatory_alerts(
-                        list(user_regulatory_alert_ids)
-                    )
-                if user_regulation_computation_ids:
-                    self.anonymize_regulation_computations(
-                        list(user_regulation_computation_ids)
-                    )
-                if user_agreement_ids:
-                    self.anonymize_user_agreements(list(user_agreement_ids))
-                if team_ids:
-                    self.anonymize_team_and_dependencies(list(team_ids))
-
-                self.anonymize_users(list(full_anonymization_users))
 
             if not any(
-                [full_anonymization_users, partial_anonymization_users]
+                [
+                    full_anonymization_users,
+                    partial_anonymization_users,
+                    controller_anonymization_users,
+                ]
             ):
                 logger.info("No user data to anonymize")
                 transaction.rollback()
@@ -108,7 +42,7 @@ class UserAnonymizer(BaseAnonymizer):
                 logger.info("Test mode: rolling back changes")
                 transaction.rollback()
                 db.session.rollback()
-            else:
+            if not test_mode:
                 logger.info("Committing user data changes...")
                 transaction.commit()
                 db.session.commit()
@@ -119,103 +53,91 @@ class UserAnonymizer(BaseAnonymizer):
             db.session.rollback()
             raise
 
-    def find_user_missions(self, user_ids: Set[int]) -> Set[int]:
-        missions = Mission.query.filter(
-            Mission.submitter_id.in_(user_ids)
-        ).all()
+    def _find_related_data(self, user_ids: Set[int]) -> Dict[str, Set[int]]:
+        activity_mission_query = """
+        SELECT DISTINCT a.mission_id 
+        FROM activity a 
+        WHERE a.user_id = ANY(:user_ids)
+           OR a.submitter_id = ANY(:user_ids)
+           OR a.dismiss_author_id = ANY(:user_ids)
+        """
 
-        if not missions:
-            logger.info("No user missions found")
-            return set()
+        mission_query = """
+        SELECT DISTINCT m.id 
+        FROM mission m
+        WHERE m.submitter_id = ANY(:user_ids)
+        """
 
-        mission_ids = {m.id for m in missions}
-        logger.info(f"Found {len(mission_ids)} user missions to anonymize")
-        return mission_ids
+        mission_validation_query = """
+        SELECT DISTINCT mv.mission_id
+        FROM mission_validation mv
+        WHERE mv.submitter_id = ANY(:user_ids)
+           OR mv.user_id = ANY(:user_ids)
+        """
 
-    def find_user_employments(self, user_ids: Set[int]) -> Set[int]:
-        employments = Employment.query.filter(
-            Employment.user_id.in_(user_ids)
-        ).all()
+        employment_query = """
+        SELECT DISTINCT e.id
+        FROM employment e
+        WHERE e.user_id = ANY(:user_ids)
+           OR e.submitter_id = ANY(:user_ids)
+           OR e.dismiss_author_id = ANY(:user_ids)
+        """
 
-        if not employments:
-            logger.info("No user employments found")
-            return set()
+        params = {"user_ids": list(user_ids)}
 
-        employment_ids = {e.id for e in employments}
-        logger.info(
-            f"Found {len(employment_ids)} user employments to anonymize"
+        results = {
+            "activity_missions": db.session.execute(
+                activity_mission_query, params
+            ),
+            "direct_missions": db.session.execute(mission_query, params),
+            "validation_missions": db.session.execute(
+                mission_validation_query, params
+            ),
+            "employments": db.session.execute(employment_query, params),
+        }
+
+        mission_ids = set()
+        mission_ids.update(
+            row[0]
+            for row in results["activity_missions"]
+            if row[0] is not None
         )
-        return employment_ids
+        mission_ids.update(row[0] for row in results["direct_missions"])
+        mission_ids.update(row[0] for row in results["validation_missions"])
 
-    def find_user_controls(self, user_ids: Set[int]) -> Set[int]:
-        controls = ControllerControl.query.filter(
-            ControllerControl.user_id.in_(user_ids)
-        ).all()
+        employment_ids = {row[0] for row in results["employments"]}
 
-        if not controls:
-            logger.info("No user controls found")
-            return set()
+        self._log_findings(mission_ids, employment_ids)
 
-        control_ids = {c.id for c in controls}
-        logger.info(
-            f"Found {len(control_ids)} controller controls to anonymize"
-        )
-        return control_ids
+        return {"mission_ids": mission_ids, "employment_ids": employment_ids}
 
-    def find_user_regulatory_alerts(self, user_ids: Set[int]) -> Set[int]:
-        alerts = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user_id.in_(user_ids)
-        ).all()
+    def _log_findings(
+        self, mission_ids: Set[int], employment_ids: Set[int]
+    ) -> None:
+        findings = {
+            "missions": len(mission_ids),
+            "employments": len(employment_ids),
+        }
 
-        if not alerts:
-            logger.info("No regulatory alerts found")
-            return set()
+        for entity, count in findings.items():
+            if count > 0:
+                logger.info(f"Found {count} {entity} to anonymize")
+            else:
+                logger.info(f"No {entity} found")
 
-        alert_ids = {a.id for a in alerts}
-        logger.info(f"Found {len(alert_ids)} regulatory alerts to anonymize")
-        return alert_ids
+    def _process_full_anonymization(self, user_ids: Set[int]) -> None:
+        logger.info(f"Processing {len(user_ids)} users for full anonymization")
 
-    def find_user_regulation_computations(
-        self, user_ids: Set[int]
-    ) -> Set[int]:
-        computations = RegulationComputation.query.filter(
-            RegulationComputation.user_id.in_(user_ids)
-        ).all()
+        related_data = self._find_related_data(user_ids)
 
-        if not computations:
-            logger.info("No regulation computations found")
-            return set()
+        if related_data["mission_ids"]:
+            self.anonymize_mission_and_dependencies(
+                related_data["mission_ids"]
+            )
 
-        computation_ids = {c.id for c in computations}
-        logger.info(
-            f"Found {len(computation_ids)} regulation computations to anonymize"
-        )
-        return computation_ids
+        if related_data["employment_ids"]:
+            self.anonymize_employment_and_dependencies(
+                related_data["employment_ids"]
+            )
 
-    def find_team_admins_by_users(self, user_ids: Set[int]) -> Set[int]:
-        result = (
-            db.session.query(team_admin_user_association_table)
-            .filter(team_admin_user_association_table.c.user_id.in_(user_ids))
-            .all()
-        )
-
-        if not result:
-            logger.info("No team admin relations found")
-            return set()
-
-        team_ids = {r.team_id for r in result}
-        logger.info(f"Found {len(team_ids)} team admin relations to anonymize")
-        return team_ids
-
-    def find_user_agreements(self, user_ids: Set[int]) -> Set[int]:
-        agreements = UserAgreement.query.filter(
-            UserAgreement.user_id.in_(user_ids)
-        ).all()
-
-        if not agreements:
-            logger.info("No user agreements found")
-            return set()
-
-        agreement_ids = {a.id for a in agreements}
-        logger.info(f"Found {len(agreement_ids)} user agreements to anonymize")
-        return agreement_ids
+        self.anonymize_user_and_dependencies(user_ids)
