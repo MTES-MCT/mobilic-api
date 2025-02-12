@@ -23,43 +23,41 @@ def anonymize_expired_data(
             f"{'Test mode: ' if test_mode else ''}Starting data anonymization process with cut-off date: {cutoff_date.date()}"
         )
 
+        logger.info("Start cleaning IdMapping table")
+        clean_id_mapping()
+        logger.info("Initial IdMapping cleaning complete")
+
+        logger.info("Starting standalone data anonymization")
+        standalone_anonymizer = StandaloneAnonymizer(db.session)
+        standalone_anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
+
         logger.info("Starting user classification phase")
         classifier = UserClassifier(cutoff_date)
         classification = classifier.classify_users_for_anonymization()
         full_anon_users = classification["user_full_anonymization"]
         partial_anon_users = classification["user_partial_anonymization"]
-
-        summary = classifier.get_classification_summary()
-        logger.info("Classification summary:")
-        logger.info(f"Total inactive users: {summary['total_inactive']}")
-        logger.info(
-            f"Users ready for full anonymization: {summary['full_anonymization_count']}"
-        )
-        logger.info(
-            f"Users requiring partial anonymization: {summary['partial_anonymization_count']}"
-        )
+        controller_anon_users = classification["controller_user_anonymization"]
 
         if test_mode:
             logger.debug("Detailed classification results:")
             logger.debug(
-                f"Users ready for full anonymization: {list(classification['user_full_anonymization'])}"
+                f"Users ready for full anonymization: {list(full_anon_users)}"
             )
             logger.debug(
-                f"Users requiring partial anonymization: {list(classification['user_partial_anonymization'])}"
+                f"Users requiring partial anonymization: {list(partial_anon_users)}"
             )
-
-        logger.info("Start cleaning IdMapping table")
-        clean_id_mapping()
-        logger.info("Initial IdMapping cleaning complete")
+            logger.debug(
+                f"Controller users requiring anonymization: {list(controller_anon_users)}"
+            )
 
         logger.info("Starting user data anonymization")
         user_anonymizer = UserAnonymizer(db.session)
         user_anonymizer.anonymize_user_data(
-            full_anon_users, partial_anon_users, test_mode
+            full_anon_users,
+            partial_anon_users,
+            controller_anon_users,
+            test_mode,
         )
-
-        standalone_anonymizer = StandaloneAnonymizer(db.session)
-        standalone_anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
 
         logger.info("Process complete: cleaning IdMapping table")
         clean_id_mapping()
