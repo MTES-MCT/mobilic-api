@@ -76,6 +76,7 @@ class UserClassifier:
         logger.info("Starting inactive users search...")
 
         inactive_companies = self._get_inactive_companies()
+        inactive_admin = set()
 
         sql_query_non_admin = """
         SELECT DISTINCT u.id 
@@ -95,21 +96,6 @@ class UserClassifier:
         )
         """
 
-        sql_query_admin = """
-        SELECT DISTINCT u.id 
-          FROM "user" u
-          JOIN employment e ON u.id = e.user_id
-         WHERE e.has_admin_rights = true
-         AND u.creation_time <= :cutoff_date
-         AND NOT EXISTS (
-            SELECT 1 
-              FROM employment ee
-             WHERE ee.user_id = u.id
-               AND ee.has_admin_rights = true
-               AND ee.company_id NOT IN :inactive_companies
-        )
-        """
-
         inactive_non_admin = set(
             row[0]
             for row in db.session.execute(
@@ -117,16 +103,32 @@ class UserClassifier:
             )
         )
 
-        inactive_admin = set(
-            row[0]
-            for row in db.session.execute(
-                sql_query_admin,
-                {
-                    "cutoff_date": self.cutoff_date,
-                    "inactive_companies": inactive_companies,
-                },
+        if inactive_companies:
+            sql_query_admin = """
+            SELECT DISTINCT u.id 
+              FROM "user" u
+              JOIN employment e ON u.id = e.user_id
+             WHERE e.has_admin_rights = true
+             AND u.creation_time <= :cutoff_date
+             AND NOT EXISTS (
+                SELECT 1 
+                  FROM employment ee
+                 WHERE ee.user_id = u.id
+                   AND ee.has_admin_rights = true
+                   AND ee.company_id NOT IN :inactive_companies
             )
-        )
+            """
+
+            inactive_admin = set(
+                row[0]
+                for row in db.session.execute(
+                    sql_query_admin,
+                    {
+                        "cutoff_date": self.cutoff_date,
+                        "inactive_companies": inactive_companies,
+                    },
+                )
+            )
 
         all_inactive_users = inactive_non_admin | inactive_admin
 
@@ -203,24 +205,17 @@ class UserClassifier:
 
         total_time = time.time() - start_time
         logger.info(f"Classification done in {total_time:.2f}s")
+
+        logger.info("Classification summary:")
+        logger.info(f"Total inactive users: {len(inactive_users)}")
         logger.info(
-            f"Final result: {len(full_anonymization)} for full_anonymisation, "
-            f"{len(partial_anonymization)} for partial_anonymization"
+            f"Users ready for full anonymization: {len(full_anonymization)}"
+        )
+        logger.info(
+            f"Users requiring partial anonymization: {len(partial_anonymization)}"
         )
 
         return {
             "user_full_anonymization": full_anonymization,
             "user_partial_anonymization": partial_anonymization,
-        }
-
-    def get_classification_summary(self) -> Dict[str, int]:
-        classification = self.classify_users_for_anonymization()
-        return {
-            "total_inactive": len(self.find_inactive_users()),
-            "full_anonymization_count": len(
-                classification["user_full_anonymization"]
-            ),
-            "partial_anonymization_count": len(
-                classification["user_partial_anonymization"]
-            ),
         }
