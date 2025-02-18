@@ -199,7 +199,6 @@ def delete_controller_refresh_token():
         for token in refresh_tokens:
             db.session.delete(token)
 
-    db.session.commit()
     app.logger.info(
         f"Completed token cleanup for controller {controller_user_id}"
     )

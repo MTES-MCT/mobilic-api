@@ -468,5 +468,4 @@ def delete_refresh_token():
             for token in refresh_tokens:
                 db.session.delete(token)
 
-        db.session.commit()
         app.logger.info(f"Completed token cleanup for user {user_id}")
