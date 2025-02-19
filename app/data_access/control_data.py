@@ -1,3 +1,5 @@
+import datetime
+
 import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
@@ -213,6 +215,12 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         TimeStamp, required=False
     )
 
+    can_take_pictures = graphene.Field(
+        graphene.Boolean,
+        required=False,
+        description="Indique s'il est possible de prendre des photos pour un LIC papier.",
+    )
+
     def resolve_control_type(self, info):
         return ControlType(self.control_type).value
 
@@ -330,3 +338,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             i for i in observed_infractions if i is not None
         ]
         return observed_infractions
+
+    def resolve_can_take_pictures(self, info):
+        if self.control_type != ControlType.lic_papier:
+            return False
+
+        return self.creation_time.date() == datetime.datetime.now().date()
