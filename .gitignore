@@ -6,7 +6,7 @@ venv
 
 # IDE files
 .idea
-.vscode
+#.vscode # do not ignore to share launch and test configuration
 
 # python cache
 **/__pycache__
