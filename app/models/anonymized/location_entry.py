@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class LocationEntryAnonymized(AnonymizedModel):
+class AnonLocationEntry(AnonymizedModel):
     __tablename__ = "anon_location_entry"
 
     id = db.Column(db.Integer, primary_key=True)
