@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 
 import graphene
 from graphene import ObjectType
@@ -22,7 +23,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import Business
+from app.models import Business, ControlPicture
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.regulation_check import RegulationCheckType
 
@@ -144,6 +145,12 @@ class ObservedInfraction(ObjectType):
         )
 
 
+class ControlPictureOutput(BaseSQLAlchemyObjectType):
+    class Meta:
+        model = ControlPicture
+        only_fields = "url"
+
+
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
@@ -214,11 +221,18 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     reported_infractions_last_update_time = graphene.Field(
         TimeStamp, required=False
     )
-
     can_take_pictures = graphene.Field(
         graphene.Boolean,
         required=False,
         description="Indique s'il est possible de prendre des photos pour un LIC papier.",
+    )
+    pictures = graphene.List(
+        ControlPictureOutput,
+        description="Liste des photos rattachées au contrôle LIC papier.",
+    )
+    pictures_expiry_date = graphene.Field(
+        graphene.String,
+        description="Date d'expiration des photos rattachées au LIC papier.",
     )
 
     def resolve_control_type(self, info):
@@ -344,3 +358,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             return False
 
         return self.creation_time.date() == datetime.datetime.now().date()
+
+    def resolve_pictures(self, info):
+        return self.pictures
+
+    def resolve_pictures_expiry_date(self, info):
+        return self.creation_time.date() + timedelta(days=90)
