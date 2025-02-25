@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class TeamAnonymized(AnonymizedModel):
+class AnonTeam(AnonymizedModel):
     __tablename__ = "anon_team"
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)
@@ -17,7 +17,7 @@ class TeamAnonymized(AnonymizedModel):
         return anonymized
 
 
-class TeamAdminUserAnonymized(AnonymizedModel):
+class AnonTeamAdminUser(AnonymizedModel):
     __tablename__ = "anon_team_admin_user"
     team_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, primary_key=True)
@@ -30,7 +30,7 @@ class TeamAdminUserAnonymized(AnonymizedModel):
         return anonymized
 
 
-class TeamKnownAddressAnonymized(AnonymizedModel):
+class AnonTeamKnownAddress(AnonymizedModel):
     __tablename__ = "anon_team_known_address"
     team_id = db.Column(db.Integer, primary_key=True)
     company_known_address_id = db.Column(db.Integer, primary_key=True)

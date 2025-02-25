@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class EmailAnonymized(AnonymizedModel):
+class AnonEmail(AnonymizedModel):
     __tablename__ = "anon_email"
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)

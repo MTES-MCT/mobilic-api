@@ -4,7 +4,7 @@ from app.models.utils import enum_column
 from app.models.user import UserAccountStatus
 
 
-class UserAnonymized(AnonymizedModel):
+class AnonUser(AnonymizedModel):
     __tablename__ = "anon_user"
 
     id = db.Column(db.Integer, primary_key=True)

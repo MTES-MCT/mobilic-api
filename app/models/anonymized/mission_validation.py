@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class MissionValidationAnonymized(AnonymizedModel):
+class AnonMissionValidation(AnonymizedModel):
     __tablename__ = "anon_mission_validation"
 
     id = db.Column(db.Integer, primary_key=True)
