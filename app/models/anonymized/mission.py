@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class MissionAnonymized(AnonymizedModel):
+class AnonMission(AnonymizedModel):
     __tablename__ = "anon_mission"
 
     id = db.Column(db.Integer, primary_key=True)

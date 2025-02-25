@@ -1,26 +1,26 @@
 from .base import AnonymizedModel
 from .id_mapping import IdMapping
-from .mission import MissionAnonymized
-from .activity import ActivityAnonymized
-from .activity_version import ActivityVersionAnonymized
-from .mission_validation import MissionValidationAnonymized
-from .mission_end import MissionEndAnonymized
-from .location_entry import LocationEntryAnonymized
-from .employment import EmploymentAnonymized
-from .email import EmailAnonymized
-from .user import UserAnonymized
-from .company import CompanyAnonymized
-from .company_certification import CompanyCertificationAnonymized
-from .company_stats import CompanyStatsAnonymized
-from .vehicle import VehicleAnonymized
-from .company_known_address import CompanyKnownAddressAnonymized
-from .user_agreement import UserAgreementAnonymized
-from .regulation_computation import RegulationComputationAnonymized
-from .regulatory_alert import RegulatoryAlertAnonymized
-from .controller_control import ControllerControlAnonymized
-from .controller_user import ControllerUserAnonymized
-from .team_and_associatiation_tables import (
-    TeamAnonymized,
-    TeamAdminUserAnonymized,
-    TeamKnownAddressAnonymized,
+from .mission import AnonMission
+from .activity import AnonActivity
+from .activity_version import AnonActivityVersion
+from .mission_validation import AnonMissionValidation
+from .mission_end import AnonMissionEnd
+from .location_entry import AnonLocationEntry
+from .employment import AnonEmployment
+from .email import AnonEmail
+from .user import AnonUser
+from .company import AnonCompany
+from .company_certification import AnonCompanyCertification
+from .company_stats import AnonCompanyStats
+from .vehicle import AnonVehicle
+from .company_known_address import AnonCompanyKnownAddress
+from .user_agreement import AnonUserAgreement
+from .regulation_computation import AnonRegulationComputation
+from .regulatory_alert import AnonRegulatoryAlert
+from .controller_control import AnonControllerControl
+from .controller_user import AnonControllerUser
+from .team_and_association_tables import (
+    AnonTeam,
+    AnonTeamAdminUser,
+    AnonTeamKnownAddress,
 )

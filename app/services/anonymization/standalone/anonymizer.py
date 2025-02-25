@@ -198,9 +198,9 @@ class StandaloneAnonymizer(BaseAnonymizer):
         employments = query.all()
         if not employments:
             logger.info("No terminated employments found")
-            return []
+            return {}
 
-        employment_ids = [e.id for e in employments]
+        employment_ids = {e.id for e in employments}
         logger.info(
             f"Found {len(employment_ids)} terminated employments to anonymize"
         )
@@ -213,8 +213,8 @@ class StandaloneAnonymizer(BaseAnonymizer):
 
         if not missions:
             logger.info("No expired missions found")
-            return []
+            return {}
 
-        mission_ids = [m.id for m in missions]
+        mission_ids = {m.id for m in missions}
         logger.info(f"Found {len(mission_ids)} expired missions to anonymize")
         return mission_ids

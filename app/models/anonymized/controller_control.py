@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class ControllerControlAnonymized(AnonymizedModel):
+class AnonControllerControl(AnonymizedModel):
     __tablename__ = "anon_controller_control"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -39,18 +39,44 @@ class ControllerControlAnonymized(AnonymizedModel):
         anonymized.control_bulletin_creation_time = cls.truncate_to_month(
             control.control_bulletin_creation_time
         )
-        anonymized.control_bulletin_first_download_time = (
-            cls.truncate_to_month(control.control_bulletin_first_download_time)
-        )
+        if control.control_bulletin_first_download_time:
+            anon_creation_time = cls.truncate_to_month(
+                control.control_bulletin_creation_time
+            )
+            time_diff = (
+                control.control_bulletin_first_download_time
+                - control.control_bulletin_creation_time
+            )
+            anonymized.control_bulletin_first_download_time = (
+                anon_creation_time + time_diff
+            )
+        else:
+            control.control_bulletin_first_download_time = None
         anonymized.observed_infractions = control.observed_infractions
-        anonymized.reported_infractions_last_update_time = (
-            cls.truncate_to_month(
+        if control.reported_infractions_last_update_time:
+            anon_creation_time = cls.truncate_to_month(
+                control.control_bulletin_creation_time
+            )
+            time_diff = (
                 control.reported_infractions_last_update_time
+                - control.control_bulletin_creation_time
             )
-        )
-        anonymized.reported_infractions_first_update_time = (
-            cls.truncate_to_month(
+            anonymized.reported_infractions_last_update_time = (
+                anon_creation_time + time_diff
+            )
+        else:
+            anonymized.reported_infractions_last_update_time = None
+        if control.reported_infractions_first_update_time:
+            anon_creation_time = cls.truncate_to_month(
+                control.control_bulletin_creation_time
+            )
+            time_diff = (
                 control.reported_infractions_first_update_time
+                - control.control_bulletin_creation_time
             )
-        )
+            anonymized.reported_infractions_first_update_time = (
+                anon_creation_time + time_diff
+            )
+        else:
+            anonymized.reported_infractions_first_update_time = None
         return anonymized

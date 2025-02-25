@@ -46,9 +46,22 @@ class UserClassifier:
             UserRelatedTableInfo(
                 "comment", ["submitter_id", "dismiss_author_id"]
             ),
+            UserRelatedTableInfo(
+                "activity", ["user_id", "submitter_id", "dismiss_author_id"]
+            ),
+            UserRelatedTableInfo("vehicle", ["submitter_id"]),
+            UserRelatedTableInfo("location_entry", ["submitter_id"]),
+            UserRelatedTableInfo("regulatory_alert", ["user_id"]),
+            UserRelatedTableInfo("regulation_computation", ["user_id"]),
+            UserRelatedTableInfo("user_agreement", ["user_id"]),
+            UserRelatedTableInfo("refresh_token", ["user_id"]),
+            UserRelatedTableInfo("user_read_token", ["user_id"]),
+            UserRelatedTableInfo("user_survey_actions", ["user_id"]),
+            UserRelatedTableInfo("team_admin_user", ["user_id"]),
+            UserRelatedTableInfo("controller_control", ["user_id"]),
         ]
 
-    def _get_inactive_companies(self) -> Set[str]:
+    def _get_inactive_companies(self) -> Tuple[int, ...]:
         companies_ceased_siren = set(
             self.anonymizer.find_inactive_companies_by_siren(self.cutoff_date)
         )
@@ -103,18 +116,29 @@ class UserClassifier:
         )
 
         if inactive_companies:
+            # check if admin is only admin in inactive companies
             sql_query_admin = """
             SELECT DISTINCT u.id 
-              FROM "user" u
-              JOIN employment e ON u.id = e.user_id
-             WHERE e.has_admin_rights = true
-             AND u.creation_time <= :cutoff_date
-             AND NOT EXISTS (
-                SELECT 1 
-                  FROM employment ee
-                 WHERE ee.user_id = u.id
-                   AND ee.has_admin_rights = true
-                   AND ee.company_id NOT IN :inactive_companies
+            FROM "user" u
+            JOIN employment e ON u.id = e.user_id
+            WHERE e.has_admin_rights = true
+            AND u.creation_time <= :cutoff_date
+            AND NOT EXISTS (
+               SELECT 1 
+               FROM activity a
+               WHERE a.creation_time > :cutoff_date
+               AND (
+                    a.user_id = u.id OR
+                    a.submitter_id = u.id OR
+                    a.dismiss_author_id = u.id
+                    )
+            )
+            AND NOT EXISTS (
+               SELECT 1 
+                 FROM employment ee
+                WHERE ee.user_id = u.id
+                  AND ee.has_admin_rights = true
+                  AND ee.company_id NOT IN :inactive_companies
             )
             """
 
@@ -132,7 +156,7 @@ class UserClassifier:
         sql_query_controller = """
         SELECT DISTINCT cu.id 
           FROM controller_user cu
-          JOIN controller_control cc ON cu.id = cc.controller_id
+          LEFT JOIN controller_control cc ON cu.id = cc.controller_id
          WHERE cu.creation_time <= :cutoff_date
          AND NOT EXISTS (
             SELECT 1 

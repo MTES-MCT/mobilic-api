@@ -34,28 +34,28 @@ from app.models.team_association_tables import (
 )
 from app.helpers.oauth import OAuth2Token, OAuth2AuthorizationCode
 from app.models.anonymized import (
-    ActivityAnonymized,
-    ActivityVersionAnonymized,
-    MissionAnonymized,
-    MissionEndAnonymized,
-    MissionValidationAnonymized,
-    LocationEntryAnonymized,
-    EmploymentAnonymized,
-    EmailAnonymized,
-    CompanyAnonymized,
-    CompanyCertificationAnonymized,
-    CompanyStatsAnonymized,
-    VehicleAnonymized,
-    CompanyKnownAddressAnonymized,
-    UserAnonymized,
-    UserAgreementAnonymized,
-    RegulatoryAlertAnonymized,
-    RegulationComputationAnonymized,
-    ControllerControlAnonymized,
-    ControllerUserAnonymized,
-    TeamAnonymized,
-    TeamAdminUserAnonymized,
-    TeamKnownAddressAnonymized,
+    AnonActivity,
+    AnonActivityVersion,
+    AnonMission,
+    AnonMissionEnd,
+    AnonMissionValidation,
+    AnonLocationEntry,
+    AnonEmployment,
+    AnonEmail,
+    AnonCompany,
+    AnonCompanyCertification,
+    AnonCompanyStats,
+    AnonVehicle,
+    AnonCompanyKnownAddress,
+    AnonUser,
+    AnonUserAgreement,
+    AnonRegulatoryAlert,
+    AnonRegulationComputation,
+    AnonControllerControl,
+    AnonControllerUser,
+    AnonTeam,
+    AnonTeamAdminUser,
+    AnonTeamKnownAddress,
 )
 import logging
 
@@ -112,7 +112,7 @@ class BaseAnonymizer:
 
         self.log_anonymization(len(activities), "activity")
         for activity in activities:
-            anonymized = ActivityAnonymized.anonymize(activity)
+            anonymized = AnonActivity.anonymize(activity)
             self.db.add(anonymized)
 
         Activity.query.filter(Activity.id.in_(activity_ids)).delete(
@@ -132,7 +132,7 @@ class BaseAnonymizer:
             return
 
         for version in activity_versions:
-            anonymized = ActivityVersionAnonymized.anonymize(version)
+            anonymized = AnonActivityVersion.anonymize(version)
             self.db.add(anonymized)
 
         ActivityVersion.query.filter(
@@ -152,7 +152,7 @@ class BaseAnonymizer:
             return
 
         for mission_end in mission_ends:
-            anonymized = MissionEndAnonymized.anonymize(mission_end)
+            anonymized = AnonMissionEnd.anonymize(mission_end)
             self.db.add(anonymized)
 
         MissionEnd.query.filter(MissionEnd.mission_id.in_(mission_ids)).delete(
@@ -172,7 +172,7 @@ class BaseAnonymizer:
             return
 
         for validation in validations:
-            anonymized = MissionValidationAnonymized.anonymize(validation)
+            anonymized = AnonMissionValidation.anonymize(validation)
             self.db.add(anonymized)
 
         MissionValidation.query.filter(
@@ -192,7 +192,7 @@ class BaseAnonymizer:
             return
 
         for entry in entries:
-            anonymized = LocationEntryAnonymized.anonymize(entry)
+            anonymized = AnonLocationEntry.anonymize(entry)
             self.db.add(anonymized)
 
         LocationEntry.query.filter(
@@ -248,7 +248,7 @@ class BaseAnonymizer:
             return
 
         for mission in missions:
-            anonymized = MissionAnonymized.anonymize(mission)
+            anonymized = AnonMission.anonymize(mission)
             self.db.add(anonymized)
 
         Mission.query.filter(Mission.id.in_(mission_ids)).delete(
@@ -291,7 +291,7 @@ class BaseAnonymizer:
             return
 
         for email in emails:
-            anonymized = EmailAnonymized.anonymize(email)
+            anonymized = AnonEmail.anonymize(email)
             self.db.add(anonymized)
 
         delete_query = "DELETE FROM email WHERE " + " OR ".join(conditions)
@@ -310,7 +310,7 @@ class BaseAnonymizer:
             return
 
         for employment in employments:
-            anonymized = EmploymentAnonymized.anonymize(employment)
+            anonymized = AnonEmployment.anonymize(employment)
             self.db.add(anonymized)
 
         Employment.query.filter(Employment.id.in_(employment_ids)).delete(
@@ -341,7 +341,7 @@ class BaseAnonymizer:
             return
 
         for company in companies:
-            anonymized = CompanyAnonymized.anonymize(company)
+            anonymized = AnonCompany.anonymize(company)
             self.db.add(anonymized)
 
         Company.query.filter(Company.id.in_(company_ids)).delete(
@@ -361,9 +361,7 @@ class BaseAnonymizer:
             return
 
         for certification in certifications:
-            anonymized = CompanyCertificationAnonymized.anonymize(
-                certification
-            )
+            anonymized = AnonCompanyCertification.anonymize(certification)
             self.db.add(anonymized)
 
         CompanyCertification.query.filter(
@@ -383,7 +381,7 @@ class BaseAnonymizer:
             return
 
         for stat in stats:
-            anonymized = CompanyStatsAnonymized.anonymize(stat)
+            anonymized = AnonCompanyStats.anonymize(stat)
             self.db.add(anonymized)
 
         CompanyStats.query.filter(
@@ -403,7 +401,7 @@ class BaseAnonymizer:
             return
 
         for vehicle in vehicles:
-            anonymized = VehicleAnonymized.anonymize(vehicle)
+            anonymized = AnonVehicle.anonymize(vehicle)
             self.db.add(anonymized)
 
         Vehicle.query.filter(Vehicle.company_id.in_(company_ids)).delete(
@@ -423,7 +421,7 @@ class BaseAnonymizer:
             return
 
         for address in addresses:
-            anonymized = CompanyKnownAddressAnonymized.anonymize(address)
+            anonymized = AnonCompanyKnownAddress.anonymize(address)
             self.db.add(anonymized)
 
         CompanyKnownAddress.query.filter(
@@ -520,21 +518,23 @@ class BaseAnonymizer:
             Vehicle.submitter_id.in_(user_ids)
         ).all()
 
-        vehicle_ids = {v.id for v in vehicles}
-        if not vehicle_ids:
+        if not vehicles:
             return
+
+        vehicle_ids = {v.id for v in vehicles}
 
         Mission.query.filter(Mission.vehicle_id.in_(vehicle_ids)).update(
             {Mission.vehicle_id: None}, synchronize_session=False
         )
 
         self.log_anonymization(len(vehicles), "vehicle", "for user")
+
         for vehicle in vehicles:
-            anonymized = VehicleAnonymized.anonymize(vehicle)
+            anonymized = AnonVehicle.anonymize(vehicle)
             self.db.add(anonymized)
 
-        Vehicle.query.filter(Vehicle.submitter_id.in_(user_ids)).delete(
-            synchronize_session=False
+        Vehicle.query.filter(Vehicle.submitter_id.in_(user_ids)).update(
+            {Vehicle.submitter_id: None}, synchronize_session=False
         )
 
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
@@ -550,7 +550,7 @@ class BaseAnonymizer:
             return
 
         for alert in alerts:
-            anonymized = RegulatoryAlertAnonymized.anonymize(alert)
+            anonymized = AnonRegulatoryAlert.anonymize(alert)
             self.db.add(anonymized)
 
         RegulatoryAlert.query.filter(
@@ -570,7 +570,7 @@ class BaseAnonymizer:
             return
 
         for computation in computations:
-            anonymized = RegulationComputationAnonymized.anonymize(computation)
+            anonymized = AnonRegulationComputation.anonymize(computation)
             self.db.add(anonymized)
 
         RegulationComputation.query.filter(
@@ -590,7 +590,7 @@ class BaseAnonymizer:
             return
 
         for agreement in agreements:
-            anonymized = UserAgreementAnonymized.anonymize(agreement)
+            anonymized = AnonUserAgreement.anonymize(agreement)
             self.db.add(anonymized)
 
         UserAgreement.query.filter(UserAgreement.user_id.in_(user_ids)).delete(
@@ -608,7 +608,7 @@ class BaseAnonymizer:
             return
 
         for user in users:
-            anonymized = UserAnonymized.anonymize(user)
+            anonymized = AnonUser.anonymize(user)
             self.db.add(anonymized)
 
         User.query.filter(User.id.in_(user_ids)).delete(
@@ -636,7 +636,7 @@ class BaseAnonymizer:
             return
 
         for relation in relations:
-            anonymized = TeamAdminUserAnonymized.anonymize(relation)
+            anonymized = AnonTeamAdminUser.anonymize(relation)
             self.db.add(anonymized)
 
         if user_ids:
@@ -700,7 +700,7 @@ class BaseAnonymizer:
             return
 
         for relation in relations:
-            anonymized = TeamKnownAddressAnonymized.anonymize(relation)
+            anonymized = AnonTeamKnownAddress.anonymize(relation)
             self.db.add(anonymized)
 
         db.session.execute(
@@ -720,7 +720,7 @@ class BaseAnonymizer:
             return
 
         for team in teams:
-            anonymized = TeamAnonymized.anonymize(team)
+            anonymized = AnonTeam.anonymize(team)
             self.db.add(anonymized)
 
         Team.query.filter(Team.id.in_(team_ids)).delete(
@@ -782,7 +782,7 @@ class BaseAnonymizer:
             return
 
         for control in controls:
-            anonymized = ControllerControlAnonymized.anonymize(control)
+            anonymized = AnonControllerControl.anonymize(control)
             self.db.add(anonymized)
 
         if controller_ids:
@@ -807,7 +807,7 @@ class BaseAnonymizer:
             return
 
         for controller in controllers:
-            anonymized = ControllerUserAnonymized.anonymize(controller)
+            anonymized = AnonControllerUser.anonymize(controller)
             self.db.add(anonymized)
 
         ControllerUser.query.filter(

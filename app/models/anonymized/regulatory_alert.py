@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class RegulatoryAlertAnonymized(AnonymizedModel):
+class AnonRegulatoryAlert(AnonymizedModel):
     __tablename__ = "anon_regulatory_alert"
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)
@@ -21,7 +21,5 @@ class RegulatoryAlertAnonymized(AnonymizedModel):
         anonymized.extra = alert.extra
         anonymized.submitter_type = alert.submitter_type
         anonymized.user_id = cls.get_new_id("user", alert.user_id)
-        anonymized.regulation_check_id = cls.get_new_id(
-            "regulation_check", alert.regulation_check_id
-        )
+        anonymized.regulation_check_id = alert.regulation_check_id
         return anonymized

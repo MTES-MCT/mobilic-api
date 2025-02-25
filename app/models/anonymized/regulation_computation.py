@@ -2,7 +2,7 @@ from app import db
 from .base import AnonymizedModel
 
 
-class RegulationComputationAnonymized(AnonymizedModel):
+class AnonRegulationComputation(AnonymizedModel):
     __tablename__ = "anon_regulation_computation"
     id = db.Column(db.Integer, primary_key=True)
     creation_time = db.Column(db.DateTime, nullable=False)
@@ -19,7 +19,7 @@ class RegulationComputationAnonymized(AnonymizedModel):
         anonymized.creation_time = cls.truncate_to_month(
             computation.creation_time
         )
-        anonymized.day = cls.truncate_to_month(computation.day)
+        anonymized.day = computation.day
         anonymized.submitter_type = computation.submitter_type
         anonymized.user_id = cls.get_new_id("user", computation.user_id)
         return anonymized
