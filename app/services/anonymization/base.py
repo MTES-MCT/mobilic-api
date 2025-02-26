@@ -63,8 +63,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAnonymizer:
-    def __init__(self, db_session):
+    def __init__(self, db_session, dry_run=True):
         self.db = db_session
+        self.dry_run = dry_run
 
     def log_anonymization(
         self, count: int, entity_type: str, context: str = ""
@@ -74,14 +75,17 @@ class BaseAnonymizer:
                 f"No {entity_type} found{' ' + context if context else ''}"
             )
             return
+
+        action = "Processing"
         logger.info(
-            f"Processing {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
+            f"{action} {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
         )
 
     def log_deletion(self, count: int, entity_type: str, context: str = ""):
         if count > 0:
+            action = "Would delete" if self.dry_run else "Deleted"
             logger.info(
-                f"Deleted {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
+                f"{action} {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
             )
 
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
@@ -92,9 +96,16 @@ class BaseAnonymizer:
         self.anonymize_mission_ends(mission_ids)
         self.anonymize_mission_validations(mission_ids)
         self.anonymize_location_entries(mission_ids)
-        self.delete_expenditures(mission_ids)
-        self.delete_mission_comments(mission_ids)
         self.anonymize_missions(mission_ids)
+
+        if not self.dry_run:
+            self.delete_expenditures(mission_ids)
+            self.delete_mission_comments(mission_ids)
+            self.delete_activities(mission_ids)
+            self.delete_mission_ends(mission_ids)
+            self.delete_mission_validations(mission_ids)
+            self.delete_location_entries(mission_ids)
+            self.delete_missions(mission_ids)
 
     def anonymize_activities(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -115,9 +126,24 @@ class BaseAnonymizer:
             anonymized = AnonActivity.anonymize(activity)
             self.db.add(anonymized)
 
-        Activity.query.filter(Activity.id.in_(activity_ids)).delete(
+    def delete_activities(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        activities = Activity.query.filter(
+            Activity.mission_id.in_(mission_ids)
+        ).all()
+
+        if not activities:
+            return
+
+        activity_ids = {a.id for a in activities}
+        self.delete_activity_versions(activity_ids)
+
+        deleted = Activity.query.filter(Activity.id.in_(activity_ids)).delete(
             synchronize_session=False
         )
+        self.log_deletion(deleted, "activity")
 
     def anonymize_activity_versions(self, activity_ids: Set[int]) -> None:
         if not activity_ids:
@@ -135,9 +161,15 @@ class BaseAnonymizer:
             anonymized = AnonActivityVersion.anonymize(version)
             self.db.add(anonymized)
 
-        ActivityVersion.query.filter(
+    def delete_activity_versions(self, activity_ids: Set[int]) -> None:
+        if not activity_ids:
+            return
+
+        deleted = ActivityVersion.query.filter(
             ActivityVersion.activity_id.in_(activity_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "activity version")
 
     def anonymize_mission_ends(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -155,9 +187,15 @@ class BaseAnonymizer:
             anonymized = AnonMissionEnd.anonymize(mission_end)
             self.db.add(anonymized)
 
-        MissionEnd.query.filter(MissionEnd.mission_id.in_(mission_ids)).delete(
-            synchronize_session=False
-        )
+    def delete_mission_ends(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        deleted = MissionEnd.query.filter(
+            MissionEnd.mission_id.in_(mission_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "mission end")
 
     def anonymize_mission_validations(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -175,9 +213,15 @@ class BaseAnonymizer:
             anonymized = AnonMissionValidation.anonymize(validation)
             self.db.add(anonymized)
 
-        MissionValidation.query.filter(
+    def delete_mission_validations(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        deleted = MissionValidation.query.filter(
             MissionValidation.mission_id.in_(mission_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "mission validation")
 
     def anonymize_location_entries(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -195,9 +239,15 @@ class BaseAnonymizer:
             anonymized = AnonLocationEntry.anonymize(entry)
             self.db.add(anonymized)
 
-        LocationEntry.query.filter(
+    def delete_location_entries(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        deleted = LocationEntry.query.filter(
             LocationEntry.mission_id.in_(mission_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "location entry")
 
     def delete_expenditures(
         self, mission_ids: Set[int] = None, user_ids: Set[int] = None
@@ -222,10 +272,7 @@ class BaseAnonymizer:
             if user_ids:
                 context.append("users")
 
-            context_str = f"for {' and '.join(context)}" if context else ""
-            logger.info(
-                f"Deleted {deleted} expenditures {context_str}".strip()
-            )
+            self.log_deletion(deleted, "expenditures")
 
     def delete_mission_comments(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -251,9 +298,15 @@ class BaseAnonymizer:
             anonymized = AnonMission.anonymize(mission)
             self.db.add(anonymized)
 
-        Mission.query.filter(Mission.id.in_(mission_ids)).delete(
+    def delete_missions(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        deleted = Mission.query.filter(Mission.id.in_(mission_ids)).delete(
             synchronize_session=False
         )
+
+        self.log_deletion(deleted, "missions")
 
     def anonymize_employment_and_dependencies(
         self, employment_ids: Set[int]
@@ -261,8 +314,12 @@ class BaseAnonymizer:
         if not employment_ids:
             return
 
-        self.anonymize_emails(employment_ids)
+        self.anonymize_emails(employment_ids=employment_ids)
         self.anonymize_employments(employment_ids)
+
+        if not self.dry_run:
+            self.delete_emails(employment_ids=employment_ids)
+            self.delete_employments(employment_ids)
 
     def anonymize_emails(
         self, employment_ids: Set[int] = None, user_ids: Set[int] = None
@@ -294,8 +351,26 @@ class BaseAnonymizer:
             anonymized = AnonEmail.anonymize(email)
             self.db.add(anonymized)
 
+    def delete_emails(
+        self, employment_ids: Set[int] = None, user_ids: Set[int] = None
+    ) -> None:
+        if not employment_ids and not user_ids:
+            return
+
+        conditions = []
+        params = {}
+
+        if employment_ids:
+            conditions.append("employment_id = ANY(:employment_ids)")
+            params["employment_ids"] = list(employment_ids)
+        if user_ids:
+            conditions.append("user_id = ANY(:user_ids)")
+            params["user_ids"] = list(user_ids)
+
         delete_query = "DELETE FROM email WHERE " + " OR ".join(conditions)
-        db.session.execute(delete_query, params)
+        result = db.session.execute(delete_query, params)
+
+        self.log_deletion(result.rowcount, "email")
 
     def anonymize_employments(self, employment_ids: Set[int]) -> None:
         if not employment_ids:
@@ -313,9 +388,15 @@ class BaseAnonymizer:
             anonymized = AnonEmployment.anonymize(employment)
             self.db.add(anonymized)
 
-        Employment.query.filter(Employment.id.in_(employment_ids)).delete(
-            synchronize_session=False
-        )
+    def delete_employments(self, employment_ids: Set[int]) -> None:
+        if not employment_ids:
+            return
+
+        deleted = Employment.query.filter(
+            Employment.id.in_(employment_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "employment")
 
     def anonymize_company_and_dependencies(
         self, company_ids: Set[int]
@@ -329,6 +410,14 @@ class BaseAnonymizer:
         self.anonymize_company_vehicles(company_ids)
         self.anonymize_company_known_addresses(company_ids)
         self.anonymize_companies(company_ids)
+
+        if not self.dry_run:
+            self.delete_company_team_and_dependencies(company_ids)
+            self.delete_company_certifications(company_ids)
+            self.delete_company_stats(company_ids)
+            self.delete_company_vehicles(company_ids)
+            self.delete_company_known_addresses(company_ids)
+            self.delete_companies(company_ids)
 
     def anonymize_companies(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -344,9 +433,15 @@ class BaseAnonymizer:
             anonymized = AnonCompany.anonymize(company)
             self.db.add(anonymized)
 
-        Company.query.filter(Company.id.in_(company_ids)).delete(
+    def delete_companies(self, company_ids: Set[int]) -> None:
+        if not company_ids:
+            return
+
+        deleted = Company.query.filter(Company.id.in_(company_ids)).delete(
             synchronize_session=False
         )
+
+        self.log_deletion(deleted, "company")
 
     def anonymize_company_certifications(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -364,9 +459,15 @@ class BaseAnonymizer:
             anonymized = AnonCompanyCertification.anonymize(certification)
             self.db.add(anonymized)
 
-        CompanyCertification.query.filter(
+    def delete_company_certifications(self, company_ids: Set[int]) -> None:
+        if not company_ids:
+            return
+
+        deleted = CompanyCertification.query.filter(
             CompanyCertification.company_id.in_(company_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "company certification")
 
     def anonymize_company_stats(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -384,9 +485,15 @@ class BaseAnonymizer:
             anonymized = AnonCompanyStats.anonymize(stat)
             self.db.add(anonymized)
 
-        CompanyStats.query.filter(
+    def delete_company_stats(self, company_ids: Set[int]) -> None:
+        if not company_ids:
+            return
+
+        deleted = CompanyStats.query.filter(
             CompanyStats.company_id.in_(company_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "company stat")
 
     def anonymize_company_vehicles(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -404,9 +511,15 @@ class BaseAnonymizer:
             anonymized = AnonVehicle.anonymize(vehicle)
             self.db.add(anonymized)
 
-        Vehicle.query.filter(Vehicle.company_id.in_(company_ids)).delete(
-            synchronize_session=False
-        )
+    def delete_company_vehicles(self, company_ids: Set[int]) -> None:
+        if not company_ids:
+            return
+
+        deleted = Vehicle.query.filter(
+            Vehicle.company_id.in_(company_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "vehicle")
 
     def anonymize_company_known_addresses(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -424,22 +537,21 @@ class BaseAnonymizer:
             anonymized = AnonCompanyKnownAddress.anonymize(address)
             self.db.add(anonymized)
 
-        CompanyKnownAddress.query.filter(
+    def delete_company_known_addresses(self, company_ids: Set[int]) -> None:
+        if not company_ids:
+            return
+
+        deleted = CompanyKnownAddress.query.filter(
             CompanyKnownAddress.company_id.in_(company_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "company known address")
 
     def anonymize_user_and_dependencies(self, user_ids: Set[int]) -> None:
         if not user_ids:
             return
 
         self.anonymize_user_vehicles(user_ids)
-        self.delete_expenditures(user_ids=user_ids)
-        self.delete_dismissed_company_known_address(user_ids)
-        self.delete_user_oauth2_token(user_ids)
-        self.delete_user_oauth2_auth_code(user_ids)
-        self.delete_user_refresh_tokens(user_ids)
-        self.delete_user_read_tokens(user_ids)
-        self.delete_user_survey_actions(user_ids)
         self.anonymize_emails(user_ids=user_ids)
         self.anonymize_regulatory_alerts(user_ids)
         self.anonymize_regulation_computations(user_ids)
@@ -447,6 +559,23 @@ class BaseAnonymizer:
         self.anonymize_team_admin_users(user_ids=user_ids)
         self.anonymize_controller_controls(user_ids=user_ids)
         self.anonymize_users(user_ids)
+
+        if not self.dry_run:
+            self.delete_expenditures(user_ids=user_ids)
+            self.delete_dismissed_company_known_address(user_ids)
+            self.delete_user_oauth2_token(user_ids)
+            self.delete_user_oauth2_auth_code(user_ids)
+            self.delete_user_refresh_tokens(user_ids)
+            self.delete_user_read_tokens(user_ids)
+            self.delete_user_survey_actions(user_ids)
+            self.delete_team_admin_users(user_ids=user_ids)
+            self.delete_controller_controls(user_ids=user_ids)
+            self.unlink_user_from_vehicles(user_ids)
+            self.delete_emails(user_ids=user_ids)
+            self.delete_regulatory_alerts(user_ids)
+            self.delete_regulation_computations(user_ids)
+            self.delete_user_agreements(user_ids)
+            self.delete_users(user_ids)
 
     def delete_dismissed_company_known_address(
         self, user_ids: Set[int]
@@ -523,9 +652,7 @@ class BaseAnonymizer:
 
         vehicle_ids = {v.id for v in vehicles}
 
-        Mission.query.filter(Mission.vehicle_id.in_(vehicle_ids)).update(
-            {Mission.vehicle_id: None}, synchronize_session=False
-        )
+        self.unlink_missions_from_vehicles(vehicle_ids)
 
         self.log_anonymization(len(vehicles), "vehicle", "for user")
 
@@ -533,9 +660,25 @@ class BaseAnonymizer:
             anonymized = AnonVehicle.anonymize(vehicle)
             self.db.add(anonymized)
 
-        Vehicle.query.filter(Vehicle.submitter_id.in_(user_ids)).update(
-            {Vehicle.submitter_id: None}, synchronize_session=False
-        )
+    def unlink_missions_from_vehicles(self, vehicle_ids: Set[int]) -> None:
+        if not vehicle_ids:
+            return
+
+        updated = Mission.query.filter(
+            Mission.vehicle_id.in_(vehicle_ids)
+        ).update({Mission.vehicle_id: None}, synchronize_session=False)
+
+        self.log_anonymization(updated, "mission", "unlinked from vehicles")
+
+    def unlink_user_from_vehicles(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        updated = Vehicle.query.filter(
+            Vehicle.submitter_id.in_(user_ids)
+        ).update({Vehicle.submitter_id: None}, synchronize_session=False)
+
+        self.log_anonymization(updated, "user", "unlinked from vehicles")
 
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -553,9 +696,15 @@ class BaseAnonymizer:
             anonymized = AnonRegulatoryAlert.anonymize(alert)
             self.db.add(anonymized)
 
-        RegulatoryAlert.query.filter(
+    def delete_regulatory_alerts(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = RegulatoryAlert.query.filter(
             RegulatoryAlert.user_id.in_(user_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "regulatory alert")
 
     def anonymize_regulation_computations(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -573,9 +722,15 @@ class BaseAnonymizer:
             anonymized = AnonRegulationComputation.anonymize(computation)
             self.db.add(anonymized)
 
-        RegulationComputation.query.filter(
+    def delete_regulation_computations(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = RegulationComputation.query.filter(
             RegulationComputation.user_id.in_(user_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "regulation computation")
 
     def anonymize_user_agreements(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -593,9 +748,15 @@ class BaseAnonymizer:
             anonymized = AnonUserAgreement.anonymize(agreement)
             self.db.add(anonymized)
 
-        UserAgreement.query.filter(UserAgreement.user_id.in_(user_ids)).delete(
-            synchronize_session=False
-        )
+    def delete_user_agreements(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = UserAgreement.query.filter(
+            UserAgreement.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "user agreement")
 
     def anonymize_users(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -611,46 +772,15 @@ class BaseAnonymizer:
             anonymized = AnonUser.anonymize(user)
             self.db.add(anonymized)
 
-        User.query.filter(User.id.in_(user_ids)).delete(
+    def delete_users(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = User.query.filter(User.id.in_(user_ids)).delete(
             synchronize_session=False
         )
 
-    def anonymize_team_admin_users(
-        self, user_ids: Set[int] = None, team_ids: Set[int] = None
-    ) -> None:
-        if not user_ids and not team_ids:
-            return
-
-        query = db.session.query(team_admin_user_association_table)
-        if user_ids:
-            relations = query.filter(
-                team_admin_user_association_table.c.user_id.in_(user_ids)
-            ).all()
-        if team_ids:
-            relations = query.filter(
-                team_admin_user_association_table.c.team_id.in_(team_ids)
-            ).all()
-
-        self.log_anonymization(len(relations), "team admin user relation")
-        if not relations:
-            return
-
-        for relation in relations:
-            anonymized = AnonTeamAdminUser.anonymize(relation)
-            self.db.add(anonymized)
-
-        if user_ids:
-            db.session.execute(
-                team_admin_user_association_table.delete().where(
-                    team_admin_user_association_table.c.user_id.in_(user_ids)
-                )
-            )
-        if team_ids:
-            db.session.execute(
-                team_admin_user_association_table.delete().where(
-                    team_admin_user_association_table.c.team_id.in_(team_ids)
-                )
-            )
+        self.log_deletion(deleted, "user")
 
     def anonymize_company_team_and_dependencies(
         self, company_ids: Set[int]
@@ -678,8 +808,71 @@ class BaseAnonymizer:
         if team_ids:
             self.anonymize_team_admin_users(team_ids=team_ids)
             self.anonymize_company_team_known_addresses(team_ids)
-            self.delete_team_vehicles(team_ids)
             self.anonymize_company_teams(team_ids)
+
+    def delete_company_team_and_dependencies(
+        self, company_ids: Set[int]
+    ) -> None:
+        if not company_ids:
+            return
+
+        teams = Team.query.filter(Team.company_id.in_(company_ids)).all()
+        team_ids = {t.id for t in teams}
+
+        if team_ids:
+            self.delete_team_vehicles(team_ids)
+            self.delete_team_admin_users(team_ids=team_ids)
+            self.delete_company_team_known_addresses(team_ids)
+            self.delete_company_teams(team_ids)
+
+    def anonymize_team_admin_users(
+        self, user_ids: Set[int] = None, team_ids: Set[int] = None
+    ) -> None:
+        if not user_ids and not team_ids:
+            return
+
+        query = db.session.query(team_admin_user_association_table)
+        if user_ids:
+            relations = query.filter(
+                team_admin_user_association_table.c.user_id.in_(user_ids)
+            ).all()
+        if team_ids:
+            relations = query.filter(
+                team_admin_user_association_table.c.team_id.in_(team_ids)
+            ).all()
+
+        self.log_anonymization(len(relations), "team admin user relation")
+        if not relations:
+            return
+
+        for relation in relations:
+            anonymized = AnonTeamAdminUser.anonymize(relation)
+            self.db.add(anonymized)
+
+    def delete_team_admin_users(
+        self, user_ids: Set[int] = None, team_ids: Set[int] = None
+    ) -> None:
+        if not user_ids and not team_ids:
+            return
+
+        deleted = 0
+        if user_ids:
+            result = db.session.execute(
+                team_admin_user_association_table.delete().where(
+                    team_admin_user_association_table.c.user_id.in_(user_ids)
+                )
+            )
+            deleted += result.rowcount
+
+        if team_ids:
+            result = db.session.execute(
+                team_admin_user_association_table.delete().where(
+                    team_admin_user_association_table.c.team_id.in_(team_ids)
+                )
+            )
+            deleted += result.rowcount
+
+        self.log_deletion(deleted, "team admin user relation")
 
     def anonymize_company_team_known_addresses(
         self, team_ids: Set[int]
@@ -703,11 +896,17 @@ class BaseAnonymizer:
             anonymized = AnonTeamKnownAddress.anonymize(relation)
             self.db.add(anonymized)
 
-        db.session.execute(
+    def delete_company_team_known_addresses(self, team_ids: Set[int]) -> None:
+        if not team_ids:
+            return
+
+        result = db.session.execute(
             team_known_address_association_table.delete().where(
                 team_known_address_association_table.c.team_id.in_(team_ids)
             )
         )
+
+        self.log_deletion(result.rowcount, "team known address relation")
 
     def anonymize_company_teams(self, team_ids: Set[int]) -> None:
         if not team_ids:
@@ -723,9 +922,15 @@ class BaseAnonymizer:
             anonymized = AnonTeam.anonymize(team)
             self.db.add(anonymized)
 
-        Team.query.filter(Team.id.in_(team_ids)).delete(
+    def delete_company_teams(self, team_ids: Set[int]) -> None:
+        if not team_ids:
+            return
+
+        deleted = Team.query.filter(Team.id.in_(team_ids)).delete(
             synchronize_session=False
         )
+
+        self.log_deletion(deleted, "team")
 
     def delete_team_vehicles(self, team_ids: Set[int]) -> None:
         if not team_ids:
@@ -745,21 +950,13 @@ class BaseAnonymizer:
         if not controller_ids:
             return
 
-        self.delete_controller_refresh_tokens(controller_ids)
         self.anonymize_controller_controls(controller_ids=controller_ids)
         self.anonymize_controller_user(controller_ids)
 
-    def delete_controller_refresh_tokens(
-        self, controller_ids: Set[int]
-    ) -> None:
-        if not controller_ids:
-            return
-
-        deleted = ControllerRefreshToken.query.filter(
-            ControllerRefreshToken.controller_user_id.in_(controller_ids)
-        ).delete(synchronize_session=False)
-
-        self.log_deletion(deleted, "controller refresh token")
+        if not self.dry_run:
+            self.delete_controller_refresh_tokens(controller_ids)
+            self.delete_controller_controls(controller_ids=controller_ids)
+            self.delete_controller_user(controller_ids)
 
     def anonymize_controller_controls(
         self, controller_ids: Set[int] = None, user_ids: Set[int] = None
@@ -768,14 +965,19 @@ class BaseAnonymizer:
             return
 
         query = ControllerControl.query
+        controls = []
+
         if controller_ids:
-            controls = query.filter(
+            controller_controls = query.filter(
                 ControllerControl.controller_id.in_(controller_ids)
             ).all()
+            controls.extend(controller_controls)
+
         if user_ids:
-            controls = query.filter(
+            user_controls = query.filter(
                 ControllerControl.user_id.in_(user_ids)
             ).all()
+            controls.extend(user_controls)
 
         self.log_anonymization(len(controls), "controller control")
         if not controls:
@@ -785,14 +987,28 @@ class BaseAnonymizer:
             anonymized = AnonControllerControl.anonymize(control)
             self.db.add(anonymized)
 
+    def delete_controller_controls(
+        self, controller_ids: Set[int] = None, user_ids: Set[int] = None
+    ) -> None:
+        if not controller_ids and not user_ids:
+            return
+
+        query = ControllerControl.query
+        deleted = 0
+
         if controller_ids:
-            query.filter(
+            count = query.filter(
                 ControllerControl.controller_id.in_(controller_ids)
             ).delete(synchronize_session=False)
+            deleted += count
+
         if user_ids:
-            query.filter(ControllerControl.user_id.in_(user_ids)).delete(
-                synchronize_session=False
-            )
+            count = query.filter(
+                ControllerControl.user_id.in_(user_ids)
+            ).delete(synchronize_session=False)
+            deleted += count
+
+        self.log_deletion(deleted, "controller control")
 
     def anonymize_controller_user(self, controller_ids: Set[int]) -> None:
         if not controller_ids:
@@ -810,6 +1026,24 @@ class BaseAnonymizer:
             anonymized = AnonControllerUser.anonymize(controller)
             self.db.add(anonymized)
 
-        ControllerUser.query.filter(
+    def delete_controller_user(self, controller_ids: Set[int]) -> None:
+        if not controller_ids:
+            return
+
+        deleted = ControllerUser.query.filter(
             ControllerUser.id.in_(controller_ids)
         ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "controller user")
+
+    def delete_controller_refresh_tokens(
+        self, controller_ids: Set[int]
+    ) -> None:
+        if not controller_ids:
+            return
+
+        deleted = ControllerRefreshToken.query.filter(
+            ControllerRefreshToken.controller_user_id.in_(controller_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "controller refresh token")

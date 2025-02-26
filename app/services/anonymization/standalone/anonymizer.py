@@ -21,42 +21,44 @@ class StandaloneAnonymizer(BaseAnonymizer):
                 company_mission_ids,
             ) = self.find_inactive_companies_and_dependencies(cutoff_date)
 
-            if company_mission_ids:
-                self.anonymize_mission_and_dependencies(company_mission_ids)
-
-            if company_employment_ids:
-                self.anonymize_employment_and_dependencies(
-                    company_employment_ids
-                )
-
-            if company_ids:
-                self.anonymize_company_and_dependencies(company_ids)
-
             standalone_employment_ids = (
                 self.find_terminated_employments_before_cutoff(
                     cutoff_date, company_ids
                 )
             )
-            if standalone_employment_ids:
-                self.anonymize_employment_and_dependencies(
-                    standalone_employment_ids
-                )
-
             standalone_mission_ids = self.find_missions_before_cutoff(
                 cutoff_date
             )
-            if standalone_mission_ids:
-                self.anonymize_mission_and_dependencies(standalone_mission_ids)
 
-            if not any(
-                [
-                    company_ids,
-                    company_employment_ids,
-                    company_mission_ids,
-                    standalone_employment_ids,
-                    standalone_mission_ids,
-                ]
-            ):
+            if self.dry_run:
+                all_mission_ids = set(company_mission_ids).union(
+                    standalone_mission_ids
+                )
+                all_employment_ids = set(company_employment_ids).union(
+                    standalone_employment_ids
+                )
+            if not self.dry_run:
+                if company_mission_ids:
+                    self.anonymize_mission_and_dependencies(
+                        company_mission_ids
+                    )
+                if company_employment_ids:
+                    self.anonymize_employment_and_dependencies(
+                        company_employment_ids
+                    )
+
+                all_mission_ids = set(standalone_mission_ids)
+                all_employment_ids = set(standalone_employment_ids)
+
+            if all_mission_ids:
+                self.anonymize_mission_and_dependencies(all_mission_ids)
+            if all_employment_ids:
+                self.anonymize_employment_and_dependencies(all_employment_ids)
+
+            if company_ids:
+                self.anonymize_company_and_dependencies(company_ids)
+
+            if not any([company_ids, all_employment_ids, all_mission_ids]):
                 logger.info("No standalone data to anonymize")
                 transaction.rollback()
                 return
