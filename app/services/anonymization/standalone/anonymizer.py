@@ -1,6 +1,6 @@
 from app import db
 from sqlalchemy import or_
-from typing import List, Tuple
+from typing import Set, Tuple
 from datetime import datetime
 from app.services.anonymization.base import BaseAnonymizer
 from app.models import Mission, Employment, Company
@@ -21,42 +21,44 @@ class StandaloneAnonymizer(BaseAnonymizer):
                 company_mission_ids,
             ) = self.find_inactive_companies_and_dependencies(cutoff_date)
 
-            if company_mission_ids:
-                self.anonymize_mission_and_dependencies(company_mission_ids)
-
-            if company_employment_ids:
-                self.anonymize_employment_and_dependencies(
-                    company_employment_ids
-                )
-
-            if company_ids:
-                self.anonymize_company_and_dependencies(company_ids)
-
             standalone_employment_ids = (
                 self.find_terminated_employments_before_cutoff(
                     cutoff_date, company_ids
                 )
             )
-            if standalone_employment_ids:
-                self.anonymize_employment_and_dependencies(
-                    standalone_employment_ids
-                )
-
             standalone_mission_ids = self.find_missions_before_cutoff(
                 cutoff_date
             )
-            if standalone_mission_ids:
-                self.anonymize_mission_and_dependencies(standalone_mission_ids)
 
-            if not any(
-                [
-                    company_ids,
-                    company_employment_ids,
-                    company_mission_ids,
-                    standalone_employment_ids,
-                    standalone_mission_ids,
-                ]
-            ):
+            if self.dry_run:
+                all_mission_ids = set(company_mission_ids).union(
+                    standalone_mission_ids
+                )
+                all_employment_ids = set(company_employment_ids).union(
+                    standalone_employment_ids
+                )
+            if not self.dry_run:
+                if company_mission_ids:
+                    self.anonymize_mission_and_dependencies(
+                        company_mission_ids
+                    )
+                if company_employment_ids:
+                    self.anonymize_employment_and_dependencies(
+                        company_employment_ids
+                    )
+
+                all_mission_ids = set(standalone_mission_ids)
+                all_employment_ids = set(standalone_employment_ids)
+
+            if all_mission_ids:
+                self.anonymize_mission_and_dependencies(all_mission_ids)
+            if all_employment_ids:
+                self.anonymize_employment_and_dependencies(all_employment_ids)
+
+            if company_ids:
+                self.anonymize_company_and_dependencies(company_ids)
+
+            if not any([company_ids, all_employment_ids, all_mission_ids]):
                 logger.info("No standalone data to anonymize")
                 transaction.rollback()
                 return
@@ -78,19 +80,19 @@ class StandaloneAnonymizer(BaseAnonymizer):
 
     def find_inactive_companies_and_dependencies(
         self, cutoff_date: datetime
-    ) -> Tuple[List[int], List[int], List[int]]:
+    ) -> Tuple[Set[int], Set[int], Set[int]]:
         """Find inactive companies and their related data based on:
         - SIREN API status is 'C' (ceased) OR
         - All employments have end_date OR
         - No missions since cutoff_date
         """
-        companies_ceased_siren = set(
-            self.find_inactive_companies_by_siren(cutoff_date)
+        companies_ceased_siren = self.find_inactive_companies_by_siren(
+            cutoff_date
         )
-        companies_ceased_employment = set(
+        companies_ceased_employment = (
             self.find_inactive_companies_by_employment(cutoff_date)
         )
-        companies_no_recent_missions = set(
+        companies_no_recent_missions = (
             self.find_inactive_companies_by_missions(cutoff_date)
         )
 
@@ -126,7 +128,7 @@ class StandaloneAnonymizer(BaseAnonymizer):
 
     def find_inactive_companies_by_siren(
         self, cutoff_date: datetime
-    ) -> List[int]:
+    ) -> Set[int]:
         company_ids = (
             db.session.query(Company.id)
             .filter(
@@ -138,11 +140,11 @@ class StandaloneAnonymizer(BaseAnonymizer):
             )
             .all()
         )
-        return [id[0] for id in company_ids]
+        return {id[0] for id in company_ids}
 
     def find_inactive_companies_by_employment(
         self, cutoff_date: datetime
-    ) -> List[int]:
+    ) -> Set[int]:
         active_companies = (
             db.session.query(Employment.company_id)
             .filter(
@@ -160,11 +162,11 @@ class StandaloneAnonymizer(BaseAnonymizer):
             ~Company.id.in_(active_companies),
         ).all()
 
-        return [c.id for c in companies] if companies else []
+        return {c.id for c in companies} if companies else set()
 
     def find_inactive_companies_by_missions(
         self, cutoff_date: datetime
-    ) -> List[int]:
+    ) -> Set[int]:
         active_companies = (
             db.session.query(Mission.company_id)
             .filter(Mission.creation_time >= cutoff_date)
@@ -177,11 +179,11 @@ class StandaloneAnonymizer(BaseAnonymizer):
             ~Company.id.in_(active_companies),
         ).all()
 
-        return [c.id for c in companies] if companies else []
+        return {c.id for c in companies} if companies else set()
 
     def find_terminated_employments_before_cutoff(
-        self, cutoff_date: datetime, exclude_company_ids: List[int] = None
-    ) -> List[int]:
+        self, cutoff_date: datetime, exclude_company_ids: Set[int] = None
+    ) -> Set[int]:
         query = Employment.query.filter(
             Employment.creation_time < cutoff_date,
             or_(
@@ -198,23 +200,23 @@ class StandaloneAnonymizer(BaseAnonymizer):
         employments = query.all()
         if not employments:
             logger.info("No terminated employments found")
-            return []
+            return {}
 
-        employment_ids = [e.id for e in employments]
+        employment_ids = {e.id for e in employments}
         logger.info(
             f"Found {len(employment_ids)} terminated employments to anonymize"
         )
         return employment_ids
 
-    def find_missions_before_cutoff(self, cutoff_date: datetime) -> List[int]:
+    def find_missions_before_cutoff(self, cutoff_date: datetime) -> Set[int]:
         missions = Mission.query.filter(
             Mission.creation_time < cutoff_date
         ).all()
 
         if not missions:
             logger.info("No expired missions found")
-            return []
+            return {}
 
-        mission_ids = [m.id for m in missions]
+        mission_ids = {m.id for m in missions}
         logger.info(f"Found {len(mission_ids)} expired missions to anonymize")
         return mission_ids
