@@ -23,7 +23,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import Business, ControlPicture
+from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.regulation_check import RegulationCheckType
 
@@ -145,10 +145,8 @@ class ObservedInfraction(ObjectType):
         )
 
 
-class ControlPictureOutput(BaseSQLAlchemyObjectType):
-    class Meta:
-        model = ControlPicture
-        only_fields = "url"
+class ControlPictureOutput(ObjectType):
+    url = graphene.String()
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
@@ -360,7 +358,12 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return self.creation_time.date() == datetime.datetime.now().date()
 
     def resolve_pictures(self, info):
-        return self.pictures
+        pictures = S3Client.list_pictures_for_control(self.id)
+        urls = [
+            S3Client.generate_presigned_url_for_picture(picture)
+            for picture in pictures[:3]
+        ]
+        return [ControlPictureOutput(url=url) for url in urls]
 
     def resolve_pictures_expiry_date(self, info):
         return self.creation_time.date() + timedelta(days=90)
