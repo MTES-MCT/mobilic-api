@@ -22,6 +22,7 @@ from app.helpers.graphene_types import (
     TimeStamp,
     graphene_enum_type,
 )
+from app.helpers.s3 import S3Client
 from app.helpers.submitter_type import SubmitterType
 from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType

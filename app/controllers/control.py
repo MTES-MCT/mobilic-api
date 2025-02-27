@@ -3,6 +3,8 @@ import time
 import graphene
 from flask import Blueprint, jsonify, request
 import jwt
+from flask_apispec import doc, use_kwargs
+from webargs import fields
 
 from app import app, db
 from app.data_access.control_data import ControllerControlOutput
@@ -12,8 +14,10 @@ from app.helpers.authorization import (
     with_authorization_policy,
     active,
     current_user,
+    controller_only,
 )
 from app.helpers.errors import BadRequestError
+from app.helpers.s3 import S3Client
 from app.helpers.xls import (
     retrieve_and_verify_signature,
 )
@@ -66,3 +70,24 @@ class AddControlNote(graphene.Mutation):
         control.note = content
         db.session.commit()
         return control
+
+
+@app.route(
+    "/controllers/control-pictures-generate-presigned-urls", methods=["POST"]
+)
+@doc(
+    description="Génération d'url à durée limitée pour uploader les images d'un contrôle"
+)
+@with_authorization_policy(controller_only)
+@use_kwargs(
+    {
+        "control_id": fields.Int(required=True),
+        "nb_pictures": fields.Int(required=True),
+    },
+    apply=True,
+)
+def control_pictures_generate_presigned_urls(control_id, nb_pictures):
+    presigned_urls = S3Client.generated_presigned_urls_for_control(
+        control_id, nb_pictures
+    )
+    return jsonify({"presigned-urls": presigned_urls})
