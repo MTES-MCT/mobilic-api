@@ -670,6 +670,7 @@ class BaseAnonymizer:
 
         self.log_anonymization(updated, "mission", "unlinked from vehicles")
 
+    # TODO: change logic to create an anonymize id for users
     def unlink_user_from_vehicles(self, user_ids: Set[int]) -> None:
         if not user_ids:
             return

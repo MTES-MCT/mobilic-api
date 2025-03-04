@@ -307,22 +307,12 @@ def upgrade():
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.execute(
-        """
-        ALTER TABLE public.vehicle ALTER COLUMN submitter_id DROP NOT NULL;
-    """
-    )
 
 
 def downgrade():
     op.drop_table("temp_id_mapping")
     op.execute("DROP SEQUENCE IF EXISTS anonymized_id_seq")
     op.execute("DROP INDEX IF EXISTS idx_activity_gin;")
-    # op.execute(
-    #     """
-    #     ALTER TABLE vehicle ALTER COLUMN submitter_id SET NOT NULL;
-    # """
-    # )
     op.drop_table("anon_activity_version")
     op.drop_table("anon_activity")
     op.drop_table("anon_mission")
