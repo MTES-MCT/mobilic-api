@@ -118,10 +118,12 @@ class Config:
         if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
         else datetime(2024, 12, 30)
     )
-    ANONYMIZATION_THRESHOLD_YEAR = os.environ.get(
-        "ANONYMIZATION_THRESHOLD_YEAR", 4
+    ANONYMIZATION_THRESHOLD_YEAR = int(
+        os.environ.get("ANONYMIZATION_THRESHOLD_YEAR", 4)
     )
-    ANONYMIZATION_USER_BATCH = os.environ.get("ANONYMIZATION_USER_BATCH", 100)
+    ANONYMIZATION_USER_BATCH = int(
+        os.environ.get("ANONYMIZATION_USER_BATCH", 100)
+    )
 
 
 class DevConfig(Config):
