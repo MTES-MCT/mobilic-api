@@ -28,6 +28,7 @@ class UserClassifier:
     def __init__(self, cutoff_date: datetime):
         self.cutoff_date = cutoff_date
         self.user_related_tables = self._init_user_related_tables()
+        self.dismissable_tables = self._init_dismissable_tables()
         self.anonymizer = StandaloneAnonymizer(db.session)
 
     def _init_user_related_tables(self) -> List[UserRelatedTableInfo]:
@@ -60,6 +61,9 @@ class UserClassifier:
             UserRelatedTableInfo("team_admin_user", ["user_id"]),
             UserRelatedTableInfo("controller_control", ["user_id"]),
         ]
+
+    def _init_dismissable_tables(self) -> Set[str]:
+        return {"activity", "comment", "expenditure", "employment"}
 
     def _get_inactive_companies(self) -> Tuple[int, ...]:
         companies_ceased_siren = set(
@@ -184,6 +188,46 @@ class UserClassifier:
 
         return all_inactive_users, inactive_controllers
 
+    def _build_find_active_relations_query(
+        self, table_info: UserRelatedTableInfo
+    ) -> str:
+
+        conditions = " OR ".join(
+            [f"t.{col} = iu.id" for col in table_info.user_columns]
+        )
+
+        case_statements = " ".join(
+            [
+                f"WHEN t.{col} != iu.id THEN t.{col}"
+                for col in table_info.user_columns
+            ]
+        )
+        related_user_id = f"(CASE {case_statements} END)"
+
+        dismissables_entities = ""
+        if table_info.table_name in self.dismissable_tables:
+            dismissables_entities = "t.dismissed_at IS NULL AND"
+
+        array_of_inactive_user_ids = "ALL(SELECT UNNEST(:inactive_user_ids))"
+
+        sql_query = f"""
+            WITH active_relations AS (
+                SELECT DISTINCT
+                    iu.id as inactive_user_id,
+                    {related_user_id} as related_user_id
+                FROM unnest(:user_ids) as iu(id)
+                JOIN {table_info.table_name} t ON ({conditions})
+                WHERE
+                    {dismissables_entities}
+                    {related_user_id} IS NOT NULL
+                    AND {related_user_id} != {array_of_inactive_user_ids}
+            )
+            SELECT DISTINCT inactive_user_id
+            FROM active_relations
+        """
+
+        return sql_query
+
     def classify_users_for_anonymization(self) -> Dict[str, Set[int]]:
         start_time = time.time()
         logger.info("Begin Classification...")
@@ -200,31 +244,7 @@ class UserClassifier:
             table_start = time.time()
             logger.info(f"Check table {table_info.table_name}...")
 
-            conditions = " OR ".join(
-                [f"t.{col} = iu.id" for col in table_info.user_columns]
-            )
-            case_statement = " ".join(
-                [
-                    f"WHEN t.{col} != iu.id THEN t.{col}"
-                    for col in table_info.user_columns
-                ]
-            )
-
-            sql_query = f"""
-                WITH active_relations AS (
-                    SELECT DISTINCT
-                        iu.id as inactive_user_id,
-                        (CASE {case_statement} END) as related_user_id
-                    FROM unnest(:user_ids) as iu(id)
-                    JOIN {table_info.table_name} t ON ({conditions})
-                    WHERE
-                        {" t.dismissed_at IS NULL AND" if table_info.table_name in ['activity', 'comment', 'expenditure', 'employment'] else ""}
-                        (CASE {case_statement} END) IS NOT NULL
-                        AND (CASE {case_statement} END) != ALL(SELECT UNNEST(:inactive_user_ids))
-                )
-                SELECT DISTINCT inactive_user_id
-                FROM active_relations
-            """
+            sql_query = self._build_find_active_relations_query(table_info)
 
             results = db.session.execute(
                 sql_query,
