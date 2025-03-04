@@ -37,12 +37,15 @@ class S3Client:
         return len(response["Contents"]) - 1
 
     @staticmethod
-    def list_pictures_for_control(control_id, max_nb_pictures=3):
-        response = S3.list_objects_v2(
-            Bucket=BUCKET_NAME,
-            Prefix=f"controls/control_{str(control_id)}/",
-            MaxKeys=max_nb_pictures,
-        )
+    def list_pictures_for_control(control_id, max_nb_pictures=None):
+        params = {
+            "Bucket": BUCKET_NAME,
+            "Prefix": f"controls/control_{str(control_id)}/",
+        }
+        if max_nb_pictures is not None:
+            params["MaxKeys"] = max_nb_pictures
+
+        response = S3.list_objects_v2(**params)
 
         if "Contents" in response:
             files = [item["Key"] for item in response["Contents"]]
