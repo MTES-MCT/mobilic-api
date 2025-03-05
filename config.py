@@ -121,6 +121,9 @@ class Config:
     ANONYMIZATION_THRESHOLD_YEAR = int(
         os.environ.get("ANONYMIZATION_THRESHOLD_YEAR", 4)
     )
+    ANONYMIZATION_THRESHOLD_MONTH = int(
+        os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
+    )
     ANONYMIZATION_USER_BATCH = int(
         os.environ.get("ANONYMIZATION_USER_BATCH", 100)
     )
