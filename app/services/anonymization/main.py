@@ -9,6 +9,7 @@ from .user_related import UserClassifier, UserAnonymizer
 logger = logging.getLogger(__name__)
 
 years = app.config["ANONYMIZATION_THRESHOLD_YEAR"]
+months = app.config["ANONYMIZATION_THRESHOLD_MONTH"]
 
 
 def anonymize_expired_data(
@@ -32,7 +33,9 @@ def anonymize_expired_data(
         logger.setLevel(logging.DEBUG)
 
     try:
-        cutoff_date = datetime.now() - relativedelta(years=years)
+        cutoff_date = datetime.now() - relativedelta(
+            years=years, months=months
+        )
         log_operation_start(dry_run, delete_only, test_mode, cutoff_date)
 
         if not handle_tables_cleaning(dry_run, delete_only, force_clean):
@@ -61,8 +64,11 @@ def log_operation_start(dry_run, delete_only, test_mode, cutoff_date):
         log_prefix += "Dry run: "
 
     operation_name = "deletion" if delete_only else "anonymization"
+    threshold_info = f"{years} years"
+    if months > 0:
+        threshold_info += f" and {months} months"
     logger.info(
-        f"{log_prefix}Starting data {operation_name} process with cut-off date: {cutoff_date.date()}"
+        f"{log_prefix}Starting data {operation_name} process with cut-off date: {cutoff_date.date()} (threshold: {threshold_info})"
     )
 
 
