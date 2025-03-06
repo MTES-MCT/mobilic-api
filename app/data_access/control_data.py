@@ -147,7 +147,9 @@ class ObservedInfraction(ObjectType):
 
 
 class ControlPictureOutput(ObjectType):
-    url = graphene.String()
+    url = graphene.String(
+        required=False, description="Url présignée à durée limitée."
+    )
 
 
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
