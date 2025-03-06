@@ -73,7 +73,7 @@ class AddControlNote(graphene.Mutation):
 
 
 @app.route(
-    "/controllers/control-pictures-generate-presigned-urls", methods=["POST"]
+    "/controllers/control_pictures_generate_presigned_urls", methods=["POST"]
 )
 @doc(
     description="Génération d'url à durée limitée pour uploader les images d'un contrôle"
