@@ -361,7 +361,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_pictures(self, info):
         pictures = S3Client.list_pictures_for_control(self.id)
         urls = [
-            S3Client.generate_presigned_url_for_picture(picture)
+            S3Client.generate_presigned_url_to_get_picture(picture)
             for picture in pictures
         ]
         return [ControlPictureOutput(url=url) for url in urls]

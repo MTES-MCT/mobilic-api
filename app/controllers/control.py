@@ -87,7 +87,7 @@ class AddControlNote(graphene.Mutation):
     apply=True,
 )
 def control_pictures_generate_presigned_urls(control_id, nb_pictures):
-    presigned_urls = S3Client.generated_presigned_urls_for_control(
+    presigned_urls = S3Client.generated_presigned_urls_to_upload_picture(
         control_id, nb_pictures
     )
     return jsonify({"presignedUrls": presigned_urls})

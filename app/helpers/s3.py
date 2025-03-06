@@ -53,9 +53,8 @@ class S3Client:
         else:
             return []
 
-    # generate presigned urls for the front to see picture
     @staticmethod
-    def generate_presigned_url_for_picture(path):
+    def generate_presigned_url_to_get_picture(path):
         url = S3.generate_presigned_url(
             "get_object",
             Params={"Bucket": BUCKET_NAME, "Key": path},
@@ -63,9 +62,8 @@ class S3Client:
         )
         return url
 
-    # generate presigned urls for the front to upload pictures to the bucket
     @staticmethod
-    def generated_presigned_urls_for_control(
+    def generated_presigned_urls_to_upload_picture(
         control_id, nb_pictures_to_upload
     ):
         current_nb_pictures = S3Client.nb_pictures_for_control(control_id)
