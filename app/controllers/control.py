@@ -90,4 +90,4 @@ def control_pictures_generate_presigned_urls(control_id, nb_pictures):
     presigned_urls = S3Client.generated_presigned_urls_for_control(
         control_id, nb_pictures
     )
-    return jsonify({"presigned-urls": presigned_urls})
+    return jsonify({"presignedUrls": presigned_urls})
