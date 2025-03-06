@@ -3,10 +3,10 @@ import boto3
 from app import app
 from config import MOBILIC_ENV
 
-SCW_REGION = app.config["SCW_REGION"]
-SCW_ENDPOINT = app.config["SCW_ENDPOINT"]
-SCW_ACCESS_KEY = app.config["SCW_ACCESS_KEY"]
-SCW_SECRET_KEY = app.config["SCW_SECRET_KEY"]
+S3_REGION = app.config["S3_REGION"]
+S3_ENDPOINT = app.config["S3_ENDPOINT"]
+S3_ACCESS_KEY = app.config["S3_ACCESS_KEY"]
+S3_SECRET_KEY = app.config["S3_SECRET_KEY"]
 
 # Each env (dev,staging,prod) has its S3 bucket
 BUCKET_NAME = f"mobilic-{MOBILIC_ENV}"
@@ -17,9 +17,9 @@ PRESIGNED_URLS_EXPIRY_READ_S = 60
 
 S3 = boto3.client(
     "s3",
-    endpoint_url=SCW_ENDPOINT,
-    aws_access_key_id=SCW_ACCESS_KEY,
-    aws_secret_access_key=SCW_SECRET_KEY,
+    endpoint_url=S3_ENDPOINT,
+    aws_access_key_id=S3_ACCESS_KEY,
+    aws_secret_access_key=S3_SECRET_KEY,
 )
 
 
