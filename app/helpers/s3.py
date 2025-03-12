@@ -33,8 +33,7 @@ class S3Client:
         if "Contents" not in response:
             return 0
 
-        # folder itself is counted as an item
-        return len(response["Contents"]) - 1
+        return len(response["Contents"])
 
     @staticmethod
     def list_pictures_for_control(control_id, max_nb_pictures=None):
@@ -67,9 +66,13 @@ class S3Client:
         control_id, nb_pictures_to_upload
     ):
         current_nb_pictures = S3Client.nb_pictures_for_control(control_id)
+        print(f"current_nb_pictures {current_nb_pictures}")
 
         presigned_urls = []
         for i in range(nb_pictures_to_upload):
+            print(
+                f"str(i + current_nb_pictures) {str(i + current_nb_pictures)}"
+            )
             try:
                 presigned_url = S3.generate_presigned_url(
                     "put_object",
