@@ -29,4 +29,5 @@ from .team import Team
 from .company_certification import CompanyCertification
 from .scenario_testing import ScenarioTesting
 from .user_survey_actions import UserSurveyActions
+from .controller_control import ControllerControl
 from .user_agreement import UserAgreement

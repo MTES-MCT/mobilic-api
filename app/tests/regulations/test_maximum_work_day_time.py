@@ -365,3 +365,241 @@ class TestMaximumWorkDayTime(RegulationsTest):
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["night_work"], False)
+
+    ## T3P (Taxi, VTC, LOTI)
+    ## 9h if amplitude > 12h
+    ## 10h if amplitude <= 12h
+    def test_ok_t3p_low_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_vtc()
+
+        self._log_and_validate_mission(
+            mission_name="11h amplitude - 9h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=12, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=17, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_ko_t3p_low_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_vtc()
+
+        self._log_and_validate_mission(
+            mission_name="11h amplitude - 10h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=17, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+
+    def test_ok_t3p_high_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_vtc()
+
+        self._log_and_validate_mission(
+            mission_name="13h amplitude - 8h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=15, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=19, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_ko_t3p_high_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_vtc()
+
+        self._log_and_validate_mission(
+            mission_name="13h amplitude - 9h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=14, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=19, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+
+    ## TRV Frequent
+    ## 9h if amplitude > 13h
+    ## 10h if amplitude <= 13h
+    def test_ok_trv_frequent_low_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_trv()
+
+        self._log_and_validate_mission(
+            mission_name="12h amplitude - 9h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=13, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_ko_trv_frequent_low_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_trv()
+
+        self._log_and_validate_mission(
+            mission_name="12h amplitude - 10h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=12, minute=30
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+
+    def test_ok_trv_frequent_high_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_trv()
+
+        self._log_and_validate_mission(
+            mission_name="13h30 amplitude - 8h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=16, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=19, minute=30
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_ko_trv_frequent_high_amplitude(self):
+        how_many_days_ago = 2
+        self.convert_employee_to_trv()
+
+        self._log_and_validate_mission(
+            mission_name="13h30 amplitude - 9h30 travail",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
+                    ),
+                ],
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=15, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=19, minute=30
+                    ),
+                ],
+            ],
+        )
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)

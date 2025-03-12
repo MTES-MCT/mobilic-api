@@ -1,7 +1,11 @@
+import json
+
+import sqlalchemy as sa
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
+from app.domain.regulations_helper import DEFAULT_KEY
 from app.models.business import TransportType, BusinessType
 from app.models.regulation_check import (
     RegulationCheckType,
@@ -21,6 +25,10 @@ class RegulationCheckData:
     date_application_start: date = datetime(2019, 11, 1)
     date_application_end: Optional[date] = None
 
+
+DESCRIPTION_MAX_WORK_TRV_FREQUENT = "La durée du travail quotidien est limitée à 10h si l’amplitude de la journée est inférieure à 13h, et à 9h si l’amplitude est supérieure à 13h (article D. 3312-6 du Code des transports). Attention, les dérogations ne sont pas intégrées dans Mobilic."
+DESCRIPTION_MAX_WORK_TRV_INFREQUENT = "La durée du travail quotidien est limitée à 10h (article D. 3312-6 du Code des transports). Attention, les dérogations ne sont pas intégrées dans Mobilic."
+DESCRIPTION_MAX_WORK_TRV_OTHERS = "La durée du travail quotidien est limitée à 10h si l’amplitude de la journée est inférieure à 12h, et à 9h si l’amplitude est supérieure à 12h (article D. 3312-6 du Code des transports). Attention, les dérogations ne sont pas intégrées dans Mobilic."
 
 REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
     id=6,
@@ -81,13 +89,24 @@ def get_regulation_checks():
                     str(TransportType.TRM.name): 12,
                     str(TransportType.TRV.name): 10,
                 },
+                AMPLITUDE_TRIGGER_IN_HOURS={
+                    str(TransportType.TRM.name): None,
+                    str(TransportType.TRV.name): {
+                        BusinessType.FREQUENT.name: 13,
+                        BusinessType.INFREQUENT.name: None,
+                        DEFAULT_KEY: 12,
+                    },
+                },
+                MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS=9,
                 DESCRIPTION={
                     str(
                         TransportType.TRM.name
                     ): "La durée du travail quotidien est limitée à 12h (article R. 3312-a51 du Code des transports).",
-                    str(
-                        TransportType.TRV.name
-                    ): "La durée du travail quotidien est limitée à 10h (article D. 3312-6 du Code des transports). Attention, les dérogations ne sont pas intégrées dans Mobilic.",
+                    str(TransportType.TRV.name): {
+                        BusinessType.FREQUENT.name: DESCRIPTION_MAX_WORK_TRV_FREQUENT,
+                        BusinessType.INFREQUENT.name: DESCRIPTION_MAX_WORK_TRV_INFREQUENT,
+                        DEFAULT_KEY: DESCRIPTION_MAX_WORK_TRV_OTHERS,
+                    },
                 },
                 NIGHT_WORK_DESCRIPTION={
                     str(
@@ -145,8 +164,29 @@ def get_regulation_checks():
             label="Absence de livret individuel de contrôle à bord",
             regulation_rule=None,
             variables=dict(
-                DESCRIPTION="Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998)."
+                DESCRIPTION={
+                    str(
+                        TransportType.TRM.name
+                    ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998).",
+                    str(
+                        TransportType.TRV.name
+                    ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-19 du Code des transports + arrêté du 20 juillet 1998).",
+                }
             ),
             unit=UnitType.DAY,
         ),
     ]
+
+
+def update_regulation_check_variables(session):
+    regulation_check_data = get_regulation_checks()
+    for r in regulation_check_data:
+        session.execute(
+            sa.text(
+                "UPDATE regulation_check SET variables = :variables WHERE type = :type;"
+            ),
+            dict(
+                variables=json.dumps(r.variables),
+                type=r.type,
+            ),
+        )

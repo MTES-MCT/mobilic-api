@@ -5,13 +5,14 @@ Revises: 02b1e89f1165
 Create Date: 2024-07-16 15:23:52.773817
 
 """
-import json
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.services.get_regulation_checks import get_regulation_checks
+from app.services.get_regulation_checks import (
+    update_regulation_check_variables,
+)
 
 # revision identifiers, used by Alembic.
 revision = "061ed7650780"
@@ -22,17 +23,7 @@ depends_on = None
 
 def upgrade():
     session = Session(bind=op.get_bind())
-    regulation_check_data = get_regulation_checks()
-    for r in regulation_check_data:
-        session.execute(
-            sa.text(
-                "UPDATE regulation_check SET variables = :variables WHERE type = :type;"
-            ),
-            dict(
-                variables=json.dumps(r.variables),
-                type=r.type,
-            ),
-        )
+    update_regulation_check_variables(session)
     op.drop_column("regulation_check", "description")
 
 

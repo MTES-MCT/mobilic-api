@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.domain.regulations_helper import resolve_variables
+from app.domain.regulations_helper import resolve_variables, DEFAULT_KEY
 from app.models import Business
 from app.models.business import TransportType, BusinessType
 
@@ -18,6 +18,9 @@ class TestUtils(TestCase):
             transport_type=TransportType.TRV,
             business_type=BusinessType.FREQUENT,
         )
+        self.business_vtc = Business(
+            transport_type=TransportType.TRV, business_type=BusinessType.VTC
+        )
         self.dict_simple = {KEY: RES_SIMPLE}
         self.dict_granular = {
             KEY: {
@@ -26,6 +29,15 @@ class TestUtils(TestCase):
                     str(BusinessType.SHORT_DISTANCE.name): 2,
                 },
                 str(TransportType.TRV.name): 4,
+            }
+        }
+        self.dict_default_value = {
+            KEY: {
+                str(TransportType.TRM.name): 1,
+                str(TransportType.TRV.name): {
+                    str(BusinessType.VTC.name): 2,
+                    DEFAULT_KEY: 3,
+                },
             }
         }
 
@@ -52,3 +64,14 @@ class TestUtils(TestCase):
             dict_var=self.dict_granular, business=self.business_trv_frequent
         )
         self.assertEqual(res_trm[KEY], 4)
+
+    def test_default_value(self):
+        res_vtc = resolve_variables(
+            dict_var=self.dict_default_value, business=self.business_vtc
+        )
+        self.assertEqual(res_vtc[KEY], 2)
+        res_trv = resolve_variables(
+            dict_var=self.dict_default_value,
+            business=self.business_trv_frequent,
+        )
+        self.assertEqual(res_trv[KEY], 3)

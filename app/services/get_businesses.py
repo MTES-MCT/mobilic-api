@@ -37,4 +37,24 @@ def get_businesses():
             transport_type=TransportType.TRV,
             business_type=BusinessType.INFREQUENT,
         ),
+        BusinessData(
+            id=6,
+            transport_type=TransportType.TRV,
+            business_type=BusinessType.TAXI_GENERAL,
+        ),
+        BusinessData(
+            id=7,
+            transport_type=TransportType.TRV,
+            business_type=BusinessType.TAXI_REGULATED,
+        ),
+        BusinessData(
+            id=8,
+            transport_type=TransportType.TRV,
+            business_type=BusinessType.VTC,
+        ),
+        BusinessData(
+            id=9,
+            transport_type=TransportType.TRV,
+            business_type=BusinessType.LOTI,
+        ),
     ]

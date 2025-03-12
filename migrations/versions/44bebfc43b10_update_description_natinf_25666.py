@@ -1,8 +1,8 @@
-"""update regulation check variables based on businesses
+"""update description natinf 25666
 
-Revision ID: 209c1d0a5cf9
-Revises: aa1096a64d0f
-Create Date: 2024-07-09 11:25:29.813283
+Revision ID: 44bebfc43b10
+Revises: 373e565a327a
+Create Date: 2025-02-07 10:39:30.719398
 
 """
 from alembic import op
@@ -13,8 +13,8 @@ from app.services.get_regulation_checks import (
 )
 
 # revision identifiers, used by Alembic.
-revision = "209c1d0a5cf9"
-down_revision = "aa1096a64d0f"
+revision = "44bebfc43b10"
+down_revision = "373e565a327a"
 branch_labels = None
 depends_on = None
 
@@ -25,4 +25,5 @@ def upgrade():
 
 
 def downgrade():
+    # we don't maintain a history of regulation checks
     pass

@@ -1,3 +1,6 @@
+import datetime
+from datetime import timedelta
+
 import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
@@ -19,6 +22,7 @@ from app.helpers.graphene_types import (
     TimeStamp,
     graphene_enum_type,
 )
+from app.helpers.s3 import S3Client
 from app.helpers.submitter_type import SubmitterType
 from app.models import Business
 from app.models.controller_control import ControllerControl, ControlType
@@ -142,6 +146,12 @@ class ObservedInfraction(ObjectType):
         )
 
 
+class ControlPictureOutput(ObjectType):
+    url = graphene.String(
+        required=False, description="Url présignée à durée limitée."
+    )
+
+
 class ControllerControlOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = ControllerControl
@@ -211,6 +221,19 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     )
     reported_infractions_last_update_time = graphene.Field(
         TimeStamp, required=False
+    )
+    can_take_pictures = graphene.Field(
+        graphene.Boolean,
+        required=False,
+        description="Indique s'il est possible de prendre des photos pour un LIC papier.",
+    )
+    pictures = graphene.List(
+        ControlPictureOutput,
+        description="Liste des photos rattachées au contrôle LIC papier.",
+    )
+    pictures_expiry_date = graphene.Field(
+        graphene.String,
+        description="Date d'expiration des photos rattachées au LIC papier.",
     )
 
     def resolve_control_type(self, info):
@@ -330,3 +353,20 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             i for i in observed_infractions if i is not None
         ]
         return observed_infractions
+
+    def resolve_can_take_pictures(self, info):
+        if self.control_type != ControlType.lic_papier:
+            return False
+
+        return self.creation_time.date() == datetime.datetime.now().date()
+
+    def resolve_pictures(self, info):
+        pictures = S3Client.list_pictures_for_control(self.id)
+        urls = [
+            S3Client.generate_presigned_url_to_get_picture(picture)
+            for picture in pictures
+        ]
+        return [ControlPictureOutput(url=url) for url in urls]
+
+    def resolve_pictures_expiry_date(self, info):
+        return self.creation_time.date() + timedelta(days=90)
