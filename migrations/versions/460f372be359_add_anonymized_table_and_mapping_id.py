@@ -12,7 +12,7 @@ from app.models.user import UserAccountStatus
 
 # revision identifiers, used by Alembic.
 revision = "460f372be359"
-down_revision = "fc7fb77ff350"
+down_revision = "44bebfc43b10"
 branch_labels = None
 depends_on = None
 
