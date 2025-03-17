@@ -14,7 +14,8 @@ CGU_INITIAL_VERSION = "v1.0"
 
 class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", "postgresql://mobilic:mobilic@localhost:5432/mobilic"
+        "DATABASE_URL",
+        "postgresql://mobilic:mobilic@localhost:5432/mobilic",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ECHO_DB_QUERIES = False
@@ -82,6 +83,7 @@ class Config:
     ENABLE_NEWSLETTER_SUBSCRIPTION = os.environ.get(
         "ENABLE_NEWSLETTER_SUBSCRIPTION", False
     )
+
     APISPEC_FORMAT_RESPONSE = lambda x: x
 
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
@@ -119,6 +121,15 @@ class Config:
         ).date()
         if os.environ.get("START_DATE_FOR_SCHEDULED_INVITATION")
         else datetime(2024, 12, 30)
+    )
+    ANONYMIZATION_THRESHOLD_YEAR = int(
+        os.environ.get("ANONYMIZATION_THRESHOLD_YEAR", 4)
+    )
+    ANONYMIZATION_THRESHOLD_MONTH = int(
+        os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
+    )
+    ANONYMIZATION_USER_BATCH = int(
+        os.environ.get("ANONYMIZATION_USER_BATCH", 100)
     )
 
 
