@@ -1,10 +1,12 @@
-"""update regulation check variables based on businesses
+"""update_trv_descriptions_max_work_time_based_on_amplitude
 
-Revision ID: 209c1d0a5cf9
-Revises: aa1096a64d0f
-Create Date: 2024-07-09 11:25:29.813283
+Revision ID: 373e565a327a
+Revises: 7e8f71c49544
+Create Date: 2025-02-06 09:41:41.254918
 
 """
+import json
+
 from alembic import op
 from sqlalchemy.orm import Session
 
@@ -13,8 +15,8 @@ from app.services.get_regulation_checks import (
 )
 
 # revision identifiers, used by Alembic.
-revision = "209c1d0a5cf9"
-down_revision = "aa1096a64d0f"
+revision = "373e565a327a"
+down_revision = "7e8f71c49544"
 branch_labels = None
 depends_on = None
 
@@ -25,4 +27,5 @@ def upgrade():
 
 
 def downgrade():
+    # we don't maintain a history of regulation checks
     pass

@@ -340,7 +340,6 @@ def sync_brevo_command(pipeline_names, verbose):
     """
     Command to sync companies between the database and Brevo.
     You can specify one or more pipeline names as arguments.
-    Example usage: flask sync_brevo "Test Dev churn"
     """
     from app.services.sync_companies_with_brevo import (
         sync_companies_with_brevo,
@@ -360,3 +359,64 @@ def sync_brevo_command(pipeline_names, verbose):
     sync_companies_with_brevo(brevo, list(pipeline_names), verbose=verbose)
 
     app.logger.info("Process sync companies with Brevo done")
+
+
+@app.cli.command("migrate_anonymize_data", with_appcontext=True)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for more detailed output",
+)
+@click.option(
+    "--no-dry-run",
+    is_flag=True,
+    help="Disable dry run mode: anonymize data AND delete original records",
+)
+@click.option(
+    "--delete-only",
+    is_flag=True,
+    help="Delete-only mode: only delete original data that has already been anonymized",
+)
+@click.option(
+    "--test",
+    is_flag=True,
+    help="Test mode: rollback all changes at the end",
+)
+@click.option(
+    "--force-clean",
+    is_flag=True,
+    help="Delete the content of IdMapping table",
+)
+def migrate_anonymize_mission(
+    verbose, no_dry_run, delete_only, test, force_clean
+):
+    """
+    Migrate data older than threshold to anonymized tables.
+
+    This command operates by default in dry run mode, which only anonymizes data
+    without deleting original records.
+
+    Available modes:
+    - Dry run mode (default): Only anonymize data without deleting originals
+    - Normal mode (--no-dry-run): Anonymize and delete data in one operation
+    - Delete-only mode (--delete-only): Delete original data that has already been anonymized
+
+    In test mode, all database changes are rolled back at the end.
+    """
+    from app.services.anonymization.main import anonymize_expired_data
+
+    if no_dry_run and delete_only:
+        click.echo(
+            "Error: --no-dry-run and --delete-only cannot be used together"
+        )
+        return
+
+    dry_run = not no_dry_run
+
+    anonymize_expired_data(
+        verbose=verbose,
+        dry_run=dry_run,
+        delete_only=delete_only,
+        test_mode=test,
+        force_clean=force_clean,
+    )

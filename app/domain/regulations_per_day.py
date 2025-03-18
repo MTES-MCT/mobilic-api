@@ -252,13 +252,34 @@ def check_max_work_day_time(activity_groups, regulation_check, business):
     MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS = dict_variables[
         "MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS"
     ]
+    AMPLITUDE_TRIGGER_IN_HOURS = dict_variables.get(
+        "AMPLITUDE_TRIGGER_IN_HOURS", None
+    )
+    MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS = (
+        dict_variables.get(
+            "MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS", None
+        )
+    )
     extra = None
     for group in activity_groups:
+        max_work_day_time_in_hours = MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
+
+        # For some TRV businesses, max work day time is different if amplitude is above a particular value
+        if (
+            AMPLITUDE_TRIGGER_IN_HOURS
+            and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
+        ):
+            amplitude = group.service_duration
+            if amplitude > AMPLITUDE_TRIGGER_IN_HOURS * HOUR:
+                max_work_day_time_in_hours = (
+                    MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
+                )
+
         night_work = group.total_night_work_legislation_duration > 0
         max_time_in_hours = (
             MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
             if night_work
-            else MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
+            else max_work_day_time_in_hours
         )
         worked_time_in_seconds = group.total_work_duration
         extra = dict(
