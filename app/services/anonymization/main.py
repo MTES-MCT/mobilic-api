@@ -42,12 +42,11 @@ def anonymize_expired_data(
     if verbose:
         logger.setLevel(logging.DEBUG)
 
-    if not dry_run and delete_only:
-        logger.warning(
-            "Invalid combination: --delete-only cannot be used with --no-dry-run. "
-            "The delete-only mode works with the default dry-run setting."
+    if delete_only:
+        dry_run = False
+        logger.info(
+            "Delete-only mode enabled. Setting dry_run=False to allow deletions."
         )
-        return
 
     if delete_only and not IdMapping.query.count():
         logger.error(
@@ -67,7 +66,8 @@ def anonymize_expired_data(
 
         process_standalone_data(dry_run, delete_only, test_mode, cutoff_date)
 
-        process_user_data(dry_run, delete_only, test_mode, cutoff_date)
+        # STEP 2 : user_related
+        # process_user_data(dry_run, delete_only, test_mode, cutoff_date)
 
         handle_final_cleanup(dry_run, delete_only, test_mode)
 
@@ -167,11 +167,10 @@ def process_standalone_data(dry_run, delete_only, test_mode, cutoff_date):
     operation_type = "Deleting" if delete_only else "Processing"
     logger.info(f"{operation_type} standalone data")
 
-    standalone_anonymizer = StandaloneAnonymizer(
-        db.session, dry_run=dry_run, delete_only=delete_only
-    )
+    standalone_anonymizer = StandaloneAnonymizer(db.session, dry_run=dry_run)
 
     if delete_only:
+        logger.info("Using delete-only mode for standalone data")
         standalone_anonymizer.delete_anonymized_data(cutoff_date, test_mode)
         return
 
@@ -207,8 +206,6 @@ def process_user_data(dry_run, delete_only, test_mode, cutoff_date):
             log_classification_results(
                 full_anon_users, partial_anon_users, controller_anon_users
             )
-
-        logger.info("Getting previously anonymized users from mappings")
 
     user_anonymizer = UserAnonymizer(db.session, dry_run=dry_run)
 
@@ -290,11 +287,11 @@ def get_clean_reason(test_mode, dry_run, delete_only):
     if test_mode:
         return "Test mode"
 
-    if not dry_run:
-        return "Operation complete"
-
     if delete_only:
         return "Delete-only operation complete"
+
+    if not dry_run:
+        return "Operation complete"
 
     return "Cleanup"
 

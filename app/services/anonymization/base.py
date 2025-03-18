@@ -63,19 +63,16 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAnonymizer:
-    def __init__(self, db_session, dry_run=True, delete_only=False):
+    def __init__(self, db_session, dry_run=True):
         """
         Initialize the anonymizer.
 
         Args:
             db_session: SQLAlchemy database session
             dry_run: If True, no deletions will be performed (default: True)
-            delete_only: If True, use existing mappings to delete original data
-                         without re-anonymizing (default: False)
         """
         self.db = db_session
         self.dry_run = dry_run
-        self.delete_only = delete_only
 
     def log_anonymization(
         self, count: int, entity_type: str, context: str = ""
@@ -109,6 +106,13 @@ class BaseAnonymizer:
         )
 
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
+        """
+        Anonymize missions and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            mission_ids: Set of mission IDs to anonymize
+        """
         if not mission_ids:
             return
 
@@ -119,13 +123,19 @@ class BaseAnonymizer:
         self.anonymize_missions(mission_ids)
 
         if not self.dry_run:
-            self.delete_expenditures(mission_ids)
-            self.delete_mission_comments(mission_ids)
-            self.delete_activities(mission_ids)
-            self.delete_mission_ends(mission_ids)
-            self.delete_mission_validations(mission_ids)
-            self.delete_location_entries(mission_ids)
-            self.delete_missions(mission_ids)
+            self.delete_mission_and_dependencies(mission_ids)
+
+    def delete_mission_and_dependencies(self, mission_ids: Set[int]):
+        if not mission_ids or self.dry_run:
+            return
+
+        self.delete_expenditures(mission_ids)
+        self.delete_mission_comments(mission_ids)
+        self.delete_activities(mission_ids)
+        self.delete_mission_ends(mission_ids)
+        self.delete_mission_validations(mission_ids)
+        self.delete_location_entries(mission_ids)
+        self.delete_missions(mission_ids)
 
     def anonymize_activities(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -331,6 +341,13 @@ class BaseAnonymizer:
     def anonymize_employment_and_dependencies(
         self, employment_ids: Set[int]
     ) -> None:
+        """
+        Anonymize employments and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            employment_ids: Set of employment IDs to anonymize
+        """
         if not employment_ids:
             return
 
@@ -338,8 +355,16 @@ class BaseAnonymizer:
         self.anonymize_employments(employment_ids)
 
         if not self.dry_run:
-            self.delete_emails(employment_ids=employment_ids)
-            self.delete_employments(employment_ids)
+            self.delete_employment_and_dependencies(employment_ids)
+
+    def delete_employment_and_dependencies(
+        self, employment_ids: Set[int]
+    ) -> None:
+        if not employment_ids or self.dry_run:
+            return
+
+        self.delete_emails(employment_ids=employment_ids)
+        self.delete_employments(employment_ids)
 
     def anonymize_emails(
         self, employment_ids: Set[int] = None, user_ids: Set[int] = None
@@ -421,6 +446,13 @@ class BaseAnonymizer:
     def anonymize_company_and_dependencies(
         self, company_ids: Set[int]
     ) -> None:
+        """
+        Anonymize companies and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            company_ids: Set of company IDs to anonymize
+        """
         if not company_ids:
             return
 
@@ -432,12 +464,18 @@ class BaseAnonymizer:
         self.anonymize_companies(company_ids)
 
         if not self.dry_run:
-            self.delete_company_team_and_dependencies(company_ids)
-            self.delete_company_certifications(company_ids)
-            self.delete_company_stats(company_ids)
-            self.delete_company_vehicles(company_ids)
-            self.delete_company_known_addresses(company_ids)
-            self.delete_companies(company_ids)
+            self.delete_company_and_dependencies(company_ids)
+
+    def delete_company_and_dependencies(self, company_ids: Set[int]) -> None:
+        if not company_ids or self.dry_run:
+            return
+
+        self.delete_company_team_and_dependencies(company_ids)
+        self.delete_company_certifications(company_ids)
+        self.delete_company_stats(company_ids)
+        self.delete_company_vehicles(company_ids)
+        self.delete_company_known_addresses(company_ids)
+        self.delete_companies(company_ids)
 
     def anonymize_companies(self, company_ids: Set[int]) -> None:
         if not company_ids:
@@ -568,6 +606,13 @@ class BaseAnonymizer:
         self.log_deletion(deleted, "company known address")
 
     def anonymize_user_and_dependencies(self, user_ids: Set[int]) -> None:
+        """
+        Anonymize users and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            user_ids: Set of user IDs to anonymize
+        """
         if not user_ids:
             return
 
@@ -581,21 +626,27 @@ class BaseAnonymizer:
         self.anonymize_users(user_ids)
 
         if not self.dry_run:
-            self.delete_expenditures(user_ids=user_ids)
-            self.delete_dismissed_company_known_address(user_ids)
-            self.delete_user_oauth2_token(user_ids)
-            self.delete_user_oauth2_auth_code(user_ids)
-            self.delete_user_refresh_tokens(user_ids)
-            self.delete_user_read_tokens(user_ids)
-            self.delete_user_survey_actions(user_ids)
-            self.delete_team_admin_users(user_ids=user_ids)
-            self.delete_controller_controls(user_ids=user_ids)
-            self.unlink_user_from_vehicles(user_ids)
-            self.delete_emails(user_ids=user_ids)
-            self.delete_regulatory_alerts(user_ids)
-            self.delete_regulation_computations(user_ids)
-            self.delete_user_agreements(user_ids)
-            self.delete_users(user_ids)
+            self.delete_user_and_dependencies(user_ids)
+
+    def delete_user_and_dependencies(self, user_ids: Set[int]) -> None:
+        if not user_ids or self.dry_run:
+            return
+
+        self.delete_expenditures(user_ids=user_ids)
+        self.delete_dismissed_company_known_address(user_ids)
+        self.delete_user_oauth2_token(user_ids)
+        self.delete_user_oauth2_auth_code(user_ids)
+        self.delete_user_refresh_tokens(user_ids)
+        self.delete_user_read_tokens(user_ids)
+        self.delete_user_survey_actions(user_ids)
+        self.delete_team_admin_users(user_ids=user_ids)
+        self.delete_controller_controls(user_ids=user_ids)
+        self.unlink_user_from_vehicles(user_ids)
+        self.delete_emails(user_ids=user_ids)
+        self.delete_regulatory_alerts(user_ids)
+        self.delete_regulation_computations(user_ids)
+        self.delete_user_agreements(user_ids)
+        self.delete_users(user_ids)
 
     def delete_dismissed_company_known_address(
         self, user_ids: Set[int]
@@ -806,6 +857,13 @@ class BaseAnonymizer:
     def anonymize_company_team_and_dependencies(
         self, company_ids: Set[int]
     ) -> None:
+        """
+        Anonymize company teams and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            company_ids: Set of company IDs whose teams to anonymize
+        """
         if not company_ids:
             return
 
@@ -831,10 +889,13 @@ class BaseAnonymizer:
             self.anonymize_company_team_known_addresses(team_ids)
             self.anonymize_company_teams(team_ids)
 
+        if not self.dry_run:
+            self.delete_company_team_and_dependencies(company_ids)
+
     def delete_company_team_and_dependencies(
         self, company_ids: Set[int]
     ) -> None:
-        if not company_ids:
+        if not company_ids or self.dry_run:
             return
 
         teams = Team.query.filter(Team.company_id.in_(company_ids)).all()
@@ -968,6 +1029,13 @@ class BaseAnonymizer:
     def anonymize_controller_and_dependencies(
         self, controller_ids: Set[int]
     ) -> None:
+        """
+        Anonymize controllers and their dependencies.
+        If not in dry_run mode, will also delete the original data.
+
+        Args:
+            controller_ids: Set of controller IDs to anonymize
+        """
         if not controller_ids:
             return
 
@@ -975,9 +1043,17 @@ class BaseAnonymizer:
         self.anonymize_controller_user(controller_ids)
 
         if not self.dry_run:
-            self.delete_controller_refresh_tokens(controller_ids)
-            self.delete_controller_controls(controller_ids=controller_ids)
-            self.delete_controller_user(controller_ids)
+            self.delete_controller_and_dependencies(controller_ids)
+
+    def delete_controller_and_dependencies(
+        self, controller_ids: Set[int]
+    ) -> None:
+        if not controller_ids or self.dry_run:
+            return
+
+        self.delete_controller_refresh_tokens(controller_ids)
+        self.delete_controller_controls(controller_ids=controller_ids)
+        self.delete_controller_user(controller_ids)
 
     def anonymize_controller_controls(
         self, controller_ids: Set[int] = None, user_ids: Set[int] = None
