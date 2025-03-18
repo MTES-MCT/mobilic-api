@@ -63,9 +63,19 @@ logger = logging.getLogger(__name__)
 
 
 class BaseAnonymizer:
-    def __init__(self, db_session, dry_run=True):
+    def __init__(self, db_session, dry_run=True, delete_only=False):
+        """
+        Initialize the anonymizer.
+
+        Args:
+            db_session: SQLAlchemy database session
+            dry_run: If True, no deletions will be performed (default: True)
+            delete_only: If True, use existing mappings to delete original data
+                         without re-anonymizing (default: False)
+        """
         self.db = db_session
         self.dry_run = dry_run
+        self.delete_only = delete_only
 
     def log_anonymization(
         self, count: int, entity_type: str, context: str = ""
@@ -87,6 +97,16 @@ class BaseAnonymizer:
             logger.info(
                 f"{action} {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
             )
+
+    def get_mapped_ids(self, entity_type: str) -> Set[int]:
+        from app.models.anonymized import IdMapping
+
+        mappings = IdMapping.query.filter_by(entity_type=entity_type).all()
+        return (
+            {mapping.original_id for mapping in mappings}
+            if mappings
+            else set()
+        )
 
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
         if not mission_ids:

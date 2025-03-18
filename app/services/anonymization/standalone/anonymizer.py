@@ -78,6 +78,95 @@ class StandaloneAnonymizer(BaseAnonymizer):
             db.session.rollback()
             raise
 
+    def delete_anonymized_data(
+        self, cutoff_date: datetime, test_mode: bool = False
+    ):
+        """
+        Delete original data that has already been anonymized based on mappings.
+        This is used in delete-only mode after a dry run has been verified.
+
+        Args:
+            cutoff_date: Date before which data should be deleted (for logging only)
+            test_mode: If True, changes will be rolled back at the end
+        """
+        if test_mode:
+            logger.info("Test mode - changes will be rolled back at the end")
+
+        transaction = db.session.begin_nested()
+        try:
+            mapped_missions = self.get_mapped_ids
+            mapped_employments = self.get_mapped_ids("employment")
+            mapped_companies = self.get_mapped_ids("company")
+
+            self.log_mapped_data(
+                mapped_missions,
+                mapped_employments,
+                mapped_companies,
+                cutoff_date,
+            )
+
+            if mapped_missions:
+                self.delete_expenditures(mission_ids=mapped_missions)
+                self.delete_mission_comments(mapped_missions)
+                self.delete_activities(mapped_missions)
+                self.delete_mission_ends(mapped_missions)
+                self.delete_mission_validations(mapped_missions)
+                self.delete_location_entries(mapped_missions)
+                self.delete_missions(mapped_missions)
+
+            if mapped_employments:
+                self.delete_emails(employment_ids=mapped_employments)
+                self.delete_employments(mapped_employments)
+
+            if mapped_companies:
+                self.delete_company_team_and_dependencies(mapped_companies)
+                self.delete_company_certifications(mapped_companies)
+                self.delete_company_stats(mapped_companies)
+                self.delete_company_vehicles(mapped_companies)
+                self.delete_company_known_addresses(mapped_companies)
+                self.delete_companies(mapped_companies)
+
+            if not any(
+                [mapped_missions, mapped_employments, mapped_companies]
+            ):
+                logger.info("No standalone data to delete")
+                transaction.rollback()
+                return
+
+            if test_mode:
+                logger.info("Test mode: rolling back changes")
+                transaction.rollback()
+                db.session.rollback()
+            if not test_mode:
+                logger.info("Committing standalone data deletions...")
+                transaction.commit()
+                db.session.commit()
+
+        except Exception as e:
+            logger.error(f"Error deleting standalone data: {e}")
+            transaction.rollback()
+            db.session.rollback()
+            raise
+
+    def log_mapped_data(
+        self,
+        mission_ids: Set[int],
+        activity_ids: Set[int],
+        employment_ids: Set[int],
+        company_ids: Set[int],
+        cutoff_date: datetime,
+    ):
+        logger.info(f"Found data to delete (cutoff: {cutoff_date.date()}):")
+
+        if company_ids:
+            logger.info(f"- {len(company_ids)} companies")
+        if employment_ids:
+            logger.info(f"- {len(employment_ids)} employments")
+        if mission_ids:
+            logger.info(f"- {len(mission_ids)} missions")
+        if activity_ids:
+            logger.info(f"- {len(activity_ids)} activities")
+
     def find_inactive_companies_and_dependencies(
         self, cutoff_date: datetime
     ) -> Tuple[Set[int], Set[int], Set[int]]:
