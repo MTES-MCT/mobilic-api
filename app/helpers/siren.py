@@ -306,3 +306,16 @@ class SirenAPIClient:
     def get_siren_info(self, siren):
         siren_response = self._request_siren_info(siren)
         return self._raw_siren_info_with_clean_addresses(siren_response.json())
+
+    def has_company_ceased_activity(self, siren):
+        from app import app
+
+        try:
+            siren_info = self.get_siren_info(siren)
+            return (
+                siren_info["uniteLegale"]["etatAdministratifUniteLegale"]
+                == "C"
+            ), siren_info
+        except InaccessibleSirenError:
+            app.logger.error(f"Inaccessible siren {siren}")
+            return False, None
