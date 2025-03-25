@@ -12,6 +12,8 @@ Authlib==0.14.3
 backports.entry-points-selectable==1.1.0
 black==22.3.0
 blinker==1.4
+boto3==1.37.0
+botocore==1.37.0
 Brotli==1.0.9
 cached-property==1.5.1
 cachetools==4.2.2
@@ -111,7 +113,6 @@ typed-ast==1.4.1
 typing-extensions==4.12.2
 typing-inspect==0.5.0
 tzlocal==2.1
-urllib3==2.0.7
 virtualenv==20.7.2
 webargs==8.0.0
 webencodings==0.5.1
