@@ -1,18 +1,23 @@
 from app import db
-from typing import Set, Dict, Tuple
-from app.services.anonymization.base import BaseAnonymizer
+from typing import Set, Dict, Tuple, List
+from app.services.anonymization.standalone import AnonymizationExecutor
 import logging
+from app.models import User
+from app.models.user import UserAccountStatus
+from sqlalchemy.sql import text
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
-class UserAnonymizer(BaseAnonymizer):
+class UserAnonymizer(AnonymizationExecutor):
     def anonymize_user_data(
         self,
         full_anonymization_users: Set[int],
         partial_anonymization_users: Set[int],
         controller_anonymization_users: Set[int],
         test_mode: bool = False,
+        verify_only: bool = False,
     ) -> None:
         transaction = db.session.begin_nested()
         try:
