@@ -2,19 +2,24 @@ from app import db
 from sqlalchemy import or_
 from typing import Set, Tuple
 from datetime import datetime
-from app.services.anonymization.base import BaseAnonymizer
+from app.services.anonymization.standalone.anonymization_executor import (
+    AnonymizationExecutor,
+)
 from app.models import Mission, Employment, Company
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class StandaloneAnonymizer(BaseAnonymizer):
+class DataFinder(AnonymizationExecutor):
     def anonymize_standalone_data(
         self, cutoff_date: datetime, test_mode: bool = False
     ):
         """
-        Anonymize standalone data based on cutoff date.
+        Find and anonymize standalone data that has been inactive since cutoff date.
+
+        This method identifies inactive data (companies, missions, etc.) and calls
+        the executor methods to perform the actual anonymization.
 
         Args:
             cutoff_date: Date before which data should be anonymized
@@ -89,8 +94,11 @@ class StandaloneAnonymizer(BaseAnonymizer):
         self, cutoff_date: datetime, test_mode: bool = False
     ):
         """
-        Delete original data that has already been anonymized based on mappings.
-        This method is used in delete-only mode after a dry run has been verified.
+        Find and delete original data that has already been anonymized.
+
+        This method identifies data that has been anonymized (using ID mappings)
+        and calls the executor methods to delete the original records. It is used
+        in delete-only mode after a dry run has been verified.
 
         Args:
             cutoff_date: Date before which data should be deleted (for logging only)
