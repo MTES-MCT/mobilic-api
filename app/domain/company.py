@@ -433,7 +433,7 @@ def update_ceased_activity_status():
             employments = Employment.query.filter(
                 Employment.company_id == company.id,
                 ~Employment.is_dismissed,
-                or_(Employment.end_date.is_(None)),
+                Employment.end_date.is_(None),
                 Employment.validation_status.in_(
                     [
                         EmploymentRequestValidationStatus.PENDING,
