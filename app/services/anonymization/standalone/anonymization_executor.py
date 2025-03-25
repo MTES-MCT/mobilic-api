@@ -62,10 +62,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class BaseAnonymizer:
+class AnonymizationExecutor:
     def __init__(self, db_session, dry_run=True):
         """
-        Initialize the anonymizer.
+        Initialize the anonymization executor.
+
+        This class handles the actual execution of anonymization and deletion operations
+        for standalone data, creating anonymized records and/or deleting original ones.
 
         Args:
             db_session: SQLAlchemy database session
@@ -77,6 +80,14 @@ class BaseAnonymizer:
     def log_anonymization(
         self, count: int, entity_type: str, context: str = ""
     ):
+        """
+        Log information about anonymization operations.
+
+        Args:
+            count: Number of entities being processed
+            entity_type: Type of entity (e.g., "mission", "company")
+            context: Optional context information
+        """
         if count == 0:
             logger.info(
                 f"No {entity_type} found{' ' + context if context else ''}"
@@ -89,6 +100,14 @@ class BaseAnonymizer:
         )
 
     def log_deletion(self, count: int, entity_type: str, context: str = ""):
+        """
+        Log information about deletion operations.
+
+        Args:
+            count: Number of entities being deleted
+            entity_type: Type of entity (e.g., "mission", "company")
+            context: Optional context information
+        """
         if count > 0:
             action = "Would delete" if self.dry_run else "Deleted"
             logger.info(
@@ -96,6 +115,15 @@ class BaseAnonymizer:
             )
 
     def get_mapped_ids(self, entity_type: str) -> Set[int]:
+        """
+        Get IDs that have already been mapped (anonymized).
+
+        Args:
+            entity_type: Type of entity to get mappings for (e.g., "mission", "company")
+
+        Returns:
+            Set of original IDs that have been mapped
+        """
         from app.models.anonymized import IdMapping
 
         mappings = IdMapping.query.filter_by(entity_type=entity_type).all()
