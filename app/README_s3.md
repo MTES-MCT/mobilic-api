@@ -45,8 +45,3 @@ cors_configuration = {
             Bucket=mobilic-dev, CORSConfiguration=cors_configuration
         )
 ```
-#### TODO
-
-- pictures should expire after 90 days and be archived or deleted
-- find out if this 90 value can be requested by an API call
-- allow origins for staging and prod buckets
