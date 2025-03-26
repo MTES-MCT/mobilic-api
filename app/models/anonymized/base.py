@@ -1,5 +1,4 @@
 from app import db
-from .id_mapping import IdMapping
 
 
 class AnonymizedModel(db.Model):
@@ -7,28 +6,29 @@ class AnonymizedModel(db.Model):
 
     @classmethod
     def get_new_id(cls, entity_type: str, old_id: int):
+        """
+        Get a new ID for the entity using IdMappingService.
+
+        Uses negative sequence for users, positive sequence for other entities.
+
+        Args:
+            entity_type: Entity type (e.g., "user", "mission")
+            old_id: Original ID
+
+        Returns:
+            int: New anonymized ID (negative for users, positive for other entities)
+        """
         if not old_id:
             return None
 
-        mapping = IdMapping.query.filter_by(
-            entity_type=entity_type, original_id=old_id
-        ).one_or_none()
-
-        if mapping is not None:
-            return mapping.anonymized_id
-
-        result = db.session.execute("SELECT nextval('anonymized_id_seq')")
-        new_id = result.scalar()
-
-        mapping = IdMapping(
-            entity_type=entity_type, original_id=old_id, anonymized_id=new_id
+        from app.services.anonymization.id_mapping_service import (
+            IdMappingService,
         )
-        db.session.add(mapping)
 
-        db.session.flush()
-        db.session.refresh(mapping)
-
-        return new_id
+        if entity_type == "user":
+            return IdMappingService.get_user_negative_id(old_id)
+        if entity_type != "user":
+            return IdMappingService.get_entity_positive_id(entity_type, old_id)
 
     @staticmethod
     def truncate_to_month(date):
