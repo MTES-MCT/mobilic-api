@@ -13,7 +13,7 @@ from app.models import (
     Comment,
 )
 
-from app.services.anonymization.standalone import StandaloneAnonymizer
+from app.services.anonymization.standalone import DataFinder
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class UserClassifier:
         self.cutoff_date = cutoff_date
         self.user_related_tables = self._init_user_related_tables()
         self.dismissable_tables = self._init_dismissable_tables()
-        self.anonymizer = StandaloneAnonymizer(db.session)
+        self.anonymizer = DataFinder(db.session)
 
     def _init_user_related_tables(self) -> List[UserRelatedTableInfo]:
         return [
