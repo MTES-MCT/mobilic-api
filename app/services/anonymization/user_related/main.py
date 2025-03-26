@@ -73,17 +73,23 @@ def anonymize_users(
     """
     Anonymize user data that has been inactive for a specified period.
 
+    - Modifies user records in place rather than copying them to anonymized tables
+    - Sets user status to ANONYMIZED
+    - Assigns negative IDs to users (via database sequence)
+    - Removes or obfuscates personal information
+    - Preserves references and doesn't delete the original records
+
     Args:
         verbose: Enable verbose mode for more detailed logs
         dry_run: Dry-run mode - simulate anonymization without actual changes (default: True)
-        verify_only: Verify-only mode - verify anonymization status
+        verify_only: Verify-only mode - verify that users are properly anonymized
         test_mode: Test mode - roll back all changes at the end
         force_clean: Clean mapping table before starting
 
     Workflow for effective anonymization:
-    1. Run with dry_run=True to simulate anonymization
-    2. Run with dry_run=False to perform actual anonymization
-    3. Run with verify_only=True to verify anonymization status
+    1. Run with dry_run=True to simulate anonymization without making changes
+    2. Run with dry_run=False to perform actual anonymization by modifying user records
+    3. Run with verify_only=True to verify that users are properly anonymized
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
