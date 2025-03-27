@@ -336,6 +336,9 @@ def store_company(
     require_kilometer_data = True
     require_support_activity = False
     if siren_api_info:
+        if has_ceased_activity_from_siren_info(siren_api_info):
+            raise CompanyCeasedActivityError()
+
         # For déménagement companies disable kilometer data by default, and enable support activity
         if legal_unit.activity_code == "49.42Z":
             require_kilometer_data = False
