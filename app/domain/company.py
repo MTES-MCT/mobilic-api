@@ -416,10 +416,11 @@ def find_employee_for_invitation(
 
 @log_execution
 def update_ceased_activity_status():
+
     companies = (
         Company.query.filter(Company.has_ceased_activity == False)
         .order_by(nullsfirst(asc(Company.siren_api_info_last_update)))
-        .yield_per(100)
+        .limit(100)
     )
 
     for company in companies:
@@ -449,14 +450,17 @@ def update_ceased_activity_status():
             for employment in employments:
                 if (
                     employment.validation_status
-                    == EmploymentRequestValidationStatus.PENDING
+                    == EmploymentRequestValidationStatus.APPROVED
                 ):
-                    employment.dismiss()
-                else:
                     employment.end_date = (
                         datetime.date.today() - datetime.timedelta(days=1)
                     )
+                elif (
+                    employment.validation_status
+                    == EmploymentRequestValidationStatus.PENDING
+                ):
+                    db.session.delete(employment)
 
             company.has_ceased_activity = True
             company.siren_api_info = siren_info
-    db.session.commit()
+        db.session.commit()
