@@ -15,7 +15,7 @@ def create_employment_by_third_party_if_needed(
         Employment.company_id == company_id,
         ~Employment.is_dismissed,
         or_(
-            Employment.end_date.is_(None), Employment.end_date == current_date
+            Employment.end_date.is_(None), Employment.end_date >= current_date
         ),
     ).one_or_none()
 
