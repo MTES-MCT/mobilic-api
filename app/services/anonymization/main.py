@@ -28,9 +28,32 @@ def anonymize_expired_data(
         delete_only: Delete-only mode - delete already anonymized data
         test_mode: Test mode - roll back all changes at the end
         force_clean: Clean mapping table before starting
+
+    Workflow for delete-only mode:
+    1. Run with dry_run=True to anonymize data and create mappings
+    2. Verify the anonymized data is correct
+    3. Run with delete_only=True to delete original data using existing mappings
+
+    This allows for verification before permanently deleting original data.
+
+    Note: Delete-only mode is currently implemented only for standalone data.
+    User data delete-only mode is not yet implemented.
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
+
+    if delete_only:
+        dry_run = False
+        logger.info(
+            "Delete-only mode enabled. Setting dry_run=False to allow deletions."
+        )
+
+    if delete_only and not IdMapping.query.count():
+        logger.error(
+            "Cannot run in delete-only mode: No mappings found in IdMapping table. "
+            "Run first in dry-run mode to create the necessary mappings."
+        )
+        return
 
     try:
         cutoff_date = datetime.now() - relativedelta(
@@ -43,7 +66,7 @@ def anonymize_expired_data(
 
         process_standalone_data(dry_run, delete_only, test_mode, cutoff_date)
 
-        # STEP 2 : User data processing
+        # STEP 2 : user_related
         # process_user_data(dry_run, delete_only, test_mode, cutoff_date)
 
         handle_final_cleanup(dry_run, delete_only, test_mode)
@@ -51,28 +74,58 @@ def anonymize_expired_data(
         operation_name = "deletion" if delete_only else "anonymization"
         logger.info(f"Data {operation_name} completed successfully")
 
+        if dry_run and not delete_only and not test_mode:
+            logger.info(
+                "Dry run completed. To delete the original data after verification, "
+                "run again with --delete-only flag."
+            )
+
     except Exception as e:
         handle_exception(e, test_mode, delete_only)
         raise
 
 
 def log_operation_start(dry_run, delete_only, test_mode, cutoff_date):
+    """
+    Log information about the operation being started.
+
+    Args:
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+        test_mode: If True, running in test mode
+        cutoff_date: Date before which data should be processed
+    """
     log_prefix = ""
+
     if test_mode:
         log_prefix = "Test mode: "
+
     if dry_run:
         log_prefix += "Dry run: "
 
     operation_name = "deletion" if delete_only else "anonymization"
+
     threshold_info = f"{years} years"
     if months > 0:
         threshold_info += f" and {months} months"
+
     logger.info(
         f"{log_prefix}Starting data {operation_name} process with cut-off date: {cutoff_date.date()} (threshold: {threshold_info})"
     )
 
 
 def handle_tables_cleaning(dry_run, delete_only, force_clean):
+    """
+    Handle the cleaning of mapping tables based on mode and parameters.
+
+    Args:
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+        force_clean: If True, force cleaning mapping tables
+
+    Returns:
+        bool: Whether to proceed with the operation
+    """
     mapping_count = IdMapping.query.count()
 
     if delete_only and mapping_count == 0:
@@ -86,7 +139,9 @@ def handle_tables_cleaning(dry_run, delete_only, force_clean):
     )
     if should_clean_initial and not force_clean:
         logger.error(
-            f"There are {mapping_count} existing mappings in IdMapping table. Use --force-clean to proceed and clean existing mappings."
+            f"There are {mapping_count} existing mappings in IdMapping table. "
+            f"Use --force-clean to proceed and clean existing mappings. "
+            f"Alternatively, use --delete-only to delete the original data based on these mappings."
         )
         return False
 
@@ -100,23 +155,40 @@ def handle_tables_cleaning(dry_run, delete_only, force_clean):
 
 
 def process_standalone_data(dry_run, delete_only, test_mode, cutoff_date):
+    """
+    Process standalone data either by anonymizing or deleting.
+
+    Args:
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+        test_mode: If True, running in test mode
+        cutoff_date: Date before which data should be processed
+    """
     operation_type = "Deleting" if delete_only else "Processing"
     logger.info(f"{operation_type} standalone data")
 
     standalone_anonymizer = StandaloneAnonymizer(db.session, dry_run=dry_run)
 
     if delete_only:
-        # TODO: Implement delete_anonymized_data method in StandaloneAnonymizer
-        # standalone_anonymizer.delete_anonymized_data(cutoff_date, test_mode)
-        logger.warning(
-            "Delete-only mode not yet implemented for standalone data"
-        )
-    if not delete_only:
-        standalone_anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
+        logger.info("Using delete-only mode for standalone data")
+        standalone_anonymizer.delete_anonymized_data(cutoff_date, test_mode)
+        return
+
+    standalone_anonymizer.anonymize_standalone_data(cutoff_date, test_mode)
 
 
 def process_user_data(dry_run, delete_only, test_mode, cutoff_date):
+    """
+    Process user data either by anonymizing or deleting.
+
+    Args:
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+        test_mode: If True, running in test mode
+        cutoff_date: Date before which data should be processed
+    """
     operation_type = "Deleting" if delete_only else "Processing"
+    logger.info(f"{operation_type} user data")
 
     full_anon_users = set()
     partial_anon_users = set()
@@ -134,29 +206,19 @@ def process_user_data(dry_run, delete_only, test_mode, cutoff_date):
             log_classification_results(
                 full_anon_users, partial_anon_users, controller_anon_users
             )
-    if not delete_only:
-        # STEP 2 :Get users from existing mappings
-        logger.info("Getting previously anonymized users from mappings")
-        # TODO: Implementation for retrieving users from mappings
 
-    logger.info(f"{operation_type} user data")
     user_anonymizer = UserAnonymizer(db.session, dry_run=dry_run)
 
     if delete_only:
-        # user_anonymizer.delete_anonymized_user_data(
-        #     full_anon_users,
-        #     partial_anon_users,
-        #     controller_anon_users,
-        #     test_mode,
-        # )
         logger.warning("Delete-only mode not yet implemented for user data")
-    if not delete_only:
-        user_anonymizer.anonymize_user_data(
-            full_anon_users,
-            partial_anon_users,
-            controller_anon_users,
-            test_mode,
-        )
+        return
+
+    user_anonymizer.anonymize_user_data(
+        full_anon_users,
+        partial_anon_users,
+        controller_anon_users,
+        test_mode,
+    )
 
 
 def log_classification_results(
@@ -175,34 +237,85 @@ def log_classification_results(
 
 
 def handle_final_cleanup(dry_run, delete_only, test_mode):
-    should_clean_final = test_mode or not dry_run or delete_only
+    """
+    Handle final cleanup of the mapping table based on the execution mode.
 
-    if should_clean_final:
-        clean_reason = get_clean_reason(test_mode, dry_run, delete_only)
-        logger.info(f"{clean_reason}: cleaning IdMapping table")
-        clean_id_mapping()
-    if not should_clean_final:
+    Args:
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+        test_mode: If True, running in test mode
+
+    Cleanup logic:
+    - In regular dry-run: preserve mappings for future delete-only
+    - In delete-only: clean mappings after successful deletion
+    - In test mode: clean mappings except for delete-only test mode
+    - In delete-only test mode: preserve mappings for future test runs
+    """
+    if dry_run and not delete_only and not test_mode:
+        mapping_count = IdMapping.query.count()
         logger.info(
-            f"Dry run complete: preserving {IdMapping.query.count()} mappings in IdMapping table for future deletion"
+            f"Dry run complete: preserving {mapping_count} mappings in IdMapping table for future deletion. "
+            f"Run again with --delete-only to delete the original data."
         )
+        return
+
+    if delete_only and test_mode:
+        mapping_count = IdMapping.query.count()
+        logger.info(
+            f"Test mode delete-only complete: preserving {mapping_count} mappings in IdMapping table "
+            f"for future test runs."
+        )
+        return
+
+    clean_reason = get_clean_reason(test_mode, dry_run, delete_only)
+    logger.info(f"{clean_reason}: cleaning IdMapping table")
+    clean_id_mapping()
 
 
 def get_clean_reason(test_mode, dry_run, delete_only):
+    """
+    Get the reason for cleaning the mapping table.
+
+    Args:
+        test_mode: If True, running in test mode
+        dry_run: If True, running in dry-run mode
+        delete_only: If True, running in delete-only mode
+
+    Returns:
+        str: The reason for cleaning the mapping table
+    """
     if test_mode:
         return "Test mode"
-    if not dry_run and not delete_only:
-        return "Full process complete"
+
     if delete_only:
-        return "Delete-only mode complete"
+        return "Delete-only operation complete"
+
+    if not dry_run:
+        return "Operation complete"
+
     return "Cleanup"
 
 
 def handle_exception(e, test_mode, delete_only):
-    if test_mode:
+    """
+    Handle exceptions during the anonymization process.
+
+    Args:
+        e: The exception that occurred
+        test_mode: If True, running in test mode
+        delete_only: If True, running in delete-only mode
+    """
+    if test_mode and not delete_only:
         logger.info(
             "Error occurred during test mode: cleaning IdMapping table"
         )
         clean_id_mapping()
+
+    if test_mode and delete_only:
+        logger.info(
+            "Error occurred during delete-only test mode: preserving IdMapping table for future test runs"
+        )
+
     if not test_mode:
         logger.warning("Error occurred but IdMapping table is preserved")
 
@@ -211,6 +324,17 @@ def handle_exception(e, test_mode, delete_only):
 
 
 def clean_id_mapping():
+    """
+    Clean the temporary ID mapping table by deleting all entries.
+
+    This function is used to reset the mapping table when:
+    1. Starting a new anonymization process with force_clean
+    2. Finishing a regular test mode run
+    3. Finishing a delete-only operation (after successful deletion)
+
+    Raises:
+        Exception: If there is an error during the deletion process
+    """
     try:
         IdMapping.query.delete()
         db.session.commit()
