@@ -41,9 +41,11 @@ from app.helpers.authorization import (
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
     InvalidParamsError,
+    CompanyCeasedActivityError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
+from app.helpers.siren import has_ceased_activity_from_siren_info
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
