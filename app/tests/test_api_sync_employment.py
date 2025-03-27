@@ -165,6 +165,8 @@ class TestApiSyncEmployment(BaseTest):
             "syncEmployment"
         ]
         self.assertEqual(len(employment_ids), 2)
+        self.assertNotNull(employment_ids[0].email)
+        self.assertNotNull(employment_ids[1].email)
 
     def test_sync_employments_many_already_exists(self):
         company = Company.query.get(self.company_id)

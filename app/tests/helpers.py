@@ -390,6 +390,7 @@ class ApiRequests:
             company{
                 syncEmployment(companyId: $companyId, employees: $employees) {
                     id
+                    email
                 }
             }
        }

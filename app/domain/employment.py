@@ -21,6 +21,7 @@ def create_employment_by_third_party_if_needed(
 
     if existing_employment:
         existing_employment.has_admin_rights = has_admin_rights
+        existing_employment.email = email
         return existing_employment, False
 
     employment = Employment(
