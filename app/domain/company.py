@@ -464,5 +464,6 @@ def update_ceased_activity_status():
                     db.session.delete(employment)
 
             company.has_ceased_activity = True
-            company.siren_api_info = siren_info
+
+        company.siren_api_info = siren_info
         db.session.commit()
