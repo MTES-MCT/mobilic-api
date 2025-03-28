@@ -418,7 +418,9 @@ def find_employee_for_invitation(
 def update_ceased_activity_status():
 
     companies = (
-        Company.query.filter(Company.has_ceased_activity == False)
+        Company.query.filter(
+            Company.has_ceased_activity == False, Company.siren.isnot(None)
+        )
         .order_by(nullsfirst(asc(Company.siren_api_info_last_update)))
         .limit(100)
     )
