@@ -41,9 +41,11 @@ from app.helpers.authorization import (
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
     InvalidParamsError,
+    CompanyCeasedActivityError,
 )
 from app.helpers.graphene_types import graphene_enum_type
 from app.helpers.mail import MailingContactList
+from app.helpers.siren import has_ceased_activity_from_siren_info
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
@@ -336,6 +338,9 @@ def store_company(
     require_kilometer_data = True
     require_support_activity = False
     if siren_api_info:
+        if has_ceased_activity_from_siren_info(siren_api_info):
+            raise CompanyCeasedActivityError()
+
         # For déménagement companies disable kilometer data by default, and enable support activity
         if legal_unit.activity_code == "49.42Z":
             require_kilometer_data = False

@@ -1,6 +1,7 @@
 from datetime import date
 from cached_property import cached_property
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import validates
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
@@ -43,7 +44,17 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
 
     accept_certification_communication = db.Column(db.Boolean, nullable=True)
 
+    has_ceased_activity = db.Column(db.Boolean, nullable=False, default=False)
+
+    siren_api_info_last_update = db.Column(db.Date, nullable=False, index=True)
+
     __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
+
+    @validates("siren_api_info")
+    def validate_siren_api_info(self, key, value):
+        """Set last update date whenever `siren_api_info` is modified."""
+        self.siren_api_info_last_update = date.today()
+        return value
 
     @property
     def name(self):

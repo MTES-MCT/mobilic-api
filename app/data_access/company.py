@@ -88,7 +88,13 @@ class CertificateCriterias(graphene.ObjectType):
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
-        only_fields = ("id", "siren", "phone_number", "business")
+        only_fields = (
+            "id",
+            "siren",
+            "phone_number",
+            "business",
+            "has_ceased_activity",
+        )
 
     id = graphene.Field(
         graphene.Int, required=True, description="Identifiant de l'entreprise"

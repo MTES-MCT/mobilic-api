@@ -1,14 +1,15 @@
 import datetime
 from enum import Enum
 
-from sqlalchemy import desc
+from sqlalchemy import desc, asc, nullsfirst
 from sqlalchemy import exists, and_
 from sqlalchemy import func, or_
 from sqlalchemy.sql.functions import now
 from sqlalchemy.orm import joinedload
 
-from app import db
+from app import db, siren_api_client, app
 from app.helpers.mail_type import EmailType
+from app.jobs import log_execution
 from app.models import Company, CompanyCertification, UserAgreement
 from app.models import (
     Employment,
@@ -411,3 +412,58 @@ def find_employee_for_invitation(
     query = base_query.order_by(Email.address, Email.creation_time.desc())
 
     return query.yield_per(100).all()
+
+
+@log_execution
+def update_ceased_activity_status():
+
+    companies = (
+        Company.query.filter(
+            Company.has_ceased_activity == False, Company.siren.isnot(None)
+        )
+        .order_by(nullsfirst(asc(Company.siren_api_info_last_update)))
+        .limit(100)
+    )
+
+    for company in companies:
+        (
+            has_ceased_activity,
+            siren_info,
+        ) = siren_api_client.has_company_ceased_activity(company.siren)
+        if has_ceased_activity:
+            app.logger.info(f"{company} has ceased activity...")
+
+            employments = Employment.query.filter(
+                Employment.company_id == company.id,
+                ~Employment.is_dismissed,
+                Employment.end_date.is_(None),
+                Employment.validation_status.in_(
+                    [
+                        EmploymentRequestValidationStatus.PENDING,
+                        EmploymentRequestValidationStatus.APPROVED,
+                    ]
+                ),
+            ).all()
+
+            app.logger.info(
+                f"#{len(employments)} employments will be terminated or dismissed"
+            )
+
+            for employment in employments:
+                if (
+                    employment.validation_status
+                    == EmploymentRequestValidationStatus.APPROVED
+                ):
+                    employment.end_date = (
+                        datetime.date.today() - datetime.timedelta(days=1)
+                    )
+                elif (
+                    employment.validation_status
+                    == EmploymentRequestValidationStatus.PENDING
+                ):
+                    db.session.delete(employment)
+
+            company.has_ceased_activity = True
+
+        company.siren_api_info = siren_info
+        db.session.commit()

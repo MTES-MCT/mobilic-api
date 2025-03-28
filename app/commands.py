@@ -12,6 +12,7 @@ from sqlalchemy import text
 from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
+from app.domain.company import update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
@@ -420,3 +421,8 @@ def migrate_anonymize_mission(
         test_mode=test,
         force_clean=force_clean,
     )
+
+
+@app.cli.command("update_ceased_activity_status", with_appcontext=True)
+def _update_ceased_activity_status():
+    update_ceased_activity_status()

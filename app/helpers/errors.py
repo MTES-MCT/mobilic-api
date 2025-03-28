@@ -104,6 +104,12 @@ class SirenAlreadySignedUpError(MobilicError):
     default_should_alert_team = False
 
 
+class CompanyCeasedActivityError(MobilicError):
+    code = "COMPANY_HAS_CEASED_ACTIVITY"
+    default_message = "Company has ceased activity"
+    default_should_alert_team = False
+
+
 class FranceConnectAuthenticationError(MobilicError):
     code = "FRANCE_CONNECT_ERROR"
 
