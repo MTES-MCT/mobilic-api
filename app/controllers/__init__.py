@@ -1,4 +1,5 @@
 from app.controllers.contacts import *
+from app.controllers.bizdev import *
 import graphene
 
 from app.controllers.certificate import (
