@@ -456,7 +456,6 @@ class TestDailyRest(RegulationsTest):
             0, extras[2].get("breach_period_max_break_in_seconds")
         )
 
-
     # FIXME
     @unittest.skip("Not working after the hour change on March 30th")
     def test_night_worker(self):
