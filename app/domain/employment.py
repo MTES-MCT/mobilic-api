@@ -15,12 +15,13 @@ def create_employment_by_third_party_if_needed(
         Employment.company_id == company_id,
         ~Employment.is_dismissed,
         or_(
-            Employment.end_date.is_(None), Employment.end_date == current_date
+            Employment.end_date.is_(None), Employment.end_date >= current_date
         ),
     ).one_or_none()
 
     if existing_employment:
         existing_employment.has_admin_rights = has_admin_rights
+        existing_employment.email = email
         return existing_employment, False
 
     employment = Employment(

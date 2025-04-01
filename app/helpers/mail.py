@@ -848,6 +848,7 @@ class Mailer:
         )
 
     def send_companies_reminder_no_invitation_email(self, employment):
+        webinars_link = Markup(f"{app.config['FRONTEND_URL']}/#webinaires")
         resources_link = Markup(
             f"{app.config['FRONTEND_URL']}/resources/admin"
         )
@@ -857,9 +858,9 @@ class Mailer:
                 subject="Rappel : rattachez vos salariés à votre compte Mobilic",
                 employment=employment,
                 user=employment.user,
-                company_creation_time=employment.company.creation_time,
                 type_=EmailType.COMPANY_REMINDER_NO_INVITATION,
                 resources_link=resources_link,
+                webinars_link=webinars_link,
             ),
             _apply_whitelist_if_not_prod=True,
         )

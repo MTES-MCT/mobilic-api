@@ -127,6 +127,12 @@ class Config:
     ANONYMIZATION_USER_BATCH = int(
         os.environ.get("ANONYMIZATION_USER_BATCH", 100)
     )
+    EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
+        os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
+    )
+    EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS = int(
+        os.environ.get("EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS", 7)
+    )
 
 
 class DevConfig(Config):
