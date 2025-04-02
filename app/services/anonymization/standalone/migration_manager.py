@@ -123,9 +123,8 @@ class StandaloneDataAnonymizationManager(AnonymizationManager):
 
             self.process_standalone_data(cutoff_date)
 
-            # Show information about user anonymization
             logger.info(
-                "Note: User anonymization is handled  by the dedicated 'anonymize_users' command. "
+                "Note: User anonymization is handled by the dedicated 'anonymize_users' command. "
                 "Use 'flask anonymize_users --help' for more information."
             )
 
