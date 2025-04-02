@@ -27,28 +27,6 @@ years = app.config["ANONYMIZATION_THRESHOLD_YEAR"]
 months = app.config["ANONYMIZATION_THRESHOLD_MONTH"]
 
 
-def log_classification_results(
-    full_anonymization: Set[int],
-    partial_anonymization: Set[int],
-    controller_anonymization: Set[int],
-) -> None:
-    """
-    Log the results of user classification.
-
-    Args:
-        full_anonymization: Set of user IDs for full anonymization
-        partial_anonymization: Set of user IDs for partial anonymization
-        controller_anonymization: Set of controller IDs for anonymization
-    """
-    logger.info(f"Users for full anonymization: {len(full_anonymization)}")
-    logger.info(
-        f"Users for partial anonymization: {len(partial_anonymization)}"
-    )
-    logger.info(
-        f"Controllers for anonymization: {len(controller_anonymization)}"
-    )
-
-
 def clean_id_mapping():
     """
     Clean the temporary ID mapping table by deleting all entries.
@@ -204,29 +182,25 @@ def process_user_data(dry_run, verify_only, test_mode, cutoff_date):
     operation_type = "Verifying" if verify_only else "Processing"
     logger.info(f"{operation_type} user data")
 
-    full_anon_users = set()
-    partial_anon_users = set()
-    controller_anon_users = set()
+    users_to_anon = set()
+    admin_to_anon = set()
+    controller_to_anon = set()
 
     if not verify_only:
         logger.info("Starting user classification phase")
         classifier = UserClassifier(cutoff_date)
-        classification = classifier.classify_users_for_anonymization()
+        classification = classifier.find_inactive_users()
 
-        full_anon_users = classification["user_full_anonymization"]
-        partial_anon_users = classification["user_partial_anonymization"]
-        controller_anon_users = classification["controller_user_anonymization"]
-
-        log_classification_results(
-            full_anon_users, partial_anon_users, controller_anon_users
-        )
+        users_to_anon = classification["users"]
+        admin_to_anon = classification["admin"]
+        controller_to_anon = classification["controller"]
 
     user_anonymizer = UserAnonymizer(db.session, dry_run=dry_run)
 
     user_anonymizer.anonymize_user_data(
-        full_anon_users,
-        partial_anon_users,
-        controller_anon_users,
+        users_to_anon,
+        admin_to_anon,
+        controller_to_anon,
         test_mode,
         verify_only,
     )
