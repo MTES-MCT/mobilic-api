@@ -29,11 +29,17 @@ from app.helpers.validation import validate_clean_email_string
     get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
 )
 def invite_companies(emails, company_id):
-    company = Company.query.get(company_id)
-    for email in emails:
-        mailer.send_email_discover_mobilic(
-            from_company=company, to_email=email
-        )
-    response = make_response(jsonify({"result": "ok"}), 200)
-    response.headers["Content-Type"] = "application/json"
-    return response
+    try:
+        company = Company.query.get(company_id)
+        for email in emails:
+            mailer.send_email_discover_mobilic(
+                from_company=company, to_email=email
+            )
+        response = make_response(jsonify({"result": "ok"}), 200)
+        response.headers["Content-Type"] = "application/json"
+        return response
+
+    except Exception as e:
+        response = make_response(jsonify({"error": str(e)}), 500)
+        response.headers["Content-Type"] = "application/json"
+        return response
