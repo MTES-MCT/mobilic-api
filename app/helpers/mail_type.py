@@ -33,3 +33,4 @@ class EmailType(str, Enum):
     EMPLOYEE_REJECTS_CGU = "employee_rejects_cgu"
     COMPANY_SUSPENDED_CGU = "company_suspended_cgu"
     EXPIRY_WARNING_CGU = "expiry_warning_cgu"
+    DISCOVER_MOBILIC = "discover_mobilic"
