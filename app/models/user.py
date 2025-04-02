@@ -27,6 +27,7 @@ class UserAccountStatus(str, Enum):
     ACTIVE = "active"
     BLOCKED_BAD_PASSWORD = "blocked_bad_password"
     THIRD_PARTY_PENDING_APPROVAL = "third_party_pending_approval"
+    ANONYMIZED = "anonymized"
 
 
 class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
