@@ -47,7 +47,6 @@ from app.models.anonymized import (
     AnonCompanyStats,
     AnonVehicle,
     AnonCompanyKnownAddress,
-    AnonUser,
     AnonUserAgreement,
     AnonRegulatoryAlert,
     AnonRegulationComputation,
@@ -633,30 +632,59 @@ class AnonymizationExecutor:
 
         self.log_deletion(deleted, "company known address")
 
-    def anonymize_user_and_dependencies(self, user_ids: Set[int]) -> None:
+    def anonymize_user_dependencies(self, user_ids: Set[int]) -> None:
         """
-        Anonymize users and their dependencies.
-        If not in dry_run mode, will also delete the original data.
+        Anonymize only user dependencies, not the users themselves.
+        Users are anonymized in-place via the user_related process.
+        If not in dry_run mode, will also delete the dependencies.
 
         Args:
-            user_ids: Set of user IDs to anonymize
+            user_ids: Set of user IDs whose dependencies to anonymize
         """
         if not user_ids:
             return
 
-        self.anonymize_user_vehicles(user_ids)
+        # Check if users are already anonymized
+        from app.models import User
+        from app.models.user import UserAccountStatus
+        from app.services.anonymization.id_mapping_service import (
+            IdMappingService,
+        )
+
+        users = User.query.filter(User.id.in_(user_ids)).all()
+        non_anonymized = [
+            u.id for u in users if u.status != UserAccountStatus.ANONYMIZED
+        ]
+
+        if non_anonymized:
+            logger.warning(
+                f"{len(non_anonymized)} users are not yet anonymized: {non_anonymized}. "
+                "Consider anonymizing them first using the user_related process."
+            )
+
+        # For each user that needs to be anonymized, make sure they have a mapping entry
+        # This ensures negative IDs are assigned consistently for already anonymized users
+        for user_id in user_ids:
+            IdMappingService.get_user_negative_id(user_id)
+
         self.anonymize_emails(user_ids=user_ids)
         self.anonymize_regulatory_alerts(user_ids)
         self.anonymize_regulation_computations(user_ids)
         self.anonymize_user_agreements(user_ids)
         self.anonymize_team_admin_users(user_ids=user_ids)
         self.anonymize_controller_controls(user_ids=user_ids)
-        self.anonymize_users(user_ids)
 
         if not self.dry_run:
-            self.delete_user_and_dependencies(user_ids)
+            self.delete_user_dependencies(user_ids)
 
-    def delete_user_and_dependencies(self, user_ids: Set[int]) -> None:
+    def delete_user_dependencies(self, user_ids: Set[int]) -> None:
+        """
+        Deletes user dependencies but not the users themselves.
+        Users anonymized in-place should be preserved.
+
+        Args:
+            user_ids: Set of user IDs whose dependencies to delete
+        """
         if not user_ids or self.dry_run:
             return
 
@@ -669,12 +697,10 @@ class AnonymizationExecutor:
         self.delete_user_survey_actions(user_ids)
         self.delete_team_admin_users(user_ids=user_ids)
         self.delete_controller_controls(user_ids=user_ids)
-        self.unlink_user_from_vehicles(user_ids)
         self.delete_emails(user_ids=user_ids)
         self.delete_regulatory_alerts(user_ids)
         self.delete_regulation_computations(user_ids)
         self.delete_user_agreements(user_ids)
-        self.delete_users(user_ids)
 
     def delete_dismissed_company_known_address(
         self, user_ids: Set[int]
@@ -751,34 +777,11 @@ class AnonymizationExecutor:
 
         vehicle_ids = {v.id for v in vehicles}
 
-        self.unlink_missions_from_vehicles(vehicle_ids)
-
         self.log_anonymization(len(vehicles), "vehicle", "for user")
 
         for vehicle in vehicles:
             anonymized = AnonVehicle.anonymize(vehicle)
             self.db.add(anonymized)
-
-    def unlink_missions_from_vehicles(self, vehicle_ids: Set[int]) -> None:
-        if not vehicle_ids:
-            return
-
-        updated = Mission.query.filter(
-            Mission.vehicle_id.in_(vehicle_ids)
-        ).update({Mission.vehicle_id: None}, synchronize_session=False)
-
-        self.log_anonymization(updated, "mission", "unlinked from vehicles")
-
-    # TODO: change logic to create an anonymize id for users
-    def unlink_user_from_vehicles(self, user_ids: Set[int]) -> None:
-        if not user_ids:
-            return
-
-        updated = Vehicle.query.filter(
-            Vehicle.submitter_id.in_(user_ids)
-        ).update({Vehicle.submitter_id: None}, synchronize_session=False)
-
-        self.log_anonymization(updated, "user", "unlinked from vehicles")
 
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -857,30 +860,6 @@ class AnonymizationExecutor:
         ).delete(synchronize_session=False)
 
         self.log_deletion(deleted, "user agreement")
-
-    def anonymize_users(self, user_ids: Set[int]) -> None:
-        if not user_ids:
-            return
-
-        users = User.query.filter(User.id.in_(user_ids)).all()
-
-        self.log_anonymization(len(users), "user")
-        if not users:
-            return
-
-        for user in users:
-            anonymized = AnonUser.anonymize(user)
-            self.db.add(anonymized)
-
-    def delete_users(self, user_ids: Set[int]) -> None:
-        if not user_ids:
-            return
-
-        deleted = User.query.filter(User.id.in_(user_ids)).delete(
-            synchronize_session=False
-        )
-
-        self.log_deletion(deleted, "user")
 
     def anonymize_company_team_and_dependencies(
         self, company_ids: Set[int]
