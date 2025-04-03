@@ -51,6 +51,12 @@ def upgrade():
         """
     )
 
+    op.execute(
+        """
+        DROP TABLE anon_user;
+        """
+    )
+
 
 def downgrade():
     op.execute("DROP INDEX IF EXISTS idx_user_status_anonymized;")
