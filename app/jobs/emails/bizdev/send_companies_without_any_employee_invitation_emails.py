@@ -6,7 +6,7 @@ from app.domain.company import (
 )
 from app.jobs import log_execution
 
-NB_DAYS_AGO = 6
+NB_DAYS_AGO = app.config["EMAIL_NO_INVITATIONS_DELAY_DAYS"]
 
 
 @log_execution
