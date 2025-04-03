@@ -1,5 +1,5 @@
 from app import db
-from typing import Set, Dict
+from typing import Set
 from app.services.anonymization.standalone import AnonymizationExecutor
 from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
