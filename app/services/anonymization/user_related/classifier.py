@@ -49,6 +49,7 @@ class UserClassifier:
           JOIN employment e ON u.id = e.user_id
          WHERE e.has_admin_rights = false
          AND u.creation_time <= :cutoff_date
+         AND u.status != 'anonymized'
          AND NOT EXISTS (
             SELECT 1 
               FROM activity a
@@ -76,6 +77,7 @@ class UserClassifier:
             JOIN employment e ON u.id = e.user_id
             WHERE e.has_admin_rights = true
             AND u.creation_time <= :cutoff_date
+            AND u.status != 'anonymized'
             AND NOT EXISTS (
                SELECT 1 
                FROM activity a
