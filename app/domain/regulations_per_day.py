@@ -19,6 +19,7 @@ from app.models.regulatory_alert import RegulatoryAlert
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
 NATINF_20525 = "NATINF 20525"
+NATINF_35187 = "NATINF 35187"
 SANCTION_CODE = "Non-respect du Code des transports"
 
 
@@ -298,9 +299,14 @@ def check_max_work_day_time(activity_groups, regulation_check, business):
     return ComputationResult(success=True, extra=extra)
 
 
-def check_min_work_day_break(activity_groups, regulation_check, business):
+def check_max_uninterrupted_work_time(
+    activity_groups, regulation_check, business
+):
 
     dict_variables = resolve_variables(regulation_check.variables, business)
+    MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS = dict_variables[
+        "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
+    ]
     MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN = dict_variables[
         "MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN"
     ]
@@ -318,67 +324,6 @@ def check_min_work_day_break(activity_groups, regulation_check, business):
     ]
     # IMPROVE: we may store a map key-value for these period values
 
-    total_work_duration_s = 0
-    total_break_time_s = 0
-    latest_work_time = None
-    for group in activity_groups:
-        total_work_duration_s += group.total_work_duration
-        for activity in group.activities:
-            if (
-                latest_work_time is not None
-                and activity.start_time - latest_work_time
-                >= timedelta(minutes=MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN)
-            ):
-                total_break_time_s += (
-                    activity.start_time - latest_work_time
-                ).total_seconds()
-            latest_work_time = activity.end_time
-
-    if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
-        extra = dict(
-            total_break_time_in_seconds=total_break_time_s,
-            work_range_in_seconds=total_work_duration_s,
-            work_range_start=activity_groups[0].start_time.isoformat(),
-            sanction_code=SANCTION_CODE,
-        )
-        if latest_work_time is not None:
-            extra["work_range_end"] = latest_work_time.isoformat()
-
-        if (
-            total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
-            and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
-        ):
-            extra[
-                "min_break_time_in_minutes"
-            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
-            return ComputationResult(
-                success=False,
-                extra=extra,
-            )
-        elif (
-            total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
-            and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
-        ):
-            extra[
-                "min_break_time_in_minutes"
-            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
-            return ComputationResult(
-                success=False,
-                extra=extra,
-            )
-
-    return ComputationResult(success=True)
-
-
-def check_max_uninterrupted_work_time(
-    activity_groups, regulation_check, business
-):
-
-    dict_variables = resolve_variables(regulation_check.variables, business)
-    MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS = dict_variables[
-        "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
-    ]
-
     # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
     current_uninterrupted_work_duration = 0
@@ -389,6 +334,8 @@ def check_max_uninterrupted_work_time(
     )
     activity_ids_already_seen = set()
 
+    not_enough_break = False
+    too_much_uninterrumpted_work_time = False
     for group in activity_groups:
         for activity in group.activities:
             if activity.id in activity_ids_already_seen:
@@ -414,6 +361,7 @@ def check_max_uninterrupted_work_time(
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
             ):
+                too_much_uninterrumpted_work_time = True
                 extra[
                     "longest_uninterrupted_work_in_seconds"
                 ] = current_uninterrupted_work_duration
@@ -421,9 +369,60 @@ def check_max_uninterrupted_work_time(
                     "longest_uninterrupted_work_start"
                 ] = current_uninterrupted_start.isoformat()
                 extra["longest_uninterrupted_work_end"] = end_time.isoformat()
-                extra["sanction_code"] = SANCTION_CODE
-                return ComputationResult(success=False, extra=extra)
+                break
+
             latest_work_time = activity.end_time
+
+    total_work_duration_s = 0
+    total_break_time_s = 0
+    latest_work_time = None
+
+    for group in activity_groups:
+        total_work_duration_s += group.total_work_duration
+        for activity in group.activities:
+            if (
+                latest_work_time is not None
+                and activity.start_time - latest_work_time
+                >= timedelta(minutes=MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN)
+            ):
+                total_break_time_s += (
+                    activity.start_time - latest_work_time
+                ).total_seconds()
+            latest_work_time = activity.end_time
+
+    if total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_1 * HOUR:
+        extra["total_break_time_in_seconds"] = total_break_time_s
+        extra["work_range_in_seconds"] = total_work_duration_s
+        extra["work_range_start"] = activity_groups[0].start_time.isoformat()
+
+        if latest_work_time is not None:
+            extra["work_range_end"] = latest_work_time.isoformat()
+
+        if (
+            total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
+            and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
+        ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
+            not_enough_break = True
+
+        elif (
+            total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
+            and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
+        ):
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
+            not_enough_break = True
+
+    extra[
+        "too_much_uninterrupted_work_time"
+    ] = too_much_uninterrumpted_work_time
+    extra["not_enough_break"] = not_enough_break
+    if too_much_uninterrumpted_work_time or not_enough_break:
+        extra["sanction_code"] = NATINF_35187
+        return ComputationResult(success=False, extra=extra)
 
     return ComputationResult(success=True, extra=extra)
 
@@ -439,13 +438,7 @@ DAILY_REGULATION_CHECKS = {
         ),
         filter_work_days_to_current_day,
     ],
-    RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
-        lambda activity_groups, regulation_check, _, business: check_min_work_day_break(
-            activity_groups, regulation_check, business
-        ),
-        filter_work_days_to_current_day,
-    ],
-    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
+    RegulationCheckType.ENOUGH_BREAK: [
         lambda activity_groups, regulation_check, _, business: check_max_uninterrupted_work_time(
             activity_groups, regulation_check, business
         ),

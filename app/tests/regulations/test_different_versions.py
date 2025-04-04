@@ -58,8 +58,7 @@ class TestDifferentVersions(RegulationsTest):
         employee_alerts = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+                RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
             ),
             RegulatoryAlert.day == day_start,
             RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
@@ -69,8 +68,7 @@ class TestDifferentVersions(RegulationsTest):
         admin_alerts = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
             RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+                RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
             ),
             RegulatoryAlert.day == day_start,
             RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
@@ -96,7 +94,7 @@ class TestDifferentVersions(RegulationsTest):
             alert = [
                 check
                 for check in rc["regulationChecks"]
-                if check["type"] == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+                if check["type"] == RegulationCheckType.ENOUGH_BREAK
             ][0]["alert"]
             if rc["submitterType"] == SubmitterType.ADMIN:
                 self.assertIsNone(alert)

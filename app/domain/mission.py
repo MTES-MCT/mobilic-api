@@ -89,11 +89,11 @@ def had_user_enough_break_last_mission(user):
         RegulatoryAlert.day <= mission_end,
         RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
         RegulatoryAlert.regulation_check.has(
-            RegulationCheck.type == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+            RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
         ),
     ).all()
 
-    return len(alerts) == 0
+    return len([a for a in alerts if a.extra["not_enough_break"]]) == 0
 
 
 def get_start_end_time_at_employee_validation(mission, users_ids):

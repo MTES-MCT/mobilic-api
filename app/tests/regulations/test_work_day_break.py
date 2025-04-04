@@ -1,9 +1,8 @@
 from datetime import datetime
-import unittest
 
 from app import db
 from app.domain.log_activities import log_activity
-from app.domain.regulations_per_day import SANCTION_CODE
+from app.domain.regulations_per_day import NATINF_35187
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import MINUTE, HOUR
 from app.helpers.submitter_type import SubmitterType
@@ -16,9 +15,16 @@ from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
 
 class TestWorkDayBreak(RegulationsTest):
+    def _get_alert(self, day_start):
+        return RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).one_or_none()
 
-    # FIXME
-    @unittest.skip("Not working after the hour change on March 30th")
     def test_min_work_day_break_by_employee_success(self):
         how_many_days_ago = 2
 
@@ -42,20 +48,14 @@ class TestWorkDayBreak(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_alert(day_start=day_start)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
-        self.assertIsNone(regulatory_alert)
+        self.assertIsNotNone(regulatory_alert)
+        extra_info = regulatory_alert.extra
+        self.assertEqual(extra_info["sanction_code"], NATINF_35187)
+        self.assertFalse(extra_info["not_enough_break"])
+        self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
 
-    # FIXME
-    @unittest.skip("Not working after the hour change on March 30th")
     def test_min_work_day_break_by_employee_failure(self):
         how_many_days_ago = 2
 
@@ -79,16 +79,8 @@ class TestWorkDayBreak(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_alert(day_start=day_start)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
@@ -106,7 +98,7 @@ class TestWorkDayBreak(RegulationsTest):
             datetime.fromisoformat(extra_info["work_range_end"]),
             get_time(how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE),
         )
-        self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
+        self.assertEqual(extra_info["sanction_code"], NATINF_35187)
 
     def test_min_work_day_break_by_employee_failure_single_day(self):
         company = self.company
@@ -157,16 +149,8 @@ class TestWorkDayBreak(RegulationsTest):
             )
 
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_alert(day_start=day_start)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNotNone(regulatory_alert)
         extra_info = regulatory_alert.extra
         self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
@@ -184,10 +168,8 @@ class TestWorkDayBreak(RegulationsTest):
             datetime.fromisoformat(extra_info["work_range_end"]),
             get_time(how_many_days_ago, hour=13, tz=FR_TIMEZONE),
         )
-        self.assertEqual(extra_info["sanction_code"], SANCTION_CODE)
+        self.assertEqual(extra_info["sanction_code"], NATINF_35187)
 
-    # FIXME
-    @unittest.skip("Not working after the hour change on March 30th")
     def test_min_work_day_break_on_two_days(self):
         how_many_days_ago = 2
 
@@ -211,14 +193,6 @@ class TestWorkDayBreak(RegulationsTest):
             ],
         )
         day_start = get_date(how_many_days_ago)
+        regulatory_alert = self._get_alert(day_start=day_start)
 
-        regulatory_alert = RegulatoryAlert.query.filter(
-            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-            RegulatoryAlert.regulation_check.has(
-                RegulationCheck.type
-                == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-            ),
-            RegulatoryAlert.day == day_start,
-            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        ).one_or_none()
         self.assertIsNone(regulatory_alert)

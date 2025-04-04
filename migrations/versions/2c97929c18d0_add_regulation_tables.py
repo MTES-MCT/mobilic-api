@@ -31,6 +31,8 @@ def fill_regulation_checks():
             continue
         if r.type == RegulationCheckType.NO_LIC:
             continue
+        if r.type == RegulationCheckType.ENOUGH_BREAK:
+            continue
         insert_regulation_check(session=session, regulation_check_data=r)
 
 
