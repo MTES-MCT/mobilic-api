@@ -19,6 +19,7 @@ from app.models.regulatory_alert import RegulatoryAlert
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
 NATINF_20525 = "NATINF 20525"
+NATINF_35187 = "NATINF 35187"
 SANCTION_CODE = "Non-respect du Code des transports"
 
 
