@@ -13,7 +13,9 @@ ComputationResult = namedtuple(
 Break = namedtuple("Break", ["start_time", "end_time"])
 
 
-def insert_regulation_check(session, regulation_check_data):
+def insert_regulation_check(
+    session, regulation_check_data, timestamp="2019-11-01"
+):
     session.execute(
         sa.text(
             """
@@ -31,7 +33,7 @@ def insert_regulation_check(session, regulation_check_data):
               NOW(),
               :type,
               :label,
-              TIMESTAMP '2019-11-01',
+              TIMESTAMP :timestamp,
               :regulation_rule,
               :variables,
               :unit
@@ -44,5 +46,6 @@ def insert_regulation_check(session, regulation_check_data):
             regulation_rule=regulation_check_data.regulation_rule,
             variables=json.dumps(regulation_check_data.variables),
             unit=regulation_check_data.unit,
+            timestamp=timestamp,
         ),
     )
