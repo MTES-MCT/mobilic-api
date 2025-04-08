@@ -429,6 +429,37 @@ def check_max_uninterrupted_work_time(
     return ComputationResult(success=True, extra=extra)
 
 
+def check_has_enough_break(activity_groups, regulation_check, business):
+    uninterrupted_result = check_max_uninterrupted_work_time(
+        activity_groups=activity_groups,
+        regulation_check=regulation_check,
+        business=business,
+    )
+    min_work_day_break_result = check_min_work_day_break(
+        activity_groups=activity_groups,
+        regulation_check=regulation_check,
+        business=business,
+    )
+
+    merged_extra = uninterrupted_result.extra | (
+        min_work_day_break_result.extra or {}
+    )
+    merged_extra["sanction_code"] = NATINF_35187
+
+    not_enough_break = not min_work_day_break_result.success
+    too_much_uninterrupted_work_time = not uninterrupted_result.success
+
+    merged_extra["not_enough_break"] = not_enough_break
+    merged_extra[
+        "too_much_uninterrupted_work_time"
+    ] = too_much_uninterrupted_work_time
+
+    return ComputationResult(
+        success=not (not_enough_break or too_much_uninterrupted_work_time),
+        extra=merged_extra,
+    )
+
+
 DAILY_REGULATION_CHECKS = {
     RegulationCheckType.MINIMUM_DAILY_REST: [
         check_min_daily_rest,
@@ -448,6 +479,12 @@ DAILY_REGULATION_CHECKS = {
     ],
     RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
         lambda activity_groups, regulation_check, _, business: check_max_uninterrupted_work_time(
+            activity_groups, regulation_check, business
+        ),
+        filter_work_days_to_current_day,
+    ],
+    RegulationCheckType.ENOUGH_BREAK: [
+        lambda activity_groups, regulation_check, _, business: check_has_enough_break(
             activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,

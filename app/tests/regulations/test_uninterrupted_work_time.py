@@ -180,3 +180,48 @@ class TestUninterruptedWorkTime(RegulationsTest):
         )
         self.assertTrue(extra_info["not_enough_break"])
         self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
+
+    def test_new_regulation_check_triggers_only(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Long mission",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=3, minute=0
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago, hour=14, minute=0
+                    ),
+                ],
+            ],
+        )
+
+        new_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
+            ),
+        ).all()
+
+        self.assertEqual(1, len(new_alerts))
+        new_alert = new_alerts[0]
+        new_alert_extra = new_alert.extra
+        self.assertTrue(new_alert_extra["not_enough_break"])
+        self.assertTrue(new_alert_extra["too_much_uninterrupted_work_time"])
+
+        old_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type.in_(
+                    [
+                        RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME,
+                        RegulationCheckType.MINIMUM_WORK_DAY_BREAK,
+                    ]
+                )
+            ),
+        ).all()
+
+        self.assertEqual(0, len(old_alerts))
