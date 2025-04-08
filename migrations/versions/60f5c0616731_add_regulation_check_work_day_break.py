@@ -52,7 +52,7 @@ def upgrade():
     insert_regulation_check(
         session=session,
         regulation_check_data=REGULATION_CHECK_ENOUGH_BREAK,
-        timestamp=date.today().isoformat(),
+        start_timestamp=date.today().isoformat(),
     )
 
     for check_type in [

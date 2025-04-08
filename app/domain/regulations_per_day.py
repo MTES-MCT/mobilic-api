@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from sqlalchemy import desc
 
@@ -66,6 +66,15 @@ def compute_regulations_per_day(
             .order_by(desc(RegulationCheck.date_application_start))
             .first()
         )
+
+        check_start = regulation_check.date_application_start
+        check_end = regulation_check.date_application_end
+
+        if check_start > date.today():
+            continue
+
+        if check_end is not None and check_end <= date.today():
+            continue
 
         # To be used locally on init regulation alerts only!
         # regulation_check = next(
