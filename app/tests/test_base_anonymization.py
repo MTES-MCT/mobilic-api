@@ -137,8 +137,9 @@ class TestIdMappingService(BaseTest):
         try:
             IdMapping.query.filter_by(entity_type="user").delete()
             db.session.commit()
-        except:
+        except Exception as e:
             db.session.rollback()
+            self.fail(f"Test failed: {e}")
 
         user_id = 12345
         expected_id = -100000 - user_id
@@ -170,8 +171,9 @@ class TestIdMappingService(BaseTest):
         try:
             IdMapping.query.filter_by(entity_type="mission").delete()
             db.session.commit()
-        except:
+        except Exception as e:
             db.session.rollback()
+            self.fail(f"Test failed: {e}")
 
         mission_id = 54321
         entity_type = "mission"
@@ -212,8 +214,9 @@ class TestIdMappingService(BaseTest):
         try:
             IdMapping.query.delete()
             db.session.commit()
-        except:
+        except Exception as e:
             db.session.rollback()
+            self.fail(f"Test failed: {e}")
 
         user_ids = [1001, 1002, 1003]
         negative_ids = []

@@ -197,13 +197,13 @@ class AnonymizationManager:
         """
         if self.test_mode and not preserve_mappings:
             logger.info(
-                f"Error occurred during test mode: cleaning IdMapping table"
+                "Error occurred during test mode: cleaning IdMapping table"
             )
             self.clean_id_mapping()
 
         if self.test_mode and preserve_mappings:
             logger.info(
-                f"Error occurred during test mode: preserving IdMapping table for future test runs"
+                "Error occurred during test mode: preserving IdMapping table for future test runs"
             )
 
         if not self.test_mode:
