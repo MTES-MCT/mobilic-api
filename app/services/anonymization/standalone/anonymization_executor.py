@@ -775,8 +775,6 @@ class AnonymizationExecutor:
         if not vehicles:
             return
 
-        vehicle_ids = {v.id for v in vehicles}
-
         self.log_anonymization(len(vehicles), "vehicle", "for user")
 
         for vehicle in vehicles:

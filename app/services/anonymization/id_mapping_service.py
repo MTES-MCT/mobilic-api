@@ -43,6 +43,8 @@ class IdMappingService:
             new_id = result.scalar()
         except Exception as e:
             logger.error(f"Could not use negative_user_id_seq: {e}")
+            db.session.rollback()
+            raise
 
         mapping = IdMapping(
             entity_type="user", original_id=original_id, anonymized_id=new_id
@@ -53,8 +55,8 @@ class IdMappingService:
             db.session.flush()
         except Exception as e:
             logger.error(f"Error during flush: {e}")
+            db.session.rollback()
 
-        logger.debug(f"Mapped user ID {original_id} to negative ID {new_id}")
         return new_id
 
     @staticmethod
@@ -84,6 +86,8 @@ class IdMappingService:
             new_id = result.scalar()
         except Exception as e:
             logger.error(f"Could not use anonymized_id_seq: {e}")
+            db.session.rollback()
+            raise
 
         mapping = IdMapping(
             entity_type=entity_type,
@@ -96,6 +100,8 @@ class IdMappingService:
             db.session.flush()
         except Exception as e:
             logger.error(f"Error during flush: {e}")
+            db.session.rollback()
+            raise
 
         logger.debug(
             f"Mapped {entity_type} ID {original_id} to positive ID {new_id}"

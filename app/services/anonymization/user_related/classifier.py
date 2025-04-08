@@ -139,6 +139,6 @@ class UserClassifier:
 
         return {
             "users": inactive_non_admin,
-            "admin": inactive_admin,
-            "controller": inactive_controllers,
+            "admins": inactive_admin,
+            "controllers": inactive_controllers,
         }

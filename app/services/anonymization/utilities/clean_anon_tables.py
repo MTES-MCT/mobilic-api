@@ -17,7 +17,6 @@ from app.models.anonymized import (
     AnonCompanyStats,
     AnonVehicle,
     AnonCompanyKnownAddress,
-    AnonUser,
     AnonUserAgreement,
     AnonRegulatoryAlert,
     AnonRegulationComputation,
@@ -51,7 +50,6 @@ def clean_anon_tables():
     AnonCompanyStats.query.delete()
     AnonVehicle.query.delete()
     AnonCompanyKnownAddress.query.delete()
-    AnonUser.query.delete()
     AnonUserAgreement.query.delete()
     AnonRegulatoryAlert.query.delete()
     AnonRegulationComputation.query.delete()

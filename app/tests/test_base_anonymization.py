@@ -68,7 +68,6 @@ class TestAnonymizedModel(BaseTest):
         entity_type = "test_entity"
         original_id = 3
 
-        db.session.rollback()
         IdMapping.query.filter_by(
             entity_type=entity_type, original_id=original_id
         ).delete()

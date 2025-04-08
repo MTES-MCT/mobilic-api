@@ -8,7 +8,8 @@ operations, including standalone data anonymization and user anonymization.
 import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from typing import Optional, Dict, Any, Set
+from typing import Set
+from abc import ABC, abstractmethod
 from app import app, db
 from app.models.anonymized import IdMapping
 
@@ -224,13 +225,14 @@ class AnonymizationManager:
             db.session.rollback()
             raise
 
+    @abstractmethod
     def execute(self) -> None:
         """
         Execute the anonymization process.
 
         This is an abstract method that should be implemented by subclasses.
         """
-        raise NotImplementedError("Subclasses must implement execute method")
+        pass
 
 
 def log_classification_results(
