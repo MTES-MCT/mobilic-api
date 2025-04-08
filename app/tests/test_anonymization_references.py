@@ -1,4 +1,4 @@
-from app import db
+from app import db, app
 from datetime import datetime, timedelta
 from sqlalchemy import text
 
@@ -21,10 +21,11 @@ class TestAnonymizationReferences(BaseTest):
     """Test negative ID assignment and user references in anonymized tables."""
 
     def setUp(self):
-        """Set up test data: user, company, employment, mission, activity."""
-        super().setUp()
+        """Set up test data with application context."""
+        self.app_context = app.app_context()
+        self.app_context.push()
 
-        # Create a company using factory
+        super().setUp()
         self.company = CompanyFactory.create(
             usual_name="Test Company",
             siren="123456789",
@@ -88,6 +89,11 @@ class TestAnonymizationReferences(BaseTest):
             db.session.add(self.activity)
             db.session.commit()
 
+    def tearDown(self):
+        """Clean up after test."""
+        super().tearDown()
+        self.app_context.pop()
+
     def test_user_negative_id_assignment(self):
         """Test that user anonymization assigns negative IDs and creates proper mappings."""
         # Anonymize the user
@@ -110,7 +116,9 @@ class TestAnonymizationReferences(BaseTest):
 
         self.assertIsNotNone(user_mapping, "User mapping should exist")
         negative_id = user_mapping.anonymized_id
-        self.assertTrue(negative_id < 0, "User mapping ID should be negative")
+        self.assertLess(
+            negative_id, 0, msg="User mapping ID should be negative"
+        )
 
         # Verify personal info is properly anonymized
         self.assertEqual(
@@ -152,11 +160,15 @@ class TestAnonymizationReferences(BaseTest):
         self.assertIsNotNone(user2_mapping, "User 2 mapping should exist")
 
         # Verify different negative IDs
-        self.assertTrue(
-            user1_mapping.anonymized_id < 0, "User 1 should have negative ID"
+        self.assertLess(
+            user1_mapping.anonymized_id,
+            0,
+            msg="User 1 should have negative ID",
         )
-        self.assertTrue(
-            user2_mapping.anonymized_id < 0, "User 2 should have negative ID"
+        self.assertLess(
+            user2_mapping.anonymized_id,
+            0,
+            msg="User 2 should have negative ID",
         )
         self.assertNotEqual(
             user1_mapping.anonymized_id,
@@ -184,8 +196,8 @@ class TestAnonymizationReferences(BaseTest):
 
         # Verify that anonymized activity references the negative user ID
         anon_activities = AnonActivity.query.all()
-        self.assertTrue(
-            len(anon_activities) > 0, "No anonymized activities found"
+        self.assertGreater(
+            len(anon_activities), 0, msg="No anonymized activities found"
         )
 
         for activity in anon_activities:
@@ -207,39 +219,59 @@ class TestAnonymizationReferences(BaseTest):
         executor.anonymize_mission_and_dependencies({self.mission.id})
         db.session.commit()
 
-        # Verify initial anonymized data still has original user ID
+        # Verify anonymized data exists
         anon_activities = AnonActivity.query.all()
-        self.assertTrue(
-            len(anon_activities) > 0, "No anonymized activities found"
+        self.assertGreater(
+            len(anon_activities), 0, msg="No anonymized activities found"
         )
 
-        # Store original references
+        # Store original anonymized user IDs
         original_user_ids = [activity.user_id for activity in anon_activities]
+        # User IDs should already be negative due to the get_new_id method in AnonymizedModel
+        for original_id in original_user_ids:
+            self.assertLess(
+                original_id,
+                0,
+                "User IDs in anonymized activities should already be negative",
+            )
 
         # Now anonymize the user
         anonymizer = UserAnonymizer(db.session)
         anonymizer.anonymize_users_in_place({self.user.id})
         db.session.commit()
 
-        # Get user's negative ID
+        # Get user's negative ID from the mapping
         user_mapping = IdMapping.query.filter_by(
             entity_type="user", original_id=self.user.id
         ).one_or_none()
         negative_id = user_mapping.anonymized_id
 
+        # Verify the ID is actually negative
+        self.assertLess(
+            negative_id,
+            0,
+            "User should have a negative ID after anonymization",
+        )
+
         # Refresh anonymized activities
         db.session.expire_all()
         anon_activities = AnonActivity.query.all()
 
-        # Check if user references were updated to negative IDs
-        # Note: This test depends on how the system handles existing anonymized records
-        # and may need adjustment based on expected behavior
+        # Check if user references in anonymized entities remained the same
         for i, activity in enumerate(anon_activities):
             self.assertEqual(
                 activity.user_id,
                 original_user_ids[i],
                 "References in existing anonymized records should remain unchanged",
             )
+
+        # The negative IDs should be the same since both anonymization processes
+        # use the same IdMappingService to generate negative IDs for users
+        self.assertEqual(
+            anon_activities[0].user_id,
+            negative_id,
+            "User IDs in anonymized activities should match the user's negative ID",
+        )
 
     def test_employment_anonymization_with_negative_ids(self):
         """Test that anonymized employments reference users correctly."""
@@ -261,8 +293,8 @@ class TestAnonymizationReferences(BaseTest):
 
         # Verify anonymized employment references the negative user ID
         anon_employments = AnonEmployment.query.all()
-        self.assertTrue(
-            len(anon_employments) > 0, "No anonymized employments found"
+        self.assertGreater(
+            len(anon_employments), 0, msg="No anonymized employments found"
         )
 
         for employment in anon_employments:

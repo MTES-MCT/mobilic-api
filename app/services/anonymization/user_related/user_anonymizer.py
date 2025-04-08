@@ -131,8 +131,6 @@ class UserAnonymizer(AnonymizationExecutor):
                 pattern, user.way_heard_of_mobilic
             ):
                 user.way_heard_of_mobilic = "OTHER"
-            else:
-                pass
 
             user.status = UserAccountStatus.ANONYMIZED
 
@@ -153,6 +151,7 @@ class UserAnonymizer(AnonymizationExecutor):
         Returns:
             bool: True if all checks pass, False otherwise
         """
+
         if not verify_only:
             logger.info(
                 "Skipping verification as verify_only mode is disabled"
@@ -180,43 +179,49 @@ class UserAnonymizer(AnonymizationExecutor):
             )
             return False
 
+        return self._verify_all_users_anonymized(anonymized_users)
+
+    def _verify_all_users_anonymized(self, anonymized_users):
+        """Helper method to check if all users are properly anonymized."""
         for user in anonymized_users:
-            if user.status != UserAccountStatus.ANONYMIZED:
-                logger.error(
-                    f"User {user.id} has status {user.status} but should be {UserAccountStatus.ANONYMIZED}"
-                )
+            if not self._is_user_properly_anonymized(user):
                 return False
+        return True
 
-            if user.email and not user.email.startswith("anonymized_"):
-                logger.error(
-                    f"User {user.id} has non-anonymized email: {user.email}"
-                )
-                return False
+    def _is_user_properly_anonymized(self, user):
+        """Check if a single user is properly anonymized."""
+        if user.status != UserAccountStatus.ANONYMIZED:
+            logger.error(
+                f"User {user.id} has status {user.status} but should be {UserAccountStatus.ANONYMIZED}"
+            )
+            return False
 
-            if user.first_name != "Anonymized" or user.last_name != "User":
-                logger.error(
-                    f"User {user.id} has non-anonymized name: {user.first_name} {user.last_name}"
-                )
-                return False
+        if user.email and not user.email.startswith("anonymized_"):
+            logger.error(
+                f"User {user.id} has non-anonymized email: {user.email}"
+            )
+            return False
 
-            if (
-                user.has_confirmed_email != True
-                or user.has_activated_email != True
-            ):
-                logger.error(
-                    f"User {user.id} column has_confirmed_email (current value : {user.has_confirmed_email}) and has_activated_email (current value: {user.has_activated_email}) must be true for retro-compatbility"
-                )
-                return False
+        if user.first_name != "Anonymized" or user.last_name != "User":
+            logger.error(
+                f"User {user.id} has non-anonymized name: {user.first_name} {user.last_name}"
+            )
+            return False
 
-            if user.phone_number or user.france_connect_id or user.ssn:
-                logger.error(f"User {user.id} still has personal information")
-                return False
+        if not user.has_confirmed_email or not user.has_activated_email:
+            logger.error(
+                f"User {user.id} column has_confirmed_email (current value: {user.has_confirmed_email}) "
+                f"and has_activated_email (current value: {user.has_activated_email}) "
+                f"must be true for retro-compatibility"
+            )
+            return False
 
-            if user.password is None:
-                logger.error(
-                    f"User {user.id} has no password : security alert"
-                )
-                return False
+        if user.phone_number or user.france_connect_id or user.ssn:
+            logger.error(f"User {user.id} still has personal information")
+            return False
 
-        logger.info("All users have been properly anonymized")
+        if user.password is None:
+            logger.error(f"User {user.id} has no password: security alert")
+            return False
+
         return True
