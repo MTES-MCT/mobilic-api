@@ -6,6 +6,7 @@ import logging
 from app.models import User
 from app.models.user import UserAccountStatus
 from uuid import uuid4
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +109,11 @@ class UserAnonymizer(AnonymizationExecutor):
         if not users:
             return
 
+        # Authorize only uppercase with underscore to ensure comptability with const WAY_HEARD_OF_MOBILIC_CHOICES in web/common/WayHeardOfMobilic.js
+        pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
+
         for user in users:
             negative_id = IdMappingService.get_user_negative_id(user.id)
-
-            logger.info(f"Anonymizing user {user.id} to {negative_id}")
 
             user.email = f"anonymized_{negative_id}@example.com"
             user.first_name = "Anonymized"
@@ -124,7 +126,13 @@ class UserAnonymizer(AnonymizationExecutor):
             user.activation_email_token = None
             user.password = str(uuid4())
             user.ssn = None
-            user.way_heard_of_mobilic = None
+
+            if user.way_heard_of_mobilic and not re.match(
+                pattern, user.way_heard_of_mobilic
+            ):
+                user.way_heard_of_mobilic = "OTHER"
+            else:
+                pass
 
             user.status = UserAccountStatus.ANONYMIZED
 

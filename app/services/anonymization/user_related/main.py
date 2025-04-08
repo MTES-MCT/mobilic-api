@@ -192,8 +192,8 @@ def process_user_data(dry_run, verify_only, test_mode, cutoff_date):
         classification = classifier.find_inactive_users()
 
         users_to_anon = classification["users"]
-        admin_to_anon = classification["admin"]
-        controller_to_anon = classification["controller"]
+        admin_to_anon = classification["admins"]
+        controller_to_anon = classification["controllers"]
 
     user_anonymizer = UserAnonymizer(db.session, dry_run=dry_run)
 
