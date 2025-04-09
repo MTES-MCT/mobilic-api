@@ -381,14 +381,20 @@ class Mailer:
             invitation_link = f"{app.config['FRONTEND_URL']}/invite?token={employment.invite_token}"
 
         company_name = employment.company.name
-        subject = (
-            f"{'Rappel : Urgent ! ' if scheduled_reminder else ''}"
-            f"{'Rappel : ' if reminder else ''}"
-            f"Votre entreprise {company_name} vous invite à rejoindre Mobilic."
-        )
+        if scheduled_reminder:
+            subject = (
+                "Finalisez votre inscription sur Mobilic en quelques clics 🚀"
+            )
+        else:
+            subject = (
+                f"{'Rappel : ' if reminder else ''}"
+                f"Votre entreprise {company_name} vous invite à rejoindre Mobilic."
+            )
 
         return Mailer._create_message_from_flask_template(
-            template="invitation_email.html",
+            template="scheduled_invitation_email.html"
+            if scheduled_reminder
+            else "invitation_email.html",
             subject=subject,
             type_=EmailType.SCHEDULED_INVITATION
             if scheduled_reminder

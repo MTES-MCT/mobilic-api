@@ -33,6 +33,7 @@ check_type_by_sanction = {
     "NATINF 32083": RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
     "NATINF 13152": RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK,
     "NATINF 11298": RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK,
+    "NATINF 35187": RegulationCheckType.ENOUGH_BREAK,
 }
 
 
