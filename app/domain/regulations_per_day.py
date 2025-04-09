@@ -389,7 +389,7 @@ def check_max_uninterrupted_work_time(
         "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
     ]
 
-    # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
+    # exit loop if we find a consecutive series of activities with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
     current_uninterrupted_work_duration = 0
     current_uninterrupted_start = None
@@ -439,6 +439,10 @@ def check_max_uninterrupted_work_time(
 
 
 def check_has_enough_break(activity_groups, regulation_check, business):
+    """This method implements new NATINF 35187.
+
+    Replaces/merges check_max_uninterrupted_work_time and check_min_work_day_break which were independent check prior to NATINF 35187
+    """
     uninterrupted_result = check_max_uninterrupted_work_time(
         activity_groups=activity_groups,
         regulation_check=regulation_check,
@@ -480,12 +484,15 @@ DAILY_REGULATION_CHECKS = {
         ),
         filter_work_days_to_current_day,
     ],
+    # this regulation check is now deprecated and should be ignored based on its date_application_end value
+    # we keep it here in case we need to back compute regulatory alerts prior to NATINF 35187
     RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
         lambda activity_groups, regulation_check, _, business: check_min_work_day_break(
             activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],
+    # same as above
     RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
         lambda activity_groups, regulation_check, _, business: check_max_uninterrupted_work_time(
             activity_groups, regulation_check, business
