@@ -975,6 +975,9 @@ class Mailer:
     def send_email_discover_mobilic(self, to_email, from_company):
         subject = f"{from_company.usual_name.capitalize()} vous fait découvrir Mobilic !"
         button_link = Markup(app.config["FRONTEND_URL"])
+        webinar_button_link = Markup(
+            f"{app.config['FRONTEND_URL']}/#webinaires"
+        )
 
         self._send_single(
             self._create_message_from_flask_template(
@@ -984,6 +987,7 @@ class Mailer:
                 company_name=from_company.usual_name,
                 recipient=to_email,
                 button_link=button_link,
+                webinar_button_link=webinar_button_link,
             ),
             _apply_whitelist_if_not_prod=False,
         )
