@@ -1,0 +1,11 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>L’entreprise {{ company_name | capitalize }}, utilisatrice de Mobilic, vous fait découvrir l’outil&nbsp;!</p>
+    <p>Mobilic est un outil numérique de suivi du temps de travail dans le transport routier léger (- 3,5 tonnes et - 9 places). Il est mis à disposition des entreprises par le ministère chargé des Transports dans l’objectif de remplacer le livret individuel de contrôle (LIC) papier.</p>
+    <p>Pensé pour être plus adapté aux contraintes du secteur que le LIC, Mobilic est <b>plus simple d’utilisation pour les salariés</b> et permet un <b>gain de temps de gestion administrative</b>. En effet, les temps de travail saisis sur le téléphone du salarié sont directement envoyés dans l’interface du gestionnaire.</p>
+    {{ button.button('Découvrez Mobilic', button_link) }}
+    <p>A bientôt sur Mobilic !</p>
+{% endblock %}
