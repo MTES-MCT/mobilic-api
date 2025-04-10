@@ -8,7 +8,6 @@ from .mission_end import AnonMissionEnd
 from .location_entry import AnonLocationEntry
 from .employment import AnonEmployment
 from .email import AnonEmail
-from .user import AnonUser
 from .company import AnonCompany
 from .company_certification import AnonCompanyCertification
 from .company_stats import AnonCompanyStats
@@ -24,3 +23,49 @@ from .team_and_association_tables import (
     AnonTeamAdminUser,
     AnonTeamKnownAddress,
 )
+
+__all__ = [
+    "AnonymizedModel",
+    "IdMapping",
+    "AnonMission",
+    "AnonActivity",
+    "AnonActivityVersion",
+    "AnonMissionValidation",
+    "AnonMissionEnd",
+    "AnonMission",
+    "AnonLocationEntry",
+    "AnonEmployment",
+    "AnonEmail",
+    "AnonCompany",
+    "AnonCompanyCertification",
+    "AnonCompanyStats",
+    "AnonVehicle",
+    "AnonCompanyKnownAddress",
+    "AnonUserAgreement",
+    "AnonRegulationComputation",
+    "AnonRegulatoryAlert",
+    "AnonControllerControl",
+    "AnonControllerUser",
+]
+
+anon_model_names = [
+    "AnonMission",
+    "AnonActivity",
+    "AnonActivityVersion",
+    "AnonMissionValidation",
+    "AnonMissionEnd",
+    "AnonMission",
+    "AnonLocationEntry",
+    "AnonEmployment",
+    "AnonEmail",
+    "AnonCompany",
+    "AnonCompanyCertification",
+    "AnonCompanyStats",
+    "AnonVehicle",
+    "AnonCompanyKnownAddress",
+    "AnonUserAgreement",
+    "AnonRegulationComputation",
+    "AnonRegulatoryAlert",
+    "AnonControllerControl",
+    "AnonControllerUser",
+]

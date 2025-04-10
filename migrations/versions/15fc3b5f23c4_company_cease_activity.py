@@ -1,7 +1,7 @@
 """company cease activity
 
 Revision ID: 15fc3b5f23c4
-Revises: 460f372be359
+Revises: fe1e80dc69fe
 Create Date: 2025-03-21 09:49:28.618069
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "15fc3b5f23c4"
-down_revision = "460f372be359"
+down_revision = "fe1e80dc69fe"
 branch_labels = None
 depends_on = None
 

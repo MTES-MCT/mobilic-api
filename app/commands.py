@@ -362,6 +362,11 @@ def sync_brevo_command(pipeline_names, verbose):
     app.logger.info("Process sync companies with Brevo done")
 
 
+@app.cli.command("update_ceased_activity_status", with_appcontext=True)
+def _update_ceased_activity_status():
+    update_ceased_activity_status()
+
+
 @app.cli.command("migrate_anonymize_data", with_appcontext=True)
 @click.option(
     "--verbose",
@@ -388,7 +393,7 @@ def sync_brevo_command(pipeline_names, verbose):
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
-def migrate_anonymize_mission(
+def anonymize_standalone_data_command(
     verbose, no_dry_run, delete_only, test, force_clean
 ):
     """
@@ -404,7 +409,7 @@ def migrate_anonymize_mission(
 
     In test mode, all database changes are rolled back at the end.
     """
-    from app.services.anonymization.main import anonymize_expired_data
+    from app.services.anonymization import anonymize_expired_data
 
     if no_dry_run and delete_only:
         click.echo(
@@ -423,6 +428,67 @@ def migrate_anonymize_mission(
     )
 
 
-@app.cli.command("update_ceased_activity_status", with_appcontext=True)
-def _update_ceased_activity_status():
-    update_ceased_activity_status()
+@app.cli.command("anonymize_users", with_appcontext=True)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for more detailed output",
+)
+@click.option(
+    "--no-dry-run",
+    is_flag=True,
+    help="Disable dry run mode: perform actual anonymization",
+)
+@click.option(
+    "--verify-only",
+    is_flag=True,
+    help="Verify-only mode: verify that user anonymization is complete",
+)
+@click.option(
+    "--test",
+    is_flag=True,
+    help="Test mode: rollback all changes at the end",
+)
+@click.option(
+    "--force-clean",
+    is_flag=True,
+    help="Delete the content of IdMapping table",
+)
+def anonymize_users_command(
+    verbose, no_dry_run, verify_only, test, force_clean
+):
+    """
+    Anonymize users older than threshold.
+
+    This command operates by default in dry run mode, which simulates the anonymization
+    process without making actual changes.
+
+    Available modes:
+    - Dry run mode (default): Simulate anonymization without making changes
+    - Normal mode (--no-dry-run): Perform actual anonymization
+    - Verify-only mode (--verify-only): Verify that anonymization is complete
+
+    In test mode, all database changes are rolled back at the end.
+
+    Recommended workflow:
+    1. Run with default settings to simulate anonymization
+    2. Run with --no-dry-run to perform actual anonymization
+    3. Run with --verify-only to verify that anonymization is complete
+    """
+    from app.services.anonymization.user_related import anonymize_users
+
+    if no_dry_run and verify_only:
+        click.echo(
+            "Error: --no-dry-run and --verify-only cannot be used together"
+        )
+        return
+
+    dry_run = not no_dry_run
+
+    anonymize_users(
+        verbose=verbose,
+        dry_run=dry_run,
+        verify_only=verify_only,
+        test_mode=test,
+        force_clean=force_clean,
+    )
