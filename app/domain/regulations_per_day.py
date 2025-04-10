@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from sqlalchemy import desc
 
@@ -19,6 +19,7 @@ from app.models.regulatory_alert import RegulatoryAlert
 NATINF_11292 = "NATINF 11292"
 NATINF_32083 = "NATINF 32083"
 NATINF_20525 = "NATINF 20525"
+NATINF_35187 = "NATINF 35187"
 SANCTION_CODE = "Non-respect du Code des transports"
 
 
@@ -65,6 +66,15 @@ def compute_regulations_per_day(
             .order_by(desc(RegulationCheck.date_application_start))
             .first()
         )
+
+        check_start = regulation_check.date_application_start
+        check_end = regulation_check.date_application_end
+
+        if check_start > date.today():
+            continue
+
+        if check_end is not None and check_end <= date.today():
+            continue
 
         # To be used locally on init regulation alerts only!
         # regulation_check = next(
@@ -379,7 +389,7 @@ def check_max_uninterrupted_work_time(
         "MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS"
     ]
 
-    # exit loop if we find a consecutive series of activites with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
+    # exit loop if we find a consecutive series of activities with span time > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK
     now = datetime.now()
     current_uninterrupted_work_duration = 0
     current_uninterrupted_start = None
@@ -428,6 +438,41 @@ def check_max_uninterrupted_work_time(
     return ComputationResult(success=True, extra=extra)
 
 
+def check_has_enough_break(activity_groups, regulation_check, business):
+    """This method implements new NATINF 35187.
+
+    Replaces/merges check_max_uninterrupted_work_time and check_min_work_day_break which were independent check prior to NATINF 35187
+    """
+    uninterrupted_result = check_max_uninterrupted_work_time(
+        activity_groups=activity_groups,
+        regulation_check=regulation_check,
+        business=business,
+    )
+    min_work_day_break_result = check_min_work_day_break(
+        activity_groups=activity_groups,
+        regulation_check=regulation_check,
+        business=business,
+    )
+
+    merged_extra = uninterrupted_result.extra | (
+        min_work_day_break_result.extra or {}
+    )
+    merged_extra["sanction_code"] = NATINF_35187
+
+    not_enough_break = not min_work_day_break_result.success
+    too_much_uninterrupted_work_time = not uninterrupted_result.success
+
+    merged_extra["not_enough_break"] = not_enough_break
+    merged_extra[
+        "too_much_uninterrupted_work_time"
+    ] = too_much_uninterrupted_work_time
+
+    return ComputationResult(
+        success=not (not_enough_break or too_much_uninterrupted_work_time),
+        extra=merged_extra,
+    )
+
+
 DAILY_REGULATION_CHECKS = {
     RegulationCheckType.MINIMUM_DAILY_REST: [
         check_min_daily_rest,
@@ -439,14 +484,23 @@ DAILY_REGULATION_CHECKS = {
         ),
         filter_work_days_to_current_day,
     ],
+    # this regulation check is now deprecated and should be ignored based on its date_application_end value
+    # we keep it here in case we need to back compute regulatory alerts prior to NATINF 35187
     RegulationCheckType.MINIMUM_WORK_DAY_BREAK: [
         lambda activity_groups, regulation_check, _, business: check_min_work_day_break(
             activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],
+    # same as above
     RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME: [
         lambda activity_groups, regulation_check, _, business: check_max_uninterrupted_work_time(
+            activity_groups, regulation_check, business
+        ),
+        filter_work_days_to_current_day,
+    ],
+    RegulationCheckType.ENOUGH_BREAK: [
+        lambda activity_groups, regulation_check, _, business: check_has_enough_break(
             activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
