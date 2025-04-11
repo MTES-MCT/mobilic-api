@@ -6,7 +6,7 @@ from app.helpers.mail import MailjetError
 from app.domain.company import find_employee_for_invitation
 from app.jobs import log_execution
 
-NB_DAYS_AGO = 7
+NB_DAYS_AGO = 3
 START_DATE = app.config["START_DATE_FOR_SCHEDULED_INVITATION"]
 MAILJET_BATCH_SEND_LIMIT = 50
 

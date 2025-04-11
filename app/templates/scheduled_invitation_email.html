@@ -1,0 +1,59 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block body %}
+<p>Bonjour{% if first_name %} {{ first_name | capitalize }}{% endif %},</p>
+
+<p>Votre entreprise <strong>{{ company_name | upper }}</strong> passe à <strong>Mobilic</strong> ! Vous avez été invité
+    à créer votre compte.</p>
+
+<p><strong>Mobilic</strong> est la solution numérique pour enregistrer votre temps de travail et protéger vos droits
+    sociaux. Il s'agit d'une alternative au livret individuel de contrôle <strong>(LIC papier)</strong>.</p>
+
+<h3>Pourquoi s'inscrire ?</h3>
+<ul>
+    <li><strong>C'est obligatoire</strong> : l'utilisation de Mobilic ou du LIC est obligatoire, conformément à la
+        réglementation</li>
+    <li><strong>Moins de paperasse</strong> : fini la corvée de remplir et conserver des documents papier</li>
+    <li><strong>Un suivi transparent</strong> : consultez en temps réel vos heures travaillées et vos temps de repos
+    </li>
+    <li><strong>Des fiches de paie sans erreurs</strong> : Mobilic facilite la déclaration de vos heures pour une paie
+        juste</li>
+    <li><strong>En cas de contrôle</strong> : votre temps de travail est enregistré et accessible facilement via un QR
+        code</li>
+    <li><strong>Simple d'utilisation</strong> : inscription en quelques minutes, application intuitive et pédagogique
+        (information sur les seuils réglementaires journaliers)</li>
+</ul>
+
+<h3>Comment faire ?</h3>
+
+<p> 1️⃣ <strong>Téléchargez Mobilic</strong> sur votre téléphone</p>
+<ul>
+    <li>Sur Android : disponible sur Google Play Store ou en suivant les étapes expliquées sur ce lien</li>
+    <li>Sur iPhone : suivez les étapes expliquées sur ce lien</li>
+</ul>
+
+<p> 2️⃣ <strong>Créez votre compte</strong> en quelques clics</p>
+<div>
+    <img src="https://cdn.githubraw.com/MTES-MCT/mobilic-api/032e47a6/app/static/images/step1_account_creation.jpg" alt="Étape 1 création de compte"
+        style="max-width: 100%; margin-bottom: 1rem;">
+    <img src="https://cdn.githubraw.com/MTES-MCT/mobilic-api/032e47a6/app/static/images/step2_account_creation.jpg" alt="Étape 2 création de compte"
+        style="max-width: 100%; margin-bottom: 1rem;">
+</div>
+
+<p> 3️⃣ <strong>Lancez votre première mission</strong> et enregistrez votre temps de travail facilement, voici comment ça
+    fonctionne 👇</p>
+<div>
+    <img src="https://cdn.githubraw.com/MTES-MCT/mobilic-api/032e47a6/app/static/images/tutorial_to_create_mission.gif" alt="Tutoriel création de mission"
+        style="max-width: 100%; margin-bottom: 1rem;">
+</div>
+
+<p>Pour créer votre compte ou rattacher votre compte existant à l'entreprise <strong>{{ company_name | upper }}</strong>
+    cliquez sur le bouton d'activation suivant :</p>
+{{ button.button('Activer mon compte', invitation_link) }}
+
+<p><strong>Des questions ?</strong> Contactez-nous via le chat ou consultez notre FAQ pour en savoir plus.</p>
+
+<p>À très vite,<br>
+</p>
+{% endblock %}
