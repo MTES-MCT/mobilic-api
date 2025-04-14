@@ -110,10 +110,8 @@ class TestReadControlData(ControlsTestSimple):
             for c in checks
             if c["type"] == RegulationCheckType.MINIMUM_DAILY_REST
         ][0]
-        minimumWorkDayBreakCheck = [
-            c
-            for c in checks
-            if c["type"] == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
+        enoughBreakCheck = [
+            c for c in checks if c["type"] == RegulationCheckType.ENOUGH_BREAK
         ][0]
         self.assertIsNotNone(minimumDailyRestCheck["alert"])
-        self.assertIsNone(minimumWorkDayBreakCheck["alert"])
+        self.assertIsNone(enoughBreakCheck["alert"])
