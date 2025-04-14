@@ -18,10 +18,20 @@ def get_or_cache_regulation_checks():
     return g.regulation_checks
 
 
-def get_regulation_checks_by_unit(unit):
+def get_regulation_checks_by_unit(unit, date=None):
     regulation_checks = get_or_cache_regulation_checks()
     if unit:
         regulation_checks = [rc for rc in regulation_checks if rc.unit == unit]
+    if date:
+        regulation_checks = [
+            rc for rc in regulation_checks if rc.date_application_start <= date
+        ]
+        regulation_checks = [
+            rc
+            for rc in regulation_checks
+            if rc.date_application_end is None
+            or rc.date_application_end > date
+        ]
     return regulation_checks
 
 
@@ -63,7 +73,9 @@ class RegulationComputationOutput(BaseSQLAlchemyObjectType):
     )
 
     def resolve_regulation_checks(self, info, unit=None):
-        regulation_checks = get_regulation_checks_by_unit(unit=unit)
+        regulation_checks = get_regulation_checks_by_unit(
+            unit=unit, date=self.creation_time.date()
+        )
 
         if not regulation_checks:
             return None

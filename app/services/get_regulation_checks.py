@@ -64,6 +64,23 @@ REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
     unit=UnitType.WEEK,
 )
 
+REGULATION_CHECK_ENOUGH_BREAK = RegulationCheckData(
+    id=8,
+    type=RegulationCheckType.ENOUGH_BREAK,
+    label="Non-respect du temps de pause et/ou dépassement de la durée maximale de travail ininterrompu",
+    regulation_rule="dailyRest",
+    variables=dict(
+        MINIMUM_DURATION_INDIVIDUAL_BREAK_IN_MIN=15,
+        MINIMUM_DURATION_WORK_IN_HOURS_1=6,
+        MINIMUM_DURATION_WORK_IN_HOURS_2=9,
+        MINIMUM_DURATION_BREAK_IN_MIN_1=30,
+        MINIMUM_DURATION_BREAK_IN_MIN_2=45,
+        MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS=6,
+        DESCRIPTION="La pause doit intervenir avant la 6e heure de travail ininterrompu et durer au moins 30 minutes lorsque le total des heures travaillées est compris entre 6 et 9 heures, et au moins 45 minutes au-delà de 9 heures de travail par jour (article L. 3312-2 du Code des transports).",
+    ),
+    unit=UnitType.DAY,
+)
+
 
 def get_regulation_checks():
     return [
@@ -175,6 +192,7 @@ def get_regulation_checks():
             ),
             unit=UnitType.DAY,
         ),
+        REGULATION_CHECK_ENOUGH_BREAK,
     ]
 
 
