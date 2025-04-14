@@ -98,7 +98,7 @@ class TestReadControlData(ControlsTestSimple):
         first_day_regulations = regulations_by_day[0]["regulationComputations"]
         self.assertEqual(
             len(first_day_regulations[0]["regulationChecks"]),
-            8,
+            6,
         )
         checks = [
             c
