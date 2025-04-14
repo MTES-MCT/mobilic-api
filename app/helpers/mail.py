@@ -974,9 +974,11 @@ class Mailer:
 
     def send_email_discover_mobilic(self, to_email, from_company):
         subject = f"{from_company.usual_name.capitalize()} vous fait découvrir Mobilic !"
-        button_link = Markup(app.config["FRONTEND_URL"])
+        button_link = Markup(
+            f"{app.config['FRONTEND_URL']}/?mtm_campaign=mail_bouton_gestionnaire_invite_gestionnaire"
+        )
         webinar_button_link = Markup(
-            f"{app.config['FRONTEND_URL']}/#webinaires"
+            f"{app.config['FRONTEND_URL']}/?mtm_campaign=mail_bouton_gestionnaire_invite_gestionnaire#webinaires"
         )
 
         self._send_single(
