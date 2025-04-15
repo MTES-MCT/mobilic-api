@@ -1,7 +1,7 @@
 import re
 from collections import namedtuple
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, date
 
 from freezegun import freeze_time
 
@@ -10,6 +10,7 @@ from app.helpers.regulations_utils import insert_regulation_check
 from app.helpers.time import to_timestamp
 from app.models import ControllerUser, User, RegulationCheck, Business
 from app.models.activity import ActivityType
+from app.models.regulation_check import RegulationCheckType
 from app.services.get_businesses import get_businesses
 from app.services.get_regulation_checks import get_regulation_checks
 from app.tests import (
@@ -390,6 +391,7 @@ class ApiRequests:
             company{
                 syncEmployment(companyId: $companyId, employees: $employees) {
                     id
+                    email
                 }
             }
        }
@@ -1204,7 +1206,15 @@ def init_regulation_checks_data():
         regulation_checks = get_regulation_checks()
         for r in regulation_checks:
             insert_regulation_check(
-                session=db.session, regulation_check_data=r
+                session=db.session,
+                regulation_check_data=r,
+                end_timestamp=date.today().isoformat()
+                if r.type
+                in [
+                    RegulationCheckType.MINIMUM_WORK_DAY_BREAK,
+                    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME,
+                ]
+                else None,
             )
         regulation_check = RegulationCheck.query.first()
     return regulation_check

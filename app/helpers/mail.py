@@ -848,6 +848,7 @@ class Mailer:
         )
 
     def send_companies_reminder_no_invitation_email(self, employment):
+        webinars_link = Markup(f"{app.config['FRONTEND_URL']}/#webinaires")
         resources_link = Markup(
             f"{app.config['FRONTEND_URL']}/resources/admin"
         )
@@ -857,9 +858,9 @@ class Mailer:
                 subject="Rappel : rattachez vos salariés à votre compte Mobilic",
                 employment=employment,
                 user=employment.user,
-                company_creation_time=employment.company.creation_time,
                 type_=EmailType.COMPANY_REMINDER_NO_INVITATION,
                 resources_link=resources_link,
+                webinars_link=webinars_link,
             ),
             _apply_whitelist_if_not_prod=True,
         )
@@ -967,6 +968,28 @@ class Mailer:
                 if is_admin
                 else EmailType.EMPLOYEE_EXPORT_EXCEL,
                 attachment=file,
+            ),
+            _apply_whitelist_if_not_prod=False,
+        )
+
+    def send_email_discover_mobilic(self, to_email, from_company):
+        subject = f"{from_company.usual_name.capitalize()} vous fait découvrir Mobilic !"
+        button_link = Markup(
+            f"{app.config['FRONTEND_URL']}/?mtm_campaign=mail_bouton_gestionnaire_invite_gestionnaire"
+        )
+        webinar_button_link = Markup(
+            f"{app.config['FRONTEND_URL']}/?mtm_campaign=mail_bouton_gestionnaire_invite_gestionnaire#webinaires"
+        )
+
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="discover_mobilic.html",
+                subject=subject,
+                type_=EmailType.DISCOVER_MOBILIC,
+                company_name=from_company.usual_name,
+                recipient=to_email,
+                button_link=button_link,
+                webinar_button_link=webinar_button_link,
             ),
             _apply_whitelist_if_not_prod=False,
         )

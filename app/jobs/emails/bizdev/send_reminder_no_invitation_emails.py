@@ -4,7 +4,7 @@ from app import app, mailer
 from app.domain.company import find_admins_still_without_invitations
 from app.jobs import log_execution
 
-NB_DAYS_AGO = 14
+NB_DAYS_AGO = app.config["EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS"]
 
 
 @log_execution

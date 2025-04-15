@@ -101,6 +101,10 @@ class FacilityInfo(NamedTuple):
     tranche_effectif_year: int
 
 
+def has_ceased_activity_from_siren_info(siren_info):
+    return siren_info["uniteLegale"]["etatAdministratifUniteLegale"] == "C"
+
+
 class SirenAPIClient:
     def __init__(self, api_key):
         self._api_key = api_key
@@ -306,3 +310,15 @@ class SirenAPIClient:
     def get_siren_info(self, siren):
         siren_response = self._request_siren_info(siren)
         return self._raw_siren_info_with_clean_addresses(siren_response.json())
+
+    def has_company_ceased_activity(self, siren):
+        from app import app
+
+        try:
+            siren_info = self.get_siren_info(siren)
+            return (
+                has_ceased_activity_from_siren_info(siren_info)
+            ), siren_info
+        except InaccessibleSirenError:
+            app.logger.error(f"Inaccessible siren {siren}")
+            return False, None

@@ -10,7 +10,7 @@ from webargs import fields
 from app import db, app
 from app import siren_api_client, mailer
 from app.controllers.user import TachographBaseOptionsSchema
-from app.controllers.utils import atomic_transaction
+from app.controllers.utils import atomic_transaction, Void
 from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
 from app.domain.company import (
@@ -41,9 +41,11 @@ from app.helpers.authorization import (
 from app.helpers.errors import (
     SirenAlreadySignedUpError,
     InvalidParamsError,
+    CompanyCeasedActivityError,
 )
-from app.helpers.graphene_types import graphene_enum_type
+from app.helpers.graphene_types import graphene_enum_type, Email
 from app.helpers.mail import MailingContactList
+from app.helpers.siren import has_ceased_activity_from_siren_info
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
@@ -336,6 +338,9 @@ def store_company(
     require_kilometer_data = True
     require_support_activity = False
     if siren_api_info:
+        if has_ceased_activity_from_siren_info(siren_api_info):
+            raise CompanyCeasedActivityError()
+
         # For déménagement companies disable kilometer data by default, and enable support activity
         if legal_unit.activity_code == "49.42Z":
             require_kilometer_data = False
@@ -554,6 +559,42 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             db.session.add(company)
 
         return company
+
+
+class InviteCompanies(AuthenticatedMutation):
+    class Arguments:
+        company_id = graphene.Int(
+            required=True,
+            description="Identifiant de l'entreprise invitant d'autres entreprises.",
+        )
+        emails = graphene.Argument(
+            graphene.List(Email),
+            required=True,
+            description="Liste d'emails à inviter.",
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda cls, _, info, **kwargs: Company.query.get(
+            kwargs["company_id"]
+        ),
+        error_message="You need to be a company admin to invite other companies",
+    )
+    def mutate(cls, _, info, company_id, emails):
+        try:
+            company = Company.query.get(company_id)
+            for email in emails:
+                mailer.send_email_discover_mobilic(
+                    from_company=company, to_email=email
+                )
+            return Void(success=True)
+
+        except Exception as e:
+            app.logger.exception(e)
+            raise e
 
 
 class Query(graphene.ObjectType):

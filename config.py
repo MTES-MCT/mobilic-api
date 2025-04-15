@@ -30,6 +30,10 @@ class Config:
     FRONTEND_URL = os.environ.get("FRONTEND_URL")
     MAILJET_API_KEY = os.environ.get("MAILJET_API_KEY")
     MAILJET_API_SECRET = os.environ.get("MAILJET_API_SECRET")
+    S3_ACCESS_KEY = os.environ.get("S3_ACCESS_KEY")
+    S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
+    S3_REGION = os.environ.get("S3_REGION")
+    S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
     FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
@@ -126,6 +130,12 @@ class Config:
     )
     ANONYMIZATION_USER_BATCH = int(
         os.environ.get("ANONYMIZATION_USER_BATCH", 100)
+    )
+    EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
+        os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
+    )
+    EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS = int(
+        os.environ.get("EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS", 7)
     )
 
 
