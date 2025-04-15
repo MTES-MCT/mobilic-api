@@ -22,6 +22,7 @@ from app.controllers.company import (
     EditCompanySettings,
     CompanySoftwareRegistration,
     UpdateCompanyDetails,
+    NonPublicQuery,
     InviteCompanies,
 )
 from app.controllers.company import Query as CompanyQuery
@@ -310,7 +311,7 @@ class ProtectedQueries(
 
 
 class PrivateQueries(
-    company.NonPublicQuery,
+    NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
     UserOAuthTokenQuery,

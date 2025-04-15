@@ -1,7 +1,6 @@
-version: '3.5'
 services:
   mobilic-db:
-    image: postgres:13.6-alpine
+    image: postgres:13.7-alpine
     container_name: mobilic-db
     # restart: always
     ports:
@@ -14,7 +13,7 @@ services:
       - mobilic-postgresql-data:/var/lib/postgresql
 
   mobilic-db-test:
-    image: postgres:13.6-alpine
+    image: postgres:13.7-alpine
     ports:
       - "5433:5432"
     environment: 

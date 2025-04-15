@@ -12,18 +12,24 @@ C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations c
 
 ## Pré-requis
 
-* [Python](https://www.python.org/) 3.9
-* [pip](https://pypi.org/project/pip/) 21.2
-* [PostgreSQL](https://www.postgresql.org/) 12.0, avec sa ligne de commande `psql`
+* [Python](https://www.python.org/)
+* [pip](https://pypi.org/project/pip/)
+* [pipenv](https://pipenv.pypa.io/)
+
+Note: Il est possible que vous ayez à installer aussi, sur un environnement Debian/Ubuntu,
+les packages python3-dev et libpq-dev pour pouvoir installer psycopg2
 
 ## Installation
 
-Démarrer un serveur PostgreSQL local.
-
-Exécuter le script d'installation depuis la racine du projet :
-
 ```sh
-./setup_local_docker.sh
+pipenv install
+pipenv shell
+pre-commit install
+```
+
+Run database locally:
+```sh
+docker-compose up -d
 ```
 
 ## Variables d'environnement
