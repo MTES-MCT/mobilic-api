@@ -1,7 +1,7 @@
 """add_negative_user_id_sequence
 
 Revision ID: fe1e80dc69fe
-Revises: 460f372be359
+Revises: 60f5c0616731
 Create Date: 2025-03-20 10:42:56.690608
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "fe1e80dc69fe"
-down_revision = "460f372be359"
+down_revision = "60f5c0616731"
 branch_labels = None
 depends_on = None
 
