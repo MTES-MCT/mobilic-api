@@ -28,6 +28,7 @@ In this folder, each `Control` will have its folder named `control_[control_id]`
 #### Allowing origins url to buckets
 
 Snippet to allow `http://localhost:3000` to do actions on the dev bucket (it's needed to get the pictures and to upload them)
+This needs to be done for each new bucket created. In scaleway, the application must temporarily be added to the Administrators group for this call to work.
 ```
 cors_configuration = {
             "CORSRules": [
