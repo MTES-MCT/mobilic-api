@@ -323,8 +323,6 @@ def downgrade():
     op.drop_table("anon_email")
     op.drop_index("ix_anon_company_creation_time")
     op.drop_table("anon_company")
-    op.drop_index("ix_anon_user_creation_time")
-    op.drop_table("anon_user")
     op.drop_table("anon_company_stats")
     op.drop_table("anon_company_certification")
     op.drop_table("anon_vehicle")
