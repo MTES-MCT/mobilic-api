@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, date
+from freezegun import freeze_time
 
 from app import db
 from app.domain.log_activities import log_activity
@@ -26,79 +27,95 @@ class TestWorkDayBreak(RegulationsTest):
         ).one_or_none()
 
     def test_min_work_day_break_by_employee_success(self):
-        how_many_days_ago = 2
+        # freeze date out of clock change day to avoid errors when it happens
+        with freeze_time(date(2025, 4, 5)):
+            how_many_days_ago = 2
 
-        self._log_and_validate_mission(
-            mission_name="8h30 work with 30m break",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=22, minute=14
-                    ),
+            self._log_and_validate_mission(
+                mission_name="8h30 work with 30m break",
+                submitter=self.employee,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=16),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=22,
+                            minute=14,
+                        ),
+                    ],
+                    [
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=22,
+                            minute=45,
+                        ),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1, hour=1
+                        ),
+                        ActivityType.WORK,
+                    ],
                 ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=22, minute=45
-                    ),
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-        day_start = get_date(how_many_days_ago)
-        regulatory_alert = self._get_alert(day_start=day_start)
+            )
+            day_start = get_date(how_many_days_ago)
+            regulatory_alert = self._get_alert(day_start=day_start)
 
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["sanction_code"], NATINF_35187)
-        self.assertFalse(extra_info["not_enough_break"])
-        self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
+            self.assertIsNotNone(regulatory_alert)
+            extra_info = regulatory_alert.extra
+            self.assertEqual(extra_info["sanction_code"], NATINF_35187)
+            self.assertFalse(extra_info["not_enough_break"])
+            self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
 
     def test_min_work_day_break_by_employee_failure(self):
-        how_many_days_ago = 2
+        # freeze date out of clock change day to avoid errors when it happens
+        with freeze_time(date(2025, 4, 5)):
+            how_many_days_ago = 2
 
-        self._log_and_validate_mission(
-            mission_name="9h30 work with 30m break",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=15),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=22, minute=15
-                    ),
+            self._log_and_validate_mission(
+                mission_name="9h30 work with 30m break",
+                submitter=self.employee,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=15),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=22,
+                            minute=15,
+                        ),
+                    ],
+                    [
+                        get_time(
+                            how_many_days_ago=how_many_days_ago,
+                            hour=22,
+                            minute=45,
+                        ),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1, hour=1
+                        ),
+                        ActivityType.WORK,
+                    ],
                 ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=22, minute=45
-                    ),
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-        day_start = get_date(how_many_days_ago)
-        regulatory_alert = self._get_alert(day_start=day_start)
+            )
+            day_start = get_date(how_many_days_ago)
+            regulatory_alert = self._get_alert(day_start=day_start)
 
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
-        self.assertEqual(
-            extra_info["total_break_time_in_seconds"], 30 * MINUTE
-        )
-        self.assertEqual(
-            extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=15, tz=FR_TIMEZONE),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE),
-        )
-        self.assertEqual(extra_info["sanction_code"], NATINF_35187)
+            self.assertIsNotNone(regulatory_alert)
+            extra_info = regulatory_alert.extra
+            self.assertEqual(extra_info["min_break_time_in_minutes"], 45)
+            self.assertEqual(
+                extra_info["total_break_time_in_seconds"], 30 * MINUTE
+            )
+            self.assertEqual(
+                extra_info["work_range_in_seconds"], 9 * HOUR + 30 * MINUTE
+            )
+            self.assertEqual(
+                datetime.fromisoformat(extra_info["work_range_start"]),
+                get_time(how_many_days_ago, hour=15, tz=FR_TIMEZONE),
+            )
+            self.assertEqual(
+                datetime.fromisoformat(extra_info["work_range_end"]),
+                get_time(how_many_days_ago - 1, hour=1, tz=FR_TIMEZONE),
+            )
+            self.assertEqual(extra_info["sanction_code"], NATINF_35187)
 
     def test_min_work_day_break_by_employee_failure_single_day(self):
         company = self.company
@@ -171,28 +188,30 @@ class TestWorkDayBreak(RegulationsTest):
         self.assertEqual(extra_info["sanction_code"], NATINF_35187)
 
     def test_min_work_day_break_on_two_days(self):
-        how_many_days_ago = 2
+        # freeze date out of clock change day to avoid errors when it happens
+        with freeze_time(date(2025, 4, 5)):
+            how_many_days_ago = 2
 
-        self._log_and_validate_mission(
-            mission_name="",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=20),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+            self._log_and_validate_mission(
+                mission_name="",
+                submitter=self.employee,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=20),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                    ],
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1,
+                            hour=1,
+                            minute=30,
+                        ),
+                        ActivityType.WORK,
+                    ],
                 ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago - 1,
-                        hour=1,
-                        minute=30,
-                    ),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-        day_start = get_date(how_many_days_ago)
-        regulatory_alert = self._get_alert(day_start=day_start)
+            )
+            day_start = get_date(how_many_days_ago)
+            regulatory_alert = self._get_alert(day_start=day_start)
 
-        self.assertIsNone(regulatory_alert)
+            self.assertIsNone(regulatory_alert)
