@@ -182,10 +182,9 @@ def handle_final_cleanup(dry_run, test_mode):
         )
         return
 
-    if test_mode:
-        clean_reason = get_clean_reason(test_mode, dry_run)
-        logger.info(f"{clean_reason}: cleaning IdMapping table")
-        clean_id_mapping()
+    clean_reason = get_clean_reason(test_mode, dry_run)
+    logger.info(f"{clean_reason}: cleaning IdMapping table")
+    clean_id_mapping()
 
 
 def get_clean_reason(test_mode, dry_run):

@@ -2,7 +2,7 @@ from app import db, app
 from datetime import datetime, timedelta
 from sqlalchemy import text
 
-from app.models import User, Company, Employment, Mission, Activity
+from app.models import User, Company, Employment, Mission, Activity, Vehicle
 from app.models.user import UserAccountStatus
 from app.models.anonymized import AnonActivity, AnonEmployment, IdMapping
 from app.services.anonymization.user_related.user_anonymizer import (
@@ -116,7 +116,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get the negative ID mapping for the user
         user_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=self.user.id
+            entity_type="user", original_id=self.user.id
         ).one_or_none()
 
         self.assertIsNotNone(user_mapping, "User mapping should exist")
@@ -140,9 +140,7 @@ class TestAnonymizationReferences(BaseTest):
         self.assertIsNone(user.phone_number, "Phone number should be removed")
 
         # Test IdMappingService.get_user_negative_id consistency
-        retrieved_id = IdMappingService.get_user_negative_id(
-            self.user.id, is_anon_user=True
-        )
+        retrieved_id = IdMappingService.get_user_negative_id(self.user.id)
         self.assertEqual(
             retrieved_id, negative_id, "ID retrieval should be consistent"
         )
@@ -166,10 +164,10 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get mappings
         user1_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=self.user.id
+            entity_type="user", original_id=self.user.id
         ).one_or_none()
         user2_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=self.user2.id
+            entity_type="user", original_id=self.user2.id
         ).one_or_none()
 
         # Verify both mappings exist
@@ -208,7 +206,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get user's negative ID from mapping
         user_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=self.user.id
+            entity_type="user", original_id=self.user.id
         ).one_or_none()
         negative_id = user_mapping.anonymized_id
 
@@ -317,7 +315,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get user's negative ID from mapping
         user_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=self.user.id
+            entity_type="user", original_id=self.user.id
         ).one_or_none()
         negative_id = user_mapping.anonymized_id
 
@@ -343,3 +341,112 @@ class TestAnonymizationReferences(BaseTest):
                 negative_id,
                 "Submitter ID should be negative in anonymized employment (from mapping)",
             )
+
+    def test_mark_for_deletion_new_entity(self):
+        """Test marking a new entity for deletion."""
+        vehicle = Vehicle(
+            registration_number="TEST-DEL-123",
+            company_id=self.company.id,
+            submitter_id=self.user.id,
+        )
+        db.session.add(vehicle)
+        db.session.commit()
+
+        mapping = IdMapping.query.filter_by(
+            entity_type="vehicle", original_id=vehicle.id
+        ).one_or_none()
+        self.assertIsNone(mapping, "Should not have a mapping yet")
+
+        # Mark for deletion
+        IdMappingService.mark_for_deletion("vehicle", vehicle.id)
+        db.session.commit()
+
+        # Verify mapping was created with deletion_target=True
+        mapping = IdMapping.query.filter_by(
+            entity_type="vehicle", original_id=vehicle.id
+        ).one_or_none()
+        self.assertIsNotNone(mapping, "Mapping should exist now")
+        self.assertTrue(
+            mapping.deletion_target, "Should be marked for deletion"
+        )
+
+    def test_mark_for_deletion_existing_entity(self):
+        """Test marking an existing entity for deletion."""
+        vehicle = Vehicle(
+            registration_number="TEST-EXIST-123",
+            company_id=self.company.id,
+            submitter_id=self.user.id,
+        )
+        db.session.add(vehicle)
+        db.session.commit()
+
+        # Create a mapping without marking for deletion
+        IdMappingService.get_entity_positive_id("vehicle", vehicle.id)
+        db.session.commit()
+
+        # Verify mapping exists but not marked for deletion
+        mapping = IdMapping.query.filter_by(
+            entity_type="vehicle", original_id=vehicle.id
+        ).one_or_none()
+        self.assertIsNotNone(mapping, "Mapping should exist")
+        self.assertFalse(
+            mapping.deletion_target, "Should not be marked for deletion yet"
+        )
+
+        # Now mark for deletion
+        IdMappingService.mark_for_deletion("vehicle", vehicle.id)
+        db.session.commit()
+
+        # Verify mapping is now marked for deletion
+        mapping = IdMapping.query.filter_by(
+            entity_type="vehicle", original_id=vehicle.id
+        ).one_or_none()
+        self.assertTrue(
+            mapping.deletion_target, "Should now be marked for deletion"
+        )
+
+    def test_get_deletion_target_ids(self):
+        """Test retrieving only entities marked for deletion."""
+        # Create multiple vehicles with different deletion states
+        vehicle1 = Vehicle(
+            registration_number="TEST-DEL-1",
+            company_id=self.company.id,
+            submitter_id=self.user.id,
+        )
+        vehicle2 = Vehicle(
+            registration_number="TEST-DEL-2",
+            company_id=self.company.id,
+            submitter_id=self.user.id,
+        )
+        vehicle3 = Vehicle(
+            registration_number="TEST-DEL-3",
+            company_id=self.company.id,
+            submitter_id=self.user.id,
+        )
+        db.session.add_all([vehicle1, vehicle2, vehicle3])
+        db.session.commit()
+
+        # Create mappings for all vehicles
+        IdMappingService.get_entity_positive_id("vehicle", vehicle1.id)
+        IdMappingService.get_entity_positive_id("vehicle", vehicle2.id)
+        IdMappingService.get_entity_positive_id("vehicle", vehicle3.id)
+
+        # Mark only vehicles 1 and 3 for deletion
+        IdMappingService.mark_for_deletion("vehicle", vehicle1.id)
+        IdMappingService.mark_for_deletion("vehicle", vehicle3.id)
+        db.session.commit()
+
+        # Get deletion targets
+        targets = IdMappingService.get_deletion_target_ids("vehicle")
+
+        # Verify only vehicles 1 and 3 are in the targets
+        self.assertEqual(len(targets), 2, "Should have 2 deletion targets")
+        self.assertIn(
+            vehicle1.id, targets, "Vehicle 1 should be marked for deletion"
+        )
+        self.assertNotIn(
+            vehicle2.id, targets, "Vehicle 2 should not be marked for deletion"
+        )
+        self.assertIn(
+            vehicle3.id, targets, "Vehicle 3 should be marked for deletion"
+        )

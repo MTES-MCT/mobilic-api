@@ -207,8 +207,8 @@ class TestIdMappingService(BaseTest):
             db.session.rollback()
             self.fail(f"Test failed: {e}")
 
-    def test_get_all_mapped_ids_for_different_entity_types(self):
-        """Test retrieving all original IDs for different entity types."""
+    def test_get_deletion_target_ids(self):
+        """Test retrieving only entities marked as deletion targets."""
         db.session.rollback()
 
         try:
@@ -218,44 +218,53 @@ class TestIdMappingService(BaseTest):
             db.session.rollback()
             self.fail(f"Test failed: {e}")
 
+        # Create user mappings with different deletion target flags
         user_ids = [1001, 1002, 1003]
-        negative_ids = []
-
-        for user_id in user_ids:
+        for i, user_id in enumerate(user_ids):
             negative_id = -100000 - user_id
-            negative_ids.append(negative_id)
+            deletion_target = (
+                i < 2
+            )  # Mark only the first two as deletion targets
 
             mapping = IdMapping(
                 entity_type="user",
                 original_id=user_id,
                 anonymized_id=negative_id,
+                deletion_target=deletion_target,
             )
             db.session.add(mapping)
 
+        # Create a mission mapping also marked as deletion target
         mission_mapping = IdMapping(
-            entity_type="mission", original_id=2001, anonymized_id=250001
+            entity_type="mission",
+            original_id=2001,
+            anonymized_id=250001,
+            deletion_target=True,
         )
         db.session.add(mission_mapping)
 
         try:
             db.session.commit()
 
-            # Test user entity type
-            user_mapped_ids = IdMappingService.get_all_mapped_ids("user")
-            self.assertEqual(len(user_mapped_ids), 3)
-            self.assertEqual(user_mapped_ids, set(user_ids))
+            # Test deletion targets for user entity type
+            user_target_ids = IdMappingService.get_deletion_target_ids("user")
+            self.assertEqual(len(user_target_ids), 2)
+            self.assertEqual(user_target_ids, {1001, 1002})
+            self.assertNotIn(1003, user_target_ids)
 
-            # Test mission entity type
-            mission_mapped_ids = IdMappingService.get_all_mapped_ids("mission")
-            self.assertEqual(len(mission_mapped_ids), 1)
-            self.assertEqual(mission_mapped_ids, {2001})
+            # Test deletion targets for mission entity type
+            mission_target_ids = IdMappingService.get_deletion_target_ids(
+                "mission"
+            )
+            self.assertEqual(len(mission_target_ids), 1)
+            self.assertEqual(mission_target_ids, {2001})
 
             # Test non-existent entity type
-            empty_mapped_ids = IdMappingService.get_all_mapped_ids(
+            empty_target_ids = IdMappingService.get_deletion_target_ids(
                 "non_existent"
             )
-            self.assertEqual(len(empty_mapped_ids), 0)
-            self.assertEqual(empty_mapped_ids, set())
+            self.assertEqual(len(empty_target_ids), 0)
+            self.assertEqual(empty_target_ids, set())
 
             IdMapping.query.delete()
             db.session.commit()
@@ -309,30 +318,47 @@ class TestIdMappingService(BaseTest):
         final_count = IdMapping.query.count()
         self.assertEqual(final_count, 0)
 
-    def test_get_all_mapped_ids(self):
-        """Test retrieving all original mapped IDs for a specific entity type."""
+    def test_mark_for_deletion(self):
+        """Test marking entities for deletion."""
         IdMapping.query.delete()
         db.session.commit()
 
-        user_ids = [1001, 1002, 1003]
-        for user_id in user_ids:
-            mapping = IdMapping(
-                entity_type="user",
-                original_id=user_id,
-                anonymized_id=-100000 - user_id,
-            )
-            db.session.add(mapping)
-
-        mission_mapping = IdMapping(
-            entity_type="mission", original_id=2001, anonymized_id=250001
+        user_id = 1001
+        mapping = IdMapping(
+            entity_type="user",
+            original_id=user_id,
+            anonymized_id=-100000 - user_id,
         )
-        db.session.add(mission_mapping)
+        db.session.add(mapping)
         db.session.commit()
 
-        mapped_user_ids = IdMappingService.get_all_mapped_ids("user")
+        self.assertFalse(mapping.deletion_target)
+        target_ids = IdMappingService.get_deletion_target_ids("user")
+        self.assertEqual(len(target_ids), 0)
 
-        self.assertEqual(len(mapped_user_ids), 3)
-        self.assertEqual(mapped_user_ids, set(user_ids))
+        IdMappingService.mark_for_deletion("user", user_id)
+        db.session.commit()
+
+        db.session.refresh(mapping)
+        self.assertTrue(mapping.deletion_target)
+        target_ids = IdMappingService.get_deletion_target_ids("user")
+        self.assertEqual(target_ids, {user_id})
+
+        new_id = 2002
+        self.assertIsNone(
+            IdMapping.query.filter_by(
+                entity_type="mission", original_id=new_id
+            ).one_or_none()
+        )
+
+        IdMappingService.mark_for_deletion("mission", new_id)
+        db.session.commit()
+
+        new_mapping = IdMapping.query.filter_by(
+            entity_type="mission", original_id=new_id
+        ).one_or_none()
+        self.assertIsNotNone(new_mapping)
+        self.assertTrue(new_mapping.deletion_target)
 
         IdMapping.query.delete()
         db.session.commit()

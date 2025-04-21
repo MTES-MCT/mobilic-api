@@ -119,6 +119,9 @@ class DataFinder(AnonymizationExecutor):
         and calls the executor methods to delete the original records. It is used
         in delete-only mode after a dry run has been verified.
 
+        IMPORTANT: Only entities explicitly marked as deletion targets will be deleted.
+        This prevents accidental deletion of entities that are only referenced.
+
         Args:
             cutoff_date: Date before which data should be deleted (for logging only)
             test_mode: If True, changes will be rolled back at the end
@@ -128,25 +131,27 @@ class DataFinder(AnonymizationExecutor):
 
         transaction = db.session.begin_nested()
         try:
-            mapped_missions = IdMappingService.get_all_mapped_ids("mission")
-            mapped_employments = IdMappingService.get_all_mapped_ids(
+            mapped_missions = IdMappingService.get_deletion_target_ids(
+                "mission"
+            )
+            mapped_employments = IdMappingService.get_deletion_target_ids(
                 "employment"
             )
-            mapped_companies = IdMappingService.get_all_mapped_ids("company")
-            mapped_anon_users = IdMappingService.get_all_mapped_ids(
-                "anon_user"
+            mapped_companies = IdMappingService.get_deletion_target_ids(
+                "company"
             )
+            mapped_users = IdMappingService.get_deletion_target_ids("user")
 
             self.log_mapped_data(
                 mapped_missions,
                 mapped_employments,
                 mapped_companies,
-                mapped_anon_users,
+                mapped_users,
                 cutoff_date,
             )
 
-            if mapped_anon_users:
-                self.delete_user_dependencies(mapped_anon_users)
+            if mapped_users:
+                self.delete_user_dependencies(mapped_users)
 
             if mapped_missions:
                 self.delete_mission_and_dependencies(mapped_missions)
@@ -162,7 +167,7 @@ class DataFinder(AnonymizationExecutor):
                     mapped_missions,
                     mapped_employments,
                     mapped_companies,
-                    mapped_anon_users,
+                    mapped_users,
                 ]
             ):
                 logger.info("No standalone data to delete")
@@ -205,10 +210,16 @@ class DataFinder(AnonymizationExecutor):
 
     def find_inactive_companies_and_dependencies(
         self, cutoff_date: datetime
-    ) -> Tuple[Set[int], Set[int]]:
+    ) -> Tuple[Set[int], Set[int], Set[int]]:
         """Find inactive companies and their related data based on:
         - All employments have end_date OR
         - No missions since cutoff_date
+
+        Returns:
+            Tuple containing:
+            - List of company IDs
+            - List of related employment IDs
+            - List of related mission IDs
         """
         companies_terminated_employment = (
             self.find_inactive_companies_by_employment(cutoff_date)
@@ -242,10 +253,12 @@ class DataFinder(AnonymizationExecutor):
         mission_ids = {m[0] for m in missions}
 
         company_ids = list(inactive_companies)
+        logger.info(f"Found {len(company_ids)} inactive companies:")
         logger.info(
-            f"Found {len(company_ids)} inactive companies :"
-            f"- employments ended: {len(companies_terminated_employment)}; "
-            f"- no mission since cutoff date : {len(companies_no_recent_missions)}; "
+            f"- employments ended: {len(companies_terminated_employment)}"
+        )
+        logger.info(
+            f"- no mission since cutoff date: {len(companies_no_recent_missions)} "
             f"with {len(employment_ids)} related employments "
             f"and {len(mission_ids)} related missions"
         )
@@ -302,6 +315,18 @@ class DataFinder(AnonymizationExecutor):
     def find_terminated_employments_before_cutoff(
         self, cutoff_date: datetime, exclude_company_ids: Set[int] = None
     ) -> Set[int]:
+        """
+        Find employments that were terminated before the cutoff date.
+
+        These employments will be marked as deletion targets.
+
+        Args:
+            cutoff_date: Date before which employments should be considered
+            exclude_company_ids: Optional set of company IDs to exclude
+
+        Returns:
+            Set of employment IDs that are terminated and should be anonymized/deleted
+        """
         query = Employment.query.filter(
             Employment.creation_time < cutoff_date,
             or_(
@@ -321,12 +346,22 @@ class DataFinder(AnonymizationExecutor):
             return set()
 
         employment_ids = {e[0] for e in employments}
+
         logger.info(
             f"Found {len(employment_ids)} terminated employments to anonymize"
         )
         return employment_ids
 
     def find_missions_before_cutoff(self, cutoff_date: datetime) -> Set[int]:
+        """
+        Find missions that were created before the cutoff date.
+
+        Args:
+            cutoff_date: Date before which missions should be considered
+
+        Returns:
+            Set of mission IDs that are expired and should be anonymized
+        """
         missions = (
             Mission.query.filter(Mission.creation_time < cutoff_date)
             .with_entities(Mission.id)
@@ -338,10 +373,22 @@ class DataFinder(AnonymizationExecutor):
             return set()
 
         mission_ids = {m[0] for m in missions}
+
         logger.info(f"Found {len(mission_ids)} expired missions to anonymize")
         return mission_ids
 
     def find_anonymized_users(self, cutoff_date: datetime) -> Set[int]:
+        """
+        Find users that have been anonymized before the cutoff date.
+
+        Note that the users themselves will never be deleted, only anonymized in-place.
+
+        Args:
+            cutoff_date: Date before which users should be considered
+
+        Returns:
+            Set of user IDs that have been anonymized and whose dependencies should be anonymized
+        """
         anon_users = (
             User.query.filter(
                 User.creation_time < cutoff_date,
@@ -358,6 +405,6 @@ class DataFinder(AnonymizationExecutor):
         anon_users_ids = {user[0] for user in anon_users}
 
         logger.info(
-            f"Found {len(anon_users_ids)} anon users with dependencies to anonymize"
+            f"Found {len(anon_users_ids)} anonymized users with dependencies to anonymize"
         )
         return anon_users_ids

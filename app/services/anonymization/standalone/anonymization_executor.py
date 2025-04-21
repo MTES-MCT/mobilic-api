@@ -116,6 +116,7 @@ class AnonymizationExecutor:
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
         """
         Anonymize missions and their dependencies.
+        Marks missions as deletion targets during anonymization.
         If not in dry_run mode, will also delete the original data.
 
         Args:
@@ -123,6 +124,9 @@ class AnonymizationExecutor:
         """
         if not mission_ids:
             return
+
+        for mission_id in mission_ids:
+            IdMappingService.mark_for_deletion("mission", mission_id)
 
         self.anonymize_activities(mission_ids)
         self.anonymize_mission_ends(mission_ids)
@@ -351,6 +355,7 @@ class AnonymizationExecutor:
     ) -> None:
         """
         Anonymize employments and their dependencies.
+        Marks employments as deletion targets during anonymization.
         If not in dry_run mode, will also delete the original data.
 
         Args:
@@ -358,6 +363,9 @@ class AnonymizationExecutor:
         """
         if not employment_ids:
             return
+
+        for employment_id in employment_ids:
+            IdMappingService.mark_for_deletion("employment", employment_id)
 
         self.anonymize_emails(employment_ids=employment_ids)
         self.anonymize_employments(employment_ids)
@@ -456,6 +464,7 @@ class AnonymizationExecutor:
     ) -> None:
         """
         Anonymize companies and their dependencies.
+        Marks companies as deletion targets during anonymization.
         If not in dry_run mode, will also delete the original data.
 
         Args:
@@ -463,6 +472,9 @@ class AnonymizationExecutor:
         """
         if not company_ids:
             return
+
+        for company_id in company_ids:
+            IdMappingService.mark_for_deletion("company", company_id)
 
         self.anonymize_company_team_and_dependencies(company_ids)
         self.anonymize_company_certifications(company_ids)
@@ -627,6 +639,9 @@ class AnonymizationExecutor:
             return
 
         logger.info(f"Anonymizing dependencies for {len(user_ids)} users")
+
+        for user_id in user_ids:
+            IdMappingService.mark_for_deletion("user", user_id)
 
         self.anonymize_emails(user_ids=user_ids)
         self.anonymize_regulatory_alerts(user_ids)
@@ -975,8 +990,6 @@ class AnonymizationExecutor:
         if not team_ids:
             return
 
-        # self.unlink_company_team_from_employment(team_ids)
-
         deleted = Team.query.filter(Team.id.in_(team_ids)).delete(
             synchronize_session=False
         )
@@ -1007,6 +1020,9 @@ class AnonymizationExecutor:
         """
         if not controller_ids:
             return
+
+        for controller_id in controller_ids:
+            IdMappingService.mark_for_deletion("controller", controller_id)
 
         self.anonymize_controller_controls(controller_ids=controller_ids)
         self.anonymize_controller_user(controller_ids)

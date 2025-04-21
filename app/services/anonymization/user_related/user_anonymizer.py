@@ -97,7 +97,7 @@ class UserAnonymizer(AnonymizationExecutor):
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
         for user in users:
-            IdMappingService.get_user_negative_id(user.id, is_anon_user=True)
+            IdMappingService.get_user_negative_id(user.id)
 
             if self.dry_run:
                 continue
@@ -128,4 +128,3 @@ class UserAnonymizer(AnonymizationExecutor):
             user.status = UserAccountStatus.ANONYMIZED
 
             db.session.add(user)
-            db.session.flush()
