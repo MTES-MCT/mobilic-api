@@ -114,7 +114,7 @@ class UserAnonymizer(AnonymizationExecutor):
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
         for user in users:
-            negative_id = IdMappingService.get_user_negative_id(user.id)
+            IdMappingService.get_user_negative_id(user.id, is_anon_user=True)
             date_only = user.creation_time.date()
             user.creation_time = datetime.combine(
                 date_only, time(0, 0, 0)

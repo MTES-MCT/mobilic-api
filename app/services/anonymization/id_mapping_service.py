@@ -49,12 +49,19 @@ class IdMappingService:
         if not original_id:
             return None
 
-        mapping = IdMapping.query.filter_by(
+        anon_mapping = IdMapping.query.filter_by(
+            entity_type="anon_user", original_id=original_id
+        ).one_or_none()
+
+        if anon_mapping is not None:
+            return anon_mapping.anonymized_id
+
+        user_mapping = IdMapping.query.filter_by(
             entity_type="user", original_id=original_id
         ).one_or_none()
 
-        if mapping is not None:
-            return mapping.anonymized_id
+        if user_mapping is not None:
+            return user_mapping.anonymized_id
 
         try:
             result = db.session.execute(

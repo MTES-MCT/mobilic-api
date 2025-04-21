@@ -31,7 +31,10 @@ class AnonymizedModel(db.Model):
         )
 
         if entity_type in ("user", "anon_user"):
-            return IdMappingService.get_user_negative_id(old_id)
+            is_anon = entity_type == "anon_user"
+            return IdMappingService.get_user_negative_id(
+                old_id, is_anon_user=is_anon
+            )
         else:
             return IdMappingService.get_entity_positive_id(entity_type, old_id)
 

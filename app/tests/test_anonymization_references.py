@@ -116,7 +116,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get the negative ID mapping for the user
         user_mapping = IdMapping.query.filter_by(
-            entity_type="user", original_id=self.user.id
+            entity_type="anon_user", original_id=self.user.id
         ).one_or_none()
 
         self.assertIsNotNone(user_mapping, "User mapping should exist")
@@ -140,7 +140,9 @@ class TestAnonymizationReferences(BaseTest):
         self.assertIsNone(user.phone_number, "Phone number should be removed")
 
         # Test IdMappingService.get_user_negative_id consistency
-        retrieved_id = IdMappingService.get_user_negative_id(self.user.id)
+        retrieved_id = IdMappingService.get_user_negative_id(
+            self.user.id, is_anon_user=True
+        )
         self.assertEqual(
             retrieved_id, negative_id, "ID retrieval should be consistent"
         )
@@ -164,10 +166,10 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get mappings
         user1_mapping = IdMapping.query.filter_by(
-            entity_type="user", original_id=self.user.id
+            entity_type="anon_user", original_id=self.user.id
         ).one_or_none()
         user2_mapping = IdMapping.query.filter_by(
-            entity_type="user", original_id=self.user2.id
+            entity_type="anon_user", original_id=self.user2.id
         ).one_or_none()
 
         # Verify both mappings exist
@@ -206,7 +208,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get user's negative ID from mapping
         user_mapping = IdMapping.query.filter_by(
-            entity_type="user", original_id=self.user.id
+            entity_type="anon_user", original_id=self.user.id
         ).one_or_none()
         negative_id = user_mapping.anonymized_id
 
@@ -315,7 +317,7 @@ class TestAnonymizationReferences(BaseTest):
 
         # Get user's negative ID from mapping
         user_mapping = IdMapping.query.filter_by(
-            entity_type="user", original_id=self.user.id
+            entity_type="anon_user", original_id=self.user.id
         ).one_or_none()
         negative_id = user_mapping.anonymized_id
 
