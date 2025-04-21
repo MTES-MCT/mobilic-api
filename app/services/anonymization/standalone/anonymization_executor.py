@@ -644,28 +644,7 @@ class AnonymizationExecutor:
         if not user_ids:
             return
 
-        # Check if users are already anonymized
-        from app.models import User
-        from app.models.user import UserAccountStatus
-        from app.services.anonymization.id_mapping_service import (
-            IdMappingService,
-        )
-
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        non_anonymized = [
-            u.id for u in users if u.status != UserAccountStatus.ANONYMIZED
-        ]
-
-        if non_anonymized:
-            logger.warning(
-                f"{len(non_anonymized)} users are not yet anonymized: {non_anonymized}. "
-                "Consider anonymizing them first using the user_related process."
-            )
-
-        # For each user that needs to be anonymized, make sure they have a mapping entry
-        # This ensures negative IDs are assigned consistently for already anonymized users
-        for user_id in user_ids:
-            IdMappingService.get_user_negative_id(user_id)
+        logger.info(f"Anonymizing dependencies for {len(user_ids)} users")
 
         self.anonymize_emails(user_ids=user_ids)
         self.anonymize_regulatory_alerts(user_ids)

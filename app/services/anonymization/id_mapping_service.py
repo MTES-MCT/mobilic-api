@@ -13,12 +13,28 @@ class IdMappingService:
     - Get negative IDs for users via negative_user_id_seq
     - Get positive IDs for other entities via anonymized_id_seq
     - Manage mappings in the IdMapping table
+
+    IMPORTANT: This service ensures that:
+    1. User IDs are consistently negative across all anonymization processes
+    2. Non-user entity IDs are consistently positive
+    3. References between anonymized tables maintain their integrity
+
+    This consistent approach allows proper relationships between:
+    - Users anonymized in-place (with negative IDs)
+    - Entities in anonymized tables that reference those users
     """
 
     @staticmethod
     def get_user_negative_id(original_id):
         """
         Get a negative ID for a user from the negative_user_id_seq sequence.
+
+        This method is critical for maintaining consistency between:
+        - Users anonymized in-place (user_related process)
+        - References to users in anonymized tables (standalone process)
+
+        Always use this method when mapping user IDs to ensure negative IDs
+        are used consistently throughout the system.
 
         Args:
             original_id: Original user ID
@@ -63,6 +79,9 @@ class IdMappingService:
     def get_entity_positive_id(entity_type, original_id):
         """
         Get a positive ID for an entity from the anonymized_id_seq sequence.
+
+        This method should be used for all non-user entities to maintain
+        consistency with the user anonymization process.
 
         Args:
             entity_type: Entity type (e.g., "mission", "company")

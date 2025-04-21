@@ -205,10 +205,9 @@ class DataFinder(AnonymizationExecutor):
 
         company_ids = list(inactive_companies)
         logger.info(
-            f"Found {len(company_ids)} inactive companies "
-            f"(SIREN ceased: {len(companies_ceased_siren)}, "
-            f"employments ended: {len(companies_ceased_employment)}, "
-            f"no mission since cutoff date : {len(companies_no_recent_missions)}) "
+            f"Found {len(company_ids)} inactive companies :"
+            f"- employments ended: {len(companies_terminated_employment)}; "
+            f"- no mission since cutoff date : {len(companies_no_recent_missions)}; "
             f"with {len(employment_ids)} related employments "
             f"and {len(mission_ids)} related missions"
         )

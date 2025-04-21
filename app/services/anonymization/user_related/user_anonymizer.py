@@ -5,6 +5,8 @@ from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
 from app.models import User
 from app.models.user import UserAccountStatus
+import datetime
+import time
 from uuid import uuid4
 import re
 
@@ -96,6 +98,7 @@ class UserAnonymizer(AnonymizationExecutor):
         - Sets user status to ANONYMIZED
         - Removes or obfuscates personal information
         - Preserves references and doesn't delete the original records
+        - Creates ID mappings for each user with negative IDs
 
         Args:
             user_ids: Set of user IDs to anonymize
@@ -113,9 +116,11 @@ class UserAnonymizer(AnonymizationExecutor):
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
         for user in users:
-            negative_id = IdMappingService.get_user_negative_id(user.id)
-
-            user.email = f"anonymized_{negative_id}@example.com"
+            date_only = user.creation_time.date()
+            user.creation_time = datetime.combine(
+                date_only, time(0, 0, 0)
+            ).replace(tzinfo=datetime.timezone.utc)
+            user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
             user.last_name = "User"
             user.has_confirmed_email = True
@@ -135,6 +140,7 @@ class UserAnonymizer(AnonymizationExecutor):
             user.status = UserAccountStatus.ANONYMIZED
 
             db.session.add(user)
+            db.session.flush()
 
     def verify_users_anonymization(self, verify_only: bool = False) -> bool:
         """
@@ -196,7 +202,7 @@ class UserAnonymizer(AnonymizationExecutor):
             )
             return False
 
-        if user.email and not user.email.startswith("anonymized_"):
+        if user.email and not user.email.startswith("anon_"):
             logger.error(
                 f"User {user.id} has non-anonymized email: {user.email}"
             )

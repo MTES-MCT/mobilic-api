@@ -15,9 +15,6 @@ class UserClassifier:
         self.anonymizer = DataFinder(db.session)
 
     def _get_inactive_companies(self) -> Tuple[int, ...]:
-        companies_ceased_siren = set(
-            self.anonymizer.find_inactive_companies_by_siren(self.cutoff_date)
-        )
         companies_ceased_employment = set(
             self.anonymizer.find_inactive_companies_by_employment(
                 self.cutoff_date
@@ -30,9 +27,7 @@ class UserClassifier:
         )
 
         return tuple(
-            companies_ceased_siren.union(
-                companies_ceased_employment, companies_no_recent_missions
-            )
+            companies_ceased_employment.union(companies_no_recent_missions)
         )
 
     def find_inactive_users(self) -> Dict[str, Set[int]]:
