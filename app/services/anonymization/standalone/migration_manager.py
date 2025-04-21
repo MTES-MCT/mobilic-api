@@ -24,9 +24,9 @@ class StandaloneDataAnonymizationManager(AnonymizationManager):
     operation mode.
 
     This class handles the anonymization of standalone data, including:
-    - Missions, companies, employments, etc.
+    - Missions, companies, employments, anon_users and their respective dependencies.
     - Executing the anonymization process
-    - Optionally deleting original data after anonymization
+    - Optionally deleting original data after anonymization except for anon_users
     """
 
     def __init__(

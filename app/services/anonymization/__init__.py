@@ -4,12 +4,12 @@ Anonymization services for Mobilic API.
 This module provides functionality for anonymizing old data, ensuring compliance
 with data protection regulations. Two main anonymization approaches are implemented:
 
-1. Standalone data anonymization (missions, companies, etc.):
+1. Standalone data anonymization (missions, companies, employment, anon_users):
    - Data is duplicated to anonymized tables
-   - Original data is optionally deleted
+   - Original data is optionally deleted except for anon_users
 
 2. User anonymization:
-   - Users are anonymized in-place by replacing their ID with a negative ID
+   - Users are anonymized in-place
    - Personal information is removed
 """
 

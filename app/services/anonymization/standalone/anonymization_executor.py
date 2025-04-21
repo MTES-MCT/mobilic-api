@@ -15,7 +15,6 @@ from app.models import (
     CompanyStats,
     Vehicle,
     CompanyKnownAddress,
-    User,
     UserAgreement,
     RefreshToken,
     UserReadToken,
@@ -56,6 +55,7 @@ from app.models.anonymized import (
     AnonTeamAdminUser,
     AnonTeamKnownAddress,
 )
+from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -112,25 +112,6 @@ class AnonymizationExecutor:
             logger.info(
                 f"{action} {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
             )
-
-    def get_mapped_ids(self, entity_type: str) -> Set[int]:
-        """
-        Get IDs that have already been mapped (anonymized).
-
-        Args:
-            entity_type: Type of entity to get mappings for (e.g., "mission", "company")
-
-        Returns:
-            Set of original IDs that have been mapped
-        """
-        from app.models.anonymized import IdMapping
-
-        mappings = IdMapping.query.filter_by(entity_type=entity_type).all()
-        return (
-            {mapping.original_id for mapping in mappings}
-            if mappings
-            else set()
-        )
 
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
         """
@@ -588,9 +569,10 @@ class AnonymizationExecutor:
             Vehicle.company_id.in_(company_ids)
         ).all()
 
-        self.log_anonymization(len(vehicles), "vehicle")
         if not vehicles:
             return
+
+        self.log_anonymization(len(vehicles), "vehicle")
 
         for vehicle in vehicles:
             anonymized = AnonVehicle.anonymize(vehicle)
@@ -651,6 +633,7 @@ class AnonymizationExecutor:
         self.anonymize_regulation_computations(user_ids)
         self.anonymize_user_agreements(user_ids)
         self.anonymize_team_admin_users(user_ids=user_ids)
+        self.anonymize_user_vehicles(user_ids)
         self.anonymize_controller_controls(user_ids=user_ids)
 
         if not self.dry_run:
@@ -991,6 +974,8 @@ class AnonymizationExecutor:
     def delete_company_teams(self, team_ids: Set[int]) -> None:
         if not team_ids:
             return
+
+        # self.unlink_company_team_from_employment(team_ids)
 
         deleted = Team.query.filter(Team.id.in_(team_ids)).delete(
             synchronize_session=False

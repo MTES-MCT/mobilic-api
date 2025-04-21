@@ -94,7 +94,6 @@ class UserAnonymizer(AnonymizationExecutor):
         Anonymize users by modifying their records in place.
 
         This method implements the approach to user anonymization:
-        - Assigns negative IDs to users (via database negative_user_id_seq sequence)
         - Sets user status to ANONYMIZED
         - Removes or obfuscates personal information
         - Preserves references and doesn't delete the original records
@@ -123,6 +122,7 @@ class UserAnonymizer(AnonymizationExecutor):
             user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
             user.last_name = "User"
+            user.admin = False
             user.has_confirmed_email = True
             user.has_activated_email = True
             user.phone_number = None
@@ -130,6 +130,7 @@ class UserAnonymizer(AnonymizationExecutor):
             user.france_connect_info = None
             user.activation_email_token = None
             user.password = str(uuid4())
+            user.password_update_time = None
             user.ssn = None
 
             if user.way_heard_of_mobilic and not re.match(

@@ -1,4 +1,5 @@
 from app import db
+from typing import Optional, Set, Dict
 from app.models.anonymized.id_mapping import IdMapping
 import logging
 
@@ -25,7 +26,9 @@ class IdMappingService:
     """
 
     @staticmethod
-    def get_user_negative_id(original_id):
+    def get_user_negative_id(
+        original_id: int, is_anon_user: bool = False
+    ) -> Optional[int]:
         """
         Get a negative ID for a user from the negative_user_id_seq sequence.
 
@@ -38,9 +41,10 @@ class IdMappingService:
 
         Args:
             original_id: Original user ID
+            is_anon_user: Whether the user is already anonymized
 
         Returns:
-            int: New negative ID
+            int: New negative ID or None if original_id is None
         """
         if not original_id:
             return None
@@ -62,8 +66,14 @@ class IdMappingService:
             db.session.rollback()
             raise
 
+        entity_type = "user"
+        if is_anon_user:
+            entity_type = "anon_user"
+
         mapping = IdMapping(
-            entity_type="user", original_id=original_id, anonymized_id=new_id
+            entity_type=entity_type,
+            original_id=original_id,
+            anonymized_id=new_id,
         )
         db.session.add(mapping)
 
@@ -76,7 +86,9 @@ class IdMappingService:
         return new_id
 
     @staticmethod
-    def get_entity_positive_id(entity_type, original_id):
+    def get_entity_positive_id(
+        entity_type: str, original_id: int
+    ) -> Optional[int]:
         """
         Get a positive ID for an entity from the anonymized_id_seq sequence.
 
@@ -88,7 +100,7 @@ class IdMappingService:
             original_id: Original entity ID
 
         Returns:
-            int: New positive ID
+            int: New positive ID or None if original_id is None
         """
         if not original_id:
             return None
@@ -128,23 +140,7 @@ class IdMappingService:
         return new_id
 
     @staticmethod
-    def get_mappings_for_entity_type(entity_type):
-        """
-        Get all mappings for a given entity type.
-
-        Args:
-            entity_type: Entity type (e.g., "user", "mission")
-
-        Returns:
-            dict: Dictionary {original_id: anonymized_id}
-        """
-        mappings = IdMapping.query.filter_by(entity_type=entity_type).all()
-        return {
-            mapping.original_id: mapping.anonymized_id for mapping in mappings
-        }
-
-    @staticmethod
-    def get_all_mapped_ids(entity_type):
+    def get_all_mapped_ids(entity_type: str) -> Set[int]:
         """
         Get all original IDs that have been mapped for a specific entity type.
 
@@ -162,9 +158,12 @@ class IdMappingService:
         return {row[0] for row in result}
 
     @staticmethod
-    def clean_mappings():
+    def clean_mappings() -> int:
         """
         Remove all mappings from the IdMapping table.
+
+        Returns:
+            int: Number of mappings removed
         """
         try:
             count = IdMapping.query.count()
