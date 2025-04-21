@@ -5,8 +5,7 @@ from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
 from app.models import User
 from app.models.user import UserAccountStatus
-import datetime
-import time
+from datetime import datetime, time, timezone
 from uuid import uuid4
 import re
 
@@ -115,10 +114,11 @@ class UserAnonymizer(AnonymizationExecutor):
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
         for user in users:
+            negative_id = IdMappingService.get_user_negative_id(user.id)
             date_only = user.creation_time.date()
             user.creation_time = datetime.combine(
                 date_only, time(0, 0, 0)
-            ).replace(tzinfo=datetime.timezone.utc)
+            ).replace(tzinfo=timezone.utc)
             user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
             user.last_name = "User"
