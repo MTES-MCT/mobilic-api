@@ -18,8 +18,14 @@ class AnonCompanyCertification(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, cert):
+        new_id = cls.get_new_id("company_certification", cert.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("company_certification", cert.id)
+        anonymized.id = new_id
         anonymized.company_id = cls.get_new_id("company", cert.company_id)
         anonymized.creation_time = cls.truncate_to_month(cert.creation_time)
         anonymized.attribution_date = cls.truncate_to_month(

@@ -10,8 +10,14 @@ class AnonTeam(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, team):
+        new_id = cls.get_new_id("team", team.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("team", team.id)
+        anonymized.id = new_id
         anonymized.company_id = cls.get_new_id("company", team.company_id)
         anonymized.creation_time = cls.truncate_to_month(team.creation_time)
         return anonymized
@@ -24,9 +30,16 @@ class AnonTeamAdminUser(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, relation):
+        team_id = cls.get_new_id("team", relation.team_id)
+        user_id = cls.get_new_id("user", relation.user_id)
+
+        existing = db.session.query(cls).get((team_id, user_id))
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.team_id = cls.get_new_id("team", relation.team_id)
-        anonymized.user_id = cls.get_new_id("user", relation.user_id)
+        anonymized.team_id = team_id
+        anonymized.user_id = user_id
         return anonymized
 
 
@@ -37,9 +50,18 @@ class AnonTeamKnownAddress(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, relation):
-        anonymized = cls()
-        anonymized.team_id = cls.get_new_id("team", relation.team_id)
-        anonymized.company_known_address_id = cls.get_new_id(
+        team_id = cls.get_new_id("team", relation.team_id)
+        company_known_address_id = cls.get_new_id(
             "company_known_address", relation.company_known_address_id
         )
+
+        existing = db.session.query(cls).get(
+            (team_id, company_known_address_id)
+        )
+        if existing:
+            return existing
+
+        anonymized = cls()
+        anonymized.team_id = team_id
+        anonymized.company_known_address_id = company_known_address_id
         return anonymized

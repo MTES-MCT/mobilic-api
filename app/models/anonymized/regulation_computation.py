@@ -12,10 +12,14 @@ class AnonRegulationComputation(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, computation):
+        new_id = cls.get_new_id("regulation_computation", computation.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id(
-            "regulation_computation", computation.id
-        )
+        anonymized.id = new_id
         anonymized.creation_time = cls.truncate_to_month(
             computation.creation_time
         )

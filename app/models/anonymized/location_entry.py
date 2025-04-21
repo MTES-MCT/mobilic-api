@@ -15,8 +15,14 @@ class AnonLocationEntry(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, location):
+        new_id = cls.get_new_id("location_entry", location.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("location_entry", location.id)
+        anonymized.id = new_id
         anonymized.submitter_id = cls.get_new_id("user", location.submitter_id)
         anonymized.type = location.type
         anonymized.creation_time = cls.truncate_to_month(
