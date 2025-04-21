@@ -19,7 +19,6 @@ class UserAnonymizer(AnonymizationExecutor):
         admin_to_anon: Set[int],
         controller_to_anon: Set[int],
         test_mode: bool = False,
-        verify_only: bool = False,
     ) -> None:
         """
         Anonymize user data based on the specified user groups.
@@ -29,23 +28,7 @@ class UserAnonymizer(AnonymizationExecutor):
             admin_to_anon: Set of admin IDs for anonymization
             controller_to_anon: Set of controller IDs for anonymization
             test_mode: If True, roll back all changes at the end
-            verify_only: If True, only verify that users are properly anonymized
         """
-        if verify_only:
-            logger.info("Running in verify-only mode")
-            verification_result = self.verify_users_anonymization(
-                verify_only=True
-            )
-            if verification_result:
-                logger.info(
-                    "Verification successful: all users are properly anonymized"
-                )
-            if not verification_result:
-                logger.warning(
-                    "Verification failed: some users are not properly anonymized"
-                )
-            return
-
         transaction = db.session.begin_nested()
         try:
             if users_to_anon:
@@ -115,6 +98,10 @@ class UserAnonymizer(AnonymizationExecutor):
 
         for user in users:
             IdMappingService.get_user_negative_id(user.id, is_anon_user=True)
+
+            if self.dry_run:
+                continue
+
             date_only = user.creation_time.date()
             user.creation_time = datetime.combine(
                 date_only, time(0, 0, 0)
@@ -142,93 +129,3 @@ class UserAnonymizer(AnonymizationExecutor):
 
             db.session.add(user)
             db.session.flush()
-
-    def verify_users_anonymization(self, verify_only: bool = False) -> bool:
-        """
-        Verify that users have been properly anonymized.
-
-        This method checks that:
-        1. All users marked for anonymization have been processed
-        2. All anonymized users have the correct status
-        3. All anonymized users have no personal information
-
-        Args:
-            verify_only: If True, only perform verification without any updates
-
-        Returns:
-            bool: True if all checks pass, False otherwise
-        """
-
-        if not verify_only:
-            logger.info(
-                "Skipping verification as verify_only mode is disabled"
-            )
-            return True
-
-        user_mapping_ids = IdMappingService.get_all_mapped_ids("user")
-
-        if not user_mapping_ids:
-            logger.warning("No user mappings found, nothing to verify")
-            return False
-
-        logger.info(
-            f"Verifying anonymization for {len(user_mapping_ids)} users"
-        )
-
-        anonymized_users = User.query.filter(
-            User.id.in_(user_mapping_ids)
-        ).all()
-
-        if len(anonymized_users) != len(user_mapping_ids):
-            logger.error(
-                f"Found {len(anonymized_users)} users but expected {len(user_mapping_ids)}. "
-                f"Some users may have been deleted instead of anonymized."
-            )
-            return False
-
-        return self._verify_all_users_anonymized(anonymized_users)
-
-    def _verify_all_users_anonymized(self, anonymized_users):
-        """Helper method to check if all users are properly anonymized."""
-        for user in anonymized_users:
-            if not self._is_user_properly_anonymized(user):
-                return False
-        return True
-
-    def _is_user_properly_anonymized(self, user):
-        """Check if a single user is properly anonymized."""
-        if user.status != UserAccountStatus.ANONYMIZED:
-            logger.error(
-                f"User {user.id} has status {user.status} but should be {UserAccountStatus.ANONYMIZED}"
-            )
-            return False
-
-        if user.email and not user.email.startswith("anon_"):
-            logger.error(
-                f"User {user.id} has non-anonymized email: {user.email}"
-            )
-            return False
-
-        if user.first_name != "Anonymized" or user.last_name != "User":
-            logger.error(
-                f"User {user.id} has non-anonymized name: {user.first_name} {user.last_name}"
-            )
-            return False
-
-        if not user.has_confirmed_email or not user.has_activated_email:
-            logger.error(
-                f"User {user.id} column has_confirmed_email (current value: {user.has_confirmed_email}) "
-                f"and has_activated_email (current value: {user.has_activated_email}) "
-                f"must be true for retro-compatibility"
-            )
-            return False
-
-        if user.phone_number or user.france_connect_id or user.ssn:
-            logger.error(f"User {user.id} still has personal information")
-            return False
-
-        if user.password is None:
-            logger.error(f"User {user.id} has no password: security alert")
-            return False
-
-        return True

@@ -44,7 +44,6 @@ def clean_id_mapping():
 def anonymize_users(
     verbose: bool = False,
     dry_run: bool = True,
-    verify_only: bool = False,
     test_mode: bool = False,
     force_clean: bool = False,
 ) -> None:
@@ -59,64 +58,45 @@ def anonymize_users(
 
     Args:
         verbose: Enable verbose mode for more detailed logs
-        dry_run: Dry-run mode - simulate anonymization without actual changes (default: True)
-        verify_only: Verify-only mode - verify that users are properly anonymized
+        dry_run: Dry-run mode - create ID mappings without modifying users (default: True)
         test_mode: Test mode - roll back all changes at the end
         force_clean: Clean mapping table before starting
 
     Workflow for effective anonymization:
-    1. Run with dry_run=True to simulate anonymization without making changes
+    1. Run with dry_run=True to create ID mappings without modifying users
     2. Run with dry_run=False to perform actual anonymization by modifying user records
-    3. Run with verify_only=True to verify that users are properly anonymized
     """
     if verbose:
         logger.setLevel(logging.DEBUG)
-
-    if not dry_run and verify_only:
-        logger.warning(
-            "Invalid combination: Verify-only mode cannot be used with no-dry-run. "
-            "The verify-only mode works with the default dry-run setting."
-        )
-        return
-
-    if verify_only and not IdMapping.query.count():
-        logger.error(
-            "Cannot run in verify-only mode: No mappings found in IdMapping table. "
-            "Run first in dry-run mode or normal mode to create the necessary mappings."
-        )
-        return
 
     try:
         cutoff_date = datetime.now() - relativedelta(
             years=years, months=months
         )
 
-        log_operation_start(dry_run, verify_only, test_mode, cutoff_date)
+        log_operation_start(dry_run, test_mode, cutoff_date)
 
-        if not handle_tables_cleaning(
-            dry_run, verify_only, test_mode, force_clean
-        ):
+        if not handle_tables_cleaning(dry_run, test_mode, force_clean):
             return
 
-        process_user_data(dry_run, verify_only, test_mode, cutoff_date)
+        process_user_data(dry_run, test_mode, cutoff_date)
 
-        handle_final_cleanup(dry_run, verify_only, test_mode)
+        handle_final_cleanup(dry_run, test_mode)
 
-        operation_name = "verification" if verify_only else "anonymization"
-        logger.info(f"User {operation_name} completed successfully")
+        logger.info("User anonymization completed successfully")
 
-        if dry_run and not verify_only and not test_mode:
+        if dry_run and not test_mode:
             logger.info(
-                "Dry run completed. To perform actual anonymization, "
-                "run again with --no-dry-run flag."
+                "Dry run completed: ID mappings created but no users were modified. "
+                "To perform actual anonymization, run again with --no-dry-run flag."
             )
 
     except Exception as e:
-        handle_exception(e, test_mode, verify_only)
+        handle_exception(e, test_mode)
         raise
 
 
-def log_operation_start(dry_run, verify_only, test_mode, cutoff_date):
+def log_operation_start(dry_run, test_mode, cutoff_date):
     """
     Log information about the operation being started.
     """
@@ -128,19 +108,17 @@ def log_operation_start(dry_run, verify_only, test_mode, cutoff_date):
     if dry_run:
         log_prefix += "Dry run: "
 
-    operation_name = "verification" if verify_only else "anonymization"
-
     threshold_info = f"{years} years"
     if months > 0:
         threshold_info += f" and {months} months"
 
     logger.info(
-        f"{log_prefix}Starting user {operation_name} process "
+        f"{log_prefix}Starting user anonymization process "
         f"with cut-off date: {cutoff_date.date()} (threshold: {threshold_info})"
     )
 
 
-def handle_tables_cleaning(dry_run, verify_only, test_mode, force_clean):
+def handle_tables_cleaning(dry_run, test_mode, force_clean):
     """
     Handle the cleaning of mapping tables based on mode and parameters.
 
@@ -149,19 +127,12 @@ def handle_tables_cleaning(dry_run, verify_only, test_mode, force_clean):
     """
     mapping_count = IdMapping.query.count()
 
-    if verify_only and mapping_count == 0:
-        logger.error("Cannot verify: No existing mappings found")
-        return False
-
-    should_clean_initial = (
-        not verify_only and mapping_count > 0 and not test_mode
-    )
+    should_clean_initial = mapping_count > 0 and not test_mode
 
     if should_clean_initial and not force_clean:
         logger.error(
             f"There are {mapping_count} existing mappings in IdMapping table. "
-            f"Use --force-clean to proceed and clean existing mappings. "
-            f"Alternatively, use --verify-only to verify the anonymization status."
+            f"Use --force-clean to proceed and clean existing mappings."
         )
         return False
 
@@ -175,25 +146,23 @@ def handle_tables_cleaning(dry_run, verify_only, test_mode, force_clean):
     return True
 
 
-def process_user_data(dry_run, verify_only, test_mode, cutoff_date):
+def process_user_data(dry_run, test_mode, cutoff_date):
     """
-    Process user data either by anonymizing or verifying.
+    Process user data for anonymization.
     """
-    operation_type = "Verifying" if verify_only else "Processing"
-    logger.info(f"{operation_type} user data")
+    logger.info("Processing user data")
 
     users_to_anon = set()
     admin_to_anon = set()
     controller_to_anon = set()
 
-    if not verify_only:
-        logger.info("Starting user classification phase")
-        classifier = UserClassifier(cutoff_date)
-        classification = classifier.find_inactive_users()
+    logger.info("Starting user classification phase")
+    classifier = UserClassifier(cutoff_date)
+    classification = classifier.find_inactive_users()
 
-        users_to_anon = classification["users"]
-        admin_to_anon = classification["admins"]
-        controller_to_anon = classification["controllers"]
+    users_to_anon = classification["users"]
+    admin_to_anon = classification["admins"]
+    controller_to_anon = classification["controllers"]
 
     user_anonymizer = UserAnonymizer(db.session, dry_run=dry_run)
 
@@ -202,37 +171,28 @@ def process_user_data(dry_run, verify_only, test_mode, cutoff_date):
         admin_to_anon,
         controller_to_anon,
         test_mode,
-        verify_only,
     )
 
 
-def handle_final_cleanup(dry_run, verify_only, test_mode):
+def handle_final_cleanup(dry_run, test_mode):
     """
     Handle final cleanup of the mapping table based on the execution mode.
     """
-    if dry_run and not verify_only and not test_mode:
+    if dry_run and not test_mode:
         mapping_count = IdMapping.query.count()
         logger.info(
             f"Dry run complete: preserving {mapping_count} mappings in IdMapping table "
-            f"for future verification. Run again with --no-dry-run to perform actual anonymization."
+            f"for future anonymization. Run again with --no-dry-run to perform actual anonymization."
         )
         return
 
-    if verify_only and test_mode:
-        mapping_count = IdMapping.query.count()
-        logger.info(
-            f"Test mode verify-only complete: preserving {mapping_count} mappings in IdMapping table "
-            f"for future test runs."
-        )
-        return
-
-    if test_mode or (not dry_run and not verify_only):
-        clean_reason = get_clean_reason(test_mode, dry_run, verify_only)
+    if test_mode or not dry_run:
+        clean_reason = get_clean_reason(test_mode, dry_run)
         logger.info(f"{clean_reason}: cleaning IdMapping table")
         clean_id_mapping()
 
 
-def get_clean_reason(test_mode, dry_run, verify_only):
+def get_clean_reason(test_mode, dry_run):
     """
     Get the reason for cleaning the mapping table.
     """
@@ -242,28 +202,19 @@ def get_clean_reason(test_mode, dry_run, verify_only):
     if not dry_run:
         return "Anonymization complete"
 
-    if verify_only:
-        return "Verification complete"
-
     return "Cleanup"
 
 
-def handle_exception(e, test_mode, verify_only):
+def handle_exception(e, test_mode):
     """
     Handle exceptions during the anonymization process.
     """
-    if test_mode and not verify_only:
+    if test_mode:
         logger.info(
             "Error occurred during test mode: cleaning IdMapping table"
         )
         clean_id_mapping()
-
-    if test_mode and verify_only:
-        logger.info(
-            "Error occurred during verify-only test mode: preserving IdMapping table for future test runs"
-        )
-
-    if not test_mode:
+    else:
         logger.warning("Error occurred but IdMapping table is preserved")
 
     logger.error(f"Error details: {str(e)}")

@@ -96,8 +96,8 @@ class TestAnonymizationReferences(BaseTest):
 
     def test_user_negative_id_assignment(self):
         """Test that user anonymization creates user mappings with negative IDs."""
-        # Anonymize the user
-        anonymizer = UserAnonymizer(db.session)
+        # Anonymize the user - setting dry_run=False to actually modify the user
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
         anonymizer.anonymize_users_in_place({self.user.id})
         db.session.commit()
 
@@ -150,7 +150,7 @@ class TestAnonymizationReferences(BaseTest):
     def test_multiple_user_anonymization(self):
         """Test negative ID mappings across multiple users."""
         # Anonymize multiple users
-        anonymizer = UserAnonymizer(db.session)
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
         anonymizer.anonymize_users_in_place({self.user.id, self.user2.id})
         db.session.commit()
 
@@ -196,7 +196,7 @@ class TestAnonymizationReferences(BaseTest):
     def test_user_anonymization_then_entity_anonymization(self):
         """Test that references to previously anonymized users in newly anonymized entities use negative IDs from mappings."""
         # First anonymize the user (this doesn't change the user ID but creates a mapping)
-        anonymizer = UserAnonymizer(db.session)
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
         anonymizer.anonymize_users_in_place({self.user.id})
         db.session.commit()
 
@@ -259,7 +259,7 @@ class TestAnonymizationReferences(BaseTest):
             )
 
         # Now anonymize the user (this won't change the user ID but creates a mapping)
-        anonymizer = UserAnonymizer(db.session)
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
         anonymizer.anonymize_users_in_place({self.user.id})
         db.session.commit()
 
@@ -305,7 +305,7 @@ class TestAnonymizationReferences(BaseTest):
     def test_employment_anonymization_with_negative_ids(self):
         """Test that anonymized employments reference users correctly."""
         # First anonymize the user (this won't change the user ID but creates a mapping)
-        anonymizer = UserAnonymizer(db.session)
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
         anonymizer.anonymize_users_in_place({self.user.id})
         db.session.commit()
 
