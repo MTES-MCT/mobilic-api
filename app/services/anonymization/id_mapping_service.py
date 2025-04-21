@@ -26,9 +26,7 @@ class IdMappingService:
     """
 
     @staticmethod
-    def get_user_negative_id(
-        original_id: int, is_anon_user: bool = False
-    ) -> Optional[int]:
+    def get_user_negative_id(original_id: int) -> Optional[int]:
         """
         Get a negative ID for a user from the negative_user_id_seq sequence.
 
@@ -41,7 +39,6 @@ class IdMappingService:
 
         Args:
             original_id: Original user ID
-            is_anon_user: Whether the user is already anonymized
 
         Returns:
             int: New negative ID or None if original_id is None
@@ -49,19 +46,12 @@ class IdMappingService:
         if not original_id:
             return None
 
-        anon_mapping = IdMapping.query.filter_by(
-            entity_type="anon_user", original_id=original_id
-        ).one_or_none()
-
-        if anon_mapping is not None:
-            return anon_mapping.anonymized_id
-
-        user_mapping = IdMapping.query.filter_by(
+        mapping = IdMapping.query.filter_by(
             entity_type="user", original_id=original_id
         ).one_or_none()
 
-        if user_mapping is not None:
-            return user_mapping.anonymized_id
+        if mapping is not None:
+            return mapping.anonymized_id
 
         try:
             result = db.session.execute(
@@ -73,12 +63,8 @@ class IdMappingService:
             db.session.rollback()
             raise
 
-        entity_type = "user"
-        if is_anon_user:
-            entity_type = "anon_user"
-
         mapping = IdMapping(
-            entity_type=entity_type,
+            entity_type="user",
             original_id=original_id,
             anonymized_id=new_id,
         )
@@ -141,28 +127,67 @@ class IdMappingService:
             db.session.rollback()
             raise
 
-        logger.debug(
-            f"Mapped {entity_type} ID {original_id} to positive ID {new_id}"
-        )
         return new_id
 
     @staticmethod
-    def get_all_mapped_ids(entity_type: str) -> Set[int]:
+    def get_deletion_target_ids(entity_type: str) -> Set[int]:
         """
-        Get all original IDs that have been mapped for a specific entity type.
+        Get only the original IDs that are marked as deletion targets for a specific entity type.
+
+        This method is critical for ensuring that only entities explicitly marked for
+        deletion are removed, preventing accidental deletion of referenced entities.
 
         Args:
             entity_type: Entity type (e.g., "user", "mission")
 
         Returns:
-            Set[int]: Set of original IDs that have been mapped
+            Set[int]: Set of original IDs that are marked as deletion targets
         """
         result = (
-            IdMapping.query.filter_by(entity_type=entity_type)
+            IdMapping.query.filter_by(
+                entity_type=entity_type, deletion_target=True
+            )
             .with_entities(IdMapping.original_id)
             .all()
         )
+
         return {row[0] for row in result}
+
+    @staticmethod
+    def mark_for_deletion(entity_type: str, original_id: int) -> None:
+        """
+        Explicitly mark an entity as a target for deletion.
+
+        This is the ONLY method that should be used to mark entities for deletion.
+        It ensures a clear separation between ID mapping (which doesn't involve deletion)
+        and explicitly marking entities for deletion.
+
+        Args:
+            entity_type: Entity type (e.g., "mission", "company")
+            original_id: Original entity ID
+        """
+        if not original_id:
+            return
+
+        mapping = IdMapping.query.filter_by(
+            entity_type=entity_type, original_id=original_id
+        ).one_or_none()
+
+        if mapping is not None:
+            if not mapping.deletion_target:
+                mapping.deletion_target = True
+            return
+
+        if entity_type == "user":
+            IdMappingService.get_user_negative_id(original_id)
+        else:
+            IdMappingService.get_entity_positive_id(entity_type, original_id)
+
+        mapping = IdMapping.query.filter_by(
+            entity_type=entity_type, original_id=original_id
+        ).one()
+        mapping.deletion_target = True
+        db.session.flush()
 
     @staticmethod
     def clean_mappings() -> int:
