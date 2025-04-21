@@ -207,8 +207,8 @@ class TestIdMappingService(BaseTest):
             db.session.rollback()
             self.fail(f"Test failed: {e}")
 
-    def test_get_mappings_for_entity_type(self):
-        """Test retrieving all mappings for a specific entity type."""
+    def test_get_all_mapped_ids_for_different_entity_types(self):
+        """Test retrieving all original IDs for different entity types."""
         db.session.rollback()
 
         try:
@@ -240,13 +240,22 @@ class TestIdMappingService(BaseTest):
         try:
             db.session.commit()
 
-            user_mappings = IdMappingService.get_mappings_for_entity_type(
-                "user"
-            )
+            # Test user entity type
+            user_mapped_ids = IdMappingService.get_all_mapped_ids("user")
+            self.assertEqual(len(user_mapped_ids), 3)
+            self.assertEqual(user_mapped_ids, set(user_ids))
 
-            self.assertEqual(len(user_mappings), 3)
-            self.assertEqual(set(user_mappings.keys()), set(user_ids))
-            self.assertEqual(set(user_mappings.values()), set(negative_ids))
+            # Test mission entity type
+            mission_mapped_ids = IdMappingService.get_all_mapped_ids("mission")
+            self.assertEqual(len(mission_mapped_ids), 1)
+            self.assertEqual(mission_mapped_ids, {2001})
+
+            # Test non-existent entity type
+            empty_mapped_ids = IdMappingService.get_all_mapped_ids(
+                "non_existent"
+            )
+            self.assertEqual(len(empty_mapped_ids), 0)
+            self.assertEqual(empty_mapped_ids, set())
 
             IdMapping.query.delete()
             db.session.commit()

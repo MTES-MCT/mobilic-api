@@ -152,10 +152,6 @@ def process_user_data(dry_run, test_mode, cutoff_date):
     """
     logger.info("Processing user data")
 
-    users_to_anon = set()
-    admin_to_anon = set()
-    controller_to_anon = set()
-
     logger.info("Starting user classification phase")
     classifier = UserClassifier(cutoff_date)
     classification = classifier.find_inactive_users()
@@ -186,7 +182,7 @@ def handle_final_cleanup(dry_run, test_mode):
         )
         return
 
-    if test_mode or not dry_run:
+    if test_mode:
         clean_reason = get_clean_reason(test_mode, dry_run)
         logger.info(f"{clean_reason}: cleaning IdMapping table")
         clean_id_mapping()
