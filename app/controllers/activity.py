@@ -12,6 +12,7 @@ from app.domain.permissions import (
     check_actor_can_write_on_mission_over_period,
     check_actor_can_edit_activity,
     check_actor_can_log_without_mission_validation,
+    company_admin,
 )
 
 from app.helpers.authentication import current_user, AuthenticatedMutation
@@ -28,7 +29,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     TimeStamp,
 )
-from app.models import User, Mission
+from app.models import User, Mission, MissionAutoValidation
 from app.models.activity import Activity, ActivityType
 
 
@@ -89,6 +90,22 @@ def log_activity_(input):
     if user_id:
         user = User.query.get(user_id)
 
+    is_user_admin = company_admin(current_user, mission.company_id)
+    if not is_user_admin:
+        existing_activities = [
+            activity
+            for activity in mission.activities
+            if activity.user == user
+        ]
+        if len(existing_activities) == 0:
+            auto_validation = MissionAutoValidation(
+                mission=mission,
+                is_admin=False,
+                user=user,
+                reception_time=reception_time,
+            )
+            db.session.add(auto_validation)
+
     activity = log_activity(
         submitter=current_user,
         user=user,
@@ -101,6 +118,9 @@ def log_activity_(input):
         context=input.get("context"),
         creation_time=input.get("creation_time"),
     )
+
+    ## Auto validation if user is not admin of the company and it's the first activity for this user for this mission
+
     return activity
 
 

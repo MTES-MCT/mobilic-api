@@ -12,7 +12,7 @@ from app.helpers.errors import (
     MissionStillRunningError,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import MissionValidation, MissionEnd
+from app.models import MissionValidation, MissionEnd, MissionAutoValidation
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
@@ -103,6 +103,11 @@ def validate_mission(
     )
 
     if not mission.is_holiday():
+        db.session.query(MissionAutoValidation).filter(
+            MissionAutoValidation.mission == mission,
+            MissionAutoValidation.user == for_user,
+        ).delete(synchronize_session=False)
+
         employment = get_current_employment_in_company(
             user=for_user, company=mission.company
         )
