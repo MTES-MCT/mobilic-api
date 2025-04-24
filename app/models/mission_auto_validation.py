@@ -30,3 +30,6 @@ class MissionAutoValidation(BaseModel):
             "user_id", "mission_id", "is_admin", name="uq_user_mission_admin"
         ),
     )
+
+    def __repr__(self):
+        return f"<Mission auto validation: {'admin' if self.is_admin else 'employee'} user={self.user_id} mission={self.mission_id} rec_time={self.reception_time}"

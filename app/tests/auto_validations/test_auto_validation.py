@@ -164,7 +164,3 @@ class TestAutoValidation(BaseTest):
 
         auto_validations = MissionAutoValidation.query.all()
         self.assertEqual(0, len(auto_validations))
-
-    def test_remove_auto_validation_when_canceling_mission(self):
-        ## TODO
-        pass
