@@ -150,9 +150,6 @@ class DataFinder(AnonymizationExecutor):
                 cutoff_date,
             )
 
-            if mapped_users:
-                self.delete_user_dependencies(mapped_users)
-
             if mapped_missions:
                 self.delete_mission_and_dependencies(mapped_missions)
 
@@ -161,6 +158,9 @@ class DataFinder(AnonymizationExecutor):
 
             if mapped_companies:
                 self.delete_company_and_dependencies(mapped_companies)
+
+            if mapped_users:
+                self.delete_user_dependencies(mapped_users)
 
             if not any(
                 [
@@ -393,6 +393,7 @@ class DataFinder(AnonymizationExecutor):
             User.query.filter(
                 User.creation_time < cutoff_date,
                 User.status == UserAccountStatus.ANONYMIZED,
+                User.id > 0,
             )
             .with_entities(User.id)
             .all()

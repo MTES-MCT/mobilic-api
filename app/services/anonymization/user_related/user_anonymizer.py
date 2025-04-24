@@ -109,9 +109,6 @@ class UserAnonymizer(AnonymizationExecutor):
             user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
             user.last_name = "User"
-            user.admin = False
-            user.has_confirmed_email = True
-            user.has_activated_email = True
             user.phone_number = None
             user.france_connect_id = None
             user.france_connect_info = None
