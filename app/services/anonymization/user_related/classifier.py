@@ -51,8 +51,97 @@ class UserClassifier:
              WHERE a.creation_time > :cutoff_date
                AND (
                    a.user_id = u.id OR
-                   a.submitter_id = u.id OR
-                   a.dismiss_author_id = u.id
+                   a.submitter_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM activity a2
+             WHERE a2.dismissed_at > :cutoff_date
+               AND (
+                   a2.dismiss_author_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM employement em2
+             WHERE em2.dismissed_at > :cutoff_date
+               AND (
+                   em2.dismiss_author_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM mission_validation mv
+             WHERE mv.creation_time > :cutoff_date
+               AND (
+                   mv.user_id = u.id OR
+                   mv.submitter_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM mission_end me
+             WHERE me.creation_time > :cutoff_date
+               AND (
+                   me.user_id = u.id OR
+                   me.submitter_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM comment c
+             WHERE c.creation_time > :cutoff_date
+               AND (
+                   c.submitter_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM comment c2
+             WHERE c2.dismissed_at > :cutoff_date
+               AND (
+                   c2.dismiss_author_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM mission m
+             WHERE m.creation_time > :cutoff_date
+               AND (
+                   m.submitter_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM expenditure e
+             WHERE e.creation_time > :cutoff_date
+               AND (
+                   e.user_id = u.id OR
+                   e.submitter_id = u.id
+                   )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM expenditure e2
+             WHERE e2.dismissed_at > :cutoff_date
+               AND (
+                   e2.dismiss_author_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM company_known_address cka
+             WHERE cka.dismissed_at > :cutoff_date
+               AND (
+                   cka.dismiss_author_id = u.id
+                   )
+        )
+        AND NOT EXISTS (
+            SELECT 1 
+              FROM third_party_client_company tpcc
+             WHERE tpcc.dismissed_at > :cutoff_date
+               AND (
+                   tpcc.dismiss_author_id = u.id
                    )
         )
         """
@@ -74,14 +163,13 @@ class UserClassifier:
             AND u.creation_time <= :cutoff_date
             AND u.status != 'anonymized'
             AND NOT EXISTS (
-               SELECT 1 
-               FROM activity a
-               WHERE a.creation_time > :cutoff_date
+            SELECT 1 
+              FROM activity a
+             WHERE a.creation_time > :cutoff_date
                AND (
-                    a.user_id = u.id OR
-                    a.submitter_id = u.id OR
-                    a.dismiss_author_id = u.id
-                    )
+                   a.user_id = u.id OR
+                   a.submitter_id = u.id
+                   )
             )
             AND NOT EXISTS (
                SELECT 1 
@@ -89,6 +177,96 @@ class UserClassifier:
                 WHERE ee.user_id = u.id
                   AND ee.has_admin_rights = true
                   AND ee.company_id NOT IN :inactive_companies
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM activity a2
+                 WHERE a2.dismissed_at > :cutoff_date
+                   AND (
+                       a2.dismiss_author_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM employement em2
+                 WHERE em2.dismissed_at > :cutoff_date
+                   AND (
+                       em2.dismiss_author_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM mission_validation mv
+                 WHERE mv.creation_time > :cutoff_date
+                   AND (
+                       mv.user_id = u.id OR
+                       mv.submitter_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM mission_end me
+                 WHERE me.creation_time > :cutoff_date
+                   AND (
+                       me.user_id = u.id OR
+                       me.submitter_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM comment c
+                 WHERE c.creation_time > :cutoff_date
+                   AND (
+                       c.submitter_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM comment c2
+                 WHERE c2.dismissed_at > :cutoff_date
+                   AND (
+                       c2.dismiss_author_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM mission m
+                 WHERE m.creation_time > :cutoff_date
+                   AND (
+                       m.submitter_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM expenditure e
+                 WHERE e.creation_time > :cutoff_date
+                   AND (
+                       e.user_id = u.id OR
+                       e.submitter_id = u.id
+                       )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM expenditure e2
+                 WHERE e2.dismissed_at > :cutoff_date
+                   AND (
+                       e2.dismiss_author_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM company_known_address cka
+                 WHERE cka.dismissed_at > :cutoff_date
+                   AND (
+                       cka.dismiss_author_id = u.id
+                       )
+            )
+            AND NOT EXISTS (
+                SELECT 1 
+                  FROM third_party_client_company tpcc
+                 WHERE tpcc.dismissed_at > :cutoff_date
+                   AND (
+                       tpcc.dismiss_author_id = u.id
+                       )
             )
             """
 

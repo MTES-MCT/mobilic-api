@@ -15,11 +15,6 @@ class Vehicle(BaseModel):
     )
     company = db.relationship("Company", backref="vehicles")
 
-    submitter_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), index=False, nullable=False
-    )
-    submitter = db.relationship("User")
-
     terminated_at = db.Column(DateTimeStoredAsUTC, nullable=True)
 
     last_kilometer_reading = db.Column(db.Integer, nullable=True)

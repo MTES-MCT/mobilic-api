@@ -67,6 +67,16 @@ def upgrade():
         ["deletion_target"],
         unique=False,
     )
+    op.execute(
+        """
+        ALTER TABLE vehicle DROP COLUMN submitter_id;
+        ALTER TABLE anon_vehicle DROP COLUMN submitter_id;
+
+        ALTER TABLE employment DROP CONSTRAINT IF EXISTS employment_submitter_id_fkey;
+        ALTER TABLE employment ADD CONSTRAINT employment_submitter_id_fkey 
+        FOREIGN KEY (submitter_id) REFERENCES "user" (id) ON UPDATE CASCADE ON DELETE CASCADE;
+    """
+    )
 
 
 def downgrade():
@@ -77,3 +87,12 @@ def downgrade():
     op.drop_column("temp_id_mapping", "deletion_target")
     op.execute("DROP INDEX IF EXISTS idx_user_status_anonymized;")
     op.execute("DROP SEQUENCE IF EXISTS negative_user_id_seq;")
+
+    # Revert CASCADE for employment foreign keys
+    op.execute(
+        """
+        ALTER TABLE employment DROP CONSTRAINT IF EXISTS employment_submitter_id_fkey;
+        ALTER TABLE employment ADD CONSTRAINT employment_submitter_id_fkey 
+        FOREIGN KEY (submitter_id) REFERENCES "user" (id);
+        """
+    )
