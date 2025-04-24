@@ -1,5 +1,5 @@
 from app import db
-from typing import Set
+from typing import Set, Dict
 from app.models import (
     Activity,
     ActivityVersion,
@@ -26,6 +26,11 @@ from app.models import (
     ControllerRefreshToken,
     Team,
 )
+from app.helpers.oauth.models import (
+    ThirdPartyClientEmployment,
+    ThirdPartyClientCompany,
+)
+from app.models.user import UserAccountStatus
 from app.models.team_association_tables import (
     team_vehicle_association_table,
     team_known_address_association_table,
@@ -57,6 +62,7 @@ from app.models.anonymized import (
 )
 from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -379,8 +385,21 @@ class AnonymizationExecutor:
         if not employment_ids or self.dry_run:
             return
 
+        self.delete_third_party_client_employment(employment_ids)
         self.delete_emails(employment_ids=employment_ids)
         self.delete_employments(employment_ids)
+
+    def delete_third_party_client_employment(
+        self, employment_ids: Set[int]
+    ) -> None:
+        if not employment_ids:
+            return
+
+        deleted = ThirdPartyClientEmployment.query.filter(
+            ThirdPartyClientEmployment.employment_id.in_(employment_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "third party client employment")
 
     def anonymize_emails(
         self, employment_ids: Set[int] = None, user_ids: Set[int] = None
@@ -643,12 +662,12 @@ class AnonymizationExecutor:
         for user_id in user_ids:
             IdMappingService.mark_for_deletion("user", user_id)
 
+        self.anonymize_user_employments(user_ids)
         self.anonymize_emails(user_ids=user_ids)
         self.anonymize_regulatory_alerts(user_ids)
         self.anonymize_regulation_computations(user_ids)
         self.anonymize_user_agreements(user_ids)
         self.anonymize_team_admin_users(user_ids=user_ids)
-        self.anonymize_user_vehicles(user_ids)
         self.anonymize_controller_controls(user_ids=user_ids)
 
         if not self.dry_run:
@@ -658,6 +677,7 @@ class AnonymizationExecutor:
         """
         Deletes user dependencies but not the users themselves.
         Users anonymized in-place should be preserved.
+        After deleting dependencies, updates user IDs to their negative values.
 
         Args:
             user_ids: Set of user IDs whose dependencies to delete
@@ -665,7 +685,9 @@ class AnonymizationExecutor:
         if not user_ids or self.dry_run:
             return
 
+        self.delete_dismissed_and_user_employments(user_ids)
         self.delete_expenditures(user_ids=user_ids)
+        self.delete_dismissed_third_party_client_company(user_ids)
         self.delete_dismissed_company_known_address(user_ids)
         self.delete_user_oauth2_token(user_ids)
         self.delete_user_oauth2_auth_code(user_ids)
@@ -678,6 +700,20 @@ class AnonymizationExecutor:
         self.delete_regulatory_alerts(user_ids)
         self.delete_regulation_computations(user_ids)
         self.delete_user_agreements(user_ids)
+
+        self.update_anonymized_users_with_negative_ids(user_ids)
+
+    def delete_dismissed_third_party_client_company(
+        self, user_ids: Set[int]
+    ) -> None:
+        if not user_ids:
+            return
+
+        deleted = ThirdPartyClientCompany.query.filter(
+            ThirdPartyClientCompany.dismiss_author_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "dismissed third party client company")
 
     def delete_dismissed_company_known_address(
         self, user_ids: Set[int]
@@ -740,23 +776,6 @@ class AnonymizationExecutor:
         ).delete(synchronize_session=False)
 
         self.log_deletion(deleted, "user survey actions")
-
-    def anonymize_user_vehicles(self, user_ids: Set[int]) -> None:
-        if not user_ids:
-            return
-
-        vehicles = Vehicle.query.filter(
-            Vehicle.submitter_id.in_(user_ids)
-        ).all()
-
-        if not vehicles:
-            return
-
-        self.log_anonymization(len(vehicles), "vehicle", "for user")
-
-        for vehicle in vehicles:
-            anonymized = AnonVehicle.anonymize(vehicle)
-            self.db.add(anonymized)
 
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
         if not user_ids:
@@ -835,6 +854,88 @@ class AnonymizationExecutor:
         ).delete(synchronize_session=False)
 
         self.log_deletion(deleted, "user agreement")
+
+    def anonymize_user_employments(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        employment_ids = set(
+            id
+            for (id,) in Employment.query.filter(
+                Employment.user_id.in_(user_ids), Employment.user_id.in_()
+            )
+            .with_entities(Employment.id)
+            .all()
+        )
+
+        if employment_ids:
+            self.anonymize_employment_and_dependencies(employment_ids)
+
+    def delete_dismissed_and_user_employments(
+        self, user_ids: Set[int]
+    ) -> None:
+        if not user_ids:
+            return
+
+        employment_ids = set(
+            id
+            for (id,) in Employment.query.filter(
+                Employment.user_id.in_(user_ids)
+            )
+            .with_entities(Employment.id)
+            .all()
+        )
+
+        dismiss_author_employment_ids = set(
+            id
+            for (id,) in Employment.query.filter(
+                Employment.dismiss_author_id.in_(user_ids)
+            )
+            .with_entities(Employment.id)
+            .all()
+        )
+
+        employment_ids.update(dismiss_author_employment_ids)
+
+        if employment_ids:
+            self.delete_employment_and_dependencies(employment_ids)
+
+    def update_anonymized_users_with_negative_ids(
+        self, user_ids: Set[int] = None
+    ) -> Dict:
+        """
+        Updates anonymized users with positive IDs to use their negative ID mappings.
+        If any update fails, the entire process is interrupted.
+
+        Args:
+            user_ids: Optional set of user IDs to update. If None, will update all users
+                     marked as deletion targets in the ID mapping table
+        """
+        if user_ids is None:
+            user_ids = IdMappingService.get_deletion_target_ids("user")
+            logger.info(
+                f"Using {len(user_ids)} user IDs from deletion targets"
+            )
+
+        if not user_ids:
+            logger.info("No user IDs to process")
+            return
+
+        for user_id in user_ids:
+            negative_id = IdMappingService.get_user_negative_id(user_id)
+
+            self.db.execute(
+                text(
+                    'UPDATE "user" SET id = :new_id, email = :new_email WHERE id = :old_id'
+                ),
+                {
+                    "new_id": negative_id,
+                    "old_id": user_id,
+                    "new_email": f"anon_{negative_id}@anonymous.aa",
+                },
+            )
+
+        logger.info(f"Updated {len(user_ids)} users to negative IDs")
 
     def anonymize_company_team_and_dependencies(
         self, company_ids: Set[int]
