@@ -50,6 +50,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "mission_id",
             "mission",
             "is_admin",
+            "is_auto",
             "submitter_id",
             "submitter",
             "user_id",
@@ -71,7 +72,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     submitter_id = graphene.Field(
         graphene.Int,
-        required=True,
+        required=False,
         description="Identifiant de la personne qui a effectué la validation",
     )
     user_id = graphene.Field(
