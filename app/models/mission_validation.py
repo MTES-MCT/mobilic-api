@@ -16,9 +16,16 @@ class MissionValidation(UserEventBaseModel):
     )
     mission = db.relationship("Mission", backref=backref("validations"))
     is_admin = db.Column(db.Boolean, nullable=False)
+    is_auto = db.Column(db.Boolean, nullable=False)
 
     @declared_attr
     def user_id(cls):
+        return db.Column(
+            db.Integer, db.ForeignKey("user.id"), index=True, nullable=True
+        )
+
+    @declared_attr
+    def submitter_id(cls):
         return db.Column(
             db.Integer, db.ForeignKey("user.id"), index=True, nullable=True
         )
