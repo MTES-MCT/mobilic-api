@@ -17,6 +17,7 @@ from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
 from app.helpers.xml.greco import temp_write_greco_xml
+from app.jobs.auto_validations import process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
 from app.models.user import User
@@ -426,3 +427,14 @@ def migrate_anonymize_mission(
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
 def _update_ceased_activity_status():
     update_ceased_activity_status()
+
+
+@app.cli.command("run_daily_tasks", with_appcontext=True)
+def run_daily_tasks():
+    send_daily_emails()
+    _update_ceased_activity_status()
+
+
+@app.cli.command("process_auto_validations", with_appcontext=True)
+def _process_auto_validations():
+    process_auto_validations()
