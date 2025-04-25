@@ -225,6 +225,34 @@ class AnonymizationManager:
             db.session.rollback()
             raise
 
+    def validate_parameters(self) -> bool:
+        """
+        Validate the input parameters for the anonymization operation.
+
+        Checks parameter coherence and the validity of retention periods.
+
+        Returns:
+            bool: Whether the parameters are valid
+        """
+        if self.years < 0 or self.months < 0:
+            logger.error(
+                f"Invalid retention period: years={self.years}, months={self.months}. "
+                "Both must be non-negative."
+            )
+            return False
+
+        total_months = self.years * 12 + self.months
+
+        if total_months < 36:
+            logger.error(
+                f"Retention period too short: {self.years} years and {self.months} months. "
+                "This is below the 3 years and may violate data "
+                "retention policies."
+            )
+            return False
+
+        return True
+
     @abstractmethod
     def execute(self) -> None:
         """

@@ -862,11 +862,22 @@ class AnonymizationExecutor:
         employment_ids = set(
             id
             for (id,) in Employment.query.filter(
-                Employment.user_id.in_(user_ids), Employment.user_id.in_()
+                Employment.user_id.in_(user_ids)
             )
             .with_entities(Employment.id)
             .all()
         )
+
+        dismiss_author_employment_ids = set(
+            id
+            for (id,) in Employment.query.filter(
+                Employment.dismiss_author_id.in_(user_ids)
+            )
+            .with_entities(Employment.id)
+            .all()
+        )
+
+        employment_ids.update(dismiss_author_employment_ids)
 
         if employment_ids:
             self.anonymize_employment_and_dependencies(employment_ids)
@@ -901,8 +912,8 @@ class AnonymizationExecutor:
             self.delete_employment_and_dependencies(employment_ids)
 
     def update_anonymized_users_with_negative_ids(
-        self, user_ids: Set[int] = None
-    ) -> Dict:
+        self, user_ids: Set[int]
+    ) -> None:
         """
         Updates anonymized users with positive IDs to use their negative ID mappings.
         If any update fails, the entire process is interrupted.

@@ -15,7 +15,7 @@ class UserClassifier:
         self.anonymizer = DataFinder(db.session)
 
     def _get_inactive_companies(self) -> Tuple[int, ...]:
-        companies_ceased_employment = set(
+        companies_without_active_employments = set(
             self.anonymizer.find_inactive_companies_by_employment(
                 self.cutoff_date
             )
@@ -27,7 +27,9 @@ class UserClassifier:
         )
 
         return tuple(
-            companies_ceased_employment.union(companies_no_recent_missions)
+            companies_without_active_employments.union(
+                companies_no_recent_missions
+            )
         )
 
     def find_inactive_users(self) -> Dict[str, Set[int]]:
@@ -64,7 +66,7 @@ class UserClassifier:
         )
         AND NOT EXISTS (
             SELECT 1 
-              FROM employement em2
+              FROM employment em2
              WHERE em2.dismissed_at > :cutoff_date
                AND (
                    em2.dismiss_author_id = u.id
@@ -120,6 +122,7 @@ class UserClassifier:
                    e.user_id = u.id OR
                    e.submitter_id = u.id
                    )
+        )
         AND NOT EXISTS (
             SELECT 1 
               FROM expenditure e2
@@ -188,7 +191,7 @@ class UserClassifier:
             )
             AND NOT EXISTS (
                 SELECT 1 
-                  FROM employement em2
+                  FROM employment em2
                  WHERE em2.dismissed_at > :cutoff_date
                    AND (
                        em2.dismiss_author_id = u.id
@@ -244,6 +247,7 @@ class UserClassifier:
                        e.user_id = u.id OR
                        e.submitter_id = u.id
                        )
+            )
             AND NOT EXISTS (
                 SELECT 1 
                   FROM expenditure e2
