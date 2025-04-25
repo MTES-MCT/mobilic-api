@@ -74,7 +74,7 @@ def upgrade():
 
         ALTER TABLE employment DROP CONSTRAINT IF EXISTS employment_submitter_id_fkey;
         ALTER TABLE employment ADD CONSTRAINT employment_submitter_id_fkey 
-        FOREIGN KEY (submitter_id) REFERENCES "user" (id) ON UPDATE CASCADE ON DELETE CASCADE;
+        FOREIGN KEY (submitter_id) REFERENCES "user" (id) ON UPDATE CASCADE;
     """
     )
 

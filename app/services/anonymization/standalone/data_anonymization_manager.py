@@ -62,11 +62,32 @@ class StandaloneDataAnonymizationManager(AnonymizationManager):
 
     def validate_parameters(self) -> bool:
         """
-        Validate the input parameters for the anonymization operation.
+        Validate the input parameters for the standalone anonymization operation.
+
+        Performs common validations via the parent class and adds standalone-specific
+        checks for delete_only mode.
 
         Returns:
             bool: Whether the parameters are valid
         """
+        # First validate common parameters via parent class
+        if not super().validate_parameters():
+            return False
+
+        # Validate standalone-specific parameters
+        if self.delete_only and self.dry_run:
+            logger.error(
+                "Invalid configuration: delete_only mode cannot be used with dry_run"
+            )
+            return False
+
+        if self.delete_only and self.force_clean:
+            logger.error(
+                "Invalid configuration: delete_only mode should not be used with force_clean, "
+                "as it would delete the mapping table needed for deletions"
+            )
+            return False
+
         return True
 
     def process_standalone_data(self, cutoff_date) -> None:

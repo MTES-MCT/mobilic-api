@@ -60,14 +60,6 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
             nullable=False,
         )
 
-    @declared_attr
-    def submitter(cls):
-        return db.relationship(
-            "User",
-            foreign_keys=[cls.submitter_id],
-            backref="submitted_" + cls.backref_base_name,
-        )
-
     certificate_info_snooze_date = db.Column(db.Date, nullable=True)
 
     db.validates("email")(validate_email_field_in_db)
