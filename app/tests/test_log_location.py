@@ -21,7 +21,6 @@ class TestLogLocation(BaseTest):
         self.vehicle = VehicleFactory.create(
             company_id=self.company.id,
             registration_number="CLIO_2001_ID",
-            submitter=self.admin,
             alias="Titine, la terreur des départementales",
         )
         self.geo_api_data = {

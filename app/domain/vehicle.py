@@ -23,7 +23,6 @@ def find_or_create_vehicle(
         if not vehicle:
             vehicle = Vehicle(
                 registration_number=vehicle_registration_number,
-                submitter=current_user,
                 alias=alias,
                 company_id=company_id,
             )

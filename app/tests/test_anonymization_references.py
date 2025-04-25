@@ -347,7 +347,6 @@ class TestAnonymizationReferences(BaseTest):
         vehicle = Vehicle(
             registration_number="TEST-DEL-123",
             company_id=self.company.id,
-            submitter_id=self.user.id,
         )
         db.session.add(vehicle)
         db.session.commit()
@@ -375,7 +374,6 @@ class TestAnonymizationReferences(BaseTest):
         vehicle = Vehicle(
             registration_number="TEST-EXIST-123",
             company_id=self.company.id,
-            submitter_id=self.user.id,
         )
         db.session.add(vehicle)
         db.session.commit()
@@ -411,17 +409,14 @@ class TestAnonymizationReferences(BaseTest):
         vehicle1 = Vehicle(
             registration_number="TEST-DEL-1",
             company_id=self.company.id,
-            submitter_id=self.user.id,
         )
         vehicle2 = Vehicle(
             registration_number="TEST-DEL-2",
             company_id=self.company.id,
-            submitter_id=self.user.id,
         )
         vehicle3 = Vehicle(
             registration_number="TEST-DEL-3",
             company_id=self.company.id,
-            submitter_id=self.user.id,
         )
         db.session.add_all([vehicle1, vehicle2, vehicle3])
         db.session.commit()
