@@ -217,7 +217,7 @@ class TestAutoValidation(BaseTest):
         job_process_auto_validations()
 
         # An admin auto validation should exist
-        auto_validations = get_auto_validations(now=now)
+        auto_validations = MissionAutoValidation.query.all()
         self.assertEqual(1, len(auto_validations))
         self.assertTrue(auto_validations[0].is_admin)
 
