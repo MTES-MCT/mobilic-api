@@ -5,14 +5,21 @@ from app.domain.validation import validate_mission
 from app.jobs import log_execution
 from app.models import MissionAutoValidation
 
+THRESHOLD_HOURS = 24
+
+
+def get_auto_validations(now):
+    threshold_time = now - timedelta(hours=THRESHOLD_HOURS)
+    auto_validations = MissionAutoValidation.query.filter(
+        MissionAutoValidation.reception_time < threshold_time
+    ).all()
+    return auto_validations
+
 
 @log_execution
 def process_auto_validations():
     now = datetime.now()
-    threshold_time = now - timedelta(hours=24)
-    auto_validations = MissionAutoValidation.query.filter(
-        MissionAutoValidation.reception_time < threshold_time
-    ).all()
+    auto_validations = get_auto_validations(now=now)
     app.logger.info(f"Found #{len(auto_validations)} auto validations")
 
     ids_to_delete = []

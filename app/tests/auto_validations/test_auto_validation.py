@@ -1,10 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask.ctx import AppContext
 
 from app import app
 from app.domain.validation import validate_mission
-from app.models import MissionAutoValidation, Mission
+from app.jobs.auto_validations import (
+    THRESHOLD_HOURS,
+    get_auto_validations,
+    process_auto_validations,
+)
+from app.models import MissionAutoValidation, Mission, MissionValidation
 from app.seed import CompanyFactory, UserFactory
 from app.seed.helpers import get_time, AuthenticatedUserContext
 from app.tests import BaseTest
@@ -163,4 +168,71 @@ class TestAutoValidation(BaseTest):
             )
 
         auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(0, len(auto_validations))
+
+    def test_auto_validation_mission_recorded_one_day_ago(self):
+        ## An employee logs an activity for himself more than a day ago
+
+        now = datetime.now()
+        more_than_a_day_ago = now - timedelta(hours=THRESHOLD_HOURS + 1)
+
+        employee = self.team_mates[0]
+        mission_id = _log_activities_in_mission(
+            submitter=employee,
+            company=self.company,
+            user=employee,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(2, 8), end_time=get_time(2, 10)
+                ),
+            ],
+            submission_time=more_than_a_day_ago,
+        )
+
+        # An auto validation should exist
+        auto_validations = get_auto_validations(now=now)
+        self.assertEqual(1, len(auto_validations))
+
+        # Cron job runs
+        process_auto_validations()
+
+        # There should not be auto validations anymore
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(0, len(auto_validations))
+
+        # Mission should be validated
+        validations = MissionValidation.query.all()
+        self.assertEqual(1, len(validations))
+        validation = validations[0]
+        self.assertEqual(validation.mission_id, mission_id)
+        self.assertEqual(validation.is_admin, False)
+        self.assertEqual(validation.is_auto, True)
+        self.assertIsNone(validation.submitter_id)
+
+        with self.assertRaises(Exception):
+            # Employee shouldn't be able to validate this mission
+            mission = Mission.query.get(mission_id)
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+    def test_auto_validation_mission_recorded_less_one_day_ago(self):
+        ## An employee logs an activity for himself less than a day ago
+
+        now = datetime.now()
+        less_than_a_day_ago = now - timedelta(hours=THRESHOLD_HOURS - 1)
+
+        employee = self.team_mates[0]
+        _log_activities_in_mission(
+            submitter=employee,
+            company=self.company,
+            user=employee,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(2, 8), end_time=get_time(2, 10)
+                ),
+            ],
+            submission_time=less_than_a_day_ago,
+        )
+        auto_validations = get_auto_validations(now=now)
         self.assertEqual(0, len(auto_validations))
