@@ -80,7 +80,7 @@ class TestAutoValidation(BaseTest):
 
     def test_employee_logs_for_team(self):
 
-        ## An employee logs two activities for himself and then for himself in a mission
+        ## An employee logs two activities for himself and then for a teammate in a mission
 
         logger = self.team_mates[0]
         team_mate_1 = self.team_mates[1]
