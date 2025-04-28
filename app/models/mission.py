@@ -275,3 +275,16 @@ class Mission(EventBaseModel):
         if deleted_by_id:
             deleted_by_user = User.query.get(deleted_by_id)
         return deleted_by_user.display_name if deleted_by_user else "-"
+
+    def has_activity_for_user(self, user):
+        return (
+            len(
+                [
+                    activity
+                    for activity in self.activities_for(
+                        user=user, include_dismissed_activities=True
+                    )
+                ]
+            )
+            > 0
+        )

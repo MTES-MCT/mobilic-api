@@ -8,6 +8,7 @@ from app import db
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.activity import ActivityOutput
 from app.domain.log_activities import log_activity
+from app.domain.mission_auto_validation import create_mission_auto_validation
 from app.domain.permissions import (
     check_actor_can_write_on_mission_over_period,
     check_actor_can_edit_activity,
@@ -90,21 +91,11 @@ def log_activity_(input):
     if user_id:
         user = User.query.get(user_id)
 
-    is_user_admin = company_admin(current_user, mission.company_id)
-    if not is_user_admin:
-        existing_activities = [
-            activity
-            for activity in mission.activities
-            if activity.user == user
-        ]
-        if len(existing_activities) == 0:
-            auto_validation = MissionAutoValidation(
-                mission=mission,
-                is_admin=False,
-                user=user,
-                reception_time=reception_time,
-            )
-            db.session.add(auto_validation)
+    user_has_activity = mission.has_activity_for_user(user=user)
+    if not user_has_activity:
+        create_mission_auto_validation(
+            for_user=user, mission=mission, reception_time=reception_time
+        )
 
     activity = log_activity(
         submitter=current_user,
@@ -118,8 +109,6 @@ def log_activity_(input):
         context=input.get("context"),
         creation_time=input.get("creation_time"),
     )
-
-    ## Auto validation if user is not admin of the company and it's the first activity for this user for this mission
 
     return activity
 
