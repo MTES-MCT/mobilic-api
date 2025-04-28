@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 
 from app import db
-from app.domain.mission import get_mission_start_and_end_from_activities
+from app.domain.mission import (
+    get_mission_start_and_end_from_activities,
+    end_mission_for_user,
+)
 from app.domain.permissions import company_admin
 from app.domain.regulations import compute_regulations
 from app.domain.user import get_current_employment_in_company
@@ -12,7 +15,7 @@ from app.helpers.errors import (
     MissionStillRunningError,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import MissionValidation, MissionEnd
+from app.models import MissionValidation, MissionEnd, MissionAutoValidation
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
@@ -63,14 +66,19 @@ def validate_mission(
     creation_time=None,
     employee_version_start_time=None,
     employee_version_end_time=None,
+    is_auto_validation=False,
 ):
     validation_time = datetime.now()
-    is_admin_validation = company_admin(submitter, mission.company_id)
 
-    if not is_admin_validation and for_user.id != submitter.id:
-        raise AuthorizationError(
-            "Actor is not authorized to validate the mission for the user"
-        )
+    if is_auto_validation:
+        is_admin_validation = False
+    else:
+        is_admin_validation = company_admin(submitter, mission.company_id)
+
+        if not is_admin_validation and for_user.id != submitter.id:
+            raise AuthorizationError(
+                "Actor is not authorized to validate the mission for the user"
+            )
 
     activities_to_validate = mission.activities_for(for_user)
 
@@ -79,8 +87,11 @@ def validate_mission(
             "There are no activities in the validation scope."
         )
 
-    if any([not a.end_time for a in activities_to_validate]):
-        raise MissionStillRunningError()
+    if is_auto_validation:
+        end_mission_for_user(user=for_user, mission=mission)
+    else:
+        if any([not a.end_time for a in activities_to_validate]):
+            raise MissionStillRunningError()
 
     if not mission.ended_for(for_user):
         db.session.add(
@@ -95,14 +106,20 @@ def validate_mission(
 
     validation = _get_or_create_validation(
         mission,
-        submitter,
+        None if is_auto_validation else submitter,
         for_user,
         is_admin=is_admin_validation,
         validation_time=validation_time,
         creation_time=creation_time,
+        is_auto_validation=is_auto_validation,
     )
 
     if not mission.is_holiday():
+        db.session.query(MissionAutoValidation).filter(
+            MissionAutoValidation.mission == mission,
+            MissionAutoValidation.user == for_user,
+        ).delete(synchronize_session=False)
+
         employment = get_current_employment_in_company(
             user=for_user, company=mission.company
         )
@@ -125,10 +142,12 @@ def _get_or_create_validation(
     is_admin,
     validation_time=None,
     creation_time=None,
+    is_auto_validation=False,
 ):
     existing_validation = MissionValidation.query.filter(
         MissionValidation.mission_id == mission.id,
-        MissionValidation.submitter_id == submitter.id,
+        MissionValidation.submitter_id
+        == (submitter.id if submitter else None),
         MissionValidation.user_id == (user.id if user else None),
     ).one_or_none()
 
@@ -142,6 +161,7 @@ def _get_or_create_validation(
             reception_time=validation_time or datetime.now(),
             is_admin=is_admin,
             creation_time=creation_time,
+            is_auto=is_auto_validation,
         )
         db.session.add(validation)
         return validation

@@ -16,6 +16,7 @@ from app.data_access.mission import MissionOutput
 from app.domain.mission import (
     get_start_end_time_at_employee_validation,
     get_mission_start_and_end_from_activities,
+    end_mission_for_user,
 )
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -204,43 +205,16 @@ class EndMission(AuthenticatedMutation):
                     f"Actor is not authorized to log for this user."
                 )
 
-            existing_mission_end = MissionEnd.query.filter(
-                MissionEnd.user_id == user.id,
-                MissionEnd.mission_id == mission.id,
-            ).one_or_none()
-
-            if existing_mission_end:
-                raise MissionAlreadyEndedError(
-                    mission_end=existing_mission_end
-                )
-
-            user_activities = mission.activities_for(user)
-            last_activity = user_activities[-1] if user_activities else None
-
             end_time = args["end_time"]
-            if last_activity:
-                if last_activity.start_time > end_time or (
-                    last_activity.end_time
-                    and last_activity.end_time > end_time
-                ):
-                    raise UnavailableSwitchModeError(
-                        "Invalid time for mission end because there are activities starting or ending after"
-                    )
-                if not last_activity.end_time:
-                    last_activity.revise(
-                        reception_time,
-                        end_time=args["end_time"],
-                        creation_time=args.get("creation_time"),
-                    )
+            creation_time = args.get("creation_time")
 
-            db.session.add(
-                MissionEnd(
-                    submitter=current_user,
-                    reception_time=reception_time,
-                    user=user,
-                    mission=mission,
-                    creation_time=args.get("creation_time"),
-                )
+            end_mission_for_user(
+                user=user,
+                mission=mission,
+                reception_time=reception_time,
+                end_time=end_time,
+                creation_time=creation_time,
+                submitter=current_user,
             )
 
         return mission
