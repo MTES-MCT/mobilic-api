@@ -17,7 +17,7 @@ def get_auto_validations(now):
 
 
 @log_execution
-def process_auto_validations():
+def job_process_auto_validations():
     now = datetime.now()
     auto_validations = get_auto_validations(now=now)
     app.logger.info(f"Found #{len(auto_validations)} auto validations")

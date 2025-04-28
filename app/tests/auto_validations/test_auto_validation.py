@@ -7,7 +7,7 @@ from app.domain.validation import validate_mission
 from app.jobs.auto_validations import (
     THRESHOLD_HOURS,
     get_auto_validations,
-    process_auto_validations,
+    job_process_auto_validations,
 )
 from app.models import MissionAutoValidation, Mission, MissionValidation
 from app.seed import CompanyFactory, UserFactory
@@ -194,7 +194,7 @@ class TestAutoValidation(BaseTest):
         self.assertEqual(1, len(auto_validations))
 
         # Cron job runs
-        process_auto_validations()
+        job_process_auto_validations()
 
         # There should not be auto validations anymore
         auto_validations = MissionAutoValidation.query.all()
