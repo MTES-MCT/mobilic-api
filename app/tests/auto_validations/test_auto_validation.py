@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 
 from flask.ctx import AppContext
+from freezegun import freeze_time
 
 from app import app
 from app.domain.validation import validate_mission
 from app.jobs.auto_validations import (
     EMPLOYEE_THRESHOLD_HOURS,
-    get_auto_validations,
+    get_employee_auto_validations,
     job_process_auto_validations,
 )
 from app.models import MissionAutoValidation, Mission, MissionValidation
@@ -210,7 +211,7 @@ class TestAutoValidation(BaseTest):
         )
 
         # An employee auto validation should exist
-        auto_validations = get_auto_validations(now=now)
+        auto_validations = get_employee_auto_validations(now=now)
         self.assertEqual(1, len(auto_validations))
 
         # Cron job runs
@@ -237,7 +238,7 @@ class TestAutoValidation(BaseTest):
                 submitter=employee, mission=mission, for_user=employee
             )
 
-    def test_auto_validation_mission_recorded_less_one_day_ago(self):
+    def test_get_auto_validations_when_mission_recorded_less_one_day_ago(self):
         ## An employee logs an activity for himself less than a day ago
 
         now = datetime.now()
@@ -257,5 +258,55 @@ class TestAutoValidation(BaseTest):
             ],
             submission_time=less_than_a_day_ago,
         )
-        auto_validations = get_auto_validations(now=now)
+        auto_validations = get_employee_auto_validations(now=now)
+        self.assertEqual(0, len(auto_validations))
+
+    def test_mission_gets_auto_validated_employee_and_admin(self):
+
+        # employee logs time on a thursday
+        employee = self.team_mates[0]
+        with freeze_time(datetime(2025, 4, 17, 18, 0)):
+            _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(1, len(auto_validations))
+        auto_validation = auto_validations[0]
+        self.assertFalse(auto_validation.is_admin)
+
+        # it gets validated on friday - and it creates an admin auto validation
+        with freeze_time(datetime(2025, 4, 18, 19, 0)):
+            job_process_auto_validations()
+
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(1, len(auto_validations))
+        auto_validation = auto_validations[0]
+        self.assertTrue(auto_validation.is_admin)
+
+        # which does not get validated 2 days after because it's a sunday
+        with freeze_time(datetime(2025, 4, 20, 20, 0)):
+            job_process_auto_validations()
+
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(1, len(auto_validations))
+
+        # 19 and 20 are weekends, 21 is a bank holiday so it will gets validated on 23rd after 19h00
+        with freeze_time(datetime(2025, 4, 23, 18, 0)):
+            job_process_auto_validations()
+
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(1, len(auto_validations))
+
+        with freeze_time(datetime(2025, 4, 23, 20, 0)):
+            job_process_auto_validations()
+
+        auto_validations = MissionAutoValidation.query.all()
         self.assertEqual(0, len(auto_validations))

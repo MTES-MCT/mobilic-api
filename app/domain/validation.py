@@ -67,10 +67,15 @@ def validate_mission(
     employee_version_start_time=None,
     employee_version_end_time=None,
     is_auto_validation=False,
+    is_admin_validation=None,
 ):
     validation_time = datetime.now()
 
-    is_admin_validation = company_admin(submitter, mission.company_id)
+    is_admin_validation = (
+        is_admin_validation
+        if is_admin_validation is not None
+        else company_admin(submitter, mission.company_id)
+    )
 
     if not is_auto_validation:
         if not is_admin_validation and for_user.id != submitter.id:
