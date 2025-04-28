@@ -5,7 +5,7 @@ from flask.ctx import AppContext
 from app import app
 from app.domain.validation import validate_mission
 from app.jobs.auto_validations import (
-    THRESHOLD_HOURS,
+    EMPLOYEE_THRESHOLD_HOURS,
     get_auto_validations,
     job_process_auto_validations,
 )
@@ -174,7 +174,9 @@ class TestAutoValidation(BaseTest):
         ## An employee logs an activity for himself more than a day ago
 
         now = datetime.now()
-        more_than_a_day_ago = now - timedelta(hours=THRESHOLD_HOURS + 1)
+        more_than_a_day_ago = now - timedelta(
+            hours=EMPLOYEE_THRESHOLD_HOURS + 1
+        )
 
         employee = self.team_mates[0]
         mission_id = _log_activities_in_mission(
@@ -189,16 +191,17 @@ class TestAutoValidation(BaseTest):
             submission_time=more_than_a_day_ago,
         )
 
-        # An auto validation should exist
+        # An employee auto validation should exist
         auto_validations = get_auto_validations(now=now)
         self.assertEqual(1, len(auto_validations))
 
         # Cron job runs
         job_process_auto_validations()
 
-        # There should not be auto validations anymore
-        auto_validations = MissionAutoValidation.query.all()
-        self.assertEqual(0, len(auto_validations))
+        # An admin auto validation should exist
+        auto_validations = get_auto_validations(now=now)
+        self.assertEqual(1, len(auto_validations))
+        self.assertTrue(auto_validations[0].is_admin)
 
         # Mission should be validated
         validations = MissionValidation.query.all()
@@ -220,7 +223,9 @@ class TestAutoValidation(BaseTest):
         ## An employee logs an activity for himself less than a day ago
 
         now = datetime.now()
-        less_than_a_day_ago = now - timedelta(hours=THRESHOLD_HOURS - 1)
+        less_than_a_day_ago = now - timedelta(
+            hours=EMPLOYEE_THRESHOLD_HOURS - 1
+        )
 
         employee = self.team_mates[0]
         _log_activities_in_mission(
