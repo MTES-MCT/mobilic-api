@@ -922,14 +922,7 @@ class AnonymizationExecutor:
             user_ids: Optional set of user IDs to update. If None, will update all users
                      marked as deletion targets in the ID mapping table
         """
-        if user_ids is None:
-            user_ids = IdMappingService.get_deletion_target_ids("user")
-            logger.info(
-                f"Using {len(user_ids)} user IDs from deletion targets"
-            )
-
         if not user_ids:
-            logger.info("No user IDs to process")
             return
 
         for user_id in user_ids:
