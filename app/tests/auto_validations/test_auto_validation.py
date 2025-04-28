@@ -13,12 +13,21 @@ from app.models import MissionAutoValidation, Mission, MissionValidation
 from app.seed import CompanyFactory, UserFactory
 from app.seed.helpers import get_time, AuthenticatedUserContext
 from app.tests import BaseTest
-from app.tests.helpers import _log_activities_in_mission, WorkPeriod
+from app.tests.helpers import (
+    _log_activities_in_mission,
+    WorkPeriod,
+    init_regulation_checks_data,
+    init_businesses_data,
+)
 
 
 class TestAutoValidation(BaseTest):
     def setUp(self):
         super().setUp()
+
+        init_regulation_checks_data()
+        init_businesses_data()
+
         self.company = CompanyFactory.create()
         self.team_leader = UserFactory.create(
             first_name="Tim",
@@ -129,9 +138,9 @@ class TestAutoValidation(BaseTest):
         self.assertEqual(auto_validation.user_id, team_mate_1.id)
         self.assertEqual(auto_validation.reception_time, second_time)
 
-    def test_do_not_create_auto_validation_for_admin(self):
+    def test_auto_validation_for_admin(self):
 
-        _log_activities_in_mission(
+        mission_id = _log_activities_in_mission(
             submitter=self.team_leader,
             company=self.company,
             user=self.team_leader,
@@ -143,9 +152,16 @@ class TestAutoValidation(BaseTest):
         )
 
         auto_validations = MissionAutoValidation.query.all()
-        self.assertEqual(0, len(auto_validations))
+        self.assertEqual(1, len(auto_validations))
+        auto_validation = auto_validations[0]
+        self.assertEqual(auto_validation.user_id, self.team_leader.id)
+        self.assertEqual(auto_validation.mission_id, mission_id)
+        self.assertTrue(auto_validation.is_admin)
 
-    def test_validating_mission_removes_auto_validation(self):
+    def test_validating_employee_mission_removes_auto_validation_creates_admin_auto_validation(
+        self,
+    ):
+
         ## An employee logs an activity for himself in a mission
         employee = self.team_mates[0]
         mission_id = _log_activities_in_mission(
@@ -160,6 +176,7 @@ class TestAutoValidation(BaseTest):
         )
         auto_validations = MissionAutoValidation.query.all()
         self.assertEqual(1, len(auto_validations))
+        self.assertFalse(auto_validations[0].is_admin)
 
         mission = Mission.query.get(mission_id)
         with AuthenticatedUserContext(user=employee):
@@ -168,7 +185,8 @@ class TestAutoValidation(BaseTest):
             )
 
         auto_validations = MissionAutoValidation.query.all()
-        self.assertEqual(0, len(auto_validations))
+        self.assertEqual(1, len(auto_validations))
+        self.assertTrue(auto_validations[0].is_admin)
 
     def test_auto_validation_mission_recorded_one_day_ago(self):
         ## An employee logs an activity for himself more than a day ago

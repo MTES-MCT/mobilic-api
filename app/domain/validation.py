@@ -70,11 +70,9 @@ def validate_mission(
 ):
     validation_time = datetime.now()
 
-    if is_auto_validation:
-        is_admin_validation = False
-    else:
-        is_admin_validation = company_admin(submitter, mission.company_id)
+    is_admin_validation = company_admin(submitter, mission.company_id)
 
+    if not is_auto_validation:
         if not is_admin_validation and for_user.id != submitter.id:
             raise AuthorizationError(
                 "Actor is not authorized to validate the mission for the user"
@@ -119,6 +117,14 @@ def validate_mission(
             MissionAutoValidation.mission == mission,
             MissionAutoValidation.user == for_user,
         ).delete(synchronize_session=False)
+        if not is_admin_validation:
+            admin_auto_validation = MissionAutoValidation(
+                mission=mission,
+                is_admin=True,
+                user=for_user,
+                reception_time=validation_time,
+            )
+            db.session.add(admin_auto_validation)
 
         employment = get_current_employment_in_company(
             user=for_user, company=mission.company
