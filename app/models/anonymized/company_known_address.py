@@ -12,8 +12,14 @@ class AnonCompanyKnownAddress(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, address):
+        new_id = cls.get_new_id("company_known_address", address.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("company_known_address", address.id)
+        anonymized.id = new_id
         anonymized.company_id = cls.get_new_id("company", address.company_id)
         anonymized.creation_time = cls.truncate_to_month(address.creation_time)
         anonymized.address_id = cls.get_new_id("address", address.address_id)

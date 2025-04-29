@@ -14,8 +14,14 @@ class AnonMissionValidation(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, validation):
+        new_id = cls.get_new_id("mission_validation", validation.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("mission_validation", validation.id)
+        anonymized.id = new_id
         anonymized.mission_id = cls.get_new_id(
             "mission", validation.mission_id
         )

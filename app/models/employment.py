@@ -10,6 +10,7 @@ from app.models.mixins.has_business import HasBusiness
 from app.models.team import Team
 from app.models.utils import enum_column
 from sqlalchemy import Index, text
+from sqlalchemy.ext.declarative import declared_attr
 
 
 class EmploymentRequestValidationStatus(str, Enum):
@@ -49,6 +50,15 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
     )
     team = db.relationship(Team, backref="employments")
+    # Needed for anonymization process if the submitter is still linked to an active user
+    @declared_attr
+    def submitter_id(cls):
+        return db.Column(
+            db.Integer,
+            db.ForeignKey("user.id", onupdate="CASCADE"),
+            index=True,
+            nullable=False,
+        )
 
     certificate_info_snooze_date = db.Column(db.Date, nullable=True)
 

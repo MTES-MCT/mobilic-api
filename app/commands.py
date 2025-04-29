@@ -362,6 +362,11 @@ def sync_brevo_command(pipeline_names, verbose):
     app.logger.info("Process sync companies with Brevo done")
 
 
+@app.cli.command("update_ceased_activity_status", with_appcontext=True)
+def _update_ceased_activity_status():
+    update_ceased_activity_status()
+
+
 @app.cli.command("migrate_anonymize_data", with_appcontext=True)
 @click.option(
     "--verbose",
@@ -388,7 +393,7 @@ def sync_brevo_command(pipeline_names, verbose):
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
-def migrate_anonymize_mission(
+def anonymize_standalone_data_command(
     verbose, no_dry_run, delete_only, test, force_clean
 ):
     """
@@ -404,7 +409,7 @@ def migrate_anonymize_mission(
 
     In test mode, all database changes are rolled back at the end.
     """
-    from app.services.anonymization.main import anonymize_expired_data
+    from app.services.anonymization import anonymize_expired_data
 
     if no_dry_run and delete_only:
         click.echo(
@@ -423,6 +428,51 @@ def migrate_anonymize_mission(
     )
 
 
-@app.cli.command("update_ceased_activity_status", with_appcontext=True)
-def _update_ceased_activity_status():
-    update_ceased_activity_status()
+@app.cli.command("anonymize_users", with_appcontext=True)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for more detailed output",
+)
+@click.option(
+    "--no-dry-run",
+    is_flag=True,
+    help="Disable dry run mode: perform actual anonymization",
+)
+@click.option(
+    "--test",
+    is_flag=True,
+    help="Test mode: rollback all changes at the end",
+)
+@click.option(
+    "--force-clean",
+    is_flag=True,
+    help="Delete the content of IdMapping table",
+)
+def anonymize_users_command(verbose, no_dry_run, test, force_clean):
+    """
+    Anonymize users older than threshold.
+
+    This command operates by default in dry run mode, which creates ID mappings
+    without modifying user records.
+
+    Available modes:
+    - Dry run mode (default): Create ID mappings without modifying users
+    - Normal mode (--no-dry-run): Perform actual anonymization with user modifications
+
+    In test mode, all database changes are rolled back at the end.
+
+    Recommended workflow:
+    1. Run with default settings to create ID mappings
+    2. Run with --no-dry-run to perform actual anonymization
+    """
+    from app.services.anonymization.user_related import anonymize_users
+
+    dry_run = not no_dry_run
+
+    anonymize_users(
+        verbose=verbose,
+        dry_run=dry_run,
+        test_mode=test,
+        force_clean=force_clean,
+    )

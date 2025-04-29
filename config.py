@@ -123,13 +123,10 @@ class Config:
         else datetime(2024, 12, 30)
     )
     ANONYMIZATION_THRESHOLD_YEAR = int(
-        os.environ.get("ANONYMIZATION_THRESHOLD_YEAR", 4)
+        os.environ.get("ANONYMIZATION_THRESHOLD_YEAR", 3)
     )
     ANONYMIZATION_THRESHOLD_MONTH = int(
         os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
-    )
-    ANONYMIZATION_USER_BATCH = int(
-        os.environ.get("ANONYMIZATION_USER_BATCH", 100)
     )
     EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
         os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
