@@ -67,14 +67,17 @@ def validate_mission(
     employee_version_start_time=None,
     employee_version_end_time=None,
     is_auto_validation=False,
+    is_admin_validation=None,
 ):
     validation_time = datetime.now()
 
-    if is_auto_validation:
-        is_admin_validation = False
-    else:
-        is_admin_validation = company_admin(submitter, mission.company_id)
+    is_admin_validation = (
+        is_admin_validation
+        if is_admin_validation is not None
+        else company_admin(submitter, mission.company_id)
+    )
 
+    if not is_auto_validation:
         if not is_admin_validation and for_user.id != submitter.id:
             raise AuthorizationError(
                 "Actor is not authorized to validate the mission for the user"
@@ -88,7 +91,9 @@ def validate_mission(
         )
 
     if is_auto_validation:
-        end_mission_for_user(user=for_user, mission=mission)
+        end_mission_for_user(
+            user=for_user, mission=mission, raise_already_ended=False
+        )
     else:
         if any([not a.end_time for a in activities_to_validate]):
             raise MissionStillRunningError()
@@ -119,6 +124,14 @@ def validate_mission(
             MissionAutoValidation.mission == mission,
             MissionAutoValidation.user == for_user,
         ).delete(synchronize_session=False)
+        if not is_admin_validation:
+            admin_auto_validation = MissionAutoValidation(
+                mission=mission,
+                is_admin=True,
+                user=for_user,
+                reception_time=validation_time,
+            )
+            db.session.add(admin_auto_validation)
 
         employment = get_current_employment_in_company(
             user=for_user, company=mission.company
@@ -149,6 +162,8 @@ def _get_or_create_validation(
         MissionValidation.submitter_id
         == (submitter.id if submitter else None),
         MissionValidation.user_id == (user.id if user else None),
+        MissionValidation.is_admin == is_admin,
+        MissionValidation.is_auto == is_auto_validation,
     ).one_or_none()
 
     if existing_validation:

@@ -136,6 +136,7 @@ def end_mission_for_user(
     end_time=None,
     creation_time=None,
     submitter=None,
+    raise_already_ended=True,
 ):
 
     if reception_time is None:
@@ -153,7 +154,10 @@ def end_mission_for_user(
     ).one_or_none()
 
     if existing_mission_end:
-        raise MissionAlreadyEndedError(mission_end=existing_mission_end)
+        if raise_already_ended:
+            raise MissionAlreadyEndedError(mission_end=existing_mission_end)
+        else:
+            return
 
     user_activities = mission.activities_for(user)
     last_activity = user_activities[-1] if user_activities else None
