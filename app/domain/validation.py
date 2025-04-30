@@ -162,6 +162,8 @@ def _get_or_create_validation(
         MissionValidation.submitter_id
         == (submitter.id if submitter else None),
         MissionValidation.user_id == (user.id if user else None),
+        MissionValidation.is_admin == is_admin,
+        MissionValidation.is_auto == is_auto_validation,
     ).one_or_none()
 
     if existing_validation:
