@@ -91,7 +91,9 @@ def validate_mission(
         )
 
     if is_auto_validation:
-        end_mission_for_user(user=for_user, mission=mission)
+        end_mission_for_user(
+            user=for_user, mission=mission, raise_already_ended=False
+        )
     else:
         if any([not a.end_time for a in activities_to_validate]):
             raise MissionStillRunningError()
