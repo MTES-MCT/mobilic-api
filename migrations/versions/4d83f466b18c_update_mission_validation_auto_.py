@@ -48,6 +48,28 @@ def upgrade():
         "NOT is_auto OR submitter_id IS NULL",
     )
 
+    op.drop_constraint(
+        "only_one_validation_per_submitter_mission_and_user",
+        "mission_validation",
+        type_="unique",
+    )
+
+    op.create_index(
+        "uniq_employee_mission_validation",
+        "mission_validation",
+        ["mission_id", "submitter_id", "user_id"],
+        unique=True,
+        postgresql_where=sa.text("is_admin = false"),
+    )
+
+    op.create_index(
+        "uniq_admin_mission_validation",
+        "mission_validation",
+        ["mission_id", "submitter_id", "user_id", "is_auto"],
+        unique=True,
+        postgresql_where=sa.text("is_admin = true"),
+    )
+
     op.alter_column(
         "mission_end",
         "submitter_id",
@@ -70,6 +92,18 @@ def downgrade():
         nullable=False,
     )
     op.drop_column("mission_validation", "is_auto")
+    op.execute("DROP INDEX IF EXISTS uniq_employee_mission_validation")
+    op.execute("DROP INDEX IF EXISTS uniq_admin_mission_validation")
+    op.execute(
+        """
+        ALTER TABLE mission_validation ADD CONSTRAINT only_one_validation_per_submitter_mission_and_user
+        EXCLUDE USING GIST (
+            mission_id WITH =,
+            submitter_id WITH =,
+            user_id WITH =
+        )
+        """
+    )
     op.create_check_constraint(
         "non_admin_can_only_validate_for_self",
         "mission_validation",

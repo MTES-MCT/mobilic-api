@@ -310,3 +310,6 @@ class TestAutoValidation(BaseTest):
 
         auto_validations = MissionAutoValidation.query.all()
         self.assertEqual(0, len(auto_validations))
+
+        mission_validations = MissionValidation.query.all()
+        self.assertEqual(2, len(mission_validations))
