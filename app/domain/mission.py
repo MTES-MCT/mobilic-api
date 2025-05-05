@@ -50,8 +50,11 @@ def get_mission_start_and_end(mission, user):
 def get_mission_start_and_end_from_activities(activities, user):
     user_timezone = gettz(user.timezone_name)
     mission_start = to_tz(activities[0].start_time, user_timezone).date()
-    end_time_user_tz = to_tz(activities[-1].end_time, user_timezone)
-    mission_end = end_time_user_tz.date() if end_time_user_tz else None
+    mission_end = (
+        to_tz(activities[-1].end_time, user_timezone).date()
+        if activities[-1].end_time
+        else None
+    )
     return mission_start, mission_end
 
 
