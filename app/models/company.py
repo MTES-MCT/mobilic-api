@@ -2,6 +2,7 @@ from datetime import date
 from cached_property import cached_property
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import validates
+from sqlalchemy import text
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
@@ -97,7 +98,30 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
 
     def get_admins(self, start, end):
         users = self.users_between(start, end)
-        return [user for user in users if user.has_admin_rights(self.id)]
+        user_ids = [user.id for user in users]
+
+        sql = text(
+            """
+            SELECT u.*
+            FROM "user" u
+            JOIN (
+                SELECT DISTINCT ON (user_id) *
+                FROM employment
+                WHERE user_id = ANY(:user_ids)
+                AND company_id = :company_id
+                ORDER BY user_id, start_date DESC
+            ) e ON e.user_id = u.id
+            WHERE has_admin_rights is true
+        """
+        )
+        result = db.session.execute(
+            sql,
+            {
+                "user_ids": user_ids,
+                "company_id": self.id,
+            },
+        )
+        return result.fetchall()
 
     def query_current_users(self):
         from app.models import User
