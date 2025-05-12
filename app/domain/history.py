@@ -190,7 +190,9 @@ def actions_history(
                     submitter=resource.submitter,
                     submitter_has_admin_rights=resource.submitter.has_admin_rights(
                         mission.company_id
-                    ),
+                    )
+                    if resource.submitter
+                    else False,
                     resource=resource,
                     type=LogActionType.CREATE,
                     is_after_employee_validation=user_validation.reception_time

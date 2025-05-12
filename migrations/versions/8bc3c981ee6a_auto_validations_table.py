@@ -51,7 +51,12 @@ def upgrade():
         ["user_id"],
         unique=False,
     )
-    sa.Index("ix_mission_auto_validation_reception_time", "reception_time")
+    op.create_index(
+        op.f("ix_mission_auto_validation_reception_time"),
+        "mission_auto_validation",
+        ["reception_time"],
+        unique=False,
+    )
 
 
 def downgrade():
