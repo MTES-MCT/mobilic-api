@@ -415,7 +415,7 @@ def find_employee_for_invitation(
 
 
 @log_execution
-def update_ceased_activity_status():
+def job_update_ceased_activity_status():
 
     companies = (
         Company.query.filter(

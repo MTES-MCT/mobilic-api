@@ -303,7 +303,9 @@ class MissionAlreadyEndedError(MobilicError):
                             id=mission_end.submitter.id,
                             firstName=mission_end.submitter.first_name,
                             lastName=mission_end.submitter.last_name,
-                        ),
+                        )
+                        if mission_end.submitter is not None
+                        else dict(),
                     )
                 )
             )

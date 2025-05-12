@@ -1,6 +1,13 @@
+from datetime import datetime
+
 from dateutil.tz import gettz
 from sqlalchemy import desc
 
+from app import db
+from app.helpers.errors import (
+    MissionAlreadyEndedError,
+    UnavailableSwitchModeError,
+)
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_tz
 from app.models import (
@@ -8,6 +15,7 @@ from app.models import (
     Mission,
     RegulatoryAlert,
     RegulationCheck,
+    MissionEnd,
 )
 from app.models import User
 from app.models.location_entry import LocationEntryType
@@ -119,3 +127,62 @@ def get_start_end_time_at_employee_validation(mission, users_ids):
             activities_at_employee_validation_time[-1].end_time,
         )
     return ret
+
+
+def end_mission_for_user(
+    user,
+    mission,
+    reception_time=None,
+    end_time=None,
+    creation_time=None,
+    submitter=None,
+    raise_already_ended=True,
+):
+
+    if reception_time is None:
+        reception_time = datetime.now()
+
+    if end_time is None:
+        end_time = reception_time
+
+    if creation_time is None:
+        creation_time = reception_time
+
+    existing_mission_end = MissionEnd.query.filter(
+        MissionEnd.user_id == user.id,
+        MissionEnd.mission_id == mission.id,
+    ).one_or_none()
+
+    if existing_mission_end:
+        if raise_already_ended:
+            raise MissionAlreadyEndedError(mission_end=existing_mission_end)
+        else:
+            return
+
+    user_activities = mission.activities_for(user)
+    last_activity = user_activities[-1] if user_activities else None
+
+    if last_activity:
+        if last_activity.start_time > end_time or (
+            last_activity.end_time and last_activity.end_time > end_time
+        ):
+            raise UnavailableSwitchModeError(
+                "Invalid time for mission end because there are activities starting or ending after"
+            )
+        if not last_activity.end_time:
+            last_activity.revise(
+                reception_time,
+                end_time=end_time,
+                creation_time=creation_time,
+                submitter=user,
+            )
+
+    db.session.add(
+        MissionEnd(
+            submitter=submitter,
+            reception_time=reception_time,
+            user=user,
+            mission=mission,
+            creation_time=creation_time,
+        )
+    )

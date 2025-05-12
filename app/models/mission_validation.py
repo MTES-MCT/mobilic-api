@@ -16,9 +16,16 @@ class MissionValidation(UserEventBaseModel):
     )
     mission = db.relationship("Mission", backref=backref("validations"))
     is_admin = db.Column(db.Boolean, nullable=False)
+    is_auto = db.Column(db.Boolean, nullable=False, default=False)
 
     @declared_attr
     def user_id(cls):
+        return db.Column(
+            db.Integer, db.ForeignKey("user.id"), index=True, nullable=True
+        )
+
+    @declared_attr
+    def submitter_id(cls):
         return db.Column(
             db.Integer, db.ForeignKey("user.id"), index=True, nullable=True
         )
@@ -43,6 +50,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "mission_id",
             "mission",
             "is_admin",
+            "is_auto",
             "submitter_id",
             "submitter",
             "user_id",
@@ -64,7 +72,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     submitter_id = graphene.Field(
         graphene.Int,
-        required=True,
+        required=False,
         description="Identifiant de la personne qui a effectué la validation",
     )
     user_id = graphene.Field(

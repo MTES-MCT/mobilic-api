@@ -32,3 +32,4 @@ from .user_survey_actions import UserSurveyActions
 from .controller_control import ControllerControl
 from .user_agreement import UserAgreement
 from .controller_control import ControllerControl
+from .mission_auto_validation import MissionAutoValidation
