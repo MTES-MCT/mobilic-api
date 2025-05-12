@@ -10,8 +10,14 @@ class AnonControllerUser(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, controller):
+        new_id = cls.get_new_id("controller_user", controller.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("controller_user", controller.id)
+        anonymized.id = new_id
         anonymized.creation_time = cls.truncate_to_month(
             controller.creation_time
         )

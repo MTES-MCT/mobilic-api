@@ -16,8 +16,14 @@ class AnonCompanyStats(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, stats):
+        new_id = cls.get_new_id("company_stats", stats.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("company_stats", stats.id)
+        anonymized.id = new_id
         anonymized.company_id = cls.get_new_id("company", stats.company_id)
         anonymized.creation_time = cls.truncate_to_month(stats.creation_time)
         anonymized.company_creation_date = cls.truncate_to_month(

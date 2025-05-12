@@ -1,5 +1,7 @@
 from app import db
-from .id_mapping import IdMapping
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AnonymizedModel(db.Model):
@@ -7,31 +9,67 @@ class AnonymizedModel(db.Model):
 
     @classmethod
     def get_new_id(cls, entity_type: str, old_id: int):
+        """
+        Get a new ID for the entity using IdMappingService.
+
+        Uses negative sequence for users, positive sequence for other entities.
+        This ensures that references to users in anonymized tables are consistent
+        with the negative IDs assigned during user anonymization.
+
+        Args:
+            entity_type: Entity type (e.g., "user", "mission")
+            old_id: Original ID
+
+        Returns:
+            int: New anonymized ID (negative for users, positive for other entities)
+        """
         if not old_id:
             return None
 
-        mapping = IdMapping.query.filter_by(
-            entity_type=entity_type, original_id=old_id
-        ).one_or_none()
-
-        if mapping is not None:
-            return mapping.anonymized_id
-
-        result = db.session.execute("SELECT nextval('anonymized_id_seq')")
-        new_id = result.scalar()
-
-        mapping = IdMapping(
-            entity_type=entity_type, original_id=old_id, anonymized_id=new_id
+        from app.services.anonymization.id_mapping_service import (
+            IdMappingService,
         )
-        db.session.add(mapping)
 
-        db.session.flush()
-        db.session.refresh(mapping)
+        if entity_type == "user":
+            return IdMappingService.get_user_negative_id(old_id)
+        else:
+            return IdMappingService.get_entity_positive_id(entity_type, old_id)
 
-        return new_id
+    @classmethod
+    def check_existing_record(cls, entity_id):
+        """
+        Check if a record with the given ID already exists in the anonymized table.
+
+        Args:
+            entity_id: ID to check for
+
+        Returns:
+            The existing record if found, None otherwise
+        """
+        if not entity_id:
+            return None
+
+        existing = db.session.query(cls).get(entity_id)
+        if existing:
+            logger.debug(
+                f"Found existing {cls.__name__} record with ID {entity_id}"
+            )
+            return existing
+
+        return None
 
     @staticmethod
     def truncate_to_month(date):
+        """
+        Truncate a date to the first day of the month to reduce precision
+        for anonymization purposes.
+
+        Args:
+            date: Date to truncate
+
+        Returns:
+            Date truncated to the first day of the month
+        """
         if date is None:
             return None
         if hasattr(date, "hour"):

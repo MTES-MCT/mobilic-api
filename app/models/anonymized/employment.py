@@ -20,8 +20,14 @@ class AnonEmployment(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, employment):
+        new_id = cls.get_new_id("employment", employment.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("employment", employment.id)
+        anonymized.id = new_id
         anonymized.company_id = cls.get_new_id(
             "company", employment.company_id
         )

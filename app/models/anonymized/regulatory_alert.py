@@ -14,8 +14,14 @@ class AnonRegulatoryAlert(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, alert):
+        new_id = cls.get_new_id("regulatory_alert", alert.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("regulatory_alert", alert.id)
+        anonymized.id = new_id
         anonymized.creation_time = cls.truncate_to_month(alert.creation_time)
         anonymized.day = cls.truncate_to_month(alert.day)
         anonymized.extra = alert.extra

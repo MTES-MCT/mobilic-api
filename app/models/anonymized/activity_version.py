@@ -15,8 +15,14 @@ class AnonActivityVersion(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, version):
+        new_id = cls.get_new_id("activity_version", version.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("activity_version", version.id)
+        anonymized.id = new_id
         anonymized.activity_id = cls.get_new_id(
             "activity", version.activity_id
         )
