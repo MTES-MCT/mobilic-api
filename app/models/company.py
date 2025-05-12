@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
-from app.helpers.time import to_datetime
+from app.helpers.time import VERY_LONG_AGO, to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
@@ -97,8 +97,8 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
         return drivers
 
     def get_admins(self, start, end):
-        users = self.users_between(start, end)
-        user_ids = [user.id for user in users]
+        safe_end = end or date.today()
+        safe_start = start or VERY_LONG_AGO.date()
 
         sql = text(
             """
@@ -107,18 +107,22 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
             JOIN (
                 SELECT DISTINCT ON (user_id) *
                 FROM employment
-                WHERE user_id = ANY(:user_ids)
-                AND company_id = :company_id
+                WHERE company_id = :company_id
+                AND start_date <= :end
+                AND dismissed_at is NULL 
+                AND validation_status != 'rejected'
+                AND (end_date is NULL OR end_date >= :start)
                 ORDER BY user_id, start_date DESC
             ) e ON e.user_id = u.id
             WHERE has_admin_rights is true
-        """
+            """
         )
         result = db.session.execute(
             sql,
             {
-                "user_ids": user_ids,
                 "company_id": self.id,
+                "start": safe_start,
+                "end": safe_end,
             },
         )
         return result.fetchall()
