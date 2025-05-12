@@ -6,7 +6,6 @@ from freezegun import freeze_time
 from app import app
 from app.domain.validation import validate_mission
 from app.jobs.auto_validations import (
-    EMPLOYEE_THRESHOLD_HOURS,
     get_employee_auto_validations,
     job_process_auto_validations,
 )
@@ -192,74 +191,72 @@ class TestAutoValidation(BaseTest):
     def test_auto_validation_mission_recorded_one_day_ago(self):
         ## An employee logs an activity for himself more than a day ago
 
-        now = datetime.now()
-        more_than_a_day_ago = now - timedelta(
-            hours=EMPLOYEE_THRESHOLD_HOURS + 1
-        )
+        now = datetime(2025, 5, 7, 18, 0)
+        with freeze_time(now):
+            more_than_a_day_ago = get_time(1, 17)
 
-        employee = self.team_mates[0]
-        mission_id = _log_activities_in_mission(
-            submitter=employee,
-            company=self.company,
-            user=employee,
-            work_periods=[
-                WorkPeriod(
-                    start_time=get_time(2, 8), end_time=get_time(2, 10)
-                ),
-            ],
-            submission_time=more_than_a_day_ago,
-        )
-
-        # An employee auto validation should exist
-        auto_validations = get_employee_auto_validations(now=now)
-        self.assertEqual(1, len(auto_validations))
-
-        # Cron job runs
-        job_process_auto_validations()
-
-        # An admin auto validation should exist
-        auto_validations = MissionAutoValidation.query.all()
-        self.assertEqual(1, len(auto_validations))
-        self.assertTrue(auto_validations[0].is_admin)
-
-        # Mission should be validated
-        validations = MissionValidation.query.all()
-        self.assertEqual(1, len(validations))
-        validation = validations[0]
-        self.assertEqual(validation.mission_id, mission_id)
-        self.assertEqual(validation.is_admin, False)
-        self.assertEqual(validation.is_auto, True)
-        self.assertIsNone(validation.submitter_id)
-
-        with self.assertRaises(Exception):
-            # Employee shouldn't be able to validate this mission
-            mission = Mission.query.get(mission_id)
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
+            employee = self.team_mates[0]
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(1, 8), end_time=get_time(1, 10)
+                    ),
+                ],
+                submission_time=more_than_a_day_ago,
             )
+
+            # An employee auto validation should exist
+            auto_validations = get_employee_auto_validations(now=now)
+            self.assertEqual(1, len(auto_validations))
+
+            # Cron job runs
+            job_process_auto_validations()
+
+            # An admin auto validation should exist
+            auto_validations = MissionAutoValidation.query.all()
+            self.assertEqual(1, len(auto_validations))
+            self.assertTrue(auto_validations[0].is_admin)
+
+            # Mission should be validated
+            validations = MissionValidation.query.all()
+            self.assertEqual(1, len(validations))
+            validation = validations[0]
+            self.assertEqual(validation.mission_id, mission_id)
+            self.assertEqual(validation.is_admin, False)
+            self.assertEqual(validation.is_auto, True)
+            self.assertIsNone(validation.submitter_id)
+
+            with self.assertRaises(Exception):
+                # Employee shouldn't be able to validate this mission
+                mission = Mission.query.get(mission_id)
+                validate_mission(
+                    submitter=employee, mission=mission, for_user=employee
+                )
 
     def test_get_auto_validations_when_mission_recorded_less_one_day_ago(self):
         ## An employee logs an activity for himself less than a day ago
 
-        now = datetime.now()
-        less_than_a_day_ago = now - timedelta(
-            hours=EMPLOYEE_THRESHOLD_HOURS - 1
-        )
+        with freeze_time(datetime(2025, 5, 7, 18, 0)):
+            now = datetime.now()
+            less_than_a_day_ago = get_time(1, 19)
 
-        employee = self.team_mates[0]
-        _log_activities_in_mission(
-            submitter=employee,
-            company=self.company,
-            user=employee,
-            work_periods=[
-                WorkPeriod(
-                    start_time=get_time(2, 8), end_time=get_time(2, 10)
-                ),
-            ],
-            submission_time=less_than_a_day_ago,
-        )
-        auto_validations = get_employee_auto_validations(now=now)
-        self.assertEqual(0, len(auto_validations))
+            employee = self.team_mates[0]
+            _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(1, 8), end_time=get_time(1, 10)
+                    ),
+                ],
+                submission_time=less_than_a_day_ago,
+            )
+            auto_validations = get_employee_auto_validations(now=now)
+            self.assertEqual(0, len(auto_validations))
 
     def test_mission_gets_auto_validated_employee_and_admin(self):
 

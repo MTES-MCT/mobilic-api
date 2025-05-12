@@ -8,12 +8,25 @@ from app.domain.validation import validate_mission
 from app.jobs import log_execution
 from app.models import MissionAutoValidation
 
-EMPLOYEE_THRESHOLD_HOURS = 24
 ADMIN_THRESHOLD_DAYS = 2
+EMPLOYEE_THRESHOLD_DAYS = 1
+
+
+def _get_threshold_time(now, days_to_remove):
+    threshold_time = now
+    while days_to_remove > 0:
+        threshold_time -= timedelta(days=1)
+        if threshold_time.weekday() < 5 and not JoursFeries.is_bank_holiday(
+            threshold_time.date()
+        ):
+            days_to_remove -= 1
+    return threshold_time
 
 
 def get_employee_auto_validations(now):
-    threshold_time = now - timedelta(hours=EMPLOYEE_THRESHOLD_HOURS)
+    threshold_time = _get_threshold_time(
+        now=now, days_to_remove=EMPLOYEE_THRESHOLD_DAYS
+    )
     auto_validations = (
         MissionAutoValidation.query.options(
             selectinload(MissionAutoValidation.user),
@@ -29,14 +42,9 @@ def get_employee_auto_validations(now):
 
 
 def get_admin_auto_validations(now):
-    threshold_time = now
-    days_to_remove = ADMIN_THRESHOLD_DAYS
-    while days_to_remove > 0:
-        threshold_time -= timedelta(days=1)
-        if threshold_time.weekday() < 5 and not JoursFeries.is_bank_holiday(
-            threshold_time.date()
-        ):
-            days_to_remove -= 1
+    threshold_time = _get_threshold_time(
+        now=now, days_to_remove=ADMIN_THRESHOLD_DAYS
+    )
 
     auto_validations = (
         MissionAutoValidation.query.options(
