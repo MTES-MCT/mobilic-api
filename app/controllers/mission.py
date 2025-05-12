@@ -512,7 +512,9 @@ class CancelMission(AuthenticatedMutation):
                 compute_regulations(
                     user=user,
                     period_start=mission_start,
-                    period_end=mission_end,
+                    period_end=mission_end
+                    if mission_end
+                    else datetime.today().date(),
                     submitter_type=SubmitterType.ADMIN,
                     business=business,
                 )

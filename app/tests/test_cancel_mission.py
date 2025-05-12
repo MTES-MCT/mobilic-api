@@ -4,7 +4,7 @@ from app.models.activity import (
     ActivityType,
     Activity,
 )
-from app.seed import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory, AuthenticatedUserContext
 from app.tests import BaseTest
 from app.tests.helpers import (
     make_authenticated_request,
@@ -132,15 +132,16 @@ class TestCancelMission(BaseTest):
 
         second_event_time = datetime(day.year, day.month, day.day, 7)
 
-        make_authenticated_request(
-            time=second_event_time,
-            submitter_id=self.admin.id,
-            query=ApiRequests.cancel_mission,
-            variables=dict(
-                mission_id=mission_id,
-                user_id=self.team_leader.id,
-            ),
-        )
+        with AuthenticatedUserContext(user=self.admin):
+            make_authenticated_request(
+                time=second_event_time,
+                submitter_id=self.admin.id,
+                query=ApiRequests.cancel_mission,
+                variables=dict(
+                    mission_id=mission_id,
+                    user_id=self.team_leader.id,
+                ),
+            )
 
         result_activities = Activity.query.filter(
             Activity.mission_id == mission_id,
@@ -148,5 +149,5 @@ class TestCancelMission(BaseTest):
         ).all()
         self.assertEqual(len(result_activities), 1)
         for activity in result_activities:
-            self.assertEqual(self.team_leader.id, activity.dismiss_author_id)
+            self.assertEqual(self.admin.id, activity.dismiss_author_id)
             self.assertIsNotNone(activity.dismissed_at)
