@@ -23,20 +23,26 @@ def _get_threshold_time(now, days_to_remove):
     return threshold_time
 
 
-def get_employee_auto_validations(now):
-    threshold_time = _get_threshold_time(
-        now=now, days_to_remove=EMPLOYEE_THRESHOLD_DAYS
-    )
-    auto_validations = (
+def _get_auto_validations(threshold_time, is_admin):
+    return (
         MissionAutoValidation.query.options(
             selectinload(MissionAutoValidation.user),
             selectinload(MissionAutoValidation.mission),
         )
         .filter(
             MissionAutoValidation.reception_time < threshold_time,
-            MissionAutoValidation.is_admin == False,
+            MissionAutoValidation.is_admin == is_admin,
         )
         .all()
+    )
+
+
+def get_employee_auto_validations(now):
+    threshold_time = _get_threshold_time(
+        now=now, days_to_remove=EMPLOYEE_THRESHOLD_DAYS
+    )
+    auto_validations = _get_auto_validations(
+        threshold_time=threshold_time, is_admin=False
     )
     return auto_validations
 
@@ -46,16 +52,8 @@ def get_admin_auto_validations(now):
         now=now, days_to_remove=ADMIN_THRESHOLD_DAYS
     )
 
-    auto_validations = (
-        MissionAutoValidation.query.options(
-            selectinload(MissionAutoValidation.user),
-            selectinload(MissionAutoValidation.mission),
-        )
-        .filter(
-            MissionAutoValidation.reception_time < threshold_time,
-            MissionAutoValidation.is_admin == True,
-        )
-        .all()
+    auto_validations = _get_auto_validations(
+        threshold_time=threshold_time, is_admin=True
     )
     return auto_validations
 
