@@ -21,12 +21,12 @@ EMPLOYEE_1_EMAIL = "export_excel1@employee.com"
 EMPLOYEE_2_EMAIL = "export_excel2@employee.com"
 EMPLOYEE_3_EMAIL = "export_excel3@employee.com"
 EMPLOYEE_4_EMAIL = "export_excel4@employee.com"
-A_FRENCH_HOLIDAY = datetime(2022, 4, 18)
-A_SUNDAY = datetime(2022, 4, 10)
-DAY_MULTIPLE_MISSIONS = datetime(2022, 4, 20)
-DAY_MISSION_START = datetime(2022, 4, 21)
-DAY_MISSION_END = datetime(2022, 4, 22)
-DAY_MISSION_OPTIONS = datetime(2022, 4, 26)
+A_FRENCH_HOLIDAY = datetime(2025, 4, 21)
+A_SUNDAY = datetime(2025, 4, 13)
+DAY_MULTIPLE_MISSIONS = datetime(2025, 4, 23)
+DAY_MISSION_START = datetime(2025, 4, 24)
+DAY_MISSION_END = datetime(2025, 4, 25)
+DAY_MISSION_OPTIONS = datetime(2025, 4, 29)
 
 
 def log_drive_activity(mission, user, day, hour_start=14, hour_end=15):
@@ -65,13 +65,13 @@ def run_scenario_export_excel():
     ## Two companies
     company_1 = CompanyFactory.create(
         usual_name="Company Without Settings",
-        siren=f"0000091",
+        siren="0000091",
         allow_transfers=False,
         require_kilometer_data=False,
     )
     company_2 = CompanyFactory.create(
         usual_name="Company With Settings",
-        siren=f"0000092",
+        siren="0000092",
         allow_transfers=True,
         require_kilometer_data=True,
     )
@@ -94,7 +94,6 @@ def run_scenario_export_excel():
             Vehicle(
                 registration_number=f"XXX-001-CORP{idx + 1}",
                 alias=f"Vehicule 1 - Corp {idx + 1}",
-                submitter=admin,
                 company_id=c.id,
             )
         )
@@ -113,26 +112,26 @@ def run_scenario_export_excel():
     employee_1 = UserFactory.create(
         email=EMPLOYEE_1_EMAIL,
         password=DEFAULT_PASSWORD,
-        first_name=f"Michael",
-        last_name=f"Jordan",
+        first_name="Michael",
+        last_name="Jordan",
     )
     employee_2 = UserFactory.create(
         email=EMPLOYEE_2_EMAIL,
         password=DEFAULT_PASSWORD,
-        first_name=f"Larry",
-        last_name=f"Bird",
+        first_name="Larry",
+        last_name="Bird",
     )
     employee_3 = UserFactory.create(
         email=EMPLOYEE_3_EMAIL,
         password=DEFAULT_PASSWORD,
-        first_name=f"Michael",
-        last_name=f"Jordan",
+        first_name="Michael",
+        last_name="Jordan",
     )
     employee_4 = UserFactory.create(
         email=EMPLOYEE_4_EMAIL,
         password=DEFAULT_PASSWORD,
-        first_name=f"Larry",
-        last_name=f"Bird",
+        first_name="Larry",
+        last_name="Bird",
     )
 
     employees = {
@@ -150,7 +149,7 @@ def run_scenario_export_excel():
 
             ## work on a french bank holiday
             holiday_mission = Mission(
-                name=f"Mission Jour Férié",
+                name="Mission Jour Férié",
                 company=c,
                 reception_time=datetime.combine(
                     A_FRENCH_HOLIDAY, time(hour=10, minute=0)
@@ -162,7 +161,7 @@ def run_scenario_export_excel():
 
             ## Work on a sunday
             sunday_mission = Mission(
-                name=f"Mission Dimanche",
+                name="Mission Dimanche",
                 company=c,
                 reception_time=datetime.combine(
                     A_SUNDAY, time(hour=10, minute=0)
