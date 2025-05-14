@@ -9,6 +9,7 @@ class Column(NamedTuple):
     label: str
     color: str
     format: any = lambda x: x
+    format_total_work: any = lambda x, y: x
     secondary: bool = False
     right_border: bool = False
     number: bool = True

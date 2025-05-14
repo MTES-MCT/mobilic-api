@@ -220,7 +220,11 @@
                             style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}"
                             align="{{ 'right' if column.number else 'center' }}"
                         >
+                        {% if column.name == "total_work" %}
+                            {{ column.format_total_work(month.total_work, month.night_hours)}}
+                        {% else %}
                             {{ column.format(month[column.name]) }}
+                        {% endif %}
                         </td>
                    {% endfor %}
                 </tr>
