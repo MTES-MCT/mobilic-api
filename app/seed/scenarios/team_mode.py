@@ -18,11 +18,10 @@ from app.seed.helpers import (
 SUPER_ADMIN_EMAIL = "super.admin.teams@test.com"
 
 
-def create_vehicle(id, alias, admin, company):
+def create_vehicle(id, alias, company):
     vehicle = Vehicle(
         registration_number=f"XXX-00{id}-ABC",
         alias=alias,
-        submitter=admin,
         company_id=company.id,
     )
     db.session.add(vehicle)
@@ -60,10 +59,9 @@ def run_scenario_team_mode():
     )
 
     vehicles = [
-        create_vehicle(i, f"Vehicule Team {i}", super_admin, company)
-        for i in range(1, 5)
+        create_vehicle(i, f"Vehicule Team {i}", company) for i in range(1, 5)
     ]
-    vehicles += [create_vehicle(5, "Vehicule No Team", super_admin, company)]
+    vehicles += [create_vehicle(5, "Vehicule No Team", company)]
     addresses = [
         create_address(f"Entrepot Team {i}", f"{i}, rue de Rennes", company)
         for i in range(1, 5)

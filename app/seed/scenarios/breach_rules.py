@@ -36,7 +36,6 @@ def run_scenario_breach_rules():
     vehicle = Vehicle(
         registration_number=f"XXX-001-BREACH",
         alias=f"Vehicule - Corp Breach",
-        submitter=admin,
         company_id=company.id,
     )
     db.session.add(vehicle)
