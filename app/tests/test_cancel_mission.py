@@ -149,5 +149,5 @@ class TestCancelMission(BaseTest):
         ).all()
         self.assertEqual(len(result_activities), 1)
         for activity in result_activities:
-            self.assertEqual(self.admin.id, activity.dismiss_author_id)
             self.assertIsNotNone(activity.dismissed_at)
+            self.assertEqual(self.admin.id, activity.dismiss_author_id)
