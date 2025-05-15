@@ -34,6 +34,7 @@ from app.models import (
     Team,
     UserSurveyActions,
     UserAgreement,
+    MissionAutoValidation,
 )
 from app.models.controller_control import ControllerControl
 from app.seed.factories import (
@@ -77,6 +78,7 @@ def clean():
 
     Comment.query.delete()
     MissionValidation.query.delete()
+    MissionAutoValidation.query.delete()
     MissionEnd.query.delete()
     LocationEntry.query.delete()
     Mission.query.delete()
