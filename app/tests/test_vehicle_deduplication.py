@@ -25,22 +25,18 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-C 123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup2_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-b-C123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_2_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-D 123",
-            submitter_id=self.user.id,
         ).id
 
         _clean_vehicle()
@@ -54,12 +50,10 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_2_1_id = VehicleFactory.create(
             company_id=self.company_2.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
 
         _clean_vehicle()
@@ -70,17 +64,14 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-C 123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup2_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-b-C123",
-            submitter_id=self.user.id,
             terminated_at=datetime.now(),
         ).id
         _clean_vehicle()
@@ -93,18 +84,15 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-C 123",
-            submitter_id=self.user.id,
             alias="ALIAS",
         ).id
         vehicle_1_dup2_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-b-C123",
-            submitter_id=self.user.id,
         ).id
         _clean_vehicle()
         db.session.expire_all()
@@ -116,18 +104,15 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-C 123",
-            submitter_id=self.user.id,
             last_kilometer_reading=1234,
         ).id
         vehicle_1_dup2_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-b-C123",
-            submitter_id=self.user.id,
         ).id
         _clean_vehicle()
         db.session.expire_all()
@@ -139,12 +124,10 @@ class TestVehicleDeduplication(BaseTest):
         vehicle_1_1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="abc123",
-            submitter_id=self.user.id,
         ).id
         vehicle_1_dup1_id = VehicleFactory.create(
             company_id=self.company_1.id,
             registration_number="A-B-C 123",
-            submitter_id=self.user.id,
             last_kilometer_reading=1234,
         ).id
         mission = MissionFactory.create(

@@ -25,8 +25,14 @@ class AnonControllerControl(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, control):
+        new_id = cls.get_new_id("controller_control", control.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("controller_control", control.id)
+        anonymized.id = new_id
         anonymized.controller_id = cls.get_new_id(
             "user", control.controller_id
         )

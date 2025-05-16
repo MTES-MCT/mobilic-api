@@ -13,11 +13,21 @@ class AnonEmail(AnonymizedModel):
     @classmethod
     def anonymize(cls, email):
         """handle legacy and usual case"""
+        if hasattr(email, "_mapping"):
+            data = email._mapping
+            new_id = cls.get_new_id("email", data["id"])
+        else:
+            new_id = cls.get_new_id("email", email.id)
+
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
 
         if hasattr(email, "_mapping"):
             data = email._mapping
-            anonymized.id = cls.get_new_id("email", data["id"])
+            anonymized.id = new_id
             anonymized.creation_time = cls.truncate_to_month(
                 data["creation_time"]
             )
@@ -26,8 +36,8 @@ class AnonEmail(AnonymizedModel):
             anonymized.employment_id = cls.get_new_id(
                 "employment", data["employment_id"]
             )
-        if not hasattr(email, "_mapping"):
-            anonymized.id = cls.get_new_id("email", email.id)
+        else:
+            anonymized.id = new_id
             anonymized.creation_time = cls.truncate_to_month(
                 email.creation_time
             )

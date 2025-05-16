@@ -17,8 +17,13 @@ class AnonActivity(AnonymizedModel):
 
     @classmethod
     def anonymize(cls, activity):
+        new_id = cls.get_new_id("activity", activity.id)
+        existing = cls.check_existing_record(new_id)
+        if existing:
+            return existing
+
         anonymized = cls()
-        anonymized.id = cls.get_new_id("activity", activity.id)
+        anonymized.id = new_id
         anonymized.user_id = cls.get_new_id("user", activity.user_id)
         anonymized.submitter_id = cls.get_new_id("user", activity.submitter_id)
         anonymized.mission_id = cls.get_new_id("mission", activity.mission_id)

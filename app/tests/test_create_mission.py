@@ -142,7 +142,6 @@ class TestCreateMission(BaseTest):
         registration_number = "ABC-000-CBA"
         existing_vehicle = Vehicle(
             registration_number=registration_number,
-            submitter=self.admin,
             company_id=self.company.id,
         )
         db.session.add(existing_vehicle)
