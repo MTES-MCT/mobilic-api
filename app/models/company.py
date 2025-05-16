@@ -117,15 +117,16 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
             WHERE has_admin_rights is true
             """
         )
-        result = db.session.execute(
-            sql,
-            {
-                "company_id": self.id,
-                "start": safe_start,
-                "end": safe_end,
-            },
+        return (
+            db.session.query(User)
+            .from_statement(sql)
+            .params(
+                company_id=self.id,
+                start=safe_start,
+                end=safe_end,
+            )
+            .all()
         )
-        return result.fetchall()
 
     def query_current_users(self):
         from app.models import User
