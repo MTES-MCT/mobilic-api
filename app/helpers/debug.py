@@ -9,7 +9,7 @@ def print_time(func):
         result = func(*args, **kwargs)
         end_time = time.time()
         print(
-            f"{func.__name__} executed in {end_time - start_time:.4f} seconds"
+            f"\u231B {func.__name__} executed in {end_time - start_time:.4f} seconds"
         )
         return result
 
