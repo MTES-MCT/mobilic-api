@@ -4,25 +4,32 @@ from app.models.activity import (
     ActivityType,
     Activity,
 )
-from app.seed import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory, AuthenticatedUserContext
 from app.tests import BaseTest
 from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
     _log_activities_in_mission,
     WorkPeriod,
+    init_regulation_checks_data,
+    init_businesses_data,
 )
 
 
 class TestCancelMission(BaseTest):
     def setUp(self):
         super().setUp()
+        init_regulation_checks_data()
+        init_businesses_data()
         self.company = CompanyFactory.create()
         self.team_leader = UserFactory.create(
             first_name="Tim", last_name="Leader", post__company=self.company
         )
         self.team_mate = UserFactory.create(
             first_name="Tim", last_name="Mate", post__company=self.company
+        )
+        self.admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
         )
 
     def begin_mission_single_user(self, time):
@@ -120,3 +127,31 @@ class TestCancelMission(BaseTest):
         for activity in not_cancelled_activities:
             self.assertIsNone(activity.dismiss_author_id)
             self.assertIsNone(activity.dismissed_at)
+
+    def test_cancel_mission_by_admin_without_end(
+        self, day=datetime(2020, 2, 7)
+    ):
+        time = datetime(day.year, day.month, day.day, 6)
+        mission_id = self.begin_mission_single_user(time)
+
+        second_event_time = datetime(day.year, day.month, day.day, 7)
+
+        with AuthenticatedUserContext(user=self.admin):
+            make_authenticated_request(
+                time=second_event_time,
+                submitter_id=self.admin.id,
+                query=ApiRequests.cancel_mission,
+                variables=dict(
+                    mission_id=mission_id,
+                    user_id=self.team_leader.id,
+                ),
+            )
+
+        result_activities = Activity.query.filter(
+            Activity.mission_id == mission_id,
+            Activity.user_id == self.team_leader.id,
+        ).all()
+        self.assertEqual(len(result_activities), 1)
+        for activity in result_activities:
+            self.assertIsNotNone(activity.dismissed_at)
+            self.assertEqual(self.admin.id, activity.dismiss_author_id)
