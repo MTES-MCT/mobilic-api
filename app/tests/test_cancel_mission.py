@@ -11,12 +11,16 @@ from app.tests.helpers import (
     ApiRequests,
     _log_activities_in_mission,
     WorkPeriod,
+    init_regulation_checks_data,
+    init_businesses_data,
 )
 
 
 class TestCancelMission(BaseTest):
     def setUp(self):
         super().setUp()
+        init_regulation_checks_data()
+        init_businesses_data()
         self.company = CompanyFactory.create()
         self.team_leader = UserFactory.create(
             first_name="Tim", last_name="Leader", post__company=self.company
