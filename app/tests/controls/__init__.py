@@ -79,7 +79,6 @@ class ControlsTest(ControlsTestSimple):
         self.vehicle1 = Vehicle(
             registration_number=VEHICLE_ID_1,
             alias=f"Vehicule 1",
-            submitter=self.admin_1,
             company_id=self.company1.id,
         )
         db.session.add(self.vehicle1)

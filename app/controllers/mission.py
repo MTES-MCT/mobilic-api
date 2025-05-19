@@ -473,23 +473,29 @@ class CancelMission(AuthenticatedMutation):
                 activity.dismiss()
 
             if should_recompute_regulations:
-                employment = get_current_employment_in_company(
-                    user=user, company=mission.company
-                )
-                business = employment.business if employment else None
-                (
-                    mission_start,
-                    mission_end,
-                ) = get_mission_start_and_end_from_activities(
-                    activities=activities_to_update, user=user
-                )
-                compute_regulations(
-                    user=user,
-                    period_start=mission_start,
-                    period_end=mission_end,
-                    submitter_type=SubmitterType.ADMIN,
-                    business=business,
-                )
+                try:
+                    employment = get_current_employment_in_company(
+                        user=user, company=mission.company
+                    )
+                    business = employment.business if employment else None
+                    (
+                        mission_start,
+                        mission_end,
+                    ) = get_mission_start_and_end_from_activities(
+                        activities=activities_to_update, user=user
+                    )
+                    compute_regulations(
+                        user=user,
+                        period_start=mission_start,
+                        period_end=mission_end
+                        if mission_end
+                        else datetime.today().date(),
+                        submitter_type=SubmitterType.ADMIN,
+                        business=business,
+                    )
+                except Exception as e:
+                    print("Caught exception:", e)
+                    raise e
 
         return mission
 

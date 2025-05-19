@@ -32,7 +32,7 @@ def send_certificate_compute_end_notification():
             },
             {
                 "title": "Tableau metabase de suivi des certifications",
-                "value": "https://metabase.mobilic.beta.gouv.fr/dashboard/21-evolution-entreprises-certifiees",
+                "value": "https://metabase.mobilic.beta.gouv.fr/question/257-nombre-dentreprises-certifiees-actives-et-non-actives",
                 "short": True,
             },
         ],
