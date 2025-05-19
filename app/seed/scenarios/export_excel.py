@@ -94,7 +94,6 @@ def run_scenario_export_excel():
             Vehicle(
                 registration_number=f"XXX-001-CORP{idx + 1}",
                 alias=f"Vehicule 1 - Corp {idx + 1}",
-                submitter=admin,
                 company_id=c.id,
             )
         )
