@@ -72,7 +72,6 @@ def run_scenario_multi_businesses():
         vehicle = Vehicle(
             registration_number=fake.license_plate(),
             alias=fake.word(),
-            submitter=admin,
             company_id=company.id,
         )
         db.session.add(vehicle)
