@@ -1,5 +1,22 @@
 version: '3.5'
 services:
+  mobilic-api:
+    image: python:3.9.2-slim
+    command: sh -c "apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/* && /usr/local/bin/python -m pip install --upgrade pip && pip install -r requirements-dev.txt && flask db upgrade && flask run --host 0.0.0.0"
+    ports: 
+      - "5000:5000"
+    environment:
+      FLASK_APP: app:app
+      FLASK_DEBUG: "1"
+      FLASK_SKIP_DOTENV: "1"
+      DOTENV_FILE: ".env/.env.local"
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - mobilic-db
+      - redis
+  
   mobilic-db:
     image: postgres:13.6-alpine
     container_name: mobilic-db
