@@ -74,7 +74,7 @@ class ActivityLogInput:
     )
 
 
-def log_activity_(input):
+def log_activity_(input, admin_justification=None):
     switch_mode = input.get("switch", True)
     if switch_mode and input.get("end_time"):
         raise InvalidParamsError(
@@ -108,6 +108,7 @@ def log_activity_(input):
         end_time=input.get("end_time"),
         context=input.get("context"),
         creation_time=input.get("creation_time"),
+        admin_justification=admin_justification,
     )
 
     return activity
@@ -173,7 +174,7 @@ class ActivityEditInput:
     )
 
 
-def edit_activity_(input):
+def edit_activity_(input, admin_justification=None):
     if (
         not input.get("start_time")
         and not input.get("end_time")
@@ -194,6 +195,7 @@ def edit_activity_(input):
         end_time=input.get("end_time"),
         remove_end_time=input.get("remove_end_time"),
         context=input.get("context"),
+        admin_justification=admin_justification,
     )
 
 
@@ -205,6 +207,7 @@ def edit_activity(
     remove_end_time=False,
     creation_time=None,
     context=None,
+    admin_justification=None,
 ):
     reception_time = datetime.now()
     activity_to_update = Activity.query.get(activity_id)
@@ -224,6 +227,7 @@ def edit_activity(
         activity_to_update.user,
         activity_to_update.start_time,
         activity_to_update.end_time or activity_to_update.start_time,
+        admin_justification=admin_justification,
     )
 
     if activity_to_update.is_dismissed:
@@ -232,7 +236,9 @@ def edit_activity(
     db.session.add(activity_to_update)
 
     if cancel:
-        activity_to_update.dismiss(reception_time, context)
+        activity_to_update.dismiss(
+            reception_time, context, admin_justification
+        )
     else:
         updates = {}
         if start_time:
@@ -243,6 +249,7 @@ def edit_activity(
             reception_time,
             revision_context=context,
             creation_time=creation_time,
+            admin_justification=admin_justification,
             **updates,
         )
 
@@ -347,20 +354,21 @@ class EditActivity(AuthenticatedMutation):
             )
 
 
-def play_bulk_activity_items(items):
+def play_bulk_activity_items(items, admin_justification=None):
     res = None
     for item in items:
         if item.get("log"):
             input = item.get("log")
-            res = log_activity_(input)
+            res = log_activity_(input, admin_justification)
         if item.get("edit"):
             input = item.get("edit")
-            res = edit_activity_(input)
+            res = edit_activity_(input, admin_justification)
         if item.get("cancel"):
             res = edit_activity(
                 item.get("cancel")["activity_id"],
                 cancel=True,
                 context=item.get("cancel").get("context"),
+                admin_justification=admin_justification,
             )
         db.session.flush()
     db.session().execute(

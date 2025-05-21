@@ -46,11 +46,12 @@ from app.helpers.errors import (
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
 )
-from app.helpers.graphene_types import TimeStamp
+from app.helpers.graphene_types import TimeStamp, graphene_enum_type
 from app.helpers.submitter_type import SubmitterType
 from app.models import Company, User, Activity
 from app.models.mission import Mission
 from app.models.mission_end import MissionEnd
+from app.models.mission_validation import OverValidationJustification
 from app.models.vehicle import VehicleOutput
 
 
@@ -256,6 +257,11 @@ class ValidateMission(AuthenticatedMutation):
             required=False,
             description="Optionnel, frais à créer",
         )
+        justification = graphene.Argument(
+            graphene_enum_type(OverValidationJustification),
+            required=False,
+            description="Motif lors de la validation gestionnaire après une validation automatique",
+        )
 
     Output = MissionOutput
 
@@ -277,6 +283,7 @@ class ValidateMission(AuthenticatedMutation):
         activity_items=[],
         expenditures_cancel_ids=[],
         expenditures_inputs=[],
+        justification=None,
     ):
         mission = Mission.query.get(mission_id)
         initial_start_end_time_by_user = (
@@ -293,10 +300,13 @@ class ValidateMission(AuthenticatedMutation):
                     mission=mission,
                     admin_submitter=current_user,
                     for_user=user,
+                    justification=justification,
                 )
 
         with atomic_transaction(commit_at_end=True):
-            play_bulk_activity_items(activity_items)
+            play_bulk_activity_items(
+                activity_items, admin_justification=justification
+            )
 
             for expenditure_cancel_id in expenditures_cancel_ids:
                 cancel_expenditure(expenditure_cancel_id)
@@ -324,6 +334,8 @@ class ValidateMission(AuthenticatedMutation):
                     employee_version_end_time=initial_start_end_times[1]
                     if initial_start_end_times
                     else None,
+                    is_admin_validation=is_admin_validation,
+                    justification=justification,
                 )
                 try:
                     if mission_validation.is_admin:
