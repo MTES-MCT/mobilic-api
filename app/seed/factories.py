@@ -13,6 +13,7 @@ from app.models import (
     Vehicle,
     Mission,
 )
+from app.models.activity import Activity
 from app.models.controller_control import ControllerControl
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.regulation_computation import RegulationComputation
@@ -86,6 +87,11 @@ class CompanyCertificationFactory(BaseFactory):
 class MissionFactory(BaseFactory):
     class Meta:
         model = Mission
+
+
+class ActivityFactory(BaseFactory):
+    class Meta:
+        model = Activity
 
 
 class TeamFactory(BaseFactory):

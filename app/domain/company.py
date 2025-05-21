@@ -206,14 +206,16 @@ def find_active_company_ids_in_period(start_period, end_period):
 
 
 def check_company_has_no_activities(company_id):
-    company_activities = (
-        Mission.query.join(Activity, Activity.mission_id == Mission.id)
-        .filter(Mission.company_id == company_id)
-        .filter(~Activity.is_dismissed)
-        .distinct()
-        .all()
+    exists_activity_query = db.session.query(
+        exists().where(
+            and_(
+                Activity.mission_id == Mission.id,
+                Mission.company_id == company_id,
+                ~Activity.is_dismissed,
+            )
+        )
     )
-    return len(company_activities) == 0
+    return not db.session.scalar(exists_activity_query)
 
 
 def apply_business_type_to_company_employees(company, new_business):
