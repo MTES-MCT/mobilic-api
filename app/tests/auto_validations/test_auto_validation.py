@@ -5,11 +5,14 @@ from freezegun import freeze_time
 
 from app import app
 from app.domain.validation import validate_mission
+from app.helpers.errors import MissionAlreadyValidatedByAdminError
+from app.helpers.time import to_timestamp
 from app.jobs.auto_validations import (
     get_employee_auto_validations,
     job_process_auto_validations,
 )
 from app.models import MissionAutoValidation, Mission, MissionValidation
+from app.models.mission_validation import OverValidationJustification
 from app.seed import CompanyFactory, UserFactory
 from app.seed.helpers import get_time, AuthenticatedUserContext
 from app.tests import BaseTest
@@ -18,6 +21,8 @@ from app.tests.helpers import (
     WorkPeriod,
     init_regulation_checks_data,
     init_businesses_data,
+    make_authenticated_request,
+    ApiRequests,
 )
 
 
@@ -310,3 +315,82 @@ class TestAutoValidation(BaseTest):
 
         mission_validations = MissionValidation.query.all()
         self.assertEqual(2, len(mission_validations))
+
+    def test_admin_cannot_validate_after_admin_auto_validation_without_justification(
+        self,
+    ):
+        # employee logs time on a monday
+        employee = self.team_mates[0]
+        with freeze_time(datetime(2025, 5, 12, 18, 0)):
+            initial_start_time = get_time(0, 8)
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=initial_start_time, end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        # auto validation employee on tuesday
+        with freeze_time(datetime(2025, 5, 13, 19, 0)):
+            job_process_auto_validations()
+
+        # auto validation admin on thursday
+        with freeze_time(datetime(2025, 5, 15, 19, 30)):
+            job_process_auto_validations()
+
+        validations = MissionValidation.query.all()
+        self.assertEqual(2, len(validations))
+
+        # admin can not update/validate mission
+        mission = Mission.query.get(mission_id)
+        res = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.team_leader.id,
+            query=ApiRequests.validate_mission,
+            variables=dict(
+                mission_id=mission_id,
+                users_ids=[employee.id],
+                activity_items=[
+                    {
+                        "edit": {
+                            "activityId": mission.activities[0].id,
+                            "startTime": to_timestamp(
+                                initial_start_time + timedelta(minutes=30)
+                            ),
+                        }
+                    },
+                ],
+            ),
+        )
+        error = res["errors"][0]
+        self.assertEqual(
+            error["extensions"]["code"],
+            MissionAlreadyValidatedByAdminError.code,
+        )
+
+        # admin can update/validate with a justification
+        res = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.team_leader.id,
+            query=ApiRequests.validate_mission,
+            variables=dict(
+                mission_id=mission_id,
+                users_ids=[employee.id],
+                justification=OverValidationJustification.PROFESSIONAL,
+                activity_items=[
+                    {
+                        "edit": {
+                            "activityId": mission.activities[0].id,
+                            "startTime": to_timestamp(
+                                initial_start_time + timedelta(minutes=30)
+                            ),
+                        }
+                    },
+                ],
+            ),
+        )
+        self.assertFalse("errors" in res)
