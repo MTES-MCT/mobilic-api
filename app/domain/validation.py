@@ -24,14 +24,8 @@ MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
 
 # In case an admin wants to validate a mission for an employee who did not yet validate its mission
 # He should not be able to do it, except for two special cases
-def pre_check_validate_mission_by_admin(
-    mission, admin_submitter, for_user, justification=None
-):
+def pre_check_validate_mission_by_admin(mission, admin_submitter, for_user):
     activities_to_validate = mission.activities_for(for_user)
-
-    # checks if admin has already validated for this user
-    if not justification and mission.validated_by_admin_for(user=for_user):
-        raise MissionAlreadyValidatedByAdminError()
 
     # Checks if employee has already validated its mission
     if len(mission.validations_for(for_user)) > 0:

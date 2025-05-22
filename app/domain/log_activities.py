@@ -104,7 +104,6 @@ def handle_activities_update(
     bypass_overlap_check=False,
     reopen_mission_if_needed=True,
     is_revision=False,
-    admin_justification=None,
 ):
     # 1. Check that start time and end time are not ahead in the future
     check_event_time_is_not_in_the_future(start_time, reception_time, "Start")
@@ -118,7 +117,6 @@ def handle_activities_update(
             for_user=user,
             start=start_time,
             end=end_time or start_time,
-            admin_justification=admin_justification,
         )
 
     # 3a. Check if mission is a holiday mission for creation
@@ -158,7 +156,6 @@ def log_activity(
     context=None,
     bypass_overlap_check=False,
     bypass_auth_check=False,
-    admin_justification=None,
 ):
 
     with handle_activities_update(
@@ -171,7 +168,6 @@ def log_activity(
         type=type,
         bypass_overlap_check=bypass_overlap_check,
         bypass_auth_check=bypass_auth_check,
-        admin_justification=admin_justification,
     ):
         if switch_mode:
             current_activity = mission.current_activity_at_time_for_user(

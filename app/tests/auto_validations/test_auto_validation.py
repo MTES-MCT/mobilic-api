@@ -5,7 +5,7 @@ from freezegun import freeze_time
 
 from app import app
 from app.domain.validation import validate_mission
-from app.helpers.errors import MissionAlreadyValidatedByAdminError
+from app.helpers.errors import MissingJustificationForAdminValidation
 from app.helpers.time import to_timestamp
 from app.jobs.auto_validations import (
     get_employee_auto_validations,
@@ -369,7 +369,7 @@ class TestAutoValidation(BaseTest):
         error = res["errors"][0]
         self.assertEqual(
             error["extensions"]["code"],
-            MissionAlreadyValidatedByAdminError.code,
+            MissingJustificationForAdminValidation.code,
         )
 
         # admin can update/validate with a justification

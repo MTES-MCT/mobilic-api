@@ -45,6 +45,7 @@ from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
+    MissingJustificationForAdminValidation,
 )
 from app.helpers.graphene_types import TimeStamp, graphene_enum_type
 from app.helpers.submitter_type import SubmitterType
@@ -293,6 +294,7 @@ class ValidateMission(AuthenticatedMutation):
         )
         is_admin_validation = company_admin(current_user, mission.company_id)
 
+        needs_a_justification = False
         if is_admin_validation:
             for user_id in users_ids:
                 user = User.query.get(user_id)
@@ -300,13 +302,18 @@ class ValidateMission(AuthenticatedMutation):
                     mission=mission,
                     admin_submitter=current_user,
                     for_user=user,
-                    justification=justification,
                 )
 
+                needs_a_justification = (
+                    needs_a_justification
+                    or mission.auto_validated_by_admin_for(for_user=user)
+                )
+
+        if needs_a_justification and not justification:
+            raise MissingJustificationForAdminValidation
+
         with atomic_transaction(commit_at_end=True):
-            play_bulk_activity_items(
-                activity_items, admin_justification=justification
-            )
+            play_bulk_activity_items(activity_items)
 
             for expenditure_cancel_id in expenditures_cancel_ids:
                 cancel_expenditure(expenditure_cancel_id)
