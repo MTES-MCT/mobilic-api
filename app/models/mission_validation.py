@@ -72,6 +72,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "submitter",
             "user_id",
             "user",
+            "justification",
         )
 
     id = graphene.Field(
