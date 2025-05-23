@@ -6,7 +6,7 @@ from freezegun import freeze_time
 from app import app
 from app.domain.validation import validate_mission
 from app.helpers.errors import MissingJustificationForAdminValidation
-from app.helpers.time import to_timestamp
+from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.jobs.auto_validations import (
     get_employee_auto_validations,
     job_process_auto_validations,
@@ -246,7 +246,7 @@ class TestAutoValidation(BaseTest):
 
         with freeze_time(datetime(2025, 5, 7, 18, 0)):
             now = datetime.now()
-            less_than_a_day_ago = get_time(1, 19)
+            less_than_a_day_ago = get_time(1, 19, tz=LOCAL_TIMEZONE)
 
             employee = self.team_mates[0]
             _log_activities_in_mission(
