@@ -395,9 +395,7 @@ class BulkActivity(graphene.ObjectType):
     """
 
     output = graphene.Field(
-        ActivityOutput,
-        items=graphene.List(BulkActivityItem),
-        description="Résultat de la dernière activité enregistrée ou modifiée",
+        ActivityOutput, items=graphene.List(BulkActivityItem)
     )
 
     @classmethod

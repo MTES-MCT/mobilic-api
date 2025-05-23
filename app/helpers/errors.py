@@ -316,6 +316,11 @@ class MissionAlreadyValidatedByAdminError(MobilicError):
     default_message = "A company admin validated the mission activities for the user, no further changes can be made."
 
 
+class MissingJustificationForAdminValidation(MobilicError):
+    code = "MISSING_JUSTIFICATION_FOR_ADMIN_VALIDATION"
+    default_message = "A company admin tried to validate after auto validation without a justification."
+
+
 class ExpenditureDateNotIncludedInMissionRangeError(MobilicError):
     code = "EXPENDITURE_DATE_NOT_INCLUDED_IN_MISSION_RANGE"
     default_message = "The spending date of the expenditure is not between the start date and the end date of the mission."

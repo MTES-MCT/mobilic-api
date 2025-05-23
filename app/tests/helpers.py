@@ -499,12 +499,14 @@ class ApiRequests:
         $missionId: Int!
         $usersIds: [Int]!
         $activityItems: [BulkActivityItem]
+        $justification: OverValidationJustificationEnum
       ) {
         activities {
           validateMission(
             missionId: $missionId
             usersIds: $usersIds
             activityItems: $activityItems
+            justification: $justification 
           ) {
             id
           }

@@ -13,6 +13,7 @@ from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
+    MissionAlreadyValidatedByAdminError,
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models import MissionValidation, MissionEnd, MissionAutoValidation
@@ -68,6 +69,7 @@ def validate_mission(
     employee_version_end_time=None,
     is_auto_validation=False,
     is_admin_validation=None,
+    justification=None,
 ):
     validation_time = datetime.now()
 
@@ -117,6 +119,7 @@ def validate_mission(
         validation_time=validation_time,
         creation_time=creation_time,
         is_auto_validation=is_auto_validation,
+        justification=justification,
     )
 
     if not mission.is_holiday():
@@ -156,6 +159,7 @@ def _get_or_create_validation(
     validation_time=None,
     creation_time=None,
     is_auto_validation=False,
+    justification=None,
 ):
     existing_validation = MissionValidation.query.filter(
         MissionValidation.mission_id == mission.id,
@@ -177,6 +181,7 @@ def _get_or_create_validation(
             is_admin=is_admin,
             creation_time=creation_time,
             is_auto=is_auto_validation,
+            justification=justification,
         )
         db.session.add(validation)
         return validation

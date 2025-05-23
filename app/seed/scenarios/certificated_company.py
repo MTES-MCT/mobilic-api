@@ -55,7 +55,6 @@ def run_scenario_certificated():
     vehicle = Vehicle(
         registration_number="XXX-001-BREACH",
         alias="Vehicule - Corp Breach",
-        submitter=admin,
         company_id=company.id,
     )
     db.session.add(vehicle)
