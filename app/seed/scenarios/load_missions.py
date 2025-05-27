@@ -23,7 +23,6 @@ def run(company, admin, nb_employees, nb_history, interval_history):
     vehicle = Vehicle(
         registration_number=fake.license_plate(),
         alias=fake.word(),
-        submitter=admin,
         company_id=company.id,
     )
     db.session.add(vehicle)

@@ -170,9 +170,20 @@ class Mission(EventBaseModel):
             else None
         )
 
+    def _get_validations(self, only_manual=False):
+        validations = [v for v in self.validations]
+        if only_manual:
+            validations = [v for v in validations if not v.is_auto]
+        return validations
+
     @property
     def validated_by_admin(self):
         return any([v.is_admin and not v.user_id for v in self.validations])
+
+    @property
+    def manually_validated_by_admin(self):
+        validations = self._get_validations(only_manual=True)
+        return any([v.is_admin and not v.user_id for v in validations])
 
     def first_validation_time_by_admin(self):
         admin_validation_times = [
@@ -182,10 +193,21 @@ class Mission(EventBaseModel):
             return None
         return min(admin_validation_times)
 
-    def validated_by_admin_for(self, user):
+    def validated_by_admin_for(self, user, only_manual=False):
+        validations = self._get_validations(only_manual=only_manual)
         return any(
             [
                 v.is_admin and (not v.user_id or v.user_id == user.id)
+                for v in validations
+            ]
+        )
+
+    def auto_validated_by_admin_for(self, for_user):
+        return any(
+            [
+                v.is_auto
+                and v.is_admin
+                and (not v.user_id or v.user_id == for_user.id)
                 for v in self.validations
             ]
         )
