@@ -250,6 +250,8 @@ def get_accumulator_base():
         "worked_days": 0,
         "off_days": 0,
         "total_work": 0,
+        "night_hours": 0,
+        "bank_holidays_or_sundays_hours": 0,
     }
     for _type in ActivityType:
         base_dict[_type.value] = 0
@@ -317,6 +319,12 @@ def _generate_work_days_pdf(
                 accumulator[
                     "night_hours"
                 ] += wd.total_night_work_tarification_duration
+
+            if "bank_holidays_or_sundays_hours" in accumulator:
+                if is_sunday_or_bank_holiday(wd.day):
+                    accumulator[
+                        "bank_holidays_or_sundays_hours"
+                    ] += wd.total_work_duration
 
             for type_ in ActivityType:
                 accumulator[type_.value] += wd.activity_durations[type_]
