@@ -54,6 +54,26 @@ class UserChange(NamedTuple):
             and self.type == LogActionType.CREATE
         )
 
+    @property
+    def is_auto_validation_admin(self):
+        return (
+            self.is_validation
+            and self.resource.is_auto
+            and self.resource.is_admin
+        )
+
+    @property
+    def is_auto_validation_employee(self):
+        return (
+            self.is_validation
+            and self.resource.is_auto
+            and not self.resource.is_admin
+        )
+
+    @property
+    def is_manual_validation(self):
+        return self.is_validation and not self.resource.is_auto
+
     def picto(self):
         if self.is_validation:
             return Picto.VALIDATION
@@ -77,8 +97,18 @@ class UserChange(NamedTuple):
         return Picto.MODIFICATION
 
     def texts(self):
-        if self.is_validation:
+        if self.is_manual_validation:
             return ["a validé la mission"]
+
+        if self.is_auto_validation_admin:
+            return [
+                "a validé la mission automatiquement à la place du gestionnaire"
+            ]
+
+        if self.is_auto_validation_admin:
+            return [
+                "a validé la mission automatiquement à la place du salarié"
+            ]
 
         if type(self.resource) is LocationEntry:
             # Only creations
