@@ -226,11 +226,11 @@
                 </tr>
                 {% if 'night_hours' in month and month.night_hours > 0%}
                     <tr>
-                        <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}">
+                        <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
                         </td>
                         {% for column in month_columns %}
                            <td
-                                style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}"
+                                style="border-bottom: none; border-right: none; border-top: none;"
                                 align="{{ 'right' if column.number else 'center' }}"
                             >
                                 {% if column.name == "total_work" %}
@@ -242,11 +242,11 @@
                 {% endif %}
                 {% if 'bank_holidays_or_sundays_hours' in month and month.bank_holidays_or_sundays_hours > 0%}
                         <tr>
-                            <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}">
+                            <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
                             </td>
                             {% for column in month_columns %}
                                <td
-                                    style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}"
+                                    style="border-bottom: none; border-right: none; border-top: none;"
                                     align="{{ 'right' if column.number else 'center' }}"
                                 >
                                     {% if column.name == "total_work" %}
@@ -259,10 +259,10 @@
             {% endfor %}
             {% if show_month_total %}
             <tr class="summary-table-total">
-                <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
+                <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold; border-top: solid 1pt black;">Total</td>
                 {% for column in month_columns %}
                    <td
-                        style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
+                        style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }}; border-top: solid 1pt black;"
                         align="{{ 'right' if column.number else 'center' }}"
                     >
                         {{ column.format(total[column.name]) }}
