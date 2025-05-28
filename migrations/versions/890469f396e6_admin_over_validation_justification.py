@@ -31,14 +31,6 @@ def upgrade():
             nullable=True,
         ),
     )
-    op.create_check_constraint(
-        "check_admin_justification_values",
-        "mission_validation",
-        "("
-        "(NOT is_admin AND justification IS NULL) OR "
-        "(is_admin AND (justification IS NULL OR justification IN ('personal', 'professional', 'time_off')))"
-        ")",
-    )
 
 
 def downgrade():
