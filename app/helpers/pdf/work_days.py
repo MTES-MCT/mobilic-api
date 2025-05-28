@@ -10,7 +10,6 @@ from app.models.mission import UserMissionModificationStatus
 from app.templates.filters import (
     format_seconds_duration,
     format_time,
-    format_total_work,
 )
 
 COLOR_OFF = "#9BC0D1"
@@ -60,7 +59,6 @@ def _get_summary_columns(
             label="Heures travaillées",
             color=COLOR_ACTIVITY,
             format=format_seconds_duration,
-            format_total_work=format_total_work,
         )
     )
 

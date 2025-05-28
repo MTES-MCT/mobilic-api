@@ -43,13 +43,6 @@ def format_seconds_duration(seconds):
     return f"{hours}h{minutes if minutes >= 10 else '0' + str(minutes)}"
 
 
-def format_total_work(total_work, night_hours):
-    result = format_seconds_duration(total_work)
-    if night_hours:
-        result += f" Dont heures au tarif de nuit : {format_seconds_duration(night_hours)}"
-    return result
-
-
 def format_day(day):
     return day.strftime("%d/%m")
 
