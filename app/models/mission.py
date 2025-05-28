@@ -171,10 +171,9 @@ class Mission(EventBaseModel):
         )
 
     def _get_validations(self, only_manual=False):
-        validations = [v for v in self.validations]
         if only_manual:
-            validations = [v for v in validations if not v.is_auto]
-        return validations
+            return [v for v in self.validations if not v.is_auto]
+        return [v for v in self.validations]
 
     @property
     def validated_by_admin(self):
