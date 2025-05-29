@@ -37,7 +37,7 @@ Flask==2.2.5
 Flask-Admin==1.5.5
 flask-apispec==0.11.4
 Flask-Compress==1.13
-Flask-Cors==3.0.9
+Flask-Cors==6.0.0
 Flask-GraphQL==2.0.1
 Flask-HTTPAuth==4.2.0
 Flask-JWT-Extended==4.4.3
