@@ -470,6 +470,9 @@ def _generate_work_days_pdf(
         show_week_summary=True,
         break_after_month=len(months) > 2,
         generation_time=datetime.now(),
+        special_hours_column=ActivityType.WORK.value
+        if include_support_column
+        else ActivityType.DRIVE.value,
     )
 
 

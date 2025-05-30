@@ -229,11 +229,14 @@
                         <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
                         </td>
                         {% for column in month_columns %}
+                        {% set is_special_hours_column = column.name == special_hours_column%}
+                        {% set colspan_value = 3 if is_special_hours_column else 1 %}
                            <td
+                               colspan="{{ colspan_value }}"
                                 style="border-bottom: none; border-right: none; border-top: none;"
                                 align="{{ 'right' if column.number else 'center' }}"
                             >
-                                {% if column.name == "total_work" %}
+                                {% if is_special_hours_column %}
                                     Dont heures au tarif nuit : {{ month.night_hours | format_duration }}
                                 {% endif %}
                             </td>
@@ -241,21 +244,24 @@
                     </tr>
                 {% endif %}
                 {% if 'bank_holidays_or_sundays_hours' in month and month.bank_holidays_or_sundays_hours > 0%}
-                        <tr>
-                            <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
+                    <tr>
+                        <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
+                        </td>
+                        {% for column in month_columns %}
+                        {% set is_special_hours_column = column.name == special_hours_column%}
+                        {% set colspan_value = 3 if is_special_hours_column else 1 %}
+                           <td
+                               colspan="{{ colspan_value }}"
+                                style="{{ 'background-color: #F3CF7B;' if is_special_hours_column else '' }} border-bottom: none; border-right: none; border-top: none;"
+                                align="{{ 'right' if column.number else 'center' }}"
+                            >
+                                {% if is_special_hours_column %}
+                                    Dont heures dimanches et jours fériés : {{ month.bank_holidays_or_sundays_hours | format_duration }}
+                                {% endif %}
                             </td>
-                            {% for column in month_columns %}
-                               <td
-                                    style="border-bottom: none; border-right: none; border-top: none;"
-                                    align="{{ 'right' if column.number else 'center' }}"
-                                >
-                                    {% if column.name == "total_work" %}
-                                        Dont heures dimanches et jours fériés : {{ month.bank_holidays_or_sundays_hours | format_duration }}
-                                    {% endif %}
-                                </td>
-                           {% endfor %}
-                        </tr>
-                    {% endif %}
+                       {% endfor %}
+                    </tr>
+                {% endif %}
             {% endfor %}
             {% if show_month_total %}
             <tr class="summary-table-total">
