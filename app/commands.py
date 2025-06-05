@@ -330,38 +330,6 @@ def temp_command_generate_xm_control(id):
     temp_write_greco_xml(control)
 
 
-@app.cli.command("sync_brevo", with_appcontext=True)
-@click.argument("pipeline_names", nargs=-1)
-@click.option(
-    "--verbose",
-    is_flag=True,
-    help="Enable verbose mode for more detailed output",
-)
-def sync_brevo_command(pipeline_names, verbose):
-    """
-    Command to sync companies between the database and Brevo.
-    You can specify one or more pipeline names as arguments.
-    """
-    from app.services.sync_companies_with_brevo import (
-        sync_companies_with_brevo,
-    )
-    from app.helpers.brevo import BrevoApiClient
-
-    if not pipeline_names:
-        print("Please provide at least one pipeline name.")
-        return
-
-    brevo = BrevoApiClient(app.config["BREVO_API_KEY"])
-
-    app.logger.info(
-        f"Process sync companies with Brevo began for pipelines: {pipeline_names}"
-    )
-
-    sync_companies_with_brevo(brevo, list(pipeline_names), verbose=verbose)
-
-    app.logger.info("Process sync companies with Brevo done")
-
-
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
 def _update_ceased_activity_status():
     update_ceased_activity_status()
@@ -476,3 +444,216 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
         test_mode=test,
         force_clean=force_clean,
     )
+
+
+@app.cli.command("sync_brevo_funnel", with_appcontext=True)
+@click.option(
+    "--acquisition-pipeline",
+    default="Acquisition",
+    help="Brevo pipeline name for acquisition funnel",
+)
+@click.option(
+    "--activation-pipeline",
+    default="Activation",
+    help="Brevo pipeline name for activation funnel",
+)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for detailed output",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be synced without making changes",
+)
+@click.option(
+    "--test-classification",
+    is_flag=True,
+    help="Test funnel classification logic only",
+)
+@click.option(
+    "--acquisition-only",
+    is_flag=True,
+    help="Sync only acquisition funnel data",
+)
+@click.option(
+    "--activation-only",
+    is_flag=True,
+    help="Sync only activation funnel data",
+)
+def sync_brevo_funnel_command(
+    acquisition_pipeline,
+    activation_pipeline,
+    verbose,
+    dry_run,
+    test_classification,
+    acquisition_only,
+    activation_only,
+):
+    """
+    Unified sync of acquisition and activation funnels with Brevo dual pipelines.
+
+    This command syncs companies to two separate Brevo pipelines based on their funnel stage:
+
+    ACQUISITION PIPELINE - Focus on company registration and initial engagement:
+    - Entreprise inscrite
+    - Nouvelles entreprises inscrites depuis mars 2025
+    - Entreprise inscrite depuis 7 jours sans salarié invité
+    - Entreprise inscrite depuis 1 mois sans salarié invité
+
+    ACTIVATION PIPELINE - Focus on employee onboarding and platform usage:
+    - Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée
+    - Entreprise ayant invité entre 30 et 80% de leurs salariés + 0 mission validée
+    - Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire
+
+    Examples:
+    flask sync_brevo_funnel --test-classification
+    flask sync_brevo_funnel --dry-run --verbose
+    flask sync_brevo_funnel --acquisition-only
+    flask sync_brevo_funnel --acquisition-pipeline "Custom Acquisition" --activation-pipeline "Custom Activation"
+    """
+    from app.services.brevo import sync_all_funnels
+    from app.services.brevo.testing import FunnelTester
+    from app.helpers.brevo import brevo
+
+    if verbose:
+        import logging
+
+        logging.basicConfig(level=logging.DEBUG)
+        app.logger.setLevel(logging.DEBUG)
+
+    if acquisition_only and activation_only:
+        click.echo(
+            "Error: --acquisition-only and --activation-only cannot be used together"
+        )
+        return
+
+    try:
+        if test_classification:
+            return FunnelTester.run_classification_test(
+                acquisition_only, activation_only
+            )
+
+        app.logger.info(f"Starting Brevo sync:")
+        app.logger.info(f"  - Acquisition pipeline: {acquisition_pipeline}")
+        app.logger.info(f"  - Activation pipeline: {activation_pipeline}")
+        app.logger.info(f"  - Dry run: {dry_run}")
+
+        if acquisition_only or activation_only:
+            from app.services.brevo import (
+                AcquisitionDataFinder,
+                ActivationDataFinder,
+                sync_dual_pipeline_funnel,
+            )
+
+            acquisition_data = []
+            activation_data = []
+
+            if acquisition_only:
+                acquisition_finder = AcquisitionDataFinder()
+                acquisition_data = acquisition_finder.find_companies()
+                app.logger.info(
+                    f"  - Acquisition only: {len(acquisition_data)} companies"
+                )
+
+            if activation_only:
+                activation_finder = ActivationDataFinder()
+                activation_data = activation_finder.find_companies()
+                app.logger.info(
+                    f"  - Activation only: {len(activation_data)} companies"
+                )
+
+            result = sync_dual_pipeline_funnel(
+                acquisition_data=acquisition_data,
+                activation_data=activation_data,
+                brevo_client=brevo,
+                acquisition_pipeline=acquisition_pipeline,
+                activation_pipeline=activation_pipeline,
+                dry_run=dry_run,
+            )
+        else:
+            # Full sync with coordination
+            result = sync_all_funnels(
+                brevo_client=brevo,
+                acquisition_pipeline=acquisition_pipeline,
+                activation_pipeline=activation_pipeline,
+                dry_run=dry_run,
+            )
+
+        mode = "DRY RUN" if dry_run else "SYNC"
+        click.echo(f"\n🎯 {mode} RESULTS:")
+        click.echo(f"   Total companies: {result.total_companies}")
+        click.echo(f"   Created deals: {result.created_deals}")
+        click.echo(f"   Updated deals: {result.updated_deals}")
+        click.echo(f"   Acquisition synced: {result.acquisition_synced}")
+        click.echo(f"   Activation synced: {result.activation_synced}")
+
+        if result.errors:
+            click.echo(f"   Errors: {len(result.errors)}")
+            for error in result.errors[:3]:
+                click.echo(f"     - {error}")
+
+        app.logger.info(
+            f"Brevo sync completed: "
+            f"Acquisition {result.acquisition_synced}, "
+            f"Activation {result.activation_synced}, "
+            f"Total {result.created_deals} created, {result.updated_deals} updated"
+        )
+
+    except Exception as e:
+        error_msg = f"❌ Sync failed: {e}"
+        print(error_msg)
+        app.logger.error(error_msg)
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        raise
+
+
+@app.cli.command("list_brevo_attributes", with_appcontext=True)
+def list_brevo_attributes_command():
+    """List all existing Brevo deal attributes to understand the API format."""
+    from app.helpers.brevo import brevo
+    import json
+
+    try:
+        print("📋 Fetching existing Brevo deal attributes...")
+        existing_attrs = brevo.get_deal_attributes()
+
+        print(f"Raw response type: {type(existing_attrs)}")
+        print(
+            f"Raw response: {json.dumps(existing_attrs, indent=2, default=str)}"
+        )
+
+        # Try to extract attribute names
+        if isinstance(existing_attrs, list):
+            names = []
+            for attr in existing_attrs:
+                if isinstance(attr, dict):
+                    name = (
+                        attr.get("name")
+                        or attr.get("id")
+                        or attr.get("label", "unknown")
+                    )
+                    names.append(name)
+                    print(f"  - {name}: {attr}")
+                else:
+                    names.append(str(attr))
+            print(f"Extracted names: {names}")
+        elif isinstance(existing_attrs, dict):
+            if "attributes" in existing_attrs:
+                print(
+                    f"Found 'attributes' key with {len(existing_attrs['attributes'])} items"
+                )
+                for attr in existing_attrs["attributes"]:
+                    print(f"  - {attr}")
+            else:
+                print(f"Dict keys: {list(existing_attrs.keys())}")
+
+    except Exception as e:
+        print(f"❌ Failed: {e}")
+        import traceback
+
+        traceback.print_exc()
