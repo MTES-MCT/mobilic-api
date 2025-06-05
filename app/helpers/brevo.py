@@ -279,6 +279,218 @@ class BrevoApiClient:
         )
         return None
 
+    @check_api_key
+    def get_deal_attributes(self):
+        try:
+            url = f"{self.BASE_URL}/crm/attributes/deals"
+            response = self._session.get(url)
+            response.raise_for_status()
+            result = response.json()
+            app.logger.debug(f"Deal attributes response: {result}")
+            return result
+        except Exception as e:
+            app.logger.error(f"Failed to get deal attributes: {e}")
+            return {}
+
+    @check_api_key
+    def create_deal_with_attributes(
+        self, company_data: dict, pipeline_id: str, stage_id: str, status: str
+    ) -> str:
+        """Create a new deal in Brevo with company attributes.
+
+        Args:
+            company_data: Dictionary containing company information
+            pipeline_id: Brevo pipeline identifier
+            stage_id: Brevo stage identifier within the pipeline
+            status: Deal status description
+
+        Returns:
+            Deal ID if successful, None if failed
+        """
+        company_name = company_data.get("company_name", "Unknown")
+
+        try:
+            clean_name = self._sanitize_company_name(company_name)
+
+            deal_payload = {
+                "name": clean_name,
+                "attributes": {
+                    "pipeline": pipeline_id,
+                    "deal_stage": stage_id,
+                    "funnel_status": status,
+                },
+            }
+
+            if company_data.get("siren"):
+                deal_payload["attributes"]["siren"] = company_data["siren"]
+
+            if company_data.get("phone_number"):
+                deal_payload["attributes"]["phone_number"] = company_data[
+                    "phone_number"
+                ]
+
+            if company_data.get("nb_employees") is not None:
+                deal_payload["attributes"]["nb_employees"] = company_data[
+                    "nb_employees"
+                ]
+
+            if company_data.get("stage_since_days") is not None:
+                deal_payload["attributes"]["stage_since_days"] = company_data[
+                    "stage_since_days"
+                ]
+
+            if company_data.get("company_creation_date"):
+                try:
+                    deal_payload["attributes"][
+                        "company_creation_date"
+                    ] = company_data["company_creation_date"].isoformat()
+                except (AttributeError, ValueError):
+                    pass
+
+            if "invited_employees_count" in company_data:
+                deal_payload["attributes"][
+                    "invited_employees_count"
+                ] = company_data["invited_employees_count"]
+
+            if "invitation_percentage" in company_data:
+                deal_payload["attributes"][
+                    "invitation_percentage"
+                ] = company_data["invitation_percentage"]
+
+            if "total_employees_count" in company_data:
+                deal_payload["attributes"][
+                    "total_employees_count"
+                ] = company_data["total_employees_count"]
+
+            if "validated_missions_count" in company_data:
+                deal_payload["attributes"][
+                    "validated_missions_count"
+                ] = company_data["validated_missions_count"]
+
+            if "invitation_percentage" in company_data:
+                deal_payload["attributes"]["amount"] = company_data[
+                    "invitation_percentage"
+                ]
+            elif (
+                "nb_employees" in company_data and company_data["nb_employees"]
+            ):
+                deal_payload["attributes"]["amount"] = company_data[
+                    "nb_employees"
+                ]
+
+            url = f"{self.BASE_URL}/crm/deals"
+            response = self._session.post(url, json=deal_payload)
+            response.raise_for_status()
+
+            deal_data = response.json()
+            return deal_data.get("id")
+
+        except Exception as e:
+            app.logger.error(f"Failed to create deal for {company_name}: {e}")
+            return None
+
+    @check_api_key
+    def get_existing_deals_by_pipeline(self, pipeline_id: str) -> list:
+        try:
+            deals_data = self.get_all_deals_by_pipeline(
+                GetAllDealsByPipelineData(pipeline_id=pipeline_id)
+            )
+
+            deals = []
+            for deal in deals_data.get("items", []):
+                deal_name = self._extract_deal_name(deal)
+                if deal_name:
+                    deals.append(
+                        {
+                            "id": deal["id"],
+                            "name": deal_name,
+                            "stage_id": deal["attributes"].get("deal_stage"),
+                        }
+                    )
+
+            return deals
+
+        except BrevoRequestError as e:
+            app.logger.error(f"Failed to get existing deals: {e}")
+            return []
+
+    def _extract_deal_name(self, deal: dict) -> str:
+        if deal.get("linkedCompaniesIds"):
+            try:
+                company_id = deal["linkedCompaniesIds"][0]
+                company_details = self.get_company({"company_id": company_id})
+                linked_company_name = company_details["attributes"].get("name")
+                if linked_company_name:
+                    return linked_company_name
+            except Exception:
+                pass
+
+        return deal["attributes"].get("deal_name")
+
+    def _sanitize_company_name(self, name: str) -> str:
+        if not name:
+            return "Unknown Company"
+
+        clean_name = name.strip()
+
+        problematic_chars = ['"', "'", "\n", "\r", "\t"]
+        for char in problematic_chars:
+            clean_name = clean_name.replace(char, " ")
+
+        clean_name = " ".join(clean_name.split())
+
+        if len(clean_name) < 1:
+            return "Unknown Company"
+
+        if len(clean_name) > 100:
+            clean_name = clean_name[:97] + "..."
+
+        return clean_name
+
+    @check_api_key
+    def get_pipeline_id_by_name(self, pipeline_name: str) -> str:
+        try:
+            pipelines = self.get_all_pipelines()
+            for pipeline in pipelines:
+                if pipeline["pipeline_name"] == pipeline_name:
+                    return pipeline["pipeline"]
+            return None
+        except BrevoRequestError as e:
+            app.logger.error(f"Failed to get pipelines: {e}")
+            return None
+
+    @check_api_key
+    def get_stage_mapping(self, pipeline_id: str) -> dict:
+        try:
+            pipeline_details = self.get_pipeline_details(pipeline_id)
+
+            if isinstance(pipeline_details, list):
+                pipeline_details = next(
+                    (
+                        p
+                        for p in pipeline_details
+                        if p["pipeline"] == pipeline_id
+                    ),
+                    None,
+                )
+
+            if not pipeline_details:
+                return {}
+
+            stage_mapping = {
+                self._normalize_status(stage["name"]): stage["id"]
+                for stage in pipeline_details.get("stages", [])
+            }
+
+            return stage_mapping
+
+        except BrevoRequestError as e:
+            app.logger.error(f"Failed to get pipeline details: {e}")
+            return {}
+
+    def _normalize_status(self, status: str) -> str:
+        return status.strip().lower()
+
     @staticmethod
     def remove_plus_sign(phone_number):
         if phone_number.startswith("+"):
