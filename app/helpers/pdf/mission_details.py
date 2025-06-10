@@ -214,8 +214,14 @@ def generate_mission_details_pdf(
         if mission.is_deleted()
         else activities[-1].end_time
     )
-    timers = compute_aggregate_durations(activities, min_time=start_time)[2]
-    stats["night_work_in_seconds"] = timers["night_work_tarification"]
+
+    try:
+        night_work_tarification = compute_aggregate_durations(
+            activities, min_time=start_time
+        )[2]["night_work_tarification"]
+    except:
+        night_work_tarification = 0
+    stats["night_work_in_seconds"] = night_work_tarification
 
     return generate_pdf_from_template(
         "mission_details_pdf.html",
