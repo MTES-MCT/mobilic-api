@@ -229,7 +229,7 @@
                         <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
                         </td>
                         {% for column in month_columns %}
-                        {% set is_special_hours_column = column.name == special_hours_column %}
+                        {% set is_special_hours_column = column.name == special_hours_column_name %}
                         {% set colspan_value = 3 if is_special_hours_column else 1 %}
                            <td
                                colspan="{{ colspan_value }}"
@@ -248,7 +248,7 @@
                         <td class="summary-table-month" style="border-bottom: none; border-right: solid 1pt black; border-left: none;">
                         </td>
                         {% for column in month_columns %}
-                        {% set is_special_hours_column = column.name == special_hours_column %}
+                        {% set is_special_hours_column = column.name == special_hours_column_name %}
                         {% set colspan_value = 3 if is_special_hours_column else 1 %}
                            <td
                                colspan="{{ colspan_value }}"

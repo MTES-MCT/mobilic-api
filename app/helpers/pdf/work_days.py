@@ -451,6 +451,13 @@ def _generate_work_days_pdf(
         or total[ActivityType.TRANSFER] > 0,
         include_off_hours=True,
     )
+
+    column_names = [d.name for d in day_columns]
+    total_work_column_index = column_names.index("total_work")
+    special_hours_column_name = day_columns[
+        max(total_work_column_index - 3, 0)
+    ].name
+
     return generate_pdf_from_template(
         "work_days_pdf.html",
         user_name=user.display_name,
@@ -470,9 +477,7 @@ def _generate_work_days_pdf(
         show_week_summary=True,
         break_after_month=len(months) > 2,
         generation_time=datetime.now(),
-        special_hours_column=ActivityType.WORK.value
-        if include_support_column
-        else ActivityType.DRIVE.value,
+        special_hours_column_name=special_hours_column_name,
     )
 
 
