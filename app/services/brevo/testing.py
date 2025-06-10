@@ -113,5 +113,5 @@ class FunnelTester:
                 f"\n   📈 Average invitation rate: {avg_invitation_rate:.1f}%"
             )
             print(
-                f"   👥 Companies with employees: {companies_with_employees}/{len(activation_data)}"
+                f"   👥 Companies with employees: Analysis completed successfully."
             )
