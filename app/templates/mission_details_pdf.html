@@ -448,7 +448,7 @@
                 >
             </td>
             <td class="comment-caption">
-                <span class="comment-user">{{ action.submitter.display_name }}</span> - {{ action.time | format_time(True) }}
+                <span class="comment-user">{{ action.submitter.display_name if action.submitter else 'Mobilic' }}</span> - {{ action.time | format_time(True) }}
             </td>
         </tr>
         <tr>
