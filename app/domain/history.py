@@ -119,7 +119,7 @@ class UserChange(HistoryItem):
                 "a validé la mission automatiquement à la place du gestionnaire"
             ]
 
-        if self.is_auto_validation_admin:
+        if self.is_auto_validation_employee:
             return [
                 "a validé la mission automatiquement à la place du salarié"
             ]
