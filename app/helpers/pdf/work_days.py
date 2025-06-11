@@ -452,10 +452,10 @@ def _generate_work_days_pdf(
         include_off_hours=True,
     )
 
-    column_names = [d.name for d in day_columns]
+    column_names = [d.name for d in month_columns]
     total_work_column_index = column_names.index("total_work")
-    special_hours_column_name = day_columns[
-        max(total_work_column_index - 3, 0)
+    special_hours_column_name = month_columns[
+        max(total_work_column_index - 2, 0)
     ].name
 
     return generate_pdf_from_template(
