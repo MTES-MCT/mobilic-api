@@ -17,7 +17,7 @@ class FunnelTester:
             activation_only: Test only activation funnel
         """
         from .acquisition_data_finder import (
-            get_companies_acquisition_data_coordinated,
+            get_acquisition_companies_excluding_activation,
         )
         from .activation_data_finder import get_companies_activation_data
 
@@ -33,14 +33,17 @@ class FunnelTester:
             (
                 acquisition_data,
                 activation_company_ids,
-            ) = get_companies_acquisition_data_coordinated()
+            ) = get_acquisition_companies_excluding_activation()
             activation_data = []
             print(f"📊 Acquisition data: {len(acquisition_data)} companies")
             print(
                 f"📊 (Excluded {len(activation_company_ids)} activation companies)"
             )
         else:
-            acquisition_data, _ = get_companies_acquisition_data_coordinated()
+            (
+                acquisition_data,
+                _,
+            ) = get_acquisition_companies_excluding_activation()
             activation_data = get_companies_activation_data()
             print(
                 f"📊 Activation data: {len(activation_data)} companies (strict criteria)"

@@ -181,19 +181,24 @@ class BrevoSyncOrchestrator:
             existing_deals = self.brevo.get_existing_deals_by_pipeline(
                 pipeline_id
             )
-            existing_deals_map = {
-                deal["name"]: deal for deal in existing_deals
-            }
+            deals_by_identifier = {}
+            for deal in existing_deals:
+                if deal.get("siret"):
+                    deals_by_identifier[f"siret_{deal['siret']}"] = deal
+                elif deal.get("siren"):
+                    deals_by_identifier[f"siren_{deal['siren']}"] = deal
+                else:
+                    deals_by_identifier[f"name_{deal['name']}"] = deal
 
             batch_size = self.MAX_REQUESTS_PER_BATCH
             for i in range(0, len(companies_data), batch_size):
                 batch = companies_data[i : i + batch_size]
 
-                batch_result = self._process_batch(
+                batch_result = self._sync_company_batch(
                     batch,
                     pipeline_id,
                     stage_mapping,
-                    existing_deals_map,
+                    deals_by_identifier,
                     status_field,
                 )
 
@@ -213,23 +218,23 @@ class BrevoSyncOrchestrator:
             result.errors.append(error_msg)
             raise
 
-    def _process_batch(
+    def _sync_company_batch(
         self,
         batch: List[Dict[str, Any]],
         pipeline_id: str,
         stage_mapping: Dict[str, str],
-        existing_deals_map: Dict[str, Dict[str, Any]],
+        deals_by_identifier: Dict[str, Dict[str, Any]],
         status_field: str,
     ) -> SyncResult:
         result = SyncResult()
 
         for company in batch:
             try:
-                company_result = self._process_company(
+                company_result = self._sync_single_company(
                     company,
                     pipeline_id,
                     stage_mapping,
-                    existing_deals_map,
+                    deals_by_identifier,
                     status_field,
                 )
                 result.created_deals += company_result.created_deals
@@ -243,12 +248,12 @@ class BrevoSyncOrchestrator:
 
         return result
 
-    def _process_company(
+    def _sync_single_company(
         self,
         company: Dict[str, Any],
         pipeline_id: str,
         stage_mapping: Dict[str, str],
-        existing_deals_map: Dict[str, Dict[str, Any]],
+        deals_by_identifier: Dict[str, Dict[str, Any]],
         status_field: str,
     ) -> SyncResult:
         result = SyncResult()
@@ -265,7 +270,20 @@ class BrevoSyncOrchestrator:
             )
             return result
 
-        existing_deal = existing_deals_map.get(company_name)
+        existing_deal = None
+        deal_key = None
+
+        if company.get("siret"):
+            deal_key = f"siret_{company['siret']}"
+            existing_deal = deals_by_identifier.get(deal_key)
+
+        if not existing_deal and company.get("siren"):
+            deal_key = f"siren_{company['siren']}"
+            existing_deal = deals_by_identifier.get(deal_key)
+
+        if not existing_deal:
+            deal_key = f"name_{company_name}"
+            existing_deal = deals_by_identifier.get(deal_key)
 
         if existing_deal:
             if existing_deal["stage_id"] != target_stage_id:
@@ -282,10 +300,21 @@ class BrevoSyncOrchestrator:
             )
             if deal_id:
                 result.created_deals += 1
-                existing_deals_map[company_name] = {
-                    "id": deal_id,
-                    "stage_id": target_stage_id,
-                }
+                if company.get("siret"):
+                    deals_by_identifier[f"siret_{company['siret']}"] = {
+                        "id": deal_id,
+                        "stage_id": target_stage_id,
+                    }
+                elif company.get("siren"):
+                    deals_by_identifier[f"siren_{company['siren']}"] = {
+                        "id": deal_id,
+                        "stage_id": target_stage_id,
+                    }
+                else:
+                    deals_by_identifier[f"name_{company_name}"] = {
+                        "id": deal_id,
+                        "stage_id": target_stage_id,
+                    }
 
         return result
 

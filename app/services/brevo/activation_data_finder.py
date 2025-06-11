@@ -6,14 +6,14 @@ from typing import List, Dict, Any
 
 from app import db
 from app.models import Company, Employment, User, Mission, MissionValidation
-from ._config import FunnelConfig
+from ._config import BrevoFunnelConfig
 
 
 class ActivationDataFinder:
     """Data finder for activation funnel companies."""
 
     def __init__(self):
-        self.config = FunnelConfig()
+        self.config = BrevoFunnelConfig()
 
     def find_companies(self) -> List[Dict[str, Any]]:
         """Find companies for activation funnel with strict criteria.
@@ -67,7 +67,7 @@ class ActivationDataFinder:
                 date.today() - company["creation_date"]
             ).days
 
-            activation_status = self._classify_activation_level(
+            activation_status = self._classify_activation_stage(
                 {
                     "total_employees": total_employees,
                     "invited_employees": invited_employees,
@@ -113,7 +113,7 @@ class ActivationDataFinder:
             db.session.query(
                 Company.id,
                 Company.usual_name,
-                Company.siren,
+                Company.siren_api_info,
                 Company.phone_number,
                 Company.number_workers,
                 Company.creation_time,
@@ -127,13 +127,27 @@ class ActivationDataFinder:
             {
                 "id": c.id,
                 "name": c.usual_name,
-                "siren": c.siren,
+                "siren": self._extract_siren(c.siren_api_info),
+                "siret": self._extract_siret(c.siren_api_info),
                 "phone_number": c.phone_number,
                 "nb_employees": c.number_workers,
                 "creation_date": c.creation_time.date(),
             }
             for c in companies
         ]
+
+    def _extract_siren(self, siren_api_info):
+        if not siren_api_info or not siren_api_info.get("uniteLegale"):
+            return None
+        return siren_api_info["uniteLegale"].get("siren")
+
+    def _extract_siret(self, siren_api_info):
+        if not siren_api_info or not siren_api_info.get("etablissements"):
+            return None
+        etablissements = siren_api_info["etablissements"]
+        if etablissements:
+            return etablissements[-1].get("siret")
+        return None
 
     def _get_employment_stats(
         self, company_ids: List[int]
@@ -221,7 +235,7 @@ class ActivationDataFinder:
             for admin in admins
         }
 
-    def _classify_activation_level(self, metrics: Dict[str, Any]) -> str:
+    def _classify_activation_stage(self, metrics: Dict[str, Any]) -> str:
         """Classify company in activation funnel with strict criteria.
 
         Args:
@@ -244,6 +258,9 @@ class ActivationDataFinder:
         if self._is_full_activation(metrics):
             return "Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire"
 
+        if self._is_complete_activation_no_mission(metrics):
+            return "Entreprise ayant invité entre 80 et 100% de leurs salariés + 0 mission validée"
+
         if self._is_mid_activation(metrics):
             return "Entreprise ayant invité entre 30 et 80% de leurs salariés + 0 mission validée"
 
@@ -257,6 +274,17 @@ class ActivationDataFinder:
             metrics["total_employees"] > 0
             and metrics["invitation_percentage"] >= 100
             and metrics["validated_missions"] >= 1
+        )
+
+    def _is_complete_activation_no_mission(
+        self, metrics: Dict[str, Any]
+    ) -> bool:
+        return (
+            metrics["total_employees"] > 0
+            and self.config.HIGH_INVITATION_THRESHOLD
+            < metrics["invitation_percentage"]
+            < self.config.COMPLETE_INVITATION_THRESHOLD
+            and metrics["validated_missions"] == 0
         )
 
     def _is_mid_activation(self, metrics: Dict[str, Any]) -> bool:

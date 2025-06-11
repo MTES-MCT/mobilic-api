@@ -6,14 +6,14 @@ from typing import List, Dict, Any
 
 from app import db
 from app.models import Company, Employment, User
-from ._config import FunnelConfig
+from ._config import BrevoFunnelConfig
 
 
 class AcquisitionDataFinder:
     """Data finder for acquisition funnel companies."""
 
     def __init__(self):
-        self.config = FunnelConfig()
+        self.config = BrevoFunnelConfig()
 
     def find_companies(
         self, exclude_company_ids: List[int] = None
@@ -61,7 +61,7 @@ class AcquisitionDataFinder:
                 "admin_last_name": admin.get("last_name"),
                 "company_creation_date": company["creation_date"],
                 "stage_since_days": days_since_creation,
-                "acquisition_status": self._classify_company_stage(
+                "acquisition_status": self._classify_acquisition_stage(
                     {
                         "creation_date": company["creation_date"],
                         "days_since_creation": days_since_creation,
@@ -77,7 +77,9 @@ class AcquisitionDataFinder:
         )
         return acquisition_companies
 
-    def _classify_company_stage(self, company_metrics: Dict[str, Any]) -> str:
+    def _classify_acquisition_stage(
+        self, company_metrics: Dict[str, Any]
+    ) -> str:
         """Classify company in acquisition funnel based on creation date and invitations.
 
         Args:
@@ -105,7 +107,7 @@ class AcquisitionDataFinder:
             db.session.query(
                 Company.id,
                 Company.usual_name,
-                Company.siren,
+                Company.siren_api_info,
                 Company.phone_number,
                 Company.number_workers,
                 Company.creation_time,
@@ -119,13 +121,27 @@ class AcquisitionDataFinder:
             {
                 "id": c.id,
                 "name": c.usual_name,
-                "siren": c.siren,
+                "siren": self._extract_siren(c.siren_api_info),
+                "siret": self._extract_siret(c.siren_api_info),
                 "phone_number": c.phone_number,
                 "nb_employees": c.number_workers,
                 "creation_date": c.creation_time.date(),
             }
             for c in companies
         ]
+
+    def _extract_siren(self, siren_api_info):
+        if not siren_api_info or not siren_api_info.get("uniteLegale"):
+            return None
+        return siren_api_info["uniteLegale"].get("siren")
+
+    def _extract_siret(self, siren_api_info):
+        if not siren_api_info or not siren_api_info.get("etablissements"):
+            return None
+        etablissements = siren_api_info["etablissements"]
+        if etablissements:
+            return etablissements[-1].get("siret")
+        return None
 
     def _get_invitation_stats(
         self, company_ids: List[int]
@@ -208,7 +224,7 @@ def get_companies_acquisition_data() -> List[Dict[str, Any]]:
     return finder.find_companies()
 
 
-def get_companies_acquisition_data_coordinated() -> tuple[
+def get_acquisition_companies_excluding_activation() -> tuple[
     List[Dict[str, Any]], List[int]
 ]:
     """Get acquisition companies excluding those in activation pipeline."""

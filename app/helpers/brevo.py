@@ -22,14 +22,15 @@ class CreateContactData:
     admin_last_name: str
     admin_first_name: str
     company_name: str
-    siren: int
+    siren: str
     phone_number: Optional[str] = None
 
 
 @dataclass
 class CreateCompanyData:
     company_name: str
-    siren: int
+    siren: str
+    siret: Optional[str] = None
     phone_number: Optional[str] = None
 
 
@@ -47,6 +48,18 @@ class GetCompanyData:
 @dataclass
 class GetDealData:
     deal_id: str
+
+
+@dataclass
+class SearchCompaniesData:
+    siren: str = None
+    siret: str = None
+
+
+@dataclass
+class LinkDealCompanyData:
+    deal_id: str
+    company_id: str
 
 
 @dataclass
@@ -126,6 +139,9 @@ class BrevoApiClient:
                 "siren": data.siren,
                 "owner": "Pathtech PATHTECH",
             }
+
+            if data.siret:
+                attributes["siret"] = data.siret
 
             if data.phone_number:
                 attributes["phone_number"] = self.remove_plus_sign(
@@ -324,6 +340,9 @@ class BrevoApiClient:
             if company_data.get("siren"):
                 deal_payload["attributes"]["siren"] = company_data["siren"]
 
+            if company_data.get("siret"):
+                deal_payload["attributes"]["siret"] = company_data["siret"]
+
             if company_data.get("phone_number"):
                 deal_payload["attributes"]["phone_number"] = company_data[
                     "phone_number"
@@ -367,23 +386,19 @@ class BrevoApiClient:
                     "validated_missions_count"
                 ] = company_data["validated_missions_count"]
 
-            if "invitation_percentage" in company_data:
-                deal_payload["attributes"]["amount"] = company_data[
-                    "invitation_percentage"
-                ]
-            elif (
-                "nb_employees" in company_data and company_data["nb_employees"]
-            ):
-                deal_payload["attributes"]["amount"] = company_data[
-                    "nb_employees"
-                ]
-
             url = f"{self.BASE_URL}/crm/deals"
             response = self._session.post(url, json=deal_payload)
             response.raise_for_status()
 
             deal_data = response.json()
-            return deal_data.get("id")
+            deal_id = deal_data.get("id")
+
+            if deal_id:
+                company_id = self.find_existing_company(company_data)
+                if company_id:
+                    self.link_deal_to_company(deal_id, company_id)
+
+            return deal_id
 
         except Exception as e:
             app.logger.error(f"Failed to create deal for {company_name}: {e}")
@@ -399,12 +414,16 @@ class BrevoApiClient:
             deals = []
             for deal in deals_data.get("items", []):
                 deal_name = self._extract_deal_name(deal)
+                deal_attrs = deal.get("attributes", {})
+
                 if deal_name:
                     deals.append(
                         {
                             "id": deal["id"],
                             "name": deal_name,
-                            "stage_id": deal["attributes"].get("deal_stage"),
+                            "stage_id": deal_attrs.get("deal_stage"),
+                            "siren": deal_attrs.get("siren"),
+                            "siret": deal_attrs.get("siret"),
                         }
                     )
 
@@ -487,6 +506,69 @@ class BrevoApiClient:
         except BrevoRequestError as e:
             app.logger.error(f"Failed to get pipeline details: {e}")
             return {}
+
+    @check_api_key
+    def search_companies_by_identifier(
+        self, siret: str = None, siren: str = None
+    ) -> list:
+        """Search companies by SIRET first, then SIREN if not found."""
+        try:
+            url = f"{self.BASE_URL}/companies"
+            params = {"limit": 1000}
+            response = self._session.get(url, params=params)
+            response.raise_for_status()
+
+            companies = response.json().get("companies", [])
+
+            if siret:
+                for company in companies:
+                    attrs = company.get("attributes", {})
+                    if attrs.get("siret") == siret:
+                        return [company]
+
+            if siren:
+                for company in companies:
+                    attrs = company.get("attributes", {})
+                    if attrs.get("siren") == siren:
+                        return [company]
+
+            return []
+
+        except Exception as e:
+            app.logger.error(f"Failed to search companies: {e}")
+            return []
+
+    @check_api_key
+    def find_existing_company(self, company_data: dict) -> str:
+        """Find existing company by SIRET first, then SIREN. Does not create companies."""
+        siret = company_data.get("siret")
+        siren = company_data.get("siren")
+
+        if not (siret or siren):
+            return None
+
+        existing_companies = self.search_companies_by_identifier(
+            siret=siret, siren=siren
+        )
+        if existing_companies:
+            return existing_companies[0]["id"]
+
+        return None
+
+    @check_api_key
+    def link_deal_to_company(self, deal_id: str, company_id: str) -> bool:
+        try:
+            url = f"{self.BASE_URL}/crm/deals/{deal_id}"
+            payload = {"linkedCompaniesIds": [company_id]}
+            response = self._session.patch(url, json=payload)
+            response.raise_for_status()
+            return True
+
+        except Exception as e:
+            app.logger.error(
+                f"Failed to link deal {deal_id} to company {company_id}: {e}"
+            )
+            return False
 
     def _normalize_status(self, status: str) -> str:
         return status.strip().lower()
