@@ -3,7 +3,7 @@
 from datetime import date
 
 
-class FunnelConfig:
+class BrevoFunnelConfig:
     # Acquisition thresholds
     NEW_COMPANIES_SINCE_DATE = date(2025, 3, 1)
     NO_INVITE_WARNING_DAYS = 7
@@ -12,3 +12,4 @@ class FunnelConfig:
     # Activation thresholds
     LOW_INVITATION_THRESHOLD = 30
     HIGH_INVITATION_THRESHOLD = 80
+    COMPLETE_INVITATION_THRESHOLD = 100
