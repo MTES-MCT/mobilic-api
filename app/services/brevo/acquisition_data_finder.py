@@ -5,8 +5,9 @@ from sqlalchemy import func
 from typing import List, Dict, Any
 
 from app import db
-from app.models import Company, Employment, User
+from app.models import Employment, User
 from ._config import BrevoFunnelConfig
+from .utils import get_companies_base_data, get_admin_info
 
 
 class AcquisitionDataFinder:
@@ -26,7 +27,7 @@ class AcquisitionDataFinder:
         Returns:
             List of company dictionaries with acquisition data
         """
-        companies_base = self._get_companies_base_data()
+        companies_base = get_companies_base_data()
         if not companies_base:
             return []
 
@@ -37,7 +38,7 @@ class AcquisitionDataFinder:
 
         company_ids = [c["id"] for c in companies_base]
         invitation_stats = self._get_invitation_stats(company_ids)
-        admin_info = self._get_admin_info(company_ids)
+        admin_info = get_admin_info(company_ids)
 
         acquisition_companies = []
         for company in companies_base:
@@ -102,47 +103,6 @@ class AcquisitionDataFinder:
 
         return "Entreprise inscrite"
 
-    def _get_companies_base_data(self) -> List[Dict[str, Any]]:
-        companies = (
-            db.session.query(
-                Company.id,
-                Company.usual_name,
-                Company.siren_api_info,
-                Company.phone_number,
-                Company.number_workers,
-                Company.creation_time,
-            )
-            .filter(Company.has_ceased_activity == False)
-            .order_by(Company.creation_time.desc())
-            .all()
-        )
-
-        return [
-            {
-                "id": c.id,
-                "name": c.usual_name,
-                "siren": self._extract_siren(c.siren_api_info),
-                "siret": self._extract_siret(c.siren_api_info),
-                "phone_number": c.phone_number,
-                "nb_employees": c.number_workers,
-                "creation_date": c.creation_time.date(),
-            }
-            for c in companies
-        ]
-
-    def _extract_siren(self, siren_api_info):
-        if not siren_api_info or not siren_api_info.get("uniteLegale"):
-            return None
-        return siren_api_info["uniteLegale"].get("siren")
-
-    def _extract_siret(self, siren_api_info):
-        if not siren_api_info or not siren_api_info.get("etablissements"):
-            return None
-        etablissements = siren_api_info["etablissements"]
-        if etablissements:
-            return etablissements[-1].get("siret")
-        return None
-
     def _get_invitation_stats(
         self, company_ids: List[int]
     ) -> Dict[int, Dict[str, int]]:
@@ -168,39 +128,6 @@ class AcquisitionDataFinder:
             stat.company_id: {"invited": stat.invited_count} for stat in stats
         }
 
-    def _get_admin_info(
-        self, company_ids: List[int]
-    ) -> Dict[int, Dict[str, str]]:
-        if not company_ids:
-            return {}
-
-        admins = (
-            db.session.query(
-                Employment.company_id,
-                User.email,
-                User.first_name,
-                User.last_name,
-            )
-            .join(User, Employment.user_id == User.id)
-            .filter(
-                Employment.company_id.in_(company_ids),
-                Employment.has_admin_rights == True,
-                Employment.validation_status == "approved",
-                Employment.dismissed_at.is_(None),
-            )
-            .distinct(Employment.company_id)
-            .all()
-        )
-
-        return {
-            admin.company_id: {
-                "email": admin.email,
-                "first_name": admin.first_name,
-                "last_name": admin.last_name,
-            }
-            for admin in admins
-        }
-
     def _is_new_company_since_march(self, metrics: Dict[str, Any]) -> bool:
         return metrics["creation_date"] >= self.config.NEW_COMPANIES_SINCE_DATE
 
@@ -222,20 +149,3 @@ class AcquisitionDataFinder:
 def get_companies_acquisition_data() -> List[Dict[str, Any]]:
     finder = AcquisitionDataFinder()
     return finder.find_companies()
-
-
-def get_acquisition_companies_excluding_activation() -> tuple[
-    List[Dict[str, Any]], List[int]
-]:
-    """Get acquisition companies excluding those in activation pipeline."""
-    from .activation_data_finder import get_companies_activation_data
-
-    activation_companies = get_companies_activation_data()
-    activation_company_ids = [c["company_id"] for c in activation_companies]
-
-    finder = AcquisitionDataFinder()
-    acquisition_companies = finder.find_companies(
-        exclude_company_ids=activation_company_ids
-    )
-
-    return acquisition_companies, activation_company_ids

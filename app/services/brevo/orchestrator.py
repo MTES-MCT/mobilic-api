@@ -295,10 +295,16 @@ class BrevoSyncOrchestrator:
                 self.brevo.update_deal_stage(update_data)
                 result.updated_deals += 1
         else:
+            self.logger.debug(
+                f"Creating new deal for company ID: {company.get('company_id')}"
+            )
             deal_id = self.brevo.create_deal_with_attributes(
                 company, pipeline_id, target_stage_id, target_status
             )
             if deal_id:
+                self.logger.debug(
+                    f"Deal created successfully with ID: {deal_id}"
+                )
                 result.created_deals += 1
                 if company.get("siret"):
                     deals_by_identifier[f"siret_{company['siret']}"] = {
@@ -315,6 +321,10 @@ class BrevoSyncOrchestrator:
                         "id": deal_id,
                         "stage_id": target_stage_id,
                     }
+            else:
+                self.logger.debug(
+                    f"Failed to create deal for company ID: {company.get('company_id')}"
+                )
 
         return result
 

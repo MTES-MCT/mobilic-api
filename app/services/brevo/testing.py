@@ -16,12 +16,10 @@ class FunnelTester:
             acquisition_only: Test only acquisition funnel
             activation_only: Test only activation funnel
         """
-        from .acquisition_data_finder import (
-            get_acquisition_companies_excluding_activation,
-        )
+        from .acquisition_data_finder import get_companies_acquisition_data
         from .activation_data_finder import get_companies_activation_data
 
-        print("\n🧪 Testing Funnel Classification (Coordinated Logic)")
+        print("🧪 Testing Funnel Classification (Coordinated Logic)")
         print("=" * 55)
         print("📋 Logic: Activation first (strict), then Acquisition (rest)")
 
@@ -30,21 +28,31 @@ class FunnelTester:
             acquisition_data = []
             print(f"📊 Activation data: {len(activation_data)} companies")
         elif acquisition_only:
-            (
-                acquisition_data,
-                activation_company_ids,
-            ) = get_acquisition_companies_excluding_activation()
+            activation_data = get_companies_activation_data()
+            activation_company_ids = [c["company_id"] for c in activation_data]
+
+            from .acquisition_data_finder import AcquisitionDataFinder
+
+            finder = AcquisitionDataFinder()
+            acquisition_data = finder.find_companies(
+                exclude_company_ids=activation_company_ids
+            )
             activation_data = []
             print(f"📊 Acquisition data: {len(acquisition_data)} companies")
             print(
                 f"📊 (Excluded {len(activation_company_ids)} activation companies)"
             )
         else:
-            (
-                acquisition_data,
-                _,
-            ) = get_acquisition_companies_excluding_activation()
             activation_data = get_companies_activation_data()
+            activation_company_ids = [c["company_id"] for c in activation_data]
+
+            from .acquisition_data_finder import AcquisitionDataFinder
+
+            finder = AcquisitionDataFinder()
+            acquisition_data = finder.find_companies(
+                exclude_company_ids=activation_company_ids
+            )
+
             print(
                 f"📊 Activation data: {len(activation_data)} companies (strict criteria)"
             )
@@ -67,7 +75,7 @@ class FunnelTester:
     def _display_acquisition_analysis(
         acquisition_data: List[Dict[str, Any]]
     ) -> None:
-        print("\n🎯 Acquisition Funnel Analysis:")
+        print("🎯 Acquisition Funnel Analysis:")
         print("=" * 40)
 
         status_counts = {}
@@ -112,9 +120,7 @@ class FunnelTester:
             avg_invitation_rate = (
                 total_invitation_rate / companies_with_employees
             )
+            print(f"\n📈 Average invitation rate: {avg_invitation_rate:.1f}%")
             print(
-                f"\n   📈 Average invitation rate: {avg_invitation_rate:.1f}%"
-            )
-            print(
-                f"   👥 Companies with employees: Analysis completed successfully."
+                "👥 Companies with employees: Analysis completed successfully."
             )

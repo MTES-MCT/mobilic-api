@@ -2,11 +2,12 @@
 
 from datetime import date
 from sqlalchemy import func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app import db
-from app.models import Company, Employment, User, Mission, MissionValidation
+from app.models import Employment, User, Mission, MissionValidation
 from ._config import BrevoFunnelConfig
+from .utils import get_companies_base_data, get_admin_info
 
 
 class ActivationDataFinder:
@@ -27,7 +28,7 @@ class ActivationDataFinder:
             - validated_missions_count: Number of validated missions
         """
 
-        companies_base = self._get_companies_base_data()
+        companies_base = get_companies_base_data()
         if not companies_base:
             return []
 
@@ -35,7 +36,7 @@ class ActivationDataFinder:
 
         employment_stats = self._get_employment_stats(company_ids)
         mission_stats = self._get_mission_stats(company_ids)
-        admin_info = self._get_admin_info(company_ids)
+        admin_info = get_admin_info(company_ids)
 
         activation_companies = []
         for company in companies_base:
@@ -108,47 +109,6 @@ class ActivationDataFinder:
         )
         return activation_companies
 
-    def _get_companies_base_data(self) -> List[Dict[str, Any]]:
-        companies = (
-            db.session.query(
-                Company.id,
-                Company.usual_name,
-                Company.siren_api_info,
-                Company.phone_number,
-                Company.number_workers,
-                Company.creation_time,
-            )
-            .filter(Company.has_ceased_activity == False)
-            .order_by(Company.creation_time.desc())
-            .all()
-        )
-
-        return [
-            {
-                "id": c.id,
-                "name": c.usual_name,
-                "siren": self._extract_siren(c.siren_api_info),
-                "siret": self._extract_siret(c.siren_api_info),
-                "phone_number": c.phone_number,
-                "nb_employees": c.number_workers,
-                "creation_date": c.creation_time.date(),
-            }
-            for c in companies
-        ]
-
-    def _extract_siren(self, siren_api_info):
-        if not siren_api_info or not siren_api_info.get("uniteLegale"):
-            return None
-        return siren_api_info["uniteLegale"].get("siren")
-
-    def _extract_siret(self, siren_api_info):
-        if not siren_api_info or not siren_api_info.get("etablissements"):
-            return None
-        etablissements = siren_api_info["etablissements"]
-        if etablissements:
-            return etablissements[-1].get("siret")
-        return None
-
     def _get_employment_stats(
         self, company_ids: List[int]
     ) -> Dict[int, Dict[str, int]]:
@@ -202,40 +162,9 @@ class ActivationDataFinder:
 
         return {stat.company_id: stat.validated_count for stat in stats}
 
-    def _get_admin_info(
-        self, company_ids: List[int]
-    ) -> Dict[int, Dict[str, str]]:
-        if not company_ids:
-            return {}
-
-        admins = (
-            db.session.query(
-                Employment.company_id,
-                User.email,
-                User.first_name,
-                User.last_name,
-            )
-            .join(User, Employment.user_id == User.id)
-            .filter(
-                Employment.company_id.in_(company_ids),
-                Employment.has_admin_rights == True,
-                Employment.validation_status == "approved",
-                Employment.dismissed_at.is_(None),
-            )
-            .distinct(Employment.company_id)
-            .all()
-        )
-
-        return {
-            admin.company_id: {
-                "email": admin.email,
-                "first_name": admin.first_name,
-                "last_name": admin.last_name,
-            }
-            for admin in admins
-        }
-
-    def _classify_activation_stage(self, metrics: Dict[str, Any]) -> str:
+    def _classify_activation_stage(
+        self, metrics: Dict[str, Any]
+    ) -> Optional[str]:
         """Classify company in activation funnel with strict criteria.
 
         Args:
@@ -250,10 +179,10 @@ class ActivationDataFinder:
         """
 
         if metrics["total_employees"] == 0:
-            return None
+            return
 
         if metrics["invited_employees"] == 0:
-            return None
+            return
 
         if self._is_full_activation(metrics):
             return "Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire"
@@ -266,8 +195,6 @@ class ActivationDataFinder:
 
         if self._is_low_activation(metrics):
             return "Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée"
-
-        return None
 
     def _is_full_activation(self, metrics: Dict[str, Any]) -> bool:
         return (

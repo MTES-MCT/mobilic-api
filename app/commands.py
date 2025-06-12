@@ -535,7 +535,7 @@ def sync_brevo_funnel_command(
                 acquisition_only, activation_only
             )
 
-        app.logger.info(f"Starting Brevo sync:")
+        app.logger.info("Starting Brevo sync:")
         app.logger.info(f"  - Acquisition pipeline: {acquisition_pipeline}")
         app.logger.info(f"  - Activation pipeline: {activation_pipeline}")
         app.logger.info(f"  - Dry run: {dry_run}")
@@ -573,7 +573,6 @@ def sync_brevo_funnel_command(
                 dry_run=dry_run,
             )
         else:
-            # Full sync with coordination
             result = sync_all_funnels(
                 brevo_client=brevo,
                 acquisition_pipeline=acquisition_pipeline,
@@ -612,48 +611,74 @@ def sync_brevo_funnel_command(
         raise
 
 
-@app.cli.command("list_brevo_attributes", with_appcontext=True)
-def list_brevo_attributes_command():
-    """List all existing Brevo deal attributes to understand the API format."""
+@app.cli.command("link_brevo_deals", with_appcontext=True)
+@click.option(
+    "--acquisition-pipeline",
+    default="Acquisition",
+    help="Brevo pipeline name for acquisition funnel",
+)
+@click.option(
+    "--activation-pipeline",
+    default="Activation",
+    help="Brevo pipeline name for activation funnel",
+)
+@click.option(
+    "--companies-per-page",
+    default=1000,
+    type=int,
+    help="Number of companies to process per page",
+)
+def link_brevo_deals_command(
+    acquisition_pipeline, activation_pipeline, companies_per_page
+):
+    """Link unlinked deals to existing companies in Brevo using pagination."""
     from app.helpers.brevo import brevo
-    import json
 
     try:
-        print("📋 Fetching existing Brevo deal attributes...")
-        existing_attrs = brevo.get_deal_attributes()
+        app.logger.info("Starting deal linking process")
 
-        print(f"Raw response type: {type(existing_attrs)}")
-        print(
-            f"Raw response: {json.dumps(existing_attrs, indent=2, default=str)}"
+        acquisition_pipeline_id = brevo.get_pipeline_id_by_name(
+            acquisition_pipeline
+        )
+        activation_pipeline_id = brevo.get_pipeline_id_by_name(
+            activation_pipeline
         )
 
-        # Try to extract attribute names
-        if isinstance(existing_attrs, list):
-            names = []
-            for attr in existing_attrs:
-                if isinstance(attr, dict):
-                    name = (
-                        attr.get("name")
-                        or attr.get("id")
-                        or attr.get("label", "unknown")
-                    )
-                    names.append(name)
-                    print(f"  - {name}: {attr}")
-                else:
-                    names.append(str(attr))
-            print(f"Extracted names: {names}")
-        elif isinstance(existing_attrs, dict):
-            if "attributes" in existing_attrs:
-                print(
-                    f"Found 'attributes' key with {len(existing_attrs['attributes'])} items"
-                )
-                for attr in existing_attrs["attributes"]:
-                    print(f"  - {attr}")
-            else:
-                print(f"Dict keys: {list(existing_attrs.keys())}")
+        total_linked = 0
+        total_errors = 0
+
+        if acquisition_pipeline_id:
+            print(f"🔗 Linking deals in {acquisition_pipeline} pipeline...")
+            result = brevo.link_unlinked_deals_paginated(
+                acquisition_pipeline_id, companies_per_page
+            )
+            total_linked += result["linked"]
+            total_errors += result["errors"]
+            print(
+                f"   Acquisition: {result['linked']} linked, {result['errors']} errors"
+            )
+
+        if activation_pipeline_id:
+            print(f"🔗 Linking deals in {activation_pipeline} pipeline...")
+            result = brevo.link_unlinked_deals_paginated(
+                activation_pipeline_id, companies_per_page
+            )
+            total_linked += result["linked"]
+            total_errors += result["errors"]
+            print(
+                f"   Activation: {result['linked']} linked, {result['errors']} errors"
+            )
+
+        print("LINKING RESULTS:")
+        print(f"   Total linked: {total_linked}")
+        print(f"   Total errors: {total_errors}")
+
+        app.logger.info(
+            f"Deal linking completed: {total_linked} linked, {total_errors} errors"
+        )
 
     except Exception as e:
-        print(f"❌ Failed: {e}")
-        import traceback
-
-        traceback.print_exc()
+        error_msg = f"❌ Linking failed: {e}"
+        print(error_msg)
+        app.logger.error(error_msg)
+        raise
