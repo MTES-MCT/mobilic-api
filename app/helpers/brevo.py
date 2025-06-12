@@ -595,6 +595,68 @@ class BrevoApiClient:
             )
             return 0
 
+    def _build_company_indexes(self, companies_batch: list) -> tuple:
+        """Build SIREN and SIRET indexes for company lookup."""
+        companies_by_siren = {}
+        companies_by_siret = {}
+
+        for company in companies_batch:
+            attrs = company.get("attributes", {})
+            app.logger.debug(
+                f"Company {company['id']}: SIREN={attrs.get('siren')}, SIRET={attrs.get('siret')}"
+            )
+            if attrs.get("siren"):
+                companies_by_siren[str(attrs["siren"])] = company["id"]
+            if attrs.get("siret"):
+                companies_by_siret[str(attrs["siret"])] = company["id"]
+
+        app.logger.debug(
+            f"Available company SIRENs: {list(companies_by_siren.keys())}"
+        )
+        app.logger.debug(
+            f"Available company SIRETs: {list(companies_by_siret.keys())}"
+        )
+
+        return companies_by_siren, companies_by_siret
+
+    def _find_matching_company_id(
+        self, deal: dict, companies_by_siren: dict, companies_by_siret: dict
+    ) -> Optional[str]:
+        """Find matching company ID for a deal using SIRET or SIREN."""
+        if deal["siret"] and str(deal["siret"]) in companies_by_siret:
+            return companies_by_siret[str(deal["siret"])]
+        elif deal["siren"] and str(deal["siren"]) in companies_by_siren:
+            return companies_by_siren[str(deal["siren"])]
+        return None
+
+    def _process_deals_batch(
+        self,
+        unlinked_deals: list,
+        companies_by_siren: dict,
+        companies_by_siret: dict,
+    ) -> tuple:
+        """Process a batch of unlinked deals and return linking results."""
+        linked_count = 0
+        error_count = 0
+        deals_to_remove = []
+
+        for i, deal in enumerate(unlinked_deals):
+            company_id = self._find_matching_company_id(
+                deal, companies_by_siren, companies_by_siret
+            )
+
+            if company_id:
+                if self.link_deal_to_company(deal["id"], company_id):
+                    linked_count += 1
+                    deals_to_remove.append(i)
+                    app.logger.debug(
+                        f"Linked deal {deal['id']} to company {company_id}"
+                    )
+                else:
+                    error_count += 1
+
+        return linked_count, error_count, deals_to_remove
+
     @check_api_key
     def link_unlinked_deals_paginated(
         self, pipeline_id: str, companies_per_page: int = 1000
@@ -614,19 +676,17 @@ class BrevoApiClient:
                 f"Total companies: {total_companies}, Pages to process: {total_pages}"
             )
 
-            linked_count = 0
-            error_count = 0
+            total_linked_count = 0
+            total_error_count = 0
             current_page = 1
 
-            while current_page <= total_pages:
+            while current_page <= total_pages and unlinked_deals:
                 url = f"{self.BASE_URL}/companies"
                 params = {"limit": companies_per_page, "page": current_page}
                 response = self._session.get(url, params=params)
                 response.raise_for_status()
 
-                response_data = response.json()
-                companies_batch = response_data.get("items", [])
-
+                companies_batch = response.json().get("items", [])
                 if not companies_batch:
                     break
 
@@ -634,77 +694,47 @@ class BrevoApiClient:
                     f"Processing companies page {current_page} ({len(companies_batch)} companies)"
                 )
 
-                companies_by_siren = {}
-                companies_by_siret = {}
-
-                for company in companies_batch:
-                    attrs = company.get("attributes", {})
-                    app.logger.debug(
-                        f"Company {company['id']}: SIREN={attrs.get('siren')}, SIRET={attrs.get('siret')}"
-                    )
-                    if attrs.get("siren"):
-                        companies_by_siren[str(attrs["siren"])] = company["id"]
-                    if attrs.get("siret"):
-                        companies_by_siret[str(attrs["siret"])] = company["id"]
-
-                app.logger.debug(
-                    f"Available company SIRENs: {list(companies_by_siren.keys())}"
-                )
-                app.logger.debug(
-                    f"Available company SIRETs: {list(companies_by_siret.keys())}"
-                )
-
-                # Debug: show first few deal identifiers
                 for i, deal in enumerate(unlinked_deals[:5]):
                     app.logger.debug(
                         f"Deal {deal['id']}: SIREN={deal.get('siren')}, SIRET={deal.get('siret')}"
                     )
 
-                deals_to_remove = []
-                for i, deal in enumerate(unlinked_deals):
-                    company_id = None
+                (
+                    companies_by_siren,
+                    companies_by_siret,
+                ) = self._build_company_indexes(companies_batch)
+                (
+                    linked_count,
+                    error_count,
+                    deals_to_remove,
+                ) = self._process_deals_batch(
+                    unlinked_deals, companies_by_siren, companies_by_siret
+                )
 
-                    if (
-                        deal["siret"]
-                        and str(deal["siret"]) in companies_by_siret
-                    ):
-                        company_id = companies_by_siret[str(deal["siret"])]
-                    elif (
-                        deal["siren"]
-                        and str(deal["siren"]) in companies_by_siren
-                    ):
-                        company_id = companies_by_siren[str(deal["siren"])]
-
-                    if company_id:
-                        if self.link_deal_to_company(deal["id"], company_id):
-                            linked_count += 1
-                            deals_to_remove.append(i)
-                            app.logger.debug(
-                                f"Linked deal {deal['id']} to company {company_id}"
-                            )
-                        else:
-                            error_count += 1
+                total_linked_count += linked_count
+                total_error_count += error_count
 
                 for i in reversed(deals_to_remove):
                     unlinked_deals.pop(i)
-
-                if not unlinked_deals:
-                    app.logger.info("All deals have been processed")
-                    break
 
                 current_page += 1
 
                 if len(companies_batch) < companies_per_page:
                     break
 
-            total_processed = linked_count + error_count
             app.logger.info(
-                f"Linking completed: {linked_count} linked, {error_count} errors, {len(unlinked_deals)} remaining"
+                "All deals processed"
+                if not unlinked_deals
+                else "Linking completed"
             )
+            app.logger.info(
+                f"Results: {total_linked_count} linked, {total_error_count} errors, {len(unlinked_deals)} remaining"
+            )
+
             return {
-                "linked": linked_count,
-                "errors": error_count,
-                "processed_deals": total_processed,
+                "linked": total_linked_count,
+                "errors": total_error_count,
+                "processed_deals": total_linked_count + total_error_count,
             }
 
         except Exception as e:

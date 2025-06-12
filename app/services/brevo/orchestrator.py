@@ -248,6 +248,48 @@ class BrevoSyncOrchestrator:
 
         return result
 
+    def _find_existing_deal(
+        self,
+        company: Dict[str, Any],
+        deals_by_identifier: Dict[str, Dict[str, Any]],
+    ) -> tuple:
+        """Find existing deal by SIRET, SIREN or company name."""
+        company_name = company["company_name"]
+
+        if company.get("siret"):
+            deal_key = f"siret_{company['siret']}"
+            existing_deal = deals_by_identifier.get(deal_key)
+            if existing_deal:
+                return existing_deal, deal_key
+
+        if company.get("siren"):
+            deal_key = f"siren_{company['siren']}"
+            existing_deal = deals_by_identifier.get(deal_key)
+            if existing_deal:
+                return existing_deal, deal_key
+
+        deal_key = f"name_{company_name}"
+        existing_deal = deals_by_identifier.get(deal_key)
+        return existing_deal, deal_key
+
+    def _update_deal_identifier(
+        self,
+        company: Dict[str, Any],
+        deal_id: str,
+        target_stage_id: str,
+        deals_by_identifier: Dict[str, Dict[str, Any]],
+    ):
+        """Update deals_by_identifier with new deal info."""
+        deal_info = {"id": deal_id, "stage_id": target_stage_id}
+        company_name = company["company_name"]
+
+        if company.get("siret"):
+            deals_by_identifier[f"siret_{company['siret']}"] = deal_info
+        elif company.get("siren"):
+            deals_by_identifier[f"siren_{company['siren']}"] = deal_info
+        else:
+            deals_by_identifier[f"name_{company_name}"] = deal_info
+
     def _sync_single_company(
         self,
         company: Dict[str, Any],
@@ -257,7 +299,6 @@ class BrevoSyncOrchestrator:
         status_field: str,
     ) -> SyncResult:
         result = SyncResult()
-        company_name = company["company_name"]
 
         target_status = company.get(status_field, "Entreprise inscrite")
         target_stage_id = stage_mapping.get(
@@ -270,20 +311,9 @@ class BrevoSyncOrchestrator:
             )
             return result
 
-        existing_deal = None
-        deal_key = None
-
-        if company.get("siret"):
-            deal_key = f"siret_{company['siret']}"
-            existing_deal = deals_by_identifier.get(deal_key)
-
-        if not existing_deal and company.get("siren"):
-            deal_key = f"siren_{company['siren']}"
-            existing_deal = deals_by_identifier.get(deal_key)
-
-        if not existing_deal:
-            deal_key = f"name_{company_name}"
-            existing_deal = deals_by_identifier.get(deal_key)
+        existing_deal, _ = self._find_existing_deal(
+            company, deals_by_identifier
+        )
 
         if existing_deal:
             if existing_deal["stage_id"] != target_stage_id:
@@ -306,21 +336,9 @@ class BrevoSyncOrchestrator:
                     f"Deal created successfully with ID: {deal_id}"
                 )
                 result.created_deals += 1
-                if company.get("siret"):
-                    deals_by_identifier[f"siret_{company['siret']}"] = {
-                        "id": deal_id,
-                        "stage_id": target_stage_id,
-                    }
-                elif company.get("siren"):
-                    deals_by_identifier[f"siren_{company['siren']}"] = {
-                        "id": deal_id,
-                        "stage_id": target_stage_id,
-                    }
-                else:
-                    deals_by_identifier[f"name_{company_name}"] = {
-                        "id": deal_id,
-                        "stage_id": target_stage_id,
-                    }
+                self._update_deal_identifier(
+                    company, deal_id, target_stage_id, deals_by_identifier
+                )
             else:
                 self.logger.debug(
                     f"Failed to create deal for company ID: {company.get('company_id')}"

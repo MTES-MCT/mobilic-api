@@ -505,13 +505,14 @@ def sync_brevo_funnel_command(
     ACTIVATION PIPELINE - Focus on employee onboarding and platform usage:
     - Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée
     - Entreprise ayant invité entre 30 et 80% de leurs salariés + 0 mission validée
+    - Entreprise ayant invité entre 80 et 100% de leurs salariés + 0 mission validée
     - Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire
 
     Examples:
     flask sync_brevo_funnel --test-classification
     flask sync_brevo_funnel --dry-run --verbose
     flask sync_brevo_funnel --acquisition-only
-    flask sync_brevo_funnel --acquisition-pipeline "Custom Acquisition" --activation-pipeline "Custom Activation"
+    flask sync_brevo_funnel --acquisition-pipeline "Acquisition" --activation-pipeline "Activation" --verbose
     """
     from app.services.brevo import sync_all_funnels
     from app.services.brevo.testing import FunnelTester
@@ -529,37 +530,36 @@ def sync_brevo_funnel_command(
         )
         return
 
+    if test_classification:
+        return FunnelTester.run_classification_test(
+            acquisition_only, activation_only
+        )
+
     try:
-        if test_classification:
-            return FunnelTester.run_classification_test(
-                acquisition_only, activation_only
-            )
 
         app.logger.info("Starting Brevo sync:")
         app.logger.info(f"  - Acquisition pipeline: {acquisition_pipeline}")
         app.logger.info(f"  - Activation pipeline: {activation_pipeline}")
         app.logger.info(f"  - Dry run: {dry_run}")
 
-        if acquisition_only or activation_only:
+        single_funnel_mode = acquisition_only or activation_only
+        if single_funnel_mode:
             from app.services.brevo import (
                 AcquisitionDataFinder,
                 ActivationDataFinder,
                 sync_dual_pipeline_funnel,
             )
 
-            acquisition_data = []
-            activation_data = []
+            acquisition_data, activation_data = [], []
 
             if acquisition_only:
-                acquisition_finder = AcquisitionDataFinder()
-                acquisition_data = acquisition_finder.find_companies()
+                acquisition_data = AcquisitionDataFinder().find_companies()
                 app.logger.info(
                     f"  - Acquisition only: {len(acquisition_data)} companies"
                 )
 
             if activation_only:
-                activation_finder = ActivationDataFinder()
-                activation_data = activation_finder.find_companies()
+                activation_data = ActivationDataFinder().find_companies()
                 app.logger.info(
                     f"  - Activation only: {len(activation_data)} companies"
                 )
