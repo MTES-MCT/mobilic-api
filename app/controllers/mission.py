@@ -16,6 +16,7 @@ from app.data_access.mission import MissionOutput
 from app.domain.mission import (
     get_start_end_time_at_employee_validation,
     get_mission_start_and_end_from_activities,
+    end_mission_for_user,
 )
 from app.domain.notifications import (
     warn_if_mission_changes_since_latest_user_action,
@@ -44,12 +45,14 @@ from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
+    MissingJustificationForAdminValidation,
 )
-from app.helpers.graphene_types import TimeStamp
+from app.helpers.graphene_types import TimeStamp, graphene_enum_type
 from app.helpers.submitter_type import SubmitterType
 from app.models import Company, User, Activity
 from app.models.mission import Mission
 from app.models.mission_end import MissionEnd
+from app.models.mission_validation import OverValidationJustification
 from app.models.vehicle import VehicleOutput
 
 
@@ -204,43 +207,16 @@ class EndMission(AuthenticatedMutation):
                     f"Actor is not authorized to log for this user."
                 )
 
-            existing_mission_end = MissionEnd.query.filter(
-                MissionEnd.user_id == user.id,
-                MissionEnd.mission_id == mission.id,
-            ).one_or_none()
-
-            if existing_mission_end:
-                raise MissionAlreadyEndedError(
-                    mission_end=existing_mission_end
-                )
-
-            user_activities = mission.activities_for(user)
-            last_activity = user_activities[-1] if user_activities else None
-
             end_time = args["end_time"]
-            if last_activity:
-                if last_activity.start_time > end_time or (
-                    last_activity.end_time
-                    and last_activity.end_time > end_time
-                ):
-                    raise UnavailableSwitchModeError(
-                        "Invalid time for mission end because there are activities starting or ending after"
-                    )
-                if not last_activity.end_time:
-                    last_activity.revise(
-                        reception_time,
-                        end_time=args["end_time"],
-                        creation_time=args.get("creation_time"),
-                    )
+            creation_time = args.get("creation_time")
 
-            db.session.add(
-                MissionEnd(
-                    submitter=current_user,
-                    reception_time=reception_time,
-                    user=user,
-                    mission=mission,
-                    creation_time=args.get("creation_time"),
-                )
+            end_mission_for_user(
+                user=user,
+                mission=mission,
+                reception_time=reception_time,
+                end_time=end_time,
+                creation_time=creation_time,
+                submitter=current_user,
             )
 
         return mission
@@ -282,6 +258,11 @@ class ValidateMission(AuthenticatedMutation):
             required=False,
             description="Optionnel, frais à créer",
         )
+        justification = graphene.Argument(
+            graphene_enum_type(OverValidationJustification),
+            required=False,
+            description="Motif lors de la validation gestionnaire après une validation automatique",
+        )
 
     Output = MissionOutput
 
@@ -303,6 +284,7 @@ class ValidateMission(AuthenticatedMutation):
         activity_items=[],
         expenditures_cancel_ids=[],
         expenditures_inputs=[],
+        justification=None,
     ):
         mission = Mission.query.get(mission_id)
         initial_start_end_time_by_user = (
@@ -312,6 +294,7 @@ class ValidateMission(AuthenticatedMutation):
         )
         is_admin_validation = company_admin(current_user, mission.company_id)
 
+        needs_a_justification = False
         if is_admin_validation:
             for user_id in users_ids:
                 user = User.query.get(user_id)
@@ -320,6 +303,14 @@ class ValidateMission(AuthenticatedMutation):
                     admin_submitter=current_user,
                     for_user=user,
                 )
+
+                needs_a_justification = (
+                    needs_a_justification
+                    or mission.auto_validated_by_admin_for(for_user=user)
+                )
+
+        if needs_a_justification and not justification:
+            raise MissingJustificationForAdminValidation
 
         with atomic_transaction(commit_at_end=True):
             play_bulk_activity_items(activity_items)
@@ -350,6 +341,8 @@ class ValidateMission(AuthenticatedMutation):
                     employee_version_end_time=initial_start_end_times[1]
                     if initial_start_end_times
                     else None,
+                    is_admin_validation=is_admin_validation,
+                    justification=justification,
                 )
                 try:
                     if mission_validation.is_admin:

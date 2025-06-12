@@ -80,9 +80,9 @@ def _equals_on_intersect(d1, d2):
 
 class ApiRequests:
     log_activity = """
-        mutation ($type: ActivityTypeEnum!, $startTime: TimeStamp!, $endTime: TimeStamp, $missionId: Int!, $userId: Int, $context: GenericScalar, $switch: Boolean) {
+        mutation ($type: ActivityTypeEnum!, $startTime: TimeStamp!, $endTime: TimeStamp, $missionId: Int!, $userId: Int, $context: GenericScalar, $switch: Boolean, $creationTime: TimeStamp) {
             activities {
-                logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context, switch: $switch) {
+                logActivity(type: $type, startTime: $startTime, endTime: $endTime, missionId: $missionId, userId: $userId, context: $context, switch: $switch, creationTime: $creationTime) {
                     id
                     type
                     userId
@@ -499,12 +499,14 @@ class ApiRequests:
         $missionId: Int!
         $usersIds: [Int]!
         $activityItems: [BulkActivityItem]
+        $justification: OverValidationJustificationEnum
       ) {
         activities {
           validateMission(
             missionId: $missionId
             usersIds: $usersIds
             activityItems: $activityItems
+            justification: $justification 
           ) {
             id
           }
@@ -1302,19 +1304,27 @@ class WorkPeriod:
 
 
 def _log_activities_in_mission(
-    submitter, company, user, work_periods, submission_time=None
+    submitter,
+    company,
+    user,
+    work_periods,
+    submission_time=None,
+    mission_id=None,
 ):
     if submission_time is None:
         submission_time = datetime.now()
-    create_mission_response = make_authenticated_request(
-        time=submission_time,
-        submitter_id=submitter.id,
-        query=ApiRequests.create_mission,
-        variables={"company_id": company.id},
-    )
-    mission_id = create_mission_response["data"]["activities"][
-        "createMission"
-    ]["id"]
+
+    if mission_id is None:
+        create_mission_response = make_authenticated_request(
+            time=submission_time,
+            submitter_id=submitter.id,
+            query=ApiRequests.create_mission,
+            variables={"company_id": company.id},
+        )
+        mission_id = create_mission_response["data"]["activities"][
+            "createMission"
+        ]["id"]
+
     for wp in work_periods:
         _dict_variables = dict(
             start_time=wp.start_time,
@@ -1323,6 +1333,7 @@ def _log_activities_in_mission(
         )
         user = wp.user if wp.user else user
         _dict_variables["user_id"] = user.id
+        _dict_variables["creation_time"] = submission_time
         if wp.end_time is None:
             _dict_variables["switch"] = True
         else:
