@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import NamedTuple
 
+from dateutil.tz import gettz
+
 from app.domain.history import actions_history
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.pdf import generate_pdf_from_template, Column
@@ -216,8 +218,9 @@ def generate_mission_details_pdf(
     )
 
     try:
+        tz = gettz(user.timezone_name)
         night_work_tarification = compute_aggregate_durations(
-            activities, min_time=start_time
+            activities, min_time=start_time, tz=tz
         )[2]["night_work_tarification"]
     except:
         night_work_tarification = 0
