@@ -420,7 +420,7 @@ def find_admins_with_pending_invitation(
     pending_invitation_trigger_date,
     companies_to_exclude=None,
 ):
-    # Get companies that have scheduled invitations before the reminder date
+    # Get companies that have scheduled invitations and invitations still in pending before the trigger date
     scheduled_invitations = (
         db.session.query(Employment.company_id)
         .join(Email, Email.address == Employment.email)
