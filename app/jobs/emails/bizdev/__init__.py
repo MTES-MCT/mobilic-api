@@ -11,3 +11,6 @@ from .send_reminder_no_invitation_emails import (
 from .send_invitation_emails import (
     send_invitation_emails,
 )
+from .send_companies_with_pending_invitation_emails import (
+    send_companies_with_pending_invitation_emails,
+)
