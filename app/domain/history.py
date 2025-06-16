@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
@@ -37,7 +37,48 @@ class Picto(str, Enum):
     VALIDATION = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHhQTFRFLn0y////9/n6mL+ck7uWL30zSI1LqMmq0uPT2ujbg7KF7/XvM4A33uvfO4U/xdvHh7SJpMamYZ1kj7mRjbeQeqx95/DnUJJUbqVwN4M7WZhcdqp5aaJsrMyuVJVY6/LroMSiwdnCn8OiibWNg7KHWZhdw9nGXZpg6BhrdAAAAqBJREFUeJy92td2qzAQBdABQq827j3l3vz/H2YoXjFBCGmE5ryGaC8wSKMCjmLu5ao6nIIi8/2sCE6HalXeVf8XVC7Kw3MAggTnMF8Gieq9CHhmX0emSPq4yYQut0dqgMSJP0808ZOYiMRbNaHLVsJMImmlQzSpJh/aFBIWugZAEWoh+UWfaHIRv9FC5JrRDIDsqookVKJJooTs1iYGwHo3j0TCDkQnwagL+IuUR1MD4FjKkXfFT1we/12GlIsYqJTTSLTAs+pyjKaQnfFv/ptgN4EYvrvDrMWI0Tc4TiJCrssaANcxkpP7q6lk+Qgh9ruyXP4i4fIGQDhEUsIYNZ8iHSDaY61aqlcktmMAxC+IVl2ik+0vYu1G+lsBC9/6a5Inki7UwYvipz3ysGcAPHpEoaam59YhkU0DIGqR2rgd71Pyx7pFpHMcJcN1Jcq+QfIFDKmSI2La/7aG635PXhAicl7EeJu+4oyIWYkyb0DgwN22AUiU1g0kVtYNJAzGREUDiYN1A4mTdQMJ6husbiBBrIU0DCRo1amOgQRp6NUykJhBvkTfkZ6BhPxxfbnuWNE0kJD+8J9NYx+GBhKyV/hf19xQ0TaQkH6Mm7GibyAh71ZGCsFAYqaD7BXPwEBirqsfKCQDidlB60WhGUjMD7+bZ9NEAwmFQqLuGv9PNAK1kqi/F5rRlkQqxd3GwGiLO6Uy9Y1utGWqWsHtkY29xtTBIxr91EFxEuTRjH4SpDqdo6253TgnpixTbJbFAp5lD5YFHJ6lKJZFNZ7lQZaFTp4lW57FZ5ZldJ4NAZ6tDZ5NGpbtJp6NM54tQJ7NTJ5tWZ4NZodlq9zh2fTnOb7gsBzEcHiOlDgsh2Naxv4xnyYMB5ba2D961cX+IbI+JsfhfgBlqCGe+vgzUwAAAABJRU5ErkJggg=="
 
 
-class UserChange(NamedTuple):
+class HistoryItem:
+    @property
+    def is_validation(self):
+        return (
+            type(self.resource) is MissionValidation
+            and self.type == LogActionType.CREATE
+        )
+
+    @property
+    def is_auto_validation_admin(self):
+        return self.is_auto_validation and self.resource.is_admin
+
+    @property
+    def is_auto_validation_employee(self):
+        return self.is_auto_validation and not self.resource.is_admin
+
+    @property
+    def is_manual_validation(self):
+        return self.is_validation and not self.resource.is_auto
+
+    @property
+    def is_auto_validation(self):
+        return self.is_validation and self.resource.is_auto
+
+    @property
+    def author_status(self):
+        if self.is_auto_validation:
+            return "Validation automatique"
+
+        return (
+            "Administrateur"
+            if self.submitter_has_admin_rights
+            else "Travailleur mobile"
+        )
+
+    @property
+    def author_display_name(self):
+        return self.submitter.display_name if self.submitter else "Mobilic"
+
+
+@dataclass
+class UserChange(HistoryItem):
     time: datetime
     submitter: User
     submitter_has_admin_rights: bool
@@ -46,13 +87,6 @@ class UserChange(NamedTuple):
     type: LogActionType
     version: any = None
     holiday_mission_name: str = ""
-
-    @property
-    def is_validation(self):
-        return (
-            type(self.resource) is MissionValidation
-            and self.type == LogActionType.CREATE
-        )
 
     def picto(self):
         if self.is_validation:
@@ -77,8 +111,18 @@ class UserChange(NamedTuple):
         return Picto.MODIFICATION
 
     def texts(self):
-        if self.is_validation:
+        if self.is_manual_validation:
             return ["a validé la mission"]
+
+        if self.is_auto_validation_admin:
+            return [
+                "a validé la mission automatiquement à la place du gestionnaire"
+            ]
+
+        if self.is_auto_validation_employee:
+            return [
+                "a validé la mission automatiquement à la place du salarié"
+            ]
 
         if type(self.resource) is LocationEntry:
             # Only creations
@@ -134,7 +178,8 @@ class UserChange(NamedTuple):
             return texts
 
 
-class LogAction(NamedTuple):
+@dataclass()
+class LogAction(HistoryItem):
     time: datetime
     submitter: User
     submitter_has_admin_rights: bool
@@ -190,7 +235,9 @@ def actions_history(
                     submitter=resource.submitter,
                     submitter_has_admin_rights=resource.submitter.has_admin_rights(
                         mission.company_id
-                    ),
+                    )
+                    if resource.submitter
+                    else False,
                     resource=resource,
                     type=LogActionType.CREATE,
                     is_after_employee_validation=user_validation.reception_time

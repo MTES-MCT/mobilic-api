@@ -239,9 +239,10 @@ def check_actor_can_write_on_mission_over_period(
     ):
         _raise_authorization_error()
 
-    # 5. Check that the mission is not yet validated by an admin
-    if mission.validated_by_admin or (
-        for_user and mission.validated_by_admin_for(for_user)
+    # 5. Check that the mission is not yet manually validated by an admin
+    if mission.manually_validated_by_admin or (
+        for_user
+        and mission.validated_by_admin_for(user=for_user, only_manual=True)
     ):
         raise MissionAlreadyValidatedByAdminError()
 

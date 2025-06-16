@@ -303,7 +303,9 @@ class MissionAlreadyEndedError(MobilicError):
                             id=mission_end.submitter.id,
                             firstName=mission_end.submitter.first_name,
                             lastName=mission_end.submitter.last_name,
-                        ),
+                        )
+                        if mission_end.submitter is not None
+                        else dict(),
                     )
                 )
             )
@@ -312,6 +314,11 @@ class MissionAlreadyEndedError(MobilicError):
 class MissionAlreadyValidatedByAdminError(MobilicError):
     code = "MISSION_ALREADY_VALIDATED_BY_ADMIN"
     default_message = "A company admin validated the mission activities for the user, no further changes can be made."
+
+
+class MissingJustificationForAdminValidation(MobilicError):
+    code = "MISSING_JUSTIFICATION_FOR_ADMIN_VALIDATION"
+    default_message = "A company admin tried to validate after auto validation without a justification."
 
 
 class ExpenditureDateNotIncludedInMissionRangeError(MobilicError):

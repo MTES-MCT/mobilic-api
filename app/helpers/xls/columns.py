@@ -337,16 +337,14 @@ COLUMN_EVENT_TIME = ExcelColumn(
 )
 COLUMN_EVENT_AUTHOR = ExcelColumn(
     "Auteur de l'enregistrement",
-    lambda event: event.submitter.display_name,
+    lambda event: event.author_display_name,
     lambda _: "center",
     30,
     light_green_hex,
 )
 COLUMN_EVENT_AUTHOR_STATUS = ExcelColumn(
     "Statut de l'auteur",
-    lambda event: "Administrateur"
-    if event.submitter_has_admin_rights
-    else "Travailleur mobile",
+    lambda event: event.author_status,
     lambda _: "center",
     30,
     light_green_hex,
