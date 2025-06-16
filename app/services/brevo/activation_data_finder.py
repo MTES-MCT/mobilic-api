@@ -210,7 +210,7 @@ class ActivationDataFinder:
             metrics["total_employees"] > 0
             and self.config.HIGH_INVITATION_THRESHOLD
             < metrics["invitation_percentage"]
-            < self.config.COMPLETE_INVITATION_THRESHOLD
+            <= self.config.COMPLETE_INVITATION_THRESHOLD
             and metrics["validated_missions"] == 0
         )
 
