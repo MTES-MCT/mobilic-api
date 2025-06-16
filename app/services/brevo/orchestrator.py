@@ -185,9 +185,9 @@ class BrevoSyncOrchestrator:
             for deal in existing_deals:
                 if deal.get("siret"):
                     deals_by_identifier[f"siret_{deal['siret']}"] = deal
-                elif deal.get("siren"):
+                if deal.get("siren"):
                     deals_by_identifier[f"siren_{deal['siren']}"] = deal
-                else:
+                if not deal.get("siret") and not deal.get("siren"):
                     deals_by_identifier[f"name_{deal['name']}"] = deal
 
             batch_size = self.MAX_REQUESTS_PER_BATCH
@@ -253,17 +253,17 @@ class BrevoSyncOrchestrator:
         company: Dict[str, Any],
         deals_by_identifier: Dict[str, Dict[str, Any]],
     ) -> tuple:
-        """Find existing deal by SIRET, SIREN or company name."""
+        """Find existing deal by SIREN, SIRET or company name."""
         company_name = company["company_name"]
 
-        if company.get("siret"):
-            deal_key = f"siret_{company['siret']}"
+        if company.get("siren"):
+            deal_key = f"siren_{company['siren']}"
             existing_deal = deals_by_identifier.get(deal_key)
             if existing_deal:
                 return existing_deal, deal_key
 
-        if company.get("siren"):
-            deal_key = f"siren_{company['siren']}"
+        if company.get("siret"):
+            deal_key = f"siret_{company['siret']}"
             existing_deal = deals_by_identifier.get(deal_key)
             if existing_deal:
                 return existing_deal, deal_key
