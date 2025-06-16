@@ -458,25 +458,23 @@ class BrevoApiClient:
         if self._companies_cache is not None:
             return self._companies_cache
 
-        all_companies = []
-        page = 1
+        total_count = self.get_companies_count()
         limit = 1000
-        max_companies = 5000
+        max_pages = (total_count + limit - 1) // limit
 
-        while len(all_companies) < max_companies:
+        all_companies = []
+
+        for page in range(1, max_pages + 1):
             url = f"{self.BASE_URL}/companies"
             params = {"limit": limit, "page": page}
             response = self._session.get(url, params=params)
             response.raise_for_status()
 
-            response_data = response.json()
-            companies_batch = response_data.get("items", [])
-
+            companies_batch = response.json().get("items", [])
             if not companies_batch:
                 break
 
             all_companies.extend(companies_batch)
-            page += 1
 
             if len(companies_batch) < limit:
                 break
@@ -622,11 +620,11 @@ class BrevoApiClient:
     def _find_matching_company_id(
         self, deal: dict, companies_by_siren: dict, companies_by_siret: dict
     ) -> Optional[str]:
-        """Find matching company ID for a deal using SIRET or SIREN."""
-        if deal["siret"] and str(deal["siret"]) in companies_by_siret:
-            return companies_by_siret[str(deal["siret"])]
-        elif deal["siren"] and str(deal["siren"]) in companies_by_siren:
+        """Find matching company ID for a deal using SIREN or SIRET."""
+        if deal["siren"] and str(deal["siren"]) in companies_by_siren:
             return companies_by_siren[str(deal["siren"])]
+        elif deal["siret"] and str(deal["siret"]) in companies_by_siret:
+            return companies_by_siret[str(deal["siret"])]
         return None
 
     def _process_deals_batch(
