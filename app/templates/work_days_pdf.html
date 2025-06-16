@@ -211,26 +211,38 @@
         <tbody>
             {% for month in months %}
                 {% set outer_loop = loop %}
+                {% set has_night_hours = 'night_hours' in month and month.night_hours > 0 %}
+                {% set has_holidays_hours = 'bank_holidays_or_sundays_hours' in month and month.bank_holidays_or_sundays_hours > 0 %}
+
                 <tr>
-                   <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none;' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}">
+                   <td class="summary-table-month" style="border-right: solid 1pt black; border-left: none;{{ 'border-top: none;' if outer_loop.first else '' }}">
                        {{ month["date"] | pretty_format_month }}
                    </td>
                    {% for column in month_columns %}
+                   {% set is_special_hours_column = column.name == special_hours_column_name %}
                        <td class="{{ 'summary-table-minor-prop' if column.secondary else 'summary-table-major-prop' }}"
-                            style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}{{ 'border-bottom: none' if outer_loop.last and not show_month_total else '' }}{{ 'border-bottom: solid 1pt black;' if outer_loop.last and show_month_total else '' }}"
+                            style="{{ 'border-right: none;' if loop.last else '' }}{{ 'border-top: none;' if outer_loop.first else '' }}"
                             align="{{ 'right' if column.number else 'center' }}"
                         >
                             {{ column.format(month[column.name]) }}
+                            {% if is_special_hours_column %}
+                                {% if has_night_hours %}
+                                    <p style="font-size: 10px; margin: 0; line-height: 2px; padding-top: 2px">Dont heures au tarif nuit : {{ month.night_hours | format_duration }}</p>
+                                {% endif %}
+                                {% if has_holidays_hours %}
+                                    <p style="font-size: 10px; margin: 0; line-height: 2px; padding-top: 2px">Dont heures dimanches et jours fériés : {{ month.bank_holidays_or_sundays_hours | format_duration }}</p>
+                                {% endif %}
+                            {% endif %}
                         </td>
                    {% endfor %}
                 </tr>
             {% endfor %}
             {% if show_month_total %}
             <tr class="summary-table-total">
-                <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold;">Total</td>
+                <td style="border-right: solid 1pt black; border-left: none; border-bottom: none; font-weight: bold; border-top: solid 1pt black;">Total</td>
                 {% for column in month_columns %}
                    <td
-                        style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }};"
+                        style="{{ 'border-right: none;' if loop.last else '' }} border-bottom: none; font-weight: {{ 'normal' if column.secondary else 'bold' }}; border-top: solid 1pt black;"
                         align="{{ 'right' if column.number else 'center' }}"
                     >
                         {{ column.format(total[column.name]) }}

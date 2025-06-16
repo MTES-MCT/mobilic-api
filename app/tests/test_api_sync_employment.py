@@ -205,3 +205,34 @@ class TestApiSyncEmployment(BaseTest):
             "syncEmployment"
         ]
         self.assertEqual(len(employment_ids), 1)
+
+    def test_sync_employments_already_exists_with_hidden_email(self):
+        company = Company.query.get(self.company_id)
+        existing_employee = UserFactory.create(
+            first_name="Existing",
+            last_name="Employee",
+            post__company=company,
+            post__hide_email=True,
+        )
+        sync_employment_response = make_protected_request(
+            query=ApiRequests.sync_employment,
+            variables=dict(
+                company_id=self.company_id,
+                employees=[
+                    {
+                        "firstName": existing_employee.first_name,
+                        "lastName": existing_employee.last_name,
+                        "email": existing_employee.email,
+                    },
+                ],
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+        employment_ids = sync_employment_response["data"]["company"][
+            "syncEmployment"
+        ]
+        self.assertEqual(len(employment_ids), 1)
+        self.assertEqual(employment_ids[0]["email"], existing_employee.email)
