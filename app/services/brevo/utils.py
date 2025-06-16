@@ -17,9 +17,14 @@ def extract_siret(siren_api_info):
     if not siren_api_info or not siren_api_info.get("etablissements"):
         return None
     etablissements = siren_api_info["etablissements"]
-    if etablissements:
-        return etablissements[-1].get("siret")
-    return None
+    if not etablissements:
+        return None
+
+    for etablissement in etablissements:
+        if etablissement.get("etablissementSiege"):
+            return etablissement.get("siret")
+
+    return etablissements[0].get("siret")
 
 
 def get_companies_base_data() -> List[Dict[str, Any]]:
