@@ -16,7 +16,8 @@ def send_companies_with_pending_invitation_emails(today=None):
         days=NB_DAYS_AFTER_SCHEDULED_INVITATION
     )
     admins = find_admins_with_pending_invitation(
-        pending_invitation_trigger_date
+        pending_invitation_trigger_date,
+        companies_to_exclude=app.config["COMPANY_EXCLUDE_ONBOARDING_EMAILS"],
     )
     app.logger.info(
         f"Found {len(admins)} admins to notify (pending invitation J+2 after scheduled invitation)."
