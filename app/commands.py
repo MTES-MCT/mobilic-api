@@ -460,7 +460,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     - Dry run mode (default): Create ID mappings without modifying users
     - Normal mode (--no-dry-run): Perform actual anonymization with user modifications
 
-    In test mode, all database changes are rolled back at the end.
+    In test mode, all database changes are rolled back at the end
 
     Recommended workflow:
     1. Run with default settings to create ID mappings
