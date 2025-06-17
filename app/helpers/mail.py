@@ -871,37 +871,6 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
-    def send_companies_with_pending_invitation(self, employment):
-        google_play_link = Markup(
-            f"https://play.google.com/store/apps/details?id=fr.gouv.beta.mobilic.twa&hl=fr"
-        )
-        android_install_link = Markup(
-            f"https://www.youtube.com/watch?v=-UlsFtkAw54&ab_channel=Mobilic"
-        )
-        iphone_install_link = Markup(
-            f"https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
-        )
-        appointment_link = Markup(
-            f"https://calendly.com/kelly-heau-mobilic/30min?mtm_campaign=Rdv%20calendly%20depuis%20mail%20relance%20gestionnaires%20pour%20qu%E2%80%99il%20incite%20son%20salari%C3%A9"
-        )
-        self._send_single(
-            self._create_message_from_flask_template(
-                template="company_pending_invitation_by_employees.html",
-                subject="Action requise : aidez vos salariés à activer leur compte Mobilic !",
-                employment=employment,
-                user=employment.user,
-                first_name=employment.user.first_name
-                if employment.user
-                else None,
-                type_=EmailType.COMPANY_PENDING_INVITATION,
-                google_play_link=google_play_link,
-                android_install_link=android_install_link,
-                iphone_install_link=iphone_install_link,
-                appointment_link=appointment_link,
-            ),
-            _apply_whitelist_if_not_prod=True,
-        )
-
     def send_companies_with_employees_but_with_no_activity(self, employment):
         self._send_single(
             self._create_message_from_flask_template(
