@@ -26,7 +26,6 @@ class EmailType(str, Enum):
     COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY = "company_without_activity"
     COMPANY_ACTIVE_THEN_INACTIVE = "company_active_then_inactive"
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
-    COMPANY_PENDING_INVITATION = "company_pending_invitation"
     HOLIDAY_LOGGING_BY_ADMIN = "holiday_logging_by_admin"
     HOLIDAY_CHANGES_WARNING = "holiday_changes_warning"
     ADMIN_EXPORT_EXCEL = "admin_export_excel"
