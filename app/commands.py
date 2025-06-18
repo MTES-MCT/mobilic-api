@@ -429,12 +429,6 @@ def update_ceased_activity_status():
     job_update_ceased_activity_status()
 
 
-@app.cli.command("run_daily_tasks", with_appcontext=True)
-def run_daily_tasks():
-    send_daily_emails()
-    job_update_ceased_activity_status()
-
-
 @app.cli.command("process_auto_validations", with_appcontext=True)
 def process_auto_validations():
     job_process_auto_validations()

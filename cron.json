@@ -5,13 +5,16 @@
       "size": "2XL"
     },
     {
-      "command": "0 3 * * * flask run_daily_tasks"
+      "command": "0 3 * * * flask send_daily_emails"
     },
     {
       "command": "0 5 * * * flask load_company_stats"
     },
     {
       "command": "0 2 * * * flask sync_companies_with_brevo 'pipeline churn'"
+    },
+    {
+      "command": "30 1 * * * flask update_ceased_activity_status"
     },
     {
       "command": "0 * * * * flask process_auto_validations"
