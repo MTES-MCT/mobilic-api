@@ -12,6 +12,9 @@
     },
     {
       "command": "0 2 * * * flask sync_companies_with_brevo 'pipeline churn'"
+    },
+    {
+      "command": "0 * * * * flask process_auto_validations"
     }
   ]
 }
