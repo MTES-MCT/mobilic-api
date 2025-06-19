@@ -297,7 +297,6 @@ def send_daily_emails():
         send_companies_with_employees_but_without_activities_emails,
         send_reminder_no_invitation_emails,
         send_invitation_emails,
-        send_companies_with_pending_invitation_emails,
     )
 
     send_onboarding_emails(date.today())
@@ -305,7 +304,6 @@ def send_daily_emails():
     send_companies_with_employees_but_without_activities_emails(date.today())
     send_reminder_no_invitation_emails(date.today())
     send_invitation_emails(date.today())
-    send_companies_with_pending_invitation_emails(date.today())
 
     from app.jobs.emails.cgu import (
         send_expiry_warning_email,
@@ -330,6 +328,38 @@ def load_company_stats():
 def temp_command_generate_xm_control(id):
     control = ControllerControl.query.get(id)
     temp_write_greco_xml(control)
+
+
+@app.cli.command("sync_brevo", with_appcontext=True)
+@click.argument("pipeline_names", nargs=-1)
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose mode for more detailed output",
+)
+def sync_brevo_command(pipeline_names, verbose):
+    """
+    Command to sync companies between the database and Brevo.
+    You can specify one or more pipeline names as arguments.
+    """
+    from app.services.sync_companies_with_brevo import (
+        sync_companies_with_brevo,
+    )
+    from app.helpers.brevo import BrevoApiClient
+
+    if not pipeline_names:
+        print("Please provide at least one pipeline name.")
+        return
+
+    brevo = BrevoApiClient(app.config["BREVO_API_KEY"])
+
+    app.logger.info(
+        f"Process sync companies with Brevo began for pipelines: {pipeline_names}"
+    )
+
+    sync_companies_with_brevo(brevo, list(pipeline_names), verbose=verbose)
+
+    app.logger.info("Process sync companies with Brevo done")
 
 
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
@@ -430,7 +460,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     - Dry run mode (default): Create ID mappings without modifying users
     - Normal mode (--no-dry-run): Perform actual anonymization with user modifications
 
-    In test mode, all database changes are rolled back at the end.
+    In test mode, all database changes are rolled back at the end
 
     Recommended workflow:
     1. Run with default settings to create ID mappings
@@ -446,241 +476,3 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
         test_mode=test,
         force_clean=force_clean,
     )
-
-
-@app.cli.command("sync_brevo_funnel", with_appcontext=True)
-@click.option(
-    "--acquisition-pipeline",
-    default="Acquisition",
-    help="Brevo pipeline name for acquisition funnel",
-)
-@click.option(
-    "--activation-pipeline",
-    default="Activation",
-    help="Brevo pipeline name for activation funnel",
-)
-@click.option(
-    "--verbose",
-    is_flag=True,
-    help="Enable verbose mode for detailed output",
-)
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be synced without making changes",
-)
-@click.option(
-    "--test-classification",
-    is_flag=True,
-    help="Test funnel classification logic only",
-)
-@click.option(
-    "--acquisition-only",
-    is_flag=True,
-    help="Sync only acquisition funnel data",
-)
-@click.option(
-    "--activation-only",
-    is_flag=True,
-    help="Sync only activation funnel data",
-)
-def sync_brevo_funnel_command(
-    acquisition_pipeline,
-    activation_pipeline,
-    verbose,
-    dry_run,
-    test_classification,
-    acquisition_only,
-    activation_only,
-):
-    """
-    Unified sync of acquisition and activation funnels with Brevo dual pipelines.
-
-    This command syncs companies to two separate Brevo pipelines based on their funnel stage:
-
-    ACQUISITION PIPELINE - Focus on company registration and initial engagement:
-    - Entreprise inscrite
-    - Nouvelles entreprises inscrites depuis mars 2025
-    - Entreprise inscrite depuis 7 jours sans salarié invité
-    - Entreprise inscrite depuis 1 mois sans salarié invité
-
-    ACTIVATION PIPELINE - Focus on employee onboarding and platform usage:
-    - Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée
-    - Entreprise ayant invité entre 30 et 80% de leurs salariés + 0 mission validée
-    - Entreprise ayant invité entre 80 et 100% de leurs salariés + 0 mission validée
-    - Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire
-
-    Examples:
-    flask sync_brevo_funnel --test-classification
-    flask sync_brevo_funnel --dry-run --verbose
-    flask sync_brevo_funnel --acquisition-only
-    flask sync_brevo_funnel --acquisition-pipeline "Acquisition" --activation-pipeline "Activation" --verbose
-    """
-    from app.services.brevo import sync_all_funnels
-    from app.services.brevo.testing import FunnelTester
-    from app.helpers.brevo import brevo
-
-    if verbose:
-        import logging
-
-        logging.basicConfig(level=logging.DEBUG)
-        app.logger.setLevel(logging.DEBUG)
-
-    if acquisition_only and activation_only:
-        click.echo(
-            "Error: --acquisition-only and --activation-only cannot be used together"
-        )
-        return
-
-    if test_classification:
-        return FunnelTester.run_classification_test(
-            acquisition_only, activation_only
-        )
-
-    try:
-
-        app.logger.info("Starting Brevo sync:")
-        app.logger.info(f"  - Acquisition pipeline: {acquisition_pipeline}")
-        app.logger.info(f"  - Activation pipeline: {activation_pipeline}")
-        app.logger.info(f"  - Dry run: {dry_run}")
-
-        single_funnel_mode = acquisition_only or activation_only
-        if single_funnel_mode:
-            from app.services.brevo import (
-                AcquisitionDataFinder,
-                ActivationDataFinder,
-                sync_dual_pipeline_funnel,
-            )
-
-            acquisition_data, activation_data = [], []
-
-            if acquisition_only:
-                acquisition_data = AcquisitionDataFinder().find_companies()
-                app.logger.info(
-                    f"  - Acquisition only: {len(acquisition_data)} companies"
-                )
-
-            if activation_only:
-                activation_data = ActivationDataFinder().find_companies()
-                app.logger.info(
-                    f"  - Activation only: {len(activation_data)} companies"
-                )
-
-            result = sync_dual_pipeline_funnel(
-                acquisition_data=acquisition_data,
-                activation_data=activation_data,
-                brevo_client=brevo,
-                acquisition_pipeline=acquisition_pipeline,
-                activation_pipeline=activation_pipeline,
-                dry_run=dry_run,
-            )
-        else:
-            result = sync_all_funnels(
-                brevo_client=brevo,
-                acquisition_pipeline=acquisition_pipeline,
-                activation_pipeline=activation_pipeline,
-                dry_run=dry_run,
-            )
-
-        mode = "DRY RUN" if dry_run else "SYNC"
-        click.echo(f"\n🎯 {mode} RESULTS:")
-        click.echo(f"   Total companies: {result.total_companies}")
-        click.echo(f"   Created deals: {result.created_deals}")
-        click.echo(f"   Updated deals: {result.updated_deals}")
-        click.echo(f"   Acquisition synced: {result.acquisition_synced}")
-        click.echo(f"   Activation synced: {result.activation_synced}")
-
-        if result.errors:
-            click.echo(f"   Errors: {len(result.errors)}")
-            for error in result.errors[:3]:
-                click.echo(f"     - {error}")
-
-        app.logger.info(
-            f"Brevo sync completed: "
-            f"Acquisition {result.acquisition_synced}, "
-            f"Activation {result.activation_synced}, "
-            f"Total {result.created_deals} created, {result.updated_deals} updated"
-        )
-
-    except Exception as e:
-        error_msg = f"❌ Sync failed: {e}"
-        print(error_msg)
-        app.logger.error(error_msg)
-        if verbose:
-            import traceback
-
-            traceback.print_exc()
-        raise
-
-
-@app.cli.command("link_brevo_deals", with_appcontext=True)
-@click.option(
-    "--acquisition-pipeline",
-    default="Acquisition",
-    help="Brevo pipeline name for acquisition funnel",
-)
-@click.option(
-    "--activation-pipeline",
-    default="Activation",
-    help="Brevo pipeline name for activation funnel",
-)
-@click.option(
-    "--companies-per-page",
-    default=1000,
-    type=int,
-    help="Number of companies to process per page",
-)
-def link_brevo_deals_command(
-    acquisition_pipeline, activation_pipeline, companies_per_page
-):
-    """Link unlinked deals to existing companies in Brevo using pagination."""
-    from app.helpers.brevo import brevo
-
-    try:
-        app.logger.info("Starting deal linking process")
-
-        acquisition_pipeline_id = brevo.get_pipeline_id_by_name(
-            acquisition_pipeline
-        )
-        activation_pipeline_id = brevo.get_pipeline_id_by_name(
-            activation_pipeline
-        )
-
-        total_linked = 0
-        total_errors = 0
-
-        if acquisition_pipeline_id:
-            print(f"🔗 Linking deals in {acquisition_pipeline} pipeline...")
-            result = brevo.link_unlinked_deals_paginated(
-                acquisition_pipeline_id, companies_per_page
-            )
-            total_linked += result["linked"]
-            total_errors += result["errors"]
-            print(
-                f"   Acquisition: {result['linked']} linked, {result['errors']} errors"
-            )
-
-        if activation_pipeline_id:
-            print(f"🔗 Linking deals in {activation_pipeline} pipeline...")
-            result = brevo.link_unlinked_deals_paginated(
-                activation_pipeline_id, companies_per_page
-            )
-            total_linked += result["linked"]
-            total_errors += result["errors"]
-            print(
-                f"   Activation: {result['linked']} linked, {result['errors']} errors"
-            )
-
-        print("LINKING RESULTS:")
-        print(f"   Total linked: {total_linked}")
-        print(f"   Total errors: {total_errors}")
-
-        app.logger.info(
-            f"Deal linking completed: {total_linked} linked, {total_errors} errors"
-        )
-
-    except Exception as e:
-        error_msg = f"❌ Linking failed: {e}"
-        print(error_msg)
-        app.logger.error(error_msg)
-        raise

@@ -11,10 +11,7 @@
       "command": "0 5 * * * flask load_company_stats"
     },
     {
-      "command": "0 2 * * * flask sync_brevo_funnel"
-    },
-    {
-      "command": "30 2 * * * flask link_brevo_deals"
+      "command": "0 2 * * * flask sync_companies_with_brevo 'pipeline churn'"
     },
     {
       "command": "30 1 * * * flask update_ceased_activity_status"

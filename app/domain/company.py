@@ -416,61 +416,6 @@ def find_employee_for_invitation(
     return query.yield_per(100).all()
 
 
-def find_admins_with_pending_invitation(
-    pending_invitation_trigger_date,
-    companies_to_exclude=None,
-):
-    # Get companies that have scheduled invitations and invitations still in pending before the trigger date
-    scheduled_invitations = (
-        db.session.query(Employment.company_id)
-        .join(Email, Email.address == Employment.email)
-        .filter(
-            Email.type == EmailType.SCHEDULED_INVITATION,
-            Email.creation_time
-            <= datetime.datetime.combine(
-                pending_invitation_trigger_date,
-                datetime.datetime.max.time(),
-            ),
-            Employment.has_admin_rights == False,
-            Employment.user_id.is_(None),
-            Employment.validation_status
-            == EmploymentRequestValidationStatus.PENDING,
-        )
-        .distinct()
-        .subquery()
-    )
-
-    # Get employments that have already received the pending invitation email
-    second_scheduled_invitations = (
-        db.session.query(Email.employment_id)
-        .filter(Email.type == EmailType.COMPANY_PENDING_INVITATION)
-        .distinct()
-        .subquery()
-    )
-
-    # Base query to find employments that are admins and have not received the pending invitation email
-    base_query = (
-        db.session.query(Employment)
-        .options(joinedload(Employment.company))
-        .filter(
-            Employment.company_id.in_(scheduled_invitations),
-            ~Employment.id.in_(second_scheduled_invitations),
-            Employment.has_admin_rights == True,
-            Employment.user_id.isnot(None),
-            ~Employment.is_dismissed,
-            Employment.end_date.is_(None),
-            Employment.validation_status
-            == EmploymentRequestValidationStatus.APPROVED,
-        )
-    )
-    if companies_to_exclude:
-        base_query = base_query.filter(
-            Employment.company_id.notin_(companies_to_exclude)
-        )
-
-    return base_query.yield_per(100).all()
-
-
 @log_execution
 def update_ceased_activity_status():
 

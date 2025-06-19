@@ -1,3 +1,4 @@
+import time
 from functools import wraps
 from dataclasses import dataclass
 from typing import Optional
@@ -21,15 +22,14 @@ class CreateContactData:
     admin_last_name: str
     admin_first_name: str
     company_name: str
-    siren: str
+    siren: int
     phone_number: Optional[str] = None
 
 
 @dataclass
 class CreateCompanyData:
     company_name: str
-    siren: str
-    siret: Optional[str] = None
+    siren: int
     phone_number: Optional[str] = None
 
 
@@ -37,6 +37,16 @@ class CreateCompanyData:
 class LinkCompanyContactData:
     company_id: int
     contact_id: int
+
+
+@dataclass
+class GetCompanyData:
+    company_id: str
+
+
+@dataclass
+class GetDealData:
+    deal_id: str
 
 
 @dataclass
@@ -83,8 +93,6 @@ class BrevoApiClient:
             }
         )
 
-        self._companies_cache = None
-
     @check_api_key
     def create_contact(self, data: CreateContactData):
         try:
@@ -119,9 +127,6 @@ class BrevoApiClient:
                 "owner": "Pathtech PATHTECH",
             }
 
-            if data.siret:
-                attributes["siret"] = data.siret
-
             if data.phone_number:
                 attributes["phone_number"] = self.remove_plus_sign(
                     data.phone_number
@@ -143,8 +148,27 @@ class BrevoApiClient:
             url = f"{self.BASE_URL}/companies/link-unlink/{data.company_id}"
             payload = {"linkContactIds": [data.contact_id]}
             response = self._session.patch(url, json=payload)
-            response.raise_for_status()
             return response
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_company(self, data: GetCompanyData):
+        try:
+            url = f"{self.BASE_URL}/companies/{data.company_id}"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
+    def get_deal(self, data: GetDealData):
+        try:
+            url = f"{self.BASE_URL}/crm/deals/{data.deal_id}"
+            response = self._session.get(url)
+            response.raise_for_status()
+            return response.json()
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -254,493 +278,6 @@ class BrevoApiClient:
             f"Stage with ID {stage_id} not found in pipeline {pipeline_id}."
         )
         return None
-
-    @check_api_key
-    def get_deal_attributes(self):
-        try:
-            url = f"{self.BASE_URL}/crm/attributes/deals"
-            response = self._session.get(url)
-            response.raise_for_status()
-            result = response.json()
-            app.logger.debug(f"Deal attributes response: {result}")
-            return result
-        except Exception as e:
-            app.logger.error(f"Failed to get deal attributes: {e}")
-            return {}
-
-    @check_api_key
-    def create_deal_with_attributes(
-        self, company_data: dict, pipeline_id: str, stage_id: str, status: str
-    ) -> str:
-        """Create a new deal in Brevo with company attributes.
-
-        Args:
-            company_data: Dictionary containing company information
-            pipeline_id: Brevo pipeline identifier
-            stage_id: Brevo stage identifier within the pipeline
-            status: Deal status description
-
-        Returns:
-            Deal ID if successful, None if failed
-        """
-        company_name = company_data.get("company_name", "Unknown")
-
-        try:
-            clean_name = self._sanitize_company_name(company_name)
-
-            deal_payload = {
-                "name": clean_name,
-                "attributes": {
-                    "pipeline": pipeline_id,
-                    "deal_stage": stage_id,
-                    "funnel_status": status,
-                },
-            }
-
-            if company_data.get("siren"):
-                deal_payload["attributes"]["siren"] = company_data["siren"]
-
-            if company_data.get("siret"):
-                deal_payload["attributes"]["siret"] = company_data["siret"]
-
-            if company_data.get("phone_number"):
-                deal_payload["attributes"]["phone_number"] = company_data[
-                    "phone_number"
-                ]
-
-            if company_data.get("nb_employees") is not None:
-                deal_payload["attributes"]["nb_employees"] = company_data[
-                    "nb_employees"
-                ]
-
-            if company_data.get("stage_since_days") is not None:
-                deal_payload["attributes"]["stage_since_days"] = company_data[
-                    "stage_since_days"
-                ]
-
-            if company_data.get("company_creation_date"):
-                try:
-                    deal_payload["attributes"][
-                        "company_creation_date"
-                    ] = company_data["company_creation_date"].isoformat()
-                except (AttributeError, ValueError):
-                    pass
-
-            if "invited_employees_count" in company_data:
-                deal_payload["attributes"][
-                    "invited_employees_count"
-                ] = company_data["invited_employees_count"]
-
-            if "invitation_percentage" in company_data:
-                deal_payload["attributes"][
-                    "invitation_percentage"
-                ] = company_data["invitation_percentage"]
-
-            if "total_employees_count" in company_data:
-                deal_payload["attributes"][
-                    "total_employees_count"
-                ] = company_data["total_employees_count"]
-
-            if "validated_missions_count" in company_data:
-                deal_payload["attributes"][
-                    "validated_missions_count"
-                ] = company_data["validated_missions_count"]
-
-            url = f"{self.BASE_URL}/crm/deals"
-            response = self._session.post(url, json=deal_payload)
-            response.raise_for_status()
-
-            deal_data = response.json()
-            deal_id = deal_data.get("id")
-
-            return deal_id
-
-        except Exception as e:
-            app.logger.error(
-                f"Failed to create deal for company ID {company_data.get('company_id')}: {e}"
-            )
-            raise
-
-    @check_api_key
-    def get_existing_deals_by_pipeline(self, pipeline_id: str) -> list:
-        try:
-            deals_data = self.get_all_deals_by_pipeline(
-                GetAllDealsByPipelineData(pipeline_id=pipeline_id)
-            )
-
-            deals = []
-            for deal in deals_data.get("items", []):
-                deal_name = self._extract_deal_name(deal)
-                deal_attrs = deal.get("attributes", {})
-
-                if deal_name:
-                    deals.append(
-                        {
-                            "id": deal["id"],
-                            "name": deal_name,
-                            "stage_id": deal_attrs.get("deal_stage"),
-                            "siren": deal_attrs.get("siren"),
-                            "siret": deal_attrs.get("siret"),
-                        }
-                    )
-
-            return deals
-
-        except BrevoRequestError as e:
-            app.logger.error(f"Failed to get existing deals: {e}")
-            return []
-
-    def _extract_deal_name(self, deal: dict) -> str:
-        return deal["attributes"].get("deal_name", "Unknown")
-
-    def _sanitize_company_name(self, name: str) -> str:
-        if not name:
-            return "Unknown Company"
-
-        clean_name = name.strip()
-
-        problematic_chars = ['"', "'", "\n", "\r", "\t"]
-        for char in problematic_chars:
-            clean_name = clean_name.replace(char, " ")
-
-        clean_name = " ".join(clean_name.split())
-
-        if len(clean_name) < 1:
-            return "Unknown Company"
-
-        if len(clean_name) > 100:
-            clean_name = clean_name[:97] + "..."
-
-        return clean_name
-
-    @check_api_key
-    def get_pipeline_id_by_name(self, pipeline_name: str) -> Optional[str]:
-        try:
-            pipelines = self.get_all_pipelines()
-            for pipeline in pipelines:
-                if pipeline["pipeline_name"] == pipeline_name:
-                    return pipeline["pipeline"]
-            return
-        except BrevoRequestError as e:
-            app.logger.error(f"Failed to get pipelines: {e}")
-            raise
-
-    @check_api_key
-    def get_stage_mapping(self, pipeline_id: str) -> dict:
-        try:
-            pipeline_details = self.get_pipeline_details(pipeline_id)
-
-            if isinstance(pipeline_details, list):
-                pipeline_details = next(
-                    (
-                        p
-                        for p in pipeline_details
-                        if p["pipeline"] == pipeline_id
-                    ),
-                    None,
-                )
-
-            if not pipeline_details:
-                return {}
-
-            stage_mapping = {
-                self._normalize_status(stage["name"]): stage["id"]
-                for stage in pipeline_details.get("stages", [])
-            }
-
-            return stage_mapping
-
-        except BrevoRequestError as e:
-            app.logger.error(f"Failed to get pipeline details: {e}")
-            return {}
-
-    def _get_all_companies(self):
-        if self._companies_cache is not None:
-            return self._companies_cache
-
-        total_count = self.get_companies_count()
-        limit = 1000
-        max_pages = (total_count + limit - 1) // limit
-
-        all_companies = []
-
-        for page in range(1, max_pages + 1):
-            url = f"{self.BASE_URL}/companies"
-            params = {"limit": limit, "page": page}
-            response = self._session.get(url, params=params)
-            response.raise_for_status()
-
-            companies_batch = response.json().get("items", [])
-            if not companies_batch:
-                break
-
-            all_companies.extend(companies_batch)
-
-            if len(companies_batch) < limit:
-                break
-
-        app.logger.debug(
-            f"Retrieved {len(all_companies)} companies from Brevo API"
-        )
-        self._companies_cache = all_companies
-        return all_companies
-
-    @check_api_key
-    def search_companies_by_identifier(
-        self, siret: str = None, siren: str = None
-    ) -> list:
-        try:
-            companies = self._get_all_companies()
-
-            if siret:
-                for company in companies:
-                    attrs = company.get("attributes", {})
-                    if attrs.get("siret") == siret:
-                        return [company]
-
-            if siren:
-                for company in companies:
-                    attrs = company.get("attributes", {})
-                    company_siren = attrs.get("siren")
-                    if str(company_siren) == str(siren):
-                        app.logger.debug(
-                            f"Found matching company with SIREN {siren}"
-                        )
-                        return [company]
-
-            return []
-
-        except Exception as e:
-            app.logger.error(f"Failed to search companies: {e}")
-            return []
-
-    @check_api_key
-    def get_unlinked_deals_by_pipeline(self, pipeline_id: str) -> list:
-        try:
-            deals_data = self.get_all_deals_by_pipeline(
-                GetAllDealsByPipelineData(pipeline_id=pipeline_id)
-            )
-
-            unlinked_deals = []
-            for deal in deals_data.get("items", []):
-                if not deal.get("linkedCompaniesIds"):
-                    deal_attrs = deal.get("attributes", {})
-                    if deal_attrs.get("siren") or deal_attrs.get("siret"):
-                        unlinked_deals.append(
-                            {
-                                "id": deal["id"],
-                                "siren": deal_attrs.get("siren"),
-                                "siret": deal_attrs.get("siret"),
-                            }
-                        )
-
-            app.logger.info(
-                f"Found {len(unlinked_deals)} unlinked deals with SIREN/SIRET"
-            )
-            return unlinked_deals
-
-        except Exception as e:
-            app.logger.error(f"Failed to get unlinked deals: {e}")
-            return []
-
-    @check_api_key
-    def link_deal_to_company(self, deal_id: str, company_id: str) -> bool:
-        try:
-            url = f"{self.BASE_URL}/crm/deals/link-unlink/{deal_id}"
-            payload = {"linkCompanyIds": [company_id]}
-            response = self._session.patch(url, json=payload)
-            response.raise_for_status()
-            return True
-
-        except Exception as e:
-            app.logger.error(
-                f"Failed to link deal {deal_id} to company {company_id}: {e}"
-            )
-            return False
-
-    @check_api_key
-    def get_companies_count(self) -> int:
-        try:
-            url = f"{self.BASE_URL}/companies"
-            params = {"limit": 1, "page": 1}
-            response = self._session.get(url, params=params)
-            response.raise_for_status()
-
-            response_data = response.json()
-
-            total_count = (
-                response_data.get("pager", {}).get("total", 0)
-                or response_data.get("count", 0)
-                or response_data.get("total", 0)
-                or response_data.get("totalItems", 0)
-                or response_data.get("totalCount", 0)
-                or response_data.get("pager", {}).get("totalItems", 0)
-                or response_data.get("pagination", {}).get("total", 0)
-                or response_data.get("meta", {}).get("total", 0)
-                or len(response_data.get("items", []))
-            )
-
-            app.logger.info(f"Total companies in Brevo: {total_count}")
-            return total_count
-
-        except Exception as e:
-            app.logger.error(f"Failed to get companies count: {e}")
-            app.logger.error(
-                f"Response status: {getattr(response, 'status_code', 'unknown')}"
-            )
-            app.logger.error(
-                f"Response text: {getattr(response, 'text', 'unknown')}"
-            )
-            return 0
-
-    def _build_company_indexes(self, companies_batch: list) -> tuple:
-        """Build SIREN and SIRET indexes for company lookup."""
-        companies_by_siren = {}
-        companies_by_siret = {}
-
-        for company in companies_batch:
-            attrs = company.get("attributes", {})
-            app.logger.debug(
-                f"Company {company['id']}: SIREN={attrs.get('siren')}, SIRET={attrs.get('siret')}"
-            )
-            if attrs.get("siren"):
-                companies_by_siren[str(attrs["siren"])] = company["id"]
-            if attrs.get("siret"):
-                companies_by_siret[str(attrs["siret"])] = company["id"]
-
-        app.logger.debug(
-            f"Available company SIRENs: {list(companies_by_siren.keys())}"
-        )
-        app.logger.debug(
-            f"Available company SIRETs: {list(companies_by_siret.keys())}"
-        )
-
-        return companies_by_siren, companies_by_siret
-
-    def _find_matching_company_id(
-        self, deal: dict, companies_by_siren: dict, companies_by_siret: dict
-    ) -> Optional[str]:
-        """Find matching company ID for a deal using SIREN or SIRET."""
-        if deal["siren"] and str(deal["siren"]) in companies_by_siren:
-            return companies_by_siren[str(deal["siren"])]
-        elif deal["siret"] and str(deal["siret"]) in companies_by_siret:
-            return companies_by_siret[str(deal["siret"])]
-        return None
-
-    def _process_deals_batch(
-        self,
-        unlinked_deals: list,
-        companies_by_siren: dict,
-        companies_by_siret: dict,
-    ) -> tuple:
-        """Process a batch of unlinked deals and return linking results."""
-        linked_count = 0
-        error_count = 0
-        deals_to_remove = []
-
-        for i, deal in enumerate(unlinked_deals):
-            company_id = self._find_matching_company_id(
-                deal, companies_by_siren, companies_by_siret
-            )
-
-            if company_id:
-                if self.link_deal_to_company(deal["id"], company_id):
-                    linked_count += 1
-                    deals_to_remove.append(i)
-                    app.logger.debug(
-                        f"Linked deal {deal['id']} to company {company_id}"
-                    )
-                else:
-                    error_count += 1
-
-        return linked_count, error_count, deals_to_remove
-
-    @check_api_key
-    def link_unlinked_deals_paginated(
-        self, pipeline_id: str, companies_per_page: int = 1000
-    ) -> dict:
-        try:
-            unlinked_deals = self.get_unlinked_deals_by_pipeline(pipeline_id)
-            if not unlinked_deals:
-                return {"linked": 0, "errors": 0, "processed_deals": 0}
-
-            total_companies = self.get_companies_count()
-            total_pages = (
-                total_companies + companies_per_page - 1
-            ) // companies_per_page
-
-            app.logger.info(f"Processing {len(unlinked_deals)} unlinked deals")
-            app.logger.info(
-                f"Total companies: {total_companies}, Pages to process: {total_pages}"
-            )
-
-            total_linked_count = 0
-            total_error_count = 0
-            current_page = 1
-
-            while current_page <= total_pages and unlinked_deals:
-                url = f"{self.BASE_URL}/companies"
-                params = {"limit": companies_per_page, "page": current_page}
-                response = self._session.get(url, params=params)
-                response.raise_for_status()
-
-                companies_batch = response.json().get("items", [])
-                if not companies_batch:
-                    break
-
-                app.logger.info(
-                    f"Processing companies page {current_page} ({len(companies_batch)} companies)"
-                )
-
-                for i, deal in enumerate(unlinked_deals[:5]):
-                    app.logger.debug(
-                        f"Deal {deal['id']}: SIREN={deal.get('siren')}, SIRET={deal.get('siret')}"
-                    )
-
-                (
-                    companies_by_siren,
-                    companies_by_siret,
-                ) = self._build_company_indexes(companies_batch)
-                (
-                    linked_count,
-                    error_count,
-                    deals_to_remove,
-                ) = self._process_deals_batch(
-                    unlinked_deals, companies_by_siren, companies_by_siret
-                )
-
-                total_linked_count += linked_count
-                total_error_count += error_count
-
-                for i in reversed(deals_to_remove):
-                    unlinked_deals.pop(i)
-
-                current_page += 1
-
-                if len(companies_batch) < companies_per_page:
-                    break
-
-            app.logger.info(
-                "All deals processed"
-                if not unlinked_deals
-                else "Linking completed"
-            )
-            app.logger.info(
-                f"Results: {total_linked_count} linked, {total_error_count} errors, {len(unlinked_deals)} remaining"
-            )
-
-            return {
-                "linked": total_linked_count,
-                "errors": total_error_count,
-                "processed_deals": total_linked_count + total_error_count,
-            }
-
-        except Exception as e:
-            app.logger.error(f"Failed to link deals: {e}")
-            return {"linked": 0, "errors": 1, "processed_deals": 0}
-
-    def _normalize_status(self, status: str) -> str:
-        return status.strip().lower()
 
     @staticmethod
     def remove_plus_sign(phone_number):
