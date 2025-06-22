@@ -472,7 +472,7 @@ def find_admins_with_pending_invitation(
 
 
 @log_execution
-def update_ceased_activity_status():
+def job_update_ceased_activity_status():
 
     companies = (
         Company.query.filter(

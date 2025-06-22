@@ -148,6 +148,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         bypass_overlap_check=False,
         bypass_auth_check=False,
         creation_time=None,
+        submitter=None,
         **updated_props,
     ):
         from app.domain.log_activities import handle_activities_update
@@ -173,8 +174,9 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             )
             return None
 
+        submitter = submitter if submitter is not None else current_user
         with handle_activities_update(
-            submitter=current_user,
+            submitter=submitter,
             user=self.user,
             mission=self.mission,
             reception_time=revision_time,
@@ -191,7 +193,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 end_time=new["end_time"],
                 context=revision_context,
                 version_number=(self.latest_version_number() or 0) + 1,
-                submitter=current_user,
+                submitter=submitter,
                 creation_time=creation_time,
             )
             db.session.add(revision)
@@ -234,4 +236,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 @event.listens_for(Activity, "after_insert")
 @event.listens_for(Activity, "after_update")
 def set_last_submitter_id(mapper, connect, target):
-    target.last_submitter_id = current_user.id
+    try:
+        target.last_submitter_id = current_user.id
+    except Exception as e:
+        target.last_submitter_id = target.submitter_id
