@@ -317,7 +317,14 @@
                                         style="{{ 'border-right: solid 1pt black;' if loop.last or not column.secondary else '' }} border-bottom: solid 1pt black; {{ 'border-left: solid 1pt black;' if loop.first else '' }}"
                                         align="{{ 'right' if column.number else 'center' }}"
                                     >
-                                        {{ column.format(stats[column.name]) if stats.get(column.name, None) is not none else '' }}
+                                        {% if column.name == 'total_work' %}
+                                            {{ column.format(stats[column.name]) }}
+                                            {% if stats['night_work_in_seconds'] > 0 %}
+                                                <div style="font-size: 10px; font-weight: 'normal'">Dont heures au tarif nuit : {{ column.format(stats['night_work_in_seconds']) }}</div>
+                                            {% endif %}
+                                        {% else %}
+                                            {{ column.format(stats[column.name]) if stats.get(column.name, None) is not none else '' }}
+                                        {% endif %}
                                     </td>
                                 {% endfor %}
                                 </tr>

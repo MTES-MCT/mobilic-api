@@ -4,11 +4,13 @@ from app.helpers.time import is_sunday_or_bank_holiday
 
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.pdf import generate_pdf_from_template, Column
-from app.helpers.time import to_fr_tz
 from app.models.activity import ActivityType
 from app.models.expenditure import ExpenditureType
 from app.models.mission import UserMissionModificationStatus
-from app.templates.filters import format_seconds_duration, format_time
+from app.templates.filters import (
+    format_seconds_duration,
+    format_time,
+)
 
 COLOR_OFF = "#9BC0D1"
 COLOR_ACTIVITY = "#C9CBFF"
@@ -248,6 +250,8 @@ def get_accumulator_base():
         "worked_days": 0,
         "off_days": 0,
         "total_work": 0,
+        "night_hours": 0,
+        "bank_holidays_or_sundays_hours": 0,
     }
     for _type in ActivityType:
         base_dict[_type.value] = 0
@@ -315,6 +319,12 @@ def _generate_work_days_pdf(
                 accumulator[
                     "night_hours"
                 ] += wd.total_night_work_tarification_duration
+
+            if "bank_holidays_or_sundays_hours" in accumulator:
+                if is_sunday_or_bank_holiday(wd.day):
+                    accumulator[
+                        "bank_holidays_or_sundays_hours"
+                    ] += wd.total_work_duration
 
             for type_ in ActivityType:
                 accumulator[type_.value] += wd.activity_durations[type_]
@@ -441,6 +451,7 @@ def _generate_work_days_pdf(
         or total[ActivityType.TRANSFER] > 0,
         include_off_hours=True,
     )
+
     return generate_pdf_from_template(
         "work_days_pdf.html",
         user_name=user.display_name,
@@ -460,6 +471,7 @@ def _generate_work_days_pdf(
         show_week_summary=True,
         break_after_month=len(months) > 2,
         generation_time=datetime.now(),
+        special_hours_column_name="total_work",
     )
 
 
