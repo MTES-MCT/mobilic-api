@@ -112,6 +112,7 @@ from app.controllers.vehicle import (
 from app.data_access.user_agreement import AcceptCgu, RejectCgu
 from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
+from app.controllers.notification import MarkNotificationsAsRead
 
 
 class Activities(graphene.ObjectType):
@@ -173,6 +174,7 @@ class Account(graphene.ObjectType):
     disable_warning = DisableWarning.Field()
     accept_cgu = AcceptCgu.Field()
     reject_cgu = RejectCgu.Field()
+    mark_notifications_as_read = MarkNotificationsAsRead.Field()
 
 
 class Employments(graphene.ObjectType):

@@ -684,3 +684,18 @@ def link_brevo_deals_command(
         print(error_msg)
         app.logger.error(error_msg)
         raise
+
+
+@app.cli.command("delete_old_notifications", with_appcontext=True)
+def delete_old_notifications():
+    """Delete notifications older than 1 month."""
+    from datetime import timedelta
+    from app.models.notification import Notification
+    from app import db
+
+    threshold_date = date.today() - timedelta(days=30)
+    deleted = Notification.query.filter(
+        Notification.creation_time < threshold_date
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    print(f"Deleted {deleted} notifications older than 1 month.")
