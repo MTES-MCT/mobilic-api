@@ -3,6 +3,7 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.helpers.notification_type import NotificationType
 from app.models.base import BaseModel
 from app.models.utils import enum_column
+from app.domain.notification_data_schemas import validate_notification_data
 from sqlalchemy import Index, text
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -20,3 +21,19 @@ class Notification(BaseModel):
         db.DateTime, nullable=False, server_default=text("now()"), index=True
     )
     data = db.Column(JSONB(none_as_null=True), nullable=True)
+
+
+def create_notification(
+    user_id: int, notification_type: NotificationType, data: dict
+) -> Notification:
+    """
+    Create a new notification for a user.
+    """
+    validate_notification_data(notification_type, data)
+    notification = Notification(
+        user_id=user_id,
+        type=notification_type,
+        data=data,
+    )
+    db.session.add(notification)
+    return notification

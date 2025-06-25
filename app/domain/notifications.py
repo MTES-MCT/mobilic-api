@@ -11,8 +11,8 @@ from app.models.mission import UserMissionModificationStatus
 from app.models import Company, UserAgreement
 from app.models.notification import Notification
 from app.helpers.notification_type import NotificationType
-from app.domain.notification_data_schemas import validate_notification_data
 from app.helpers.time import to_fr_tz
+from app.models.notification import create_notification
 
 
 def warn_if_mission_changes_since_latest_user_action(mission, user):
@@ -42,19 +42,17 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 end_time=end_time,
                 timers=timers,
             )
-
-            data = {
-                "mission_start_date": to_fr_tz(start_time).strftime("%d/%m")
-            }
-            validate_notification_data(
-                NotificationType.MISSION_CHANGES_WARNING, data
-            )
-            notification = Notification(
+            print("Sending notification about new mission to user", user.id)
+            create_notification(
                 user_id=user.id,
-                type=NotificationType.MISSION_CHANGES_WARNING,
-                data=data,
+                notification_type=NotificationType.MISSION_CHANGES_WARNING,
+                data={
+                    "mission_id": mission.id,
+                    "mission_start_date": to_fr_tz(start_time).strftime(
+                        "%d/%m/%Y"
+                    ),
+                },
             )
-            db.session.add(notification)
         except MailjetError as e:
             app.logger.exception(e)
         return True
@@ -104,15 +102,17 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                         "%d/%m"
                     )
                 }
-                validate_notification_data(
-                    NotificationType.MISSION_CHANGES_WARNING, data
-                )
-                notification = Notification(
+
+                create_notification(
                     user_id=user.id,
-                    type=NotificationType.MISSION_CHANGES_WARNING,
-                    data=data,
+                    notification_type=NotificationType.MISSION_CHANGES_WARNING,
+                    data={
+                        "mission_id": mission.id,
+                        "mission_start_date": to_fr_tz(
+                            old_start_time
+                        ).strftime("%d/%m/%Y"),
+                    },
                 )
-                db.session.add(notification)
             except MailjetError as e:
                 app.logger.exception(e)
             return True

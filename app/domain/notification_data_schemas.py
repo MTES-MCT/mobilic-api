@@ -1,8 +1,12 @@
 from app.helpers.notification_type import NotificationType
 
 NOTIFICATION_DATA_SCHEMAS = {
-    NotificationType.MISSION_CHANGES_WARNING: {"mission_start_date"},
+    NotificationType.MISSION_CHANGES_WARNING: {
+        "mission_id",
+        "mission_start_date",
+    },
     NotificationType.MISSION_AUTO_VALIDATION: {
+        "mission_id",
         "mission_start_date",
         "mission_name",
     },
