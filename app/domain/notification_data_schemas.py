@@ -5,6 +5,10 @@ NOTIFICATION_DATA_SCHEMAS = {
         "mission_id",
         "mission_start_date",
     },
+    NotificationType.NEW_MISSION_BY_ADMIN: {
+        "mission_id",
+        "mission_start_date",
+    },
     NotificationType.MISSION_AUTO_VALIDATION: {
         "mission_id",
         "mission_start_date",

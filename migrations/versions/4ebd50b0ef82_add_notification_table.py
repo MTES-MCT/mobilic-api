@@ -24,6 +24,7 @@ def upgrade():
             sa.Enum(
                 "mission_changes_warning",
                 "mission_auto_validation",
+                "new_mission_by_admin",
                 name="notificationtype",
                 native_enum=False,
             ),

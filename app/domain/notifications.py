@@ -42,10 +42,10 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 end_time=end_time,
                 timers=timers,
             )
-            print("Sending notification about new mission to user", user.id)
+
             create_notification(
                 user_id=user.id,
-                notification_type=NotificationType.MISSION_CHANGES_WARNING,
+                notification_type=NotificationType.NEW_MISSION_BY_ADMIN,
                 data={
                     "mission_id": mission.id,
                     "mission_start_date": to_fr_tz(start_time).strftime(
@@ -96,12 +96,6 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                     new_timers=new_timers,
                     is_holiday=mission.is_holiday(),
                 )
-
-                data = {
-                    "mission_start_date": to_fr_tz(old_start_time).strftime(
-                        "%d/%m"
-                    )
-                }
 
                 create_notification(
                     user_id=user.id,
