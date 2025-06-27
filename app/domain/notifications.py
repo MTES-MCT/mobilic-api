@@ -48,9 +48,7 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 notification_type=NotificationType.NEW_MISSION_BY_ADMIN,
                 data={
                     "mission_id": mission.id,
-                    "mission_start_date": to_fr_tz(start_time).strftime(
-                        "%d/%m/%Y"
-                    ),
+                    "mission_start_date": to_fr_tz(start_time).isoformat(),
                 },
             )
         except MailjetError as e:
@@ -104,7 +102,7 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                         "mission_id": mission.id,
                         "mission_start_date": to_fr_tz(
                             old_start_time
-                        ).strftime("%d/%m/%Y"),
+                        ).isoformat(),
                     },
                 )
             except MailjetError as e:
