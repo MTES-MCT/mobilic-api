@@ -46,7 +46,7 @@ class TestNotifications(BaseTest):
             end_time=datetime.now() - timedelta(days=2, hours=3),
         )
 
-        self.notificationData = {
+        self.notification_data_map = {
             NotificationType.MISSION_AUTO_VALIDATION: {
                 "mission_id": self.default_mission.id,
                 "mission_start_date": self.default_mission.reception_time.strftime(
@@ -116,21 +116,21 @@ class TestNotifications(BaseTest):
         db.session.commit()
         return notif
 
+    def _create_and_return_notification(self, user, notif_type):
+        data = self.notification_data_map[notif_type]
+        return self._create_notification(user, notif_type, data)
+
     def test_create_notification(self):
-        notif = self._create_notification(
-            self.worker,
-            NotificationType.MISSION_CHANGES_WARNING,
-            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
+        notif = self._create_and_return_notification(
+            self.worker, NotificationType.MISSION_CHANGES_WARNING
         )
         self.assertIsNotNone(notif.id)
         self.assertEqual(notif.user_id, self.worker.id)
         self.assertFalse(notif.read)
 
     def test_query_user_notifications(self):
-        notif = self._create_notification(
-            self.worker,
-            NotificationType.MISSION_CHANGES_WARNING,
-            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
+        notif = self._create_and_return_notification(
+            self.worker, NotificationType.MISSION_CHANGES_WARNING
         )
         query = """
         query GetNotifications($userId: Int!) {
@@ -156,10 +156,8 @@ class TestNotifications(BaseTest):
         self.assertFalse(notifications[0]["read"])
 
     def test_mark_notifications_as_read(self):
-        notif = self._create_notification(
-            self.worker,
-            NotificationType.MISSION_CHANGES_WARNING,
-            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
+        notif = self._create_and_return_notification(
+            self.worker, NotificationType.MISSION_CHANGES_WARNING
         )
         mutation = """
         mutation markNotificationsAsRead($notificationIds: [Int!]!) {
@@ -184,10 +182,11 @@ class TestNotifications(BaseTest):
         self.assertTrue(Notification.query.get(notif.id).read)
 
     def test_mission_changes_notification(self):
-        notif = self._get_notification_for_user_and_type(
-            self.worker.id, NotificationType.MISSION_CHANGES_WARNING
+        self.assertIsNone(
+            self._get_notification_for_user_and_type(
+                self.worker.id, NotificationType.MISSION_CHANGES_WARNING
+            )
         )
-        self.assertIsNone(notif)
 
         self._validate_mission(
             submitter=self.worker,
