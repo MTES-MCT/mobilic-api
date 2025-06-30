@@ -86,7 +86,6 @@ class TestNotifications(BaseTest):
                 end_time=end_time,
             )
         db.session.commit()
-        db.session.refresh(mission)
         return mission
 
     def _validate_mission(self, submitter, user, mission, activity_items=[]):
@@ -108,30 +107,31 @@ class TestNotifications(BaseTest):
             .first()
         )
 
-    def test_create_notification(self):
+    def create_notification(self, user, notif_type, data):
         notif = create_notification(
-            user_id=self.worker.id,
-            notification_type=NotificationType.MISSION_CHANGES_WARNING,
-            data=self.notificationData[
-                NotificationType.MISSION_CHANGES_WARNING
-            ],
+            user_id=user.id,
+            notification_type=notif_type,
+            data=data,
         )
         db.session.commit()
-        db.session.refresh(notif)
+        return notif
+
+    def test_create_notification(self):
+        notif = self.create_notification(
+            self.worker,
+            NotificationType.MISSION_CHANGES_WARNING,
+            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
+        )
         self.assertIsNotNone(notif.id)
         self.assertEqual(notif.user_id, self.worker.id)
         self.assertFalse(notif.read)
 
     def test_query_user_notifications(self):
-        notif = create_notification(
-            user_id=self.worker.id,
-            notification_type=NotificationType.MISSION_CHANGES_WARNING,
-            data=self.notificationData[
-                NotificationType.MISSION_CHANGES_WARNING
-            ],
+        notif = self.create_notification(
+            self.worker,
+            NotificationType.MISSION_CHANGES_WARNING,
+            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
         )
-        db.session.commit()
-
         query = """
         query GetNotifications($userId: Int!) {
             user(id: $userId) {
@@ -156,15 +156,11 @@ class TestNotifications(BaseTest):
         self.assertFalse(notifications[0]["read"])
 
     def test_mark_notifications_as_read(self):
-        notif = create_notification(
-            user_id=self.worker.id,
-            notification_type=NotificationType.MISSION_CHANGES_WARNING,
-            data=self.notificationData[
-                NotificationType.MISSION_CHANGES_WARNING
-            ],
+        notif = self.create_notification(
+            self.worker,
+            NotificationType.MISSION_CHANGES_WARNING,
+            self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
         )
-        db.session.commit()
-
         mutation = """
         mutation markNotificationsAsRead($notificationIds: [Int!]!) {
             account {
@@ -175,7 +171,6 @@ class TestNotifications(BaseTest):
             }
         }
         """
-
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.worker.id,
