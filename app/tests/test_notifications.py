@@ -100,14 +100,14 @@ class TestNotifications(BaseTest):
             ),
         )
 
-    def get_notification_for_user_and_type(self, user_id, notif_type):
+    def _get_notification_for_user_and_type(self, user_id, notif_type):
         return (
             Notification.query.filter_by(user_id=user_id, type=notif_type)
             .order_by(Notification.id.desc())
             .first()
         )
 
-    def create_notification(self, user, notif_type, data):
+    def _create_notification(self, user, notif_type, data):
         notif = create_notification(
             user_id=user.id,
             notification_type=notif_type,
@@ -117,7 +117,7 @@ class TestNotifications(BaseTest):
         return notif
 
     def test_create_notification(self):
-        notif = self.create_notification(
+        notif = self._create_notification(
             self.worker,
             NotificationType.MISSION_CHANGES_WARNING,
             self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
@@ -127,7 +127,7 @@ class TestNotifications(BaseTest):
         self.assertFalse(notif.read)
 
     def test_query_user_notifications(self):
-        notif = self.create_notification(
+        notif = self._create_notification(
             self.worker,
             NotificationType.MISSION_CHANGES_WARNING,
             self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
@@ -156,7 +156,7 @@ class TestNotifications(BaseTest):
         self.assertFalse(notifications[0]["read"])
 
     def test_mark_notifications_as_read(self):
-        notif = self.create_notification(
+        notif = self._create_notification(
             self.worker,
             NotificationType.MISSION_CHANGES_WARNING,
             self.notificationData[NotificationType.MISSION_CHANGES_WARNING],
@@ -184,7 +184,7 @@ class TestNotifications(BaseTest):
         self.assertTrue(Notification.query.get(notif.id).read)
 
     def test_mission_changes_notification(self):
-        notif = self.get_notification_for_user_and_type(
+        notif = self._get_notification_for_user_and_type(
             self.worker.id, NotificationType.MISSION_CHANGES_WARNING
         )
         self.assertIsNone(notif)
@@ -211,7 +211,7 @@ class TestNotifications(BaseTest):
             ],
         )
 
-        notif = self.get_notification_for_user_and_type(
+        notif = self._get_notification_for_user_and_type(
             self.worker.id, NotificationType.MISSION_CHANGES_WARNING
         )
         self.assertIsNotNone(notif)
@@ -220,10 +220,10 @@ class TestNotifications(BaseTest):
     def test_cant_create_notification_with_invalid_data(self):
         invalid_data = {"mission_id": self.default_mission.id}
         with self.assertRaises(ValueError) as context:
-            create_notification(
-                user_id=self.worker.id,
-                notification_type=NotificationType.MISSION_CHANGES_WARNING,
-                data=invalid_data,
+            self._create_notification(
+                self.worker,
+                NotificationType.MISSION_CHANGES_WARNING,
+                invalid_data,
             )
         self.assertIn(
             "Missing keys in notification data", str(context.exception)
