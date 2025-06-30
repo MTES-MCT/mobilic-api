@@ -101,6 +101,13 @@ class TestNotifications(BaseTest):
             ),
         )
 
+    def get_notification_for_user_and_type(self, user_id, notif_type):
+        return (
+            Notification.query.filter_by(user_id=user_id, type=notif_type)
+            .order_by(Notification.id.desc())
+            .first()
+        )
+
     def test_create_notification(self):
         notif = create_notification(
             user_id=self.worker.id,
@@ -182,13 +189,8 @@ class TestNotifications(BaseTest):
         self.assertTrue(Notification.query.get(notif.id).read)
 
     def test_mission_changes_notification(self):
-        notif = (
-            Notification.query.filter_by(
-                user_id=self.worker.id,
-                type=NotificationType.MISSION_CHANGES_WARNING,
-            )
-            .order_by(Notification.id.desc())
-            .first()
+        notif = self.get_notification_for_user_and_type(
+            self.worker.id, NotificationType.MISSION_CHANGES_WARNING
         )
         self.assertIsNone(notif)
 
@@ -214,13 +216,8 @@ class TestNotifications(BaseTest):
             ],
         )
 
-        notif = (
-            Notification.query.filter_by(
-                user_id=self.worker.id,
-                type=NotificationType.MISSION_CHANGES_WARNING,
-            )
-            .order_by(Notification.id.desc())
-            .first()
+        notif = self.get_notification_for_user_and_type(
+            self.worker.id, NotificationType.MISSION_CHANGES_WARNING
         )
         self.assertIsNotNone(notif)
         self.assertEqual(notif.type, NotificationType.MISSION_CHANGES_WARNING)
