@@ -1,12 +1,16 @@
 from datetime import datetime, timedelta
 
-from app import app, db, mailer
+from app import app, mailer
 from app.helpers.mail import MailjetError
 from app.jobs import log_execution
-from app.models import User, Email, Employment, Company
 from app.services.anonymization.user_related.classifier import UserClassifier
 from app.services.anonymization.common import AnonymizationManager
 from app.helpers.mail_type import EmailType
+from app.domain.email import get_warned_user_ids
+from app.domain.user import (
+    get_employees_for_anonymization_warning,
+    get_managers_with_companies_for_anonymization_warning,
+)
 
 WARNING_DAYS_AHEAD = 15
 DUPLICATE_PREVENTION_DAYS = 14
@@ -38,57 +42,21 @@ def send_anonymization_warnings():
         return {"employees_sent": 0, "managers_sent": 0, "total_sent": 0}
 
     cutoff_date = datetime.now() - timedelta(days=DUPLICATE_PREVENTION_DAYS)
-    warned_user_ids = set(
-        user_id
-        for (user_id,) in db.session.query(Email.user_id)
-        .filter(
-            Email.type.in_(
-                [
-                    EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
-                    EmailType.ANONYMIZATION_WARNING_MANAGER,
-                ]
-            ),
-            Email.creation_time >= cutoff_date,
-        )
-        .all()
+    warned_user_ids = get_warned_user_ids(
+        [
+            EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
+            EmailType.ANONYMIZATION_WARNING_MANAGER,
+        ],
+        cutoff_date,
     )
 
-    employees = []
-    if inactive_data["users"]:
-        employees = (
-            db.session.query(User)
-            .filter(
-                User.id.in_(inactive_data["users"]),
-                User.email.isnot(None),
-                User.status != "anonymized",
-                ~User.id.in_(warned_user_ids),
-            )
-            .all()
-        )
+    employees = get_employees_for_anonymization_warning(
+        inactive_data["users"], warned_user_ids
+    )
 
-    managers = []
-    if inactive_data["admins"]:
-        managers_with_companies = (
-            db.session.query(User, Company)
-            .join(Employment, User.id == Employment.user_id)
-            .join(Company, Employment.company_id == Company.id)
-            .filter(
-                User.id.in_(inactive_data["admins"]),
-                User.email.isnot(None),
-                User.status != "anonymized",
-                Employment.has_admin_rights == True,
-                ~User.id.in_(warned_user_ids),
-            )
-            .all()
-        )
-
-        managers_dict = {}
-        for user, company in managers_with_companies:
-            if user.id not in managers_dict:
-                managers_dict[user.id] = {"user": user, "companies": []}
-            managers_dict[user.id]["companies"].append(company)
-
-        managers = list(managers_dict.values())
+    managers = get_managers_with_companies_for_anonymization_warning(
+        inactive_data["admins"], warned_user_ids
+    )
 
     app.logger.info(
         f"Found {len(employees)} employees and {len(managers)} managers to warn"
@@ -111,7 +79,6 @@ def send_anonymization_warnings():
 
 
 def _send_employee_warnings(employees, warning_date_str):
-    """Send warning emails to employees."""
     sent = 0
     for employee in employees:
         try:
@@ -135,39 +102,34 @@ def _send_employee_warnings(employees, warning_date_str):
 
 
 def _send_manager_warnings(managers, warning_date_str):
-    """Send warning emails to managers."""
     sent = 0
     for manager_data in managers:
         try:
-            user = manager_data["user"]
+            manager = manager_data["manager"]
             companies = manager_data["companies"]
 
             for company in companies:
                 mailer.send_anonymization_warning_manager_email(
-                    user, company, warning_date_str
+                    manager, company, warning_date_str
                 )
 
             sent += 1
-            app.logger.info(f"Sent anonymization warning to manager {user.id}")
+            app.logger.info(
+                f"Sent anonymization warning to manager {manager.id}"
+            )
         except MailjetError as e:
             app.logger.error(
-                f"Failed to send warning to manager {user.id}: {e}"
+                f"Failed to send warning to manager {manager.id}: {e}"
             )
         except Exception as e:
             app.logger.exception(
-                f"Unexpected error sending warning to manager {user.id}: {e}"
+                f"Unexpected error sending warning to manager {manager.id}: {e}"
             )
 
     return sent
 
 
 def get_anonymization_warning_preview():
-    """
-    Get preview statistics for anonymization warnings without sending emails.
-
-    Returns:
-        Dict with preview statistics
-    """
     app.logger.info("Getting anonymization warning preview")
 
     anonymization_manager = AnonymizationManager("warning")
@@ -178,19 +140,12 @@ def get_anonymization_warning_preview():
     inactive_data = classifier.find_inactive_users()
 
     cutoff_date = datetime.now() - timedelta(days=DUPLICATE_PREVENTION_DAYS)
-    warned_user_ids = set(
-        user_id
-        for (user_id,) in db.session.query(Email.user_id)
-        .filter(
-            Email.type.in_(
-                [
-                    EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
-                    EmailType.ANONYMIZATION_WARNING_MANAGER,
-                ]
-            ),
-            Email.creation_time >= cutoff_date,
-        )
-        .all()
+    warned_user_ids = get_warned_user_ids(
+        [
+            EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
+            EmailType.ANONYMIZATION_WARNING_MANAGER,
+        ],
+        cutoff_date,
     )
 
     total_employees = len(inactive_data["users"])

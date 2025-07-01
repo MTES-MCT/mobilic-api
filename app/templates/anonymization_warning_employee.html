@@ -1,4 +1,5 @@
 {% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
 
 {% block body %}
 <p>Bonjour {{ first_name }},</p>
@@ -9,23 +10,7 @@
 
 <p>⚠️ La seule connexion au compte n'empêchera pas sa suppression. Il est donc <strong>nécessaire de commencer une mission</strong> !</p>
 
-<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn btn-primary">
-  <tbody>
-    <tr>
-      <td align="center">
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
-          <tbody>
-            <tr>
-              <td>
-                <a href="{{ cancel_url }}" target="_blank" rel="noopener">J'annule la suppression du compte</a>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </td>
-    </tr>
-  </tbody>
-</table>
+{{ button.button("J'annule la suppression du compte", cancel_url) }}
 
 <p>Ne tardez pas car, sans action de votre part, votre historique de temps de travail sera supprimé et ne sera plus disponible en cas de contentieux avec votre employeur ! Vous devrez à nouveau créer un compte pour utiliser Mobilic.</p>
 
