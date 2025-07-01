@@ -39,12 +39,26 @@ class TestNotifications(BaseTest):
         self._app_context = AppContext(app)
         self._app_context.__enter__()
 
-        self.default_mission = self._create_mission(
-            submitter=self.worker,
-            user=self.worker,
-            start_time=datetime.now() - timedelta(days=2, hours=4),
-            end_time=datetime.now() - timedelta(days=2, hours=3),
-        )
+        start_time = datetime.now() - timedelta(days=2, hours=4)
+        end_time = datetime.now() - timedelta(days=2, hours=3)
+
+        with AuthenticatedUserContext(user=self.worker):
+            self.default_mission = Mission.create(
+                submitter=self.worker,
+                company=self.company,
+                reception_time=start_time,
+            )
+            log_activity(
+                submitter=self.worker,
+                user=self.worker,
+                mission=self.default_mission,
+                type=ActivityType.WORK,
+                switch_mode=True,
+                reception_time=end_time,
+                start_time=start_time,
+                end_time=end_time,
+            )
+        db.session.commit()
 
         self.notification_data_map = {
             NotificationType.MISSION_AUTO_VALIDATION: {
@@ -65,28 +79,6 @@ class TestNotifications(BaseTest):
     def tearDown(self):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
-
-    def _create_mission(
-        self, submitter, user, start_time, end_time, reception_time=None
-    ):
-        with AuthenticatedUserContext(user=submitter):
-            mission = Mission.create(
-                submitter=submitter,
-                company=self.company,
-                reception_time=start_time,
-            )
-            log_activity(
-                submitter=submitter,
-                user=user,
-                mission=mission,
-                type=ActivityType.WORK,
-                switch_mode=True,
-                reception_time=reception_time if reception_time else end_time,
-                start_time=start_time,
-                end_time=end_time,
-            )
-        db.session.commit()
-        return mission
 
     def _validate_mission(self, submitter, user, mission, activity_items=[]):
         return make_authenticated_request(
