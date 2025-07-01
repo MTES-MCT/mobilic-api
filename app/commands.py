@@ -625,13 +625,15 @@ def sync_brevo_funnel_command(
         raise
 
 
-@app.cli.command("send_anonymization_warnings", with_appcontext=True)
+@app.cli.command(
+    "send_anonymization_warnings_or_preview", with_appcontext=True
+)
 @click.option(
     "--preview",
     is_flag=True,
     help="Preview mode: show statistics without sending emails",
 )
-def send_anonymization_warnings_command(preview):
+def send_anonymization_warnings_or_preview_command(preview):
     """
     Send anonymization warning emails to users scheduled for deletion.
 

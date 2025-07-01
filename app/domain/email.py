@@ -14,3 +14,25 @@ def check_email_exists(email_type, user_id, since_date=None):
         )
 
     return query.first() is not None
+
+
+def get_warned_user_ids(email_types, cutoff_date):
+    """
+    Get user IDs who have already been warned via email within the specified timeframe.
+
+    Args:
+        email_types: List of email types to check for
+        cutoff_date: DateTime to check emails from
+
+    Returns:
+        Set of user IDs who have already been warned
+    """
+    return {
+        user_id
+        for (user_id,) in db.session.query(Email.user_id)
+        .filter(
+            Email.type.in_(email_types),
+            Email.creation_time >= cutoff_date,
+        )
+        .all()
+    }
