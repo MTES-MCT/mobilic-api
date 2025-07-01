@@ -316,6 +316,12 @@ def send_daily_emails():
     send_expiry_warning_email()
     send_email_to_last_company_suspended_admins(datetime.datetime.now())
 
+    from app.jobs.emails.send_anonymization_warnings import (
+        send_anonymization_warnings,
+    )
+
+    send_anonymization_warnings()
+
 
 @app.cli.command("load_company_stats", with_appcontext=True)
 def load_company_stats():
@@ -616,6 +622,65 @@ def sync_brevo_funnel_command(
             import traceback
 
             traceback.print_exc()
+        raise
+
+
+@app.cli.command("send_anonymization_warnings", with_appcontext=True)
+@click.option(
+    "--preview",
+    is_flag=True,
+    help="Preview mode: show statistics without sending emails",
+)
+def send_anonymization_warnings_command(preview):
+    """
+    Send anonymization warning emails to users scheduled for deletion.
+
+    This command identifies users who will be anonymized in 15 days from the
+    configured cutoff date and sends them warning emails.
+
+    Examples:
+    flask send_anonymization_warnings --preview
+    flask send_anonymization_warnings
+    """
+    from app.jobs.emails.send_anonymization_warnings import (
+        send_anonymization_warnings,
+        get_anonymization_warning_preview,
+    )
+
+    try:
+        if preview:
+            app.logger.info("Running in preview mode")
+            stats = get_anonymization_warning_preview()
+
+            click.echo("📊 ANONYMIZATION WARNINGS PREVIEW:")
+            click.echo(f"   Target anonymization date: {stats['target_date']}")
+            click.echo(
+                f"   Total inactive employees: {stats['total_inactive_employees']}"
+            )
+            click.echo(
+                f"   Total inactive managers: {stats['total_inactive_managers']}"
+            )
+            click.echo(f"   Employees to warn: {stats['employees_to_warn']}")
+            click.echo(f"   Managers to warn: {stats['managers_to_warn']}")
+            click.echo(
+                f"   Employees already warned: {stats['employees_already_warned']}"
+            )
+            click.echo(
+                f"   Managers already warned: {stats['managers_already_warned']}"
+            )
+        else:
+            app.logger.info("Sending anonymization warnings")
+            results = send_anonymization_warnings()
+
+            click.echo("✉️ ANONYMIZATION WARNINGS SENT:")
+            click.echo(f"   Employees: {results['employees_sent']} sent")
+            click.echo(f"   Managers: {results['managers_sent']} sent")
+            click.echo(f"   Total: {results['total_sent']} sent")
+
+    except Exception as e:
+        error_msg = f"❌ Anonymization warnings failed: {e}"
+        click.echo(error_msg)
+        app.logger.error(error_msg)
         raise
 
 
