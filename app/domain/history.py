@@ -111,21 +111,44 @@ class UserChange(HistoryItem):
         return Picto.MODIFICATION
 
     def texts(self):
+        # If this is an auto-validation and activity was ended automatically, show activity end before validation message
+        if self.is_auto_validation_employee or self.is_auto_validation_admin:
+
+            mission = getattr(self.resource, "mission", None)
+            user = getattr(self.resource, "user", None)
+            if mission and user:
+                activities = mission.activities_for(user)
+                for activity in activities:
+                    # If an activity ends at the same time as the validation (±60s), show both messages
+                    if (
+                        activity.end_time
+                        and abs(
+                            (activity.end_time - self.time).total_seconds()
+                        )
+                        < 60
+                    ):
+                        activity_name = format_activity_type(activity.type)
+                        return [
+                            f"a mis fin à l'activité {activity_name} le {format_time(activity.end_time, True)}",
+                            "a validé la mission automatiquement à la place du salarié"
+                            if self.is_auto_validation_employee
+                            else "a validé la mission automatiquement à la place du gestionnaire",
+                        ]
+
+            # If no matching activity end, only show the auto-validation message
+            if self.is_auto_validation_employee:
+                return [
+                    "a validé la mission automatiquement à la place du salarié"
+                ]
+            else:
+                return [
+                    "a validé la mission automatiquement à la place du gestionnaire"
+                ]
+
         if self.is_manual_validation:
             return ["a validé la mission"]
 
-        if self.is_auto_validation_admin:
-            return [
-                "a validé la mission automatiquement à la place du gestionnaire"
-            ]
-
-        if self.is_auto_validation_employee:
-            return [
-                "a validé la mission automatiquement à la place du salarié"
-            ]
-
         if type(self.resource) is LocationEntry:
-            # Only creations
             return [
                 f"a indiqué comme lieu de {'début' if self.resource.type == LocationEntryType.MISSION_START_LOCATION else 'fin'} de service : {self.resource.address.format()}"
             ]
@@ -163,9 +186,31 @@ class UserChange(HistoryItem):
                         f"a repris l'activité {activity_name} le {format_time(self.time, True)}"
                     )
                 elif not previous_version.end_time:
-                    texts.append(
-                        f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
-                    )
+                    # Check if an auto-validation exists at the same date as the activity end
+                    # If so, do NOT display the end-of-activity message to avoid duplicates
+                    mission = getattr(self.resource, "mission", None)
+                    user = getattr(self.resource, "user", None)
+                    validation_auto_found = False
+                    if mission and user:
+                        validations = mission.validations_for(user)
+                        for v in validations:
+                            # If an auto-validation exists at ±60s of the activity end, skip the message
+                            if (
+                                v.is_auto
+                                and abs(
+                                    (
+                                        v.reception_time
+                                        - self.version.end_time
+                                    ).total_seconds()
+                                )
+                                < 60
+                            ):
+                                validation_auto_found = True
+                                break
+                    if not validation_auto_found:
+                        texts.append(
+                            f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
+                        )
                 else:
                     texts.append(
                         f"a décalé la fin de l'activité {activity_name} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
