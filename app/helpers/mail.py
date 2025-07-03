@@ -1031,5 +1031,57 @@ class Mailer:
             _apply_whitelist_if_not_prod=False,
         )
 
+    def send_anonymization_warning_employee_email(
+        self, user, anonymization_date
+    ):
+        """
+        Send anonymization warning email to an employee.
+
+        Args:
+            user: Employee user to warn
+            anonymization_date: Anonymization date (formatted string DD/MM/YYYY)
+        """
+        cancel_url = f"{app.config['FRONTEND_URL']}/app"
+
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="anonymization_warning_employee.html",
+                subject="Suppression prochaine de votre compte Mobilic",
+                user=user,
+                type_=EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
+                first_name=user.first_name,
+                anonymization_date=anonymization_date,
+                cancel_url=Markup(cancel_url),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_anonymization_warning_manager_email(
+        self, user, company, anonymization_date
+    ):
+        """
+        Send anonymization warning email to a manager.
+
+        Args:
+            user: Manager user to warn
+            company: Concerned company
+            anonymization_date: Anonymization date (formatted string DD/MM/YYYY)
+        """
+        cancel_url = f"{app.config['FRONTEND_URL']}/admin/company"
+
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="anonymization_warning_manager.html",
+                subject=f"Suppression prochaine du compte de l'entreprise {company.name}",
+                user=user,
+                type_=EmailType.ANONYMIZATION_WARNING_MANAGER,
+                first_name=user.first_name,
+                company_name=company.name,
+                anonymization_date=anonymization_date,
+                cancel_url=Markup(cancel_url),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
 
 mailer = Mailer()
