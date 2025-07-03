@@ -1,5 +1,6 @@
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType
 from app.models.notification import Notification
+from app.helpers.graphene_types import TimeStamp
 
 
 class NotificationOutput(BaseSQLAlchemyObjectType):
@@ -12,3 +13,7 @@ class NotificationOutput(BaseSQLAlchemyObjectType):
             "read",
             "data",
         )
+
+    creation_time = TimeStamp(
+        description="Date de création de la notification'."
+    )

@@ -694,8 +694,12 @@ def delete_old_notifications():
     from app import db
 
     threshold_date = date.today() - timedelta(days=30)
-    deleted = Notification.query.filter(
-        Notification.creation_time < threshold_date
-    ).delete(synchronize_session=False)
-    db.session.commit()
-    print(f"Deleted {deleted} notifications older than 1 month.")
+    try:
+        deleted = Notification.query.filter(
+            Notification.creation_time < threshold_date
+        ).delete(synchronize_session=False)
+        db.session.commit()
+        print(f"Deleted {deleted} notifications older than 1 month.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while deleting notifications: {e}")

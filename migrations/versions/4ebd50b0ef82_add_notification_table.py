@@ -34,15 +34,9 @@ def upgrade():
         sa.Column(
             "read",
             sa.Boolean(),
-            server_default=sa.text("false"),
             nullable=False,
         ),
-        sa.Column(
-            "creation_time",
-            sa.DateTime(),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column(
             "data",

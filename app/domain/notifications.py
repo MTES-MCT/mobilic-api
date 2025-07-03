@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app import mailer, app, db
+from app import mailer, app
 from app.domain.user import get_employee_current_admins
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.mail import MailjetError
@@ -9,10 +9,10 @@ from app.models.activity import activity_versions_at
 from app.helpers.authentication import current_user
 from app.models.mission import UserMissionModificationStatus
 from app.models import Company, UserAgreement
-from app.models.notification import Notification
 from app.helpers.notification_type import NotificationType
-from app.helpers.time import to_fr_tz
+from app.helpers.time import to_tz
 from app.models.notification import create_notification
+from dateutil.tz import gettz
 
 
 def warn_if_mission_changes_since_latest_user_action(mission, user):
@@ -42,15 +42,18 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 end_time=end_time,
                 timers=timers,
             )
-
-            create_notification(
-                user_id=user.id,
-                notification_type=NotificationType.NEW_MISSION_BY_ADMIN,
-                data={
-                    "mission_id": mission.id,
-                    "mission_start_date": to_fr_tz(start_time).isoformat(),
-                },
-            )
+            if not user.is_an_admin:
+                user_timezone = gettz(user.timezone_name)
+                create_notification(
+                    user_id=user.id,
+                    notification_type=NotificationType.NEW_MISSION_BY_ADMIN,
+                    data={
+                        "mission_id": mission.id,
+                        "mission_start_date": to_tz(
+                            start_time, user_timezone
+                        ).isoformat(),
+                    },
+                )
         except MailjetError as e:
             app.logger.exception(e)
         return True
@@ -95,16 +98,18 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                     is_holiday=mission.is_holiday(),
                 )
 
-                create_notification(
-                    user_id=user.id,
-                    notification_type=NotificationType.MISSION_CHANGES_WARNING,
-                    data={
-                        "mission_id": mission.id,
-                        "mission_start_date": to_fr_tz(
-                            old_start_time
-                        ).isoformat(),
-                    },
-                )
+                if not user.is_an_admin:
+                    user_timezone = gettz(user.timezone_name)
+                    create_notification(
+                        user_id=user.id,
+                        notification_type=NotificationType.MISSION_CHANGES_WARNING,
+                        data={
+                            "mission_id": mission.id,
+                            "mission_start_date": to_tz(
+                                old_start_time, user_timezone
+                            ).isoformat(),
+                        },
+                    )
             except MailjetError as e:
                 app.logger.exception(e)
             return True
