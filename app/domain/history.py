@@ -110,66 +110,39 @@ class UserChange(HistoryItem):
                 return Picto.ACTIVITY_TRANSFER
         return Picto.MODIFICATION
 
+    def _auto_validation_texts(self, label):
+        mission = getattr(self.resource, "mission", None)
+        if mission:
+            activities = mission.activities_for(self.resource.user)
+            auto_end_texts = []
+            for activity in activities:
+                versions = list(activity.retrieve_all_versions())
+                for v in versions:
+                    if v.end_time and v.end_time == self.time:
+                        activity_name = (
+                            self.holiday_mission_name
+                            if self.holiday_mission_name
+                            else format_activity_type(activity.type)
+                        )
+                        auto_end_texts.append(
+                            {
+                                "text": f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True)}",
+                                "author_display_name": "Mobilic",
+                                "author_status": "auto-validation",
+                            }
+                        )
+            return [
+                *[t["text"] for t in auto_end_texts],
+                f"a validé la mission automatiquement à la place du {label}",
+            ]
+        return [f"a validé la mission automatiquement à la place du {label}"]
+
     def texts(self):
         # Auto-validation (employee): we want the auto-ended activities to appear BEFORE the auto-validation message
         if self.is_auto_validation_employee:
-            mission = getattr(self.resource, "mission", None)
-            if mission:
-                activities = mission.activities_for(self.resource.user)
-                auto_end_texts = []
-                for activity in activities:
-                    versions = list(activity.retrieve_all_versions())
-                    for v in versions:
-                        if v.end_time and v.end_time == self.time:
-                            activity_name = (
-                                self.holiday_mission_name
-                                if self.holiday_mission_name
-                                else format_activity_type(activity.type)
-                            )
-                            auto_end_texts.append(
-                                {
-                                    "text": f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True)}",
-                                    "author_display_name": "Mobilic",
-                                    "author_status": "auto-validation",
-                                }
-                            )
-                return [
-                    *[t["text"] for t in auto_end_texts],
-                    "a validé la mission automatiquement à la place du salarié",
-                ]
-            return [
-                "a validé la mission automatiquement à la place du salarié"
-            ]
-
-        # Auto-validation (admin): same logic as employee, but for admin auto-validation
+            return self._auto_validation_texts("salarié")
         if self.is_auto_validation_admin:
-            mission = getattr(self.resource, "mission", None)
-            if mission:
-                activities = mission.activities_for(self.resource.user)
-                auto_end_texts = []
-                for activity in activities:
-                    versions = list(activity.retrieve_all_versions())
-                    for v in versions:
-                        if v.end_time and v.end_time == self.time:
-                            activity_name = (
-                                self.holiday_mission_name
-                                if self.holiday_mission_name
-                                else format_activity_type(activity.type)
-                            )
-                            auto_end_texts.append(
-                                {
-                                    "text": f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True)}",
-                                    "author_display_name": "Mobilic",
-                                    "author_status": "auto-validation",
-                                }
-                            )
-                return [
-                    *[t["text"] for t in auto_end_texts],
-                    "a validé la mission automatiquement à la place du gestionnaire",
-                ]
-            return [
-                "a validé la mission automatiquement à la place du gestionnaire"
-            ]
+            return self._auto_validation_texts("gestionnaire")
 
         if self.is_manual_validation:
             return ["a validé la mission"]
