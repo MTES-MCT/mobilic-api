@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
@@ -37,7 +37,48 @@ class Picto(str, Enum):
     VALIDATION = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHhQTFRFLn0y////9/n6mL+ck7uWL30zSI1LqMmq0uPT2ujbg7KF7/XvM4A33uvfO4U/xdvHh7SJpMamYZ1kj7mRjbeQeqx95/DnUJJUbqVwN4M7WZhcdqp5aaJsrMyuVJVY6/LroMSiwdnCn8OiibWNg7KHWZhdw9nGXZpg6BhrdAAAAqBJREFUeJy92td2qzAQBdABQq827j3l3vz/H2YoXjFBCGmE5ryGaC8wSKMCjmLu5ao6nIIi8/2sCE6HalXeVf8XVC7Kw3MAggTnMF8Gieq9CHhmX0emSPq4yYQut0dqgMSJP0808ZOYiMRbNaHLVsJMImmlQzSpJh/aFBIWugZAEWoh+UWfaHIRv9FC5JrRDIDsqookVKJJooTs1iYGwHo3j0TCDkQnwagL+IuUR1MD4FjKkXfFT1we/12GlIsYqJTTSLTAs+pyjKaQnfFv/ptgN4EYvrvDrMWI0Tc4TiJCrssaANcxkpP7q6lk+Qgh9ruyXP4i4fIGQDhEUsIYNZ8iHSDaY61aqlcktmMAxC+IVl2ik+0vYu1G+lsBC9/6a5Inki7UwYvipz3ysGcAPHpEoaam59YhkU0DIGqR2rgd71Pyx7pFpHMcJcN1Jcq+QfIFDKmSI2La/7aG635PXhAicl7EeJu+4oyIWYkyb0DgwN22AUiU1g0kVtYNJAzGREUDiYN1A4mTdQMJ6husbiBBrIU0DCRo1amOgQRp6NUykJhBvkTfkZ6BhPxxfbnuWNE0kJD+8J9NYx+GBhKyV/hf19xQ0TaQkH6Mm7GibyAh71ZGCsFAYqaD7BXPwEBirqsfKCQDidlB60WhGUjMD7+bZ9NEAwmFQqLuGv9PNAK1kqi/F5rRlkQqxd3GwGiLO6Uy9Y1utGWqWsHtkY29xtTBIxr91EFxEuTRjH4SpDqdo6253TgnpixTbJbFAp5lD5YFHJ6lKJZFNZ7lQZaFTp4lW57FZ5ZldJ4NAZ6tDZ5NGpbtJp6NM54tQJ7NTJ5tWZ4NZodlq9zh2fTnOb7gsBzEcHiOlDgsh2Naxv4xnyYMB5ba2D961cX+IbI+JsfhfgBlqCGe+vgzUwAAAABJRU5ErkJggg=="
 
 
-class UserChange(NamedTuple):
+class HistoryItem:
+    @property
+    def is_validation(self):
+        return (
+            type(self.resource) is MissionValidation
+            and self.type == LogActionType.CREATE
+        )
+
+    @property
+    def is_auto_validation_admin(self):
+        return self.is_auto_validation and self.resource.is_admin
+
+    @property
+    def is_auto_validation_employee(self):
+        return self.is_auto_validation and not self.resource.is_admin
+
+    @property
+    def is_manual_validation(self):
+        return self.is_validation and not self.resource.is_auto
+
+    @property
+    def is_auto_validation(self):
+        return self.is_validation and self.resource.is_auto
+
+    @property
+    def author_status(self):
+        if self.is_auto_validation:
+            return "Validation automatique"
+
+        return (
+            "Administrateur"
+            if self.submitter_has_admin_rights
+            else "Travailleur mobile"
+        )
+
+    @property
+    def author_display_name(self):
+        return self.submitter.display_name if self.submitter else "Mobilic"
+
+
+@dataclass
+class UserChange(HistoryItem):
     time: datetime
     submitter: User
     submitter_has_admin_rights: bool
@@ -46,13 +87,6 @@ class UserChange(NamedTuple):
     type: LogActionType
     version: any = None
     holiday_mission_name: str = ""
-
-    @property
-    def is_validation(self):
-        return (
-            type(self.resource) is MissionValidation
-            and self.type == LogActionType.CREATE
-        )
 
     def picto(self):
         if self.is_validation:
@@ -76,8 +110,41 @@ class UserChange(NamedTuple):
                 return Picto.ACTIVITY_TRANSFER
         return Picto.MODIFICATION
 
+    def _auto_validation_texts(self, label):
+        mission = getattr(self.resource, "mission", None)
+        if mission:
+            activities = mission.activities_for(self.resource.user)
+            auto_end_texts = []
+            for activity in activities:
+                versions = list(activity.retrieve_all_versions())
+                for v in versions:
+                    if v.end_time and v.end_time == self.time:
+                        activity_name = (
+                            self.holiday_mission_name
+                            if self.holiday_mission_name
+                            else format_activity_type(activity.type)
+                        )
+                        auto_end_texts.append(
+                            {
+                                "text": f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True)}",
+                                "author_display_name": "Mobilic",
+                                "author_status": "auto-validation",
+                            }
+                        )
+            return [
+                *[t["text"] for t in auto_end_texts],
+                f"a validé la mission automatiquement à la place du {label}",
+            ]
+        return [f"a validé la mission automatiquement à la place du {label}"]
+
     def texts(self):
-        if self.is_validation:
+        # Auto-validation (employee): we want the auto-ended activities to appear BEFORE the auto-validation message
+        if self.is_auto_validation_employee:
+            return self._auto_validation_texts("salarié")
+        if self.is_auto_validation_admin:
+            return self._auto_validation_texts("gestionnaire")
+
+        if self.is_manual_validation:
             return ["a validé la mission"]
 
         if type(self.resource) is LocationEntry:
@@ -114,14 +181,25 @@ class UserChange(NamedTuple):
             previous_version = self.version.previous_version
             texts = []
             if self.version.end_time != previous_version.end_time:
+                # Avoid duplicate: do not generate the end message if the end date matches an employee or admin auto-validation
+                is_auto_end = False
+                mission = getattr(self.resource, "mission", None)
+                if mission and hasattr(mission, "validations_for"):
+                    validations = mission.validations_for(self.resource.user)
+                    for v in validations:
+                        if getattr(v, "is_auto", False):
+                            if v.reception_time == self.version.end_time:
+                                is_auto_end = True
+                                break
                 if not self.version.end_time:
                     texts.append(
                         f"a repris l'activité {activity_name} le {format_time(self.time, True)}"
                     )
                 elif not previous_version.end_time:
-                    texts.append(
-                        f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
-                    )
+                    if not is_auto_end:
+                        texts.append(
+                            f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
+                        )
                 else:
                     texts.append(
                         f"a décalé la fin de l'activité {activity_name} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
@@ -134,7 +212,8 @@ class UserChange(NamedTuple):
             return texts
 
 
-class LogAction(NamedTuple):
+@dataclass()
+class LogAction(HistoryItem):
     time: datetime
     submitter: User
     submitter_has_admin_rights: bool
@@ -190,7 +269,9 @@ def actions_history(
                     submitter=resource.submitter,
                     submitter_has_admin_rights=resource.submitter.has_admin_rights(
                         mission.company_id
-                    ),
+                    )
+                    if resource.submitter
+                    else False,
                     resource=resource,
                     type=LogActionType.CREATE,
                     is_after_employee_validation=user_validation.reception_time

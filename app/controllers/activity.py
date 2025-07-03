@@ -8,10 +8,12 @@ from app import db
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.activity import ActivityOutput
 from app.domain.log_activities import log_activity
+from app.domain.mission_auto_validation import create_mission_auto_validation
 from app.domain.permissions import (
     check_actor_can_write_on_mission_over_period,
     check_actor_can_edit_activity,
     check_actor_can_log_without_mission_validation,
+    company_admin,
 )
 
 from app.helpers.authentication import current_user, AuthenticatedMutation
@@ -28,7 +30,7 @@ from app.helpers.graphene_types import (
     graphene_enum_type,
     TimeStamp,
 )
-from app.models import User, Mission
+from app.models import User, Mission, MissionAutoValidation
 from app.models.activity import Activity, ActivityType
 
 
@@ -89,6 +91,12 @@ def log_activity_(input):
     if user_id:
         user = User.query.get(user_id)
 
+    user_has_activity = mission.has_activity_for_user(user=user)
+    if not user_has_activity:
+        create_mission_auto_validation(
+            for_user=user, mission=mission, reception_time=reception_time
+        )
+
     activity = log_activity(
         submitter=current_user,
         user=user,
@@ -101,6 +109,7 @@ def log_activity_(input):
         context=input.get("context"),
         creation_time=input.get("creation_time"),
     )
+
     return activity
 
 
@@ -386,9 +395,7 @@ class BulkActivity(graphene.ObjectType):
     """
 
     output = graphene.Field(
-        ActivityOutput,
-        items=graphene.List(BulkActivityItem),
-        description="Résultat de la dernière activité enregistrée ou modifiée",
+        ActivityOutput, items=graphene.List(BulkActivityItem)
     )
 
     @classmethod

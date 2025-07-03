@@ -21,6 +21,9 @@
     },
     {
       "command": "30 1 * * * flask update_ceased_activity_status"
+    },
+    {
+      "command": "0 * * * * flask process_auto_validations"
     }
   ]
 }

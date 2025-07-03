@@ -66,7 +66,7 @@ class FunnelTester:
         if not activation_only:
             FunnelTester._display_acquisition_analysis(acquisition_data)
 
-        if not acquisition_only:
+        if not activation_only:
             FunnelTester._display_activation_analysis(activation_data)
 
         print("\n✅ Test classification completed")
