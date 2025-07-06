@@ -63,6 +63,7 @@ class UserFactory(BaseFactory):
                 start_date=kwargs.get("start_date", date(2000, 1, 1)),
                 end_date=kwargs.get("end_date", None),
                 team=kwargs.get("team", None),
+                hide_email=kwargs.get("hide_email", False),
             )
 
 

@@ -162,6 +162,8 @@ class SyncThirdPartyEmployees(graphene.Mutation):
             if len(mail_to_send) > 0:
                 mailer.send_batch(mail_to_send, _disable_commit=True)
 
+        info.context.force_show_email = True
+
         list_to_return = (
             Employment.query.filter(
                 Employment.company_id == company_id, ~Employment.is_dismissed

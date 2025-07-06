@@ -1,7 +1,10 @@
 from collections import defaultdict
 from typing import NamedTuple
 
+from dateutil.tz import gettz
+
 from app.domain.history import actions_history
+from app.domain.work_days import compute_aggregate_durations
 from app.helpers.pdf import generate_pdf_from_template, Column
 from app.helpers.time import max_or_none
 from app.models.activity import ActivityType, is_activity_considered_work
@@ -213,6 +216,16 @@ def generate_mission_details_pdf(
         if mission.is_deleted()
         else activities[-1].end_time
     )
+
+    try:
+        tz = gettz(user.timezone_name)
+        night_work_tarification = compute_aggregate_durations(
+            activities, min_time=start_time, tz=tz
+        )[2]["night_work_tarification"]
+    except:
+        night_work_tarification = 0
+    stats["night_work_in_seconds"] = night_work_tarification
+
     return generate_pdf_from_template(
         "mission_details_pdf.html",
         mission_name=mission_name,

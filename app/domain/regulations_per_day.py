@@ -271,7 +271,19 @@ def check_max_work_day_time(activity_groups, regulation_check, business):
         )
     )
     extra = None
+
+    amplitude = 0
+    worked_time_in_seconds = 0
+    night_work = False
+    start_time = None
     for group in activity_groups:
+        amplitude += group.service_duration
+        night_work = (
+            night_work or group.total_night_work_legislation_duration > 0
+        )
+        if not start_time:
+            start_time = group.start_time
+
         max_work_day_time_in_hours = MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
 
         # For some TRV businesses, max work day time is different if amplitude is above a particular value
@@ -279,24 +291,22 @@ def check_max_work_day_time(activity_groups, regulation_check, business):
             AMPLITUDE_TRIGGER_IN_HOURS
             and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
         ):
-            amplitude = group.service_duration
             if amplitude > AMPLITUDE_TRIGGER_IN_HOURS * HOUR:
                 max_work_day_time_in_hours = (
                     MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
                 )
 
-        night_work = group.total_night_work_legislation_duration > 0
         max_time_in_hours = (
             MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
             if night_work
             else max_work_day_time_in_hours
         )
-        worked_time_in_seconds = group.total_work_duration
+        worked_time_in_seconds += group.total_work_duration
         extra = dict(
             night_work=night_work,
             max_work_range_in_hours=max_time_in_hours,
             work_range_in_seconds=worked_time_in_seconds,
-            work_range_start=group.start_time.isoformat(),
+            work_range_start=start_time.isoformat(),
             work_range_end=group.end_time.isoformat(),
         )
         if worked_time_in_seconds > max_time_in_hours * HOUR:
