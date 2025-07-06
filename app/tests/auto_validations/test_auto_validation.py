@@ -1,11 +1,15 @@
 from datetime import datetime, timedelta
 
+from flask import g
 from flask.ctx import AppContext
 from freezegun import freeze_time
 
 from app import app
 from app.domain.validation import validate_mission
-from app.helpers.errors import MissingJustificationForAdminValidation
+from app.helpers.errors import (
+    MissingJustificationForAdminValidation,
+    MissionAlreadyAutoValidatedForThirdPartyError,
+)
 from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.jobs.auto_validations import (
     get_employee_auto_validations,
@@ -394,3 +398,261 @@ class TestAutoValidation(BaseTest):
             ),
         )
         self.assertFalse("errors" in res)
+
+    def test_third_party_cannot_validate_after_employee_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.user_id == employee.id,
+            MissionValidation.is_auto == True,
+            MissionValidation.is_admin == False,
+        ).all()
+        self.assertEqual(1, len(validations))
+
+        mission = Mission.query.get(mission_id)
+
+        g.client_id = "dummy_third_party"
+        try:
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedForThirdPartyError
+            ) as context:
+                validate_mission(
+                    submitter=employee, mission=mission, for_user=employee
+                )
+
+            self.assertEqual(
+                str(context.exception),
+                "This mission has already been automatically validated",
+            )
+            self.assertEqual(
+                context.exception.code,
+                "MISSION_ALREADY_AUTO_VALIDATED_FOR_THIRD_PARTY",
+            )
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")
+
+    def test_third_party_cannot_validate_after_admin_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 4, 17, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 4, 18, 19, 0)):
+            job_process_auto_validations()
+
+        with freeze_time(datetime(2025, 4, 23, 20, 0)):
+            job_process_auto_validations()
+
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.user_id == employee.id,
+            MissionValidation.is_auto == True,
+            MissionValidation.is_admin == True,
+        ).all()
+        self.assertEqual(1, len(validations))
+
+        mission = Mission.query.get(mission_id)
+
+        g.client_id = "dummy_third_party"
+        try:
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedForThirdPartyError
+            ) as context:
+                validate_mission(
+                    submitter=self.team_leader,
+                    mission=mission,
+                    for_user=employee,
+                    is_admin_validation=True,
+                )
+
+            self.assertEqual(
+                str(context.exception),
+                "This mission has already been automatically validated",
+            )
+            self.assertEqual(
+                context.exception.code,
+                "MISSION_ALREADY_AUTO_VALIDATED_FOR_THIRD_PARTY",
+            )
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")
+
+    def test_third_party_can_validate_before_auto_validation(self):
+        employee = self.team_mates[0]
+
+        mission_id = _log_activities_in_mission(
+            submitter=employee,
+            company=self.company,
+            user=employee,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(0, 8), end_time=get_time(0, 10)
+                ),
+            ],
+        )
+
+        auto_validations = MissionAutoValidation.query.filter(
+            MissionAutoValidation.mission_id == mission_id
+        ).all()
+        self.assertEqual(1, len(auto_validations))
+
+        processed_validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.is_auto == True,
+        ).all()
+        self.assertEqual(0, len(processed_validations))
+
+        mission = Mission.query.get(mission_id)
+
+        g.client_id = "dummy_third_party"
+        try:
+            validation = validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+            self.assertIsNotNone(validation)
+            self.assertFalse(validation.is_auto)
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")
+
+    def test_third_party_cannot_edit_mission_after_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+
+        g.client_id = "dummy_third_party"
+        try:
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedForThirdPartyError
+            ):
+                from app.domain.permissions import (
+                    check_actor_can_write_on_mission_over_period,
+                )
+
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee, mission=mission, for_user=employee
+                )
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")
+
+    def test_third_party_cannot_edit_activity_after_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+        activity = mission.activities[0]
+
+        g.client_id = "dummy_third_party"
+        try:
+            from app.domain.permissions import (
+                check_actor_can_write_on_mission_over_period,
+            )
+
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedForThirdPartyError
+            ):
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee,
+                    mission=mission,
+                    for_user=employee,
+                    start=get_time(0, 9),
+                )
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")
+
+    def test_third_party_cannot_add_activity_after_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+
+        g.client_id = "dummy_third_party"
+        try:
+            from app.domain.permissions import (
+                check_actor_can_write_on_mission_over_period,
+            )
+
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedForThirdPartyError
+            ):
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee,
+                    mission=mission,
+                    for_user=employee,
+                    start=get_time(0, 14),
+                    end=get_time(0, 16),
+                )
+        finally:
+            if hasattr(g, "client_id"):
+                delattr(g, "client_id")

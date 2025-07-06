@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from flask import g
+
 from app import db
 from app.domain.mission import (
     get_mission_start_and_end_from_activities,
@@ -13,7 +15,7 @@ from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
-    MissionAlreadyValidatedByAdminError,
+    MissionAlreadyAutoValidatedForThirdPartyError,
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models import MissionValidation, MissionEnd, MissionAutoValidation
@@ -84,6 +86,18 @@ def validate_mission(
             raise AuthorizationError(
                 "Actor is not authorized to validate the mission for the user"
             )
+
+        # Check that third-party cannot validate auto-validated missions
+        if g.get("client_id"):
+            if is_admin_validation and mission.auto_validated_by_admin_for(
+                for_user
+            ):
+                raise MissionAlreadyAutoValidatedForThirdPartyError()
+            if (
+                not is_admin_validation
+                and mission.auto_validated_by_employee_for(for_user)
+            ):
+                raise MissionAlreadyAutoValidatedForThirdPartyError()
 
     activities_to_validate = mission.activities_for(for_user)
 

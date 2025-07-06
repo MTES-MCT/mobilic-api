@@ -211,6 +211,16 @@ class Mission(EventBaseModel):
             ]
         )
 
+    def auto_validated_by_employee_for(self, for_user):
+        return any(
+            [
+                v.is_auto
+                and not v.is_admin
+                and (not v.user_id or v.user_id == for_user.id)
+                for v in self.validations
+            ]
+        )
+
     def modification_status_and_latest_action_time_for_user(self, user):
         all_user_activities = self.activities_for(
             user, include_dismissed_activities=True
