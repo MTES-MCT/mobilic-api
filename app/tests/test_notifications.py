@@ -208,6 +208,40 @@ class TestNotifications(BaseTest):
         self.assertIsNotNone(notif)
         self.assertEqual(notif.type, NotificationType.MISSION_CHANGES_WARNING)
 
+    def test_auto_validation_notification(self):
+        from app.domain.validation import validate_mission
+
+        self.assertIsNone(
+            self._get_notification_for_user_and_type(
+                self.worker.id, NotificationType.MISSION_AUTO_VALIDATION
+            )
+        )
+
+        validate_mission(
+            mission=self.default_mission,
+            submitter=None,
+            for_user=self.worker,
+            is_auto_validation=True,
+            is_admin_validation=False,
+        )
+
+        notification = self._get_notification_for_user_and_type(
+            self.worker.id, NotificationType.MISSION_AUTO_VALIDATION
+        )
+
+        self.assertIsNotNone(notification)
+        self.assertEqual(
+            notification.type, NotificationType.MISSION_AUTO_VALIDATION
+        )
+        self.assertEqual(notification.user_id, self.worker.id)
+        self.assertFalse(notification.read)
+
+        self.assertEqual(
+            notification.data["mission_id"], self.default_mission.id
+        )
+        self.assertIn("mission_start_date", notification.data)
+        self.assertIn("mission_name", notification.data)
+
     def test_cant_create_notification_with_invalid_data(self):
         invalid_data = {"mission_id": self.default_mission.id}
         with self.assertRaises(ValueError) as context:
