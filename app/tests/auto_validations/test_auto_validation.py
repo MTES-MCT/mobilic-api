@@ -58,6 +58,31 @@ class TestAutoValidation(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
+    def _create_mission_and_auto_validate_for_third_party_tests(
+        self, employee=None
+    ):
+        """Helper method specifically for third-party tests with fixed dates"""
+        if employee is None:
+            employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+        return mission_id, mission
+
     def test_employee_logs_for_himself(self):
 
         ## An employee logs two activities for himself in a mission
@@ -401,21 +426,12 @@ class TestAutoValidation(BaseTest):
 
     def test_third_party_cannot_validate_after_employee_auto_validation(self):
         employee = self.team_mates[0]
-
-        with freeze_time(datetime(2025, 1, 15, 18, 0)):
-            mission_id = _log_activities_in_mission(
-                submitter=employee,
-                company=self.company,
-                user=employee,
-                work_periods=[
-                    WorkPeriod(
-                        start_time=get_time(0, 8), end_time=get_time(0, 10)
-                    ),
-                ],
-            )
-
-        with freeze_time(datetime(2025, 1, 16, 19, 0)):
-            job_process_auto_validations()
+        (
+            mission_id,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
 
         validations = MissionValidation.query.filter(
             MissionValidation.mission_id == mission_id,
@@ -424,8 +440,6 @@ class TestAutoValidation(BaseTest):
             MissionValidation.is_admin == False,
         ).all()
         self.assertEqual(1, len(validations))
-
-        mission = Mission.query.get(mission_id)
 
         g.client_id = "dummy_third_party"
         try:
@@ -543,23 +557,12 @@ class TestAutoValidation(BaseTest):
 
     def test_third_party_cannot_edit_mission_after_auto_validation(self):
         employee = self.team_mates[0]
-
-        with freeze_time(datetime(2025, 1, 15, 18, 0)):
-            mission_id = _log_activities_in_mission(
-                submitter=employee,
-                company=self.company,
-                user=employee,
-                work_periods=[
-                    WorkPeriod(
-                        start_time=get_time(0, 8), end_time=get_time(0, 10)
-                    ),
-                ],
-            )
-
-        with freeze_time(datetime(2025, 1, 16, 19, 0)):
-            job_process_auto_validations()
-
-        mission = Mission.query.get(mission_id)
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
 
         g.client_id = "dummy_third_party"
         try:
@@ -579,23 +582,12 @@ class TestAutoValidation(BaseTest):
 
     def test_third_party_cannot_edit_activity_after_auto_validation(self):
         employee = self.team_mates[0]
-
-        with freeze_time(datetime(2025, 1, 15, 18, 0)):
-            mission_id = _log_activities_in_mission(
-                submitter=employee,
-                company=self.company,
-                user=employee,
-                work_periods=[
-                    WorkPeriod(
-                        start_time=get_time(0, 8), end_time=get_time(0, 10)
-                    ),
-                ],
-            )
-
-        with freeze_time(datetime(2025, 1, 16, 19, 0)):
-            job_process_auto_validations()
-
-        mission = Mission.query.get(mission_id)
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
         activity = mission.activities[0]
 
         g.client_id = "dummy_third_party"
@@ -611,7 +603,8 @@ class TestAutoValidation(BaseTest):
                     actor=employee,
                     mission=mission,
                     for_user=employee,
-                    start=get_time(0, 9),
+                    start=activity.start_time,
+                    end=activity.end_time,
                 )
         finally:
             if hasattr(g, "client_id"):
@@ -619,23 +612,12 @@ class TestAutoValidation(BaseTest):
 
     def test_third_party_cannot_add_activity_after_auto_validation(self):
         employee = self.team_mates[0]
-
-        with freeze_time(datetime(2025, 1, 15, 18, 0)):
-            mission_id = _log_activities_in_mission(
-                submitter=employee,
-                company=self.company,
-                user=employee,
-                work_periods=[
-                    WorkPeriod(
-                        start_time=get_time(0, 8), end_time=get_time(0, 10)
-                    ),
-                ],
-            )
-
-        with freeze_time(datetime(2025, 1, 16, 19, 0)):
-            job_process_auto_validations()
-
-        mission = Mission.query.get(mission_id)
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
 
         g.client_id = "dummy_third_party"
         try:
