@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta
 
-from flask import g
-
 from app import db
 from app.domain.mission import (
     get_mission_start_and_end_from_activities,

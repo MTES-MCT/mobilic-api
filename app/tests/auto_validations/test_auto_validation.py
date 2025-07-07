@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-from flask import g
 from flask.ctx import AppContext
 from freezegun import freeze_time
 
