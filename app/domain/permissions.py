@@ -17,7 +17,7 @@ from app.helpers.errors import (
     AuthorizationError,
     MissionAlreadyValidatedByAdminError,
     MissionAlreadyValidatedByUserError,
-    MissionAlreadyAutoValidatedForThirdPartyError,
+    MissionAlreadyAutoValidatedError,
     UserNotEmployedByCompanyAnymoreEmployeeError,
     UserNotEmployedByCompanyAnymoreAdminError,
 )
@@ -247,13 +247,13 @@ def check_actor_can_write_on_mission_over_period(
     ):
         raise MissionAlreadyValidatedByAdminError()
 
-    # 6. Check that third-party cannot modify auto-validated missions
-    if g.get("client_id"):
+    # 6. Check that employee cannot modify auto-validated missions
+    if not is_actor_company_admin:
         user_to_check = for_user or actor
-        if mission.auto_validated_by_admin_for(user_to_check):
-            raise MissionAlreadyAutoValidatedForThirdPartyError()
-        if mission.auto_validated_by_employee_for(user_to_check):
-            raise MissionAlreadyAutoValidatedForThirdPartyError()
+        if mission.auto_validated_by_admin_for(
+            user_to_check
+        ) or mission.auto_validated_by_employee_for(user_to_check):
+            raise MissionAlreadyAutoValidatedError()
 
     # 7. Check that the mission is not yet validated by the person concerned by the edition (user or actor)
     if not is_actor_company_admin and mission.validation_of(for_user or actor):

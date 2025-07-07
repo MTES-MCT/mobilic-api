@@ -415,8 +415,8 @@ class CompanyAddressAlreadyRegisteredError(MobilicError):
     default_should_alert_team = False
 
 
-class MissionAlreadyAutoValidatedForThirdPartyError(MobilicError):
-    code = "MISSION_ALREADY_AUTO_VALIDATED_FOR_THIRD_PARTY"
+class MissionAlreadyAutoValidatedError(MobilicError):
+    code = "MISSION_ALREADY_AUTO_VALIDATED"
     default_message = "This mission has already been automatically validated"
     default_should_alert_team = False
 

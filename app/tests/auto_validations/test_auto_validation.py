@@ -8,7 +8,7 @@ from app import app
 from app.domain.validation import validate_mission
 from app.helpers.errors import (
     MissingJustificationForAdminValidation,
-    MissionAlreadyAutoValidatedForThirdPartyError,
+    MissionAlreadyAutoValidatedError,
 )
 from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.jobs.auto_validations import (
@@ -424,7 +424,7 @@ class TestAutoValidation(BaseTest):
         )
         self.assertFalse("errors" in res)
 
-    def test_third_party_cannot_validate_after_employee_auto_validation(self):
+    def test_employee_cannot_validate_after_employee_auto_validation(self):
         employee = self.team_mates[0]
         (
             mission_id,
@@ -440,29 +440,21 @@ class TestAutoValidation(BaseTest):
             MissionValidation.is_admin == False,
         ).all()
         self.assertEqual(1, len(validations))
-
-        g.client_id = "dummy_third_party"
-        try:
-            with self.assertRaises(
-                MissionAlreadyAutoValidatedForThirdPartyError
-            ) as context:
-                validate_mission(
-                    submitter=employee, mission=mission, for_user=employee
-                )
-
-            self.assertEqual(
-                str(context.exception),
-                "This mission has already been automatically validated",
+        with self.assertRaises(MissionAlreadyAutoValidatedError) as context:
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
             )
-            self.assertEqual(
-                context.exception.code,
-                "MISSION_ALREADY_AUTO_VALIDATED_FOR_THIRD_PARTY",
-            )
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
 
-    def test_third_party_cannot_validate_after_admin_auto_validation(self):
+        self.assertEqual(
+            str(context.exception),
+            "This mission has already been automatically validated",
+        )
+        self.assertEqual(
+            context.exception.code,
+            "MISSION_ALREADY_AUTO_VALIDATED",
+        )
+
+    def test_employee_cannot_validate_after_admin_auto_validation(self):
         employee = self.team_mates[0]
 
         with freeze_time(datetime(2025, 4, 17, 18, 0)):
@@ -493,31 +485,24 @@ class TestAutoValidation(BaseTest):
 
         mission = Mission.query.get(mission_id)
 
-        g.client_id = "dummy_third_party"
-        try:
-            with self.assertRaises(
-                MissionAlreadyAutoValidatedForThirdPartyError
-            ) as context:
-                validate_mission(
-                    submitter=self.team_leader,
-                    mission=mission,
-                    for_user=employee,
-                    is_admin_validation=True,
-                )
-
-            self.assertEqual(
-                str(context.exception),
-                "This mission has already been automatically validated",
+        with self.assertRaises(MissionAlreadyAutoValidatedError) as context:
+            validate_mission(
+                submitter=employee,
+                mission=mission,
+                for_user=employee,
+                is_admin_validation=False,
             )
-            self.assertEqual(
-                context.exception.code,
-                "MISSION_ALREADY_AUTO_VALIDATED_FOR_THIRD_PARTY",
-            )
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
 
-    def test_third_party_can_validate_before_auto_validation(self):
+        self.assertEqual(
+            str(context.exception),
+            "This mission has already been automatically validated",
+        )
+        self.assertEqual(
+            context.exception.code,
+            "MISSION_ALREADY_AUTO_VALIDATED",
+        )
+
+    def test_employee_can_validate_before_auto_validation(self):
         employee = self.team_mates[0]
 
         mission_id = _log_activities_in_mission(
@@ -544,18 +529,16 @@ class TestAutoValidation(BaseTest):
 
         mission = Mission.query.get(mission_id)
 
-        g.client_id = "dummy_third_party"
-        try:
-            validation = validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-            self.assertIsNotNone(validation)
-            self.assertFalse(validation.is_auto)
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
+        validation = validate_mission(
+            submitter=employee,
+            mission=mission,
+            for_user=employee,
+            is_admin_validation=False,
+        )
+        self.assertIsNotNone(validation)
+        self.assertFalse(validation.is_auto)
 
-    def test_third_party_cannot_edit_mission_after_auto_validation(self):
+    def test_employee_cannot_edit_mission_after_auto_validation(self):
         employee = self.team_mates[0]
         (
             _,
@@ -564,23 +547,16 @@ class TestAutoValidation(BaseTest):
             employee
         )
 
-        g.client_id = "dummy_third_party"
-        try:
-            with self.assertRaises(
-                MissionAlreadyAutoValidatedForThirdPartyError
-            ):
-                from app.domain.permissions import (
-                    check_actor_can_write_on_mission_over_period,
-                )
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            from app.domain.permissions import (
+                check_actor_can_write_on_mission_over_period,
+            )
 
-                check_actor_can_write_on_mission_over_period(
-                    actor=employee, mission=mission, for_user=employee
-                )
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
+            check_actor_can_write_on_mission_over_period(
+                actor=employee, mission=mission, for_user=employee
+            )
 
-    def test_third_party_cannot_edit_activity_after_auto_validation(self):
+    def test_employee_cannot_edit_activity_after_auto_validation(self):
         employee = self.team_mates[0]
         (
             _,
@@ -590,27 +566,20 @@ class TestAutoValidation(BaseTest):
         )
         activity = mission.activities[0]
 
-        g.client_id = "dummy_third_party"
-        try:
-            from app.domain.permissions import (
-                check_actor_can_write_on_mission_over_period,
+        from app.domain.permissions import (
+            check_actor_can_write_on_mission_over_period,
+        )
+
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            check_actor_can_write_on_mission_over_period(
+                actor=employee,
+                mission=mission,
+                for_user=employee,
+                start=activity.start_time,
+                end=activity.end_time,
             )
 
-            with self.assertRaises(
-                MissionAlreadyAutoValidatedForThirdPartyError
-            ):
-                check_actor_can_write_on_mission_over_period(
-                    actor=employee,
-                    mission=mission,
-                    for_user=employee,
-                    start=activity.start_time,
-                    end=activity.end_time,
-                )
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
-
-    def test_third_party_cannot_add_activity_after_auto_validation(self):
+    def test_employee_cannot_add_activity_after_auto_validation(self):
         employee = self.team_mates[0]
         (
             _,
@@ -619,22 +588,15 @@ class TestAutoValidation(BaseTest):
             employee
         )
 
-        g.client_id = "dummy_third_party"
-        try:
-            from app.domain.permissions import (
-                check_actor_can_write_on_mission_over_period,
-            )
+        from app.domain.permissions import (
+            check_actor_can_write_on_mission_over_period,
+        )
 
-            with self.assertRaises(
-                MissionAlreadyAutoValidatedForThirdPartyError
-            ):
-                check_actor_can_write_on_mission_over_period(
-                    actor=employee,
-                    mission=mission,
-                    for_user=employee,
-                    start=get_time(0, 14),
-                    end=get_time(0, 16),
-                )
-        finally:
-            if hasattr(g, "client_id"):
-                delattr(g, "client_id")
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            check_actor_can_write_on_mission_over_period(
+                actor=employee,
+                mission=mission,
+                for_user=employee,
+                start=get_time(0, 14),
+                end=get_time(0, 16),
+            )
