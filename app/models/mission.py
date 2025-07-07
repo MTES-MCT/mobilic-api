@@ -170,9 +170,19 @@ class Mission(EventBaseModel):
             else None
         )
 
+    def _get_validations(self, only_manual=False):
+        if only_manual:
+            return [v for v in self.validations if not v.is_auto]
+        return [v for v in self.validations]
+
     @property
     def validated_by_admin(self):
         return any([v.is_admin and not v.user_id for v in self.validations])
+
+    @property
+    def manually_validated_by_admin(self):
+        validations = self._get_validations(only_manual=True)
+        return any([v.is_admin and not v.user_id for v in validations])
 
     def first_validation_time_by_admin(self):
         admin_validation_times = [
@@ -182,10 +192,31 @@ class Mission(EventBaseModel):
             return None
         return min(admin_validation_times)
 
-    def validated_by_admin_for(self, user):
+    def validated_by_admin_for(self, user, only_manual=False):
+        validations = self._get_validations(only_manual=only_manual)
         return any(
             [
                 v.is_admin and (not v.user_id or v.user_id == user.id)
+                for v in validations
+            ]
+        )
+
+    def auto_validated_by_admin_for(self, for_user):
+        return any(
+            [
+                v.is_auto
+                and v.is_admin
+                and (not v.user_id or v.user_id == for_user.id)
+                for v in self.validations
+            ]
+        )
+
+    def auto_validated_by_employee_for(self, for_user):
+        return any(
+            [
+                v.is_auto
+                and not v.is_admin
+                and (not v.user_id or v.user_id == for_user.id)
                 for v in self.validations
             ]
         )
@@ -275,3 +306,16 @@ class Mission(EventBaseModel):
         if deleted_by_id:
             deleted_by_user = User.query.get(deleted_by_id)
         return deleted_by_user.display_name if deleted_by_user else "-"
+
+    def has_activity_for_user(self, user):
+        return (
+            len(
+                [
+                    activity
+                    for activity in self.activities_for(
+                        user=user, include_dismissed_activities=True
+                    )
+                ]
+            )
+            > 0
+        )

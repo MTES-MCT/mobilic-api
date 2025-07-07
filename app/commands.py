@@ -12,11 +12,12 @@ from sqlalchemy import text
 from app import app, db
 from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
-from app.domain.company import update_ceased_activity_status
+from app.domain.company import job_update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.vehicle import find_vehicle
 from app.helpers.oauth.models import ThirdPartyApiKey
 from app.helpers.xml.greco import temp_write_greco_xml
+from app.jobs.auto_validations import job_process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
 from app.models.user import User
@@ -332,11 +333,6 @@ def temp_command_generate_xm_control(id):
     temp_write_greco_xml(control)
 
 
-@app.cli.command("update_ceased_activity_status", with_appcontext=True)
-def _update_ceased_activity_status():
-    update_ceased_activity_status()
-
-
 @app.cli.command("migrate_anonymize_data", with_appcontext=True)
 @click.option(
     "--verbose",
@@ -396,6 +392,16 @@ def anonymize_standalone_data_command(
         test_mode=test,
         force_clean=force_clean,
     )
+
+
+@app.cli.command("update_ceased_activity_status", with_appcontext=True)
+def update_ceased_activity_status():
+    job_update_ceased_activity_status()
+
+
+@app.cli.command("process_auto_validations", with_appcontext=True)
+def process_auto_validations():
+    job_process_auto_validations()
 
 
 @app.cli.command("anonymize_users", with_appcontext=True)
