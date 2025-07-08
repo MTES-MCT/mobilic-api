@@ -50,7 +50,7 @@ from app.helpers.errors import (
 )
 from app.helpers.graphene_types import graphene_enum_type, Password
 from app.helpers.mail import MailjetError, MailingContactList
-from app.helpers.france_connect import get_fc_user_info
+from app.helpers.france_connect import get_fc_user_info, get_fc_config
 from app.helpers.mail_type import EmailType
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.pdf.work_days import generate_work_days_pdf_for
@@ -487,16 +487,34 @@ class ResetPasswordConnected(AuthenticatedMutation):
 
 @app.route("/fc/authorize")
 def redirect_to_fc_authorize():
-    query_params = {
-        "state": uuid4().hex,
-        "nonce": uuid4().hex,
-        "response_type": "code",
-        "scope": "openid email given_name family_name preferred_username birthdate",
-        "client_id": app.config["FC_CLIENT_ID"],
-        "acr_values": "eidas1",
-    }
+    base_url, client_id, _, api_version, _ = get_fc_config()
+
+    from urllib.parse import parse_qs
+
+    parsed_qs = parse_qs(request.query_string.decode("utf-8"))
+
+    if api_version == "v2":
+        fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
+        if fc_override:
+            parsed_qs["redirect_uri"] = [fc_override]
+
+    parsed_qs.update(
+        {
+            "state": [uuid4().hex],
+            "nonce": [uuid4().hex],
+            "response_type": ["code"],
+            "scope": [
+                "openid email given_name family_name preferred_username birthdate"
+            ],
+            "client_id": [client_id],
+            "acr_values": ["eidas1"],
+        }
+    )
+
+    final_qs = urlencode(parsed_qs, doseq=True, quote_via=quote)
+
     return redirect(
-        f"{app.config['FC_URL']}/api/v1/authorize?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
+        f"{base_url}/api/{api_version}/authorize?{final_qs}",
         code=302,
     )
 
@@ -511,19 +529,46 @@ def redirect_to_fc_logout():
         return response
 
     if not fc_token_hint:
-        app.logger.warning(
-            "Attempt do disconnect from FranceConnect a user who is not logged in"
-        )
-
+        app.logger.warning("FranceConnect logout attempt without token")
         redirect_uri = request.args.get("post_logout_redirect_uri")
-        return redirect(url_for(unquote(redirect_uri)), code=302)
+        if redirect_uri:
+            return redirect(unquote(redirect_uri), code=302)
+        return redirect("/logout", code=302)
+
+    base_url, _, _, api_version, _ = get_fc_config()
 
     query_params = {"state": uuid4().hex, "id_token_hint": fc_token_hint}
 
-    return redirect(
-        f"{app.config['FC_URL']}/api/v1/logout?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
-        code=302,
-    )
+    # v2 requires post_logout_redirect_uri
+    if api_version == "v2":
+        default_logout_uri = f"{request.host_url}logout"
+
+        fc_logout_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
+        if fc_logout_override:
+
+            default_logout_uri = fc_logout_override.replace(
+                "/fc-callback", "/logout"
+            )
+            # Use localhost for logout (FranceConnect v2 accepts localhost for logout)
+            default_logout_uri = default_logout_uri.replace(
+                "testdev.localhost", "localhost"
+            )
+
+        query_params["post_logout_redirect_uri"] = request.args.get(
+            "post_logout_redirect_uri", default_logout_uri
+        )
+
+    logout_endpoint = "session/end" if api_version == "v2" else "logout"
+
+    # For v2, rebuild query string to avoid duplicates and apply localhost override
+    if api_version == "v2":
+        final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{urlencode(query_params, quote_via=quote)}"
+    else:
+        final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}"
+
+    app.logger.info(f"FranceConnect logout URL: {final_logout_url}")
+
+    return redirect(final_logout_url, code=302)
 
 
 class FranceConnectLogin(graphene.Mutation):
