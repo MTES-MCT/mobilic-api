@@ -421,6 +421,13 @@ class MissionAlreadyAutoValidatedError(MobilicError):
     default_should_alert_team = False
 
 
+class FranceConnectV2Error(FranceConnectAuthenticationError):
+    code = "FRANCE_CONNECT_V2_ERROR"
+    default_message = "FranceConnect v2 authentication failed"
+    default_should_alert_team = True
+    http_status_code = 401
+
+
 CONFLICTING_ROW_ID_RE = re.compile(r", (\d+)\)\.$")
 
 
