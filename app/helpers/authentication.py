@@ -227,87 +227,71 @@ def set_auth_cookies(
     fc_token=None,
     ac_token=None,
 ):
-    response.set_cookie(
+    # Cookie expiration times
+    now = datetime.now(timezone.utc)
+    access_token_expires = now + app.config["ACCESS_TOKEN_EXPIRATION"]
+    session_expires = now + app.config["SESSION_COOKIE_LIFETIME"]
+
+    # Cookies commmon parameters
+    common_cookie_params = {
+        "secure": app.config["JWT_COOKIE_SECURE"],
+        "expires": session_expires,
+    }
+
+    # Cookies helper
+    def set_cookie_with_defaults(name, value, **extra_params):
+        params = common_cookie_params.copy()
+        params.update(extra_params)
+        response.set_cookie(name, value=value, **params)
+
+    # Cookies auth
+    set_cookie_with_defaults(
         app.config["JWT_ACCESS_COOKIE_NAME"],
-        value=access_token,
-        expires=datetime.now(timezone.utc)
-        + app.config["ACCESS_TOKEN_EXPIRATION"],
-        secure=app.config["JWT_COOKIE_SECURE"],
+        access_token,
+        expires=access_token_expires,
         httponly=True,
         path=app.config["JWT_ACCESS_COOKIE_PATH"],
         samesite="Strict",
     )
-    response.set_cookie(
+
+    set_cookie_with_defaults(
         app.config["JWT_REFRESH_COOKIE_NAME"],
-        value=refresh_token,
-        expires=datetime.now(timezone.utc)
-        + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
+        refresh_token,
         httponly=True,
         path=app.config["JWT_REFRESH_COOKIE_PATH"],
         samesite="Strict",
     )
-    response.set_cookie(
-        "userId",
-        value=str(user_id),
-        expires=datetime.now(timezone.utc)
-        + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
-    )
-    response.set_cookie(
+
+    # Cookies user
+    set_cookie_with_defaults("userId", str(user_id), httponly=False)
+
+    set_cookie_with_defaults(
         "atEat",
-        value=str(
-            timegm(
-                (
-                    datetime.now(timezone.utc)
-                    + app.config["ACCESS_TOKEN_EXPIRATION"]
-                ).utctimetuple()
-            )
-        ),
-        expires=datetime.now(timezone.utc)
-        + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
+        str(timegm(access_token_expires.utctimetuple())),
         httponly=False,
     )
+
+    # Cookies FranceConnect
     if fc_token:
-        response.set_cookie(
+        set_cookie_with_defaults(
             "fct",
-            value=fc_token,
-            expires=datetime.now(timezone.utc)
-            + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
+            fc_token,
             httponly=True,
             path="/api/fc/logout",
             samesite="Strict",
         )
-        response.set_cookie(
-            "hasFc",
-            value="true",
-            expires=datetime.now(timezone.utc)
-            + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=False,
-        )
+        set_cookie_with_defaults("hasFc", "true", httponly=False)
+
+    # Cookies AgentConnect
     if ac_token:
-        response.set_cookie(
+        set_cookie_with_defaults(
             "act",
-            value=ac_token,
-            expires=datetime.now(timezone.utc)
-            + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
+            ac_token,
             httponly=True,
             path="/api/ac/logout",
             samesite="Strict",
         )
-        response.set_cookie(
-            "hasAc",
-            value="true",
-            expires=datetime.now(timezone.utc)
-            + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=False,
-        )
+        set_cookie_with_defaults("hasAc", "true", httponly=False)
 
 
 def unset_auth_cookies(response):
