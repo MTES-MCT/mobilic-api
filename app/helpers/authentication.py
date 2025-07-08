@@ -1,5 +1,5 @@
 from calendar import timegm
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 import graphene
@@ -230,7 +230,8 @@ def set_auth_cookies(
     response.set_cookie(
         app.config["JWT_ACCESS_COOKIE_NAME"],
         value=access_token,
-        expires=datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"],
+        expires=datetime.now(timezone.utc)
+        + app.config["ACCESS_TOKEN_EXPIRATION"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=True,
         path=app.config["JWT_ACCESS_COOKIE_PATH"],
@@ -239,7 +240,8 @@ def set_auth_cookies(
     response.set_cookie(
         app.config["JWT_REFRESH_COOKIE_NAME"],
         value=refresh_token,
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        expires=datetime.now(timezone.utc)
+        + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=True,
         path=app.config["JWT_REFRESH_COOKIE_PATH"],
@@ -248,7 +250,8 @@ def set_auth_cookies(
     response.set_cookie(
         "userId",
         value=str(user_id),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        expires=datetime.now(timezone.utc)
+        + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
     )
@@ -257,11 +260,13 @@ def set_auth_cookies(
         value=str(
             timegm(
                 (
-                    datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"]
+                    datetime.now(timezone.utc)
+                    + app.config["ACCESS_TOKEN_EXPIRATION"]
                 ).utctimetuple()
             )
         ),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+        expires=datetime.now(timezone.utc)
+        + app.config["SESSION_COOKIE_LIFETIME"],
         secure=app.config["JWT_COOKIE_SECURE"],
         httponly=False,
     )
@@ -269,7 +274,8 @@ def set_auth_cookies(
         response.set_cookie(
             "fct",
             value=fc_token,
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            expires=datetime.now(timezone.utc)
+            + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=True,
             path="/api/fc/logout",
@@ -278,7 +284,8 @@ def set_auth_cookies(
         response.set_cookie(
             "hasFc",
             value="true",
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            expires=datetime.now(timezone.utc)
+            + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
         )
@@ -286,7 +293,8 @@ def set_auth_cookies(
         response.set_cookie(
             "act",
             value=ac_token,
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            expires=datetime.now(timezone.utc)
+            + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=True,
             path="/api/ac/logout",
@@ -295,7 +303,8 @@ def set_auth_cookies(
         response.set_cookie(
             "hasAc",
             value="true",
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
+            expires=datetime.now(timezone.utc)
+            + app.config["SESSION_COOKIE_LIFETIME"],
             secure=app.config["JWT_COOKIE_SECURE"],
             httponly=False,
         )

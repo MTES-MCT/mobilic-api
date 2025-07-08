@@ -1,20 +1,37 @@
 services:
-#  mobilic-api:
-#     image: python:3.9.2-slim
-#     command: sh -c "apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/* && /usr/local/bin/python -m pip install --upgrade pip && pip install -r requirements-dev.txt && flask db upgrade && flask run --host 0.0.0.0"
-#     ports: 
-#       - "5000:5000"
-#     environment:
-#       FLASK_APP: app:app
-#       FLASK_DEBUG: "1"
-#       FLASK_SKIP_DOTENV: "1"
-#       DOTENV_FILE: ".env/.env.local"
-#     working_dir: /app
-#     volumes:
-#       - .:/app
-#     depends_on:
-#       - mobilic-db
-#       - redis
+  mobilic-api:
+    image: python:3.11-slim
+    command: sh -c "apt-get update && apt-get install -y gcc libpq-dev libffi-dev build-essential && rm -rf /var/lib/apt/lists/* && /usr/local/bin/python -m pip install --upgrade pip && pip install pipenv && pipenv install --dev --system && flask db upgrade && flask run --host 0.0.0.0"
+    ports: 
+      - "5000:5000"
+    environment:
+      FLASK_APP: app:app
+      FLASK_DEBUG: "1"
+      FLASK_SKIP_DOTENV: "1"
+      DOTENV_FILE: ".env/.env.local"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - mobilic-db
+      - redis
+
+  celery-worker:
+    image: python:3.11-slim
+    command: sh -c "apt-get update && apt-get install -y gcc libpq-dev libffi-dev build-essential && rm -rf /var/lib/apt/lists/* && /usr/local/bin/python -m pip install --upgrade pip && pip install pipenv && pipenv install --dev --system && celery -A app.celery worker --loglevel=info"
+    environment:
+      FLASK_APP: app:app
+      FLASK_DEBUG: "1"
+      FLASK_SKIP_DOTENV: "1"
+      DOTENV_FILE: ".env/.env.local"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - mobilic-db
+      - redis
 
   mobilic-db:
     image: postgres:13.7-alpine
