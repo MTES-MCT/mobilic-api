@@ -35,11 +35,22 @@ class Config:
     S3_REGION = os.environ.get("S3_REGION")
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+
+    # FranceConnect v1 (legacy, delete in september 2025)
     FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
     FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
     FC_URL = os.environ.get(
         "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
+
+    # FranceConnect v2
+    FC_V2_URL = os.environ.get("FC_V2_URL")
+    FC_V2_CLIENT_ID = os.environ.get("FC_V2_CLIENT_ID")
+    FC_V2_CLIENT_SECRET = os.environ.get("FC_V2_CLIENT_SECRET")
+    FC_TIMEOUT = int(os.environ.get("FC_TIMEOUT", "10"))
+    # FranceConnect v2 development redirect URI override (for local testing)
+    FC_V2_REDIRECT_URI_OVERRIDE = os.environ.get("FC_V2_REDIRECT_URI_OVERRIDE")
+
     AC_CLIENT_ID = os.environ.get("AC_CLIENT_ID")
     AC_CLIENT_SECRET = os.environ.get("AC_CLIENT_SECRET")
     AC_AUTHORIZE_URL = os.environ.get("AC_AUTHORIZE_URL")
