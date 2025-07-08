@@ -219,20 +219,33 @@ def create_access_tokens_for(
     return tokens
 
 
-def set_auth_cookies(
+def set_auth_cookies_helper(
     response,
     access_token=None,
     refresh_token=None,
     user_id=None,
+    controller_user_id=None,
     fc_token=None,
     ac_token=None,
 ):
+    """
+    Set authentication cookies on response.
+
+    Args:
+        response: Flask response object
+        access_token: JWT access token
+        refresh_token: JWT refresh token
+        user_id: User ID (for regular users)
+        controller_user_id: Controller user ID (for controller users)
+        fc_token: FranceConnect token
+        ac_token: AgentConnect token
+    """
     # Cookie expiration times
     now = datetime.now(timezone.utc)
     access_token_expires = now + app.config["ACCESS_TOKEN_EXPIRATION"]
     session_expires = now + app.config["SESSION_COOKIE_LIFETIME"]
 
-    # Cookies commmon parameters
+    # Cookies common parameters
     common_cookie_params = {
         "secure": app.config["JWT_COOKIE_SECURE"],
         "expires": session_expires,
@@ -244,7 +257,7 @@ def set_auth_cookies(
         params.update(extra_params)
         response.set_cookie(name, value=value, **params)
 
-    # Cookies auth
+    # Cookies auth (access and refresh tokens)
     set_cookie_with_defaults(
         app.config["JWT_ACCESS_COOKIE_NAME"],
         access_token,
@@ -262,16 +275,23 @@ def set_auth_cookies(
         samesite="Strict",
     )
 
-    # Cookies user
-    set_cookie_with_defaults("userId", str(user_id), httponly=False)
-
+    # Token expiration time cookie
     set_cookie_with_defaults(
         "atEat",
         str(timegm(access_token_expires.utctimetuple())),
         httponly=False,
     )
 
-    # Cookies FranceConnect
+    # User identification cookies
+    if user_id is not None:
+        set_cookie_with_defaults("userId", str(user_id), httponly=False)
+
+    if controller_user_id is not None:
+        set_cookie_with_defaults(
+            "controllerId", str(controller_user_id), httponly=False
+        )
+
+    # FranceConnect cookies
     if fc_token:
         set_cookie_with_defaults(
             "fct",
@@ -282,7 +302,7 @@ def set_auth_cookies(
         )
         set_cookie_with_defaults("hasFc", "true", httponly=False)
 
-    # Cookies AgentConnect
+    # AgentConnect cookies
     if ac_token:
         set_cookie_with_defaults(
             "act",
@@ -292,6 +312,25 @@ def set_auth_cookies(
             samesite="Strict",
         )
         set_cookie_with_defaults("hasAc", "true", httponly=False)
+
+
+def set_auth_cookies(
+    response,
+    access_token=None,
+    refresh_token=None,
+    user_id=None,
+    fc_token=None,
+    ac_token=None,
+):
+    """Set authentication cookies for regular users."""
+    return set_auth_cookies_helper(
+        response=response,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=user_id,
+        fc_token=fc_token,
+        ac_token=ac_token,
+    )
 
 
 def unset_auth_cookies(response):
