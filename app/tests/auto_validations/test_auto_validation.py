@@ -503,16 +503,28 @@ class TestAutoValidation(BaseTest):
 
     def test_employee_can_validate_before_auto_validation(self):
         employee = self.team_mates[0]
-
+        first_time = datetime.now()
         mission_id = _log_activities_in_mission(
             submitter=employee,
             company=self.company,
             user=employee,
             work_periods=[
                 WorkPeriod(
-                    start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    start_time=get_time(2, 8), end_time=get_time(2, 10)
                 ),
             ],
+            submission_time=first_time,
+        )
+        _log_activities_in_mission(
+            submitter=employee,
+            company=self.company,
+            user=employee,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(2, 14), end_time=get_time(2, 16)
+                ),
+            ],
+            mission_id=mission_id,
         )
 
         auto_validations = MissionAutoValidation.query.filter(
