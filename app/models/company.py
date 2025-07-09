@@ -2,7 +2,7 @@ from datetime import date
 from cached_property import cached_property
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import validates
-from sqlalchemy import text
+from sqlalchemy import text, event
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
@@ -10,6 +10,7 @@ from app.helpers.time import VERY_LONG_AGO, to_datetime
 from app.models import User
 from app.models.base import BaseModel
 from app import db
+from app.models.business import BusinessType
 from app.models.mixins.has_business import HasBusiness
 
 
@@ -43,9 +44,9 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
     )
     require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
 
-    allow_other_task = db.Column(db.Boolean, nullable=True, default=True)
+    allow_other_task = db.Column(db.Boolean, nullable=True)
     other_task_label = db.Column(
-        db.String(24), unique=False, nullable=True, default=None
+        db.String(24), unique=False, nullable=True, default=""
     )
 
     accept_certification_communication = db.Column(db.Boolean, nullable=True)
@@ -163,3 +164,11 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
             ):
                 return True
         return False
+
+
+@event.listens_for(Company, "before_insert")
+def set_allow_other_task(mapper, connect, target):
+    if target.business:
+        target.allow_other_task = (
+            target.business.business_type != BusinessType.SHIPPING
+        )
