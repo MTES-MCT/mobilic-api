@@ -7,9 +7,39 @@ from threading import Lock
 import logging
 
 from app import app
-from app.helpers.errors import FranceConnectV2Error
+from app.helpers.errors import (
+    FranceConnectV2Error,
+    InvalidJwtTokenFormatError,
+    UnsupportedAlgorithmError,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_input_parameters(
+    authorization_code: str, redirect_uri: str
+) -> None:
+    if not authorization_code or not isinstance(authorization_code, str):
+        raise ValueError("Invalid authorization code")
+
+    if not redirect_uri or not isinstance(redirect_uri, str):
+        raise ValueError("Invalid redirect URI")
+
+    # Allow HTTP only for development environments with localhost/testdev.localhost
+    is_dev_environment = app.config.get("MOBILIC_ENV", "dev") == "dev"
+    is_localhost = redirect_uri.startswith(
+        ("http://localhost", "http://testdev.localhost")  # NOSONAR
+    )
+
+    if not redirect_uri.startswith("https://"):
+        if not (is_dev_environment and is_localhost):
+            raise ValueError("Invalid redirect URI format - HTTPS required")
+
+    if len(authorization_code) > 1000:
+        raise ValueError("Authorization code too long")
+
+    if len(redirect_uri) > 2000:
+        raise ValueError("Redirect URI too long")
 
 
 class JWTKeyManager:
@@ -29,23 +59,53 @@ class JWTKeyManager:
                 return self._cache
 
             try:
-                oidc_url = urljoin(
-                    base_url, "/.well-known/openid_configuration"
-                )
-                logger.info(f"Fetching OIDC config: {oidc_url}")
+                # V2 uses dynamic metadata retrieval via Discovery URL
+                # https://docs.partenaires.franceconnect.gouv.fr/fs/migration/fs-migration-diff-v1-v2/
+                if "fcp-low.sbx.dev-franceconnect.fr" in base_url:
+                    # For sandbox, try OIDC discovery first, fallback to direct JWKS
+                    try:
+                        oidc_url = urljoin(
+                            base_url, "/.well-known/openid_configuration"
+                        )
+                        logger.info("Fetching OIDC configuration")
 
-                oidc_response = requests.get(oidc_url, timeout=timeout)
-                oidc_response.raise_for_status()
-                oidc_config = oidc_response.json()
+                        oidc_response = requests.get(oidc_url, timeout=timeout)
+                        oidc_response.raise_for_status()
+                        oidc_config = oidc_response.json()
 
-                jwks_url = oidc_config.get("jwks_uri")
-                if not jwks_url:
-                    logger.warning("jwks_uri missing from OIDC config")
-                    return self._cache
+                        jwks_url = oidc_config.get("jwks_uri")
+                        if not jwks_url:
+                            raise ValueError(
+                                "jwks_uri missing from OIDC config"
+                            )
 
-                logger.info(f"Fetching JWKS keys: {jwks_url}")
-                jwks_response = requests.get(jwks_url, timeout=timeout)
-                jwks_response.raise_for_status()
+                        logger.info("Using JWKS URL from discovery")
+                    except Exception:
+                        logger.warning(
+                            "OIDC discovery failed, using direct JWKS endpoint"
+                        )
+                        jwks_url = urljoin(base_url, "/api/v2/jwks")
+
+                    jwks_response = requests.get(jwks_url, timeout=timeout)
+                    jwks_response.raise_for_status()
+                else:
+                    oidc_url = urljoin(
+                        base_url, "/.well-known/openid_configuration"
+                    )
+                    logger.info("Fetching OIDC configuration")
+
+                    oidc_response = requests.get(oidc_url, timeout=timeout)
+                    oidc_response.raise_for_status()
+                    oidc_config = oidc_response.json()
+
+                    jwks_url = oidc_config.get("jwks_uri")
+                    if not jwks_url:
+                        logger.warning("jwks_uri missing from OIDC config")
+                        return self._cache
+
+                    logger.info("Fetching JWKS keys")
+                    jwks_response = requests.get(jwks_url, timeout=timeout)
+                    jwks_response.raise_for_status()
 
                 self._cache = jwks_response.json()
                 self._cache_expiry = current_time + 3600  # Cache for 1 hour
@@ -54,8 +114,8 @@ class JWTKeyManager:
                 logger.info(f"Updated {key_count} JWT keys in cache")
                 return self._cache
 
-            except Exception as e:
-                logger.warning(f"Error fetching JWT keys: {e}")
+            except Exception:
+                logger.warning("Error fetching JWT keys")
                 return self._cache
 
 
@@ -63,13 +123,11 @@ _jwt_manager = JWTKeyManager()
 
 
 def _create_public_key_from_jwk(key: Dict, algorithm: str):
-    """Create public key from JWK based on algorithm"""
-    if algorithm.startswith("RS"):
-        return jwt.algorithms.RSAAlgorithm.from_jwk(key)
-    elif algorithm.startswith("ES"):
+    """Create public key from JWK for ES256 algorithm"""
+    if algorithm == "ES256":
         return jwt.algorithms.ECAlgorithm.from_jwk(key)
     else:
-        raise ValueError(f"Unsupported algorithm: {algorithm}")
+        raise UnsupportedAlgorithmError(f"Expected ES256, got {algorithm}")
 
 
 def _validate_with_public_key(
@@ -90,42 +148,57 @@ def _validate_with_public_key(
     )
 
 
-def _fallback_jwt_validation(id_token: str, client_id: str) -> Dict:
-    """Fallback JWT validation - minimal verification for compatibility"""
-    logger.warning(
-        "FALLBACK: JWT validation without signature - should be fixed in production"
-    )
+def _secure_jwt_validation_fallback(
+    id_token: str, base_url: str, timeout: int
+) -> Dict:
+    logger.warning("Using secure JWT validation fallback")
+
+    jwks = _jwt_manager.get_public_keys(base_url, timeout)
+
+    if not (jwks and jwks.get("keys")):
+        logger.error("No JWKS keys available for JWT validation")
+        raise jwt.InvalidTokenError(
+            "No public keys available for JWT validation"
+        )
 
     try:
-        # Try with basic verification (v2 compatible)
-        payload = jwt.decode(
-            id_token,
-            options={
-                "verify_signature": False,
-                "verify_aud": True,
-                "verify_exp": True,
-                "verify_iat": True,
-            },
-            audience=client_id,
-        )
-        logger.warning(
-            "JWT token accepted with basic verification (no signature)"
-        )
-        return payload
+        # SECURITY: Using unverified header to extract algorithm and key ID ONLY
+        # The actual JWT payload is verified with cryptographic signature below
+        unverified_header = jwt.get_unverified_header(id_token)  # NOSONAR
+        algorithm = unverified_header.get("alg", "ES256")
+    except jwt.InvalidTokenError:
+        logger.error(InvalidJwtTokenFormatError.default_message)
+        raise InvalidJwtTokenFormatError()
 
-    except (
-        jwt.InvalidTokenError,
-        jwt.InvalidAudienceError,
-        jwt.ExpiredSignatureError,
-        jwt.InvalidIssuedAtError,
-    ) as e:
-        # Ultimate fallback for v1 compatibility
-        logger.warning(
-            f"Basic verification failed: {e}, using minimal validation"
-        )
-        payload = jwt.decode(id_token, options={"verify_signature": False})
-        logger.warning("JWT token accepted with MINIMAL verification")
-        return payload
+    # V2 with ES256 algorithm as requested in API permission
+    # https://docs.partenaires.franceconnect.gouv.fr/fs/migration/fs-migration-diff-v1-v2/
+    if algorithm != "ES256":
+        logger.error(f"Unsupported algorithm: {algorithm}")
+        raise UnsupportedAlgorithmError(f"Expected ES256, got {algorithm}")
+
+    for key in jwks["keys"]:
+        try:
+            public_key = _create_public_key_from_jwk(key, algorithm)
+            payload = jwt.decode(
+                id_token,
+                public_key,
+                algorithms=[algorithm],
+                options={
+                    "verify_signature": True,
+                    "verify_aud": False,
+                    "verify_exp": True,
+                    "verify_iat": False,
+                },
+            )
+            logger.warning("JWT validated with secure fallback method")
+            return payload
+        except Exception:
+            continue
+
+    logger.error("All JWT validation attempts failed")
+    raise jwt.InvalidTokenError(
+        "JWT validation failed with all available keys"
+    )
 
 
 def validate_jwt_secure(
@@ -136,13 +209,26 @@ def validate_jwt_secure(
         jwks = _jwt_manager.get_public_keys(base_url, timeout)
 
         if not (jwks and jwks.get("keys")):
-            return _fallback_jwt_validation(id_token, client_id)
+            return _secure_jwt_validation_fallback(id_token, base_url, timeout)
 
-        unverified_header = jwt.get_unverified_header(id_token)
+        try:
+            # SECURITY: Using unverified header to extract algorithm and key ID ONLY
+            # The actual JWT payload is verified with cryptographic signature below
+            unverified_header = jwt.get_unverified_header(id_token)  # NOSONAR
+            algorithm = unverified_header.get("alg", "ES256")
+        except jwt.InvalidTokenError:
+            logger.error(InvalidJwtTokenFormatError.default_message)
+            raise InvalidJwtTokenFormatError()
+
+        # V2 with ES256 algorithm as requested in API permission
+        # https://docs.partenaires.franceconnect.gouv.fr/fs/migration/fs-migration-diff-v1-v2/
+        if algorithm != "ES256":
+            logger.error(f"Unsupported algorithm: {algorithm}")
+            raise UnsupportedAlgorithmError(f"Expected ES256, got {algorithm}")
+
         key_id = unverified_header.get("kid")
-        algorithm = unverified_header.get("alg", "RS256")
 
-        logger.info(f"Validating JWT with kid={key_id}, alg={algorithm}")
+        logger.info("Validating JWT with JWKS key")
 
         for key in jwks["keys"]:
             if key.get("kid") != key_id:
@@ -157,22 +243,24 @@ def validate_jwt_secure(
                 return payload
 
             except ValueError as e:
-                logger.warning(f"Unsupported algorithm: {e}")
+                logger.warning(
+                    f"{UnsupportedAlgorithmError.default_message}: {e}"
+                )
                 continue
-            except jwt.InvalidTokenError as e:
-                logger.warning(f"JWT validation failed for kid={key_id}: {e}")
+            except jwt.InvalidTokenError:
+                logger.warning("JWT validation failed for key")
                 continue
-            except Exception as e:
-                logger.error(f"JWT validation error: {e}")
+            except Exception:
+                logger.error("JWT validation error occurred")
                 continue
 
         logger.warning("No valid key found for JWT validation")
-        return _fallback_jwt_validation(id_token, client_id)
+        return _secure_jwt_validation_fallback(id_token, base_url, timeout)
 
-    except Exception as e:
-        logger.error(f"JWT validation error: {e}")
-        logger.warning("CRITICAL FALLBACK: Minimal JWT validation")
-        return _fallback_jwt_validation(id_token, client_id)
+    except Exception:
+        logger.error("JWT validation error occurred")
+        logger.warning("Using secure JWT validation fallback")
+        return _secure_jwt_validation_fallback(id_token, base_url, timeout)
 
 
 def make_secure_request(
@@ -180,26 +268,20 @@ def make_secure_request(
 ) -> requests.Response:
     """Robust HTTP client with error handling and timeouts"""
     try:
-        logger.debug(f"Request {method} {url} (timeout={timeout}s)")
         response = requests.request(method, url, timeout=timeout, **kwargs)
-        logger.debug(f"HTTP response {response.status_code}")
         return response
 
     except requests.Timeout:
-        logger.error(f"Timeout {timeout}s exceeded for {url}")
+        logger.error(f"HTTP request timeout exceeded ({timeout}s)")
         raise FranceConnectV2Error(
-            f"FranceConnect communication timeout: {url} (timeout: {timeout}s)"
+            f"FranceConnect communication timeout (timeout: {timeout}s)"
         )
-    except requests.ConnectionError as e:
-        logger.error(f"Connection error {url}: {e}")
-        raise FranceConnectV2Error(
-            f"FranceConnect connection error: {url} - {str(e)}"
-        )
-    except requests.RequestException as e:
-        logger.error(f"Request error {url}: {e}")
-        raise FranceConnectV2Error(
-            f"FranceConnect request error: {url} - {str(e)}"
-        )
+    except requests.ConnectionError:
+        logger.error("HTTP connection error occurred")
+        raise FranceConnectV2Error("FranceConnect connection error")
+    except requests.RequestException:
+        logger.error("HTTP request error occurred")
+        raise FranceConnectV2Error("FranceConnect request error")
 
 
 def get_fc_config() -> Tuple[str, str, str, str, int]:
@@ -342,7 +424,13 @@ def _parse_userinfo_response(
             return user_info
         except Exception as e:
             logger.info(f"v2 userinfo not JWT, processing as JSON: {e}")
-            return userinfo_response.json()
+            try:
+                return userinfo_response.json()
+            except ValueError as json_error:
+                logger.error(f"Failed to parse userinfo JSON: {json_error}")
+                raise FranceConnectV2Error(
+                    f"Invalid userinfo response format: {json_error}"
+                )
     else:
         return userinfo_response.json()
 
@@ -371,11 +459,16 @@ def get_fc_user_info(
 ) -> Tuple[Dict, str]:
     """Main secure FranceConnect function with v1/v2 compatibility"""
 
+    try:
+        _validate_input_parameters(authorization_code, original_redirect_uri)
+    except ValueError as e:
+        logger.error(f"Input validation failed: {e}")
+        raise FranceConnectV2Error("Invalid authentication parameters")
+
     base_url, client_id, client_secret, api_version, timeout = get_fc_config()
     is_v2 = api_version == "v2"
 
-    logger.info(f"Secure FranceConnect {api_version} authentication")
-    logger.info(f"Base URL: {base_url}")
+    logger.info("Secure FranceConnect authentication initiated")
 
     try:
         access_token, id_token = _fetch_access_token(
@@ -400,15 +493,13 @@ def get_fc_user_info(
             user_info, id_token, client_id, base_url, timeout
         )
 
-        logger.info(
-            f"FranceConnect {api_version} authentication successful: {user_info.get('sub', 'unknown')}"
-        )
+        logger.info("FranceConnect authentication successful")
         return user_info, id_token
 
     except FranceConnectV2Error:
         raise
-    except Exception as e:
-        logger.error(f"Critical FranceConnect error: {e}")
+    except Exception:
+        logger.error("Critical FranceConnect authentication error")
         raise FranceConnectV2Error(
-            f"Technical error: {str(e)} (Code: {authorization_code[:10]}..., URI: {original_redirect_uri})"
+            "Technical error occurred during FranceConnect authentication"
         )
