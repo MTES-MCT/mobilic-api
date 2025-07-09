@@ -5,7 +5,10 @@ from freezegun import freeze_time
 
 from app import app
 from app.domain.validation import validate_mission
-from app.helpers.errors import MissingJustificationForAdminValidation
+from app.helpers.errors import (
+    MissingJustificationForAdminValidation,
+    MissionAlreadyAutoValidatedError,
+)
 from app.helpers.time import to_timestamp, LOCAL_TIMEZONE
 from app.jobs.auto_validations import (
     get_employee_auto_validations,
@@ -53,6 +56,31 @@ class TestAutoValidation(BaseTest):
     def tearDown(self):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
+
+    def _create_mission_and_auto_validate_for_third_party_tests(
+        self, employee=None
+    ):
+        """Helper method specifically for third-party tests with fixed dates"""
+        if employee is None:
+            employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 1, 15, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 1, 16, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+        return mission_id, mission
 
     def test_employee_logs_for_himself(self):
 
@@ -394,3 +422,180 @@ class TestAutoValidation(BaseTest):
             ),
         )
         self.assertFalse("errors" in res)
+
+    def test_employee_cannot_validate_after_employee_auto_validation(self):
+        employee = self.team_mates[0]
+        (
+            mission_id,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
+
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.user_id == employee.id,
+            MissionValidation.is_auto == True,
+            MissionValidation.is_admin == False,
+        ).all()
+        self.assertEqual(1, len(validations))
+        with self.assertRaises(MissionAlreadyAutoValidatedError) as context:
+            validate_mission(
+                submitter=employee, mission=mission, for_user=employee
+            )
+
+        self.assertEqual(
+            str(context.exception),
+            "This mission has already been automatically validated",
+        )
+        self.assertEqual(
+            context.exception.code,
+            "MISSION_ALREADY_AUTO_VALIDATED",
+        )
+
+    def test_employee_cannot_validate_after_admin_auto_validation(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 4, 17, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(
+                        start_time=get_time(0, 8), end_time=get_time(0, 10)
+                    ),
+                ],
+            )
+
+        with freeze_time(datetime(2025, 4, 18, 19, 0)):
+            job_process_auto_validations()
+
+        with freeze_time(datetime(2025, 4, 23, 20, 0)):
+            job_process_auto_validations()
+
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.user_id == employee.id,
+            MissionValidation.is_auto == True,
+            MissionValidation.is_admin == True,
+        ).all()
+        self.assertEqual(1, len(validations))
+
+        mission = Mission.query.get(mission_id)
+
+        with self.assertRaises(MissionAlreadyAutoValidatedError) as context:
+            validate_mission(
+                submitter=employee,
+                mission=mission,
+                for_user=employee,
+                is_admin_validation=False,
+            )
+
+        self.assertEqual(
+            str(context.exception),
+            "This mission has already been automatically validated",
+        )
+        self.assertEqual(
+            context.exception.code,
+            "MISSION_ALREADY_AUTO_VALIDATED",
+        )
+
+    def test_employee_can_validate_before_auto_validation(self):
+        employee = self.team_mates[0]
+
+        mission_id = _log_activities_in_mission(
+            submitter=employee,
+            company=self.company,
+            user=employee,
+            work_periods=[
+                WorkPeriod(
+                    start_time=get_time(0, 8), end_time=get_time(0, 10)
+                ),
+            ],
+        )
+
+        auto_validations = MissionAutoValidation.query.filter(
+            MissionAutoValidation.mission_id == mission_id
+        ).all()
+        self.assertEqual(1, len(auto_validations))
+
+        processed_validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.is_auto == True,
+        ).all()
+        self.assertEqual(0, len(processed_validations))
+
+        mission = Mission.query.get(mission_id)
+
+        validation = validate_mission(
+            submitter=employee,
+            mission=mission,
+            for_user=employee,
+            is_admin_validation=False,
+        )
+        self.assertIsNotNone(validation)
+        self.assertFalse(validation.is_auto)
+
+    def test_employee_cannot_edit_mission_after_auto_validation(self):
+        employee = self.team_mates[0]
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
+
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            from app.domain.permissions import (
+                check_actor_can_write_on_mission_over_period,
+            )
+
+            check_actor_can_write_on_mission_over_period(
+                actor=employee, mission=mission, for_user=employee
+            )
+
+    def test_employee_cannot_edit_activity_after_auto_validation(self):
+        employee = self.team_mates[0]
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
+        activity = mission.activities[0]
+
+        from app.domain.permissions import (
+            check_actor_can_write_on_mission_over_period,
+        )
+
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            check_actor_can_write_on_mission_over_period(
+                actor=employee,
+                mission=mission,
+                for_user=employee,
+                start=activity.start_time,
+                end=activity.end_time,
+            )
+
+    def test_employee_cannot_add_activity_after_auto_validation(self):
+        employee = self.team_mates[0]
+        (
+            _,
+            mission,
+        ) = self._create_mission_and_auto_validate_for_third_party_tests(
+            employee
+        )
+
+        from app.domain.permissions import (
+            check_actor_can_write_on_mission_over_period,
+        )
+
+        with self.assertRaises(MissionAlreadyAutoValidatedError):
+            check_actor_can_write_on_mission_over_period(
+                actor=employee,
+                mission=mission,
+                for_user=employee,
+                start=get_time(0, 14),
+                end=get_time(0, 16),
+            )
