@@ -513,10 +513,13 @@ def redirect_to_fc_authorize():
 
     final_qs = urlencode(parsed_qs, doseq=True, quote_via=quote)
 
-    return redirect(
-        f"{base_url}/api/{api_version}/authorize?{final_qs}",
-        code=302,
-    )
+    authorize_url = f"{base_url}/api/{api_version}/authorize?{final_qs}"
+
+    if not _validate_fc_authorize_url(authorize_url, base_url):
+        app.logger.error("Invalid FranceConnect authorize URL")
+        return redirect("/", code=302)
+
+    return redirect(authorize_url, code=302)
 
 
 def _validate_redirect_url(url: str) -> bool:
@@ -544,6 +547,68 @@ def _validate_redirect_url(url: str) -> bool:
             return True
 
         return False
+
+    except Exception:
+        return False
+
+
+def _validate_fc_authorize_url(authorize_url: str, base_url: str) -> bool:
+    try:
+        parsed = urlparse(authorize_url)
+        base_parsed = urlparse(base_url)
+
+        if (
+            parsed.scheme != base_parsed.scheme
+            or parsed.netloc != base_parsed.netloc
+        ):
+            return False
+
+        trusted_fc_domains = {
+            "fcp-low.sbx.dev-franceconnect.fr",
+            "fcp.integ01.dev-franceconnect.fr",
+            "app.franceconnect.gouv.fr",
+        }
+
+        if parsed.netloc not in trusted_fc_domains:
+            return False
+
+        valid_paths = [
+            "/api/v1/authorize",  # TODO: Remove after September 2025 when V1 is shut down # NOSONAR
+            "/api/v2/authorize",
+        ]
+
+        return any(parsed.path.startswith(path) for path in valid_paths)
+
+    except Exception:
+        return False
+
+
+def _validate_fc_logout_url(logout_url: str, base_url: str) -> bool:
+    try:
+        parsed = urlparse(logout_url)
+        base_parsed = urlparse(base_url)
+
+        if (
+            parsed.scheme != base_parsed.scheme
+            or parsed.netloc != base_parsed.netloc
+        ):
+            return False
+
+        trusted_fc_domains = {
+            "fcp-low.sbx.dev-franceconnect.fr",
+            "fcp.integ01.dev-franceconnect.fr",
+            "app.franceconnect.gouv.fr",
+        }
+
+        if parsed.netloc not in trusted_fc_domains:
+            return False
+
+        valid_paths = [
+            "/api/v1/logout",  # TODO: Remove after September 2025 when V1 is shut down # NOSONAR
+            "/api/v2/session/end",
+        ]
+
+        return any(parsed.path.startswith(path) for path in valid_paths)
 
     except Exception:
         return False
@@ -578,10 +643,17 @@ def redirect_to_fc_logout():
             )
 
         query_params["post_logout_redirect_uri"] = default_logout_uri
+    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
 
-    logout_endpoint = "session/end" if api_version == "v2" else "logout"
+    logout_endpoint = (
+        "session/end" if api_version == "v2" else "logout"
+    )  # TODO: Remove V1 support after September 2025 # NOSONAR
 
     final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{urlencode(query_params, quote_via=quote)}"
+
+    if not _validate_fc_logout_url(final_logout_url, base_url):
+        app.logger.error("Invalid FranceConnect logout URL")
+        return redirect("/logout", code=302)
 
     app.logger.info(f"FranceConnect {api_version} logout initiated")
 

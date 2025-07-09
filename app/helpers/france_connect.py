@@ -43,15 +43,12 @@ def _validate_input_parameters(
 
 
 class JWTKeyManager:
-    """Thread-safe JWT key manager with intelligent caching"""
-
     def __init__(self):
         self._cache: Dict = {}
         self._cache_expiry: float = 0
         self._lock = Lock()
 
     def get_public_keys(self, base_url: str, timeout: int) -> Optional[Dict]:
-        """Retrieve JWT public keys with caching and graceful fallback"""
         current_time = time.time()
 
         with self._lock:
@@ -89,6 +86,7 @@ class JWTKeyManager:
                     jwks_response = requests.get(jwks_url, timeout=timeout)
                     jwks_response.raise_for_status()
                 else:
+                    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
                     oidc_url = urljoin(
                         base_url, "/.well-known/openid_configuration"
                     )
@@ -108,7 +106,7 @@ class JWTKeyManager:
                     jwks_response.raise_for_status()
 
                 self._cache = jwks_response.json()
-                self._cache_expiry = current_time + 3600  # Cache for 1 hour
+                self._cache_expiry = current_time + 3600
 
                 key_count = len(self._cache.get("keys", []))
                 logger.info(f"Updated {key_count} JWT keys in cache")
@@ -123,7 +121,6 @@ _jwt_manager = JWTKeyManager()
 
 
 def _create_public_key_from_jwk(key: Dict, algorithm: str):
-    """Create public key from JWK for ES256 algorithm"""
     if algorithm == "ES256":
         return jwt.algorithms.ECAlgorithm.from_jwk(key)
     else:
@@ -133,7 +130,6 @@ def _create_public_key_from_jwk(key: Dict, algorithm: str):
 def _validate_with_public_key(
     id_token: str, public_key, algorithm: str, client_id: str
 ) -> Dict:
-    """Validate JWT with public key and full verification"""
     return jwt.decode(
         id_token,
         public_key,
@@ -204,7 +200,6 @@ def _secure_jwt_validation_fallback(
 def validate_jwt_secure(
     id_token: str, client_id: str, base_url: str, timeout: int
 ) -> Dict:
-    """Secure JWT validation with cryptographic signature verification"""
     try:
         jwks = _jwt_manager.get_public_keys(base_url, timeout)
 
@@ -266,13 +261,12 @@ def validate_jwt_secure(
 def make_secure_request(
     method: str, url: str, timeout: int, **kwargs
 ) -> requests.Response:
-    """Robust HTTP client with error handling and timeouts"""
     try:
         response = requests.request(method, url, timeout=timeout, **kwargs)
         return response
 
     except requests.Timeout:
-        logger.error(f"HTTP request timeout exceeded ({timeout}s)")
+        logger.error("HTTP request timeout exceeded")
         raise FranceConnectV2Error(
             f"FranceConnect communication timeout (timeout: {timeout}s)"
         )
@@ -285,7 +279,6 @@ def make_secure_request(
 
 
 def get_fc_config() -> Tuple[str, str, str, str, int]:
-    """Get FranceConnect configuration with fallbacks and version detection"""
     base_url = app.config.get(
         "FC_V2_URL",
         app.config.get("FC_URL", "https://fcp.integ01.dev-franceconnect.fr"),
@@ -302,19 +295,20 @@ def get_fc_config() -> Tuple[str, str, str, str, int]:
 
 
 def _detect_api_version(base_url: str) -> str:
-    """Detect API version based on URL patterns and configuration"""
     if "FC_V2_URL" in app.config:
         return "v2"
 
+    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
     url_sandbox_pattern = {
         "v2": "fcp-low.sbx.dev-franceconnect.fr",
-        "v1": "fcp-low.integ01.dev-franceconnect.fr",
+        "v1": "fcp-low.integ01.dev-franceconnect.fr",  # TODO: Remove after September 2025 # NOSONAR
     }
 
     for key, value in url_sandbox_pattern.items():
         if base_url == value:
             return key
 
+    # TODO: Remove V1 fallback after September 2025 when V1 is shut down # NOSONAR
     # Default to v1 for all other cases (including app.franceconnect.gouv.fr)
     # Note: app.franceconnect.gouv.fr is used for both v1 and v2 production
     # The distinction is made via endpoint paths (/api/v1/ vs /api/v2/)
@@ -330,13 +324,13 @@ def _fetch_access_token(
     client_secret: str,
     timeout: int,
 ) -> Tuple[str, str]:
-    """Fetch access token from FranceConnect"""
     # Use override URI for FranceConnect v2 API calls if configured (for local development)
     fc_redirect_uri = original_redirect_uri
     if api_version == "v2":
         fc_redirect_uri = app.config.get(
             "FC_V2_REDIRECT_URI_OVERRIDE", original_redirect_uri
         )
+    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
 
     token_data = {
         "code": authorization_code,
@@ -375,7 +369,6 @@ def _fetch_access_token(
 
 
 def _extract_error_details(response: requests.Response) -> str:
-    """Extract error details from HTTP response"""
     try:
         error_data = response.json()
         return f"{error_data.get('error', 'Unknown')}: {error_data.get('error_description', '')}"
@@ -386,9 +379,10 @@ def _extract_error_details(response: requests.Response) -> str:
 def _fetch_user_info(
     base_url: str, api_version: str, access_token: str, timeout: int
 ) -> requests.Response:
-    """Fetch user information from FranceConnect"""
     userinfo_url = urljoin(base_url, f"/api/{api_version}/userinfo")
-    if api_version == "v1":
+    if (
+        api_version == "v1"
+    ):  # TODO: Remove after September 2025 when V1 is shut down # NOSONAR
         userinfo_url += "?schema=openid"
 
     userinfo_response = make_secure_request(
@@ -414,7 +408,6 @@ def _parse_userinfo_response(
     base_url: str,
     timeout: int,
 ) -> Dict:
-    """Parse userinfo response (JSON or JWT for v2)"""
     if is_v2:
         try:
             user_info = validate_jwt_secure(
@@ -431,14 +424,13 @@ def _parse_userinfo_response(
                 raise FranceConnectV2Error(
                     f"Invalid userinfo response format: {json_error}"
                 )
-    else:
+    else:  # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
         return userinfo_response.json()
 
 
 def _enrich_with_jwt_data(
     user_info: Dict, id_token: str, client_id: str, base_url: str, timeout: int
 ) -> None:
-    """Enrich user info with validated JWT data"""
     try:
         jwt_payload = validate_jwt_secure(
             id_token, client_id, base_url, timeout
@@ -457,7 +449,6 @@ def _enrich_with_jwt_data(
 def get_fc_user_info(
     authorization_code: str, original_redirect_uri: str
 ) -> Tuple[Dict, str]:
-    """Main secure FranceConnect function with v1/v2 compatibility"""
 
     try:
         _validate_input_parameters(authorization_code, original_redirect_uri)
