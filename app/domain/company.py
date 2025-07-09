@@ -468,7 +468,7 @@ def find_admins_with_pending_invitation(
             Employment.company_id.notin_(companies_to_exclude)
         )
 
-    return base_query.yield_per(100).all()
+    return base_query.all()
 
 
 @log_execution
