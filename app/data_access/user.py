@@ -40,6 +40,7 @@ from app.helpers.time import (
 from app.models import User, Company, Activity, UserAgreement
 from app.models.controller_control import ControllerControl
 from app.models.user_survey_actions import UserSurveyActionsOutput
+from app.data_access.notification import NotificationOutput
 
 
 class UserOutput(BaseSQLAlchemyObjectType):
@@ -99,6 +100,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
     creation_time = TimeStamp(
         description="Date d'inscription de l'utilisateur'."
     )
+
+    notifications = graphene.List(
+        lambda: NotificationOutput,
+        description="Liste des notifications de l'utilisateur, triées par récence",
+    )
+
     activities = graphene.Field(
         ActivityConnection,
         description="Liste des activités de l'utilisateur, triées par id (pas forcément par récence).",
@@ -499,6 +506,16 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_user_agreement_status(self, info):
         return UserAgreement.get_or_create(user_id=self.id)
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'notification' of user object. The field is only accessible to the user himself.",
+    )
+    def resolve_notifications(self, info):
+        return sorted(
+            self.notifications, key=lambda n: n.creation_time, reverse=True
+        )
 
 
 from app.data_access.company import CompanyOutput
