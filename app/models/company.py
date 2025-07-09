@@ -43,6 +43,11 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
     )
     require_mission_name = db.Column(db.Boolean, nullable=False, default=True)
 
+    allow_other_task = db.Column(db.Boolean, nullable=True, default=True)
+    other_task_label = db.Column(
+        db.String(24), unique=False, nullable=True, default=None
+    )
+
     accept_certification_communication = db.Column(db.Boolean, nullable=True)
 
     has_ceased_activity = db.Column(db.Boolean, nullable=False, default=False)
