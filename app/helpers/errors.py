@@ -428,6 +428,20 @@ class FranceConnectV2Error(FranceConnectAuthenticationError):
     http_status_code = 401
 
 
+class InvalidJwtTokenFormatError(FranceConnectV2Error):
+    code = "INVALID_JWT_TOKEN_FORMAT"
+    default_message = "Invalid JWT token format"
+    default_should_alert_team = True
+    http_status_code = 401
+
+
+class UnsupportedAlgorithmError(FranceConnectV2Error):
+    code = "UNSUPPORTED_ALGORITHM_ERROR"
+    default_message = "Unsupported algorithm"
+    default_should_alert_team = True
+    http_status_code = 401
+
+
 CONFLICTING_ROW_ID_RE = re.compile(r", (\d+)\)\.$")
 
 

@@ -4,7 +4,7 @@ from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode, unquote
+from urllib.parse import quote, urlencode, urlparse
 from io import BytesIO
 
 from webargs import fields
@@ -519,6 +519,36 @@ def redirect_to_fc_authorize():
     )
 
 
+def _validate_redirect_url(url: str) -> bool:
+    if not url:
+        return False
+
+    try:
+        parsed = urlparse(url)
+
+        if not parsed.scheme and not parsed.netloc:
+            return url.startswith("/")
+
+        trusted_domains = {
+            "localhost",
+            "127.0.0.1",
+            "testdev.localhost",
+            "mobilic.beta.gouv.fr",
+            "mobilic.preprod.beta.gouv.fr",
+        }
+
+        if parsed.netloc.lower() in trusted_domains:
+            return True
+
+        if parsed.netloc == request.host:
+            return True
+
+        return False
+
+    except Exception:
+        return False
+
+
 @app.route("/fc/logout")
 def redirect_to_fc_logout():
     fc_token_hint = request.cookies.get("fct")
@@ -530,9 +560,6 @@ def redirect_to_fc_logout():
 
     if not fc_token_hint:
         app.logger.warning("FranceConnect logout attempt without token")
-        redirect_uri = request.args.get("post_logout_redirect_uri")
-        if redirect_uri:
-            return redirect(unquote(redirect_uri), code=302)
         return redirect("/logout", code=302)
 
     base_url, _, _, api_version, _ = get_fc_config()
@@ -549,24 +576,14 @@ def redirect_to_fc_logout():
             default_logout_uri = fc_logout_override.replace(
                 "/fc-callback", "/logout"
             )
-            # Use localhost for logout (FranceConnect v2 accepts localhost for logout)
-            default_logout_uri = default_logout_uri.replace(
-                "testdev.localhost", "localhost"
-            )
 
-        query_params["post_logout_redirect_uri"] = request.args.get(
-            "post_logout_redirect_uri", default_logout_uri
-        )
+        query_params["post_logout_redirect_uri"] = default_logout_uri
 
     logout_endpoint = "session/end" if api_version == "v2" else "logout"
 
-    # For v2, rebuild query string to avoid duplicates and apply localhost override
-    if api_version == "v2":
-        final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{urlencode(query_params, quote_via=quote)}"
-    else:
-        final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}"
+    final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{urlencode(query_params, quote_via=quote)}"
 
-    app.logger.info(f"FranceConnect logout URL: {final_logout_url}")
+    app.logger.info(f"FranceConnect {api_version} logout initiated")
 
     return redirect(final_logout_url, code=302)
 
