@@ -21,7 +21,10 @@ LABEL_OFF_HOURS = "Heures de congé ou d'absence"
 
 
 def _get_summary_columns(
-    include_support=False, include_expenditures=False, include_off_hours=False
+    include_support=False,
+    include_expenditures=False,
+    include_off_hours=False,
+    include_other_task=False,
 ):
     summary_columns = [
         Column(name="worked_days", label="Jours travaillés", color=COLOR_DAYS),
@@ -33,14 +36,17 @@ def _get_summary_columns(
             secondary=True,
             format=format_seconds_duration,
         ),
-        Column(
-            name=ActivityType.WORK.value,
-            label="Autre tâche",
-            color=COLOR_ACTIVITY,
-            secondary=True,
-            format=format_seconds_duration,
-        ),
     ]
+    if include_other_task:
+        summary_columns.append(
+            Column(
+                name=ActivityType.WORK.value,
+                label="Autre tâche",
+                color=COLOR_ACTIVITY,
+                secondary=True,
+                format=format_seconds_duration,
+            )
+        )
 
     if include_support:
         summary_columns.append(
@@ -110,6 +116,7 @@ def _get_detail_columns(
     include_expenditures=False,
     include_transfers=False,
     include_off_hours=False,
+    include_other_task=False,
 ):
     columns = [
         Column(
@@ -138,14 +145,17 @@ def _get_detail_columns(
             secondary=True,
             format=format_seconds_duration,
         ),
-        Column(
-            name=ActivityType.WORK.value,
-            label="Autre tâche",
-            color=COLOR_ACTIVITY,
-            secondary=True,
-            format=format_seconds_duration,
-        ),
     ]
+    if include_other_task:
+        columns.append(
+            Column(
+                name=ActivityType.WORK.value,
+                label="Autre tâche",
+                color=COLOR_ACTIVITY,
+                secondary=True,
+                format=format_seconds_duration,
+            )
+        )
 
     if include_transfers:
         columns.append(
@@ -268,6 +278,7 @@ def _generate_work_days_pdf(
     include_support_activity=False,
     include_expenditures=False,
     include_transfers=False,
+    include_other_task=False,
 ):
     months = []
     weeks = []
@@ -434,15 +445,19 @@ def _generate_work_days_pdf(
     include_support_column = (
         include_support_activity or total[ActivityType.SUPPORT] > 0
     )
+
+    _include_other_task = include_other_task or total[ActivityType.WORK] > 0
     month_columns = _get_summary_columns(
         include_support=include_support_column,
         include_expenditures=include_expenditures,
         include_off_hours=False,
+        include_other_task=_include_other_task,
     )
     week_columns = _get_summary_columns(
         include_support=include_support_column,
         include_expenditures=include_expenditures,
         include_off_hours=True,
+        include_other_task=_include_other_task,
     )
     day_columns = _get_detail_columns(
         include_support=include_support_column,
@@ -450,6 +465,7 @@ def _generate_work_days_pdf(
         include_transfers=include_transfers
         or total[ActivityType.TRANSFER] > 0,
         include_off_hours=True,
+        include_other_task=_include_other_task,
     )
 
     return generate_pdf_from_template(
@@ -482,6 +498,7 @@ def generate_work_days_pdf_for(
     include_support_activity=False,
     include_expenditures=False,
     include_transfers=False,
+    include_other_task=False,
 ):
     work_days, _ = group_user_events_by_day_with_limit(
         user, from_date=start_date, until_date=end_date
@@ -494,4 +511,5 @@ def generate_work_days_pdf_for(
         include_support_activity=include_support_activity,
         include_expenditures=include_expenditures,
         include_transfers=include_transfers,
+        include_other_task=include_other_task,
     )

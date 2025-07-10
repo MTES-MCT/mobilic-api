@@ -695,6 +695,9 @@ def generate_pdf_export(
             [c.require_expenditures for c in relevant_companies]
         ),
         include_transfers=any([c.allow_transfers for c in relevant_companies]),
+        include_other_task=any(
+            [c.allow_other_task for c in relevant_companies]
+        ),
     )
 
     return send_file(
