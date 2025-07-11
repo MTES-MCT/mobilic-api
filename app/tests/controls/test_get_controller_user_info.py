@@ -11,7 +11,7 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         self.assertIsNotNone(response_data)
 
         self.assertEqual(response_data["id"], self.controller_user_1.id)
-        self.assertEquals(len(response_data["controls"]), 0)
+        self.assertEqual(len(response_data["controls"]), 0)
 
     def test_load_controller_info_controls(self):
         self._create_control(self.controlled_user_1, self.controller_user_1)
@@ -25,7 +25,7 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         response_data = self._query_controller_info(self.controller_user_1)
 
         self.assertIsNotNone(response_data["controls"])
-        self.assertEquals(len(response_data["controls"]), 3)
+        self.assertEqual(len(response_data["controls"]), 3)
 
     def test_retrieves_only_own_controls(self):
         self._create_control(self.controlled_user_1, self.controller_user_1)
@@ -34,7 +34,7 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         response_data = self._query_controller_info(self.controller_user_1)
 
         self.assertIsNotNone(response_data["controls"])
-        self.assertEquals(len(response_data["controls"]), 1)
+        self.assertEqual(len(response_data["controls"]), 1)
 
     def test_retrieves_only_controls_after_from_date(self):
         for days_ago in range(1, 20):
@@ -49,4 +49,4 @@ class TestGetControllerUserInfo(ControlsTestSimple):
         )
 
         self.assertIsNotNone(response_data["controls"])
-        self.assertEquals(len(response_data["controls"]), 5)
+        self.assertEqual(len(response_data["controls"]), 5)

@@ -2,8 +2,8 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: cimg/python:3.11
-      - image: cimg/postgres:13.7
+      - image: cimg/python:3.13
+      - image: cimg/postgres:14.18
         environment:
           POSTGRES_USER: circleci
           POSTGRES_DB: mobilic-test
@@ -33,7 +33,7 @@ jobs:
 
   deploy:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
     steps:
       - checkout
       - run:
