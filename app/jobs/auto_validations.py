@@ -81,12 +81,9 @@ def job_process_auto_validations():
                 db.session.add(validation)
             except Exception as e:
                 app.logger.warning(f"Could not auto validate mission: {e}")
-                ids_to_delete.append(auto_validation.id)
                 continue
 
     with atomic_transaction(commit_at_end=True):
-        ids_to_delete = []
-
         employee_auto_validations = get_employee_auto_validations(now=now)
         app.logger.info(
             f"Found #{len(employee_auto_validations)} employee auto validations"
@@ -105,6 +102,9 @@ def job_process_auto_validations():
             auto_validations=admin_auto_validations, is_admin=True
         )
 
+        ids_to_delete = [
+            v.id for v in employee_auto_validations + admin_auto_validations
+        ]
         db.session.query(MissionAutoValidation).filter(
             MissionAutoValidation.id.in_(ids_to_delete)
         ).delete(synchronize_session=False)
