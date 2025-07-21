@@ -83,7 +83,9 @@ def job_process_auto_validations():
                     )
                     db.session.add(validation)
             except Exception as e:
-                app.logger.warning(f"Could not auto validate mission: {e}")
+                app.logger.warning(
+                    f"Could not auto validate mission <{mission.id}>: {e}"
+                )
                 db.session.delete(auto_validation)
                 db.session.commit()
                 continue
