@@ -10,6 +10,7 @@ from app.models import MissionAutoValidation
 
 ADMIN_THRESHOLD_DAYS = 2
 EMPLOYEE_THRESHOLD_DAYS = 1
+AUTO_VALIDATION_BATCH_SIZE = 400
 
 
 def _get_threshold_time(now, days_to_remove):
@@ -33,6 +34,7 @@ def _get_auto_validations(threshold_time, is_admin):
             MissionAutoValidation.reception_time < threshold_time,
             MissionAutoValidation.is_admin == is_admin,
         )
+        .order_by(MissionAutoValidation.reception_time)
         .all()
     )
 
@@ -69,42 +71,40 @@ def job_process_auto_validations():
             for_user = auto_validation.user
             mission = auto_validation.mission
 
-            try:
-                validation = validate_mission(
-                    mission=mission,
-                    submitter=None,
-                    for_user=for_user,
-                    creation_time=now,
-                    is_auto_validation=True,
-                    is_admin_validation=is_admin,
-                )
-                db.session.add(validation)
-            except Exception as e:
-                app.logger.warning(f"Could not auto validate mission: {e}")
-                ids_to_delete.append(auto_validation.id)
-                continue
+            with atomic_transaction(commit_at_end=True):
+                try:
+                    validation = validate_mission(
+                        mission=mission,
+                        submitter=None,
+                        for_user=for_user,
+                        creation_time=now,
+                        is_auto_validation=True,
+                        is_admin_validation=is_admin,
+                    )
+                    db.session.add(validation)
+                except Exception as e:
+                    app.logger.warning(f"Could not auto validate mission: {e}")
+                    db.session.delete(auto_validation)
+                    continue
 
-    with atomic_transaction(commit_at_end=True):
-        ids_to_delete = []
+    employee_auto_validations = get_employee_auto_validations(now=now)[
+        :AUTO_VALIDATION_BATCH_SIZE
+    ]
+    app.logger.info(
+        f"Found #{len(employee_auto_validations)} employee auto validations"
+    )
 
-        employee_auto_validations = get_employee_auto_validations(now=now)
-        app.logger.info(
-            f"Found #{len(employee_auto_validations)} employee auto validations"
-        )
+    _process_auto_validations(
+        auto_validations=employee_auto_validations, is_admin=False
+    )
 
-        _process_auto_validations(
-            auto_validations=employee_auto_validations, is_admin=False
-        )
+    admin_auto_validations = get_admin_auto_validations(now=now)[
+        :AUTO_VALIDATION_BATCH_SIZE
+    ]
+    app.logger.info(
+        f"Found #{len(admin_auto_validations)} admin auto validations"
+    )
 
-        admin_auto_validations = get_admin_auto_validations(now=now)
-        app.logger.info(
-            f"Found #{len(admin_auto_validations)} admin auto validations"
-        )
-
-        _process_auto_validations(
-            auto_validations=admin_auto_validations, is_admin=True
-        )
-
-        db.session.query(MissionAutoValidation).filter(
-            MissionAutoValidation.id.in_(ids_to_delete)
-        ).delete(synchronize_session=False)
+    _process_auto_validations(
+        auto_validations=admin_auto_validations, is_admin=True
+    )
