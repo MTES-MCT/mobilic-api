@@ -71,8 +71,8 @@ def job_process_auto_validations():
             for_user = auto_validation.user
             mission = auto_validation.mission
 
-            with atomic_transaction(commit_at_end=True):
-                try:
+            try:
+                with atomic_transaction(commit_at_end=True):
                     validation = validate_mission(
                         mission=mission,
                         submitter=None,
@@ -82,10 +82,11 @@ def job_process_auto_validations():
                         is_admin_validation=is_admin,
                     )
                     db.session.add(validation)
-                except Exception as e:
-                    app.logger.warning(f"Could not auto validate mission: {e}")
-                    db.session.delete(auto_validation)
-                    continue
+            except Exception as e:
+                app.logger.warning(f"Could not auto validate mission: {e}")
+                db.session.delete(auto_validation)
+                db.session.commit()
+                continue
 
     employee_auto_validations = get_employee_auto_validations(now=now)[
         :AUTO_VALIDATION_BATCH_SIZE
