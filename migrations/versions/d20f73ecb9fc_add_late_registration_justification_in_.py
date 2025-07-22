@@ -19,7 +19,11 @@ depends_on = None
 def upgrade():
     op.add_column(
         "mission",
-        sa.Column("past_registration_justification", sa.TEXT(), nullable=True),
+        sa.Column(
+            "past_registration_justification",
+            sa.String(length=48),
+            nullable=True,
+        ),
     )
 
 
