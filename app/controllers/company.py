@@ -460,15 +460,12 @@ class EditCompanySettings(AuthenticatedMutation):
         error_message="You need to be a company admin to be able to edit company settings",
     )
     def mutate(cls, _, info, company_id, **kwargs):
-        print(kwargs)
-        print("toto")
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
             is_there_something_updated = False
             updated_fields = []
 
             for field, value in kwargs.items():
-                print(f"field {field}")
                 if value is not None:
                     current_field_value = getattr(company, field)
                     if current_field_value != value:
