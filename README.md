@@ -72,8 +72,18 @@ Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce f
 ### Avec Docker
 
 ```sh
+# Si des volumes sont déja présents et  que l'on souhaite les reset
+docker-compose down -v
+
+# Pour rebuild l'image flask (si nouvelles librairies par exemple)
+docker-compose up --build
+
 # Lancer tous les services
 docker-compose up
+
+# A la suite d'un premier lancement (création de volume)
+# Pour lancer les migrations et les seeds
+docker exec -it mobilic-flask flask db upgrade && flask db seed
 ```
 
 L'API sera accessible sur http://localhost:5000
