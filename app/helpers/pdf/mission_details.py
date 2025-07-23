@@ -29,7 +29,7 @@ class BreakActivity(NamedTuple):
         return self.end_time - self.start_time
 
 
-def _get_summary_columns(mission):
+def _get_summary_columns(mission, include_other_task=False):
     columns = [
         Column(
             name="service",
@@ -46,15 +46,18 @@ def _get_summary_columns(mission):
             format=format_seconds_duration,
             max_width_px=80,
         ),
-        Column(
-            name=ActivityType.WORK.value,
-            label="Autre tâche",
-            color="#C9CBFF",
-            secondary=True,
-            format=format_seconds_duration,
-            max_width_px=90,
-        ),
     ]
+    if include_other_task:
+        columns.append(
+            Column(
+                name=ActivityType.WORK.value,
+                label="Autre tâche",
+                color="#C9CBFF",
+                secondary=True,
+                format=format_seconds_duration,
+                max_width_px=90,
+            )
+        )
 
     if mission.company.require_support_activity:
         columns.append(
@@ -204,7 +207,11 @@ def generate_mission_details_pdf(
 
     end_location = mission.end_location_at(max_reception_time)
 
-    columns = _get_summary_columns(mission)
+    include_other_task = (
+        mission.company.allow_other_task
+        or stats[ActivityType.WORK].total_seconds() > 0
+    )
+    columns = _get_summary_columns(mission, include_other_task)
 
     start_time = (
         all_user_activities[0].start_time

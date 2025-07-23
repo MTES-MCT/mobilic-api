@@ -87,6 +87,10 @@ class MissionInput:
         required=False,
         description="Optionnel, date de saisie de début de mission",
     )
+    past_registration_justification = graphene.String(
+        required=False,
+        description="Justification de saisie de temps dans le passé.",
+    )
 
 
 class CreateMission(AuthenticatedMutation):
@@ -143,6 +147,9 @@ class CreateMission(AuthenticatedMutation):
                 submitter=current_user,
                 vehicle=vehicle,
                 creation_time=mission_input.get("creation_time"),
+                past_registration_justification=mission_input.get(
+                    "past_registration_justification", ""
+                ),
             )
             db.session.add(mission)
 
@@ -173,6 +180,10 @@ class EndMission(AuthenticatedMutation):
             TimeStamp,
             required=False,
             description="Optionnel, date de saisie de fin de mission",
+        )
+        past_registration_justification = graphene.String(
+            required=False,
+            description="Justification de saisie de temps dans le passé.",
         )
 
     Output = MissionOutput
@@ -217,6 +228,10 @@ class EndMission(AuthenticatedMutation):
                 end_time=end_time,
                 creation_time=creation_time,
                 submitter=current_user,
+            )
+
+            mission.past_registration_justification = args.get(
+                "past_registration_justification", ""
             )
 
         return mission

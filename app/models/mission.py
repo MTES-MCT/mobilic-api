@@ -36,6 +36,8 @@ class Mission(EventBaseModel):
     )
     vehicle = db.relationship("Vehicle", backref="missions")
 
+    past_registration_justification = db.Column(db.String(48), nullable=True)
+
     def activities_for(
         self, user, include_dismissed_activities=False, max_reception_time=None
     ):

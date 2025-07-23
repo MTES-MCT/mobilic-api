@@ -37,6 +37,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             "context",
             "vehicle",
             "vehicle_id",
+            "past_registration_justification",
         )
 
     id = graphene.Field(
