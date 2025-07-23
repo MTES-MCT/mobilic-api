@@ -446,13 +446,13 @@ class TestDailyRest(RegulationsTest):
         self.assertEqual(3, len(regulatory_alerts))
 
         extras = [ra.extra for ra in regulatory_alerts]
-        self.assertEquals(
+        self.assertEqual(
             0, extras[0].get("breach_period_max_break_in_seconds")
         )
-        self.assertEquals(
+        self.assertEqual(
             0, extras[1].get("breach_period_max_break_in_seconds")
         )
-        self.assertEquals(
+        self.assertEqual(
             0, extras[2].get("breach_period_max_break_in_seconds")
         )
 
@@ -505,10 +505,10 @@ class TestDailyRest(RegulationsTest):
             self.assertEqual(2, len(regulatory_alerts))
 
             extras = [ra.extra for ra in regulatory_alerts]
-            self.assertEquals(
+            self.assertEqual(
                 2 * HOUR, extras[0].get("breach_period_max_break_in_seconds")
             )
-            self.assertEquals(
+            self.assertEqual(
                 6 * HOUR, extras[1].get("breach_period_max_break_in_seconds")
             )
 
@@ -561,10 +561,10 @@ class TestDailyRest(RegulationsTest):
             self.assertEqual(2, len(regulatory_alerts))
 
             extras = [ra.extra for ra in regulatory_alerts]
-            self.assertEquals(
+            self.assertEqual(
                 2 * HOUR, extras[0].get("breach_period_max_break_in_seconds")
             )
             # +1 hour because of clock change
-            self.assertEquals(
+            self.assertEqual(
                 7 * HOUR, extras[1].get("breach_period_max_break_in_seconds")
             )

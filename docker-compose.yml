@@ -1,24 +1,43 @@
-version: '3.5'
 services:
-#  mobilic-api:
-#     image: python:3.9.2-slim
-#     command: sh -c "apt-get update && apt-get install -y gcc libpq-dev && rm -rf /var/lib/apt/lists/* && /usr/local/bin/python -m pip install --upgrade pip && pip install -r requirements-dev.txt && flask db upgrade && flask run --host 0.0.0.0"
-#     ports: 
-#       - "5000:5000"
-#     environment:
-#       FLASK_APP: app:app
-#       FLASK_DEBUG: "1"
-#       FLASK_SKIP_DOTENV: "1"
-#       DOTENV_FILE: ".env/.env.local"
-#     working_dir: /app
-#     volumes:
-#       - .:/app
-#     depends_on:
-#       - mobilic-db
-#       - redis
+  mobilic-api:
+    container_name: mobilic-flask
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports: 
+      - "5000:5000"
+    environment:
+      FLASK_APP: app:app
+      FLASK_DEBUG: "1"
+      FLASK_SKIP_DOTENV: "1"
+      DOTENV_FILE: ".env/.env.local"
+      CELERY_BROKER_URL: redis://redis:6379/0
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      - mobilic-db
+      - redis
+
+  # celery-worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     FLASK_APP: app:app
+  #     FLASK_DEBUG: "1"
+  #     FLASK_SKIP_DOTENV: "1"
+  #     DOTENV_FILE: ".env/.env.local"
+  #     CELERY_BROKER_URL: redis://redis:6379/0
+  #   working_dir: /app
+  #   volumes:
+  #     - .:/app
+  #   depends_on:
+  #     - mobilic-db
+  #     - redis
 
   mobilic-db:
-    image: postgres:13.6-alpine
+    image: postgres:14.18-alpine
     container_name: mobilic-db
     # restart: always
     ports:
@@ -31,7 +50,8 @@ services:
       - mobilic-postgresql-data:/var/lib/postgresql
 
   mobilic-db-test:
-    image: postgres:13.6-alpine
+    image: postgres:14.18-alpine
+    container_name: mobilic-db-test
     ports:
       - "5433:5432"
     environment: 
@@ -41,6 +61,7 @@ services:
 
   redis:
     image: redis:alpine
+    container_name: mobilic-redis
     ports:
       - "6379:6379"
 

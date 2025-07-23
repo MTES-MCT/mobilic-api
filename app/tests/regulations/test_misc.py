@@ -28,4 +28,4 @@ class TestMisc(RegulationsTest):
         regulatory_alerts = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL)
         ).all()
-        self.assertEquals(len(regulatory_alerts), 0)
+        self.assertEqual(len(regulatory_alerts), 0)

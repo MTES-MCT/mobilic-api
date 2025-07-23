@@ -19,7 +19,13 @@ def from_timestamp(ts):
 
 
 def to_timestamp(date_time):
-    return int(date_time.timestamp())
+    try:
+        return int(date_time.timestamp())
+    except (IndexError, AttributeError):
+        # Fallback for freezegun compatibility issues with Python 3.11+
+        import calendar
+
+        return int(calendar.timegm(date_time.utctimetuple()))
 
 
 def to_tz(date_time, tz):

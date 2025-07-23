@@ -715,7 +715,7 @@ def generate_tachograph_parts(
     include_dismissed_or_empty_days=False,
     employee_version=False,
 ):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     first_user_activity = user.first_activity_after(min_reception_datetime)
     if not first_user_activity:
         first_user_activity_date = start_date
@@ -801,7 +801,7 @@ def generate_tachograph_parts(
 
 
 def generate_tachograph_file_name(user, suffix=""):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     return f'RO_{_card_like_id(user)}{now.strftime("%y%m%d%H%M")}{suffix}.C1B'
 
 
