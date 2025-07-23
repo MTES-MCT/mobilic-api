@@ -1,5 +1,6 @@
 services:
   mobilic-api:
+    container_name: mobilic-flask
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,6 +51,7 @@ services:
 
   mobilic-db-test:
     image: postgres:14.18-alpine
+    container_name: mobilic-db-test
     ports:
       - "5433:5432"
     environment: 
@@ -59,6 +61,7 @@ services:
 
   redis:
     image: redis:alpine
+    container_name: mobilic-redis
     ports:
       - "6379:6379"
 
