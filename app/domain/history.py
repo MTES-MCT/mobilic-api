@@ -223,7 +223,10 @@ class UserChange(HistoryItem):
                 if mission and hasattr(mission, "validations_for"):
                     validations = mission.validations_for(self.resource.user)
                     for v in validations:
-                        if getattr(v, "is_auto", False):
+                        if (
+                            getattr(v, "is_auto", False)
+                            and self.version.end_time
+                        ):
                             if (
                                 abs(
                                     (
@@ -242,7 +245,7 @@ class UserChange(HistoryItem):
                 elif not previous_version.end_time:
                     if not is_auto_end:
                         texts.append(
-                            f"toto a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
+                            f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
                         )
                 else:
                     texts.append(
