@@ -35,3 +35,5 @@ class EmailType(str, Enum):
     COMPANY_SUSPENDED_CGU = "company_suspended_cgu"
     EXPIRY_WARNING_CGU = "expiry_warning_cgu"
     DISCOVER_MOBILIC = "discover_mobilic"
+    ANONYMIZATION_WARNING_EMPLOYEE = "anonymization_warning_employee"
+    ANONYMIZATION_WARNING_MANAGER = "anonymization_warning_manager"
