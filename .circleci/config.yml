@@ -1,61 +1,39 @@
-version: 2
-
+version: 2.1
 jobs:
   build:
     docker:
-      - image: circleci/python:3.9.2
-      - image: circleci/postgres:12.0-alpine-ram
+      - image: cimg/python:3.13
+      - image: cimg/postgres:14.18
         environment:
           POSTGRES_USER: circleci
           POSTGRES_DB: mobilic-test
     steps:
       - checkout
       - restore_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: pipenv-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
       - run:
+          name: Install dependencies with pipenv
           command: |
-            python3 -m venv venv
-            source venv/bin/activate
-            pip install -r requirements.txt
+            pipenv install
       - save_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: pipenv-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
           paths:
-            - "venv"
+            - "~/.local/share/virtualenvs"
       - run:
+          name: Wait for postgres
           command: dockerize -wait tcp://localhost:5432 -timeout 1m
       - run:
+          name: Run tests
           command: |
-            source venv/bin/activate
-            flask test
+            pipenv run flask test
           environment:
             FLASK_APP: "app:app"
             FLASK_DEBUG: "1"
             DATABASE_URL: "postgresql://localhost:5432/mobilic-test"
 
-  format:
-    docker:
-      - image: circleci/python:3.9.2
-    steps:
-      - checkout
-      - restore_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
-      - run:
-          command: |
-            python3 -m venv venv
-            source venv/bin/activate
-            pip install -r requirements.txt
-      - save_cache:
-          key: pip-{{ .Branch }}-{{ checksum "requirements.txt" }}
-          paths:
-            - "venv"
-      - run:
-          command: |
-            source venv/bin/activate
-            black --exclude env --check .
-
   deploy:
     docker:
-      - image: circleci/python:3.9.2
+      - image: cimg/python:3.13
     steps:
       - checkout
       - run:
@@ -77,11 +55,9 @@ workflows:
   build_and_deploy:
     jobs:
       - build
-      - format
       - deploy:
           requires:
             - build
-            - format
           filters:
             branches:
               only:

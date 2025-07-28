@@ -1,5 +1,5 @@
 from calendar import timegm
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 import graphene
@@ -219,6 +219,101 @@ def create_access_tokens_for(
     return tokens
 
 
+def set_auth_cookies_helper(
+    response,
+    access_token=None,
+    refresh_token=None,
+    user_id=None,
+    controller_user_id=None,
+    fc_token=None,
+    ac_token=None,
+):
+    """
+    Set authentication cookies on response.
+
+    Args:
+        response: Flask response object
+        access_token: JWT access token
+        refresh_token: JWT refresh token
+        user_id: User ID (for regular users)
+        controller_user_id: Controller user ID (for controller users)
+        fc_token: FranceConnect token
+        ac_token: AgentConnect token
+    """
+    # Cookie expiration times
+    now = datetime.now(timezone.utc)
+    access_token_expires = now + app.config["ACCESS_TOKEN_EXPIRATION"]
+    session_expires = now + app.config["SESSION_COOKIE_LIFETIME"]
+
+    # Cookies common parameters
+    common_cookie_params = {
+        "secure": app.config["JWT_COOKIE_SECURE"],
+        "expires": session_expires,
+    }
+
+    # Cookies helper
+    def set_cookie_with_defaults(name, value, **extra_params):
+        params = common_cookie_params.copy()
+        params.update(extra_params)
+        response.set_cookie(name, value=value, **params)
+
+    # Cookies auth (access and refresh tokens)
+    set_cookie_with_defaults(
+        app.config["JWT_ACCESS_COOKIE_NAME"],
+        access_token,
+        expires=access_token_expires,
+        httponly=True,
+        path=app.config["JWT_ACCESS_COOKIE_PATH"],
+        samesite="Strict",
+    )
+
+    set_cookie_with_defaults(
+        app.config["JWT_REFRESH_COOKIE_NAME"],
+        refresh_token,
+        httponly=True,
+        path=app.config["JWT_REFRESH_COOKIE_PATH"],
+        samesite="Strict",
+    )
+
+    # Token expiration time cookie
+    set_cookie_with_defaults(
+        "atEat",
+        str(timegm(access_token_expires.utctimetuple())),
+        httponly=False,
+    )
+
+    # User identification cookies
+    if user_id is not None:
+        set_cookie_with_defaults("userId", str(user_id), httponly=False)
+
+    if controller_user_id is not None:
+        set_cookie_with_defaults(
+            "controllerId", str(controller_user_id), httponly=False
+        )
+
+    # FranceConnect cookies
+    if fc_token:
+        set_cookie_with_defaults(
+            "fct",
+            fc_token,
+            httponly=True,
+            path="/api/fc/logout",
+            samesite="Strict",
+        )
+        set_cookie_with_defaults("hasFc", "true", httponly=False)
+
+    # AgentConnect cookies
+    if ac_token:
+        set_cookie_with_defaults(
+            "act",
+            ac_token,
+            httponly=True,
+            path="/api/ac/logout",
+            samesite="Strict",
+        )
+        set_cookie_with_defaults("hasAc", "true", httponly=False)
+
+
 def set_auth_cookies(
     response,
     access_token=None,
@@ -227,78 +322,15 @@ def set_auth_cookies(
     fc_token=None,
     ac_token=None,
 ):
-    response.set_cookie(
-        app.config["JWT_ACCESS_COOKIE_NAME"],
-        value=access_token,
-        expires=datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=True,
-        path=app.config["JWT_ACCESS_COOKIE_PATH"],
-        samesite="Strict",
+    """Set authentication cookies for regular users."""
+    return set_auth_cookies_helper(
+        response=response,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=user_id,
+        fc_token=fc_token,
+        ac_token=ac_token,
     )
-    response.set_cookie(
-        app.config["JWT_REFRESH_COOKIE_NAME"],
-        value=refresh_token,
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=True,
-        path=app.config["JWT_REFRESH_COOKIE_PATH"],
-        samesite="Strict",
-    )
-    response.set_cookie(
-        "userId",
-        value=str(user_id),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
-    )
-    response.set_cookie(
-        "atEat",
-        value=str(
-            timegm(
-                (
-                    datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"]
-                ).utctimetuple()
-            )
-        ),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
-    )
-    if fc_token:
-        response.set_cookie(
-            "fct",
-            value=fc_token,
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=True,
-            path="/api/fc/logout",
-            samesite="Strict",
-        )
-        response.set_cookie(
-            "hasFc",
-            value="true",
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=False,
-        )
-    if ac_token:
-        response.set_cookie(
-            "act",
-            value=ac_token,
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=True,
-            path="/api/ac/logout",
-            samesite="Strict",
-        )
-        response.set_cookie(
-            "hasAc",
-            value="true",
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=False,
-        )
 
 
 def unset_auth_cookies(response):

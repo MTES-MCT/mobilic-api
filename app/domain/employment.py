@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import or_
 
 from app import db
@@ -9,7 +9,7 @@ from app.models.employment import EmploymentRequestValidationStatus
 def create_employment_by_third_party_if_needed(
     user_id, company_id, email, has_admin_rights
 ):
-    current_date = datetime.utcnow().date()
+    current_date = datetime.now(timezone.utc).date()
     existing_employment = Employment.query.filter(
         Employment.user_id == user_id,
         Employment.company_id == company_id,

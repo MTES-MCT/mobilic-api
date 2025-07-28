@@ -8,6 +8,9 @@
       "command": "0 3 * * * flask send_daily_emails"
     },
     {
+      "command": "0 4 * * * flask delete_old_notifications"
+    },
+    {
       "command": "0 5 * * * flask load_company_stats"
     },
     {

@@ -17,7 +17,7 @@ class TestHelper(TestCase):
         ]
 
         result = get_uninterrupted_datetime_ranges(dates)
-        self.assertEquals(1, len(result))
+        self.assertEqual(1, len(result))
         self.assertEqual(datetime(2022, 1, 1), result[0][0])
         self.assertEqual(datetime(2022, 1, 3), result[0][1])
 
@@ -26,7 +26,7 @@ class TestHelper(TestCase):
 
         result = get_uninterrupted_datetime_ranges(dates)
 
-        self.assertEquals(0, len(result))
+        self.assertEqual(0, len(result))
 
     def test_datetime_ranges_one_date(self):
         dates = [
@@ -35,7 +35,7 @@ class TestHelper(TestCase):
 
         result = get_uninterrupted_datetime_ranges(dates)
 
-        self.assertEquals(1, len(result))
+        self.assertEqual(1, len(result))
         self.assertEqual(datetime(2022, 1, 1), result[0][0])
         self.assertEqual(datetime(2022, 1, 1), result[0][1])
 
@@ -49,7 +49,7 @@ class TestHelper(TestCase):
         ]
 
         result = get_uninterrupted_datetime_ranges(dates)
-        self.assertEquals(2, len(result))
+        self.assertEqual(2, len(result))
         self.assertEqual(datetime(2022, 1, 1), result[0][0])
         self.assertEqual(datetime(2022, 1, 3), result[0][1])
         self.assertEqual(datetime(2022, 1, 6), result[1][0])
