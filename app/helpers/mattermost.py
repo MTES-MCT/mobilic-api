@@ -1,9 +1,21 @@
 import requests
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
 from app import app
 from config import MOBILIC_ENV
+
+
+@dataclass
+class DealsLinkingResult:
+    total_linked: int
+    total_errors: int
+    acquisition_linked: int = 0
+    acquisition_errors: int = 0
+    activation_linked: int = 0
+    activation_errors: int = 0
+    duration_seconds: Optional[float] = None
 
 
 def send_mattermost_message(thread_title, main_title, main_value, items):
@@ -70,7 +82,7 @@ def _send_brevo_notification(
     requests.post(
         mattermost_webhook,
         json={
-            "channel": app.config["BREVO_ALERTS_CHANNEL"],
+            "channel": app.config["MATTERMOST_ALERT_CHANNEL"],
             "username": f"{username} - {MOBILIC_ENV.capitalize()}",
             "icon_emoji": ":robot:",
             "attachments": [
@@ -85,32 +97,20 @@ def _send_brevo_notification(
 
 
 def send_brevo_deals_linking_notification(
-    total_linked: int,
-    total_errors: int,
-    acquisition_linked: int = 0,
-    acquisition_errors: int = 0,
-    activation_linked: int = 0,
-    activation_errors: int = 0,
-    duration_seconds: Optional[float] = None,
+    linking_result: DealsLinkingResult,
     acquisition_pipeline: str = "Acquisition",
     activation_pipeline: str = "Activation",
 ):
     """Send Mattermost notification for Brevo deals linking completion.
 
     Args:
-        total_linked: Total number of deals linked
-        total_errors: Total number of errors
-        acquisition_linked: Deals linked in acquisition pipeline
-        acquisition_errors: Errors in acquisition pipeline
-        activation_linked: Deals linked in activation pipeline
-        activation_errors: Errors in activation pipeline
-        duration_seconds: Time taken for linking operation
+        linking_result: DealsLinkingResult object with linking statistics
         acquisition_pipeline: Name of acquisition pipeline
         activation_pipeline: Name of activation pipeline
     """
 
-    has_errors = total_errors > 0
-    has_success = total_linked > 0
+    has_errors = linking_result.total_errors > 0
+    has_success = linking_result.total_linked > 0
 
     if not has_success and has_errors:
         status_emoji = "❌"
@@ -126,26 +126,34 @@ def send_brevo_deals_linking_notification(
         status_text = "TERMINE - Aucun deal à lier"
 
     items = [
-        {"title": "Deals liés", "value": total_linked, "short": True},
         {
-            "title": "Durée d'exécution",
-            "value": _format_duration(duration_seconds),
+            "title": "Deals liés",
+            "value": linking_result.total_linked,
             "short": True,
         },
-        {"title": "Erreurs totales", "value": total_errors, "short": True},
+        {
+            "title": "Durée d'exécution",
+            "value": _format_duration(linking_result.duration_seconds),
+            "short": True,
+        },
+        {
+            "title": "Erreurs totales",
+            "value": linking_result.total_errors,
+            "short": True,
+        },
         {
             "title": "Deals traités",
-            "value": total_linked + total_errors,
+            "value": linking_result.total_linked + linking_result.total_errors,
             "short": True,
         },
         {
             "title": f"Pipeline {acquisition_pipeline}",
-            "value": f"{acquisition_linked} liés, {acquisition_errors} erreurs",
+            "value": f"{linking_result.acquisition_linked} liés, {linking_result.acquisition_errors} erreurs",
             "short": True,
         },
         {
             "title": f"Pipeline {activation_pipeline}",
-            "value": f"{activation_linked} liés, {activation_errors} erreurs",
+            "value": f"{linking_result.activation_linked} liés, {linking_result.activation_errors} erreurs",
             "short": True,
         },
     ]

@@ -689,7 +689,10 @@ def link_brevo_deals_command(
     """Link unlinked deals to existing companies in Brevo using pagination."""
     import time
     from app.helpers.brevo import brevo
-    from app.helpers.mattermost import send_brevo_deals_linking_notification
+    from app.helpers.mattermost import (
+        send_brevo_deals_linking_notification,
+        DealsLinkingResult,
+    )
 
     start_time = time.time()
     try:
@@ -746,7 +749,7 @@ def link_brevo_deals_command(
         )
 
         try:
-            send_brevo_deals_linking_notification(
+            linking_result = DealsLinkingResult(
                 total_linked=total_linked,
                 total_errors=total_errors,
                 acquisition_linked=acquisition_linked,
@@ -754,6 +757,9 @@ def link_brevo_deals_command(
                 activation_linked=activation_linked,
                 activation_errors=activation_errors,
                 duration_seconds=duration,
+            )
+            send_brevo_deals_linking_notification(
+                linking_result=linking_result,
                 acquisition_pipeline=acquisition_pipeline,
                 activation_pipeline=activation_pipeline,
             )
@@ -769,7 +775,7 @@ def link_brevo_deals_command(
         app.logger.error(error_msg)
 
         try:
-            send_brevo_deals_linking_notification(
+            linking_result = DealsLinkingResult(
                 total_linked=0,
                 total_errors=1,
                 acquisition_linked=0,
@@ -777,6 +783,9 @@ def link_brevo_deals_command(
                 activation_linked=0,
                 activation_errors=0,
                 duration_seconds=duration,
+            )
+            send_brevo_deals_linking_notification(
+                linking_result=linking_result,
                 acquisition_pipeline=acquisition_pipeline,
                 activation_pipeline=activation_pipeline,
             )
