@@ -1,0 +1,18 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block body %}
+<p>Bonjour {{ first_name }},</p>
+
+<p>Conformément à l'article 4 de l'<a href="https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000051347969" target="_blank" rel="noopener">arrêté du 6 mars 2025</a> et compte tenu de l'inactivité de votre compte, ce dernier sera <strong>supprimé le {{ anonymization_date }}</strong>.</p>
+
+<p>D'ici à cette date, il vous est <strong>encore possible d'annuler la suppression du compte</strong> en <strong>enregistrant du temps de travail</strong>.</p>
+
+<p>⚠️ La seule connexion au compte n'empêchera pas sa suppression. Il est donc <strong>nécessaire de commencer une mission</strong> !</p>
+
+{{ button.button("J'annule la suppression du compte", cancel_url) }}
+
+<p>Ne tardez pas car, sans action de votre part, votre historique de temps de travail sera supprimé et ne sera plus disponible en cas de contentieux avec votre employeur ! Vous devrez à nouveau créer un compte pour utiliser Mobilic.</p>
+
+<p>Cordialement,</p>
+{% endblock %}

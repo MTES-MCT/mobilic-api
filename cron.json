@@ -24,6 +24,10 @@
     },
     {
       "command": "0 * * * * flask process_auto_validations"
+    },
+    {
+      "command": "30 3 * * * flask anonymize_users --no-dry-run --verbose && flask migrate_anonymize_data --verbose && flask migrate_anonymize_data --delete-only --verbose",
+      "size": "2XL"
     }
   ]
 }
