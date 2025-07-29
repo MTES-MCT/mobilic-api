@@ -154,9 +154,11 @@ class UserSignUp(graphene.Mutation):
 
         UserAgreement.get_or_create(
             user_id=user.id,
-            initial_status=UserAgreementStatus.ACCEPTED
-            if accept_cgu
-            else UserAgreementStatus.PENDING,
+            initial_status=(
+                UserAgreementStatus.ACCEPTED
+                if accept_cgu
+                else UserAgreementStatus.PENDING
+            ),
         )
 
         tokens = create_access_tokens_for(user)
@@ -493,7 +495,7 @@ def redirect_to_fc_authorize():
 
     parsed_qs = parse_qs(request.query_string.decode("utf-8"))
 
-    if api_version == "v2":
+    if api_version == "v2" and app.config["MOBILIC_ENV"] != "prod":
         fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
         if fc_override:
             parsed_qs["redirect_uri"] = [fc_override]
@@ -532,13 +534,7 @@ def _validate_redirect_url(url: str) -> bool:
         if not parsed.scheme and not parsed.netloc:
             return url.startswith("/")
 
-        trusted_domains = {
-            "localhost",
-            "127.0.0.1",
-            "testdev.localhost",
-            "mobilic.beta.gouv.fr",
-            "mobilic.preprod.beta.gouv.fr",
-        }
+        trusted_domains = app.config.get("TRUSTED_REDIRECT_DOMAINS", set())
 
         if parsed.netloc.lower() in trusted_domains:
             return True
@@ -563,11 +559,9 @@ def _validate_fc_authorize_url(authorize_url: str, base_url: str) -> bool:
         ):
             return False
 
-        trusted_fc_domains = {
-            "fcp-low.sbx.dev-franceconnect.fr",
-            "fcp.integ01.dev-franceconnect.fr",
-            "app.franceconnect.gouv.fr",
-        }
+        trusted_fc_domains = app.config.get(
+            "TRUSTED_FRANCECONNECT_DOMAINS", set()
+        )
 
         if parsed.netloc not in trusted_fc_domains:
             return False
@@ -594,11 +588,9 @@ def _validate_fc_logout_url(logout_url: str, base_url: str) -> bool:
         ):
             return False
 
-        trusted_fc_domains = {
-            "fcp-low.sbx.dev-franceconnect.fr",
-            "fcp.integ01.dev-franceconnect.fr",
-            "app.franceconnect.gouv.fr",
-        }
+        trusted_fc_domains = app.config.get(
+            "TRUSTED_FRANCECONNECT_DOMAINS", set()
+        )
 
         if parsed.netloc not in trusted_fc_domains:
             return False
