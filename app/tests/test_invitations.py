@@ -109,7 +109,7 @@ class TestInvitations(BaseTest):
         invite_user_by_userid(self.admin, self.employee_1.id, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
-        self.assertEquals(
+        self.assertEqual(
             True, self.get_employment(self.employee_1, self.company).hide_email
         )
 
@@ -117,7 +117,7 @@ class TestInvitations(BaseTest):
         invite_user_by_email(self.admin, self.employee_1.email, self.company)
 
         self.check_has_pending_invite(self.employee_1, self.company)
-        self.assertEquals(
+        self.assertEqual(
             False,
             self.get_employment(self.employee_1, self.company).hide_email,
         )

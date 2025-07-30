@@ -36,6 +36,8 @@ class Mission(EventBaseModel):
     )
     vehicle = db.relationship("Vehicle", backref="missions")
 
+    past_registration_justification = db.Column(db.String(48), nullable=True)
+
     def activities_for(
         self, user, include_dismissed_activities=False, max_reception_time=None
     ):
@@ -206,6 +208,16 @@ class Mission(EventBaseModel):
             [
                 v.is_auto
                 and v.is_admin
+                and (not v.user_id or v.user_id == for_user.id)
+                for v in self.validations
+            ]
+        )
+
+    def auto_validated_by_employee_for(self, for_user):
+        return any(
+            [
+                v.is_auto
+                and not v.is_admin
                 and (not v.user_id or v.user_id == for_user.id)
                 for v in self.validations
             ]

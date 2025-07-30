@@ -13,10 +13,14 @@ from app.helpers.errors import (
     MissionNotAlreadyValidatedByUserError,
     NoActivitiesToValidateError,
     MissionStillRunningError,
-    MissionAlreadyValidatedByAdminError,
+    MissionAlreadyAutoValidatedError,
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models import MissionValidation, MissionEnd, MissionAutoValidation
+from app.helpers.notification_type import NotificationType
+from app.helpers.time import to_tz
+from app.models.notification import create_notification
+from dateutil.tz import gettz
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
@@ -84,6 +88,12 @@ def validate_mission(
             raise AuthorizationError(
                 "Actor is not authorized to validate the mission for the user"
             )
+        # Check that employee cannot validate auto-validated missions
+        if not is_admin_validation and (
+            mission.auto_validated_by_employee_for(for_user)
+            or mission.auto_validated_by_admin_for(for_user)
+        ):
+            raise MissionAlreadyAutoValidatedError()
 
     activities_to_validate = mission.activities_for(for_user)
 
@@ -148,6 +158,27 @@ def validate_mission(
             employee_version_end_time=employee_version_end_time,
         )
 
+    if not is_admin_validation and is_auto_validation:
+        user_timezone = gettz(for_user.timezone_name)
+
+        mission_start_time = (
+            activities_to_validate[0].start_time
+            if activities_to_validate
+            else validation_time
+        )
+
+        create_notification(
+            user_id=for_user.id,
+            notification_type=NotificationType.MISSION_AUTO_VALIDATION,
+            data={
+                "mission_id": mission.id,
+                "mission_name": mission.name,
+                "mission_start_date": to_tz(
+                    mission_start_time, user_timezone
+                ).isoformat(),
+            },
+        )
+
     return validation
 
 
@@ -203,11 +234,15 @@ def _compute_regulations_after_validation(
         if employee_version_start_time
         else mission_start
     )
-    period_end = (
-        max(mission_end, employee_version_end_time.date())
-        if employee_version_end_time
-        else mission_end
-    )
+
+    if employee_version_end_time:
+        if mission_end:
+            period_end = max(mission_end, employee_version_end_time.date())
+        else:
+            period_end = employee_version_end_time.date()
+    else:
+        period_end = mission_end or datetime.now().date()
+
     submitter_type = (
         SubmitterType.ADMIN if is_admin_validation else SubmitterType.EMPLOYEE
     )

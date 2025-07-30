@@ -12,18 +12,39 @@ C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations c
 
 ## Pré-requis
 
-* [Python](https://www.python.org/) 3.9
-* [pip](https://pypi.org/project/pip/) 21.2
-* [PostgreSQL](https://www.postgresql.org/) 12.0, avec sa ligne de commande `psql`
+* [Python](https://www.python.org/)
+* [pip](https://pypi.org/project/pip/)
+* [pipenv](https://pipenv.pypa.io/)
+
+Note: Il est possible que vous ayez à installer aussi, sur un environnement Debian/Ubuntu,
+les packages python3-dev et libpq-dev pour pouvoir installer psycopg2
 
 ## Installation
 
-Démarrer un serveur PostgreSQL local.
-
-Exécuter le script d'installation depuis la racine du projet :
+### Option 1 : Installation avec Docker (recommandée)
 
 ```sh
-./setup_local_docker.sh
+# Lancer tous les services (API, base de données, Redis, Celery)
+docker-compose up -d
+```
+
+Cette méthode lance automatiquement :
+- L'API Mobilic sur le port 5000
+- PostgreSQL sur le port 5432 
+- Redis sur le port 6379
+- Le worker Celery
+
+### Option 2 : Installation manuelle avec pipenv
+
+```sh
+pipenv install
+pipenv shell
+pre-commit install
+```
+
+Puis lancer la base de données avec Docker :
+```sh
+docker-compose up -d mobilic-db redis
 ```
 
 ## Variables d'environnement
@@ -48,6 +69,27 @@ Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce f
 
 ## Démarrage du serveur de développement
 
+### Avec Docker
+
+```sh
+# Si des volumes sont déja présents et  que l'on souhaite les reset
+docker-compose down -v
+
+# Pour rebuild l'image flask (si nouvelles librairies par exemple)
+docker-compose up --build
+
+# Lancer tous les services
+docker-compose up
+
+# A la suite d'un premier lancement (création de volume)
+# Pour lancer les migrations et les seeds
+docker exec -it mobilic-flask flask db upgrade && flask db seed
+```
+
+L'API sera accessible sur http://localhost:5000
+
+### Avec pipenv (méthode traditionnelle)
+
 Créer un fichier dans `.env/.env.local` avec :
 
 ```text
@@ -68,6 +110,14 @@ DOTENV_FILE=.env/.env.local flask run --host 0.0.0.0
 
 ## Lancement des tests
 
+### Avec Docker
+
+```sh
+docker-compose exec mobilic-api flask test
+```
+
+### Avec pipenv
+
 ```sh
 flask test
 ```
@@ -77,6 +127,28 @@ flask test
 L'ORM [SQLAlchemy](https://www.sqlalchemy.org/) utilise [Alembic](https://alembic.sqlalchemy.org/en/latest/) pour la gestion des migrations de la base.
 
 Les fichiers de migration sont situés [ici](./migrations/versions).
+
+### Avec Docker
+
+Pour ajouter une migration :
+
+```sh
+docker-compose exec mobilic-api flask db migrate -m "message de migration"
+```
+
+ou pour créer un fichier vide de migration :
+
+```sh
+docker-compose exec mobilic-api flask db revision -m "message de migration"
+```
+
+Pour mettre à jour la DB avec les dernières migrations :
+
+```sh
+docker-compose exec mobilic-api flask db upgrade
+```
+
+### Avec pipenv
 
 Pour ajouter une migration il y a deux possibilités :
 
@@ -100,28 +172,55 @@ flask db upgrade
 
 ## Données de test
 
-Pour injecter des données en base
+### Avec Docker
+
+Pour injecter des données en base :
+```sh
+docker-compose exec mobilic-api flask seed
+```
+
+Pour vider la base :
+```sh
+docker-compose exec mobilic-api flask clean
+```
+
+### Avec pipenv
+
+Pour injecter des données en base :
 ```commandline
 flask seed
 ```
-Utilisateurs créés:
-* busy.admin@test.com [password]: Gérant de 10 entreprises employant chacune 10 employés
 
-Pour vider la base
+Pour vider la base :
 ```commandline
 flask clean
 ```
 
+Utilisateurs créés:
+* busy.admin@test.com [password]: Gérant de 10 entreprises employant chacune 10 employés
+
 ## Tâches asynchrones
+
 On utilise `celery` pour effectuer certaines tâches de manière asynchrones pour ne pas surcharger l'application.
 Par exemple l'envoi des exports excel gestionnaire (envoi de l'export par email plutôt que par téléchargement direct).
 
+### Avec Docker
+
+Le worker Celery est automatiquement lancé avec `docker-compose up`. Vous pouvez voir ses logs avec :
+
+```sh
+docker-compose logs -f celery-worker
+```
+
+### Avec pipenv
+
 Un service `redis` est défini dans le `docker-compose.yml`. On peut inspecter les logs pour voir s'il fonctionne bien 
-avec la commande
+avec la commande :
 ```
 docker logs --tail 1000 -f mobilic-api-redis-1
 ```
-Il faut ensuite lancer le worker celery:
+
+Il faut ensuite lancer le worker celery :
 ```
 DOTENV_FILE=.env/.env.local venv/bin/celery -A app.celery worker --loglevel=info 
 ```

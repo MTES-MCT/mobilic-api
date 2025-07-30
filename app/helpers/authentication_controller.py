@@ -1,5 +1,5 @@
 from calendar import timegm
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 from flask import after_this_request
@@ -19,6 +19,7 @@ from jwt import PyJWTError
 
 from app import app, db
 from app.helpers.errors import AuthenticationError
+from app.helpers.authentication import set_auth_cookies_helper
 
 
 def wrap_jwt_errors(f):
@@ -45,60 +46,13 @@ def set_controller_auth_cookies(
     controller_user_id,
     ac_token=None,
 ):
-    response.set_cookie(
-        app.config["JWT_ACCESS_COOKIE_NAME"],
-        value=access_token,
-        expires=datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=True,
-        path=app.config["JWT_ACCESS_COOKIE_PATH"],
-        samesite="Strict",
-    )
-    response.set_cookie(
-        app.config["JWT_REFRESH_COOKIE_NAME"],
-        value=refresh_token,
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=True,
-        path=app.config["JWT_REFRESH_COOKIE_PATH"],
-        samesite="Strict",
-    )
-    response.set_cookie(
-        "controllerId",
-        value=str(controller_user_id),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
-    )
-    response.set_cookie(
-        "atEat",
-        value=str(
-            timegm(
-                (
-                    datetime.utcnow() + app.config["ACCESS_TOKEN_EXPIRATION"]
-                ).utctimetuple()
-            )
-        ),
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
-    )
-    if ac_token:
-        response.set_cookie(
-            "act",
-            value=ac_token,
-            expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-            secure=app.config["JWT_COOKIE_SECURE"],
-            httponly=True,
-            path="/api/ac/logout",
-            samesite="Strict",
-        )
-    response.set_cookie(
-        "hasAc",
-        value="true",
-        expires=datetime.utcnow() + app.config["SESSION_COOKIE_LIFETIME"],
-        secure=app.config["JWT_COOKIE_SECURE"],
-        httponly=False,
+    """Set authentication cookies for controller users."""
+    return set_auth_cookies_helper(
+        response=response,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        controller_user_id=controller_user_id,
+        ac_token=ac_token,
     )
 
 

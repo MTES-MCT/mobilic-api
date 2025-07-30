@@ -62,6 +62,12 @@ class CompanySettings(graphene.ObjectType):
     require_mission_name = graphene.Boolean(
         description="Indique si un nom doit être saisi à la création de chaque mission."
     )
+    allow_other_task = graphene.Boolean(
+        description="Indique si l'entreprise permet de saisir des activités de type 'Autre tâche'"
+    )
+    other_task_label = graphene.String(
+        description="Sous-titre de l'activité de type 'Autre tâche'"
+    )
 
 
 class CertificateCriterias(graphene.ObjectType):

@@ -440,6 +440,14 @@ class EditCompanySettings(AuthenticatedMutation):
             required=False,
             description="Rend obligatoire ou non la saisie d'un nom pour une mission.",
         )
+        allow_other_task = graphene.Boolean(
+            required=False,
+            description="Indique si l'entreprise permet de saisir des activités de type 'Autre tâche'",
+        )
+        other_task_label = graphene.String(
+            required=False,
+            description="Sous-titre de l'activité de type 'Autre tâche'",
+        )
 
     Output = CompanyOutput
 
