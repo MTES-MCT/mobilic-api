@@ -48,7 +48,12 @@ def get_date_or_today(date=None):
     return date
 
 
-def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
+def to_datetime(
+    dt_or_date,
+    tz_for_date=None,
+    date_as_end_of_day=False,
+    preserve_timezone=False,
+):
     if not dt_or_date:
         return dt_or_date
     if isinstance(dt_or_date, datetime.datetime):
@@ -62,7 +67,10 @@ def to_datetime(dt_or_date, tz_for_date=None, date_as_end_of_day=False):
                 dt + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
             )
         if tz_for_date:
-            dt = from_tz(dt, tz_for_date)
+            if preserve_timezone:
+                dt = dt.replace(tzinfo=tz_for_date).astimezone()
+            else:
+                dt = from_tz(dt, tz_for_date)
         return dt
 
     if isinstance(dt_or_date, str):
