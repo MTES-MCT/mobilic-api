@@ -207,9 +207,11 @@ class File:
 
     def adjust_content(self):
         self.content = check_length_and_right_pad(
-            self.content
-            if len(self.content) > 0
-            else self.spec.default_content or b"",
+            (
+                self.content
+                if len(self.content) > 0
+                else self.spec.default_content or b""
+            ),
             self.spec.right_fill_with,
             self.spec.length,
         )
@@ -603,16 +605,20 @@ def build_vehicles_file(work_days):
                             activity.end_time or last_minute_of_day,
                             last_minute_of_day,
                         ),
-                        start_kilometer_reading=mission.start_location.kilometer_reading
-                        if (
-                            index > 0
-                            or not work_day.is_first_mission_overlapping_with_previous_day
-                        )
-                        and mission.start_location
-                        else None,
-                        end_kilometer_reading=mission.end_location.kilometer_reading
-                        if mission.end_location
-                        else None,
+                        start_kilometer_reading=(
+                            mission.start_location.kilometer_reading
+                            if (
+                                index > 0
+                                or not work_day.is_first_mission_overlapping_with_previous_day
+                            )
+                            and mission.start_location
+                            else None
+                        ),
+                        end_kilometer_reading=(
+                            mission.end_location.kilometer_reading
+                            if mission.end_location
+                            else None
+                        ),
                     )
                     work_day_vehicle_records.append(current_vehicle_record)
                     n_vehicle_records += 1
@@ -679,7 +685,9 @@ def build_vehicles_file(work_days):
 
 # Spec : https://eur-lex.europa.eu/legal-content/FR/TXT/PDF/?uri=CELEX:02016R0799-20200226&from=EN#page=146
 def build_specific_conditions_file(now, start_date, end_date=None):
-    start_time = to_datetime(start_date, tz_for_date=timezone.utc)
+    start_time = to_datetime(
+        start_date, tz_for_date=timezone.utc, preserve_timezone=True
+    )
     end_time = now
     if end_date:
         end_time = min(
@@ -688,6 +696,7 @@ def build_specific_conditions_file(now, start_date, end_date=None):
                 end_date,
                 tz_for_date=timezone.utc,
                 date_as_end_of_day=True,
+                preserve_timezone=True,
             ),
         )
 
