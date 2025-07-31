@@ -4,8 +4,10 @@ from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse, parse_qs
 from io import BytesIO
+import json
+import base64
 
 from webargs import fields
 from flask_apispec import use_kwargs, doc
@@ -491,22 +493,32 @@ class ResetPasswordConnected(AuthenticatedMutation):
 def redirect_to_fc_authorize():
     base_url, client_id, _, api_version, _ = get_fc_config()
 
-    from urllib.parse import parse_qs
-
     parsed_qs = parse_qs(request.query_string.decode("utf-8"))
+    original_redirect_uri = parsed_qs.get("redirect_uri", [""])[0]
+    state_data = {"random": uuid4().hex}
 
-    if api_version == "v2" and app.config["MOBILIC_ENV"] != "prod":
+    if "create=true" in original_redirect_uri:
+        state_data["create"] = True
+
+    if api_version == "v2" and app.config.get("MOBILIC_ENV") not in [
+        "prod",
+        "staging",
+    ]:
         fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
         if fc_override:
+            # Use override without parameters to avoid FranceConnect URL mismatch
             parsed_qs["redirect_uri"] = [fc_override]
+
+    state_json = json.dumps(state_data)
+    encoded_state = base64.b64encode(state_json.encode()).decode()
 
     parsed_qs.update(
         {
-            "state": [uuid4().hex],
+            "state": [encoded_state],
             "nonce": [uuid4().hex],
             "response_type": ["code"],
             "scope": [
-                "openid email given_name family_name preferred_username birthdate"
+                "openid email given_name family_name preferred_username birthdate gender"
             ],
             "client_id": [client_id],
             "acr_values": ["eidas1"],
@@ -628,7 +640,10 @@ def redirect_to_fc_logout():
         default_logout_uri = f"{request.host_url}logout"
 
         fc_logout_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
-        if fc_logout_override:
+        if fc_logout_override and app.config.get("MOBILIC_ENV") not in [
+            "prod",
+            "staging",
+        ]:
 
             default_logout_uri = fc_logout_override.replace(
                 "/fc-callback", "/logout"
@@ -685,16 +700,23 @@ class FranceConnectLogin(graphene.Mutation):
                 raise AuthenticationError("User does not exist")
 
             if create and user and user.email:
-                # TODO : raise proper error
                 raise FCUserAlreadyRegisteredError(
                     "User is already registered"
                 )
 
             if not user:
+                fc_gender = fc_user_info.get("gender")
+                gender = None
+                if fc_gender == "female":
+                    gender = Gender.FEMALE
+                elif fc_gender == "male":
+                    gender = Gender.MALE
+
                 user = create_user(
                     first_name=fc_user_info.get("given_name"),
                     last_name=fc_user_info.get("family_name"),
                     email=fc_user_info.get("email"),
+                    gender=gender,
                     invite_token=invite_token,
                     fc_info=fc_user_info,
                 )
