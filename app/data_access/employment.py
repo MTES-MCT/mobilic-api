@@ -31,6 +31,9 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "team",
             "hide_email",
             "business",
+            "contract_type",
+            "part_time_percentage",
+            "contract_type_snooze_date",
         )
 
     id = graphene.Field(
@@ -100,9 +103,31 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         lambda: BusinessOutput,
         description="Type d'activités effectuées par le salarié pour l'entreprise",
     )
+    contract_type = graphene.Field(
+        graphene.String,
+        description="Type de contrat du salarié (FULL_TIME ou PART_TIME)",
+    )
+    part_time_percentage = graphene.Field(
+        graphene.Int,
+        description="Pourcentage du temps partiel (10-90%) si applicable",
+    )
+    should_specify_contract_type = graphene.Field(
+        graphene.Boolean,
+        description="Indique si l'admin doit spécifier le type de contrat",
+    )
+    contract_type_deadline_passed = graphene.Field(
+        graphene.Boolean,
+        description="Indique si la deadline de 15 jours est passée",
+    )
 
     def resolve_should_see_certificate_info(self, info):
         return self.should_see_certificate_info
+
+    def resolve_should_specify_contract_type(self, info):
+        return self.should_specify_contract_type
+
+    def resolve_contract_type_deadline_passed(self, info):
+        return self.contract_type_deadline_passed
 
     def resolve_is_acknowledged(self, info):
         return self.is_acknowledged

@@ -19,6 +19,11 @@ class EmploymentRequestValidationStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class ContractType(str, Enum):
+    FULL_TIME = "FULL_TIME"
+    PART_TIME = "PART_TIME"
+
+
 class Employment(UserEventBaseModel, Dismissable, HasBusiness):
     backref_base_name = "employments"
 
@@ -50,6 +55,7 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
     )
     team = db.relationship(Team, backref="employments")
+
     # Needed for anonymization process if the submitter is still linked to an active user
     @declared_attr
     def submitter_id(cls):
@@ -62,11 +68,22 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
 
     certificate_info_snooze_date = db.Column(db.Date, nullable=True)
 
+    contract_type = enum_column(ContractType, nullable=True)
+    part_time_percentage = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+    contract_type_snooze_date = db.Column(db.Date, nullable=True)
+
     db.validates("email")(validate_email_field_in_db)
 
     __table_args__ = (
         db.Constraint(name="no_simultaneous_enrollments_for_the_same_company"),
         db.Constraint(name="no_undefined_employment_type_for_user"),
+        db.CheckConstraint(
+            "part_time_percentage IS NULL OR (part_time_percentage >= 10 AND part_time_percentage <= 90)",
+            name="check_part_time_percentage_range",
+        ),
         Index(
             "idx_employment_filters",
             "email",
@@ -97,6 +114,34 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         if self.certificate_info_snooze_date is None:
             return True
         return self.certificate_info_snooze_date < datetime.now().date()
+
+    @property
+    def should_specify_contract_type(self):
+        if not self.has_admin_rights:
+            return False
+        if self.contract_type is not None:
+            return False
+
+        if self.contract_type_snooze_date is None:
+            return True
+
+        from datetime import timedelta
+
+        deadline = self.contract_type_snooze_date + timedelta(days=15)
+        return datetime.now().date() >= deadline
+
+    @property
+    def contract_type_deadline_passed(self):
+        if self.contract_type is not None:
+            return False
+
+        if self.contract_type_snooze_date is None:
+            return False
+
+        from datetime import timedelta
+
+        deadline = self.contract_type_snooze_date + timedelta(days=15)
+        return datetime.now().date() > deadline
 
     @property
     def is_acknowledged(self):

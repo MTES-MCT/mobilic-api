@@ -44,7 +44,7 @@ from app.helpers.errors import (
     ActivityExistAfterEmploymentEndDate,
     EmploymentAlreadyTerminated,
 )
-from app.helpers.graphene_types import Email
+from app.helpers.graphene_types import Email, graphene_enum_type
 from app.helpers.mail import MailjetError
 from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
@@ -53,6 +53,7 @@ from app.models.business import BusinessType
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
+    ContractType,
     _bind_users_to_team,
     _bind_employment_to_team,
 )
@@ -808,3 +809,107 @@ class UpdateHideEmail(AuthenticatedMutation):
             employment.hide_email = hide_email
 
         return employment
+
+
+class EmployeeContractTypeInput(graphene.InputObjectType):
+    employmentId = graphene.Int(
+        required=True, description="ID du rattachement"
+    )
+    contractType = graphene_enum_type(ContractType)(
+        required=True, description="Type de contrat (FULL_TIME ou PART_TIME)"
+    )
+    partTimePercentage = graphene.Int(
+        required=False, description="Pourcentage si temps partiel (10-90%)"
+    )
+
+
+class SetEmployeeContractTypes(AuthenticatedMutation):
+    class Arguments:
+        contract_specifications = graphene.List(
+            EmployeeContractTypeInput,
+            required=True,
+            description="Liste des spécifications de contrat par salarié",
+        )
+
+    Output = graphene.List(EmploymentOutput)
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: (
+            Employment.query.get(
+                kwargs["contract_specifications"][0]["employmentId"]
+            ).company_id
+            if kwargs.get("contract_specifications")
+            else None
+        ),
+        error_message="Actor is not authorized to specify contract types",
+    )
+    def mutate(cls, _, info, contract_specifications):
+        with atomic_transaction(commit_at_end=True):
+            updated_employments = []
+
+            for spec in contract_specifications:
+                employment_id = spec["employmentId"]
+                contract_type_value = spec["contractType"]
+                part_time_percentage = spec.get("partTimePercentage")
+
+                employment = Employment.query.get(employment_id)
+
+                if not employment:
+                    raise InvalidResourceError(
+                        f"Employment {employment_id} not found"
+                    )
+
+                if isinstance(contract_type_value, ContractType):
+                    contract_type_enum = contract_type_value
+                else:
+                    try:
+                        contract_type_enum = ContractType[contract_type_value]
+                    except (KeyError, TypeError):
+                        raise InvalidParamsError(
+                            "contractType must be FULL_TIME or PART_TIME"
+                        )
+
+                if contract_type_enum == ContractType.PART_TIME:
+                    if not part_time_percentage:
+                        raise InvalidParamsError(
+                            "partTimePercentage is required for PART_TIME contracts"
+                        )
+                    if not (10 <= part_time_percentage <= 90):
+                        raise InvalidParamsError(
+                            "partTimePercentage must be between 10 and 90"
+                        )
+                    employment.part_time_percentage = part_time_percentage
+                else:
+                    employment.part_time_percentage = None
+
+                employment.contract_type = contract_type_enum
+                employment.contract_type_snooze_date = None
+
+                updated_employments.append(employment)
+
+            return updated_employments
+
+
+class SnoozeContractTypeInfo(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Int(
+            required=True, description="Identifiant du rattachement"
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        only_self_employment,
+        get_target_from_args=lambda *args, **kwargs: kwargs["employment_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, employment_id):
+        employment = Employment.query.get(employment_id)
+
+        with atomic_transaction(commit_at_end=True):
+            employment.contract_type_snooze_date = datetime.date.today()
+
+        return Void(success=True)
