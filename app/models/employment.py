@@ -12,6 +12,8 @@ from app.models.utils import enum_column
 from sqlalchemy import Index, text
 from sqlalchemy.ext.declarative import declared_attr
 
+NB_WORKER_INFO_SNOOZE_DAYS = 15
+
 
 class EmploymentRequestValidationStatus(str, Enum):
     PENDING = "pending"
@@ -50,6 +52,7 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         db.Integer, db.ForeignKey("team.id"), index=True, nullable=True
     )
     team = db.relationship(Team, backref="employments")
+
     # Needed for anonymization process if the submitter is still linked to an active user
     @declared_attr
     def submitter_id(cls):
@@ -61,6 +64,7 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         )
 
     certificate_info_snooze_date = db.Column(db.Date, nullable=True)
+    nb_worker_info_snooze_date = db.Column(db.Date, nullable=True)
 
     db.validates("email")(validate_email_field_in_db)
 
@@ -97,6 +101,26 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         if self.certificate_info_snooze_date is None:
             return True
         return self.certificate_info_snooze_date < datetime.now().date()
+
+    @property
+    def should_force_nb_worker_info(self):
+        if (
+            self.company.number_workers is not None
+            and self.company.number_workers > 0
+        ):
+            return False
+
+        if not self.has_admin_rights:
+            return False
+
+        if self.nb_worker_info_snooze_date is None:
+            return False
+
+        days_since_snooze = (
+            datetime.now().date() - self.nb_worker_info_snooze_date
+        ).days
+
+        return days_since_snooze >= NB_WORKER_INFO_SNOOZE_DAYS
 
     @property
     def is_acknowledged(self):

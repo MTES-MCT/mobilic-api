@@ -100,6 +100,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             "phone_number",
             "business",
             "has_ceased_activity",
+            "number_workers",
         )
 
     id = graphene.Field(
@@ -118,6 +119,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     business = graphene.Field(
         lambda: BusinessOutput,
         description="Type d'activités effectuées par l'entreprise",
+    )
+    nbWorkers = graphene.Field(
+        graphene.Int,
+        required=False,
+        description="Nombre de salariés déclarés par l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     legal_name = graphene.Field(
@@ -245,6 +251,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_name(self, info):
         return self.name
+
+    def resolve_nbWorkers(self, info):
+        return self.number_workers
 
     def resolve_teams(self, info):
         return self.teams
