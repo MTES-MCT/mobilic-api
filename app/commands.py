@@ -282,7 +282,6 @@ def run_certificate(as_of_date=None, computation_only=False):
 
     if not computation_only:
         send_about_to_lose_certificate_emails(today)
-        send_active_then_inactive_companies_emails(today)
 
     if MOBILIC_ENV == "prod":
         send_certificate_compute_end_notification()
