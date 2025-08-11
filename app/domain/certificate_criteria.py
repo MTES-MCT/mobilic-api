@@ -4,6 +4,7 @@ import multiprocessing
 from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import func
 
 from app import db, app
 from app.controllers.utils import atomic_transaction
@@ -15,7 +16,6 @@ from app.models.queries import query_activities
 from app.models.regulation_check import RegulationCheckType
 
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
-REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 65
 COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
@@ -141,32 +141,26 @@ def compute_not_too_many_changes(company, start, end, activities):
     return True
 
 
-def _is_activity_in_real_time(activity):
-    return (
-        activity.creation_time - activity.start_time
-    ).total_seconds() / 60.0 < REAL_TIME_LOG_TOLERANCE_MINUTES
+def compute_log_in_real_time(activity_ids):
+    if len(activity_ids) == 0:
+        return 1.0
 
+    tolerance_in_seconds = REAL_TIME_LOG_TOLERANCE_MINUTES * 60
 
-def compute_log_in_real_time(activities):
-    activities_on, nb_activities_on = _filter_activities_on(activities)
-
-    if nb_activities_on == 0:
-        return True
-
-    target_nb_activities_in_real_time = math.ceil(
-        REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE
-        / 100.0
-        * nb_activities_on
+    nb_in_real_time = (
+        db.session.query(func.count(Activity.id))
+        .filter(
+            Activity.id.in_(activity_ids),
+            (
+                func.extract(
+                    "epoch", Activity.creation_time - Activity.start_time
+                )
+            )
+            < tolerance_in_seconds,
+        )
+        .scalar()
     )
-
-    nb_activities_in_real_time = 0
-    for activity in activities_on:
-        if _is_activity_in_real_time(activity):
-            nb_activities_in_real_time += 1
-        if nb_activities_in_real_time >= target_nb_activities_in_real_time:
-            return True
-
-    return False
+    return nb_in_real_time / len(activity_ids)
 
 
 def certificate_expiration(today):
@@ -190,6 +184,7 @@ def compute_company_certification(company_id, today, start, end):
     activity_ids = [a[0] for a in query.all()]
 
     company = Company.query.filter(Company.id == company_id).one()
+    log_in_real_time = compute_log_in_real_time(activity_ids)
 
     be_active = True
     be_compliant = compute_be_compliant(company, start, end, len(activities))
@@ -197,7 +192,6 @@ def compute_company_certification(company_id, today, start, end):
         company, start, end, activities
     )
     validate_regularly = True
-    log_in_real_time = compute_log_in_real_time(activities)
 
     certified = (
         be_active
