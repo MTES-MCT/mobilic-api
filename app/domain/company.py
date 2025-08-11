@@ -159,10 +159,6 @@ def find_companies_by_name(company_name):
     ).all()
 
 
-def find_companies_by_ids(company_ids):
-    return Company.query.filter(Company.id.in_(company_ids)).all()
-
-
 def find_certified_companies_query():
     return (
         db.session.query(
@@ -189,22 +185,6 @@ def find_certified_companies_query():
             CompanyCertification.log_in_real_time,
             CompanyCertification.expiration_date > now(),
         )
-    )
-
-
-def find_active_company_ids_in_period(start_period, end_period):
-    return (
-        db.session.query(Company)
-        .join(
-            CompanyCertification, CompanyCertification.company_id == Company.id
-        )
-        .filter(
-            CompanyCertification.be_active,
-            CompanyCertification.attribution_date >= start_period,
-            CompanyCertification.attribution_date <= end_period,
-        )
-        .with_entities(Company.id)
-        .all()
     )
 
 
