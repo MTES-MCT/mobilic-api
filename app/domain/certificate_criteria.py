@@ -177,12 +177,18 @@ def certificate_expiration(today):
 
 
 def compute_company_certification(company_id, today, start, end):
-    activities = query_activities(
-        include_dismissed_activities=False,
-        start_time=start,
-        end_time=end,
-        company_ids=[company_id],
-    ).all()
+    query = (
+        query_activities(
+            include_dismissed_activities=False,
+            start_time=start,
+            end_time=end,
+            company_ids=[company_id],
+        )
+        .filter(Activity.type != ActivityType.OFF)
+        .with_entities(Activity.id)
+    )
+    activity_ids = [a[0] for a in query.all()]
+
     company = Company.query.filter(Company.id == company_id).one()
 
     be_active = True
