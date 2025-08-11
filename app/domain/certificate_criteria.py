@@ -147,29 +147,14 @@ def compute_company_certification(company_id, today, start, end):
     admin_changes = compute_admin_changes(company, start, end, activity_ids)
     compliancy = compute_compliancy(company, start, end, len(activity_ids))
 
-    be_active = True
-
-    validate_regularly = True
-
-    certified = (
-        be_active
-        and be_compliant
-        and not_too_many_changes
-        and validate_regularly
-        and log_in_real_time
-    )
-    expiration_date = (
-        certificate_expiration(today) if certified else end_of_month(today)
-    )
+    expiration_date = certificate_expiration(today)
 
     company_certification = CompanyCertification(
         company=company,
         attribution_date=today,
         expiration_date=expiration_date,
-        be_active=be_active,
-        be_compliant=be_compliant,
-        not_too_many_changes=not_too_many_changes,
-        validate_regularly=validate_regularly,
+        compliancy=compliancy,
+        admin_changes=admin_changes,
         log_in_real_time=log_in_real_time,
     )
     db.session.add(company_certification)
