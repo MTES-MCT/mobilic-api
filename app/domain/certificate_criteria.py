@@ -15,8 +15,6 @@ from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities, query_company_missions
 from app.models.regulation_check import RegulationCheckType
 
-IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY = 2
-IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH = 10
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
 REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 65
 VALIDATION_MAX_DELAY_DAY = 7
@@ -37,75 +35,6 @@ def _filter_activities_on(activities):
         if activity.type != ActivityType.OFF
     ]
     return activities_on, len(activities_on)
-
-
-def is_employee_active(company, employee, start, end):
-    activities = employee.query_activities_with_relations(
-        start_time=start,
-        end_time=end,
-        restrict_to_company_ids=[company.id],
-    ).all()
-
-    nb_activity_per_day = {}
-    active_days = set()
-    for activity in activities:
-        current_day = activity.start_time.date()
-        last_day = activity.end_time.date() if activity.end_time else end
-        while current_day <= last_day:
-            if current_day in active_days:
-                current_day += relativedelta(days=1)
-                continue
-
-            if activity.type == ActivityType.OFF:
-                active_days.add(current_day)
-                current_day += relativedelta(days=1)
-                continue
-
-            nb_activity_per_day[current_day] = (
-                nb_activity_per_day.get(current_day, 0) + 1
-            )
-            if (
-                nb_activity_per_day[current_day]
-                >= IS_ACTIVE_MIN_NB_ACTIVITY_PER_DAY
-            ):
-                active_days.add(current_day)
-
-            current_day += relativedelta(days=1)
-
-        if len(active_days) >= IS_ACTIVE_MIN_NB_ACTIVE_DAY_PER_MONTH:
-            return True
-    return False
-
-
-def are_at_least_n_employees_active(company, employees, start, end, n):
-    nb_employees_active = 0
-    for employee in employees:
-        if is_employee_active(company, employee, start, end):
-            nb_employees_active += 1
-            if nb_employees_active == n:
-                return True
-    return False
-
-
-def target_percentage_nb_drivers_active(nb_drivers):
-    if nb_drivers <= 5:
-        return 50
-    return 60
-
-
-def compute_be_active(company, start, end):
-    employees = company.get_drivers(start, end)
-    return are_at_least_n_employees_active(
-        company,
-        employees,
-        start,
-        end,
-        math.ceil(
-            target_percentage_nb_drivers_active(len(employees))
-            / 100.0
-            * len(employees)
-        ),
-    )
 
 
 def is_alert_above_tolerance_limit(regulatory_alert):
@@ -307,7 +236,7 @@ def compute_company_certification(company_id, today, start, end):
     ).all()
     company = Company.query.filter(Company.id == company_id).one()
 
-    be_active = compute_be_active(company, start, end)
+    be_active = True
     be_compliant = compute_be_compliant(company, start, end, len(activities))
     not_too_many_changes = compute_not_too_many_changes(
         company, start, end, activities

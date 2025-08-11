@@ -91,17 +91,6 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
         users = User.query.filter(User.id.in_(active_user_ids))
         return users
 
-    def get_drivers(self, start, end):
-        drivers = []
-        users = self.users_between(start, end)
-        for user in users:
-            # a driver can have admin rights
-            if user.has_admin_rights(
-                self.id
-            ) is False or user.first_activity_after(to_datetime(start)):
-                drivers.append(user)
-        return drivers
-
     def get_admins(self, start, end):
         safe_end = end or date.today()
         safe_start = start or VERY_LONG_AGO.date()
