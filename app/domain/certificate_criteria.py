@@ -1,7 +1,6 @@
 import functools
 import math
 import multiprocessing
-from datetime import timedelta
 from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
@@ -12,13 +11,11 @@ from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import RegulatoryAlert, Mission, Company, Activity
 from app.models.activity import ActivityType
 from app.models.company_certification import CompanyCertification
-from app.models.queries import query_activities, query_company_missions
+from app.models.queries import query_activities
 from app.models.regulation_check import RegulationCheckType
 
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
 REAL_TIME_LOG_MIN_ACTIVITY_LOGGED_IN_REAL_TIME_PER_MONTH_PERCENTAGE = 65
-VALIDATION_MAX_DELAY_DAY = 7
-VALIDATION_MIN_OK_PERCENTAGE = 65
 COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
 COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
 COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
@@ -144,54 +141,6 @@ def compute_not_too_many_changes(company, start, end, activities):
     return True
 
 
-def _is_mission_validated_soon_enough(mission, ok_period_start):
-    mission_end_datetime = mission.ends[0].reception_time
-    if mission_end_datetime.date() >= ok_period_start:
-        return True
-
-    first_validation_time_by_admin = mission.first_validation_time_by_admin()
-
-    if not first_validation_time_by_admin:
-        return False
-
-    return first_validation_time_by_admin <= mission_end_datetime + timedelta(
-        days=VALIDATION_MAX_DELAY_DAY
-    )
-
-
-def compute_validate_regularly(company, start, end):
-    missions = query_company_missions(
-        company_ids=[company.id],
-        start_time=start,
-        end_time=end,
-        only_ended_missions=True,
-    )
-    missions = [mission.node for mission in missions.edges]
-
-    nb_total_missions = len(missions)
-    if nb_total_missions == 0:
-        return True
-
-    target_nb_missions_validated_soon_enough = math.ceil(
-        nb_total_missions * VALIDATION_MIN_OK_PERCENTAGE / 100.0
-    )
-
-    # if a mission ends at this date or later, we will assume it is ok
-    ok_period_start = end + timedelta(days=-(VALIDATION_MAX_DELAY_DAY - 1))
-
-    nb_missions_validated_soon_enough = 0
-    for mission in missions:
-        if _is_mission_validated_soon_enough(mission, ok_period_start):
-            nb_missions_validated_soon_enough += 1
-        if (
-            nb_missions_validated_soon_enough
-            >= target_nb_missions_validated_soon_enough
-        ):
-            return True
-
-    return False
-
-
 def _is_activity_in_real_time(activity):
     return (
         activity.creation_time - activity.start_time
@@ -241,7 +190,7 @@ def compute_company_certification(company_id, today, start, end):
     not_too_many_changes = compute_not_too_many_changes(
         company, start, end, activities
     )
-    validate_regularly = compute_validate_regularly(company, start, end)
+    validate_regularly = True
     log_in_real_time = compute_log_in_real_time(activities)
 
     certified = (
