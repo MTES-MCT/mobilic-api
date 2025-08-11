@@ -19,96 +19,65 @@ from app.models import (
 from app.models.activity import ActivityType
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities
-from app.models.regulation_check import RegulationCheckType
+from app.models.regulation_check import RegulationCheckType, RegulationCheck
 
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
-COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES = 15
-COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES = 15
-COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
-COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES = 15
-COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE = 10
+COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE = 0.5
 CERTIFICATE_LIFETIME_MONTH = 2
 
 
-def _filter_activities_on(activities):
-    activities_on = [
-        activity
-        for activity in activities
-        if activity.type != ActivityType.OFF
-    ]
-    return activities_on, len(activities_on)
-
-
-def is_alert_above_tolerance_limit(regulatory_alert):
-    if (
-        regulatory_alert.regulation_check.type
-        == RegulationCheckType.MINIMUM_DAILY_REST
-    ):
-        return (
-            regulatory_alert.extra["min_daily_break_in_hours"] * 60
-            - regulatory_alert.extra["breach_period_max_break_in_seconds"] / 60
-            > COMPLIANCE_TOLERANCE_DAILY_REST_MINUTES
-        )
-
-    if (
-        regulatory_alert.regulation_check.type
-        == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-    ):
-        return (
-            regulatory_alert.extra["work_range_in_seconds"] / 60
-            - regulatory_alert.extra["max_work_range_in_hours"] * 60
-            > COMPLIANCE_TOLERANCE_WORK_DAY_TIME_MINUTES
-        )
-
-    if (
-        regulatory_alert.regulation_check.type
-        == RegulationCheckType.MINIMUM_WORK_DAY_BREAK
-    ):
-        return (
-            regulatory_alert.extra["min_break_time_in_minutes"]
-            - regulatory_alert.extra["total_break_time_in_seconds"] / 60
-            > COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES
-        )
-
-    if (
-        regulatory_alert.regulation_check.type
-        == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME
-    ):
-        return (
-            regulatory_alert.extra["longest_uninterrupted_work_in_seconds"]
-            / 60
-            - regulatory_alert.extra["max_uninterrupted_work_in_hours"] * 60
-            > COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES
-        )
-
-    if (
-        regulatory_alert.regulation_check.type
-        == RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-    ):
-        return False
-
-    return True
-
-
-def compute_be_compliant(company, start, end, nb_activities):
+def compute_compliancy(company, start, end, nb_activities):
     users = company.users_between(start, end)
-
-    regulatory_alerts = RegulatoryAlert.query.filter(
-        RegulatoryAlert.user_id.in_([user.id for user in users]),
-        RegulatoryAlert.day >= start,
-        RegulatoryAlert.day <= end,
-    )
+    nb_alert_types_ok = 0
     limit_nb_alerts = math.ceil(
         COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE / 100.0 * nb_activities
     )
-    nb_alerts_above_limit = 0
-    for regulatory_alert in regulatory_alerts:
-        if is_alert_above_tolerance_limit(regulatory_alert):
-            nb_alerts_above_limit += 1
-        if nb_alerts_above_limit >= limit_nb_alerts:
-            return False
 
-    return True
+    def _get_alerts(users, start, end, type, extra_field=None):
+        query = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user_id.in_([user.id for user in users]),
+            RegulatoryAlert.day >= start,
+            RegulatoryAlert.day <= end,
+            RegulatoryAlert.regulation_check.has(RegulationCheck.type == type),
+        )
+        if extra_field:
+            query = query.filter(
+                RegulatoryAlert.extra[extra_field].as_boolean() == True
+            )
+        return query.all()
+
+    for type in [
+        RegulationCheckType.MINIMUM_DAILY_REST,
+        RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+        RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK,
+        RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK,
+    ]:
+        regulatory_alerts = _get_alerts(
+            users=users, start=start, end=end, type=type
+        )
+        if len(regulatory_alerts) < limit_nb_alerts:
+            nb_alert_types_ok += 1
+
+    enough_break_alerts = _get_alerts(
+        users=users,
+        start=start,
+        end=end,
+        type=RegulationCheckType.ENOUGH_BREAK,
+        extra_field="not_enough_break",
+    )
+    uninterrupted_alerts = _get_alerts(
+        users=users,
+        start=start,
+        end=end,
+        type=RegulationCheckType.ENOUGH_BREAK,
+        extra_field="too_much_uninterrupted_work_time",
+    )
+
+    for alerts in [enough_break_alerts, uninterrupted_alerts]:
+        if len(alerts) < limit_nb_alerts:
+            nb_alert_types_ok += 1
+
+    return nb_alert_types_ok
 
 
 def compute_admin_changes(company, start, end, activity_ids):
@@ -173,11 +142,12 @@ def compute_company_certification(company_id, today, start, end):
     activity_ids = [a[0] for a in query.all()]
 
     company = Company.query.filter(Company.id == company_id).one()
+
     log_in_real_time = compute_log_in_real_time(activity_ids)
     admin_changes = compute_admin_changes(company, start, end, activity_ids)
+    compliancy = compute_compliancy(company, start, end, len(activity_ids))
 
     be_active = True
-    be_compliant = compute_be_compliant(company, start, end, len(activities))
 
     validate_regularly = True
 
