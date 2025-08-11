@@ -111,7 +111,7 @@ def compute_log_in_real_time(activity_ids):
             Activity.id.in_(activity_ids),
             (
                 func.extract(
-                    "epoch", Activity.creation_time - Activity.start_time
+                    "epoch", Activity.reception_time - Activity.start_time
                 )
             )
             < tolerance_in_seconds,

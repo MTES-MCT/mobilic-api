@@ -10,7 +10,7 @@ from app.domain.certificate_criteria import (
 from app.domain.log_activities import log_activity
 from app.helpers.time import previous_month_period
 from app.models import Mission
-from app.models.activity import ActivityType
+from app.models.activity import ActivityType, Activity
 from app.models.queries import query_activities
 from app.seed import (
     CompanyFactory,
@@ -39,16 +39,21 @@ class TestCertificateRealTime(BaseTest):
         super().tearDown()
 
     def _compute_log_in_real_time(self):
-        activities = query_activities(
-            include_dismissed_activities=False,
-            start_time=self.start,
-            end_time=self.end,
-            company_ids=[self.company.id],
-        ).all()
-        return compute_log_in_real_time(activities)
+        query = (
+            query_activities(
+                include_dismissed_activities=False,
+                start_time=self.start,
+                end_time=self.end,
+                company_ids=[self.company.id],
+            )
+            .filter(Activity.type != ActivityType.OFF)
+            .with_entities(Activity.id)
+        )
+        activity_ids = [a[0] for a in query.all()]
+        return compute_log_in_real_time(activity_ids)
 
     def test_company_real_time_ok_no_activities(self):
-        self.assertTrue(self._compute_log_in_real_time())
+        self.assertEqual(self._compute_log_in_real_time(), 1.0)
 
     def test_company_real_time_one_activity(self):
         mission_date = datetime(2023, 2, 15)
@@ -69,7 +74,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertTrue(self._compute_log_in_real_time())
+        self.assertEqual(self._compute_log_in_real_time(), 1.0)
 
     def test_company_not_real_time_one_activity_edge_case(self):
         mission_date = datetime(2023, 2, 15)
@@ -89,7 +94,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertFalse(self._compute_log_in_real_time())
+        self.assertEqual(self._compute_log_in_real_time(), 0.0)
 
     def test_company_real_time_multiple_activities(self):
         mission_date = datetime(2023, 2, 2)
@@ -105,9 +110,11 @@ class TestCertificateRealTime(BaseTest):
                     submitter=self.worker,
                     user=self.worker,
                     mission=mission,
-                    type=ActivityType.WORK
-                    if start_hour % 2 == 0
-                    else ActivityType.DRIVE,
+                    type=(
+                        ActivityType.WORK
+                        if start_hour % 2 == 0
+                        else ActivityType.DRIVE
+                    ),
                     switch_mode=True,
                     reception_time=datetime(2023, 2, 2, start_hour, 5),
                     creation_time=datetime(2023, 2, 2, start_hour, 5),
@@ -127,7 +134,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
-        self.assertTrue(self._compute_log_in_real_time())
+        self.assertAlmostEquals(self._compute_log_in_real_time(), 21 / 22.0, 5)
 
     def test_company_not_real_time_multiple_activities(self):
         mission_date = datetime(2023, 2, 2)
@@ -143,32 +150,38 @@ class TestCertificateRealTime(BaseTest):
                     submitter=self.worker,
                     user=self.worker,
                     mission=mission,
-                    type=ActivityType.WORK
-                    if start_hour % 2 == 0
-                    else ActivityType.DRIVE,
+                    type=(
+                        ActivityType.WORK
+                        if start_hour % 2 == 0
+                        else ActivityType.DRIVE
+                    ),
                     switch_mode=True,
                     reception_time=datetime(2023, 2, 2, start_hour, 5),
                     start_time=datetime(2023, 2, 2, start_hour),
                 )
             db.session.commit()
 
-            # logged in real time
+            # not logged in real time
             for start_hour in range(1, 14):
                 log_activity(
                     submitter=self.worker,
                     user=self.worker,
                     mission=mission,
-                    type=ActivityType.WORK
-                    if start_hour % 2 == 0
-                    else ActivityType.DRIVE,
+                    type=(
+                        ActivityType.WORK
+                        if start_hour % 2 == 0
+                        else ActivityType.DRIVE
+                    ),
                     switch_mode=True,
                     reception_time=datetime(2023, 2, 3, 18),
                     start_time=datetime(2023, 2, 3, start_hour),
                 )
             db.session.commit()
-        self.assertFalse(self._compute_log_in_real_time())
+        self.assertAlmostEquals(
+            self._compute_log_in_real_time(), 21 / (21.0 + 12.0), 5
+        )
 
-    def test_activity_dismissed_should_not_count_as_inactive(self):
+    def test_activity_dismissed_should_not_count_as_not_real_time(self):
         mission_date = datetime(2023, 2, 2)
         with AuthenticatedUserContext(user=self.worker):
             mission = Mission.create(
@@ -199,8 +212,8 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
-        # 50% are active => criteria not ok
-        self.assertFalse(self._compute_log_in_real_time())
+        # 50% are real time
+        self.assertAlmostEquals(self._compute_log_in_real_time(), 0.5, 5)
 
         with AuthenticatedUserContext(user=self.worker):
             edit_activity(
@@ -209,5 +222,5 @@ class TestCertificateRealTime(BaseTest):
             )
             db.session.commit()
 
-        # 100% are active => criteria ok
-        self.assertTrue(self._compute_log_in_real_time())
+        # 100% are real time
+        self.assertAlmostEquals(self._compute_log_in_real_time(), 1.0, 5)
