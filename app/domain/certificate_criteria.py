@@ -4,12 +4,18 @@ import multiprocessing
 from multiprocessing import Pool
 
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import func
+from sqlalchemy import func, distinct
 
 from app import db, app
 from app.controllers.utils import atomic_transaction
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
-from app.models import RegulatoryAlert, Mission, Company, Activity
+from app.models import (
+    RegulatoryAlert,
+    Mission,
+    Company,
+    Activity,
+    ActivityVersion,
+)
 from app.models.activity import ActivityType
 from app.models.company_certification import CompanyCertification
 from app.models.queries import query_activities
@@ -22,7 +28,6 @@ COMPLIANCE_TOLERANCE_DAILY_BREAK_MINUTES = 5
 COMPLIANCE_TOLERANCE_MAX_UNINTERRUPTED_WORK_TIME_MINUTES = 15
 COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE = 10
 CERTIFICATE_LIFETIME_MONTH = 2
-CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE = 10
 
 
 def _filter_activities_on(activities):
@@ -106,39 +111,23 @@ def compute_be_compliant(company, start, end, nb_activities):
     return True
 
 
-def _has_activity_been_created_or_modified_by_an_admin(activity, admin_ids):
-    activity_user_id = activity.user_id
-    for version in activity.versions:
-        if (
-            version.submitter_id in admin_ids
-            and version.submitter_id != activity_user_id
-        ):
-            return True
-    return False
-
-
-def compute_not_too_many_changes(company, start, end, activities):
-    activities_on, nb_activities_on = _filter_activities_on(activities)
-
-    if nb_activities_on == 0:
-        return True
-
-    limit_nb_activities = math.ceil(
-        CHANGES_MAX_CHANGES_PER_WEEK_PERCENTAGE / 100.0 * nb_activities_on
-    )
+def compute_admin_changes(company, start, end, activity_ids):
+    if len(activity_ids) == 0:
+        return 0.0
 
     company_admin_ids = [admin.id for admin in company.get_admins(start, end)]
 
-    modified_count = 0
-    for activity in activities_on:
-        if _has_activity_been_created_or_modified_by_an_admin(
-            activity=activity, admin_ids=company_admin_ids
-        ):
-            modified_count += 1
-            if modified_count >= limit_nb_activities:
-                return False
-
-    return True
+    modified_count = (
+        db.session.query(func.count(distinct(Activity.id)))
+        .join(ActivityVersion, ActivityVersion.activity_id == Activity.id)
+        .filter(
+            Activity.id.in_(activity_ids),
+            ActivityVersion.submitter_id.in_(company_admin_ids),
+            ActivityVersion.submitter_id != Activity.user_id,
+        )
+        .scalar()
+    )
+    return modified_count / len(activity_ids)
 
 
 def compute_log_in_real_time(activity_ids):
@@ -185,12 +174,11 @@ def compute_company_certification(company_id, today, start, end):
 
     company = Company.query.filter(Company.id == company_id).one()
     log_in_real_time = compute_log_in_real_time(activity_ids)
+    admin_changes = compute_admin_changes(company, start, end, activity_ids)
 
     be_active = True
     be_compliant = compute_be_compliant(company, start, end, len(activities))
-    not_too_many_changes = compute_not_too_many_changes(
-        company, start, end, activities
-    )
+
     validate_regularly = True
 
     certified = (
