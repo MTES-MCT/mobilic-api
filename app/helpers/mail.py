@@ -803,7 +803,12 @@ class Mailer:
         )
 
     def send_admin_about_to_lose_certificate_email(
-        self, company, user, attribution_date
+        self,
+        company,
+        user,
+        attribution_date,
+        display_real_time_criteria,
+        display_admin_changes_criteria,
     ):
         self._send_single(
             self._create_message_from_flask_template(
@@ -812,6 +817,8 @@ class Mailer:
                 company_name=company.name,
                 user=user,
                 attribution_date=attribution_date,
+                display_real_time_criteria=display_real_time_criteria,
+                display_admin_changes_criteria=display_admin_changes_criteria,
                 type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
             ),
             _apply_whitelist_if_not_prod=True,
