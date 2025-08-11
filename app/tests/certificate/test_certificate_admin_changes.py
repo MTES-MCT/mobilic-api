@@ -4,12 +4,12 @@ from flask.ctx import AppContext
 
 from app import app, db
 from app.domain.certificate_criteria import (
-    compute_not_too_many_changes,
+    compute_admin_changes,
 )
 from app.domain.log_activities import log_activity
 from app.helpers.time import previous_month_period
 from app.models import Mission
-from app.models.activity import ActivityType
+from app.models.activity import ActivityType, Activity
 from app.models.queries import query_activities
 from app.seed import (
     CompanyFactory,
@@ -19,7 +19,7 @@ from app.seed import (
 from app.tests import BaseTest
 
 
-class TestCertificateNotTooManyChanges(BaseTest):
+class TestCertificateAdminChanges(BaseTest):
     def setUp(self):
         super().setUp()
 
@@ -37,19 +37,24 @@ class TestCertificateNotTooManyChanges(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def _compute_not_too_many_changes(self):
-        activities = query_activities(
-            include_dismissed_activities=False,
-            start_time=self.start,
-            end_time=self.end,
-            company_ids=[self.company.id],
-        ).all()
-        return compute_not_too_many_changes(
-            self.company, self.start, self.end, activities
+    def _compute_admin_changes(self):
+        query = (
+            query_activities(
+                include_dismissed_activities=False,
+                start_time=self.start,
+                end_time=self.end,
+                company_ids=[self.company.id],
+            )
+            .filter(Activity.type != ActivityType.OFF)
+            .with_entities(Activity.id)
+        )
+        activity_ids = [a[0] for a in query.all()]
+        return compute_admin_changes(
+            self.company, self.start, self.end, activity_ids
         )
 
     def test_too_many_changes_ok_no_activities(self):
-        self.assertTrue(self._compute_not_too_many_changes())
+        self.assertEqual(self._compute_admin_changes(), 0.0)
 
     def test_too_many_changes_ok_one_activity_unmodified(self):
         mission_date = datetime(2023, 2, 15)
@@ -69,7 +74,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
                 start_time=datetime(2023, 2, 15, 10),
             )
             db.session.commit()
-        self.assertTrue(self._compute_not_too_many_changes())
+        self.assertEqual(self._compute_admin_changes(), 0.0)
 
     def test_too_many_changes_ko_one_activity_modified(self):
         mission_date = datetime(2023, 2, 15)
@@ -95,7 +100,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
                 start_time=datetime(2023, 2, 15, 11),
                 end_time=datetime(2023, 2, 15, 13),
             )
-        self.assertFalse(self._compute_not_too_many_changes())
+        self.assertEqual(self._compute_admin_changes(), 1.0)
 
     def test_too_many_changes_several_activities(self):
         mission_date = datetime(2023, 2, 15)
@@ -121,7 +126,8 @@ class TestCertificateNotTooManyChanges(BaseTest):
             db.session.commit()
 
         # Activities are not modified => ok
-        self.assertTrue(self._compute_not_too_many_changes())
+        self.assertEqual(self._compute_admin_changes(), 0.0)
+
         with AuthenticatedUserContext(user=self.admin):
             activities[0].revise(
                 revision_time=datetime(2023, 2, 16, 10),
@@ -130,7 +136,7 @@ class TestCertificateNotTooManyChanges(BaseTest):
             )
 
         # Only one modified is still ok
-        self.assertTrue(self._compute_not_too_many_changes())
+        self.assertAlmostEquals(self._compute_admin_changes(), 1 / 15.0, 5)
 
         with AuthenticatedUserContext(user=self.admin):
             activities[1].revise(
@@ -140,4 +146,4 @@ class TestCertificateNotTooManyChanges(BaseTest):
             )
 
         # Two modified is not ok
-        self.assertFalse(self._compute_not_too_many_changes())
+        self.assertAlmostEquals(self._compute_admin_changes(), 2 / 15.0, 5)
