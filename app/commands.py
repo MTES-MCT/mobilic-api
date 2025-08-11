@@ -25,7 +25,6 @@ from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
 from app.jobs.emails.certificate import (
     send_about_to_lose_certificate_emails,
-    send_active_then_inactive_companies_emails,
 )
 from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,

@@ -17,6 +17,10 @@ from app.models import (
     Mission,
     Activity,
 )
+from app.models.company_certification import (
+    CERTIFICATION_ADMIN_CHANGES_BRONZE,
+    CERTIFICATION_REAL_TIME_BRONZE,
+)
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
 
@@ -107,11 +111,10 @@ def get_start_last_certification_period(company_id):
     certifications = (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.admin_changes
+            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+            CompanyCertification.log_in_real_time
+            >= CERTIFICATION_REAL_TIME_BRONZE,
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .all()
