@@ -1,11 +1,13 @@
 from datetime import timedelta, date, datetime
 from dateutil.relativedelta import relativedelta
 
+from app import get_current_certificate
 from app.models.company_certification import (
     CERTIFICATION_ADMIN_CHANGES_SILVER,
     CERTIFICATION_REAL_TIME_SILVER,
     CERTIFICATION_COMPLIANCY_SILVER,
     CERTIFICATION_REAL_TIME_BRONZE,
+    CERTIFICATION_ADMIN_CHANGES_BRONZE,
 )
 from app.seed import CompanyFactory
 from app.seed.factories import CompanyCertificationFactory, UserFactory
@@ -180,3 +182,45 @@ class TestCertificateCompanyApi(BaseTest):
                 admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
             ).date(),
         )
+
+    def test_current_certificate_medals(self):
+        # silver certif two months ago, still valid today
+        silver_certificate = CompanyCertificationFactory.create(
+            company_id=self.company.id,
+            attribution_date=date.today() - timedelta(days=62),
+            expiration_date=date.today() + timedelta(days=10),
+            **silver_certif_args,
+        )
+
+        # bronze certif valid and more recent
+        CompanyCertificationFactory.create(
+            company_id=self.company.id,
+            attribution_date=date.today() - timedelta(days=31),
+            expiration_date=date.today() + timedelta(days=40),
+            log_in_real_time=CERTIFICATION_REAL_TIME_BRONZE,
+            admin_changes=CERTIFICATION_ADMIN_CHANGES_BRONZE,
+            compliancy=CERTIFICATION_COMPLIANCY_SILVER,
+        )
+
+        current_certificate = get_current_certificate(self.company.id)
+        self.assertEqual(current_certificate.id, silver_certificate.id)
+
+    def test_current_certificate_dates(self):
+        # silver certif two months ago, still valid today
+        CompanyCertificationFactory.create(
+            company_id=self.company.id,
+            attribution_date=date.today() - timedelta(days=62),
+            expiration_date=date.today() + timedelta(days=10),
+            **silver_certif_args,
+        )
+
+        # another silver certif valid and more recent
+        silver_certificate_2 = CompanyCertificationFactory.create(
+            company_id=self.company.id,
+            attribution_date=date.today() - timedelta(days=31),
+            expiration_date=date.today() + timedelta(days=40),
+            **silver_certif_args,
+        )
+
+        current_certificate = get_current_certificate(self.company.id)
+        self.assertEqual(current_certificate.id, silver_certificate_2.id)

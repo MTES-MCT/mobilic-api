@@ -86,19 +86,20 @@ def get_last_day_of_certification(company_id):
 
 
 def get_current_certificate(company_id):
-    return (
-        CompanyCertification.query.filter(
-            CompanyCertification.company_id == company_id,
-            CompanyCertification.admin_changes
-            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-            CompanyCertification.log_in_real_time
-            >= CERTIFICATION_REAL_TIME_BRONZE,
-            CompanyCertification.expiration_date
-            >= datetime.datetime.now().date(),
-        )
-        .order_by(desc(CompanyCertification.attribution_date))
-        .first()
-    )
+    certifications = CompanyCertification.query.filter(
+        CompanyCertification.company_id == company_id,
+        CompanyCertification.admin_changes
+        <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+        CompanyCertification.log_in_real_time
+        >= CERTIFICATION_REAL_TIME_BRONZE,
+        CompanyCertification.expiration_date >= datetime.datetime.now().date(),
+    ).all()
+    if len(certifications) == 0:
+        return None
+
+    certifications.sort(key=lambda c: c.attribution_date, reverse=True)
+    certifications.sort(key=lambda c: c.certification_level, reverse=True)
+    return certifications[0]
 
 
 def get_start_last_certification_period(company_id):
