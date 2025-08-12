@@ -42,7 +42,7 @@ class CompanyCertification(BaseModel):
     compliancy = db.Column(db.Integer, default=0, nullable=False)
 
     @property
-    def certification_level(self):
+    def certification_medal(self):
 
         if (
             self.compliancy >= CERTIFICATION_COMPLIANCY_DIAMOND
@@ -75,4 +75,4 @@ class CompanyCertification(BaseModel):
 
     @property
     def certified(self):
-        return self.certification_level >= CertificationLevel.BRONZE
+        return self.certification_medal >= CertificationLevel.BRONZE

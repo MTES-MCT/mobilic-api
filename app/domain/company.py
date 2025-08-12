@@ -97,7 +97,7 @@ def get_current_certificate(company_id):
         return None
 
     certifications.sort(key=lambda c: c.attribution_date, reverse=True)
-    certifications.sort(key=lambda c: c.certification_level, reverse=True)
+    certifications.sort(key=lambda c: c.certification_medal, reverse=True)
     return certifications[0]
 
 
