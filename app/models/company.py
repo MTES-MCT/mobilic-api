@@ -6,7 +6,7 @@ from sqlalchemy import text, event
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
-from app.helpers.time import VERY_LONG_AGO, to_datetime
+from app.helpers.time import VERY_LONG_AGO
 from app.models import User
 from app.models.base import BaseModel
 from app import db
@@ -142,17 +142,6 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
                 ),
             )
         )
-
-    @cached_property
-    def is_certified(self):
-        today = date.today()
-        for company_certification in self.certifications:
-            if (
-                today <= company_certification.expiration_date
-                and company_certification.certified
-            ):
-                return True
-        return False
 
 
 @event.listens_for(Company, "before_insert")

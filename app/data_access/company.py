@@ -1,6 +1,7 @@
 from flask import g
 
 from app.data_access.business import BusinessOutput
+from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -13,8 +14,6 @@ from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
 from app.data_access.team import TeamOutput
 from app.domain.company import (
-    get_last_day_of_certification,
-    get_start_last_certification_period,
     check_company_has_no_activities,
     has_any_active_admin,
 )
@@ -31,7 +30,7 @@ from app.helpers.authorization import (
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
-from app.models import Company, User, CompanyCertification, Mission, Activity
+from app.models import Company, User, Mission, Activity
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -67,27 +66,6 @@ class CompanySettings(graphene.ObjectType):
     )
     other_task_label = graphene.String(
         description="Sous-titre de l'activité de type 'Autre tâche'"
-    )
-
-
-class CertificateCriterias(graphene.ObjectType):
-    creation_time = graphene.DateTime(
-        description="Date de calcul des critères."
-    )
-    be_active = graphene.Boolean(
-        description="Indique si l'entreprise utilise règulièrement Mobilic."
-    )
-    be_compliant = graphene.Boolean(
-        description="Indique si l'entreprise suit globalement la règlementation sur le temps de travail."
-    )
-    not_too_many_changes = graphene.Boolean(
-        description="Indique si l'entreprise ne modifie pas trop les données après coup."
-    )
-    validate_regularly = graphene.Boolean(
-        description="Indique si l'entreprise valide régulièrement les missions."
-    )
-    log_in_real_time = graphene.Boolean(
-        description="Indique si l'entreprise saisit les temps de travail en temps réel."
     )
 
 
@@ -212,41 +190,22 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         description="Liste des équipes d'une entreprise",
     )
     authorized_clients = graphene.List(OAuth2ClientOutput)
-
-    is_certified = graphene.Boolean(
-        description="Indique si l'entreprise a la certification Mobilic"
-    )
-
     has_no_activity = graphene.Boolean(
         description="Indique que l'entreprise n'a jamais eu d'activité enregistrée"
     )
-
     accept_certification_communication = graphene.Boolean(
         description="Indique si un gestionnaire a accepté ou refusé la communication sur le certificat"
     )
-
-    last_day_certified = graphene.Field(
-        graphene.Date,
-        description="Date la plus récente à laquelle l'entreprise cessera ou a cessé d'être certifiée.",
-    )
-
-    start_last_certification_period = graphene.Field(
-        graphene.Date,
-        description="Date de début de la dernière période de certification",
-    )
-
-    certificate_criterias = graphene.Field(
-        CertificateCriterias,
-        description="Critères de certificat du mois en cours",
-    )
-
     current_admins = graphene.List(
         lambda: UserOutput,
         description="Liste des gestionnaires actuellement rattachés à l'entreprise",
     )
-
     has_no_active_admins = graphene.Boolean(
         description="Indique si l'entreprise n'a aucun gestionnaire ayant accepté les CGU"
+    )
+    current_company_certification = graphene.Field(
+        CompanyCertificationType,
+        description="Informations relatives au certificat en cours pour l'entreprise",
     )
 
     def resolve_name(self, info):
@@ -459,30 +418,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_authorized_clients(self, info):
         return self.retrieve_authorized_clients
 
-    def resolve_last_day_certified(self, info):
-        return get_last_day_of_certification(self.id)
-
-    def resolve_start_last_certification_period(self, info):
-        return get_start_last_certification_period(self.id)
-
-    def resolve_certificate_criterias(self, info):
-        current_certification = (
-            CompanyCertification.query.filter(
-                CompanyCertification.company_id == self.id
-            )
-            .order_by(desc(CompanyCertification.attribution_date))
-            .first()
-        )
-        if current_certification:
-            return CertificateCriterias(
-                **{
-                    k: getattr(current_certification, k)
-                    for k in CertificateCriterias._meta.fields.keys()
-                }
-            )
-        else:
-            return None
-
     def resolve_has_no_activity(self, info):
         return check_company_has_no_activities(self.id)
 
@@ -496,3 +431,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_has_no_active_admins(self, info):
         return not has_any_active_admin(self)
+
+    def resolve_current_company_certification(self, info):
+        return CompanyCertificationType.from_company_id(self.id)
