@@ -1,10 +1,27 @@
 from datetime import timedelta, date, datetime
 from dateutil.relativedelta import relativedelta
 
+from app.models.company_certification import (
+    CERTIFICATION_ADMIN_CHANGES_SILVER,
+    CERTIFICATION_REAL_TIME_SILVER,
+    CERTIFICATION_COMPLIANCY_SILVER,
+    CERTIFICATION_REAL_TIME_BRONZE,
+)
 from app.seed import CompanyFactory
 from app.seed.factories import CompanyCertificationFactory, UserFactory
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request, ApiRequests
+
+silver_certif_args = dict(
+    log_in_real_time=CERTIFICATION_REAL_TIME_SILVER,
+    admin_changes=CERTIFICATION_ADMIN_CHANGES_SILVER,
+    compliancy=CERTIFICATION_COMPLIANCY_SILVER,
+)
+no_certif_args = dict(
+    log_in_real_time=CERTIFICATION_REAL_TIME_BRONZE - 0.1,
+    admin_changes=CERTIFICATION_ADMIN_CHANGES_SILVER,
+    compliancy=CERTIFICATION_COMPLIANCY_SILVER,
+)
 
 
 class TestCertificateCompanyApi(BaseTest):
@@ -25,11 +42,7 @@ class TestCertificateCompanyApi(BaseTest):
             company_id=self.company.id,
             attribution_date=date.today() - timedelta(days=31),
             expiration_date=date.today() + timedelta(days=31),
-            be_active=True,
-            be_compliant=True,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **silver_certif_args,
         )
 
         admined_companies = make_authenticated_request(
@@ -58,11 +71,7 @@ class TestCertificateCompanyApi(BaseTest):
             company_id=self.company.id,
             attribution_date=date.today() - timedelta(days=10),
             expiration_date=date.today() + timedelta(days=10),
-            be_active=True,
-            be_compliant=False,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **no_certif_args,
         )
 
         admined_companies = make_authenticated_request(
@@ -87,11 +96,7 @@ class TestCertificateCompanyApi(BaseTest):
             company_id=self.company.id,
             attribution_date=date.today() - timedelta(days=62),
             expiration_date=date.today() - timedelta(days=31),
-            be_active=True,
-            be_compliant=True,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **silver_certif_args,
         )
 
         admined_companies = make_authenticated_request(
@@ -126,11 +131,7 @@ class TestCertificateCompanyApi(BaseTest):
             company_id=self.company.id,
             attribution_date=date(2020, 1, 1),
             expiration_date=date(2020, 6, 30),
-            be_active=True,
-            be_compliant=True,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **silver_certif_args,
         )
 
         today = date.today()
@@ -149,22 +150,14 @@ class TestCertificateCompanyApi(BaseTest):
             company_id=self.company.id,
             attribution_date=first_day_of_six_month_ago,
             expiration_date=last_day_of_previous_month,
-            be_active=True,
-            be_compliant=True,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **silver_certif_args,
         )
 
         current_certificate = CompanyCertificationFactory.create(
             company_id=self.company.id,
             attribution_date=first_day_of_month,
             expiration_date=last_day_of_six_month_ahead,
-            be_active=True,
-            be_compliant=True,
-            not_too_many_changes=True,
-            validate_regularly=True,
-            log_in_real_time=True,
+            **silver_certif_args,
         )
 
         admined_companies = make_authenticated_request(
