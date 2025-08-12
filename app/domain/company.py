@@ -173,11 +173,7 @@ def find_certified_companies_query():
         )
         .filter(
             Company.accept_certification_communication,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            AT_LEAST_BRONZE_FILTER,
             CompanyCertification.expiration_date > now(),
         )
     )
