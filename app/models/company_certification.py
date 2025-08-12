@@ -33,7 +33,7 @@ class CompanyCertification(BaseModel):
     company_id = db.Column(
         db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
     )
-    company = db.relationship("Company", backref=backref("certifications_new"))
+    company = db.relationship("Company", backref=backref("certifications"))
 
     attribution_date = db.Column(db.Date, nullable=False)
     expiration_date = db.Column(db.Date, nullable=False)
@@ -72,3 +72,7 @@ class CompanyCertification(BaseModel):
             return CertificationLevel.BRONZE
 
         return CertificationLevel.NO_CERTIFICATION
+
+    @property
+    def certified(self):
+        return self.certification_level >= CertificationLevel.BRONZE

@@ -79,11 +79,10 @@ def get_last_day_of_certification(company_id):
         db.session.query(db.func.max(CompanyCertification.expiration_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.admin_changes
+            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+            CompanyCertification.log_in_real_time
+            >= CERTIFICATION_REAL_TIME_BRONZE,
         )
         .first()
     )[0]
@@ -93,11 +92,10 @@ def get_current_certificate(company_id):
     return (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.admin_changes
+            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+            CompanyCertification.log_in_real_time
+            >= CERTIFICATION_REAL_TIME_BRONZE,
             CompanyCertification.expiration_date
             >= datetime.datetime.now().date(),
         )
