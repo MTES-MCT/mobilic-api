@@ -8,6 +8,7 @@ from app.models.company_certification import (
     CERTIFICATION_COMPLIANCY_SILVER,
     CERTIFICATION_REAL_TIME_BRONZE,
     CERTIFICATION_ADMIN_CHANGES_BRONZE,
+    CertificationLevel,
 )
 from app.seed import CompanyFactory
 from app.seed.factories import CompanyCertificationFactory, UserFactory
@@ -59,12 +60,13 @@ class TestCertificateCompanyApi(BaseTest):
         admined_company = admined_companies["data"]["user"][
             "adminedCompanies"
         ][0]
-        self.assertTrue(admined_company["isCertified"])
+        certification = admined_company["currentCompanyCertification"]
+        self.assertTrue(certification["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             certificate.attribution_date,
             datetime.strptime(
-                admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
+                certification["startLastCertificationPeriod"], "%Y-%m-%d"
             ).date(),
         )
 
@@ -88,10 +90,11 @@ class TestCertificateCompanyApi(BaseTest):
         admined_company = admined_companies["data"]["user"][
             "adminedCompanies"
         ][0]
-        self.assertFalse(admined_company["isCertified"])
+        certification = admined_company["currentCompanyCertification"]
+        self.assertFalse(certification["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
-        self.assertIsNone(admined_company["lastDayCertified"])
-        self.assertIsNone(admined_company["startLastCertificationPeriod"])
+        self.assertIsNone(certification["lastDayCertified"])
+        self.assertIsNone(certification["startLastCertificationPeriod"])
 
     def test_expired_certificate(self):
         expired_certificate = CompanyCertificationFactory.create(
@@ -113,18 +116,19 @@ class TestCertificateCompanyApi(BaseTest):
         admined_company = admined_companies["data"]["user"][
             "adminedCompanies"
         ][0]
-        self.assertFalse(admined_company["isCertified"])
+        certification = admined_company["currentCompanyCertification"]
+        self.assertFalse(certification["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             expired_certificate.expiration_date,
             datetime.strptime(
-                admined_company["lastDayCertified"], "%Y-%m-%d"
+                certification["lastDayCertified"], "%Y-%m-%d"
             ).date(),
         )
         self.assertEqual(
             expired_certificate.attribution_date,
             datetime.strptime(
-                admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
+                certification["startLastCertificationPeriod"], "%Y-%m-%d"
             ).date(),
         )
 
@@ -174,12 +178,13 @@ class TestCertificateCompanyApi(BaseTest):
         admined_company = admined_companies["data"]["user"][
             "adminedCompanies"
         ][0]
-        self.assertTrue(admined_company["isCertified"])
+        certification = admined_company["currentCompanyCertification"]
+        self.assertTrue(certification["isCertified"])
         self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             previous_continuous_certificate.attribution_date,
             datetime.strptime(
-                admined_company["startLastCertificationPeriod"], "%Y-%m-%d"
+                certification["startLastCertificationPeriod"], "%Y-%m-%d"
             ).date(),
         )
 
@@ -224,3 +229,36 @@ class TestCertificateCompanyApi(BaseTest):
 
         current_certificate = get_current_certificate(self.company.id)
         self.assertEqual(current_certificate.id, silver_certificate_2.id)
+
+    def test_certificate_criterias(self):
+        CompanyCertificationFactory.create(
+            company_id=self.company.id,
+            attribution_date=date.today() - timedelta(days=62),
+            expiration_date=date.today() + timedelta(days=10),
+            **silver_certif_args,
+        )
+        res = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_user.id,
+            query=ApiRequests.admined_companies_certificate,
+            unexposed_query=False,
+            variables={
+                "id": self.admin_user.id,
+            },
+        )
+        res = res["data"]["user"]["adminedCompanies"][0]
+        current_company_certification = res["currentCompanyCertification"]
+        certificate_criterias = current_company_certification[
+            "certificateCriterias"
+        ]
+        current_medal = current_company_certification["certificationMedal"]
+
+        self.assertEqual(
+            certificate_criterias["logInRealTime"],
+            CERTIFICATION_REAL_TIME_SILVER,
+        )
+        self.assertEqual(
+            certificate_criterias["adminChanges"],
+            CERTIFICATION_ADMIN_CHANGES_SILVER,
+        )
+        self.assertEqual(current_medal, CertificationLevel.SILVER.name)
