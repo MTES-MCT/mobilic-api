@@ -24,6 +24,11 @@ from app.models.company_certification import (
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
 
+AT_LEAST_BRONZE_FILTER = and_(
+    CompanyCertification.admin_changes <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+    CompanyCertification.log_in_real_time >= CERTIFICATION_REAL_TIME_BRONZE,
+)
+
 
 class SirenRegistrationStatus(str, Enum):
     UNREGISTERED = "unregistered"
@@ -79,10 +84,7 @@ def get_last_day_of_certification(company_id):
         db.session.query(db.func.max(CompanyCertification.expiration_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.admin_changes
-            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-            CompanyCertification.log_in_real_time
-            >= CERTIFICATION_REAL_TIME_BRONZE,
+            AT_LEAST_BRONZE_FILTER,
         )
         .first()
     )[0]
@@ -91,10 +93,7 @@ def get_last_day_of_certification(company_id):
 def get_current_certificate(company_id):
     certifications = CompanyCertification.query.filter(
         CompanyCertification.company_id == company_id,
-        CompanyCertification.admin_changes
-        <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-        CompanyCertification.log_in_real_time
-        >= CERTIFICATION_REAL_TIME_BRONZE,
+        AT_LEAST_BRONZE_FILTER,
         CompanyCertification.expiration_date >= datetime.datetime.now().date(),
     ).all()
     if len(certifications) == 0:
@@ -110,10 +109,7 @@ def get_start_last_certification_period(company_id):
     certifications = (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.admin_changes
-            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-            CompanyCertification.log_in_real_time
-            >= CERTIFICATION_REAL_TIME_BRONZE,
+            AT_LEAST_BRONZE_FILTER,
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .all()

@@ -3,7 +3,10 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 
 from app import app, mailer
-from app.domain.company import get_start_last_certification_period
+from app.domain.company import (
+    get_start_last_certification_period,
+    AT_LEAST_BRONZE_FILTER,
+)
 from app.domain.email import check_email_exists
 from app.helpers.mail_type import EmailType
 from app.jobs import log_execution
@@ -82,10 +85,7 @@ def companies_about_to_lose_certification(
     company_ids_certified_today = [
         company_id
         for company_id, in CompanyCertification.query.filter(
-            CompanyCertification.admin_changes
-            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-            CompanyCertification.log_in_real_time
-            >= CERTIFICATION_REAL_TIME_BRONZE,
+            AT_LEAST_BRONZE_FILTER,
             CompanyCertification.attribution_date
             == current_month_attribution_date,
         )
@@ -99,10 +99,7 @@ def companies_about_to_lose_certification(
         )
         .filter(
             CompanyCertification.attribution_date <= max_attribution_date,
-            CompanyCertification.admin_changes
-            <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-            CompanyCertification.log_in_real_time
-            >= CERTIFICATION_REAL_TIME_BRONZE,
+            AT_LEAST_BRONZE_FILTER,
             CompanyCertification.expiration_date > today,
             ~Company.id.in_(company_ids_certified_today),
         )
