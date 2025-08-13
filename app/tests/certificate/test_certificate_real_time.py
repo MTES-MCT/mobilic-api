@@ -134,7 +134,7 @@ class TestCertificateRealTime(BaseTest):
                 start_time=datetime(2023, 2, 3, 10),
             )
             db.session.commit()
-        self.assertAlmostEquals(self._compute_log_in_real_time(), 21 / 22.0, 5)
+        self.assertAlmostEqual(self._compute_log_in_real_time(), 21 / 22.0, 5)
 
     def test_company_not_real_time_multiple_activities(self):
         mission_date = datetime(2023, 2, 2)
@@ -177,7 +177,7 @@ class TestCertificateRealTime(BaseTest):
                     start_time=datetime(2023, 2, 3, start_hour),
                 )
             db.session.commit()
-        self.assertAlmostEquals(
+        self.assertAlmostEqual(
             self._compute_log_in_real_time(), 21 / (21.0 + 12.0), 5
         )
 
@@ -213,7 +213,7 @@ class TestCertificateRealTime(BaseTest):
             )
             db.session.commit()
         # 50% are real time
-        self.assertAlmostEquals(self._compute_log_in_real_time(), 0.5, 5)
+        self.assertAlmostEqual(self._compute_log_in_real_time(), 0.5, 5)
 
         with AuthenticatedUserContext(user=self.worker):
             edit_activity(
@@ -223,4 +223,4 @@ class TestCertificateRealTime(BaseTest):
             db.session.commit()
 
         # 100% are real time
-        self.assertAlmostEquals(self._compute_log_in_real_time(), 1.0, 5)
+        self.assertAlmostEqual(self._compute_log_in_real_time(), 1.0, 5)

@@ -136,7 +136,7 @@ class TestCertificateAdminChanges(BaseTest):
             )
 
         # Only one modified is still ok
-        self.assertAlmostEquals(self._compute_admin_changes(), 1 / 15.0, 5)
+        self.assertAlmostEqual(self._compute_admin_changes(), 1 / 15.0, 5)
 
         with AuthenticatedUserContext(user=self.admin):
             activities[1].revise(
@@ -146,4 +146,4 @@ class TestCertificateAdminChanges(BaseTest):
             )
 
         # Two modified is not ok
-        self.assertAlmostEquals(self._compute_admin_changes(), 2 / 15.0, 5)
+        self.assertAlmostEqual(self._compute_admin_changes(), 2 / 15.0, 5)
