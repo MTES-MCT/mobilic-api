@@ -44,5 +44,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("company_certification_new")
     pass
