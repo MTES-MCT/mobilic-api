@@ -37,6 +37,7 @@ from app.models import (
     MissionAutoValidation,
 )
 from app.models.controller_control import ControllerControl
+from app.models.notification import Notification
 from app.seed.factories import (
     UserFactory,
     CompanyFactory,
@@ -107,6 +108,8 @@ def clean():
     ControllerControl.query.delete()
     ControllerRefreshToken.query.delete()
     ControllerUser.query.delete()
+
+    Notification.query.delete()
 
     UserAgreement.query.delete()
     ScenarioTesting.query.delete()
