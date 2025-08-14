@@ -67,6 +67,13 @@ def run_scenario_certificated():
         last_name="Modele",
     )
 
+    employee = UserFactory.create(
+        email=EMPLOYEE_EMAIL,
+        password=DEFAULT_PASSWORD,
+        first_name="Employee",
+        last_name="Du Mois",
+    )
+
     for c in [
         company,
         company_bronze,
@@ -78,19 +85,12 @@ def run_scenario_certificated():
         EmploymentFactory.create(
             company=c, submitter=admin, user=admin, has_admin_rights=True
         )
-
-    employee = UserFactory.create(
-        email=EMPLOYEE_EMAIL,
-        password=DEFAULT_PASSWORD,
-        first_name="Employee",
-        last_name="Du Mois",
-    )
-    EmploymentFactory.create(
-        company=company,
-        submitter=admin,
-        user=employee,
-        has_admin_rights=False,
-    )
+        EmploymentFactory.create(
+            company=c,
+            submitter=admin,
+            user=employee,
+            has_admin_rights=False,
+        )
 
     vehicle = Vehicle(
         registration_number="XXX-001-BREACH",
