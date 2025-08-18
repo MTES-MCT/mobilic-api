@@ -42,7 +42,7 @@ class TestCertificateBeCompliant(BaseTest):
 
     def test_company_compliant_no_alerts(self):
         self.assertEqual(
-            compute_compliancy(self.company, self.start, self.end, 2), 6
+            compute_compliancy(self.company, self.start, self.end, 2)[0], 6
         )
 
     def test_compliancy_max_allowed_percentage(self):
@@ -68,7 +68,7 @@ class TestCertificateBeCompliant(BaseTest):
                 self.start,
                 self.end,
                 nb_activities_to_make_one_alert_ok + 1,
-            ),
+            )[0],
             6,
         )
         self.assertEqual(
@@ -77,13 +77,13 @@ class TestCertificateBeCompliant(BaseTest):
                 self.start,
                 self.end,
                 nb_activities_to_make_one_alert_ok - 1,
-            ),
+            )[0],
             5,
         )
 
     def test_compliancy_different_scores(self):
         self.assertEqual(
-            compute_compliancy(self.company, self.start, self.end, 50), 6
+            compute_compliancy(self.company, self.start, self.end, 50)[0], 6
         )
         regulatory_alert = RegulatoryAlert(
             day="2023-02-15",
@@ -98,7 +98,7 @@ class TestCertificateBeCompliant(BaseTest):
         db.session.commit()
 
         self.assertEqual(
-            compute_compliancy(self.company, self.start, self.end, 50), 5
+            compute_compliancy(self.company, self.start, self.end, 50)[0], 5
         )
 
         regulatory_alert = RegulatoryAlert(
@@ -114,6 +114,8 @@ class TestCertificateBeCompliant(BaseTest):
         db.session.add(regulatory_alert)
         db.session.commit()
 
-        self.assertEqual(
-            compute_compliancy(self.company, self.start, self.end, 50), 4
+        score, info = compute_compliancy(
+            self.company, self.start, self.end, 50
         )
+        self.assertEqual(score, 4)
+        self.assertEqual(len(info), 2)

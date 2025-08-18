@@ -32,6 +32,7 @@ def compute_compliancy(company, start, end, nb_activities):
     limit_nb_alerts = math.ceil(
         COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE / 100.0 * nb_activities
     )
+    info_alerts = []
 
     def _get_alerts(users, start, end, type, extra_field=None):
         query = RegulatoryAlert.query.filter(
@@ -57,27 +58,31 @@ def compute_compliancy(company, start, end, nb_activities):
         )
         if len(regulatory_alerts) < limit_nb_alerts:
             nb_alert_types_ok += 1
+        else:
+            info_alerts.append(dict(type=type))
 
-    enough_break_alerts = _get_alerts(
-        users=users,
-        start=start,
-        end=end,
-        type=RegulationCheckType.ENOUGH_BREAK,
-        extra_field="not_enough_break",
-    )
-    uninterrupted_alerts = _get_alerts(
-        users=users,
-        start=start,
-        end=end,
-        type=RegulationCheckType.ENOUGH_BREAK,
-        extra_field="too_much_uninterrupted_work_time",
-    )
-
-    for alerts in [enough_break_alerts, uninterrupted_alerts]:
-        if len(alerts) < limit_nb_alerts:
+    for extra_field in [
+        "not_enough_break",
+        "too_much_uninterrupted_work_time",
+    ]:
+        _alerts = _get_alerts(
+            users=users,
+            start=start,
+            end=end,
+            type=RegulationCheckType.ENOUGH_BREAK,
+            extra_field=extra_field,
+        )
+        if len(_alerts) < limit_nb_alerts:
             nb_alert_types_ok += 1
+        else:
+            info_alerts.append(
+                dict(
+                    type=RegulationCheckType.ENOUGH_BREAK,
+                    extra_field=extra_field,
+                )
+            )
 
-    return nb_alert_types_ok
+    return nb_alert_types_ok, info_alerts
 
 
 def compute_admin_changes(company, start, end, activity_ids):
@@ -145,7 +150,9 @@ def compute_company_certification(company_id, today, start, end):
 
     log_in_real_time = compute_log_in_real_time(activity_ids)
     admin_changes = compute_admin_changes(company, start, end, activity_ids)
-    compliancy = compute_compliancy(company, start, end, len(activity_ids))
+    compliancy, info_alerts = compute_compliancy(
+        company, start, end, len(activity_ids)
+    )
 
     expiration_date = certificate_expiration(today)
 
@@ -156,6 +163,7 @@ def compute_company_certification(company_id, today, start, end):
         compliancy=compliancy,
         admin_changes=admin_changes,
         log_in_real_time=log_in_real_time,
+        info=dict(alerts=info_alerts),
     )
     db.session.add(company_certification)
 

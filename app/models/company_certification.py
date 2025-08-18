@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import backref
 
 from app import db
@@ -40,6 +41,7 @@ class CompanyCertification(BaseModel):
     log_in_real_time = db.Column(db.Float, default=0.0, nullable=False)
     admin_changes = db.Column(db.Float, default=0.0, nullable=False)
     compliancy = db.Column(db.Integer, default=0, nullable=False)
+    info = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @property
     def certification_medal(self):
