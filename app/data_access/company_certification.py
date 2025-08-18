@@ -1,4 +1,7 @@
+import json
+
 import graphene
+from graphene.types.generic import GenericScalar
 
 from app.models.company_certification import CertificationLevel
 from app.domain.company import (
@@ -29,6 +32,16 @@ class CertificateCriterias(graphene.ObjectType):
     log_in_real_time = graphene.Float(
         description="Pourcentage d'activités renseignées en temps réel."
     )
+    info = GenericScalar(
+        required=False,
+        description="Informations additionnelles sur le calcul.",
+    )
+
+    def resolve_info(
+        self,
+        info,
+    ):
+        return json.dumps(self.info)
 
 
 class CompanyCertificationType(graphene.ObjectType):

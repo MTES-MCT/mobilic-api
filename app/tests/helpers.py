@@ -925,6 +925,7 @@ class ApiRequests:
                     logInRealTime
                     adminChanges
                     compliancy
+                    info
                 }
             }
           }
