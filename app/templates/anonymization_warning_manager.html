@@ -1,0 +1,18 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block body %}
+<p>Bonjour {{ first_name }},</p>
+
+<p>Conformément à l'article 4 de l'<a href="https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000051347969" target="_blank" rel="noopener">arrêté du 6 mars 2025</a>, aux exigences du RGPD et compte tenu de l'inactivité du compte de l'<strong>entreprise {{ company_name }}</strong>, ce dernier sera <strong>supprimé le {{ anonymization_date }}</strong>.</p>
+
+<p>D'ici à cette date, il vous est <strong>encore possible d'annuler la suppression du compte</strong>. Pour cela, vous pouvez inviter un nouveau salarié ou demander à l'un de ceux déjà rattachés à votre entreprise de créer une nouvelle mission.</p>
+
+<p>⚠️ La seule connexion au compte n'empêchera pas sa suppression. Il est donc <strong>nécessaire d'inviter un salarié ou de créer une mission</strong> !</p>
+
+{{ button.button("J'annule la suppression du compte", cancel_url) }}
+
+<p>Ne tardez pas car, sans action de votre part, le compte de l'entreprise {{ company_name }} sera supprimé ! Vous devrez en créer un autre pour utiliser à nouveau Mobilic.</p>
+
+<p>Cordialement,</p>
+{% endblock %}
