@@ -22,7 +22,7 @@ from app.models.queries import query_activities
 from app.models.regulation_check import RegulationCheckType, RegulationCheck
 
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
-COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE = 0.5
+COMPLIANCE_MAX_ALERTS_ALLOWED_RATIO = 0.005
 CERTIFICATE_LIFETIME_MONTH = 2
 
 
@@ -30,7 +30,7 @@ def compute_compliancy(company, start, end, nb_activities):
     users = company.users_between(start, end)
     nb_alert_types_ok = 0
     limit_nb_alerts = math.ceil(
-        COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE / 100.0 * nb_activities
+        COMPLIANCE_MAX_ALERTS_ALLOWED_RATIO * nb_activities
     )
     info_alerts = []
 

@@ -6,7 +6,7 @@ from flask.ctx import AppContext
 from app import app, db
 from app.domain.certificate_criteria import (
     compute_compliancy,
-    COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE,
+    COMPLIANCE_MAX_ALERTS_ALLOWED_RATIO,
 )
 from app.domain.regulations import get_default_business
 from app.helpers.submitter_type import SubmitterType
@@ -59,7 +59,7 @@ class TestCertificateBeCompliant(BaseTest):
         db.session.commit()
 
         nb_activities_to_make_one_alert_ok = math.ceil(
-            1 / (COMPLIANCE_MAX_ALERTS_ALLOWED_PERCENTAGE / 100.0)
+            1 / COMPLIANCE_MAX_ALERTS_ALLOWED_RATIO
         )
 
         self.assertEqual(
