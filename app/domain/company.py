@@ -17,8 +17,17 @@ from app.models import (
     Mission,
     Activity,
 )
+from app.models.company_certification import (
+    CERTIFICATION_ADMIN_CHANGES_BRONZE,
+    CERTIFICATION_REAL_TIME_BRONZE,
+)
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
+
+AT_LEAST_BRONZE_FILTER = and_(
+    CompanyCertification.admin_changes <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
+    CompanyCertification.log_in_real_time >= CERTIFICATION_REAL_TIME_BRONZE,
+)
 
 
 class SirenRegistrationStatus(str, Enum):
@@ -72,31 +81,24 @@ def get_last_day_of_certification(company_id):
         db.session.query(db.func.max(CompanyCertification.expiration_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            AT_LEAST_BRONZE_FILTER,
         )
         .first()
     )[0]
 
 
 def get_current_certificate(company_id):
-    return (
-        CompanyCertification.query.filter(
-            CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
-            CompanyCertification.expiration_date
-            >= datetime.datetime.now().date(),
-        )
-        .order_by(desc(CompanyCertification.attribution_date))
-        .first()
-    )
+    certifications = CompanyCertification.query.filter(
+        CompanyCertification.company_id == company_id,
+        AT_LEAST_BRONZE_FILTER,
+        CompanyCertification.expiration_date >= datetime.datetime.now().date(),
+    ).all()
+    if len(certifications) == 0:
+        return None
+
+    certifications.sort(key=lambda c: c.attribution_date, reverse=True)
+    certifications.sort(key=lambda c: c.certification_medal, reverse=True)
+    return certifications[0]
 
 
 def get_start_last_certification_period(company_id):
@@ -104,11 +106,7 @@ def get_start_last_certification_period(company_id):
     certifications = (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            AT_LEAST_BRONZE_FILTER,
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .all()
@@ -156,10 +154,6 @@ def find_companies_by_name(company_name):
     ).all()
 
 
-def find_companies_by_ids(company_ids):
-    return Company.query.filter(Company.id.in_(company_ids)).all()
-
-
 def find_certified_companies_query():
     return (
         db.session.query(
@@ -179,29 +173,9 @@ def find_certified_companies_query():
         )
         .filter(
             Company.accept_certification_communication,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            AT_LEAST_BRONZE_FILTER,
             CompanyCertification.expiration_date > now(),
         )
-    )
-
-
-def find_active_company_ids_in_period(start_period, end_period):
-    return (
-        db.session.query(Company)
-        .join(
-            CompanyCertification, CompanyCertification.company_id == Company.id
-        )
-        .filter(
-            CompanyCertification.be_active,
-            CompanyCertification.attribution_date >= start_period,
-            CompanyCertification.attribution_date <= end_period,
-        )
-        .with_entities(Company.id)
-        .all()
     )
 
 

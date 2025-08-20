@@ -5,6 +5,7 @@ Revises: 930314f0ed57
 Create Date: 2023-03-27 12:06:02.479776
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -16,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade():
+def create_original_company_certification_table():
     op.create_table(
         "company_certification",
         sa.Column("creation_time", sa.DateTime(), nullable=False),
@@ -41,6 +42,10 @@ def upgrade():
         ["company_id"],
         unique=False,
     )
+
+
+def upgrade():
+    create_original_company_certification_table()
 
 
 def downgrade():

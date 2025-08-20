@@ -3,11 +3,20 @@
 {% block body %}
     <p>Bonjour,</p>
     <p>
-        Vous avez obtenu le certificat Mobilic pour votre entreprise {{company_name}} le {{attribution_date | full_format_day}}, et ce pour une durée de 6 mois.
+        Vous avez obtenu le certificat Mobilic pour votre entreprise {{company_name}} le {{attribution_date | full_format_day}}, et ce <b>pour une durée de 2 mois</b>.
     </p>
-    <p>Cependant, nous avons pu constater que, depuis cette date, vous n’aviez pas respecté certains critères indispensables à son obtention. Vous trouverez la liste de ces critères dans l'onglet "Certificat" de votre interface Mobilic.</p>
-    <p>Ainsi, pour que nous puissions renouveler votre certificat à la fin de sa période de validité, veillez à y remédier dans les trois mois à venir.</p>
-    <p>Vous trouverez sur ce lien le détail des critères à respecter : <a href="https://faq.mobilic.beta.gouv.fr/usages-et-fonctionnement-de-mobilic-gestionnaire/comment-obtenir-le-certificat-mobilic">Comment obtenir le certificat Mobilic ?</a></p>
+    <p>Cependant, nous avons pu constater que, depuis cette date, <b>vous n’aviez pas respecté le(s) critère(s) suivants</b> :</p>
+    <ul>
+        {% if display_real_time_criteria %}
+            <li>Temps de travail enregistrés en temps réel</li>
+        {% endif %}
+        {% if display_admin_changes_criteria %}
+            <li>Temps de travail modifiés par le gestionnaire</li>
+        {% endif %}
+    </ul>
+    <p>Vous trouverez dans l’onglet "Certificat" de votre espace Mobilic votre score pour chaque critère.</p>
+    <p>Afin que nous puissions renouveler votre certificat à la fin de sa période de validité, <b>veillez à y remédier dès réception de ce courriel</b>.</p>
+    <p>Le détail des critères à respecter est disponible sur le lien suivant : <a href="https://faq.mobilic.beta.gouv.fr/usages-et-fonctionnement-de-mobilic-gestionnaire/comment-obtenir-le-certificat-mobilic">Comment obtenir le certificat Mobilic ?</a></p>
     <p>N’hésitez pas à nous écrire pour toute question à ce sujet sur : <a href="mailto:contact@mobilic.beta.gouv.fr">contact@mobilic.beta.gouv.fr</a>.</p>
     <p>A bientôt sur Mobilic !</p>
 {% endblock %}
