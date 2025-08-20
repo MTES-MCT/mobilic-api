@@ -10,6 +10,10 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from migrations.versions.c98854a361af_add_company_certification_table import (
+    create_original_company_certification_table,
+)
+
 # revision identifiers, used by Alembic.
 revision = "022d979043d0"
 down_revision = "68ed4db9ae15"
@@ -18,6 +22,10 @@ depends_on = None
 
 
 def upgrade():
+    op.drop_index(
+        op.f("ix_company_certification_company_id"),
+        table_name="company_certification",
+    )
     op.drop_table("company_certification")
     op.create_table(
         "company_certification",
@@ -49,4 +57,10 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    # Restore original company certification table
+    op.drop_index(
+        op.f("ix_company_certification_company_id"),
+        table_name="company_certification",
+    )
+    op.drop_table("company_certification")
+    create_original_company_certification_table()
