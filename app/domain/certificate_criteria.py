@@ -27,6 +27,12 @@ CERTIFICATE_LIFETIME_MONTH = 2
 
 
 def compute_compliancy(company, start, end, nb_activities):
+    """
+    Returns a score from 0 to 6 and a dict of additional information (which regulatory alerts failed)
+    For each regulatory check, +1 to the score if there are not too many alerts on the period
+    A number of alerts is allowed, based on the total number of activities on the period (we allow 0.5% of it)
+    :return: (score, info), score is an integer from 0 to 6, info is a dict
+    """
     users = company.users_between(start, end)
     nb_alert_types_ok = 0
     limit_nb_alerts = math.ceil(
@@ -86,6 +92,12 @@ def compute_compliancy(company, start, end, nb_activities):
 
 
 def compute_admin_changes(company, start, end, activity_ids):
+    """
+    Returns a float (percentage, between 0.0 and 1.0).
+    Number of activities modified by an admin / total number of activities
+    A low result is needed to have a good certification
+    :return: float
+    """
     if len(activity_ids) == 0:
         return 0.0
 
@@ -105,6 +117,13 @@ def compute_admin_changes(company, start, end, activity_ids):
 
 
 def compute_log_in_real_time(activity_ids):
+    """
+    Returns a float (percentage, between 0.0 and 1.0).
+    Number of activities logged in real time.
+    We consider an activity 'real time' if reception time is less than an hour after the start time of the activity.
+    A high result is needed to have a good certification
+    :return: float
+    """
     if len(activity_ids) == 0:
         return 1.0
 

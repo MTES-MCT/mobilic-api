@@ -6,6 +6,17 @@ from sqlalchemy.orm import backref
 from app import db
 from app.models.base import BaseModel
 
+# Every month a certification level is computed for every eligible companies
+# Depending on the results, a company can have a bronze/silver/gold/diamond certification medal
+# A company is certified if it has at least bronze level
+# A certification is valid for N(2) months
+# At a certain point in time, a company has the best certification level still valid
+# Certification is based on 3 criteria:
+#
+# Admin Changes: % of activities modified by admins (lower = better)
+# Log in real time: % of activities logged within 60 minutes (log time versus start time) (higher = better)
+# Compliancy: score from 0 to 6 (for each regulation checks). A regulation check is validated if # of alerts is < 0.5% of # of activities (higher = better)
+
 
 class CertificationLevel(IntEnum):
     NO_CERTIFICATION = 0
