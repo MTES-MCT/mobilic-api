@@ -59,7 +59,7 @@ def compute_compliancy(company, start, end, nb_activities):
         if len(regulatory_alerts) < limit_nb_alerts:
             nb_alert_types_ok += 1
         else:
-            info_alerts.append(dict(type=type))
+            info_alerts.append({"type": type})
 
     for extra_field in [
         "not_enough_break",
@@ -76,10 +76,10 @@ def compute_compliancy(company, start, end, nb_activities):
             nb_alert_types_ok += 1
         else:
             info_alerts.append(
-                dict(
-                    type=RegulationCheckType.ENOUGH_BREAK,
-                    extra_field=extra_field,
-                )
+                {
+                    "type": RegulationCheckType.ENOUGH_BREAK,
+                    "extra_field": extra_field,
+                }
             )
 
     return nb_alert_types_ok, info_alerts
@@ -163,7 +163,7 @@ def compute_company_certification(company_id, today, start, end):
         compliancy=compliancy,
         admin_changes=admin_changes,
         log_in_real_time=log_in_real_time,
-        info=dict(alerts=info_alerts),
+        info={"alerts": info_alerts},
     )
     db.session.add(company_certification)
 
