@@ -420,10 +420,10 @@ def find_admins_with_pending_invitation(
     pending_invitation_trigger_date,
     companies_to_exclude=None,
 ):
-    # Get companies that have scheduled invitations and invitations still in pending before the trigger date
-    scheduled_invitations = (
-        db.session.query(Employment.company_id)
-        .join(Email, Email.address == Employment.email)
+    # Step 1: Retrieve email addresses of scheduled invitations created before the trigger date
+    scheduled_email_addresses = [
+        email.address
+        for email in db.session.query(Email.address)
         .filter(
             Email.type == EmailType.SCHEDULED_INVITATION,
             Email.creation_time
@@ -431,30 +431,47 @@ def find_admins_with_pending_invitation(
                 pending_invitation_trigger_date,
                 datetime.datetime.max.time(),
             ),
+        )
+        .distinct()
+        .all()
+    ]
+
+    if not scheduled_email_addresses:
+        return []
+
+    # Step 2: Find companies with scheduled invitations that still have pending employee invitations
+    scheduled_company_ids = [
+        company_id
+        for company_id, in db.session.query(Employment.company_id)
+        .filter(
+            Employment.email.in_(scheduled_email_addresses),
             Employment.has_admin_rights == False,
             Employment.user_id.is_(None),
             Employment.validation_status
             == EmploymentRequestValidationStatus.PENDING,
         )
         .distinct()
-        .subquery()
-    )
+        .all()
+    ]
 
-    # Get employments that have already received the pending invitation email
-    second_scheduled_invitations = (
-        db.session.query(Email.employment_id)
+    if not scheduled_company_ids:
+        return []
+
+    # Step 3: Exclude employments that have already received the pending invitation notification
+    excluded_employment_ids = [
+        employment_id
+        for employment_id, in db.session.query(Email.employment_id)
         .filter(Email.type == EmailType.COMPANY_PENDING_INVITATION)
         .distinct()
-        .subquery()
-    )
+        .all()
+    ]
 
-    # Base query to find employments that are admins and have not received the pending invitation email
+    # Step 4: Find admin employments eligible for pending invitation notifications
     base_query = (
         db.session.query(Employment)
         .options(joinedload(Employment.company))
         .filter(
-            Employment.company_id.in_(scheduled_invitations),
-            ~Employment.id.in_(second_scheduled_invitations),
+            Employment.company_id.in_(scheduled_company_ids),
             Employment.has_admin_rights == True,
             Employment.user_id.isnot(None),
             ~Employment.is_dismissed,
@@ -463,6 +480,12 @@ def find_admins_with_pending_invitation(
             == EmploymentRequestValidationStatus.APPROVED,
         )
     )
+
+    if excluded_employment_ids:
+        base_query = base_query.filter(
+            ~Employment.id.in_(excluded_employment_ids)
+        )
+
     if companies_to_exclude:
         base_query = base_query.filter(
             Employment.company_id.notin_(companies_to_exclude)
