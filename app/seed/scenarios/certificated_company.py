@@ -66,6 +66,7 @@ def run_scenario_certificated():
         first_name="Admin",
         last_name="Modele",
     )
+
     employee = UserFactory.create(
         email=EMPLOYEE_EMAIL,
         password=DEFAULT_PASSWORD,
