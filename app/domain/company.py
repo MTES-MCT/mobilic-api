@@ -90,7 +90,6 @@ def get_last_day_of_certification(company_id):
 def get_current_certificate(company_id):
     certifications = CompanyCertification.query.filter(
         CompanyCertification.company_id == company_id,
-        AT_LEAST_BRONZE_FILTER,
         CompanyCertification.expiration_date >= datetime.datetime.now().date(),
     ).all()
     if len(certifications) == 0:
