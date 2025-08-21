@@ -66,6 +66,12 @@ def run_scenario_certificated():
         first_name="Admin",
         last_name="Modele",
     )
+    employee = UserFactory.create(
+        email=EMPLOYEE_EMAIL,
+        password=DEFAULT_PASSWORD,
+        first_name="Employee",
+        last_name="Du Mois",
+    )
 
     for c in [
         company,
@@ -78,19 +84,12 @@ def run_scenario_certificated():
         EmploymentFactory.create(
             company=c, submitter=admin, user=admin, has_admin_rights=True
         )
-
-    employee = UserFactory.create(
-        email=EMPLOYEE_EMAIL,
-        password=DEFAULT_PASSWORD,
-        first_name="Employee",
-        last_name="Du Mois",
-    )
-    EmploymentFactory.create(
-        company=company,
-        submitter=admin,
-        user=employee,
-        has_admin_rights=False,
-    )
+        EmploymentFactory.create(
+            company=c,
+            submitter=admin,
+            user=employee,
+            has_admin_rights=False,
+        )
 
     vehicle = Vehicle(
         registration_number="XXX-001-BREACH",
@@ -192,3 +191,32 @@ def run_scenario_certificated():
             employee=employee,
             admin_validating=admin,
         )
+
+    # log time in all companies to "have activity"
+    hour = 5
+    for c in [
+        company_bronze,
+        company_silver,
+        company_gold,
+        company_diamond,
+        company_no_certif,
+    ]:
+        log_and_validate_mission(
+            mission_name="Mission courte",
+            work_periods=[
+                [
+                    datetime.datetime.combine(
+                        month_start + datetime.timedelta(days=5),
+                        datetime.time(hour, 0),
+                    ),
+                    datetime.datetime.combine(
+                        month_start + datetime.timedelta(days=5),
+                        datetime.time(hour + 1, 0),
+                    ),
+                ],
+            ],
+            company=c,
+            employee=employee,
+            admin_validating=admin,
+        )
+        hour = hour + 2
