@@ -808,3 +808,26 @@ class UpdateHideEmail(AuthenticatedMutation):
             employment.hide_email = hide_email
 
         return employment
+
+
+class SnoozeNbWorkerInfo(AuthenticatedMutation):
+    class Arguments:
+        employment_id = graphene.Int(
+            required=True, description="Identifiant du rattachement"
+        )
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(
+        only_self_employment,
+        get_target_from_args=lambda *args, **kwargs: kwargs["employment_id"],
+        error_message="Forbidden access",
+    )
+    def mutate(cls, _, info, employment_id):
+        employment = Employment.query.get(employment_id)
+
+        with atomic_transaction(commit_at_end=True):
+            employment.nb_worker_info_snooze_date = date.today()
+
+        return Void(success=True)

@@ -267,9 +267,11 @@ def sign_up_company(
             admin_last_name=current_user.last_name,
             company_name=company.usual_name,
             siren=int(company.siren),
-            phone_number=current_user.phone_number
-            if current_user.phone_number
-            else None,
+            phone_number=(
+                current_user.phone_number
+                if current_user.phone_number
+                else None
+            ),
         )
 
         contact_id = brevo.create_contact(contact_data)
@@ -278,9 +280,9 @@ def sign_up_company(
             CreateCompanyData(
                 company_name=company.usual_name,
                 siren=int(company.siren),
-                phone_number=company.phone_number
-                if company.phone_number
-                else None,
+                phone_number=(
+                    company.phone_number if company.phone_number else None
+                ),
             )
         )
 
@@ -499,6 +501,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau type d'activité de transport de l'entreprise.",
         )
+        new_nb_workers = graphene.Int(
+            required=False,
+            description="Nouveau nombre d'employés de l'entreprise.",
+        )
         apply_business_type_to_employees = graphene.Boolean(
             required=False,
             description="Indique si l'on souhaite appliquer le nouveau type d'activité à tous les salariés de l'entreprise.",
@@ -522,6 +528,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         new_name="",
         new_phone_number="",
         new_business_type="",
+        new_nb_workers=None,
         apply_business_type_to_employees=False,
     ):
         with atomic_transaction(commit_at_end=True):
@@ -529,6 +536,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
 
             current_name = company.usual_name
             current_phone_number = company.phone_number
+            current_nb_workers = company.number_workers
             if current_name != new_name and new_name != "":
                 company.usual_name = new_name
                 app.logger.info(
@@ -541,6 +549,14 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 company.phone_number = new_phone_number
                 app.logger.info(
                     f"Company phone number changed from {current_phone_number} to {new_phone_number}"
+                )
+            if (
+                current_nb_workers != new_nb_workers
+                and new_nb_workers is not None
+            ):
+                company.number_workers = new_nb_workers
+                app.logger.info(
+                    f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"
                 )
             if new_business_type != "":
                 new_business = Business.query.filter(
