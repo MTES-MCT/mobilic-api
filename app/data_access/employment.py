@@ -31,6 +31,9 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "team",
             "hide_email",
             "business",
+            "should_force_nb_worker_info",
+            "should_see_certificate_info",
+            "is_acknowledged",
         )
 
     id = graphene.Field(
@@ -100,12 +103,10 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         lambda: BusinessOutput,
         description="Type d'activités effectuées par le salarié pour l'entreprise",
     )
-
-    def resolve_should_see_certificate_info(self, info):
-        return self.should_see_certificate_info
-
-    def resolve_is_acknowledged(self, info):
-        return self.is_acknowledged
+    should_force_nb_worker_info = graphene.Field(
+        graphene.Boolean,
+        description="Indique si l'on doit forcer la demande des informations liées au nombre de chauffeurs pour ce rattachement",
+    )
 
     @with_authorization_policy(
         only_self_employment,

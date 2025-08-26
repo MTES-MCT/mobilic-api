@@ -10,15 +10,19 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: pipenv-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
+          keys:
+            - pip-cache-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
+            - pip-cache-{{ .Branch }}
+            - pip-cache
       - run:
           name: Install dependencies with pipenv
           command: |
-            pipenv install
+            export PIPENV_VENV_IN_PROJECT=1
+            pipenv install --deploy --dev
       - save_cache:
-          key: pipenv-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
+          key: pip-cache-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
           paths:
-            - "~/.local/share/virtualenvs"
+            - ~/.cache/pip
       - run:
           name: Wait for postgres
           command: dockerize -wait tcp://localhost:5432 -timeout 1m

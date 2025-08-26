@@ -61,6 +61,7 @@ from app.controllers.employment import (
     SyncThirdPartyEmployees,
     UpdateHideEmail,
     ChangeEmployeeBusinessType,
+    SnoozeNbWorkerInfo,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -286,7 +287,8 @@ class PrivateMutations(graphene.ObjectType):
     edit_company_communication_setting = (
         EditCompanyCommunicationSetting.Field()
     )
-    snooze_certificate_info = SnoozeCertificateInfo.Field()
+    snoozeCertificateInfo = SnoozeCertificateInfo.Field()
+    snoozeNbWorkerInfo = SnoozeNbWorkerInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()
 
