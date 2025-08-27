@@ -153,6 +153,9 @@ class Config:
     TRUSTED_REDIRECT_DOMAINS = {
         "mobilic.beta.gouv.fr",
         "mobilic.preprod.beta.gouv.fr",
+        # Scalingo review apps
+        "mobilic-staging-pr692.osc-fr1.scalingo.io",
+        "mobilic-api-staging-pr564.osc-fr1.scalingo.io",
     }
 
     # Trusted FranceConnect domains for authorization/logout URLs
@@ -190,6 +193,10 @@ class DevConfig(Config):
 class StagingConfig(Config):
     TRUSTED_REDIRECT_DOMAINS = {
         "mobilic.preprod.beta.gouv.fr",
+        # Support for all Scalingo review apps with pattern matching
+        "mobilic-staging-pr692.osc-fr1.scalingo.io",  # Frontend PR #692
+        "mobilic-api-staging-pr564.osc-fr1.scalingo.io",  # Backend PR #564
+        # Note: Add more PR review app domains as needed
     }
 
 

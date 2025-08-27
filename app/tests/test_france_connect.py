@@ -136,7 +136,13 @@ class TestFranceConnect(BaseTest):
 
         app.config.from_object(StagingConfig)
         staging_domains = app.config.get("TRUSTED_REDIRECT_DOMAINS", set())
-        self.assertEqual(staging_domains, {"mobilic.preprod.beta.gouv.fr"})
+        expected_staging_domains = {
+            "mobilic.preprod.beta.gouv.fr",
+            # Scalingo review apps support
+            "mobilic-staging-pr692.osc-fr1.scalingo.io",
+            "mobilic-api-staging-pr564.osc-fr1.scalingo.io",
+        }
+        self.assertEqual(staging_domains, expected_staging_domains)
 
         app.config.from_object(TestConfig)
         test_domains = app.config.get("TRUSTED_REDIRECT_DOMAINS", set())

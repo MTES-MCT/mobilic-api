@@ -500,10 +500,23 @@ def redirect_to_fc_authorize():
     if "create=true" in original_redirect_uri:
         state_data["create"] = True
 
-    if api_version == "v2" and app.config.get("MOBILIC_ENV") not in [
-        "prod",
-        "staging",
-    ]:
+    # Allow override for development environments and Scalingo review apps
+    def _is_scalingo_domain(uri):
+        try:
+            parsed = urlparse(uri)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+            return hostname == "scalingo.io" or hostname.endswith(
+                ".scalingo.io"
+            )
+        except Exception:
+            return False
+
+    if api_version == "v2" and (
+        app.config.get("MOBILIC_ENV") not in ["prod"]
+        or _is_scalingo_domain(original_redirect_uri)
+    ):
         fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
         if fc_override:
             # Use override without parameters to avoid FranceConnect URL mismatch
