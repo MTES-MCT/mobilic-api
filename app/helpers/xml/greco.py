@@ -479,7 +479,7 @@ def get_greco_xml_and_filename(control):
         sanction_code = None
         if extra:
             sanction_code = extra.get("sanction_code", "")
-        if not natinf:
+        if not sanction_code:
             sanction_code = r.get("sanction", "")
         natinf = sanction_code.replace("NATINF ", "")
         check_type = r.get("check_type")
@@ -555,7 +555,7 @@ def send_control_as_greco_xml(control):
         memory_file,
         mimetype="application/xml",
         as_attachment=True,
-        download_name=file_name,
+        download_name=file_name.replace(" ", "_"),
     )
 
 
