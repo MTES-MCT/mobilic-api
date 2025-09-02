@@ -41,7 +41,7 @@ def compute_certified_companies_output(
                 "expiration_date"
             ].strftime(date_format),
             "certification_level": (
-                certification.certification_medal.name
+                certification.certification_level.name
                 if certification
                 else CertificationLevel.NO_CERTIFICATION.name
             ),

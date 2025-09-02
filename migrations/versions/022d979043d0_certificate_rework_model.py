@@ -36,6 +36,7 @@ def upgrade():
         sa.Column("log_in_real_time", sa.Float(), nullable=False),
         sa.Column("admin_changes", sa.Float(), nullable=False),
         sa.Column("compliancy", sa.Integer(), nullable=False),
+        sa.Column("certification_level", sa.Integer(), nullable=False),
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column(
             "info",

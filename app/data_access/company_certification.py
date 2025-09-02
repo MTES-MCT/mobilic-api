@@ -74,7 +74,7 @@ class CompanyCertificationType(graphene.ObjectType):
         if current_certificate:
             return cls(
                 is_certified=current_certificate.certified,
-                certification_medal=current_certificate.certification_medal,
+                certification_medal=current_certificate.certification_level,
                 last_day_certified=current_certificate.expiration_date,
                 start_last_certification_period=start_last_certification_period,
                 certificate_criterias=CertificateCriterias(

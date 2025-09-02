@@ -1,5 +1,4 @@
 from app import db
-from app.domain.company import AT_LEAST_BRONZE_FILTER
 from app.models.company import Company
 from app.models.company_certification import CompanyCertification
 from app.models.company_stats import CompanyStats
@@ -62,7 +61,7 @@ def get_first_certification_date(company_id):
         db.session.query(db.func.min(CompanyCertification.attribution_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            AT_LEAST_BRONZE_FILTER,
+            CompanyCertification.certification_level_int > 0,
         )
         .first()
     )[0]

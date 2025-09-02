@@ -71,10 +71,12 @@ class TestCertificateCompanyApi(BaseTest):
         )
 
     def test_no_certificate(self):
+        attribution_date = date.today() - timedelta(days=10)
+        expiration_date = date.today() + timedelta(days=10)
         CompanyCertificationFactory.create(
             company_id=self.company.id,
-            attribution_date=date.today() - timedelta(days=10),
-            expiration_date=date.today() + timedelta(days=10),
+            attribution_date=attribution_date,
+            expiration_date=expiration_date,
             **no_certif_args,
         )
 

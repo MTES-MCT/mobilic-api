@@ -11,44 +11,44 @@ class TestCertificateMedals(TestCase):
             log_in_real_time=0.62, admin_changes=0.28, compliancy=0
         )
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.BRONZE
+            certification.certification_level, CertificationLevel.BRONZE
         )
 
         certification.admin_changes = 0.32
         self.assertEqual(
-            certification.certification_medal,
+            certification.certification_level,
             CertificationLevel.NO_CERTIFICATION,
         )
 
         certification.admin_changes = 0.18
         certification.log_in_real_time = 0.62
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.BRONZE
+            certification.certification_level, CertificationLevel.BRONZE
         )
 
         certification.compliancy = 2
         certification.log_in_real_time = 0.72
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.SILVER
+            certification.certification_level, CertificationLevel.SILVER
         )
 
         certification.admin_changes = 0.02
         certification.log_in_real_time = 0.93
         certification.compliancy = 6
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.GOLD
+            certification.certification_level, CertificationLevel.GOLD
         )
 
         certification.admin_changes = 0.005
         certification.log_in_real_time = 0.96
         certification.compliancy = 6
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.DIAMOND
+            certification.certification_level, CertificationLevel.DIAMOND
         )
 
         certification.admin_changes = 0.005
         certification.log_in_real_time = 0.96
         certification.compliancy = 0
         self.assertEqual(
-            certification.certification_medal, CertificationLevel.BRONZE
+            certification.certification_level, CertificationLevel.BRONZE
         )
