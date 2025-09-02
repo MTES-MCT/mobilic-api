@@ -487,22 +487,33 @@ def get_greco_xml_and_filename(control):
             RegulationCheck.type == check_type
         ).first()
 
-        # TODO: 13152 should not be observed ?
-        if natinf == "13152":
+        # skip weekly infractions
+        if natinf == "13152" or natinf == "11298":
+            continue
+
+        # skip new infractions about breaks
+        if natinf == "35187":
             continue
 
         short_id = str(idx_r + 1).zfill(4)
         id = f"100100{short_id}"
 
+        # Daily rest
         if natinf == "20525":
             date_start = datetime.fromisoformat(
                 extra.get("breach_period_start")
             )
             date_end = datetime.fromisoformat(extra.get("breach_period_end"))
 
+        # Max work
         if natinf == "11292" or natinf == "32083":
             date_start = datetime.fromisoformat(extra.get("work_range_start"))
             date_end = datetime.fromisoformat(extra.get("work_range_end"))
+
+        # No LIC
+        if natinf == "25666" or natinf == "23103":
+            date_start = control.history_start_date
+            date_end = control.history_end_date
 
         dict_variables = resolve_variables(
             regulation_check.variables, business
