@@ -244,9 +244,9 @@ def process_company(control, bdc, doc):
 
 def process_driver(control, bdc, doc, infractions):
     element_driver = ET.SubElement(doc, "Conducteur")
-    ET.SubElement(
-        ET.SubElement(element_driver, "id"), "DbValue"
-    ).text = "0000000001"
+    ET.SubElement(ET.SubElement(element_driver, "id"), "DbValue").text = (
+        "0000000001"
+    )
 
     add_content_element(element_driver, "nom", control.user_last_name)
     add_content_element(element_driver, "prenom", control.user_first_name)
@@ -439,9 +439,9 @@ def process_infractions(bdc, doc, infractions):
         ).text = "0000000001"
 
         element_recap = ET.SubElement(doc, "RecapInfraction")
-        ET.SubElement(
-            ET.SubElement(element_recap, "id"), "DbValue"
-        ).text = r.id
+        ET.SubElement(ET.SubElement(element_recap, "id"), "DbValue").text = (
+            r.id
+        )
         add_content_element(element_recap, "nATINF", r.natinf)
         add_content_element(element_recap, "nombre", str(1))
         add_content_element(element_recap, "aVerifier", str(1))
@@ -476,7 +476,12 @@ def get_greco_xml_and_filename(control):
         extra = r.get("extra")
         business_id = r.get("business_id", None)
         business = get_default_business(business_id=business_id)
-        natinf = extra.get("sanction_code").replace("NATINF ", "")
+        sanction_code = None
+        if extra:
+            sanction_code = extra.get("sanction_code", "")
+        if not natinf:
+            sanction_code = r.get("sanction", "")
+        natinf = sanction_code.replace("NATINF ", "")
         check_type = r.get("check_type")
         regulation_check = RegulationCheck.query.filter(
             RegulationCheck.type == check_type
