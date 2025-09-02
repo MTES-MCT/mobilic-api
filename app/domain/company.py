@@ -17,17 +17,8 @@ from app.models import (
     Mission,
     Activity,
 )
-from app.models.company_certification import (
-    CERTIFICATION_ADMIN_CHANGES_BRONZE,
-    CERTIFICATION_REAL_TIME_BRONZE,
-)
 from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
-
-AT_LEAST_BRONZE_FILTER = and_(
-    CompanyCertification.admin_changes <= CERTIFICATION_ADMIN_CHANGES_BRONZE,
-    CompanyCertification.log_in_real_time >= CERTIFICATION_REAL_TIME_BRONZE,
-)
 
 
 class SirenRegistrationStatus(str, Enum):
@@ -81,23 +72,30 @@ def get_last_day_of_certification(company_id):
         db.session.query(db.func.max(CompanyCertification.expiration_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            AT_LEAST_BRONZE_FILTER,
+            CompanyCertification.certification_level_int > 0,
         )
         .first()
     )[0]
 
 
 def get_current_certificate(company_id):
-    certifications = CompanyCertification.query.filter(
-        CompanyCertification.company_id == company_id,
-        CompanyCertification.expiration_date >= datetime.datetime.now().date(),
-    ).all()
-    if len(certifications) == 0:
-        return None
-
-    certifications.sort(key=lambda c: c.attribution_date, reverse=True)
-    certifications.sort(key=lambda c: c.certification_medal, reverse=True)
-    return certifications[0]
+    return (
+        CompanyCertification.query.filter(
+            CompanyCertification.company_id == company_id,
+            CompanyCertification.expiration_date
+            >= datetime.datetime.now().date(),
+            CompanyCertification.certification_level_int > 0,
+        )
+        .order_by(
+            desc(
+                CompanyCertification.certification_level_int
+            ),  # highest medal first
+            desc(
+                CompanyCertification.attribution_date
+            ),  # newest attribution first
+        )
+        .first()
+    )
 
 
 def get_start_last_certification_period(company_id):
@@ -105,7 +103,7 @@ def get_start_last_certification_period(company_id):
     certifications = (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            AT_LEAST_BRONZE_FILTER,
+            CompanyCertification.certification_level_int > 0,
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .all()
@@ -172,7 +170,7 @@ def find_certified_companies_query():
         )
         .filter(
             Company.accept_certification_communication,
-            AT_LEAST_BRONZE_FILTER,
+            CompanyCertification.certification_level_int > 0,
             CompanyCertification.expiration_date > now(),
         )
     )

@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+from sqlalchemy import event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import backref
 
@@ -53,9 +54,11 @@ class CompanyCertification(BaseModel):
     admin_changes = db.Column(db.Float, default=0.0, nullable=False)
     compliancy = db.Column(db.Integer, default=0, nullable=False)
     info = db.Column(JSONB(none_as_null=True), nullable=True)
+    certification_level_int = db.Column(
+        "certification_level", db.Integer, nullable=False
+    )
 
-    @property
-    def certification_medal(self):
+    def get_certification_level(self):
 
         if (
             self.compliancy >= CERTIFICATION_COMPLIANCY_DIAMOND
@@ -87,5 +90,25 @@ class CompanyCertification(BaseModel):
         return CertificationLevel.NO_CERTIFICATION
 
     @property
+    def certification_level(self) -> CertificationLevel:
+        if self.certification_level_int is None:
+            return self.get_certification_level()
+        return CertificationLevel(self.certification_level_int)
+
+    @certification_level.setter
+    def certification_level(self, value: CertificationLevel):
+        self.certification_level_int = int(value)
+
+    @property
     def certified(self):
-        return self.certification_medal >= CertificationLevel.BRONZE
+        return self.certification_level >= CertificationLevel.BRONZE
+
+
+@event.listens_for(CompanyCertification, "before_insert")
+@event.listens_for(CompanyCertification, "before_update")
+def set_certification(
+    mapper, connection, company_certification: CompanyCertification
+):
+    company_certification.certification_level = (
+        company_certification.get_certification_level()
+    )
