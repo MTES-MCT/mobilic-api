@@ -195,18 +195,22 @@ class CompaniesSignUp(AuthenticatedMutation):
 
 
 def sign_up_companies(siren, companies):
-    created_companies = [
-        sign_up_company(
-            usual_name=company.get("usual_name"),
-            siren=siren,
-            phone_number=company.get("phone_number", ""),
-            business_type=company.get("business_type", ""),
-            nb_workers=company.get("nb_workers", None),
-            sirets=[company.get("siret")],
-            send_email=len(companies) == 1,
-        )
-        for company in companies
-    ]
+    created_companies = []
+    for company in companies:
+        try:
+            created_company = sign_up_company(
+                usual_name=company.get("usual_name"),
+                siren=siren,
+                phone_number=company.get("phone_number", ""),
+                business_type=company.get("business_type", ""),
+                nb_workers=company.get("nb_workers", None),
+                sirets=[company.get("siret")],
+                send_email=len(companies) == 1,
+            )
+            created_companies.append(created_company)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            continue
 
     try:
         if len(companies) > 1:
@@ -276,25 +280,30 @@ def sign_up_company(
 
         contact_id = brevo.create_contact(contact_data)
 
-        company_id = brevo.create_company(
-            CreateCompanyData(
-                company_name=company.usual_name,
-                siren=int(company.siren),
-                phone_number=(
-                    company.phone_number if company.phone_number else None
-                ),
+        if contact_id is None:
+            app.logger.warning(
+                "Brevo API key not configured, skipping CRM sync"
             )
-        )
+        else:
+            company_id = brevo.create_company(
+                CreateCompanyData(
+                    company_name=company.usual_name,
+                    siren=int(company.siren),
+                    phone_number=(
+                        company.phone_number if company.phone_number else None
+                    ),
+                )
+            )
 
-        brevo.link_company_and_contact(
-            LinkCompanyContactData(
-                company_id=company_id,
-                contact_id=contact_id,
-            )
-        )
-    except BrevoRequestError as e:
+            if company_id is not None:
+                brevo.link_company_and_contact(
+                    LinkCompanyContactData(
+                        company_id=company_id,
+                        contact_id=contact_id,
+                    )
+                )
+    except Exception as e:
         sentry_sdk.capture_exception(e)
-        app.logger.exception(e)
 
     if send_email:
         try:
