@@ -4,7 +4,13 @@ from dateutil.relativedelta import relativedelta
 from flask.ctx import AppContext
 
 from app import app, db
+from app.domain.certificate_criteria import CERTIFICATE_LIFETIME_MONTH
 from app.models import CompanyCertification
+from app.models.company_certification import (
+    CERTIFICATION_ADMIN_CHANGES_SILVER,
+    CERTIFICATION_REAL_TIME_SILVER,
+    CERTIFICATION_COMPLIANCY_SILVER,
+)
 from app.seed import (
     CompanyFactory,
 )
@@ -42,28 +48,28 @@ class TestCompaniesAboutToLoseCertificate(BaseTest):
             CompanyCertification(
                 company=self.company,
                 attribution_date=attribution_date,
-                expiration_date=attribution_date + relativedelta(months=6),
-                be_active=True,
-                be_compliant=True,
-                not_too_many_changes=True,
-                validate_regularly=True,
-                log_in_real_time=True,
+                expiration_date=attribution_date
+                + relativedelta(months=CERTIFICATE_LIFETIME_MONTH),
+                admin_changes=CERTIFICATION_ADMIN_CHANGES_SILVER,
+                compliancy=CERTIFICATION_COMPLIANCY_SILVER,
+                log_in_real_time=CERTIFICATION_REAL_TIME_SILVER,
             )
         )
+        db.session.commit()
 
     def certif_ko(self, attribution_date):
         db.session.add(
             CompanyCertification(
                 company=self.company,
                 attribution_date=attribution_date,
-                expiration_date=attribution_date + relativedelta(months=1),
-                be_active=False,
-                be_compliant=True,
-                not_too_many_changes=True,
-                validate_regularly=True,
-                log_in_real_time=True,
+                expiration_date=attribution_date
+                + relativedelta(months=CERTIFICATE_LIFETIME_MONTH),
+                admin_changes=0.5,
+                compliancy=0,
+                log_in_real_time=0.0,
             )
         )
+        db.session.commit()
 
     def certif_oks(self, months_ago):
         for month_ago in months_ago:
@@ -107,7 +113,7 @@ class TestCompaniesAboutToLoseCertificate(BaseTest):
         self.assertEqual(len(res), 0)
 
     def test_ok_4_months_ago_ko_after(self):
-        self.certif_oks([NB_MONTHS_AGO + 1])
+        self.certif_oks([NB_MONTHS_AGO])
         self.certif_kos(range(NB_MONTHS_AGO))
         res = self.get_list_companies()
 
