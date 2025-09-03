@@ -134,7 +134,14 @@ class BrevoApiClient:
             response = self._session.post(url, json=create_company_payload)
             response.raise_for_status()
             return response.json()["id"]
-        except ApiException as e:
+        except requests.exceptions.HTTPError as e:
+            app.logger.error(
+                f"Brevo API error: {e.response.status_code} - {e.response.text}"
+            )
+            raise BrevoRequestError(
+                f"Request to Brevo API failed: {e.response.status_code} - {e.response.text}"
+            )
+        except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
@@ -145,7 +152,14 @@ class BrevoApiClient:
             response = self._session.patch(url, json=payload)
             response.raise_for_status()
             return response
-        except ApiException as e:
+        except requests.exceptions.HTTPError as e:
+            app.logger.error(
+                f"Brevo API error: {e.response.status_code} - {e.response.text}"
+            )
+            raise BrevoRequestError(
+                f"Request to Brevo API failed: {e.response.status_code} - {e.response.text}"
+            )
+        except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
@@ -320,31 +334,31 @@ class BrevoApiClient:
 
             if company_data.get("company_creation_date"):
                 try:
-                    deal_payload["attributes"][
-                        "company_creation_date"
-                    ] = company_data["company_creation_date"].isoformat()
+                    deal_payload["attributes"]["company_creation_date"] = (
+                        company_data["company_creation_date"].isoformat()
+                    )
                 except (AttributeError, ValueError):
                     pass
 
             if "invited_employees_count" in company_data:
-                deal_payload["attributes"][
-                    "invited_employees_count"
-                ] = company_data["invited_employees_count"]
+                deal_payload["attributes"]["invited_employees_count"] = (
+                    company_data["invited_employees_count"]
+                )
 
             if "invitation_percentage" in company_data:
-                deal_payload["attributes"][
-                    "invitation_percentage"
-                ] = company_data["invitation_percentage"]
+                deal_payload["attributes"]["invitation_percentage"] = (
+                    company_data["invitation_percentage"]
+                )
 
             if "total_employees_count" in company_data:
-                deal_payload["attributes"][
-                    "total_employees_count"
-                ] = company_data["total_employees_count"]
+                deal_payload["attributes"]["total_employees_count"] = (
+                    company_data["total_employees_count"]
+                )
 
             if "validated_missions_count" in company_data:
-                deal_payload["attributes"][
-                    "validated_missions_count"
-                ] = company_data["validated_missions_count"]
+                deal_payload["attributes"]["validated_missions_count"] = (
+                    company_data["validated_missions_count"]
+                )
 
             url = f"{self.BASE_URL}/crm/deals"
             response = self._session.post(url, json=deal_payload)
