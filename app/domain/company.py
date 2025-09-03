@@ -84,7 +84,6 @@ def get_current_certificate(company_id):
             CompanyCertification.company_id == company_id,
             CompanyCertification.expiration_date
             >= datetime.datetime.now().date(),
-            CompanyCertification.certification_level_int > 0,
         )
         .order_by(
             desc(
