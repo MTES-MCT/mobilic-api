@@ -71,11 +71,12 @@ class CompanyCertificationType(graphene.ObjectType):
         start_last_certification_period = get_start_last_certification_period(
             company_id
         )
+        last_day_certified = get_last_day_of_certification(company_id)
         if current_certificate:
             return cls(
                 is_certified=current_certificate.certified,
                 certification_medal=current_certificate.certification_level,
-                last_day_certified=current_certificate.expiration_date,
+                last_day_certified=last_day_certified,
                 start_last_certification_period=start_last_certification_period,
                 certificate_criterias=CertificateCriterias(
                     **{
@@ -85,7 +86,6 @@ class CompanyCertificationType(graphene.ObjectType):
                 ),
             )
         else:
-            last_day_certified = get_last_day_of_certification(company_id)
             return cls(
                 is_certified=False,
                 certification_medal=CertificationLevel.NO_CERTIFICATION,
