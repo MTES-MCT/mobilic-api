@@ -55,6 +55,10 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
 
     siren_api_info_last_update = db.Column(db.Date, nullable=False, index=True)
 
+    nb_certificate_badge_request = db.Column(
+        db.Integer, default=0, nullable=False
+    )
+
     __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
 
     @validates("siren_api_info")

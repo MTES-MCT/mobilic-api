@@ -1,13 +1,18 @@
 from PIL import Image, ImageDraw, ImageFont
 
+from app import db
+
 
 def get_company_certificate_badge(company_id):
     from app import get_current_certificate
     from app.models import Company
 
-    print("coucou")
     company = Company.query.get(company_id)
     current_certificate = get_current_certificate(company_id)
+
+    if company:
+        company.nb_certificate_badge_request += 1
+        db.session.commit()
 
     if (
         not company
