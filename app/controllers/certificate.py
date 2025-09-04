@@ -1,4 +1,5 @@
 import datetime
+import io
 import re
 
 import graphene
@@ -12,6 +13,7 @@ from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
     compute_certified_companies_output,
 )
+from app.domain.certificate import get_company_certificate_badge
 from app.domain.company import (
     change_company_certification_communication_pref,
     get_companies_by_siren,
@@ -181,3 +183,19 @@ class AddScenarioTestingResult(AuthenticatedMutation):
             db.session.add(new_scenario_testing)
 
         return Void(success=True)
+
+
+@app.route("/company-certification-badge/<company_id>")
+def company_certification_badge(company_id):
+    img = get_company_certificate_badge(company_id=company_id)
+
+    img_io = io.BytesIO()
+    img.save(img_io, "PNG")
+    img_io.seek(0)
+
+    return send_file(
+        img_io,
+        mimetype="image/png",
+        as_attachment=False,
+        download_name="certificate.png",
+    )
