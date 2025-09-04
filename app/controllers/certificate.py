@@ -1,4 +1,5 @@
 import datetime
+import io
 import re
 
 import graphene
@@ -12,6 +13,7 @@ from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
     compute_certified_companies_output,
 )
+from app.domain.certificate import get_company_certificate_badge
 from app.domain.company import (
     change_company_certification_communication_pref,
     get_companies_by_siren,
@@ -31,9 +33,6 @@ from app.domain.scenario_testing import (
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import graphene_enum_type
-from app.helpers.pdf.company_certificate import (
-    generate_company_certificate_pdf,
-)
 from app.helpers.time import end_of_month
 from app.models import Company, ScenarioTesting, Employment
 from app.models.scenario_testing import Action, Scenario
@@ -186,23 +185,17 @@ class AddScenarioTestingResult(AuthenticatedMutation):
         return Void(success=True)
 
 
-@app.route("/companies/download_certificate", methods=["POST"])
-@use_kwargs({"company_id": fields.Int(required=True)}, apply=True)
-@with_authorization_policy(
-    company_admin,
-    get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
-)
-def download_certificate(company_id):
+@app.route("/company-certification-badge/<company_id>")
+def company_certification_badge(company_id):
+    img = get_company_certificate_badge(company_id=company_id)
 
-    company_certification = get_current_certificate(company_id)
+    img_io = io.BytesIO()
+    img.save(img_io, "PNG")
+    img_io.seek(0)
 
-    if company_certification:
-        pdf = generate_company_certificate_pdf(company_certification)
-
-        return send_file(
-            pdf,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name="Certificat_Mobilic.pdf",
-        )
-    return "", 204
+    return send_file(
+        img_io,
+        mimetype="image/png",
+        as_attachment=False,
+        download_name="certificate.png",
+    )
