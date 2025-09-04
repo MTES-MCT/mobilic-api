@@ -31,9 +31,6 @@ from app.domain.scenario_testing import (
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.graphene_types import graphene_enum_type
-from app.helpers.pdf.company_certificate import (
-    generate_company_certificate_pdf,
-)
 from app.helpers.time import end_of_month
 from app.models import Company, ScenarioTesting, Employment
 from app.models.scenario_testing import Action, Scenario
@@ -184,25 +181,3 @@ class AddScenarioTestingResult(AuthenticatedMutation):
             db.session.add(new_scenario_testing)
 
         return Void(success=True)
-
-
-@app.route("/companies/download_certificate", methods=["POST"])
-@use_kwargs({"company_id": fields.Int(required=True)}, apply=True)
-@with_authorization_policy(
-    company_admin,
-    get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
-)
-def download_certificate(company_id):
-
-    company_certification = get_current_certificate(company_id)
-
-    if company_certification:
-        pdf = generate_company_certificate_pdf(company_certification)
-
-        return send_file(
-            pdf,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name="Certificat_Mobilic.pdf",
-        )
-    return "", 204
