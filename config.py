@@ -72,6 +72,7 @@ class Config:
         "USER_READ_TOKEN_EXPIRATION", timedelta(days=7)
     )
     HMAC_SIGNING_KEY = os.environ.get("HMAC_SIGNING_KEY")
+    HASH_ID_SECRET = os.environ.get("HASH_ID_SECRET", "secret")
     USER_CONTROL_HISTORY_DEPTH = timedelta(
         days=int(os.environ.get("USER_CONTROL_HISTORY_DEPTH", 28))
     )

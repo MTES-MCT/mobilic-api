@@ -7,7 +7,7 @@ from flask import jsonify, request, abort, send_file
 from flask_apispec import use_kwargs
 from webargs import fields
 
-from app import app, db
+from app import app, db, hashids
 from app.controllers.utils import Void, atomic_transaction
 from app.data_access.certificate import (
     PUBLIC_CERTIFICATION_DATE_FORMAT,
@@ -20,11 +20,9 @@ from app.domain.company import (
     get_company_by_siret,
     find_companies_by_name,
     find_certified_companies_query,
-    get_current_certificate,
 )
 from app.domain.permissions import (
     companies_admin,
-    company_admin,
     only_self_employment,
 )
 from app.domain.scenario_testing import (
@@ -185,8 +183,9 @@ class AddScenarioTestingResult(AuthenticatedMutation):
         return Void(success=True)
 
 
-@app.route("/company-certification-badge/<company_id>")
-def company_certification_badge(company_id):
+@app.route("/company-certification-badge/<company_hash_id>")
+def company_certification_badge(company_hash_id):
+    company_id = hashids.decode(company_hash_id)
     img = get_company_certificate_badge(company_id=company_id)
 
     img_io = io.BytesIO()
