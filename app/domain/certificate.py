@@ -1,10 +1,10 @@
 from PIL import Image, ImageDraw, ImageFont
 
 from app import db
+from app.domain.company import get_current_certificate
 
 
 def get_company_certificate_badge(company_id):
-    from app import get_current_certificate
     from app.models import Company
 
     company = Company.query.get(company_id)

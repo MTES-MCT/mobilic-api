@@ -8,6 +8,7 @@ from flask_apispec.extension import FlaskApiSpec
 from flask_compress import Compress
 from flask_cors import CORS
 from flask_migrate import Migrate
+from hashids import Hashids
 from werkzeug.exceptions import HTTPException
 
 import config
@@ -50,6 +51,7 @@ for name, filter in JINJA_CUSTOM_FILTERS.items():
 
 from app.helpers.mail import mailer
 
+hashids = Hashids(salt=app.config["HASH_ID_SECRET"], min_length=8)
 
 db = SQLAlchemyWithStrongRefSession(
     app, session_options={"expire_on_commit": False}
