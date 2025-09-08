@@ -32,7 +32,7 @@ def get_company_certificate_badge(company_id):
         f"Valide pour l'entreprise {company.usual_name.upper()}",
         f"jusqu'au {current_certificate.expiration_date.strftime('%d/%m/%Y')}",
     ]
-    font_path = "fonts/Roboto-Medium.ttf"
+    font_path = "fonts/Marianne-Bold.ttf"
     font_size = 20
     font = ImageFont.truetype(font_path, font_size)
 
