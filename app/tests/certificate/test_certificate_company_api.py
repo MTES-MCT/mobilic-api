@@ -1,7 +1,7 @@
 from datetime import timedelta, date, datetime
 from dateutil.relativedelta import relativedelta
 
-from app import get_current_certificate
+from app.domain.company import get_current_certificate
 from app.models.company_certification import (
     CERTIFICATION_ADMIN_CHANGES_SILVER,
     CERTIFICATION_REAL_TIME_SILVER,
