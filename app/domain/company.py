@@ -72,11 +72,7 @@ def get_last_day_of_certification(company_id):
         db.session.query(db.func.max(CompanyCertification.expiration_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.certification_level_int > 0,
         )
         .first()
     )[0]
@@ -86,15 +82,17 @@ def get_current_certificate(company_id):
     return (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
             CompanyCertification.expiration_date
             >= datetime.datetime.now().date(),
         )
-        .order_by(desc(CompanyCertification.attribution_date))
+        .order_by(
+            desc(
+                CompanyCertification.certification_level_int
+            ),  # highest medal first
+            desc(
+                CompanyCertification.attribution_date
+            ),  # newest attribution first
+        )
         .first()
     )
 
@@ -104,11 +102,7 @@ def get_start_last_certification_period(company_id):
     certifications = (
         CompanyCertification.query.filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.certification_level_int > 0,
         )
         .order_by(desc(CompanyCertification.attribution_date))
         .all()
@@ -156,10 +150,6 @@ def find_companies_by_name(company_name):
     ).all()
 
 
-def find_companies_by_ids(company_ids):
-    return Company.query.filter(Company.id.in_(company_ids)).all()
-
-
 def find_certified_companies_query():
     return (
         db.session.query(
@@ -179,29 +169,9 @@ def find_certified_companies_query():
         )
         .filter(
             Company.accept_certification_communication,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.certification_level_int > 0,
             CompanyCertification.expiration_date > now(),
         )
-    )
-
-
-def find_active_company_ids_in_period(start_period, end_period):
-    return (
-        db.session.query(Company)
-        .join(
-            CompanyCertification, CompanyCertification.company_id == Company.id
-        )
-        .filter(
-            CompanyCertification.be_active,
-            CompanyCertification.attribution_date >= start_period,
-            CompanyCertification.attribution_date <= end_period,
-        )
-        .with_entities(Company.id)
-        .all()
     )
 
 

@@ -1,12 +1,11 @@
 from flask_jwt_extended import current_user
 
 from app import db
+from app.domain.permissions import company_admin
 from app.models import MissionAutoValidation
 
 
 def create_mission_auto_validation(for_user, mission, reception_time):
-
-    from app import company_admin
 
     is_user_admin = company_admin(current_user, mission.company_id)
 

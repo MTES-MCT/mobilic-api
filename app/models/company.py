@@ -6,7 +6,7 @@ from sqlalchemy import text, event
 
 from app.helpers.employment import WithEmploymentHistory
 from app.helpers.siren import SirenAPIClient
-from app.helpers.time import VERY_LONG_AGO, to_datetime
+from app.helpers.time import VERY_LONG_AGO
 from app.models import User
 from app.models.base import BaseModel
 from app import db
@@ -55,6 +55,10 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
 
     siren_api_info_last_update = db.Column(db.Date, nullable=False, index=True)
 
+    nb_certificate_badge_request = db.Column(
+        db.Integer, default=0, nullable=False
+    )
+
     __table_args__ = (db.Constraint(name="only_one_company_per_siret"),)
 
     @validates("siren_api_info")
@@ -90,17 +94,6 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
         active_user_ids = self.users_ids_between(start, end)
         users = User.query.filter(User.id.in_(active_user_ids))
         return users
-
-    def get_drivers(self, start, end):
-        drivers = []
-        users = self.users_between(start, end)
-        for user in users:
-            # a driver can have admin rights
-            if user.has_admin_rights(
-                self.id
-            ) is False or user.first_activity_after(to_datetime(start)):
-                drivers.append(user)
-        return drivers
 
     def get_admins(self, start, end):
         safe_end = end or date.today()
@@ -153,17 +146,6 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
                 ),
             )
         )
-
-    @cached_property
-    def is_certified(self):
-        today = date.today()
-        for company_certification in self.certifications:
-            if (
-                today <= company_certification.expiration_date
-                and company_certification.certified
-            ):
-                return True
-        return False
 
 
 @event.listens_for(Company, "before_insert")
