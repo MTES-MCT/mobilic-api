@@ -103,6 +103,9 @@ class CompanyCertification(BaseModel):
     def certified(self):
         return self.certification_level >= CertificationLevel.BRONZE
 
+    def __repr__(self):
+        return f"<Company Certification {self.id} : company_id={self.company_id} - {self.certification_level.name} {self.attribution_date} -> {self.expiration_date}>"
+
 
 @event.listens_for(CompanyCertification, "before_insert")
 @event.listens_for(CompanyCertification, "before_update")

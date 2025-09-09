@@ -3,6 +3,7 @@ import json
 import graphene
 from graphene.types.generic import GenericScalar
 
+from app import hashids
 from app.models.company_certification import CertificationLevel
 from app.domain.company import (
     get_current_certificate,
@@ -64,6 +65,9 @@ class CompanyCertificationType(graphene.ObjectType):
         CertificateCriterias,
         description="Critères de certificat du mois en cours",
     )
+    badge_url = graphene.String(
+        description="Url pour accéder au badge de certificat pour l'entreprise."
+    )
 
     @classmethod
     def from_company_id(cls, company_id):
@@ -72,6 +76,9 @@ class CompanyCertificationType(graphene.ObjectType):
             company_id
         )
         last_day_certified = get_last_day_of_certification(company_id)
+        badge_url = (
+            f"/company-certification-badge/{hashids.encode(company_id)}"
+        )
         if current_certificate:
             return cls(
                 is_certified=current_certificate.certified,
@@ -84,6 +91,7 @@ class CompanyCertificationType(graphene.ObjectType):
                         for k in CertificateCriterias._meta.fields.keys()
                     }
                 ),
+                badge_url=badge_url,
             )
         else:
             return cls(
@@ -92,4 +100,5 @@ class CompanyCertificationType(graphene.ObjectType):
                 last_day_certified=last_day_certified,
                 start_last_certification_period=start_last_certification_period,
                 certificate_criterias=None,
+                badge_url=badge_url,
             )
