@@ -17,17 +17,38 @@ from app.models.company_certification import (
     CERTIFICATION_ADMIN_CHANGES_DIAMOND,
     CERTIFICATION_COMPLIANCY_DIAMOND,
 )
+from app.models.regulation_check import RegulationCheckType
 from app.seed.scenarios.certificated_company import (
     BRONZE_COMPANY_NAME,
     SILVER_COMPANY_NAME,
     GOLD_COMPANY_NAME,
     DIAMOND_COMPANY_NAME,
     NO_CERTIF_COMPANY_NAME,
+    AVERAGE_1_COMPANY_NAME,
+    AVERAGE_2_COMPANY_NAME,
 )
 
 
 def scenario_run_certificate():
     compute_company_certifications(date.today())
+
+    CompanyCertification.query.filter(
+        CompanyCertification.company_id.in_(
+            db.session.query(Company.id).filter(
+                Company.usual_name.in_(
+                    [
+                        BRONZE_COMPANY_NAME,
+                        SILVER_COMPANY_NAME,
+                        GOLD_COMPANY_NAME,
+                        DIAMOND_COMPANY_NAME,
+                        AVERAGE_2_COMPANY_NAME,
+                        AVERAGE_1_COMPANY_NAME,
+                    ]
+                )
+            )
+        )
+    ).delete(synchronize_session=False)
+    db.session.commit()
 
     # create fake certificate results
     attribution_date, expiration_date = previous_month_period(date.today())
@@ -96,5 +117,53 @@ def scenario_run_certificate():
             admin_changes=1.0,
             compliancy=4,
             company_id=company_no_certif.id,
+        )
+    )
+    company_average_1 = Company.query.filter(
+        Company.usual_name == AVERAGE_1_COMPANY_NAME
+    ).first()
+    db.session.add(
+        CompanyCertification(
+            attribution_date=attribution_date,
+            expiration_date=expiration_date,
+            log_in_real_time=0.75,
+            admin_changes=0.15,
+            compliancy=3,
+            company_id=company_average_1.id,
+            info={
+                "alerts": [
+                    {"type": RegulationCheckType.MINIMUM_DAILY_REST},
+                    {"type": RegulationCheckType.MAXIMUM_WORK_DAY_TIME},
+                    {"type": RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK},
+                ]
+            },
+        )
+    )
+    company_average_2 = Company.query.filter(
+        Company.usual_name == AVERAGE_2_COMPANY_NAME
+    ).first()
+    db.session.add(
+        CompanyCertification(
+            attribution_date=attribution_date,
+            expiration_date=expiration_date,
+            log_in_real_time=0.40,
+            admin_changes=0.30,
+            compliancy=1,
+            company_id=company_average_2.id,
+            info={
+                "alerts": [
+                    {"type": RegulationCheckType.MINIMUM_DAILY_REST},
+                    {"type": RegulationCheckType.MAXIMUM_WORK_DAY_TIME},
+                    {"type": RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK},
+                    {
+                        "type": RegulationCheckType.ENOUGH_BREAK,
+                        "extra_field": "not_enough_break",
+                    },
+                    {
+                        "type": RegulationCheckType.ENOUGH_BREAK,
+                        "extra_field": "too_much_uninterrupted_work_time",
+                    },
+                ]
+            },
         )
     )
