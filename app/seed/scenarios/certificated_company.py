@@ -24,6 +24,8 @@ BRONZE_COMPANY_NAME = "Bronze Corp"
 SILVER_COMPANY_NAME = "Argent Corp"
 GOLD_COMPANY_NAME = "Or Corp"
 DIAMOND_COMPANY_NAME = "Diamant Corp"
+AVERAGE_1_COMPANY_NAME = "Average Corp 1"
+AVERAGE_2_COMPANY_NAME = "Average Corp 2"
 
 
 def run_scenario_certificated():
@@ -59,6 +61,16 @@ def run_scenario_certificated():
         siren="000011115",
         accept_certification_communication=True,
     )
+    company_average_1 = CompanyFactory.create(
+        usual_name=AVERAGE_1_COMPANY_NAME,
+        siren="000011116",
+        accept_certification_communication=True,
+    )
+    company_average_2 = CompanyFactory.create(
+        usual_name=AVERAGE_2_COMPANY_NAME,
+        siren="000011117",
+        accept_certification_communication=True,
+    )
 
     admin = UserFactory.create(
         email=ADMIN_EMAIL,
@@ -87,6 +99,8 @@ def run_scenario_certificated():
         company_gold,
         company_diamond,
         company_no_certif,
+        company_average_1,
+        company_average_2,
     ]:
         EmploymentFactory.create(
             company=c, submitter=admin, user=admin, has_admin_rights=True
@@ -207,6 +221,8 @@ def run_scenario_certificated():
         company_gold,
         company_diamond,
         company_no_certif,
+        company_average_1,
+        company_average_2,
     ]:
         log_and_validate_mission(
             mission_name="Mission courte",
