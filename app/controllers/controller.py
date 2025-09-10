@@ -87,7 +87,7 @@ def redirect_to_ac_logout():
         app.logger.warning(
             "Attempt do disconnect from AgentConnect a user who is not logged in"
         )
-        return redirect(unquote("/logout"), code=302)
+        return redirect("/logout", code=302)
 
     query_params = {"state": uuid4().hex, "id_token_hint": ac_token_hint}
 
