@@ -39,12 +39,11 @@ class Config:
     # FranceConnect v1 (legacy, delete in september 2025)
     FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
     FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
-    FC_URL = os.environ.get(
-        "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
-    )
 
-    # FranceConnect v2
-    FC_V2_URL = os.environ.get("FC_V2_URL")
+    # FranceConnect v2 (if set, forces V2; otherwise V1 default)
+    FC_V2_URL = os.environ.get(
+        "FC_V2_URL", "https://app.franceconnect.gouv.fr"
+    )
     FC_V2_CLIENT_ID = os.environ.get("FC_V2_CLIENT_ID")
     FC_V2_CLIENT_SECRET = os.environ.get("FC_V2_CLIENT_SECRET")
     FC_TIMEOUT = int(os.environ.get("FC_TIMEOUT", "10"))
@@ -153,9 +152,6 @@ class Config:
     TRUSTED_REDIRECT_DOMAINS = {
         "mobilic.beta.gouv.fr",
         "mobilic.preprod.beta.gouv.fr",
-        # Scalingo review apps
-        "mobilic-staging-pr692.osc-fr1.scalingo.io",
-        "mobilic-api-staging-pr564.osc-fr1.scalingo.io",
     }
 
     # Trusted FranceConnect domains for authorization/logout URLs
@@ -193,10 +189,7 @@ class DevConfig(Config):
 class StagingConfig(Config):
     TRUSTED_REDIRECT_DOMAINS = {
         "mobilic.preprod.beta.gouv.fr",
-        # Support for all Scalingo review apps with pattern matching
-        "mobilic-staging-pr692.osc-fr1.scalingo.io",  # Frontend PR #692
-        "mobilic-api-staging-pr564.osc-fr1.scalingo.io",  # Backend PR #564
-        # Note: Add more PR review app domains as needed
+        # Note: Add PR review app domains as needed for future PRs
     }
 
 

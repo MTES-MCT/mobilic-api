@@ -279,40 +279,20 @@ def make_secure_request(
 
 
 def get_fc_config() -> Tuple[str, str, str, str, int]:
-    base_url = app.config.get(
-        "FC_V2_URL",
-        app.config.get("FC_URL", "https://fcp.integ01.dev-franceconnect.fr"),
+    # Simple: FC_V2_URL defined = V2, otherwise V1 fallback
+    base_url = app.config.get("FC_V2_URL", "https://app.franceconnect.gouv.fr")
+    api_version = "v2" if "FC_V2_URL" in app.config else "v1"
+
+    # Fallback pattern: V2 credentials first, then V1
+    client_id = app.config.get("FC_V2_CLIENT_ID") or app.config.get(
+        "FC_CLIENT_ID"
     )
-    client_id = app.config.get(
-        "FC_V2_CLIENT_ID", app.config.get("FC_CLIENT_ID")
-    )
-    client_secret = app.config.get(
-        "FC_V2_CLIENT_SECRET", app.config.get("FC_CLIENT_SECRET")
+    client_secret = app.config.get("FC_V2_CLIENT_SECRET") or app.config.get(
+        "FC_CLIENT_SECRET"
     )
     timeout = int(app.config.get("FC_TIMEOUT", 10))
-    api_version = _detect_api_version(base_url)
+
     return base_url, client_id, client_secret, api_version, timeout
-
-
-def _detect_api_version(base_url: str) -> str:
-    if "FC_V2_URL" in app.config:
-        return "v2"
-
-    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
-    url_sandbox_pattern = {
-        "v2": "fcp-low.sbx.dev-franceconnect.fr",
-        "v1": "fcp-low.integ01.dev-franceconnect.fr",  # TODO: Remove after September 2025 # NOSONAR
-    }
-
-    for key, value in url_sandbox_pattern.items():
-        if base_url == value:
-            return key
-
-    # TODO: Remove V1 fallback after September 2025 when V1 is shut down # NOSONAR
-    # Default to v1 for all other cases (including app.franceconnect.gouv.fr)
-    # Note: app.franceconnect.gouv.fr is used for both v1 and v2 production
-    # The distinction is made via endpoint paths (/api/v1/ vs /api/v2/)
-    return "v1"
 
 
 def _fetch_access_token(
