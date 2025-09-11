@@ -60,13 +60,6 @@ def link_company_to_software(company_id, client_id):
     return new_link
 
 
-def change_company_certification_communication_pref(company_ids, accept):
-    Company.query.filter(Company.id.in_(company_ids)).update(
-        {"accept_certification_communication": accept},
-        synchronize_session=False,
-    )
-
-
 def get_last_day_of_certification(company_id):
     return (
         db.session.query(db.func.max(CompanyCertification.expiration_date))
@@ -168,7 +161,6 @@ def find_certified_companies_query():
             CompanyCertification, CompanyCertification.company_id == Company.id
         )
         .filter(
-            Company.accept_certification_communication,
             CompanyCertification.certification_level_int > 0,
             CompanyCertification.expiration_date > now(),
         )

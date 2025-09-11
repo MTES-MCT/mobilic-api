@@ -2,7 +2,6 @@ from app.controllers.contacts import *
 import graphene
 
 from app.controllers.certificate import (
-    EditCompanyCommunicationSetting,
     SnoozeCertificateInfo,
     AddScenarioTestingResult,
 )
@@ -283,9 +282,6 @@ class PrivateMutations(graphene.ObjectType):
     dismiss_employment_token = DismissEmploymentToken.Field()
     dismiss_company_token = DismissCompanyToken.Field()
     generate_company_token = GenerateCompanyToken.Field()
-    edit_company_communication_setting = (
-        EditCompanyCommunicationSetting.Field()
-    )
     snooze_certificate_info = SnoozeCertificateInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()

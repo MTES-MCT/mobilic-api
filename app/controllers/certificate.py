@@ -15,14 +15,12 @@ from app.data_access.certificate import (
 )
 from app.domain.certificate import get_company_certificate_badge
 from app.domain.company import (
-    change_company_certification_communication_pref,
     get_companies_by_siren,
     get_company_by_siret,
     find_companies_by_name,
     find_certified_companies_query,
 )
 from app.domain.permissions import (
-    companies_admin,
     only_self_employment,
 )
 from app.domain.scenario_testing import (
@@ -86,37 +84,6 @@ def is_company_certified(siren):
     )
 
     return jsonify([c for c in certified_companies]), 200
-
-
-class EditCompanyCommunicationSetting(AuthenticatedMutation):
-    class Arguments:
-        company_ids = graphene.List(
-            graphene.Int,
-            required=True,
-            description="Identifiants des entreprises.",
-        )
-        accept_certification_communication = graphene.Boolean(
-            required=True,
-            description="True si la communication sur la certification est acceptée",
-        )
-
-    Output = Void
-
-    @classmethod
-    @with_authorization_policy(
-        companies_admin,
-        get_target_from_args=lambda cls, _, info, **kwargs: kwargs[
-            "company_ids"
-        ],
-        error_message="You need to be a company admin to be able to edit company communication settings",
-    )
-    def mutate(cls, _, info, company_ids, accept_certification_communication):
-        with atomic_transaction(commit_at_end=True):
-            change_company_certification_communication_pref(
-                company_ids, accept_certification_communication
-            )
-
-        return Void(success=True)
 
 
 class SnoozeCertificateInfo(AuthenticatedMutation):

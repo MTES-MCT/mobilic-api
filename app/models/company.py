@@ -49,8 +49,6 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
         db.String(24), unique=False, nullable=True, default=""
     )
 
-    accept_certification_communication = db.Column(db.Boolean, nullable=True)
-
     has_ceased_activity = db.Column(db.Boolean, nullable=False, default=False)
 
     siren_api_info_last_update = db.Column(db.Date, nullable=False, index=True)

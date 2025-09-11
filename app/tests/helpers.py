@@ -897,7 +897,6 @@ class ApiRequests:
         user(id: $id) {
           adminedCompanies {
             id
-            acceptCertificationCommunication
             currentCompanyCertification {
                 isCertified
                 lastDayCertified
@@ -947,20 +946,6 @@ class ApiRequests:
               }
             }
           }
-        }
-      }
-    """
-
-    edit_company_communication_setting = """
-      mutation editCompanyCommunicationSetting(
-        $companyIds: [Int]!
-        $acceptCertificationCommunication: Boolean!
-      ) {
-        editCompanyCommunicationSetting(
-          companyIds: $companyIds
-          acceptCertificationCommunication: $acceptCertificationCommunication
-        ) {
-          success
         }
       }
     """
