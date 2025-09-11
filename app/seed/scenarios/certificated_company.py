@@ -39,37 +39,30 @@ def run_scenario_certificated():
     company_no_certif = CompanyFactory.create(
         usual_name=NO_CERTIF_COMPANY_NAME,
         siren="000011111",
-        accept_certification_communication=True,
     )
     company_bronze = CompanyFactory.create(
         usual_name=BRONZE_COMPANY_NAME,
         siren="000011112",
-        accept_certification_communication=True,
     )
     company_silver = CompanyFactory.create(
         usual_name=SILVER_COMPANY_NAME,
         siren="000011113",
-        accept_certification_communication=True,
     )
     company_gold = CompanyFactory.create(
         usual_name=GOLD_COMPANY_NAME,
         siren="000011114",
-        accept_certification_communication=True,
     )
     company_diamond = CompanyFactory.create(
         usual_name=DIAMOND_COMPANY_NAME,
         siren="000011115",
-        accept_certification_communication=True,
     )
     company_average_1 = CompanyFactory.create(
         usual_name=AVERAGE_1_COMPANY_NAME,
         siren="000011116",
-        accept_certification_communication=True,
     )
     company_average_2 = CompanyFactory.create(
         usual_name=AVERAGE_2_COMPANY_NAME,
         siren="000011117",
-        accept_certification_communication=True,
     )
 
     admin = UserFactory.create(

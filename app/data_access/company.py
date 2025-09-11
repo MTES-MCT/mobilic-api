@@ -193,9 +193,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     has_no_activity = graphene.Boolean(
         description="Indique que l'entreprise n'a jamais eu d'activité enregistrée"
     )
-    accept_certification_communication = graphene.Boolean(
-        description="Indique si un gestionnaire a accepté ou refusé la communication sur le certificat"
-    )
     current_admins = graphene.List(
         lambda: UserOutput,
         description="Liste des gestionnaires actuellement rattachés à l'entreprise",

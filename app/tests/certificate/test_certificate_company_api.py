@@ -62,7 +62,6 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         certification = admined_company["currentCompanyCertification"]
         self.assertTrue(certification["isCertified"])
-        self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             certificate.attribution_date,
             datetime.strptime(
@@ -94,7 +93,6 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         certification = admined_company["currentCompanyCertification"]
         self.assertFalse(certification["isCertified"])
-        self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertIsNone(certification["lastDayCertified"])
         self.assertIsNone(certification["startLastCertificationPeriod"])
 
@@ -120,7 +118,6 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         certification = admined_company["currentCompanyCertification"]
         self.assertFalse(certification["isCertified"])
-        self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             expired_certificate.expiration_date,
             datetime.strptime(
@@ -182,7 +179,6 @@ class TestCertificateCompanyApi(BaseTest):
         ][0]
         certification = admined_company["currentCompanyCertification"]
         self.assertTrue(certification["isCertified"])
-        self.assertIsNone(admined_company["acceptCertificationCommunication"])
         self.assertEqual(
             previous_continuous_certificate.attribution_date,
             datetime.strptime(
