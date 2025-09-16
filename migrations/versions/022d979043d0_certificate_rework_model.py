@@ -16,7 +16,7 @@ from migrations.versions.c98854a361af_add_company_certification_table import (
 
 # revision identifiers, used by Alembic.
 revision = "022d979043d0"
-down_revision = "68ed4db9ae15"
+down_revision = "eeed3eeec7de"
 branch_labels = None
 depends_on = None
 
