@@ -520,6 +520,10 @@ def sync_brevo_funnel_command(
     flask sync_brevo_funnel --acquisition-only
     flask sync_brevo_funnel --acquisition-pipeline "Acquisition" --activation-pipeline "Activation" --verbose
     """
+    if MOBILIC_ENV == "staging":
+        app.logger.info("Brevo sync skipped in staging environment")
+        return
+
     from app.services.brevo import sync_all_funnels
     from app.services.brevo.testing import FunnelTester
     from app.helpers.brevo import brevo
