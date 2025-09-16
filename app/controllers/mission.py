@@ -34,7 +34,10 @@ from app.domain.validation import (
     validate_mission,
     pre_check_validate_mission_by_admin,
 )
-from app.domain.vehicle import find_or_create_vehicle
+from app.domain.vehicle import (
+    find_or_create_vehicle,
+    find_existing_vehicle_by_normalized_registration,
+)
 from app.helpers.authentication import current_user, AuthenticatedMutation
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -53,7 +56,7 @@ from app.models import Company, User, Activity
 from app.models.mission import Mission
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import OverValidationJustification
-from app.models.vehicle import VehicleOutput
+from app.models.vehicle import VehicleOutput, Vehicle
 
 
 class MissionInput:
@@ -128,16 +131,18 @@ class CreateMission(AuthenticatedMutation):
                 "vehicle_registration_number"
             )
 
-            vehicle = (
-                find_or_create_vehicle(
+            vehicle = None
+            if received_vehicle_id:
+                vehicle = Vehicle.query.filter(
+                    Vehicle.id == received_vehicle_id,
+                    Vehicle.company_id == company.id,
+                ).first()
+            elif received_vehicle_registration_number:
+                vehicle = find_or_create_vehicle(
                     company_id=company.id,
-                    vehicle_id=received_vehicle_id,
                     vehicle_registration_number=received_vehicle_registration_number,
-                    employment=employment,
+                    submitter=current_user,
                 )
-                if received_vehicle_id or received_vehicle_registration_number
-                else None
-            )
 
             mission = Mission(
                 name=mission_input.get("name"),
@@ -350,12 +355,16 @@ class ValidateMission(AuthenticatedMutation):
                     mission=mission,
                     creation_time=creation_time,
                     for_user=user,
-                    employee_version_start_time=initial_start_end_times[0]
-                    if initial_start_end_times
-                    else None,
-                    employee_version_end_time=initial_start_end_times[1]
-                    if initial_start_end_times
-                    else None,
+                    employee_version_start_time=(
+                        initial_start_end_times[0]
+                        if initial_start_end_times
+                        else None
+                    ),
+                    employee_version_end_time=(
+                        initial_start_end_times[1]
+                        if initial_start_end_times
+                        else None
+                    ),
                     is_admin_validation=is_admin_validation,
                     justification=justification,
                 )
@@ -379,21 +388,10 @@ class ValidateMission(AuthenticatedMutation):
 
 class UpdateMissionVehicle(AuthenticatedMutation):
     class Arguments:
-        mission_id = graphene.Argument(
-            graphene.Int,
-            required=True,
-            description="Identifiant de la mission",
-        )
-        vehicle_id = graphene.Argument(
-            graphene.Int,
-            required=False,
-            description="Identifiant du véhicule utilisé",
-        )
-        vehicle_registration_number = graphene.Argument(
-            graphene.String,
-            required=False,
-            description="Numéro d'immatriculation du véhicule utilisé, s'il n'est pas déjà enregistré. Un nouveau véhicule sera ajouté.",
-        )
+        mission_id = graphene.Int(required=True)
+        vehicle_id = graphene.Int(required=False)
+        vehicle_registration_number = graphene.String(required=False)
+        alias = graphene.String(required=False)
 
     Output = VehicleOutput
 
@@ -412,24 +410,45 @@ class UpdateMissionVehicle(AuthenticatedMutation):
         mission_id,
         vehicle_id=None,
         vehicle_registration_number=None,
+        alias=None,
     ):
         with atomic_transaction(commit_at_end=True):
             mission = Mission.query.get(mission_id)
-            if not vehicle_id and not vehicle_registration_number:
-                app.logger.warning("No vehicle was associated to the mission")
-            else:
-                employment = get_employment_over_period(
-                    current_user, mission.company, include_pending_invite=False
-                )
-                vehicle = find_or_create_vehicle(
-                    company_id=mission.company.id,
-                    vehicle_id=vehicle_id,
-                    vehicle_registration_number=vehicle_registration_number,
-                    employment=employment,
-                )
-                mission.vehicle_id = vehicle.id
 
-        return mission.vehicle
+            # Step 1: Use vehicle_id directly if provided
+            vehicle = None
+            if vehicle_id:
+                vehicle = Vehicle.query.filter(
+                    Vehicle.id == vehicle_id,
+                    Vehicle.company_id == mission.company_id,
+                ).first()
+                if not vehicle:
+                    raise AuthorizationError(
+                        "Vehicle not found or not accessible"
+                    )
+
+            # Step 2: Otherwise, search by registration_number with normalization
+            elif vehicle_registration_number:
+                vehicle = find_existing_vehicle_by_normalized_registration(
+                    mission.company_id, vehicle_registration_number
+                )
+
+                # Create new vehicle if none found
+                if not vehicle:
+                    vehicle = find_or_create_vehicle(
+                        mission.company_id,
+                        vehicle_registration_number,
+                        alias,
+                        submitter=current_user,
+                    )
+
+            # Step 3: Assign vehicle to mission
+            if vehicle:
+                mission.vehicle = vehicle
+            else:
+                raise AuthorizationError("No vehicle specified")
+
+        return vehicle
 
 
 class ChangeMissionName(AuthenticatedMutation):
@@ -521,9 +540,11 @@ class CancelMission(AuthenticatedMutation):
                     compute_regulations(
                         user=user,
                         period_start=mission_start,
-                        period_end=mission_end
-                        if mission_end
-                        else datetime.today().date(),
+                        period_end=(
+                            mission_end
+                            if mission_end
+                            else datetime.today().date()
+                        ),
                         submitter_type=SubmitterType.ADMIN,
                         business=business,
                     )
