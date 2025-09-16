@@ -35,21 +35,11 @@ class Config:
     S3_REGION = os.environ.get("S3_REGION")
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
-
-    # FranceConnect v1 (legacy, delete in september 2025)
     FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
     FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
-
-    # FranceConnect v2 (if set, forces V2; otherwise V1 default)
-    FC_V2_URL = os.environ.get(
-        "FC_V2_URL", "https://app.franceconnect.gouv.fr"
+    FC_URL = os.environ.get(
+        "FC_URL", "https://fcp.integ01.dev-franceconnect.fr"
     )
-    FC_V2_CLIENT_ID = os.environ.get("FC_V2_CLIENT_ID")
-    FC_V2_CLIENT_SECRET = os.environ.get("FC_V2_CLIENT_SECRET")
-    FC_TIMEOUT = int(os.environ.get("FC_TIMEOUT", "10"))
-    # FranceConnect v2 development redirect URI override (for local testing)
-    FC_V2_REDIRECT_URI_OVERRIDE = os.environ.get("FC_V2_REDIRECT_URI_OVERRIDE")
-
     AC_CLIENT_ID = os.environ.get("AC_CLIENT_ID")
     AC_CLIENT_SECRET = os.environ.get("AC_CLIENT_SECRET")
     AC_AUTHORIZE_URL = os.environ.get("AC_AUTHORIZE_URL")
@@ -148,19 +138,6 @@ class Config:
         os.environ.get("EMAIL_NO_INVITATIONS_REMINDER_DELAY_DAYS", 7)
     )
 
-    # Trusted domains for redirect URL validation
-    TRUSTED_REDIRECT_DOMAINS = {
-        "mobilic.beta.gouv.fr",
-        "mobilic.preprod.beta.gouv.fr",
-    }
-
-    # Trusted FranceConnect domains for authorization/logout URLs
-    TRUSTED_FRANCECONNECT_DOMAINS = {
-        "fcp-low.sbx.dev-franceconnect.fr",  # sandbox
-        "fcp.integ01.dev-franceconnect.fr",
-        "app.franceconnect.gouv.fr",
-    }
-
 
 class DevConfig(Config):
     EMAIL_ACTIVATION_TOKEN_EXPIRATION = timedelta(minutes=10)
@@ -179,18 +156,9 @@ class DevConfig(Config):
     )
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
-    TRUSTED_REDIRECT_DOMAINS = Config.TRUSTED_REDIRECT_DOMAINS | {
-        "localhost",
-        "127.0.0.1",
-        "testdev.localhost",
-    }
-
 
 class StagingConfig(Config):
-    TRUSTED_REDIRECT_DOMAINS = {
-        "mobilic.preprod.beta.gouv.fr",
-        # Note: Add PR review app domains as needed for future PRs
-    }
+    pass
 
 
 class TestConfig(Config):
@@ -206,24 +174,12 @@ class TestConfig(Config):
         "BREVO_COMPANY_SUBSCRIBE_LIST", 22
     )
 
-    TRUSTED_REDIRECT_DOMAINS = {
-        "localhost",
-        "127.0.0.1",
-        "testdev.localhost",
-    }
-
 
 class ProdConfig(Config):
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=960)  # 16h
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
 
-    TRUSTED_REDIRECT_DOMAINS = {
-        "mobilic.beta.gouv.fr",
-    }
-
 
 class SandboxConfig(Config):
     ACCESS_TOKEN_EXPIRATION = timedelta(days=1)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
-
-    TRUSTED_REDIRECT_DOMAINS = Config.TRUSTED_REDIRECT_DOMAINS
