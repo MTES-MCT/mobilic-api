@@ -4,10 +4,10 @@ from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode, urlparse, parse_qs
+from urllib.parse import quote, urlencode, urlparse, parse_qs, unquote
 from io import BytesIO
 import json
-import base64
+import time
 
 from webargs import fields
 from flask_apispec import use_kwargs, doc
@@ -489,16 +489,41 @@ class ResetPasswordConnected(AuthenticatedMutation):
         return Void(success=True)
 
 
+# Constants
+LOGOUT_ROUTE = "/logout"
+
+
+def _extract_uri_param(uri_params, key, default=None):
+    """Extract parameter from URI params with default fallback."""
+    param_list = uri_params.get(key)
+    if param_list:
+        return param_list[0]
+    return default
+
+
+def _build_jwt_state_data(uri_params):
+    """Build JWT state data from URI parameters."""
+    return {
+        "csrf": uuid4().hex,
+        "context": _extract_uri_param(uri_params, "context", "login"),
+        "next": _extract_uri_param(uri_params, "next"),
+        "invite_token": _extract_uri_param(uri_params, "invite_token"),
+        "create": _extract_uri_param(uri_params, "create", "false") == "true",
+        "exp": int(time.time()) + 600,
+    }
+
+
 @app.route("/fc/authorize")
 def redirect_to_fc_authorize():
     base_url, client_id, _, api_version, _ = get_fc_config()
 
     parsed_qs = parse_qs(request.query_string.decode("utf-8"))
     original_redirect_uri = parsed_qs.get("redirect_uri", [""])[0]
-    state_data = {"random": uuid4().hex}
 
-    if "create=true" in original_redirect_uri:
-        state_data["create"] = True
+    parsed_uri = urlparse(original_redirect_uri)
+    uri_params = parse_qs(parsed_uri.query) if parsed_uri.query else {}
+
+    state_data = _build_jwt_state_data(uri_params)
 
     # Allow override for development environments and Scalingo review apps
     def _is_scalingo_domain(uri):
@@ -513,17 +538,23 @@ def redirect_to_fc_authorize():
         except Exception:
             return False
 
-    if api_version == "v2" and (
-        app.config.get("MOBILIC_ENV") not in ["prod"]
-        or _is_scalingo_domain(original_redirect_uri)
-    ):
-        fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
-        if fc_override:
-            # Use override without parameters to avoid FranceConnect URL mismatch
-            parsed_qs["redirect_uri"] = [fc_override]
+    if api_version == "v2":
+        clean_redirect_uri = (
+            f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}"
+        )
 
-    state_json = json.dumps(state_data)
-    encoded_state = base64.b64encode(state_json.encode()).decode()
+        if app.config.get("MOBILIC_ENV") not in [
+            "prod"
+        ] or _is_scalingo_domain(original_redirect_uri):
+            fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
+            if fc_override:
+                clean_redirect_uri = fc_override
+
+        parsed_qs["redirect_uri"] = [clean_redirect_uri]
+
+    encoded_state = jwt.encode(
+        state_data, app.config["JWT_SECRET_KEY"], algorithm="HS256"
+    )
 
     parsed_qs.update(
         {
@@ -591,10 +622,7 @@ def _validate_fc_authorize_url(authorize_url: str, base_url: str) -> bool:
         if parsed.netloc not in trusted_fc_domains:
             return False
 
-        valid_paths = [
-            "/api/v1/authorize",  # TODO: Remove after September 2025 when V1 is shut down # NOSONAR
-            "/api/v2/authorize",
-        ]
+        valid_paths = ["/api/v2/authorize"]
 
         return any(parsed.path.startswith(path) for path in valid_paths)
 
@@ -620,10 +648,7 @@ def _validate_fc_logout_url(logout_url: str, base_url: str) -> bool:
         if parsed.netloc not in trusted_fc_domains:
             return False
 
-        valid_paths = [
-            "/api/v1/logout",  # TODO: Remove after September 2025 when V1 is shut down # NOSONAR
-            "/api/v2/session/end",
-        ]
+        valid_paths = ["/api/v2/session/end"]
 
         return any(parsed.path.startswith(path) for path in valid_paths)
 
@@ -642,7 +667,7 @@ def redirect_to_fc_logout():
 
     if not fc_token_hint:
         app.logger.warning("FranceConnect logout attempt without token")
-        return redirect("/logout", code=302)
+        return redirect(LOGOUT_ROUTE, code=302)
 
     base_url, _, _, api_version, _ = get_fc_config()
 
@@ -659,7 +684,7 @@ def redirect_to_fc_logout():
         ]:
 
             default_logout_uri = fc_logout_override.replace(
-                "/fc-callback", "/logout"
+                "/fc-callback", LOGOUT_ROUTE
             )
 
         query_params["post_logout_redirect_uri"] = default_logout_uri
@@ -673,7 +698,7 @@ def redirect_to_fc_logout():
 
     if not _validate_fc_logout_url(final_logout_url, base_url):
         app.logger.error("Invalid FranceConnect logout URL")
-        return redirect("/logout", code=302)
+        return redirect(LOGOUT_ROUTE, code=302)
 
     app.logger.info(f"FranceConnect {api_version} logout initiated")
 
@@ -703,6 +728,27 @@ class FranceConnectLogin(graphene.Mutation):
         invite_token=None,
         create=False,
     ):
+        invite_token_from_state = invite_token
+        create_from_state = create
+
+        try:
+            state_data = jwt.decode(
+                state, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
+            )
+            invite_token_from_state = (
+                state_data.get("invite_token") or invite_token
+            )
+            create_from_state = state_data.get("create", False) or create
+        except jwt.ExpiredSignatureError:
+            raise InvalidTokenError("Authentication session expired")
+        except (jwt.InvalidTokenError, jwt.DecodeError):
+            app.logger.warning(
+                "Unable to decode state parameter - V2 JWT required"
+            )
+
+        invite_token = invite_token_from_state
+        create = create_from_state
+
         with atomic_transaction(commit_at_end=True):
             fc_user_info, fc_token = get_fc_user_info(
                 authorization_code, original_redirect_uri

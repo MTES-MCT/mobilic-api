@@ -42,7 +42,7 @@ class Config:
 
     # FranceConnect v2 (if set, forces V2; otherwise V1 default)
     FC_V2_URL = os.environ.get(
-        "FC_V2_URL", "https://app.franceconnect.gouv.fr"
+        "FC_V2_URL", "https://oidc.franceconnect.gouv.fr"
     )
     FC_V2_CLIENT_ID = os.environ.get("FC_V2_CLIENT_ID")
     FC_V2_CLIENT_SECRET = os.environ.get("FC_V2_CLIENT_SECRET")
@@ -159,6 +159,7 @@ class Config:
         "fcp-low.sbx.dev-franceconnect.fr",  # sandbox
         "fcp.integ01.dev-franceconnect.fr",
         "app.franceconnect.gouv.fr",
+        "oidc.franceconnect.gouv.fr",
     }
 
 
