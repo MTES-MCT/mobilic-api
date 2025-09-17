@@ -29,18 +29,18 @@ class MailingContactList(str, Enum):
 
 
 MAILJET_CONTACT_LIST_IDS = {
-    MailingContactList.EMPLOYEES: 58466
-    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
-    else 58470,
-    MailingContactList.ADMINS: 58293
-    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
-    else 58470,
-    MailingContactList.CONTROLLERS: 58467
-    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
-    else 58470,
-    MailingContactList.SOFTWARES: 58468
-    if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"]
-    else 58470,
+    MailingContactList.EMPLOYEES: (
+        58466 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    ),
+    MailingContactList.ADMINS: (
+        58293 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    ),
+    MailingContactList.CONTROLLERS: (
+        58467 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    ),
+    MailingContactList.SOFTWARES: (
+        58468 if app.config["ENABLE_NEWSLETTER_SUBSCRIPTION"] else 58470
+    ),
 }
 
 
@@ -392,16 +392,20 @@ class Mailer:
             )
 
         return Mailer._create_message_from_flask_template(
-            template="scheduled_invitation_email.html"
-            if scheduled_reminder
-            else "invitation_email.html",
+            template=(
+                "scheduled_invitation_email.html"
+                if scheduled_reminder
+                else "invitation_email.html"
+            ),
             subject=subject,
-            type_=EmailType.SCHEDULED_INVITATION
-            if scheduled_reminder
-            else EmailType.INVITATION,
-            recipient=employment.user.email
-            if employment.user
-            else employment.email,
+            type_=(
+                EmailType.SCHEDULED_INVITATION
+                if scheduled_reminder
+                else EmailType.INVITATION
+            ),
+            recipient=(
+                employment.user.email if employment.user else employment.email
+            ),
             user=employment.user,
             employment=employment,
             first_name=employment.user.first_name if employment.user else None,
@@ -479,9 +483,11 @@ class Mailer:
         self._send_single(
             self._create_message_from_flask_template(
                 "account_activation_email.html",
-                subject="Activez votre compte Mobilic"
-                if create_account
-                else "Confirmez l'adresse email de votre compte Mobilic",
+                subject=(
+                    "Activez votre compte Mobilic"
+                    if create_account
+                    else "Confirmez l'adresse email de votre compte Mobilic"
+                ),
                 type_=EmailType.ACCOUNT_ACTIVATION,
                 user=user,
                 user_id=Markup(id),
@@ -714,13 +720,15 @@ class Mailer:
                     f"{app.config['FRONTEND_URL']}/app/history?mission={mission.id}"
                 ),
                 old_start_time=old_start_time,
-                new_start_time=new_start_time
-                if new_start_time != old_start_time
-                else None,
+                new_start_time=(
+                    new_start_time
+                    if new_start_time != old_start_time
+                    else None
+                ),
                 old_end_time=old_end_time,
-                new_end_time=new_end_time
-                if new_end_time != old_end_time
-                else None,
+                new_end_time=(
+                    new_end_time if new_end_time != old_end_time else None
+                ),
                 old_work_duration=old_work_duration,
                 new_work_duration=new_work_duration,
                 show_dates=len(
@@ -795,7 +803,12 @@ class Mailer:
         )
 
     def send_admin_about_to_lose_certificate_email(
-        self, company, user, attribution_date
+        self,
+        company,
+        user,
+        attribution_date,
+        display_real_time_criteria,
+        display_admin_changes_criteria,
     ):
         self._send_single(
             self._create_message_from_flask_template(
@@ -804,6 +817,8 @@ class Mailer:
                 company_name=company.name,
                 user=user,
                 attribution_date=attribution_date,
+                display_real_time_criteria=display_real_time_criteria,
+                display_admin_changes_criteria=display_admin_changes_criteria,
                 type_=EmailType.COMPANY_ABOUT_TO_LOSE_CERTIFICATE,
             ),
             _apply_whitelist_if_not_prod=True,
@@ -890,9 +905,9 @@ class Mailer:
                 subject="Action requise : aidez vos salariés à activer leur compte Mobilic !",
                 employment=employment,
                 user=employment.user,
-                first_name=employment.user.first_name
-                if employment.user
-                else None,
+                first_name=(
+                    employment.user.first_name if employment.user else None
+                ),
                 type_=EmailType.COMPANY_PENDING_INVITATION,
                 google_play_link=google_play_link,
                 android_install_link=android_install_link,
@@ -910,17 +925,6 @@ class Mailer:
                 employment=employment,
                 user=employment.user,
                 type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
-            ),
-            _apply_whitelist_if_not_prod=True,
-        )
-
-    def send_active_then_inactive_companies_email(self, admin):
-        self._send_single(
-            self._create_message_from_flask_template(
-                template="active_then_inactive_companies.html",
-                subject="Votre activité sur Mobilic peut vous mener à l’obtention du certificat",
-                user=admin,
-                type_=EmailType.COMPANY_ACTIVE_THEN_INACTIVE,
             ),
             _apply_whitelist_if_not_prod=True,
         )
@@ -996,14 +1000,18 @@ class Mailer:
         )
         self._send_single(
             self._create_message_from_flask_template(
-                template="admin_export_excel.html"
-                if is_admin
-                else "employee_export_excel.html",
+                template=(
+                    "admin_export_excel.html"
+                    if is_admin
+                    else "employee_export_excel.html"
+                ),
                 user=user,
                 subject=f"{subject}{subject_suffix}",
-                type_=EmailType.ADMIN_EXPORT_EXCEL
-                if is_admin
-                else EmailType.EMPLOYEE_EXPORT_EXCEL,
+                type_=(
+                    EmailType.ADMIN_EXPORT_EXCEL
+                    if is_admin
+                    else EmailType.EMPLOYEE_EXPORT_EXCEL
+                ),
                 attachment=file,
             ),
             _apply_whitelist_if_not_prod=False,

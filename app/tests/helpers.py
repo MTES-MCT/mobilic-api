@@ -897,10 +897,36 @@ class ApiRequests:
         user(id: $id) {
           adminedCompanies {
             id
-            isCertified
-            acceptCertificationCommunication
-            lastDayCertified
-            startLastCertificationPeriod
+            currentCompanyCertification {
+                isCertified
+                lastDayCertified
+                startLastCertificationPeriod
+            }
+          }
+        }
+      }
+    """
+
+    admined_companies_certificate = """
+      query adminCompaniesList($id: Int!) {
+        user(id: $id) {
+          adminedCompanies {
+            id
+            currentCompanyCertification {
+                isCertified
+                lastDayCertified
+                startLastCertificationPeriod
+                certificationMedal
+                certificateCriterias {
+                    creationTime
+                    attributionDate
+                    expirationDate
+                    logInRealTime
+                    adminChanges
+                    compliancy
+                    info
+                }
+            }
           }
         }
       }
@@ -920,20 +946,6 @@ class ApiRequests:
               }
             }
           }
-        }
-      }
-    """
-
-    edit_company_communication_setting = """
-      mutation editCompanyCommunicationSetting(
-        $companyIds: [Int]!
-        $acceptCertificationCommunication: Boolean!
-      ) {
-        editCompanyCommunicationSetting(
-          companyIds: $companyIds
-          acceptCertificationCommunication: $acceptCertificationCommunication
-        ) {
-          success
         }
       }
     """
@@ -1210,13 +1222,15 @@ def init_regulation_checks_data():
             insert_regulation_check(
                 session=db.session,
                 regulation_check_data=r,
-                end_timestamp=date.today().isoformat()
-                if r.type
-                in [
-                    RegulationCheckType.MINIMUM_WORK_DAY_BREAK,
-                    RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME,
-                ]
-                else None,
+                end_timestamp=(
+                    date.today().isoformat()
+                    if r.type
+                    in [
+                        RegulationCheckType.MINIMUM_WORK_DAY_BREAK,
+                        RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME,
+                    ]
+                    else None
+                ),
             )
         regulation_check = RegulationCheck.query.first()
     return regulation_check
