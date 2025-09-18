@@ -24,6 +24,7 @@ from app.models.regulation_check import RegulationCheckType, RegulationCheck
 REAL_TIME_LOG_TOLERANCE_MINUTES = 60
 COMPLIANCE_MAX_ALERTS_ALLOWED_RATIO = 0.005
 CERTIFICATE_LIFETIME_MONTH = 2
+MIN_NB_MISSIONS_IN_MONTH = 12
 
 
 def compute_compliancy(company, start, end, nb_activities):
@@ -187,9 +188,12 @@ def compute_company_certification(company_id, today, start, end):
     db.session.add(company_certification)
 
 
-# returns companies with missions created during period with non-dismissed activities
 def get_eligible_companies(start, end):
-    missions_subquery = (
+    """
+    a company is eligible if it has at least MIN_NB_MISSIONS_IN_MONTH (12) missions on the period
+    :return: eligible companies
+    """
+    subquery = (
         Mission.query.join(Activity, Activity.mission_id == Mission.id)
         .filter(
             Mission.creation_time >= to_datetime(start),
@@ -197,11 +201,14 @@ def get_eligible_companies(start, end):
         )
         .filter(~Activity.is_dismissed)
         .with_entities(Mission.company_id)
-        .distinct()
+        .group_by(Mission.company_id)
+        .having(
+            func.count(func.distinct(Mission.id)) >= MIN_NB_MISSIONS_IN_MONTH
+        )
         .subquery()
     )
 
-    return Company.query.filter(Company.id.in_(missions_subquery)).all()
+    return Company.query.filter(Company.id.in_(subquery)).all()
 
 
 def compute_company_certifications(today):
