@@ -4,8 +4,10 @@ from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode, unquote
+from urllib.parse import quote, urlencode, urlparse, parse_qs, unquote
 from io import BytesIO
+import json
+import time
 
 from webargs import fields
 from flask_apispec import use_kwargs, doc
@@ -50,7 +52,7 @@ from app.helpers.errors import (
 )
 from app.helpers.graphene_types import graphene_enum_type, Password
 from app.helpers.mail import MailjetError, MailingContactList
-from app.helpers.france_connect import get_fc_user_info
+from app.helpers.france_connect import get_fc_user_info, get_fc_config
 from app.helpers.mail_type import EmailType
 from app.helpers.pdf.mission_details import generate_mission_details_pdf
 from app.helpers.pdf.work_days import generate_work_days_pdf_for
@@ -154,9 +156,11 @@ class UserSignUp(graphene.Mutation):
 
         UserAgreement.get_or_create(
             user_id=user.id,
-            initial_status=UserAgreementStatus.ACCEPTED
-            if accept_cgu
-            else UserAgreementStatus.PENDING,
+            initial_status=(
+                UserAgreementStatus.ACCEPTED
+                if accept_cgu
+                else UserAgreementStatus.PENDING
+            ),
         )
 
         tokens = create_access_tokens_for(user)
@@ -485,20 +489,171 @@ class ResetPasswordConnected(AuthenticatedMutation):
         return Void(success=True)
 
 
+# Constants
+LOGOUT_ROUTE = "/logout"
+
+
+def _extract_uri_param(uri_params, key, default=None):
+    """Extract parameter from URI params with default fallback."""
+    param_list = uri_params.get(key)
+    if param_list:
+        return param_list[0]
+    return default
+
+
+def _build_jwt_state_data(uri_params):
+    """Build JWT state data from URI parameters."""
+    return {
+        "csrf": uuid4().hex,
+        "context": _extract_uri_param(uri_params, "context", "login"),
+        "next": _extract_uri_param(uri_params, "next"),
+        "invite_token": _extract_uri_param(uri_params, "invite_token"),
+        "create": _extract_uri_param(uri_params, "create", "false") == "true",
+        "exp": int(time.time()) + 600,
+    }
+
+
 @app.route("/fc/authorize")
 def redirect_to_fc_authorize():
-    query_params = {
-        "state": uuid4().hex,
-        "nonce": uuid4().hex,
-        "response_type": "code",
-        "scope": "openid email given_name family_name preferred_username birthdate",
-        "client_id": app.config["FC_CLIENT_ID"],
-        "acr_values": "eidas1",
-    }
-    return redirect(
-        f"{app.config['FC_URL']}/api/v1/authorize?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
-        code=302,
+    base_url, client_id, _, api_version, _ = get_fc_config()
+
+    parsed_qs = parse_qs(request.query_string.decode("utf-8"))
+    original_redirect_uri = parsed_qs.get("redirect_uri", [""])[0]
+
+    parsed_uri = urlparse(original_redirect_uri)
+    uri_params = parse_qs(parsed_uri.query) if parsed_uri.query else {}
+
+    state_data = _build_jwt_state_data(uri_params)
+
+    # Allow override for development environments and Scalingo review apps
+    def _is_scalingo_domain(uri):
+        try:
+            parsed = urlparse(uri)
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+            return hostname == "scalingo.io" or hostname.endswith(
+                ".scalingo.io"
+            )
+        except Exception:
+            return False
+
+    if api_version == "v2":
+        clean_redirect_uri = (
+            f"{parsed_uri.scheme}://{parsed_uri.netloc}{parsed_uri.path}"
+        )
+
+        if app.config.get("MOBILIC_ENV") not in [
+            "prod"
+        ] or _is_scalingo_domain(original_redirect_uri):
+            fc_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
+            if fc_override:
+                clean_redirect_uri = fc_override
+
+        parsed_qs["redirect_uri"] = [clean_redirect_uri]
+
+    encoded_state = jwt.encode(
+        state_data, app.config["JWT_SECRET_KEY"], algorithm="HS256"
     )
+
+    parsed_qs.update(
+        {
+            "state": [encoded_state],
+            "nonce": [uuid4().hex],
+            "response_type": ["code"],
+            "scope": [
+                "openid email given_name family_name preferred_username birthdate gender"
+            ],
+            "client_id": [client_id],
+            "acr_values": ["eidas1"],
+        }
+    )
+
+    final_qs = urlencode(parsed_qs, doseq=True, quote_via=quote)
+
+    authorize_url = f"{base_url}/api/{api_version}/authorize?{final_qs}"
+
+    if not _validate_fc_authorize_url(authorize_url, base_url):
+        app.logger.error("Invalid FranceConnect authorize URL")
+        return redirect("/", code=302)
+
+    return redirect(authorize_url, code=302)
+
+
+def _validate_redirect_url(url: str) -> bool:
+    if not url:
+        return False
+
+    try:
+        parsed = urlparse(url)
+
+        if not parsed.scheme and not parsed.netloc:
+            return url.startswith("/")
+
+        trusted_domains = app.config.get("TRUSTED_REDIRECT_DOMAINS", set())
+
+        if parsed.netloc.lower() in trusted_domains:
+            return True
+
+        if parsed.netloc == request.host:
+            return True
+
+        return False
+
+    except Exception:
+        return False
+
+
+def _validate_fc_authorize_url(authorize_url: str, base_url: str) -> bool:
+    try:
+        parsed = urlparse(authorize_url)
+        base_parsed = urlparse(base_url)
+
+        if (
+            parsed.scheme != base_parsed.scheme
+            or parsed.netloc != base_parsed.netloc
+        ):
+            return False
+
+        trusted_fc_domains = app.config.get(
+            "TRUSTED_FRANCECONNECT_DOMAINS", set()
+        )
+
+        if parsed.netloc not in trusted_fc_domains:
+            return False
+
+        valid_paths = ["/api/v2/authorize"]
+
+        return any(parsed.path.startswith(path) for path in valid_paths)
+
+    except Exception:
+        return False
+
+
+def _validate_fc_logout_url(logout_url: str, base_url: str) -> bool:
+    try:
+        parsed = urlparse(logout_url)
+        base_parsed = urlparse(base_url)
+
+        if (
+            parsed.scheme != base_parsed.scheme
+            or parsed.netloc != base_parsed.netloc
+        ):
+            return False
+
+        trusted_fc_domains = app.config.get(
+            "TRUSTED_FRANCECONNECT_DOMAINS", set()
+        )
+
+        if parsed.netloc not in trusted_fc_domains:
+            return False
+
+        valid_paths = ["/api/v2/session/end"]
+
+        return any(parsed.path.startswith(path) for path in valid_paths)
+
+    except Exception:
+        return False
 
 
 @app.route("/fc/logout")
@@ -511,19 +666,43 @@ def redirect_to_fc_logout():
         return response
 
     if not fc_token_hint:
-        app.logger.warning(
-            "Attempt do disconnect from FranceConnect a user who is not logged in"
-        )
+        app.logger.warning("FranceConnect logout attempt without token")
+        return redirect(LOGOUT_ROUTE, code=302)
 
-        redirect_uri = request.args.get("post_logout_redirect_uri")
-        return redirect(url_for(unquote(redirect_uri)), code=302)
+    base_url, _, _, api_version, _ = get_fc_config()
 
     query_params = {"state": uuid4().hex, "id_token_hint": fc_token_hint}
 
-    return redirect(
-        f"{app.config['FC_URL']}/api/v1/logout?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
-        code=302,
-    )
+    # v2 requires post_logout_redirect_uri
+    if api_version == "v2":
+        default_logout_uri = f"{request.host_url}logout"
+
+        fc_logout_override = app.config.get("FC_V2_REDIRECT_URI_OVERRIDE")
+        if fc_logout_override and app.config.get("MOBILIC_ENV") not in [
+            "prod",
+            "staging",
+        ]:
+
+            default_logout_uri = fc_logout_override.replace(
+                "/fc-callback", LOGOUT_ROUTE
+            )
+
+        query_params["post_logout_redirect_uri"] = default_logout_uri
+    # TODO: Remove V1 support after September 2025 when V1 is shut down # NOSONAR
+
+    logout_endpoint = (
+        "session/end" if api_version == "v2" else "logout"
+    )  # TODO: Remove V1 support after September 2025 # NOSONAR
+
+    final_logout_url = f"{base_url}/api/{api_version}/{logout_endpoint}?{urlencode(query_params, quote_via=quote)}"
+
+    if not _validate_fc_logout_url(final_logout_url, base_url):
+        app.logger.error("Invalid FranceConnect logout URL")
+        return redirect(LOGOUT_ROUTE, code=302)
+
+    app.logger.info(f"FranceConnect {api_version} logout initiated")
+
+    return redirect(final_logout_url, code=302)
 
 
 class FranceConnectLogin(graphene.Mutation):
@@ -549,6 +728,27 @@ class FranceConnectLogin(graphene.Mutation):
         invite_token=None,
         create=False,
     ):
+        invite_token_from_state = invite_token
+        create_from_state = create
+
+        try:
+            state_data = jwt.decode(
+                state, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
+            )
+            invite_token_from_state = (
+                state_data.get("invite_token") or invite_token
+            )
+            create_from_state = state_data.get("create", False) or create
+        except jwt.ExpiredSignatureError:
+            raise InvalidTokenError("Authentication session expired")
+        except (jwt.InvalidTokenError, jwt.DecodeError):
+            app.logger.warning(
+                "Unable to decode state parameter - V2 JWT required"
+            )
+
+        invite_token = invite_token_from_state
+        create = create_from_state
+
         with atomic_transaction(commit_at_end=True):
             fc_user_info, fc_token = get_fc_user_info(
                 authorization_code, original_redirect_uri
@@ -559,16 +759,23 @@ class FranceConnectLogin(graphene.Mutation):
                 raise AuthenticationError("User does not exist")
 
             if create and user and user.email:
-                # TODO : raise proper error
                 raise FCUserAlreadyRegisteredError(
                     "User is already registered"
                 )
 
             if not user:
+                fc_gender = fc_user_info.get("gender")
+                gender = None
+                if fc_gender == "female":
+                    gender = Gender.FEMALE
+                elif fc_gender == "male":
+                    gender = Gender.MALE
+
                 user = create_user(
                     first_name=fc_user_info.get("given_name"),
                     last_name=fc_user_info.get("family_name"),
                     email=fc_user_info.get("email"),
+                    gender=gender,
                     invite_token=invite_token,
                     fc_info=fc_user_info,
                 )
