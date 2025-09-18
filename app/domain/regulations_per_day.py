@@ -189,11 +189,11 @@ def check_min_daily_rest(
 
             if len(activities_not_covered_by_long_break) > 0:
                 success = False
-                extra["breach_period_start"] = (
-                    activities_not_covered_by_long_break[
-                        0
-                    ].start_time.isoformat()
-                )
+                extra[
+                    "breach_period_start"
+                ] = activities_not_covered_by_long_break[
+                    0
+                ].start_time.isoformat()
                 breach_period_end = activities_not_covered_by_long_break[
                     0
                 ].start_time + timedelta(days=1)
@@ -253,9 +253,8 @@ def get_long_breaks(activities, regulation_check):
     return long_breaks
 
 
-def check_max_work_day_time(
-    activity_groups, regulation_check, day_start_time, business
-):
+def check_max_work_day_time(activity_groups, regulation_check, business):
+
     dict_variables = resolve_variables(regulation_check.variables, business)
     MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS = dict_variables[
         "MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS"
@@ -271,61 +270,13 @@ def check_max_work_day_time(
             "MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS", None
         )
     )
-    LONG_BREAK_DURATION_IN_HOURS = dict_variables[
-        "LONG_BREAK_DURATION_IN_HOURS"
-    ]
     extra = None
 
-    # Sort WorkDays chronologically
-    sorted_activity_groups = sorted(
-        activity_groups, key=lambda x: x.start_time
-    )
-
-    # Extract all activities to detect long breaks between them
-    all_activities = []
-    for group in sorted_activity_groups:
-        all_activities.extend(group.activities)
-    all_activities.sort(key=lambda x: x.start_time)
-
-    if not all_activities:
-        return ComputationResult(success=True, extra=None)
-
-    # Use existing get_long_breaks function for consistency
-    long_breaks = get_long_breaks(all_activities, regulation_check)
-
-    # Build set of activity IDs that start after a long break (reset points)
-    reset_activity_ids = set()
-    for long_break in long_breaks:
-        # Find the first activity that starts at or after the end of this long break
-        for activity in all_activities:
-            if activity.start_time >= long_break.end_time:
-                reset_activity_ids.add(activity.id)
-                break
-
-    # Process WorkDays with cumulative counters and reset logic
     amplitude = 0
     worked_time_in_seconds = 0
     night_work = False
     start_time = None
-
-    for group in sorted_activity_groups:
-        # Check if this WorkDay contains any activity that should trigger a reset
-        should_reset = False
-        group_activities = sorted(group.activities, key=lambda x: x.start_time)
-
-        for activity in group_activities:
-            if activity.id in reset_activity_ids:
-                should_reset = True
-                break
-
-        # Reset counters when starting a new work period after a long break
-        if should_reset:
-            amplitude = 0
-            worked_time_in_seconds = 0
-            night_work = False
-            start_time = None
-
-        # Accumulate work metrics using existing WorkDay calculations
+    for group in activity_groups:
         amplitude += group.service_duration
         night_work = (
             night_work or group.total_night_work_legislation_duration > 0
@@ -335,7 +286,7 @@ def check_max_work_day_time(
 
         max_work_day_time_in_hours = MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
 
-        # Apply amplitude-based limits for specific TRV business types
+        # For some TRV businesses, max work day time is different if amplitude is above a particular value
         if (
             AMPLITUDE_TRIGGER_IN_HOURS
             and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
@@ -345,13 +296,11 @@ def check_max_work_day_time(
                     MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
                 )
 
-        # Select appropriate limit based on night work status
         max_time_in_hours = (
             MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
             if night_work
             else max_work_day_time_in_hours
         )
-
         worked_time_in_seconds += group.total_work_duration
         extra = dict(
             night_work=night_work,
@@ -360,8 +309,6 @@ def check_max_work_day_time(
             work_range_start=start_time.isoformat(),
             work_range_end=group.end_time.isoformat(),
         )
-
-        # Check if work time exceeds the applicable limit
         if worked_time_in_seconds > max_time_in_hours * HOUR:
             extra["sanction_code"] = (
                 NATINF_32083 if night_work else NATINF_11292
@@ -421,9 +368,9 @@ def check_min_work_day_break(activity_groups, regulation_check, business):
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
         ):
-            extra["min_break_time_in_minutes"] = (
-                MINIMUM_DURATION_BREAK_IN_MIN_1
-            )
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
             return ComputationResult(
                 success=False,
                 extra=extra,
@@ -432,9 +379,9 @@ def check_min_work_day_break(activity_groups, regulation_check, business):
             total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
         ):
-            extra["min_break_time_in_minutes"] = (
-                MINIMUM_DURATION_BREAK_IN_MIN_2
-            )
+            extra[
+                "min_break_time_in_minutes"
+            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
             return ComputationResult(
                 success=False,
                 extra=extra,
@@ -487,12 +434,12 @@ def check_max_uninterrupted_work_time(
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
             ):
-                extra["longest_uninterrupted_work_in_seconds"] = (
-                    current_uninterrupted_work_duration
-                )
-                extra["longest_uninterrupted_work_start"] = (
-                    current_uninterrupted_start.isoformat()
-                )
+                extra[
+                    "longest_uninterrupted_work_in_seconds"
+                ] = current_uninterrupted_work_duration
+                extra[
+                    "longest_uninterrupted_work_start"
+                ] = current_uninterrupted_start.isoformat()
                 extra["longest_uninterrupted_work_end"] = end_time.isoformat()
                 extra["sanction_code"] = SANCTION_CODE
                 return ComputationResult(success=False, extra=extra)
@@ -526,9 +473,9 @@ def check_has_enough_break(activity_groups, regulation_check, business):
     too_much_uninterrupted_work_time = not uninterrupted_result.success
 
     merged_extra["not_enough_break"] = not_enough_break
-    merged_extra["too_much_uninterrupted_work_time"] = (
-        too_much_uninterrupted_work_time
-    )
+    merged_extra[
+        "too_much_uninterrupted_work_time"
+    ] = too_much_uninterrupted_work_time
 
     return ComputationResult(
         success=not (not_enough_break or too_much_uninterrupted_work_time),
@@ -542,8 +489,8 @@ DAILY_REGULATION_CHECKS = {
         filter_work_days_to_current_and_next_day,
     ],
     RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
-        lambda activity_groups, regulation_check, day_start_time, business: check_max_work_day_time(
-            activity_groups, regulation_check, day_start_time, business
+        lambda activity_groups, regulation_check, _, business: check_max_work_day_time(
+            activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],

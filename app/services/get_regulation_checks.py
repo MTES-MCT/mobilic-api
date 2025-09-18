@@ -106,7 +106,6 @@ def get_regulation_checks():
                     str(TransportType.TRM.name): 12,
                     str(TransportType.TRV.name): 10,
                 },
-                LONG_BREAK_DURATION_IN_HOURS=10,
                 AMPLITUDE_TRIGGER_IN_HOURS={
                     str(TransportType.TRM.name): None,
                     str(TransportType.TRV.name): {
