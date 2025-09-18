@@ -36,11 +36,7 @@ class Config:
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
-    # FranceConnect v1 (legacy, delete in september 2025)
-    FC_CLIENT_ID = os.environ.get("FC_CLIENT_ID")
-    FC_CLIENT_SECRET = os.environ.get("FC_CLIENT_SECRET")
-
-    # FranceConnect v2 (if set, forces V2; otherwise V1 default)
+    # FranceConnect v2
     FC_V2_URL = os.environ.get(
         "FC_V2_URL", "https://oidc.franceconnect.gouv.fr"
     )
@@ -180,10 +176,11 @@ class DevConfig(Config):
     )
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 
-    TRUSTED_REDIRECT_DOMAINS = Config.TRUSTED_REDIRECT_DOMAINS | {
+    TRUSTED_REDIRECT_DOMAINS = {
         "localhost",
         "127.0.0.1",
         "testdev.localhost",
+        "mobilic.preprod.beta.gouv.fr",
     }
 
 
@@ -227,4 +224,6 @@ class SandboxConfig(Config):
     ACCESS_TOKEN_EXPIRATION = timedelta(days=1)
     MINIMUM_ACTIVITY_DURATION = timedelta(minutes=0)
 
-    TRUSTED_REDIRECT_DOMAINS = Config.TRUSTED_REDIRECT_DOMAINS
+    TRUSTED_REDIRECT_DOMAINS = {
+        "mobilic.preprod.beta.gouv.fr",
+    }
