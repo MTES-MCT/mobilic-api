@@ -290,17 +290,17 @@ def check_max_work_day_time(
     if not all_activities:
         return ComputationResult(success=True, extra=None)
 
-    # Find activities preceded by long breaks (>=10h)
-    reset_activity_ids = set()
-    for i in range(1, len(all_activities)):
-        prev_activity = all_activities[i - 1]
-        curr_activity = all_activities[i]
-        gap = (
-            curr_activity.start_time - prev_activity.end_time
-        ).total_seconds()
+    # Use existing get_long_breaks function for consistency
+    long_breaks = get_long_breaks(all_activities, regulation_check)
 
-        if gap >= LONG_BREAK_DURATION_IN_HOURS * HOUR:
-            reset_activity_ids.add(curr_activity.id)
+    # Build set of activity IDs that start after a long break (reset points)
+    reset_activity_ids = set()
+    for long_break in long_breaks:
+        # Find the first activity that starts at or after the end of this long break
+        for activity in all_activities:
+            if activity.start_time >= long_break.end_time:
+                reset_activity_ids.add(activity.id)
+                break
 
     # Process WorkDays with cumulative counters and reset logic
     amplitude = 0

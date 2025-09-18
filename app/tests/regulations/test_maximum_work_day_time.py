@@ -23,17 +23,22 @@ from app.seed.helpers import get_time, get_date
 from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
 
-def _get_alert(days_ago, submitter_type=SubmitterType.EMPLOYEE):
-    day_start = get_date(days_ago)
-
+def _get_alert_for_date(target_date, submitter_type=SubmitterType.EMPLOYEE):
+    """Get regulatory alert for a specific date"""
     return RegulatoryAlert.query.filter(
         RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
         RegulatoryAlert.regulation_check.has(
             RegulationCheck.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
         ),
-        RegulatoryAlert.day == day_start,
+        RegulatoryAlert.day == target_date,
         RegulatoryAlert.submitter_type == submitter_type,
     ).one_or_none()
+
+
+def _get_alert(days_ago, submitter_type=SubmitterType.EMPLOYEE):
+    """Get regulatory alert for a date relative to today (days ago)"""
+    day_start = get_date(days_ago)
+    return _get_alert_for_date(day_start, submitter_type)
 
 
 class TestMaximumWorkDayTime(RegulationsTest):
@@ -203,15 +208,8 @@ class TestMaximumWorkDayTime(RegulationsTest):
         )
 
         def _get_alert(days_ago):
-            return RegulatoryAlert.query.filter(
-                RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
-                RegulatoryAlert.regulation_check.has(
-                    RegulationCheck.type
-                    == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
-                ),
-                RegulatoryAlert.day == get_time(days_ago, hour=0).date(),
-                RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-            ).one_or_none()
+            day_start = get_time(days_ago, hour=0).date()
+            return _get_alert_for_date(day_start)
 
         # Day 1 (Aug 5): No alert expected (3h05 < 10h limit)
         regulatory_alert_day1 = _get_alert(days_ago=how_many_days_ago)
