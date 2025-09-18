@@ -83,6 +83,12 @@ class AcquisitionDataFinder:
     ) -> str:
         """Classify company in acquisition funnel based on creation date and invitations.
 
+        Classification logic (priority order):
+        1. New companies since March 2025 (any invitation status)
+        2. Companies 30+ days old with no invitations
+        3. Companies 7-29 days old with no invitations
+        4. All other companies
+
         Args:
             company_metrics: Dictionary containing:
                 - creation_date: Company creation date
@@ -92,15 +98,19 @@ class AcquisitionDataFinder:
         Returns:
             Acquisition stage classification string
         """
+        # Priority 1: Recent companies (regardless of invitations)
         if self._is_new_company_since_march(company_metrics):
             return "Nouvelles entreprises inscrites depuis mars 2025"
 
+        # Priority 2: Critical case - 1 month+ without invitations
         if self._is_no_invite_1_month(company_metrics):
             return "Entreprise inscrite depuis 1 mois sans salarié invité"
 
+        # Priority 3: Warning case - 7+ days without invitations
         if self._is_no_invite_7_days(company_metrics):
             return "Entreprise inscrite depuis 7 jours sans salarié invité"
 
+        # Default: All other cases
         return "Entreprise inscrite"
 
     def _get_invitation_stats(
@@ -132,6 +142,7 @@ class AcquisitionDataFinder:
         return metrics["creation_date"] >= self.config.NEW_COMPANIES_SINCE_DATE
 
     def _is_no_invite_1_month(self, metrics: Dict[str, Any]) -> bool:
+        """Companies 30+ days old with no invitations (critical case)."""
         return (
             metrics["invited_employees"] == 0
             and metrics["days_since_creation"]
@@ -139,10 +150,12 @@ class AcquisitionDataFinder:
         )
 
     def _is_no_invite_7_days(self, metrics: Dict[str, Any]) -> bool:
+        """Companies 7-29 days old with no invitations (warning case)."""
         return (
             metrics["invited_employees"] == 0
-            and metrics["days_since_creation"]
-            >= self.config.NO_INVITE_WARNING_DAYS
+            and self.config.NO_INVITE_WARNING_DAYS
+            <= metrics["days_since_creation"]
+            < self.config.NO_INVITE_CRITICAL_DAYS
         )
 
 
