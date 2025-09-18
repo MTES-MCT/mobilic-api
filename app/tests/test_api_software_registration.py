@@ -115,3 +115,89 @@ class TestApiSoftwareRegistration(BaseTest):
             "softwareRegistration"
         ]["id"]
         self.assertIsNotNone(company_id)
+
+    def test_software_registration_fails_with_existing_global_company(self):
+        """Test that creating specific establishments fails when a global company exists for the SIREN"""
+        from app.models import Company
+        from app import db
+
+        test_siren = "987654321"
+
+        # Create a global company (no specific SIRETs)
+        global_company = Company(
+            usual_name="Global Test Company",
+            siren=test_siren,
+            short_sirets=[],
+            allow_team_mode=True,
+            allow_transfers=False,
+            require_kilometer_data=True,
+            require_support_activity=False,
+            require_mission_name=True,
+        )
+        db.session.add(global_company)
+        db.session.commit()
+
+        software_registration_response = make_protected_request(
+            query=ApiRequests.software_registration,
+            variables=dict(
+                client_id=self.client_id,
+                usual_name="Test Establishment",
+                siren=test_siren,
+                siret=f"{test_siren}12345",
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+        self.assertIn("errors", software_registration_response)
+        error = software_registration_response["errors"][0]
+        self.assertEqual(
+            error["extensions"]["code"], "SIREN_ALREADY_SIGNED_UP"
+        )
+        self.assertIn("globally for this SIREN", error["message"])
+
+    def test_software_registration_succeeds_with_different_sirets_same_siren(
+        self,
+    ):
+        """Test that creating different establishments succeeds when no conflict exists"""
+        from app.models import Company
+        from app import db
+
+        test_siren = "123987654"
+
+        # Create a company with specific SIRET
+        existing_company = Company(
+            usual_name="Existing Establishment",
+            siren=test_siren,
+            short_sirets=[12345],
+            allow_team_mode=True,
+            allow_transfers=False,
+            require_kilometer_data=True,
+            require_support_activity=False,
+            require_mission_name=True,
+        )
+        db.session.add(existing_company)
+        db.session.commit()
+
+        software_registration_response = make_protected_request(
+            query=ApiRequests.software_registration,
+            variables=dict(
+                client_id=self.client_id,
+                usual_name="New Establishment",
+                siren=test_siren,
+                siret=f"{test_siren}67890",
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+        self.assertNotIn("errors", software_registration_response)
+        self.assertIn("data", software_registration_response)
+        company_id = software_registration_response["data"]["company"][
+            "softwareRegistration"
+        ]["id"]
+        self.assertIsNotNone(company_id)

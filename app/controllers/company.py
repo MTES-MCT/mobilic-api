@@ -333,6 +333,14 @@ def store_company(
         and not sirets
     ):
         raise SirenAlreadySignedUpError()
+
+    if (
+        registration_status == SirenRegistrationStatus.FULLY_REGISTERED
+        and sirets
+    ):
+        raise SirenAlreadySignedUpError(
+            "Company already registered globally for this SIREN (representing all establishments). Cannot create SIRET-specific establishments."
+        )
     siren_api_info = None
     try:
         siren_api_info = siren_api_client.get_siren_info(siren)
