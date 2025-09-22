@@ -33,7 +33,10 @@ def get_siren_registration_status(siren):
     if not all_registered_companies_for_siren:
         return SirenRegistrationStatus.UNREGISTERED, None
     if any(
-        [c.short_sirets is None for c in all_registered_companies_for_siren]
+        [
+            c.short_sirets is None or c.short_sirets == []
+            for c in all_registered_companies_for_siren
+        ]
     ):
         return SirenRegistrationStatus.FULLY_REGISTERED, None
     registered_sirets = []
