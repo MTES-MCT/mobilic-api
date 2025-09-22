@@ -84,9 +84,9 @@ class AcquisitionDataFinder:
         """Classify company in acquisition funnel based on creation date and invitations.
 
         Classification logic (priority order):
-        1. New companies since March 2025 (any invitation status)
-        2. Companies 30+ days old with no invitations
-        3. Companies 7-29 days old with no invitations
+        1. Companies 30+ days old with no invitations
+        2. Companies 7-29 days old with no invitations
+        3. New companies since March 2025
         4. All other companies
 
         Args:
@@ -98,17 +98,17 @@ class AcquisitionDataFinder:
         Returns:
             Acquisition stage classification string
         """
-        # Priority 1: Recent companies (regardless of invitations)
-        if self._is_new_company_since_march(company_metrics):
-            return "Nouvelles entreprises inscrites depuis mars 2025"
-
-        # Priority 2: Critical case - 1 month+ without invitations
+        # Priority 1: Critical case - 1 month+ without invitations
         if self._is_no_invite_1_month(company_metrics):
             return "Entreprise inscrite depuis 1 mois sans salarié invité"
 
-        # Priority 3: Warning case - 7+ days without invitations
+        # Priority 2: Warning case - 7+ days without invitations
         if self._is_no_invite_7_days(company_metrics):
             return "Entreprise inscrite depuis 7 jours sans salarié invité"
+
+        # Priority 3: Recent companies since March 2025
+        if self._is_new_company_since_march(company_metrics):
+            return "Nouvelles entreprises inscrites depuis mars 2025"
 
         # Default: All other cases
         return "Entreprise inscrite"
@@ -116,19 +116,52 @@ class AcquisitionDataFinder:
     def _get_invitation_stats(
         self, company_ids: List[int]
     ) -> Dict[int, Dict[str, int]]:
+        """Get invitation statistics excluding company creators.
+
+        The company creator is identified as the first admin (earliest employment ID).
+        This avoids counting the initial admin who created the company as an "invited" employee.
+
+        Args:
+            company_ids: List of company IDs to get stats for
+
+        Returns:
+            Dictionary mapping company_id to {"invited": count}
+        """
         if not company_ids:
             return {}
 
+        # Find the first admin (creator) for each company
+        first_admins = (
+            db.session.query(
+                Employment.company_id,
+                func.min(Employment.id).label("creator_id"),
+            )
+            .filter(
+                Employment.company_id.in_(company_ids),
+                Employment.has_admin_rights == True,
+            )
+            .group_by(Employment.company_id)
+            .subquery()
+        )
+
+        # Count employments excluding creators
         stats = (
             db.session.query(
                 Employment.company_id,
                 func.count(Employment.user_id).label("invited_count"),
+            )
+            .outerjoin(
+                first_admins,
+                (Employment.company_id == first_admins.c.company_id)
+                & (Employment.id == first_admins.c.creator_id),
             )
             .filter(
                 Employment.company_id.in_(company_ids),
                 Employment.validation_status != "rejected",
                 Employment.dismissed_at.is_(None),
                 Employment.user_id.isnot(None),
+                # Exclude if it's the creator
+                first_admins.c.creator_id.is_(None),
             )
             .group_by(Employment.company_id)
             .all()
