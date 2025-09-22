@@ -181,3 +181,68 @@ def get_employee_current_admins(employee):
             for a in company.get_admins(start=date.today(), end=date.today())
         ]
     return User.query.filter(User.id.in_(admin_ids)).all()
+
+
+def get_employees_for_anonymization_warning(user_ids, warned_user_ids):
+    """
+    Get employees scheduled for anonymization warning.
+
+    Args:
+        user_ids: List of user IDs to check
+        warned_user_ids: Set of user IDs already warned
+
+    Returns:
+        List of User objects eligible for warning
+    """
+    if not user_ids:
+        return []
+
+    return (
+        db.session.query(User)
+        .filter(
+            User.id.in_(user_ids),
+            User.email.isnot(None),
+            User.status != "anonymized",
+            ~User.id.in_(warned_user_ids),
+        )
+        .all()
+    )
+
+
+def get_managers_with_companies_for_anonymization_warning(
+    manager_ids, warned_user_ids
+):
+    """
+    Get managers with their companies for anonymization warning.
+
+    Args:
+        manager_ids: List of manager IDs to check
+        warned_user_ids: Set of manager IDs already warned
+
+    Returns:
+        List of dictionaries with 'manager' and 'companies' keys
+    """
+    if not manager_ids:
+        return []
+
+    managers_with_companies = (
+        db.session.query(User, Company)
+        .join(Employment, User.id == Employment.user_id)
+        .join(Company, Employment.company_id == Company.id)
+        .filter(
+            User.id.in_(manager_ids),
+            User.email.isnot(None),
+            User.status != "anonymized",
+            Employment.has_admin_rights == True,
+            ~User.id.in_(warned_user_ids),
+        )
+        .all()
+    )
+
+    managers_dict = {}
+    for manager, company in managers_with_companies:
+        if manager.id not in managers_dict:
+            managers_dict[manager.id] = {"manager": manager, "companies": []}
+        managers_dict[manager.id]["companies"].append(company)
+
+    return list(managers_dict.values())
