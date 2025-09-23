@@ -6,6 +6,20 @@ from app.helpers.errors import MobilicError
 from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 
 
+def is_valid_siren(siren):
+    """Check if SIREN format is valid."""
+    return siren and len(siren) == 9 and siren.isdigit()
+
+
+def get_siren_validation_error(siren):
+    """Get validation error message for invalid SIREN."""
+    if not siren or len(siren) != 9:
+        return f"SIREN must be exactly 9 characters (received: {len(siren) if siren else 0})"
+    if not siren.isdigit():
+        return "SIREN must contain only digits"
+    return "SIREN is valid"
+
+
 class UnavailableSirenAPIError(MobilicError):
     code = "UNAVAILABLE_SIREN_API"
 
@@ -191,12 +205,12 @@ class SirenAPIClient:
             postal_code = f"{address_info[f'libelleCommuneEtranger{secondary_flag}Etablissement'] or ''} {address_info[f'codePaysEtranger{secondary_flag}Etablissement'] or ''}"
 
         return {
-            f"adresse{secondary_flag}": address
-            if len(address.replace(" ", "")) > 0
-            else None,
-            f"codePostal{secondary_flag}": postal_code
-            if len(postal_code.replace(" ", "")) > 0
-            else None,
+            f"adresse{secondary_flag}": (
+                address if len(address.replace(" ", "")) > 0 else None
+            ),
+            f"codePostal{secondary_flag}": (
+                postal_code if len(postal_code.replace(" ", "")) > 0 else None
+            ),
         }
 
     @staticmethod
@@ -277,9 +291,11 @@ class SirenAPIClient:
             activity=SirenAPIClient._format_activity_from_naf_code(
                 legal_unit_dict["activitePrincipaleUniteLegale"]
             ),
-            creation_date=legal_unit_dict["dateCreationUniteLegale"]
-            if legal_unit_dict["dateCreationUniteLegale"]
-            else None,
+            creation_date=(
+                legal_unit_dict["dateCreationUniteLegale"]
+                if legal_unit_dict["dateCreationUniteLegale"]
+                else None
+            ),
         )
 
         open_facilities = []
