@@ -56,27 +56,12 @@ def get_first_mission_validation_by_admin_date(company_id):
     )[0]
 
 
-def get_first_active_criteria_date(company_id):
-    return (
-        db.session.query(db.func.min(CompanyCertification.attribution_date))
-        .filter(
-            CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-        )
-        .first()
-    )[0]
-
-
 def get_first_certification_date(company_id):
     return (
         db.session.query(db.func.min(CompanyCertification.attribution_date))
         .filter(
             CompanyCertification.company_id == company_id,
-            CompanyCertification.be_active,
-            CompanyCertification.be_compliant,
-            CompanyCertification.not_too_many_changes,
-            CompanyCertification.validate_regularly,
-            CompanyCertification.log_in_real_time,
+            CompanyCertification.certification_level_int > 0,
         )
         .first()
     )[0]
@@ -85,6 +70,5 @@ def get_first_certification_date(company_id):
 STEPS = {
     "first_employee_invitation_date": get_first_employee_invitation_date,
     "first_mission_validation_by_admin_date": get_first_mission_validation_by_admin_date,
-    "first_active_criteria_date": get_first_active_criteria_date,
     "first_certification_date": get_first_certification_date,
 }
