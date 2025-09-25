@@ -189,11 +189,11 @@ def check_min_daily_rest(
 
             if len(activities_not_covered_by_long_break) > 0:
                 success = False
-                extra[
-                    "breach_period_start"
-                ] = activities_not_covered_by_long_break[
-                    0
-                ].start_time.isoformat()
+                extra["breach_period_start"] = (
+                    activities_not_covered_by_long_break[
+                        0
+                    ].start_time.isoformat()
+                )
                 breach_period_end = activities_not_covered_by_long_break[
                     0
                 ].start_time + timedelta(days=1)
@@ -368,9 +368,9 @@ def check_min_work_day_break(activity_groups, regulation_check, business):
             total_work_duration_s <= MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_1 * MINUTE
         ):
-            extra[
-                "min_break_time_in_minutes"
-            ] = MINIMUM_DURATION_BREAK_IN_MIN_1
+            extra["min_break_time_in_minutes"] = (
+                MINIMUM_DURATION_BREAK_IN_MIN_1
+            )
             return ComputationResult(
                 success=False,
                 extra=extra,
@@ -379,9 +379,9 @@ def check_min_work_day_break(activity_groups, regulation_check, business):
             total_work_duration_s > MINIMUM_DURATION_WORK_IN_HOURS_2 * HOUR
             and total_break_time_s < MINIMUM_DURATION_BREAK_IN_MIN_2 * MINUTE
         ):
-            extra[
-                "min_break_time_in_minutes"
-            ] = MINIMUM_DURATION_BREAK_IN_MIN_2
+            extra["min_break_time_in_minutes"] = (
+                MINIMUM_DURATION_BREAK_IN_MIN_2
+            )
             return ComputationResult(
                 success=False,
                 extra=extra,
@@ -434,12 +434,12 @@ def check_max_uninterrupted_work_time(
                 current_uninterrupted_work_duration
                 > MAXIMUM_DURATION_OF_UNINTERRUPTED_WORK_IN_HOURS * HOUR
             ):
-                extra[
-                    "longest_uninterrupted_work_in_seconds"
-                ] = current_uninterrupted_work_duration
-                extra[
-                    "longest_uninterrupted_work_start"
-                ] = current_uninterrupted_start.isoformat()
+                extra["longest_uninterrupted_work_in_seconds"] = (
+                    current_uninterrupted_work_duration
+                )
+                extra["longest_uninterrupted_work_start"] = (
+                    current_uninterrupted_start.isoformat()
+                )
                 extra["longest_uninterrupted_work_end"] = end_time.isoformat()
                 extra["sanction_code"] = SANCTION_CODE
                 return ComputationResult(success=False, extra=extra)
@@ -473,9 +473,9 @@ def check_has_enough_break(activity_groups, regulation_check, business):
     too_much_uninterrupted_work_time = not uninterrupted_result.success
 
     merged_extra["not_enough_break"] = not_enough_break
-    merged_extra[
-        "too_much_uninterrupted_work_time"
-    ] = too_much_uninterrupted_work_time
+    merged_extra["too_much_uninterrupted_work_time"] = (
+        too_much_uninterrupted_work_time
+    )
 
     return ComputationResult(
         success=not (not_enough_break or too_much_uninterrupted_work_time),

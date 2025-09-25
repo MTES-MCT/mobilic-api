@@ -15,8 +15,14 @@ from app.models import (
     RegulationCheck,
 )
 from app.models.activity import ActivityType
+from app.models.business import BusinessType
 from app.models.regulation_check import RegulationCheckType
-from app.seed import UserFactory, EmploymentFactory, AuthenticatedUserContext
+from app.seed import (
+    UserFactory,
+    CompanyFactory,
+    EmploymentFactory,
+    AuthenticatedUserContext,
+)
 from app.seed.helpers import get_time, get_date
 from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
@@ -48,577 +54,544 @@ class TestMaximumWorkDayTime(RegulationsTest):
                 ],
                 [
                     get_time(how_many_days_ago=how_many_days_ago, hour=5),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
-                ],
-            ],
-        )
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNone(regulatory_alert)
-
-    def test_max_work_day_time_by_employee_failure(self):
-        how_many_days_ago = 2
-
-        self._log_and_validate_mission(
-            mission_name="3h work (night) + 8h drive",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    ActivityType.WORK,
-                ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=8),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=16),
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
-        self.assertEqual(extra_info["work_range_in_seconds"], 11 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=4),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=16),
-        )
-        self.assertEqual(extra_info["sanction_code"], NATINF_32083)
-
-    def test_max_work_day_time_by_employee_no_night_work_failure(self):
-        how_many_days_ago = 2
-
-        self._log_and_validate_mission(
-            mission_name="5h work + 8h drive",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
-                    ActivityType.WORK,
-                ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], False)
-        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
-        self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=7),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=21),
-        )
-        self.assertEqual(extra_info["sanction_code"], NATINF_11292)
-
-    def test_max_work_day_time_depending_on_business(self):
-        how_many_days_ago = 5
-
-        ## By default, employee is TRM
-        self._log_and_validate_mission(
-            mission_name="11h - ok",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
-                    ActivityType.WORK,
-                ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
-                ],
-            ],
-        )
-
-        # 11h  is fine, no alert
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNone(regulatory_alert)
-
-        self.convert_employee_to_trv()
-
-        how_many_days_ago = 2
-
-        ## now employee is TRV
-        self._log_and_validate_mission(
-            mission_name="11h - ko",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=12),
-                    ActivityType.WORK,
-                ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
-                ],
-            ],
-        )
-
-        # 11h  is above limit, alert
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-
-    def test_max_work_day_time_by_admin_failure(self):
-        how_many_days_ago = 2
-
-        mission = self._log_and_validate_mission(
-            mission_name="3h work (night) + 10h drive",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=4),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    ActivityType.WORK,
-                ],
-                [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=7),
-                    get_time(how_many_days_ago=how_many_days_ago, hour=17),
-                ],
-            ],
-        )
-        with AuthenticatedUserContext(user=self.admin):
-            validate_mission(
-                submitter=self.admin, mission=mission, for_user=self.employee
-            )
-
-        regulatory_alert = _get_alert(
-            days_ago=how_many_days_ago, submitter_type=SubmitterType.ADMIN
-        )
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], True)
-        self.assertIsNotNone(extra_info["max_work_range_in_hours"])
-        self.assertEqual(extra_info["work_range_in_seconds"], 13 * HOUR)
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_start"]),
-            get_time(how_many_days_ago, hour=4),
-        )
-        self.assertEqual(
-            datetime.fromisoformat(extra_info["work_range_end"]),
-            get_time(how_many_days_ago, hour=17),
-        )
-        self.assertEqual(extra_info["sanction_code"], NATINF_32083)
-
-    def test_max_work_day_time_in_guyana_success(self):
-        company = self.company
-        admin = self.admin
-        how_many_days_ago = 2
-
-        GY_TZ_NAME = "America/Cayenne"
-        GY_TIMEZONE = gettz(GY_TZ_NAME)
-
-        employee = UserFactory.create(
-            email="employee-guyana@email.com",
-            password="password",
-            timezone_name=GY_TZ_NAME,
-        )
-        EmploymentFactory.create(
-            company=company,
-            submitter=admin,
-            user=employee,
-            has_admin_rights=False,
-        )
-
-        mission = Mission(
-            name="11h drive in Guyana with night work",
-            company=company,
-            reception_time=datetime.now(),
-            submitter=employee,
-        )
-        db.session.add(mission)
-
-        with AuthenticatedUserContext(user=employee):
-            log_activity(
-                submitter=employee,
-                user=employee,
-                mission=mission,
-                type=ActivityType.DRIVE,
-                switch_mode=False,
-                reception_time=get_time(
-                    how_many_days_ago, hour=17, tz=GY_TIMEZONE
-                ),
-                start_time=get_time(how_many_days_ago, hour=6, tz=GY_TIMEZONE),
-                end_time=get_time(how_many_days_ago, hour=17, tz=GY_TIMEZONE),
-            )
-
-            # Guyana UTC-4 = France UTC+2
-            # Guyana: 6h -> 17h (day)
-            # France: 12h -> 23h (night)
-
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
-
-        regulatory_alert = _get_alert(
-            days_ago=how_many_days_ago, submitter_type=SubmitterType.ADMIN
-        )
-        self.assertIsNone(regulatory_alert)
-
-    def test_night_hours_start(self):
-        how_many_days_ago = 2
-
-        self._log_and_validate_mission(
-            mission_name="Travail de nuit",
-            submitter=self.employee,
-            work_periods=[
-                [
                     get_time(
-                        how_many_days_ago=how_many_days_ago, hour=13, minute=55
+                        how_many_days_ago=how_many_days_ago,
+                        hour=13,
+                        minute=30,
                     ),
-                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=0),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], True)
-
-    def test_no_night_hours_start(self):
-        how_many_days_ago = 2
-
-        self._log_and_validate_mission(
-            mission_name="Pas de travail de nuit",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=9, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=23, minute=55
-                    ),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], False)
-
-    def test_night_hours_end(self):
-        how_many_days_ago = 2
-
-        # Let's check night hours ends at 5am
-        self._log_and_validate_mission(
-            mission_name="Travail de nuit",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=4, minute=50
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=14, minute=55
-                    ),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], True)
-
-    def test_no_night_hours_end(self):
-        how_many_days_ago = 2
-
-        # Let's check night hours ends at 5am
-        self._log_and_validate_mission(
-            mission_name="Pas de travail de nuit",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=5, minute=5
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
-                    ),
-                    ActivityType.WORK,
-                ],
-            ],
-        )
-
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-        extra_info = regulatory_alert.extra
-        self.assertEqual(extra_info["night_work"], False)
-
-    ## T3P (Taxi, VTC, LOTI)
-    ## 9h if amplitude > 12h
-    ## 10h if amplitude <= 12h
-    def test_ok_t3p_low_amplitude(self):
-        how_many_days_ago = 2
-        self.convert_employee_to_vtc()
-
-        self._log_and_validate_mission(
-            mission_name="11h amplitude - 9h30 travail",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=12, minute=30
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=17, minute=0
-                    ),
-                ],
-            ],
-        )
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNone(regulatory_alert)
-
-    def test_ko_t3p_low_amplitude(self):
-        how_many_days_ago = 2
-        self.convert_employee_to_vtc()
-
-        self._log_and_validate_mission(
-            mission_name="11h amplitude - 10h30 travail",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=30
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=17, minute=0
-                    ),
-                ],
-            ],
-        )
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-
-    def test_ok_t3p_high_amplitude(self):
-        how_many_days_ago = 2
-        self.convert_employee_to_vtc()
-
-        self._log_and_validate_mission(
-            mission_name="13h amplitude - 8h30 travail",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=15, minute=30
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=19, minute=0
-                    ),
-                ],
-            ],
-        )
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNone(regulatory_alert)
-
-    def test_ko_t3p_high_amplitude(self):
-        how_many_days_ago = 2
-        self.convert_employee_to_vtc()
-
-        self._log_and_validate_mission(
-            mission_name="13h amplitude - 9h30 travail",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=14, minute=30
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=19, minute=0
-                    ),
-                ],
-            ],
-        )
-        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
-
-    ## TRV Frequent
-    ## 9h if amplitude > 13h
-    ## 10h if amplitude <= 13h
-    def test_ok_trv_frequent_low_amplitude(self):
-        how_many_days_ago = 2
-        self.convert_employee_to_trv()
-
-        self._log_and_validate_mission(
-            mission_name="12h amplitude - 9h30 travail",
-            submitter=self.employee,
-            work_periods=[
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
+                    ActivityType.DRIVE,
                 ],
                 [
                     get_time(
                         how_many_days_ago=how_many_days_ago, hour=13, minute=30
                     ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
-                    ),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    ActivityType.WORK,
+                ],
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                    ActivityType.DRIVE,
                 ],
             ],
         )
+
         regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNone(regulatory_alert)
 
-    def test_ko_trv_frequent_low_amplitude(self):
+    def test_max_work_day_time_by_employee_failure(self):
         how_many_days_ago = 2
-        self.convert_employee_to_trv()
-
         self._log_and_validate_mission(
-            mission_name="12h amplitude - 10h30 travail",
+            mission_name="TRV work time > 10 hours",
             submitter=self.employee,
             work_periods=[
                 [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
                     get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                        how_many_days_ago=how_many_days_ago,
+                        hour=16,
                     ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
+                    ActivityType.DRIVE,
+                ]
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNotNone(regulatory_alert)
+
+    def test_max_work_day_time_by_admin_failure(self):
+        how_many_days_ago = 2
+        self._log_and_validate_mission(
+            mission_name="TRV work time > 10 hours",
+            submitter=self.admin,
+            work_periods=[
                 [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
                     get_time(
-                        how_many_days_ago=how_many_days_ago, hour=12, minute=30
+                        how_many_days_ago=how_many_days_ago,
+                        hour=16,
                     ),
+                    ActivityType.DRIVE,
+                ]
+            ],
+        )
+
+        regulatory_alert = _get_alert(
+            days_ago=how_many_days_ago, submitter_type=SubmitterType.ADMIN
+        )
+        self.assertIsNotNone(regulatory_alert)
+
+    def test_max_work_day_time_by_employee_no_night_work_failure(self):
+        how_many_days_ago = 2
+        self._log_and_validate_mission(
+            mission_name="No night work but 13 hours of work",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
                     get_time(
-                        how_many_days_ago=how_many_days_ago, hour=18, minute=0
+                        how_many_days_ago=how_many_days_ago,
+                        hour=18,
                     ),
+                    ActivityType.DRIVE,
                 ],
             ],
         )
+
         regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
+        self.assertIsNotNone(
+            regulatory_alert,
+        )
+        extra_info = regulatory_alert.extra
+        self.assertFalse(extra_info["night_work"])
+        self.assertEqual(extra_info["sanction_code"], NATINF_11292)
+        self.assertEqual(extra_info["sanction_code"], NATINF_11292)
+
+    def test_max_work_day_time_depending_on_business(self):
+        how_many_days_ago = 5
+
+        # Same employee in different companies. One is TRV FREQUENT (max 10h when amplitude > 13h and max 9h if amplitude > 13h) one is TRM LONG_DISTANCE (max 12h)
+        trv_frequent_company = CompanyFactory.create(
+            name="trv company"
+        )  # TRV - by default no specific business
+        trm_long_distance_company = CompanyFactory.create(
+            name="trm company", business_type=BusinessType.LONG_DISTANCE
+        )
+
+        # TRV - FREQUENT
+        EmploymentFactory.create(
+            company=trv_frequent_company, submitter=self.employee
+        )
+
+        # TRM - LONG DISTANCE
+        EmploymentFactory.create(
+            company=trm_long_distance_company, submitter=self.employee
+        )
+
+        # Workday with 11 hours of work.
+        # TRV (FREQUENT by default) : alert expected (> 10h)
+        # TRM (LONG_DISTANCE) : no alert (< 12h)
+        with AuthenticatedUserContext(user=self.employee):
+            # TRV FREQUENT : alert expected for 11h work
+            self._log_and_validate_mission(
+                mission_name="11 hours worked mission for TRV frequent with high amplitude (15h)",
+                submitter=self.employee,
+                company=trv_frequent_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=7),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=15,
+            )
+
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.user == self.employee,
+                RegulatoryAlert.regulation_check.has(
+                    RegulationCheck.type
+                    == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+                ),
+                RegulatoryAlert.company == trv_frequent_company,
+            ).one_or_none()
+            # Alert expected (11h > 9h because amplitude > 13h for TRV FREQUENT)
+            self.assertIsNotNone(regulatory_alert)
+
+            # TRM LONG_DISTANCE : no alert for 11h work
+            self._log_and_validate_mission(
+                mission_name="11 hours worked mission TRM long distance",
+                submitter=self.employee,
+                company=trm_long_distance_company,
+                work_periods=[
+                    [
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1, hour=7
+                        ),
+                        get_time(
+                            how_many_days_ago=how_many_days_ago - 1, hour=18
+                        ),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+            )
+
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.user == self.employee,
+                RegulatoryAlert.regulation_check.has(
+                    RegulationCheck.type
+                    == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+                ),
+                RegulatoryAlert.company == trm_long_distance_company,
+            ).one_or_none()
+            # No alert (11h < 12h for TRM)
+            self.assertIsNone(regulatory_alert)
+
+    def test_ok_trv_frequent_low_amplitude(self):
+        how_many_days_ago = 5
+        # TRV FREQUENT company with low amplitude (8h), 9h of work should not trigger alert
+        trv_frequent_company = CompanyFactory.create(
+            name="trv_frequent", business_type=BusinessType.FREQUENT
+        )
+        EmploymentFactory.create(
+            company=trv_frequent_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV frequent with low amplitude (8h) and 9h work",
+                submitter=self.employee,
+                company=trv_frequent_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=8,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_frequent_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNone(regulatory_alert)
 
     def test_ok_trv_frequent_high_amplitude(self):
+        how_many_days_ago = 5
+        # TRV FREQUENT company with high amplitude (15h), 9h of work should not trigger alert
+        trv_frequent_company = CompanyFactory.create(
+            name="trv_frequent", business_type=BusinessType.FREQUENT
+        )
+        EmploymentFactory.create(
+            company=trv_frequent_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV frequent with high amplitude (15h) and 9h work",
+                submitter=self.employee,
+                company=trv_frequent_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=15,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_frequent_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNone(regulatory_alert)
+
+    def test_ko_trv_frequent_low_amplitude(self):
+        how_many_days_ago = 5
+        # TRV FREQUENT company with low amplitude (8h), 11h of work should trigger alert
+        trv_frequent_company = CompanyFactory.create(
+            name="trv_frequent", business_type=BusinessType.FREQUENT
+        )
+        EmploymentFactory.create(
+            company=trv_frequent_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV frequent with low amplitude (8h) and 11h work",
+                submitter=self.employee,
+                company=trv_frequent_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=6),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=8,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_frequent_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNotNone(regulatory_alert)
+
+    def test_ko_trv_frequent_high_amplitude(self):
+        how_many_days_ago = 5
+        # TRV FREQUENT company with high amplitude (15h), 10h of work should trigger alert (limit = 9h)
+        trv_frequent_company = CompanyFactory.create(
+            name="trv_frequent", business_type=BusinessType.FREQUENT
+        )
+        EmploymentFactory.create(
+            company=trv_frequent_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV frequent with high amplitude (15h) and 10h work",
+                submitter=self.employee,
+                company=trv_frequent_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=15,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_frequent_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNotNone(regulatory_alert)
+
+    def test_ok_t3p_low_amplitude(self):
+        how_many_days_ago = 5
+        # TRV T3P (DEFAULT) company with low amplitude (10h), 9h of work should not trigger alert
+        trv_t3p_company = CompanyFactory.create(name="trv_t3p")
+        EmploymentFactory.create(
+            company=trv_t3p_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV T3P with low amplitude (10h) and 9h work",
+                submitter=self.employee,
+                company=trv_t3p_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=10,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_t3p_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNone(regulatory_alert)
+
+    def test_ok_t3p_high_amplitude(self):
+        how_many_days_ago = 5
+        # TRV T3P (DEFAULT) company with high amplitude (15h), 9h of work should not trigger alert
+        trv_t3p_company = CompanyFactory.create(name="trv_t3p")
+        EmploymentFactory.create(
+            company=trv_t3p_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV T3P with high amplitude (15h) and 9h work",
+                submitter=self.employee,
+                company=trv_t3p_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=15,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_t3p_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNone(regulatory_alert)
+
+    def test_ko_t3p_low_amplitude(self):
+        how_many_days_ago = 5
+        # TRV T3P (DEFAULT) company with low amplitude (10h), 11h of work should trigger alert
+        trv_t3p_company = CompanyFactory.create(name="trv_t3p")
+        EmploymentFactory.create(
+            company=trv_t3p_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV T3P with low amplitude (10h) and 11h work",
+                submitter=self.employee,
+                company=trv_t3p_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=6),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=17),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=10,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_t3p_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNotNone(regulatory_alert)
+
+    def test_ko_t3p_high_amplitude(self):
+        how_many_days_ago = 5
+        # TRV T3P (DEFAULT) company with high amplitude (15h), 10h of work should trigger alert (limit = 9h)
+        trv_t3p_company = CompanyFactory.create(name="trv_t3p")
+        EmploymentFactory.create(
+            company=trv_t3p_company, submitter=self.employee
+        )
+
+        with AuthenticatedUserContext(user=self.employee):
+            self._log_and_validate_mission(
+                mission_name="TRV T3P with high amplitude (15h) and 10h work",
+                submitter=self.employee,
+                company=trv_t3p_company,
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                        get_time(how_many_days_ago=how_many_days_ago, hour=18),
+                        ActivityType.DRIVE,
+                    ]
+                ],
+                service_duration_hours=15,
+            )
+            regulatory_alert = RegulatoryAlert.query.filter(
+                RegulatoryAlert.company == trv_t3p_company,
+                RegulatoryAlert.user == self.employee,
+            ).one_or_none()
+            self.assertIsNotNone(regulatory_alert)
+
+    def test_night_hours_start(self):
         how_many_days_ago = 2
-        self.convert_employee_to_trv()
 
         self._log_and_validate_mission(
-            mission_name="13h30 amplitude - 8h30 travail",
+            mission_name="Night work start",
             submitter=self.employee,
             work_periods=[
                 [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=16, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=19, minute=30
-                    ),
-                ],
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=7),
+                    ActivityType.DRIVE,
+                ]
             ],
         )
+
         regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNone(regulatory_alert)
 
-    def test_ko_trv_frequent_high_amplitude(self):
+    def test_no_night_hours_start(self):
         how_many_days_ago = 2
-        self.convert_employee_to_trv()
 
         self._log_and_validate_mission(
-            mission_name="13h30 amplitude - 9h30 travail",
+            mission_name="No night work start",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=5),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    ActivityType.DRIVE,
+                ]
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_night_hours_end(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="Night work end",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=1),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=9),
+                    ActivityType.DRIVE,
+                ]
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
+
+    def test_no_night_hours_end(self):
+        how_many_days_ago = 2
+
+        self._log_and_validate_mission(
+            mission_name="No night work end",
             submitter=self.employee,
             work_periods=[
                 [
                     get_time(
-                        how_many_days_ago=how_many_days_ago, hour=6, minute=0
+                        how_many_days_ago=how_many_days_ago, hour=5, minute=1
                     ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=11, minute=0
-                    ),
-                ],
-                [
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=15, minute=0
-                    ),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago, hour=19, minute=30
-                    ),
-                ],
+                    get_time(how_many_days_ago=how_many_days_ago, hour=13),
+                    ActivityType.DRIVE,
+                ]
             ],
         )
+
         regulatory_alert = _get_alert(days_ago=how_many_days_ago)
-        self.assertIsNotNone(regulatory_alert)
+        self.assertIsNone(regulatory_alert)
+
+    def test_max_work_day_time_in_guyana_success(self):
+        how_many_days_ago = 2
+
+        # Create work day in Guyana timezone (UTC-3)
+        guyana_tz = gettz("America/Cayenne")
+
+        self._log_and_validate_mission(
+            mission_name="Work in Guyana timezone",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    datetime(
+                        get_time(how_many_days_ago=how_many_days_ago).year,
+                        get_time(how_many_days_ago=how_many_days_ago).month,
+                        get_time(how_many_days_ago=how_many_days_ago).day,
+                        8,
+                        0,
+                        tzinfo=guyana_tz,
+                    ),
+                    datetime(
+                        get_time(how_many_days_ago=how_many_days_ago).year,
+                        get_time(how_many_days_ago=how_many_days_ago).month,
+                        get_time(how_many_days_ago=how_many_days_ago).day,
+                        17,
+                        0,
+                        tzinfo=guyana_tz,
+                    ),
+                    ActivityType.DRIVE,
+                ]
+            ],
+        )
+
+        regulatory_alert = _get_alert(days_ago=how_many_days_ago)
+        self.assertIsNone(regulatory_alert)
 
     def test_night_work_on_two_days(self):
         how_many_days_ago = 2
+
+        # Create a mission that spans two days with night work
         self._log_and_validate_mission(
-            mission_name="",
+            mission_name="Night work spanning two days",
             submitter=self.employee,
             work_periods=[
+                # Day 1: 23:00 - 01:00 (2h with night work due to midnight crossing)
                 [
-                    get_time(how_many_days_ago=how_many_days_ago, hour=20),
-                    get_time(
-                        how_many_days_ago=how_many_days_ago - 1,
-                        hour=7,
-                        minute=30,
-                    ),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=23),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=1),
+                    ActivityType.DRIVE,
+                ],
+                # Day 2: 06:00 - 15:00 (9h normal work)
+                [
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=6),
+                    get_time(how_many_days_ago=how_many_days_ago - 1, hour=15),
+                    ActivityType.DRIVE,
                 ],
             ],
         )
+
+        # The night work detection should apply, limiting work to 10h instead of 12h
+        # Total work: 2h + 9h = 11h > 10h (night work limit) -> should trigger alert
         alert = _get_alert(days_ago=2)
         self.assertIsNotNone(alert)
