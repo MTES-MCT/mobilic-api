@@ -78,13 +78,6 @@ def run_scenario_certificated():
         last_name="Du Mois",
     )
 
-    employee = UserFactory.create(
-        email=EMPLOYEE_EMAIL,
-        password=DEFAULT_PASSWORD,
-        first_name="Employee",
-        last_name="Du Mois",
-    )
-
     for c in [
         company,
         company_bronze,
