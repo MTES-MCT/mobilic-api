@@ -6,18 +6,23 @@ from app.helpers.errors import MobilicError
 from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 
 
-def is_valid_siren(siren):
-    """Check if SIREN format is valid."""
-    return siren and len(siren) == 9 and siren.isdigit()
+def validate_siren(siren):
+    """
+    Validate SIREN format and return error message if invalid
 
+    Args:
+        siren: The SIREN string to validate
 
-def get_siren_validation_error(siren):
-    """Get validation error message for invalid SIREN."""
-    if not siren or len(siren) != 9:
-        return f"SIREN must be exactly 9 characters (received: {len(siren) if siren else 0})"
+    Returns:
+        str: Error message if invalid
+    """
+    if not siren:
+        return "SIREN is required (received: empty value)"
+    if len(siren) != 9:
+        return f"SIREN must be exactly 9 characters (received: {len(siren)})"
     if not siren.isdigit():
         return "SIREN must contain only digits"
-    return "SIREN is valid"
+    return
 
 
 class UnavailableSirenAPIError(MobilicError):

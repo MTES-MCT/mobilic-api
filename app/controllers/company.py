@@ -47,8 +47,7 @@ from app.helpers.graphene_types import graphene_enum_type, Email
 from app.helpers.mail import MailingContactList
 from app.helpers.siren import (
     has_ceased_activity_from_siren_info,
-    is_valid_siren,
-    get_siren_validation_error,
+    validate_siren,
 )
 from app.helpers.tachograph import (
     get_tachograph_archive_company,
@@ -107,8 +106,9 @@ class CompanySoftwareRegistration(graphene.Mutation):
         error_message="You do not have access to the provided client id",
     )
     def mutate(cls, _, info, client_id, usual_name, siren, siret=None):
-        if not is_valid_siren(siren):
-            raise InvalidParamsError(get_siren_validation_error(siren))
+        error = validate_siren(siren)
+        if error:
+            raise InvalidParamsError(error)
 
         with atomic_transaction(commit_at_end=True):
             company = create_company_by_third_party(usual_name, siren, siret)
