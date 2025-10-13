@@ -26,6 +26,11 @@ from app.seed import seed as seed_seed
 from app.jobs.emails.certificate import (
     send_about_to_lose_certificate_emails,
 )
+from app.seed.scenarios.formations.admin import run_scenario_formation_admin
+from app.seed.scenarios.formations.controller import (
+    run_scenario_formation_controller_1,
+    run_scenario_formation_controller_2,
+)
 from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,
 )
@@ -883,3 +888,13 @@ def delete_old_notifications():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting notifications: {e}")
+
+
+@app.cli.command("formations", with_appcontext=True)
+def run_formations():
+
+    for i in range(1, 7):
+        run_scenario_formation_admin(f"mobilic.salarie+{i}@gmail.com")
+
+    run_scenario_formation_controller_1("mobilic.salarie+7@gmail.com")
+    run_scenario_formation_controller_2("mobilic.salarie+9@gmail.com")
