@@ -6,6 +6,25 @@ from app.helpers.errors import MobilicError
 from app.helpers.insee_tranche_effectifs import format_tranche_effectif
 
 
+def validate_siren(siren):
+    """
+    Validate SIREN format and return error message if invalid
+
+    Args:
+        siren: The SIREN string to validate
+
+    Returns:
+        str: Error message if invalid
+    """
+    if not siren:
+        return "SIREN is required (received: empty value)"
+    if len(siren) != 9:
+        return f"SIREN must be exactly 9 characters (received: {len(siren)})"
+    if not siren.isdigit():
+        return "SIREN must contain only digits"
+    return
+
+
 class UnavailableSirenAPIError(MobilicError):
     code = "UNAVAILABLE_SIREN_API"
 
@@ -191,12 +210,12 @@ class SirenAPIClient:
             postal_code = f"{address_info[f'libelleCommuneEtranger{secondary_flag}Etablissement'] or ''} {address_info[f'codePaysEtranger{secondary_flag}Etablissement'] or ''}"
 
         return {
-            f"adresse{secondary_flag}": address
-            if len(address.replace(" ", "")) > 0
-            else None,
-            f"codePostal{secondary_flag}": postal_code
-            if len(postal_code.replace(" ", "")) > 0
-            else None,
+            f"adresse{secondary_flag}": (
+                address if len(address.replace(" ", "")) > 0 else None
+            ),
+            f"codePostal{secondary_flag}": (
+                postal_code if len(postal_code.replace(" ", "")) > 0 else None
+            ),
         }
 
     @staticmethod
@@ -277,9 +296,11 @@ class SirenAPIClient:
             activity=SirenAPIClient._format_activity_from_naf_code(
                 legal_unit_dict["activitePrincipaleUniteLegale"]
             ),
-            creation_date=legal_unit_dict["dateCreationUniteLegale"]
-            if legal_unit_dict["dateCreationUniteLegale"]
-            else None,
+            creation_date=(
+                legal_unit_dict["dateCreationUniteLegale"]
+                if legal_unit_dict["dateCreationUniteLegale"]
+                else None
+            ),
         )
 
         open_facilities = []
