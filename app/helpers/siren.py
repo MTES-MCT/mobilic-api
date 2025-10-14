@@ -38,10 +38,7 @@ class NoSirenAPICredentialsError(MobilicError):
     code = "NO_SIREN_API_CREDENTIALS"
 
 
-SIREN_API_TOKEN_ENDPOINT = "https://api.insee.fr/token"
-SIREN_API_SIREN_INFO_ENDPOINT = (
-    "https://api.insee.fr/entreprises/sirene/siret/"
-)
+SIREN_API_SIREN_INFO_ENDPOINT = "https://api.insee.fr/api-sirene/3.11/siret"
 SIREN_API_PAGE_SIZE = 100
 
 
@@ -127,7 +124,6 @@ def has_ceased_activity_from_siren_info(siren_info):
 class SirenAPIClient:
     def __init__(self, api_key):
         self._api_key = api_key
-        self.access_token = None
 
     @property
     def api_key(self):
@@ -137,34 +133,16 @@ class SirenAPIClient:
             "No API key could be found for SIREN API"
         )
 
-    def _generate_access_token(self):
-        # From https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/application.jag?name=DefaultApplication&#subscription
-        token_response = requests.post(
-            SIREN_API_TOKEN_ENDPOINT,
-            data={"grant_type": "client_credentials"},
-            headers={"Authorization": f"Basic {self.api_key}"},
-            timeout=5,
-        )
-        if not token_response.status_code == 200:
-            raise UnavailableSirenAPIError(
-                f"Request to generate access tokens for SIREN API failed : {token_response.json()}"
-            )
-        token_response_json = token_response.json()
-        self.access_token = token_response_json["access_token"]
-
-    def _request_siren_info(self, siren, retry_if_bad_token=True):
-        # From :
-        # - https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/pages/item-info.jag?name=Sirene&version=V3.11&provider=insee
-        if not self.access_token:
-            self._generate_access_token()
+    def _request_siren_info(self, siren):
+        # Documentation API SIRENE v3.11 :
+        # - API Portal: https://api-apimanager.insee.fr/portal/environments/DEFAULT/apis/2ba0e549-5587-3ef1-9082-99cd865de66f/pages/6548510e-c3e1-3099-be96-6edf02870699/content
+        # - Variables: https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm
+        # - Features: https://www.sirene.fr/static-resources/documentation/sommaire_311.html
         siren_response = requests.get(
-            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&date={date.today()}&nombre={SIREN_API_PAGE_SIZE}",
-            headers={"Authorization": f"Bearer {self.access_token}"},
+            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&nombre={SIREN_API_PAGE_SIZE}&date={date.today()}",
+            headers={"X-INSEE-Api-Key-Integration": self.api_key},
             timeout=10,
         )
-        if siren_response.status_code == 401 and retry_if_bad_token:
-            self._generate_access_token()
-            return self._request_siren_info(siren, retry_if_bad_token=False)
         if siren_response.status_code == 200:
             return siren_response
         if siren_response.status_code == 404:
@@ -281,7 +259,8 @@ class SirenAPIClient:
 
     @staticmethod
     def parse_legal_unit_and_open_facilities_info_from_dict(clean_siren_info):
-        # Spec of the data returned by the SIREN API : https://api.insee.fr/catalogue/site/themes/wso2/subthemes/insee/templates/api/documentation/download.jag?tenant=carbon.super&resourceUrl=/registry/resource/_system/governance/apimgt/applicationdata/provider/insee/Sirene/V3/documentation/files/INSEE%20Documentation%20API%20Sirene%20Variables-V3.9.pdf
+        # Spec of data retunred by API SIRENE v3.11 :
+        # Variables: https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm
         legal_unit_dict = clean_siren_info["uniteLegale"]
         facilities_raw_info = clean_siren_info["etablissements"]
 
