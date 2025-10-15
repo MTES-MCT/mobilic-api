@@ -17,6 +17,7 @@ from app.helpers.authorization import (
     controller_only,
 )
 from app.helpers.errors import BadRequestError
+from app.helpers.graphene_types import TimeStamp
 from app.helpers.s3 import S3Client
 from app.helpers.xls import (
     retrieve_and_verify_signature,
@@ -68,6 +69,28 @@ class AddControlNote(graphene.Mutation):
     def mutate(cls, _, info, control_id, content):
         control = ControllerControl.query.get(control_id)
         control.note = content
+        db.session.commit()
+        return control
+
+
+class UpdateControlTime(graphene.Mutation):
+    class Arguments:
+        control_id = graphene.Int(required=True)
+        new_time = TimeStamp(
+            required=True,
+            description="Nouvelle heure du contrôle",
+        )
+
+    Output = ControllerControlOutput
+
+    @classmethod
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def mutate(cls, _, info, control_id, new_time):
+        control = ControllerControl.query.get(control_id)
+        control.control_time = new_time
         db.session.commit()
         return control
 
