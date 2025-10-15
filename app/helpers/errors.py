@@ -262,9 +262,11 @@ class OverlappingActivitiesError(MobilicError):
                         startTime=to_timestamp(
                             conflicting_activity.start_time
                         ),
-                        endTime=to_timestamp(conflicting_activity.end_time)
-                        if conflicting_activity.end_time
-                        else None,
+                        endTime=(
+                            to_timestamp(conflicting_activity.end_time)
+                            if conflicting_activity.end_time
+                            else None
+                        ),
                         missionId=conflicting_activity.mission_id,
                         type=conflicting_activity.type.value,
                         submitter=dict(
@@ -299,13 +301,15 @@ class MissionAlreadyEndedError(MobilicError):
                 dict(
                     missionEnd=dict(
                         endTime=to_timestamp(mission_end.reception_time),
-                        submitter=dict(
-                            id=mission_end.submitter.id,
-                            firstName=mission_end.submitter.first_name,
-                            lastName=mission_end.submitter.last_name,
-                        )
-                        if mission_end.submitter is not None
-                        else dict(),
+                        submitter=(
+                            dict(
+                                id=mission_end.submitter.id,
+                                firstName=mission_end.submitter.first_name,
+                                lastName=mission_end.submitter.last_name,
+                            )
+                            if mission_end.submitter is not None
+                            else dict()
+                        ),
                     )
                 )
             )
@@ -384,6 +388,11 @@ class InvalidControlToken(MobilicError):
 class ControlNotFound(MobilicError):
     code = "CONTROL_NOT_FOUND"
     http_status_code = 404
+
+
+class ControlWithSameControlTime(MobilicError):
+    code = "CONTROL_WITH_SAME_CONTROL_TIME"
+    http_status_code = 403
 
 
 class OverlappingEmploymentsError(MobilicError):

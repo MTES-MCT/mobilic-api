@@ -1,8 +1,9 @@
 import time
+from datetime import timedelta
 
 import graphene
-from flask import Blueprint, jsonify, request
 import jwt
+from flask import Blueprint, jsonify, request
 from flask_apispec import doc, use_kwargs
 from webargs import fields
 
@@ -16,7 +17,7 @@ from app.helpers.authorization import (
     current_user,
     controller_only,
 )
-from app.helpers.errors import BadRequestError
+from app.helpers.errors import BadRequestError, ControlWithSameControlTime
 from app.helpers.graphene_types import TimeStamp
 from app.helpers.s3 import S3Client
 from app.helpers.xls import (
@@ -90,6 +91,21 @@ class UpdateControlTime(graphene.Mutation):
     )
     def mutate(cls, _, info, control_id, new_time):
         control = ControllerControl.query.get(control_id)
+
+        # Check if a control already has the same control time (to the minute)
+        minute_start = new_time.replace(second=0, microsecond=0)
+        minute_end = minute_start + timedelta(minutes=1)
+        another_control_same_minute_exists = (
+            ControllerControl.query.filter(
+                ControllerControl.controller_id == control.controller_id,
+                ControllerControl.control_time >= minute_start,
+                ControllerControl.control_time <= minute_end,
+            ).first()
+            is not None
+        )
+        if another_control_same_minute_exists:
+            raise ControlWithSameControlTime()
+
         control.control_time = new_time
         db.session.commit()
         return control
