@@ -73,7 +73,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
         return (
             self.qr_code_generation_time.date()
             if self.qr_code_generation_time
-            else None
+            else self.creation_time.date()
         )
 
     @property
@@ -214,11 +214,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
         new_control = ControllerControl(
             control_type=ControlType.lic_papier,
             controller_id=controller_id,
-            observed_infractions=get_no_lic_observed_infractions(
-                datetime.date.today(), business_id
-            )
-            if not is_day_page_filled
-            else [],
+            observed_infractions=(
+                get_no_lic_observed_infractions(
+                    datetime.date.today(), business_id
+                )
+                if not is_day_page_filled
+                else []
+            ),
             nb_controlled_days=7,
         )
         db.session.add(new_control)
@@ -284,9 +286,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
                             latest_mission.vehicle.registration_number
                         )
                     if latest_mission.start_location:
-                        control_bulletin[
-                            "mission_address_begin"
-                        ] = latest_mission.start_location.address.format()
+                        control_bulletin["mission_address_begin"] = (
+                            latest_mission.start_location.address.format()
+                        )
 
                     current_employments_for_company = [
                         e
@@ -294,9 +296,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
                         if e.company_id == latest_mission.company.id
                     ]
                     if len(current_employments_for_company) > 0:
-                        control_bulletin[
-                            "business_id"
-                        ] = current_employments_for_company[0].business_id
+                        control_bulletin["business_id"] = (
+                            current_employments_for_company[0].business_id
+                        )
 
             work_days = group_user_events_by_day_with_limit(
                 user=controlled_user,
