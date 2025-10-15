@@ -331,7 +331,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
 @event.listens_for(ControllerControl, "before_insert")
 def set_control_time(mapper, connection, target):
-    print(target)
     if not target.control_time:
         target.control_time = (
             target.qr_code_generation_time
