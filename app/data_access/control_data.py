@@ -158,6 +158,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         model = ControllerControl
 
     qr_code_generation_time = graphene.Field(TimeStamp, required=False)
+    control_time = graphene.Field(TimeStamp, required=False)
     control_bulletin_creation_time = graphene.Field(TimeStamp, required=False)
     creation_time = graphene.Field(TimeStamp, required=True)
     note = graphene.String(required=False)
