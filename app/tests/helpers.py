@@ -377,9 +377,9 @@ class ApiRequests:
     """
 
     software_registration = """
-      mutation ($clientId: Int!, $usualName: String!, $siren: String!, $siret: String) {
+      mutation ($clientId: Int!, $usualName: String!, $siren: String!, $siret: String, $nbWorkers: Int!) {
           company {
-              softwareRegistration (clientId: $clientId, usualName: $usualName, siren: $siren, siret: $siret) {
+              softwareRegistration (clientId: $clientId, usualName: $usualName, siren: $siren, siret: $siret, nbWorkers: $nbWorkers) {
                   id
               }
           }

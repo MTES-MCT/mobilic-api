@@ -32,7 +32,10 @@ class TestApiEmploymentToken(BaseTest):
         software_registration_response = make_protected_request(
             query=ApiRequests.software_registration,
             variables=dict(
-                client_id=self.client_id, usual_name="Test", siren="123456789"
+                client_id=self.client_id,
+                usual_name="Test",
+                siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,

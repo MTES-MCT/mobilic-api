@@ -71,6 +71,25 @@ from app.services.exports import export_activity_report
 from app.models.user import User
 
 
+def _validate_company_params(usual_name, siren, siret=None, nb_workers=None):
+    """Validate company registration parameters"""
+    if not usual_name or not usual_name.strip():
+        raise InvalidParamsError("Company usual name is required")
+
+    siren_error = validate_siren(siren)
+    if siren_error:
+        raise InvalidParamsError(siren_error)
+
+    if siret:
+        if len(siret) != 14 or not siret.isdigit():
+            raise InvalidParamsError("SIRET must be exactly 14 digits")
+        if not siret.startswith(siren):
+            raise InvalidParamsError("SIRET must start with the company SIREN")
+
+    if nb_workers is not None and nb_workers < 0:
+        raise InvalidParamsError("Number of workers cannot be negative")
+
+
 class CompanySignUpOutput(graphene.ObjectType):
     company = graphene.Field(CompanyOutput)
     employment = graphene.Field(EmploymentOutput)
@@ -96,6 +115,10 @@ class CompanySoftwareRegistration(graphene.Mutation):
         siret = graphene.String(
             required=False, description="Numéro de Siret de l'établissement"
         )
+        nb_workers = graphene.Int(
+            required=True,
+            description="Nombre de salarié de l'entreprise/établissement",
+        )
 
     Output = CompanyOutput
 
@@ -105,13 +128,15 @@ class CompanySoftwareRegistration(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["client_id"],
         error_message="You do not have access to the provided client id",
     )
-    def mutate(cls, _, info, client_id, usual_name, siren, siret=None):
-        error = validate_siren(siren)
-        if error:
-            raise InvalidParamsError(error)
+    def mutate(
+        cls, _, info, client_id, usual_name, siren, siret=None, nb_workers=None
+    ):
+        _validate_company_params(usual_name, siren, siret, nb_workers)
 
         with atomic_transaction(commit_at_end=True):
-            company = create_company_by_third_party(usual_name, siren, siret)
+            company = create_company_by_third_party(
+                usual_name, siren, siret, nb_workers
+            )
             link_company_to_software(company.id, client_id)
         return company
 
@@ -156,6 +181,10 @@ class CompanySignUp(AuthenticatedMutation):
         phone_number="",
         nb_workers=None,
     ):
+        _validate_company_params(
+            usual_name, siren, siret=None, nb_workers=nb_workers
+        )
+
         return sign_up_company(
             usual_name, siren, business_type, phone_number, nb_workers
         )
@@ -199,6 +228,20 @@ class CompaniesSignUp(AuthenticatedMutation):
 
     @classmethod
     def mutate(cls, _, info, siren, companies):
+        if not companies or len(companies) == 0:
+            raise InvalidParamsError("Companies list cannot be empty")
+
+        for idx, company in enumerate(companies):
+            try:
+                _validate_company_params(
+                    usual_name=company.get("usual_name"),
+                    siren=siren,
+                    siret=company.get("siret"),
+                    nb_workers=company.get("nb_workers"),
+                )
+            except InvalidParamsError as e:
+                raise InvalidParamsError(f"Company {idx + 1}: {str(e)}")
+
         return sign_up_companies(siren, companies)
 
 
@@ -231,9 +274,9 @@ def sign_up_companies(siren, companies):
     return created_companies
 
 
-def create_company_by_third_party(usual_name, siren, siret):
+def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     created_company = store_company(
-        siren, [siret] if siret else [], usual_name
+        siren, [siret] if siret else [], usual_name, nb_workers=nb_workers
     )
     return created_company
 
@@ -579,6 +622,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 current_nb_workers != new_nb_workers
                 and new_nb_workers is not None
             ):
+                if new_nb_workers < 0:
+                    raise InvalidParamsError(
+                        "Number of workers cannot be negative"
+                    )
                 company.number_workers = new_nb_workers
                 app.logger.info(
                     f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"

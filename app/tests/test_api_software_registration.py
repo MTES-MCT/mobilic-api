@@ -37,6 +37,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 client_id=self.client_id,
                 usual_name="Test",
                 siren="123456789",
+                nb_workers=10,
             ),
             headers={},
         )
@@ -50,6 +51,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 client_id=self.client_id,
                 usual_name="Test",
                 siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": "123",
@@ -62,7 +64,10 @@ class TestApiSoftwareRegistration(BaseTest):
         software_registration_response = make_protected_request(
             query=ApiRequests.software_registration,
             variables=dict(
-                client_id=self.client_id, usual_name="Test", siren="123456789"
+                client_id=self.client_id,
+                usual_name="Test",
+                siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -76,7 +81,10 @@ class TestApiSoftwareRegistration(BaseTest):
         software_registration_response = make_protected_request(
             query=ApiRequests.software_registration,
             variables=dict(
-                client_id=self.client_id, usual_name="Test", siren="123456789"
+                client_id=self.client_id,
+                usual_name="Test",
+                siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -90,7 +98,10 @@ class TestApiSoftwareRegistration(BaseTest):
         software_registration_response = make_protected_request(
             query=ApiRequests.software_registration,
             variables=dict(
-                client_id=self.client_id, usual_name="Test", siren="123456789"
+                client_id=self.client_id,
+                usual_name="Test",
+                siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -104,7 +115,10 @@ class TestApiSoftwareRegistration(BaseTest):
         software_registration_response = make_protected_request(
             query=ApiRequests.software_registration,
             variables=dict(
-                client_id=self.client_id, usual_name="Test", siren="123456789"
+                client_id=self.client_id,
+                usual_name="Test",
+                siren="123456789",
+                nb_workers=10,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -144,6 +158,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 usual_name="Test Establishment",
                 siren=test_siren,
                 siret=f"{test_siren}12345",
+                nb_workers=5,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -188,6 +203,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 usual_name="New Establishment",
                 siren=test_siren,
                 siret=f"{test_siren}67890",
+                nb_workers=8,
             ),
             headers={
                 "X-CLIENT-ID": self.client_id,
@@ -201,3 +217,68 @@ class TestApiSoftwareRegistration(BaseTest):
             "softwareRegistration"
         ]["id"]
         self.assertIsNotNone(company_id)
+
+    def test_software_registration_fails_without_nb_workers(self):
+        """Test that company creation fails when nb_workers is not provided"""
+        software_registration_response = make_protected_request(
+            query="""
+                mutation ($clientId: Int!, $usualName: String!, $siren: String!) {
+                    company {
+                        softwareRegistration (clientId: $clientId, usualName: $usualName, siren: $siren) {
+                            id
+                        }
+                    }
+                }
+            """,
+            variables=dict(
+                client_id=self.client_id,
+                usual_name="Test Without Workers",
+                siren="111222333",
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+        self.assertIn("errors", software_registration_response)
+
+    def test_software_registration_fails_with_zero_nb_workers(self):
+        """Test that company creation fails when nb_workers is 0"""
+        software_registration_response = make_protected_request(
+            query=ApiRequests.software_registration,
+            variables=dict(
+                client_id=self.client_id,
+                usual_name="Test Zero Workers",
+                siren="444555666",
+                nb_workers=0,
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+        self.assertIn("errors", software_registration_response)
+        error_message = software_registration_response["errors"][0]["message"]
+        self.assertIn("salariés", error_message.lower())
+
+    def test_software_registration_fails_with_negative_nb_workers(self):
+        """Test that company creation fails when nb_workers is negative"""
+        software_registration_response = make_protected_request(
+            query=ApiRequests.software_registration,
+            variables=dict(
+                client_id=self.client_id,
+                usual_name="Test Negative Workers",
+                siren="777888999",
+                nb_workers=-5,
+            ),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+        self.assertIn("errors", software_registration_response)
+        error_message = software_registration_response["errors"][0]["message"]
+        self.assertIn("salariés", error_message.lower())
