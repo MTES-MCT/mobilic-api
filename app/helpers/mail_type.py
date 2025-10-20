@@ -19,6 +19,7 @@ class EmailType(str, Enum):
     BLOCKED_ACCOUNT = "blocked_account"
     TEAM_AFFECTATION = "team_affectation"
     TEAM_NEW_COLLEAGUE = "team_new_colleague"
+    CONTROL_BULLETIN_SEND = "control_bulletin_send"
     # Deprecated since https://github.com/MTES-MCT/mobilic-api/pull/435
     COMPANY_NEVER_ACTIVE = "company_never_active"
     COMPANY_WITHOUT_ANY_INVITATION = "company_without_any_invitation"

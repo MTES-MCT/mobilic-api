@@ -362,3 +362,21 @@ def controller_can_see_control(controller_user, control_id):
     if controller_user.id != controller_control.controller_id:
         raise AuthorizationError("Can not view control of another Controller")
     return True
+
+
+def can_access_control_bulletin(user, control_id):
+    controller_control = ControllerControl.query.get(control_id)
+    if not controller_control:
+        raise AuthorizationError("Unknown control id")
+
+    if controller_only(user):
+        if user.id != controller_control.controller_id:
+            raise AuthorizationError(
+                "Can not view control of another Controller"
+            )
+        return True
+
+    if user.id == controller_control.user_id:
+        return True
+
+    raise AuthorizationError("Access denied to this control bulletin")

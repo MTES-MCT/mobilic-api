@@ -20,7 +20,10 @@ from app.domain.controller import (
     create_controller_user,
     get_controller_from_ac_info,
 )
-from app.domain.permissions import controller_can_see_control
+from app.domain.permissions import (
+    controller_can_see_control,
+    can_access_control_bulletin,
+)
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.agent_connect import get_agent_connect_user_info
 from app.helpers.authentication import (
@@ -155,6 +158,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         )
         business_type = graphene.String(required=False)
         is_day_page_filled = graphene.Boolean(required=False)
+        delivered_by_hand = graphene.Boolean(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -187,6 +191,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         is_vehicle_immobilized=None,
         business_type=None,
         is_day_page_filled=None,
+        delivered_by_hand=None,
     ):
         business_id = None
         if business_type is not None:
@@ -247,6 +252,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             is_vehicle_immobilized,
             business_id,
             is_day_page_filled,
+            delivered_by_hand,
         )
         db.session.commit()
         return control
@@ -541,7 +547,7 @@ def controller_download_control_c1b_file(
 )
 @use_kwargs({"control_id": fields.Int(required=True)}, apply=True)
 @with_authorization_policy(
-    controller_can_see_control,
+    can_access_control_bulletin,
     get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
 )
 def generate_control_bulletin_pdf_export(control_id):
@@ -549,7 +555,9 @@ def generate_control_bulletin_pdf_export(control_id):
         ControllerControl.id == control_id
     ).one()
 
-    pdf = generate_control_bulletin_pdf(control, current_user)
+    pdf = generate_control_bulletin_pdf(
+        control, current_user, control.controller_user
+    )
 
     if not control.control_bulletin_first_download_time:
         control.control_bulletin_first_download_time = datetime.now()

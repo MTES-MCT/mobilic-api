@@ -166,6 +166,14 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Nombre de jours de travail sur lesquels porte le contrôle",
     )
+    delivered_by_hand = graphene.Boolean(
+        required=False,
+        description="Indique si le bulletin a été remis en main propre",
+    )
+    send_to_admin = graphene.Boolean(
+        required=False,
+        description="Indique si le bulletin a été envoyé par email aux gestionnaires",
+    )
 
     employments = graphene.List(
         EmploymentOutput,

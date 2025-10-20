@@ -114,6 +114,7 @@ from app.data_access.user_agreement import AcceptCgu, RejectCgu
 from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
 from app.controllers.notification import MarkNotificationsAsRead
+from app.controllers.control_bulletin import SendControlBulletinEmail
 
 
 class Activities(graphene.ObjectType):
@@ -286,6 +287,7 @@ class PrivateMutations(graphene.ObjectType):
     snooze_certificate_info = SnoozeCertificateInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()
+    send_control_bulletin_email = SendControlBulletinEmail.Field()
 
 
 class Queries(
