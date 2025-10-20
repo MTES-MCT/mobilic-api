@@ -67,6 +67,8 @@ class ControllerControl(BaseModel, RandomNineIntId):
     reported_infractions_last_update_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    delivered_by_hand = db.Column(db.Boolean, nullable=True)
+    send_to_admin = db.Column(db.Boolean, nullable=True)
 
     @property
     def history_end_date(self):

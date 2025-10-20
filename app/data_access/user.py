@@ -209,9 +209,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
         description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
-    controls_date = graphene.List(
-        TimeStamp,
-        description="Liste des dates où l'utilisateur s'est fait contrôler.",
+    user_controls = graphene.List(
+        "app.data_access.control_data.ControllerControlOutput",
+        description="Liste des contrôles de l'utilisateur avec les détails nécessaires (date, lieu, infractions, contrôleur).",
     )
 
     survey_actions = graphene.List(UserSurveyActionsOutput)
@@ -472,16 +472,22 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_should_update_password(self, info):
         return self.password_update_time is None
 
-    def resolve_controls_date(self, info):
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'user_controls' of user object. The field is only accessible to the user himself.",
+    )
+    def resolve_user_controls(self, info):
+        from app.data_access.control_data import ControllerControlOutput
+
         user_controls = (
-            ControllerControl.query.with_entities(
-                ControllerControl.creation_time
+            ControllerControl.query.filter(
+                ControllerControl.user_id == self.id
             )
-            .filter(ControllerControl.user_id == self.id)
             .order_by(desc(ControllerControl.creation_time))
             .all()
         )
-        return [control.creation_time for control in user_controls]
+        return user_controls
 
     @with_authorization_policy(
         only_self,
