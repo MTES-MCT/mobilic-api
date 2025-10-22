@@ -86,8 +86,8 @@ def _validate_company_params(usual_name, siren, siret=None, nb_workers=None):
         if not siret.startswith(siren):
             raise InvalidParamsError("SIRET must start with the company SIREN")
 
-    if nb_workers is not None and nb_workers < 0:
-        raise InvalidParamsError("Number of workers cannot be negative")
+    if nb_workers is not None and nb_workers <= 0:
+        raise InvalidParamsError("Number of workers must be greater than 0")
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -622,9 +622,9 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 current_nb_workers != new_nb_workers
                 and new_nb_workers is not None
             ):
-                if new_nb_workers < 0:
+                if new_nb_workers <= 0:
                     raise InvalidParamsError(
-                        "Number of workers cannot be negative"
+                        "Number of workers must be greater than 0"
                     )
                 company.number_workers = new_nb_workers
                 app.logger.info(

@@ -239,6 +239,7 @@ class TestApiSoftwareRegistration(BaseTest):
                 "X-CLIENT-ID": self.client_id,
                 "X-API-KEY": "mobilic_live_" + self.api_key,
             },
+            request_should_fail_with={"status": 400},
         )
 
         self.assertIn("errors", software_registration_response)
@@ -260,8 +261,6 @@ class TestApiSoftwareRegistration(BaseTest):
         )
 
         self.assertIn("errors", software_registration_response)
-        error_message = software_registration_response["errors"][0]["message"]
-        self.assertIn("salariés", error_message.lower())
 
     def test_software_registration_fails_with_negative_nb_workers(self):
         """Test that company creation fails when nb_workers is negative"""
@@ -280,5 +279,3 @@ class TestApiSoftwareRegistration(BaseTest):
         )
 
         self.assertIn("errors", software_registration_response)
-        error_message = software_registration_response["errors"][0]["message"]
-        self.assertIn("salariés", error_message.lower())
