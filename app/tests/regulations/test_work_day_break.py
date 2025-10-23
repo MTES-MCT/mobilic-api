@@ -129,6 +129,7 @@ class TestWorkDayBreak(RegulationsTest):
             submitter=employee,
         )
         db.session.add(mission)
+        db.session.commit()
 
         with AuthenticatedUserContext(user=employee):
             log_activity(

@@ -77,6 +77,8 @@ class TestWeeklyRules(RegulationsTest):
             db.session.add(mission)
             missions.append(mission)
 
+        db.session.commit()
+
         with AuthenticatedUserContext(user=employee):
             for i in range(14):
 
@@ -153,6 +155,7 @@ class TestWeeklyRules(RegulationsTest):
             submitter=employee,
         )
         db.session.add(mission_final)
+        db.session.commit()
 
         with AuthenticatedUserContext(user=employee):
             for i in range(6):
