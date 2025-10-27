@@ -300,10 +300,6 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
         return f"<User [{self.id}] : {self.display_name}>"
 
     @cached_property
-    def current_company_ids(self):
-        return [e.company_id for e in self.active_employments_at(date.today())]
-
-    @cached_property
     def current_company_ids_with_admin_rights(self):
         return [
             e.company_id

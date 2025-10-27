@@ -117,16 +117,7 @@ def check_company_against_scope_wrapper(company_id_resolver):
 
 
 def check_company_id_against_scope(company_id):
-    # we expect software requests to have a g.company
-    if g.get("company"):
-        if g.company.id != company_id:
-            raise AuthorizationError(
-                "Actor is not authorized to perform the operation"
-            )
-        return
-
-    # "normal" case
-    if company_id not in current_user.current_company_ids:
+    if g.get("company") and g.company.id != company_id:
         raise AuthorizationError(
             "Actor is not authorized to perform the operation"
         )

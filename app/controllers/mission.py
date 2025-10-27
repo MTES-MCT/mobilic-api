@@ -190,12 +190,10 @@ class EndMission(AuthenticatedMutation):
 
     @classmethod
     @with_authorization_policy(active)
-    @with_authorization_policy(
-        check_actor_can_write_on_mission,
-        get_target_from_args=lambda *args, **kwargs: Mission.query.options(
-            selectinload(Mission.activities).selectinload(Activity.versions)
-        ).get(kwargs["mission_id"]),
-        error_message="Actor is not authorized to end the mission",
+    @check_company_against_scope_wrapper(
+        company_id_resolver=lambda *args, **kwargs: Mission.query.get(
+            kwargs["mission_id"]
+        ).company.id
     )
     def mutate(cls, _, info, **args):
         with atomic_transaction(commit_at_end=True):
@@ -352,16 +350,12 @@ class ValidateMission(AuthenticatedMutation):
                     mission=mission,
                     creation_time=creation_time,
                     for_user=user,
-                    employee_version_start_time=(
-                        initial_start_end_times[0]
-                        if initial_start_end_times
-                        else None
-                    ),
-                    employee_version_end_time=(
-                        initial_start_end_times[1]
-                        if initial_start_end_times
-                        else None
-                    ),
+                    employee_version_start_time=initial_start_end_times[0]
+                    if initial_start_end_times
+                    else None,
+                    employee_version_end_time=initial_start_end_times[1]
+                    if initial_start_end_times
+                    else None,
                     is_admin_validation=is_admin_validation,
                     justification=justification,
                 )
@@ -527,11 +521,9 @@ class CancelMission(AuthenticatedMutation):
                     compute_regulations(
                         user=user,
                         period_start=mission_start,
-                        period_end=(
-                            mission_end
-                            if mission_end
-                            else datetime.today().date()
-                        ),
+                        period_end=mission_end
+                        if mission_end
+                        else datetime.today().date(),
                         submitter_type=SubmitterType.ADMIN,
                         business=business,
                     )

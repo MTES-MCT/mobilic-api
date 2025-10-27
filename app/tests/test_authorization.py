@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, date
 
 from flask.ctx import AppContext
 from freezegun import freeze_time
+from time import sleep
 
 from app.domain.log_activities import log_activity
-from app.helpers.authorization import check_company_id_against_scope
 from app.models import Mission
 from app.models.activity import ActivityType
 from app.tests import (
@@ -213,14 +213,3 @@ class TestAuthorization(BaseTest):
         for w in self.workers:
             with self.assertRaises(AuthorizationError):
                 check_actor_can_write_on_mission_over_period(w, mission),
-
-    def test_check_company_id_against_scope(self):
-
-        # current admin ok
-        with AuthenticatedUserContext(self.admin):
-            check_company_id_against_scope(self.company.id)
-
-        # departed admin -> authorizationError
-        with AuthenticatedUserContext(self.departed_admin):
-            with self.assertRaises(AuthorizationError):
-                check_company_id_against_scope(self.company.id)
