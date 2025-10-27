@@ -54,13 +54,13 @@ from app.controllers.employment import (
     GetInvitation,
     RedeemInvitation,
     RejectEmployment,
-    SendInvitationReminder,
     TerminateEmployment,
     ValidateEmployment,
     SyncThirdPartyEmployees,
     UpdateHideEmail,
     ChangeEmployeeBusinessType,
     SnoozeNbWorkerInfo,
+    SendInvitationsReminders,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -188,7 +188,7 @@ class Employments(graphene.ObjectType):
     reject_employment = RejectEmployment.Field()
     terminate_employment = TerminateEmployment.Field()
     cancel_employment = CancelEmployment.Field()
-    send_invitation_reminder = SendInvitationReminder.Field()
+    send_invitations_reminders = SendInvitationsReminders.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
     change_employee_business_type = ChangeEmployeeBusinessType.Field()
