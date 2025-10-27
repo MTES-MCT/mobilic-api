@@ -439,10 +439,14 @@ class TestAutoValidation(BaseTest):
             MissionValidation.is_admin == False,
         ).all()
         self.assertEqual(1, len(validations))
-        with self.assertRaises(MissionAlreadyAutoValidatedError) as context:
-            validate_mission(
-                submitter=employee, mission=mission, for_user=employee
-            )
+
+        with AuthenticatedUserContext(user=employee):
+            with self.assertRaises(
+                MissionAlreadyAutoValidatedError
+            ) as context:
+                validate_mission(
+                    submitter=employee, mission=mission, for_user=employee
+                )
 
         self.assertEqual(
             str(context.exception),
@@ -558,14 +562,15 @@ class TestAutoValidation(BaseTest):
             employee
         )
 
-        with self.assertRaises(MissionAlreadyAutoValidatedError):
-            from app.domain.permissions import (
-                check_actor_can_write_on_mission_over_period,
-            )
+        with AuthenticatedUserContext(user=employee):
+            with self.assertRaises(MissionAlreadyAutoValidatedError):
+                from app.domain.permissions import (
+                    check_actor_can_write_on_mission_over_period,
+                )
 
-            check_actor_can_write_on_mission_over_period(
-                actor=employee, mission=mission, for_user=employee
-            )
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee, mission=mission, for_user=employee
+                )
 
     def test_employee_cannot_edit_activity_after_auto_validation(self):
         employee = self.team_mates[0]
@@ -581,14 +586,15 @@ class TestAutoValidation(BaseTest):
             check_actor_can_write_on_mission_over_period,
         )
 
-        with self.assertRaises(MissionAlreadyAutoValidatedError):
-            check_actor_can_write_on_mission_over_period(
-                actor=employee,
-                mission=mission,
-                for_user=employee,
-                start=activity.start_time,
-                end=activity.end_time,
-            )
+        with AuthenticatedUserContext(user=employee):
+            with self.assertRaises(MissionAlreadyAutoValidatedError):
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee,
+                    mission=mission,
+                    for_user=employee,
+                    start=activity.start_time,
+                    end=activity.end_time,
+                )
 
     def test_employee_cannot_add_activity_after_auto_validation(self):
         employee = self.team_mates[0]
@@ -603,11 +609,12 @@ class TestAutoValidation(BaseTest):
             check_actor_can_write_on_mission_over_period,
         )
 
-        with self.assertRaises(MissionAlreadyAutoValidatedError):
-            check_actor_can_write_on_mission_over_period(
-                actor=employee,
-                mission=mission,
-                for_user=employee,
-                start=get_time(0, 14),
-                end=get_time(0, 16),
-            )
+        with AuthenticatedUserContext(user=employee):
+            with self.assertRaises(MissionAlreadyAutoValidatedError):
+                check_actor_can_write_on_mission_over_period(
+                    actor=employee,
+                    mission=mission,
+                    for_user=employee,
+                    start=get_time(0, 14),
+                    end=get_time(0, 16),
+                )
