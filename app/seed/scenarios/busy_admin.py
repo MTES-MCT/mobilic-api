@@ -55,11 +55,11 @@ def run_scenario_busy_admin():
 
     ## An employee who takes holidays
     holiday_employee = add_employee(
+        company=companies[0],
+        admin=admin,
         email="holiday@busycorp.com",
         first_name="Holly",
         last_name="Day",
-        company=companies[0],
-        admin=admin,
     )
     make_authenticated_request(
         time=get_time(how_many_days_ago=5, hour=18),
@@ -125,11 +125,11 @@ def run_scenario_busy_admin():
 
     ## An employee with deleted activities and missions
     deleted_mission_employee = add_employee(
+        company=companies[0],
+        admin=admin,
         email="deleted.mission@busycorp.com",
         first_name="Agathe",
         last_name="Ortega",
-        company=companies[0],
-        admin=admin,
     )
     finished_mission = create_mission(
         name="Finished Mission",

@@ -2,8 +2,14 @@ import datetime
 from app.models.address import Address
 from app.models.company_known_address import CompanyKnownAddress
 from app.models.vehicle import Vehicle
-from app.seed.helpers import add_employee, create_mission, get_date, get_time
-
+from app.seed.helpers import (
+    add_employee,
+    create_mission,
+    get_date,
+    get_time,
+    create_vehicle,
+    create_address,
+)
 
 from app import db
 from app.domain.expenditure import log_expenditure
@@ -20,27 +26,12 @@ def run(company, admin, nb_employees, nb_history, interval_history):
 
     fake = Faker("fr_FR")
 
-    vehicle = Vehicle(
-        registration_number=fake.license_plate(),
-        alias=fake.word(),
-        company_id=company.id,
-    )
-    db.session.add(vehicle)
+    vehicle = create_vehicle(company=company)
 
-    address = CompanyKnownAddress(
-        alias=fake.company(),
-        address=Address.get_or_create(
-            geo_api_data=None, manual_address=fake.address()
-        ),
-        company_id=company.id,
-    )
-    db.session.add(address)
+    address = create_address(company=company)
 
     for i in range(nb_employees):
         employee = add_employee(
-            email=f"busy.{fake.email()}",
-            first_name=fake.first_name(),
-            last_name=fake.last_name(),
             company=company,
             admin=admin,
         )
