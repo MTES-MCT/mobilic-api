@@ -170,7 +170,7 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         required=False,
         description="Indique si le bulletin a été remis en main propre",
     )
-    send_to_admin = graphene.Boolean(
+    sent_to_admin = graphene.Boolean(
         required=False,
         description="Indique si le bulletin a été envoyé par email aux gestionnaires",
     )

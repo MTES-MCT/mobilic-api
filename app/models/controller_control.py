@@ -68,7 +68,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
         DateTimeStoredAsUTC, nullable=True
     )
     delivered_by_hand = db.Column(db.Boolean, nullable=True)
-    send_to_admin = db.Column(db.Boolean, nullable=True)
+    sent_to_admin = db.Column(db.Boolean, nullable=True)
 
     @property
     def history_end_date(self):

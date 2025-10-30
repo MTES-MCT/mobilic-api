@@ -42,6 +42,7 @@ from app.controllers.controller import (
     ControllerSaveControlBulletin,
     ControllerChangeGrecoId,
     ControllerSaveReportedInfractions,
+    ControllerUpdateDeliveryStatus,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.control_location import Query as ControlLocationQuery
@@ -273,6 +274,7 @@ class PrivateMutations(graphene.ObjectType):
     controller_save_reported_infractions = (
         ControllerSaveReportedInfractions.Field()
     )
+    controller_update_delivery_status = ControllerUpdateDeliveryStatus.Field()
     controller_add_control_note = AddControlNote.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
 

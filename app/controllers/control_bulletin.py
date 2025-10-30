@@ -1,15 +1,14 @@
 import graphene
-from flask import request
 
 from app import mailer, app, db
 from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.errors import InvalidParamsError
-from app.helpers.mail import MailjetError
-from app.helpers.mail_type import EmailType
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
-from app.models import ControllerUser
+from app.models import ControllerUser, Company
 from app.models.controller_control import ControllerControl
+from app.helpers.graphene_types import Email
+from app.domain.permissions import can_access_control_bulletin
 
 
 class SendControlBulletinEmail(AuthenticatedMutation):
@@ -23,43 +22,22 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         )
         admin_emails = graphene.List(
             graphene.String,
-            required=True,
-            description="Liste des emails des gestionnaires",
-        )
-        company_name = graphene.String(
-            required=True, description="Nom de l'entreprise contrôlée"
-        )
-        control_date = graphene.String(
-            required=False, description="Date du contrôle"
-        )
-        include_pdf = graphene.Boolean(
             required=False,
-            description="Inclure le PDF en pièce jointe",
-            default_value=True,
+            description="Adresses email personnalisées pour les contrôles NoLic",
         )
 
     success = graphene.Boolean()
-    emails_sent = graphene.Int()
+    nb_emails_sent = graphene.Int()
 
     @classmethod
-    def mutate(
-        cls,
-        _,
-        info,
-        control_id,
-        admin_emails,
-        company_name,
-        control_date=None,
-        include_pdf=True,
-    ):
+    @with_authorization_policy(
+        can_access_control_bulletin,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def mutate(cls, _, info, control_id, admin_emails=None):
         if not isinstance(current_user, ControllerUser):
             raise InvalidParamsError(
                 "Seuls les contrôleurs peuvent envoyer des bulletins de contrôle"
-            )
-
-        if not admin_emails:
-            raise InvalidParamsError(
-                "Au moins une adresse email de gestionnaire est requise"
             )
 
         try:
@@ -69,7 +47,79 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         except Exception:
             raise InvalidParamsError(f"Control {control_id} not found")
 
-        # Construire les informations de lieu
+        if admin_emails:
+            admin_emails_list = admin_emails
+        else:
+            admin_emails_list = []
+            target_company = None
+            matching_employment = None
+
+        if not admin_emails and control.user:
+            employments = control.user.active_employments_at(
+                date_=control.history_end_date
+            )
+
+            if employments:
+                control_siren = (
+                    control.control_bulletin.get("siren")
+                    if control.control_bulletin
+                    else None
+                )
+                if control_siren:
+                    for employment in employments:
+                        if (
+                            employment.company
+                            and employment.company.siren == control_siren
+                        ):
+                            matching_employment = employment
+                            target_company = employment.company
+                            break
+
+                if not target_company and control.company_name:
+                    company_name_lower = control.company_name.lower().strip()
+
+                    for employment in employments:
+                        if not employment.company:
+                            continue
+
+                        company = employment.company
+                        legal_name = (company.legal_name or "").lower().strip()
+                        usual_name = (company.usual_name or "").lower().strip()
+
+                        if (
+                            legal_name
+                            and (
+                                legal_name in company_name_lower
+                                or company_name_lower in legal_name
+                            )
+                        ) or (
+                            usual_name
+                            and (
+                                usual_name in company_name_lower
+                                or company_name_lower in usual_name
+                            )
+                        ):
+                            matching_employment = employment
+                            target_company = company
+                            break
+
+                if not target_company and len(employments) == 1:
+                    matching_employment = employments[0]
+                    target_company = employments[0].company
+
+        if not admin_emails and target_company:
+            admins = target_company.get_admins(
+                start=control.history_end_date, end=control.history_end_date
+            )
+            for admin in admins:
+                if admin.email:
+                    admin_emails_list.append(admin.email)
+
+        if not admin_emails_list or len(admin_emails_list) == 0:
+            raise InvalidParamsError(
+                f"Aucune adresse email de gestionnaire trouvée pour l'entreprise concernée par ce contrôle (SIREN: {control.control_bulletin.get('siren') if control.control_bulletin else 'N/A'})"
+            )
+
         control_location = ""
         if control.control_bulletin:
             lieu = control.control_bulletin.get("location_lieu", "")
@@ -81,9 +131,10 @@ class SendControlBulletinEmail(AuthenticatedMutation):
             elif commune:
                 control_location = commune
 
-        # Extraire la date et l'heure depuis control_date
         formatted_control_date = ""
         formatted_control_time = ""
+
+        control_date = control.qr_code_generation_time or control.creation_time
 
         if control_date:
             try:
@@ -91,21 +142,23 @@ class SendControlBulletinEmail(AuthenticatedMutation):
 
                 app.logger.info(f"Parsing control_date: {control_date}")
 
-                # Essayer différents formats possibles
                 dt = None
-                if "T" in control_date:
-                    # Format ISO avec T (ex: "2025-10-02T17:31:00")
-                    dt = datetime.fromisoformat(
-                        control_date.replace("Z", "+00:00")
-                    )
-                elif " " in control_date:
-                    # Format avec espace (ex: "02/10/2025 17:31")
-                    if "/" in control_date:
-                        dt = datetime.strptime(control_date, "%d/%m/%Y %H:%M")
-                    else:
-                        dt = datetime.strptime(
-                            control_date, "%Y-%m-%d %H:%M:%S"
+                if hasattr(control_date, "strftime"):
+                    dt = control_date
+                elif isinstance(control_date, str):
+                    if "T" in control_date:
+                        dt = datetime.fromisoformat(
+                            control_date.replace("Z", "+00:00")
                         )
+                    elif " " in control_date:
+                        if "/" in control_date:
+                            dt = datetime.strptime(
+                                control_date, "%d/%m/%Y %H:%M"
+                            )
+                        else:
+                            dt = datetime.strptime(
+                                control_date, "%Y-%m-%d %H:%M:%S"
+                            )
 
                 if dt:
                     formatted_control_date = dt.strftime("%d/%m/%Y")
@@ -113,16 +166,22 @@ class SendControlBulletinEmail(AuthenticatedMutation):
                     app.logger.info(
                         f"Parsed successfully: date={formatted_control_date}, time={formatted_control_time}"
                     )
-                else:
-                    formatted_control_date = control_date
 
             except Exception as e:
                 app.logger.warning(
                     f"Error parsing control_date {control_date}: {e}"
                 )
-                # Si on ne peut pas parser, on garde la valeur originale pour la date
-                formatted_control_date = control_date
+                formatted_control_date = (
+                    str(control_date) if control_date else ""
+                )
                 formatted_control_time = ""
+
+        company_name = control.company_name or ""
+
+        if not company_name and target_company:
+            company_name = (
+                target_company.legal_name or target_company.usual_name or ""
+            )
 
         control_data = {
             "control_id": control_id,
@@ -144,44 +203,38 @@ class SendControlBulletinEmail(AuthenticatedMutation):
             pdf_content = None
             pdf_filename = None
 
-            if include_pdf:
-                try:
-                    pdf_content = generate_control_bulletin_pdf(
-                        control, current_user, control.user
-                    )
-                    pdf_filename = (
-                        control.bdc_filename
-                        or f"Bulletin_de_controle_{control_id}.pdf"
-                    )
-                    app.logger.info(
-                        f"PDF generated for control bulletin {control_id}"
-                    )
-                except Exception as pdf_error:
-                    app.logger.warning(
-                        f"Error generating PDF for control bulletin {control_id}: {pdf_error}"
-                    )
-            else:
+            try:
+                pdf_content = generate_control_bulletin_pdf(
+                    control, current_user
+                )
+                pdf_filename = (
+                    control.bdc_filename
+                    or f"Bulletin_de_controle_{control_id}.pdf"
+                )
                 app.logger.info(
-                    f"Sending control bulletin {control_id} without PDF (not requested)"
+                    f"PDF generated for control bulletin {control_id}"
+                )
+            except Exception as pdf_error:
+                app.logger.warning(
+                    f"Error generating PDF for control bulletin {control_id}: {pdf_error}"
                 )
 
-            emails_sent = mailer.send_control_bulletin_email(
-                admin_emails,
+            nb_emails_sent = mailer.send_control_bulletin_email(
+                admin_emails_list,
                 control_data,
                 bulletin_content=pdf_content,
                 bulletin_filename=pdf_filename,
             )
 
             app.logger.info(
-                f"Control bulletin {control_id} sent to {emails_sent} admin(s) of company {company_name}"
+                f"Control bulletin {control_id} sent to {nb_emails_sent} admin(s) of company {company_name or 'Unknown'}"
             )
 
-            # Mettre à jour le champ send_to_admin
-            control.send_to_admin = True
+            control.sent_to_admin = True
             db.session.commit()
 
             return SendControlBulletinEmail(
-                success=True, emails_sent=emails_sent
+                success=True, nb_emails_sent=nb_emails_sent
             )
 
         except Exception as e:

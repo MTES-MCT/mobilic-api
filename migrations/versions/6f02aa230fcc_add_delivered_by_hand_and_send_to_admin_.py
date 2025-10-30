@@ -1,4 +1,4 @@
-"""Add delivered_by_hand and send_to_admin columns to controller_control
+"""Add delivered_by_hand and sent_to_admin columns to controller_control
 
 Revision ID: 6f02aa230fcc
 Revises: 20b56cbd2d05
@@ -24,10 +24,10 @@ def upgrade():
     )
     op.add_column(
         "controller_control",
-        sa.Column("send_to_admin", sa.Boolean(), nullable=True),
+        sa.Column("sent_to_admin", sa.Boolean(), nullable=True),
     )
 
 
 def downgrade():
-    op.drop_column("controller_control", "send_to_admin")
+    op.drop_column("controller_control", "sent_to_admin")
     op.drop_column("controller_control", "delivered_by_hand")

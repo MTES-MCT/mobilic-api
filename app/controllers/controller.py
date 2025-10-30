@@ -211,6 +211,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             ).one()
             if not control.control_bulletin_creation_time:
                 control.control_bulletin_creation_time = datetime.now()
+            if control.sent_to_admin:
+                control.sent_to_admin = False
         elif type == ControlType.sans_lic.name:
             control = ControllerControl.create_no_lic_control(
                 current_user.id, business_id
@@ -284,6 +286,8 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
         control.reported_infractions_last_update_time = now
+        if control.sent_to_admin:
+            control.sent_to_admin = False
 
         if control.control_type == ControlType.lic_papier:
             control.observed_infractions = []
@@ -310,6 +314,30 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                     for ri in reported_infractions
                 )
             control.observed_infractions = observed_infractions
+
+        db.session.commit()
+        return control
+
+
+class ControllerUpdateDeliveryStatus(graphene.Mutation):
+    Output = ControllerControlOutput
+
+    class Arguments:
+        control_id = graphene.Int(required=True)
+        delivered_by_hand = graphene.Boolean(required=True)
+
+    @classmethod
+    @with_authorization_policy(controller_only)
+    @with_authorization_policy(
+        controller_can_see_control,
+        get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
+    )
+    def mutate(cls, _, info, control_id, delivered_by_hand):
+        control = ControllerControl.query.get(control_id)
+
+        control.delivered_by_hand = delivered_by_hand
+        if control.sent_to_admin:
+            control.sent_to_admin = False
 
         db.session.commit()
         return control
@@ -555,8 +583,14 @@ def generate_control_bulletin_pdf_export(control_id):
         ControllerControl.id == control_id
     ).one()
 
+    from app.models import ControllerUser
+
+    controller_param = (
+        current_user if isinstance(current_user, ControllerUser) else None
+    )
+
     pdf = generate_control_bulletin_pdf(
-        control, current_user, control.controller_user
+        control, controller_param, control.user
     )
 
     if not control.control_bulletin_first_download_time:

@@ -2,15 +2,15 @@ from app.helpers.pdf import generate_pdf_from_template
 from app.models.controller_control import ControlType
 
 
+# TODO: rename user to controlled_user
 def generate_control_bulletin_pdf(control, controller_user, user):
 
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
         organizational_unit=getattr(
-            controller_user, "pretty_organizational_unit", None
-        )
-        or getattr(user, "pretty_organizational_unit", None),
+            control.controller_user, "pretty_organizational_unit", None
+        ),
         control_time=control.creation_time,
         control_date=control.creation_time,
         control_location=f"{control.control_bulletin.get('location_lieu')}, {control.control_bulletin.get('location_commune')}",
@@ -33,7 +33,11 @@ def generate_control_bulletin_pdf(control, controller_user, user):
         transport_from=control.control_bulletin.get("mission_address_begin"),
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
-        controller_name=f"{controller_user.last_name} {controller_user.first_name}",
+        controller_name=(
+            f"{actual_controller.last_name} {actual_controller.first_name}"
+            if actual_controller
+            else "Contrôleur inconnu"
+        ),
         infraction_labels=control.reported_infractions_labels,
         history_start_date=control.history_start_date,
         history_end_date=control.history_end_date,

@@ -210,7 +210,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
     )
 
     user_controls = graphene.List(
-        "app.data_access.control_data.ControllerControlOutput",
+        lambda: ControllerControlOutput,
         description="Liste des contrôles de l'utilisateur avec les détails nécessaires (date, lieu, infractions, contrôleur).",
     )
 
@@ -478,8 +478,6 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'user_controls' of user object. The field is only accessible to the user himself.",
     )
     def resolve_user_controls(self, info):
-        from app.data_access.control_data import ControllerControlOutput
-
         user_controls = (
             ControllerControl.query.filter(
                 ControllerControl.user_id == self.id
@@ -527,3 +525,4 @@ class UserOutput(BaseSQLAlchemyObjectType):
 from app.data_access.company import CompanyOutput
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.employment import EmploymentOutput
+from app.data_access.control_data import ControllerControlOutput

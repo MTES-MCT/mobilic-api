@@ -1106,6 +1106,8 @@ class Mailer:
             control_data: Control data (id, company_name, employee_name, etc.)
             bulletin_content: Binary content of bulletin PDF (optional)
             bulletin_filename: PDF filename (optional)
+
+        return number of emails sent
         """
         messages = []
 
@@ -1122,10 +1124,9 @@ class Mailer:
                 ).decode("utf-8"),
             }
 
-        # Generate email subject according to requested format
-        employee_name = f"{control_data.get('employee_first_name', '')} {control_data.get('employee_last_name', '')}".strip()
-        control_date_formatted = control_data.get("control_date", "")
-        subject = f"Bulletin de contrôle n°{control_data.get('control_id')} - {employee_name} - {control_date_formatted}"
+        employee_name = f"{control_data['employee_first_name']} {control_data['employee_last_name']}".strip()
+        control_date_formatted = control_data["control_date"]
+        subject = f"Bulletin de contrôle n°{control_data['control_id']} - {employee_name} - {control_date_formatted}"
 
         for admin_email in admin_emails:
             message = self._create_message_from_flask_template(
@@ -1133,15 +1134,12 @@ class Mailer:
                 subject=subject,
                 recipient=admin_email,
                 type_=EmailType.CONTROL_BULLETIN_SEND,
-                employee_first_name=control_data.get(
-                    "employee_first_name", ""
-                ),
-                employee_last_name=control_data.get("employee_last_name", ""),
-                control_location=control_data.get("control_location", ""),
-                control_date=control_data.get("control_date", ""),
-                control_time=control_data.get("control_time", ""),
-                controller_info=control_data.get("controller_info", ""),
-                nb_infractions=control_data.get("nb_infractions", 0),
+                employee_name=employee_name,
+                control_location=control_data["control_location"],
+                control_date=control_data["control_date"],
+                control_time=control_data["control_time"],
+                controller_info=control_data["controller_info"],
+                nb_infractions=control_data["nb_infractions"],
             )
 
             # Add attachment to message if available
