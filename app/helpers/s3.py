@@ -88,21 +88,18 @@ class S3Client:
         return presigned_urls
 
     @staticmethod
-    def upload_export(file_obj, export_id):
-        file_name = file_obj["Filename"]
-        file_content = file_obj["Base64Content"]
-        file_content_type = file_obj["ContentType"]
-
-        key = f"exports/{export_id}/{file_name}"
+    def upload_export(content, path, content_type):
         S3.put_object(
             Bucket=BUCKET_NAME,
-            Key=key,
-            Body=file_content,
-            ContentType=file_content_type,
+            Key=path,
+            Body=content,
+            ContentType=content_type,
         )
 
     @staticmethod
     def generate_presigned_urls_exports(exports):
+        from app.helpers.celery import DEFAULT_FILE_NAME
+
         presigned_urls = {}
         for export in exports:
             try:
@@ -110,8 +107,8 @@ class S3Client:
                     "get_object",
                     Params={
                         "Bucket": BUCKET_NAME,
-                        "Key": f"exports/{export.id}/{export.file_name}",
-                        "ResponseContentDisposition": f'attachment; filename="{export.file_name}"',
+                        "Key": export.file_s3_path,
+                        "ResponseContentDisposition": f'attachment; filename="{DEFAULT_FILE_NAME}"',
                         "ResponseContentType": export.file_type,
                     },
                     ExpiresIn=60,
