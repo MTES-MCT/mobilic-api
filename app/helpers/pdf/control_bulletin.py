@@ -1,9 +1,7 @@
 from app.helpers.pdf import generate_pdf_from_template
-from app.models.controller_control import ControlType
 
 
-# TODO: rename user to controlled_user
-def generate_control_bulletin_pdf(control, controller_user, user):
+def generate_control_bulletin_pdf(control):
 
     return generate_pdf_from_template(
         "control_bulletin.html",

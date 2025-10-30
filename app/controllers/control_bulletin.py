@@ -204,9 +204,7 @@ class SendControlBulletinEmail(AuthenticatedMutation):
             pdf_filename = None
 
             try:
-                pdf_content = generate_control_bulletin_pdf(
-                    control, current_user
-                )
+                pdf_content = generate_control_bulletin_pdf(control)
                 pdf_filename = (
                     control.bdc_filename
                     or f"Bulletin_de_controle_{control_id}.pdf"

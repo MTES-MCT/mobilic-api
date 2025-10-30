@@ -583,15 +583,7 @@ def generate_control_bulletin_pdf_export(control_id):
         ControllerControl.id == control_id
     ).one()
 
-    from app.models import ControllerUser
-
-    controller_param = (
-        current_user if isinstance(current_user, ControllerUser) else None
-    )
-
-    pdf = generate_control_bulletin_pdf(
-        control, controller_param, control.user
-    )
+    pdf = generate_control_bulletin_pdf(control)
 
     if not control.control_bulletin_first_download_time:
         control.control_bulletin_first_download_time = datetime.now()
