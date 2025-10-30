@@ -461,7 +461,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
 @app.cli.command("sync_brevo_funnel", with_appcontext=True)
 @click.option(
     "--acquisition-pipeline",
-    default="Acquisition",
+    default="Acquisition V2",
     help="Brevo pipeline name for acquisition funnel",
 )
 @click.option(
@@ -508,11 +508,11 @@ def sync_brevo_funnel_command(
 
     This command syncs companies to two separate Brevo pipelines based on their funnel stage:
 
-    ACQUISITION PIPELINE - Focus on company registration and initial engagement:
-    - Entreprise inscrite
-    - Nouvelles entreprises inscrites depuis mars 2025
-    - Entreprise inscrite depuis 7 jours sans salarié invité
-    - Entreprise inscrite depuis 1 mois sans salarié invité
+    ACQUISITION PIPELINE - Focus on employee account activation:
+    - Entreprise inscrite sans compte activé
+    - Entreprise inscrite sans compte activé relancée par mail J+2 (TODO - ticket Trello)
+    - Entreprise gagnée (at least 1 active employee)
+    - Entreprise perdue (no activation after 14 days)
 
     ACTIVATION PIPELINE - Focus on employee onboarding and platform usage:
     - Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée
