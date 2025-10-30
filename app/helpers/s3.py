@@ -87,6 +87,40 @@ class S3Client:
 
         return presigned_urls
 
+    @staticmethod
+    def upload_export(file_obj, export_id):
+        file_name = file_obj["Filename"]
+        file_content = file_obj["Base64Content"]
+        file_content_type = file_obj["ContentType"]
+
+        key = f"exports/{export_id}/{file_name}"
+        S3.put_object(
+            Bucket=BUCKET_NAME,
+            Key=key,
+            Body=file_content,
+            ContentType=file_content_type,
+        )
+
+    @staticmethod
+    def generate_presigned_urls_exports(exports):
+        presigned_urls = {}
+        for export in exports:
+            try:
+                presigned_url = S3.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": BUCKET_NAME,
+                        "Key": f"exports/{export.id}/{export.file_name}",
+                        "ResponseContentDisposition": f'attachment; filename="{export.file_name}"',
+                        "ResponseContentType": export.file_type,
+                    },
+                    ExpiresIn=60,
+                )
+                presigned_urls[export.id] = presigned_url
+            except Exception as e:
+                print(f"Error {e}")
+        return presigned_urls
+
     # this method can be called to allow a list of accepted origins to do some calls on the bucket
     # we have one bucket by env, so for example we can allow http://localhost:3000 for the dev bucket
     # this allows the frontend to upload an image (PUT) or see an image (GET)

@@ -694,7 +694,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
 
 @app.route("/companies/download_activity_report", methods=["POST"])
 @doc(
-    description="Demande d'envoi du rapport d'activité au format Excel par email"
+    description="Demande de téléchargement du rapport d'activité au format Excel"
 )
 @use_kwargs(
     {
