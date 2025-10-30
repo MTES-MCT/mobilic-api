@@ -75,10 +75,8 @@ def async_export_excel(
                 file = get_one_excel_file(
                     user_wdays_batches[0][1], companies, min_date, max_date
                 )
-                file_obj["ContentType"] = (
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                file_obj["Filename"] = f"{file_name}.xlsx"
+                content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ext = "xlsx"
             else:
                 file = get_archive_excel_file(
                     batches=user_wdays_batches,
@@ -86,18 +84,20 @@ def async_export_excel(
                     min_date=min_date,
                     max_date=max_date,
                 )
-                file_obj["ContentType"] = "application/zip"
-                file_obj["Filename"] = f"{file_name}.zip"
+                content_type = "application/zip"
+                ext = "zip"
+
+            file_name = f"{file_name}_{export.id}.{ext}"
 
             file_content = file.read()
             base64_content = base64.b64encode(file_content).decode("utf-8")
-            file_obj["Base64Content"] = base64_content
 
-            S3Client.upload_export(file_obj, export.id)
+            path = f"exports/{exporter_id}/{file_name}"
+            S3Client.upload_export(base64_content, path, content_type)
 
             export.status = ExportStatus.READY
-            export.file_name = file_obj["Filename"]
-            export.file_type = file_obj["ContentType"]
+            export.file_s3_path = path
+            export.file_type = content_type
             db.session.commit()
 
         except Exception as e:
