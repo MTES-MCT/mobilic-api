@@ -574,10 +574,17 @@ def sync_brevo_funnel_command(
             acquisition_data, activation_data = [], []
 
             if acquisition_only:
-                acquisition_data = AcquisitionDataFinder().find_companies()
-                app.logger.info(
-                    f"  - Acquisition only: {len(acquisition_data)} companies"
+                activation_data = ActivationDataFinder().find_companies()
+                activation_company_ids = [
+                    c["company_id"] for c in activation_data
+                ]
+                acquisition_data = AcquisitionDataFinder().find_companies(
+                    exclude_company_ids=activation_company_ids
                 )
+                app.logger.info(
+                    f"  - Acquisition only: {len(acquisition_data)} companies (excluding {len(activation_company_ids)} in activation)"
+                )
+                activation_data = []
 
             if activation_only:
                 activation_data = ActivationDataFinder().find_companies()
