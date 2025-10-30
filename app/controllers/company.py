@@ -773,7 +773,7 @@ def checkout_exports():
         jsonify(
             {
                 "nb_wip_exports": len(exports_wip),
-                "ready_exports_links": ready_exports_links.values(),
+                "ready_exports_links": list(ready_exports_links.values()),
             }
         ),
         200,
@@ -831,7 +831,6 @@ def download_full_data_report(user_id):
                 max_date=max_date,
                 one_file_by_employee=False,
                 file_name=file_name,
-                is_admin=is_user_admin,
             )
 
         UserAgreement.set_transferred_data_date(user.id)
