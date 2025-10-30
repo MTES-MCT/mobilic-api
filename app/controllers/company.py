@@ -4,6 +4,7 @@ import graphene
 from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
+from sqlalchemy import update
 from sqlalchemy.orm import selectinload
 from webargs import fields
 
@@ -53,6 +54,7 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.models import Company, Employment, Business, UserAgreement
+from app.models.export import ExportStatus, Export
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -729,6 +731,53 @@ def download_activity_report(
     )
 
     return jsonify({"result": "ok"}), 200
+
+
+@app.route("/exports/cancel", methods=["POST"])
+@doc(description="Annule les exports en cours pour l'utilisateur")
+def cancel_exports():
+    db.session.execute(
+        update(Export)
+        .where(Export.user_id == current_user.id)
+        .values(status=ExportStatus.CANCELLED)
+    )
+    db.session.commit()
+    return jsonify({"result": "ok"}), 200
+
+
+@app.route("/exports/checkout", methods=["POST"])
+@doc(
+    description="Consulte le statut des exports en cours, et le lien de téléchargement s'ils sont prêts"
+)
+def checkout_exports():
+    exports_wip = Export.query.filter(
+        Export.user_id == current_user.id,
+        Export.status == ExportStatus.WIP.value,
+    ).all()
+    exports_ready = Export.query.filter(
+        Export.user_id == current_user.id, Export.status == ExportStatus.READY
+    ).all()
+
+    from app import S3Client
+
+    ready_exports_links = S3Client.generate_presigned_urls_exports(
+        exports_ready
+    )
+
+    for ready in exports_ready:
+        if ready.id in ready_exports_links:
+            ready.status = ExportStatus.DOWNLOADED
+
+    db.session.commit()
+    return (
+        jsonify(
+            {
+                "nb_wip_exports": len(exports_wip),
+                "ready_exports_links": ready_exports_links.values(),
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
