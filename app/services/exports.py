@@ -6,7 +6,6 @@ def export_activity_report(
     max_date,
     one_file_by_employee,
     file_name=None,
-    is_admin=True,
 ):
     users = list(users)
 
@@ -20,5 +19,4 @@ def export_activity_report(
         max_date=max_date,
         one_file_by_employee=one_file_by_employee,
         file_name=file_name if file_name is not None else DEFAULT_FILE_NAME,
-        is_admin=is_admin,
     )
