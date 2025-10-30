@@ -649,9 +649,9 @@ class ApiRequests:
     """
 
     send_invite_reminder = """
-      mutation sendInviteReminder($employmentId: Int!) {
+      mutation sendInviteReminder($employmentIds: [Int]!) {
         employments {
-          sendInvitationReminder(employmentId: $employmentId) {
+          sendInvitationsReminders(employmentIds: $employmentIds) {
             success
           }
         }
