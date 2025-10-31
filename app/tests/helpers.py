@@ -355,7 +355,7 @@ class ApiRequests:
     """
 
     send_control_bulletin_email = """
-    mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [String]) {
+    mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
         sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
             success
             nbEmailsSent
@@ -668,9 +668,9 @@ class ApiRequests:
     """
 
     send_invite_reminder = """
-      mutation sendInviteReminder($employmentIds: [Int]!) {
+      mutation sendInviteReminder($employmentId: Int!) {
         employments {
-          sendInvitationsReminders(employmentIds: $employmentIds) {
+          sendInvitationReminder(employmentId: $employmentId) {
             success
           }
         }
