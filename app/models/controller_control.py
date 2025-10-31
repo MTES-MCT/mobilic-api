@@ -2,7 +2,7 @@ import datetime
 import enum
 from datetime import date
 
-from sqlalchemy import Enum
+from sqlalchemy import Enum, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 
@@ -72,6 +72,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
     )
     delivered_by_hand = db.Column(db.Boolean, nullable=True)
     sent_to_admin = db.Column(db.Boolean, nullable=True)
+    control_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @property
     def history_end_date(self):
@@ -331,3 +332,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
             new_control.report_infractions()
             return new_control
+
+
+@event.listens_for(ControllerControl, "before_insert")
+def set_control_time(mapper, connection, target):
+    if not target.control_time:
+        target.control_time = (
+            target.qr_code_generation_time
+            if target.qr_code_generation_time
+            else datetime.datetime.now()
+        )
