@@ -56,6 +56,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_bulletin_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    control_bulletin_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
     control_bulletin_first_download_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
@@ -67,6 +70,8 @@ class ControllerControl(BaseModel, RandomNineIntId):
     reported_infractions_last_update_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    delivered_by_hand = db.Column(db.Boolean, nullable=True)
+    sent_to_admin = db.Column(db.Boolean, nullable=True)
     control_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @property

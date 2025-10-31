@@ -45,7 +45,7 @@ def run_scenario_busy_admin():
         EmploymentFactory.create(
             company=company, submitter=admin, user=admin, has_admin_rights=True
         )
-    db.session.commit()
+        db.session.commit()
 
     for company in companies:
         load_missions.run(

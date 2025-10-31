@@ -354,6 +354,25 @@ class ApiRequests:
     }
     """
 
+    send_control_bulletin_email = """
+    mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
+        sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
+            success
+            nbEmailsSent
+        }
+    }
+    """
+
+    update_delivery_status = """
+    mutation ControllerUpdateDeliveryStatus($controlId: Int!, $deliveredByHand: Boolean!) {
+        controllerUpdateDeliveryStatus(controlId: $controlId, deliveredByHand: $deliveredByHand) {
+            id
+            deliveredByHand
+            sentToAdmin
+        }
+    }
+    """
+
     get_controller_user_info = """
       query controllerUser($id: Int!, $fromDate: Date) {
         controllerUser(id: $id) {

@@ -160,12 +160,21 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     qr_code_generation_time = graphene.Field(TimeStamp, required=False)
     control_time = graphene.Field(TimeStamp, required=False)
     control_bulletin_creation_time = graphene.Field(TimeStamp, required=False)
+    control_bulletin_update_time = graphene.Field(TimeStamp, required=False)
     creation_time = graphene.Field(TimeStamp, required=True)
     note = graphene.String(required=False)
     nb_controlled_days = graphene.Field(
         graphene.Int,
         required=False,
         description="Nombre de jours de travail sur lesquels porte le contrôle",
+    )
+    delivered_by_hand = graphene.Boolean(
+        required=False,
+        description="Indique si le bulletin a été remis en main propre",
+    )
+    sent_to_admin = graphene.Boolean(
+        required=False,
+        description="Indique si le bulletin a été envoyé par email aux gestionnaires",
     )
 
     employments = graphene.List(

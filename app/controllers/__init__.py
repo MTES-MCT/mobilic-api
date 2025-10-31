@@ -42,6 +42,7 @@ from app.controllers.controller import (
     ControllerSaveControlBulletin,
     ControllerChangeGrecoId,
     ControllerSaveReportedInfractions,
+    ControllerUpdateDeliveryStatus,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.control_location import Query as ControlLocationQuery
@@ -114,6 +115,7 @@ from app.data_access.user_agreement import AcceptCgu, RejectCgu
 from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
 from app.controllers.notification import MarkNotificationsAsRead
+from app.controllers.control_bulletin import SendControlBulletinEmail
 
 
 class Activities(graphene.ObjectType):
@@ -272,6 +274,7 @@ class PrivateMutations(graphene.ObjectType):
     controller_save_reported_infractions = (
         ControllerSaveReportedInfractions.Field()
     )
+    controller_update_delivery_status = ControllerUpdateDeliveryStatus.Field()
     controller_add_control_note = AddControlNote.Field()
     controller_update_control_time = UpdateControlTime.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
@@ -287,6 +290,7 @@ class PrivateMutations(graphene.ObjectType):
     snooze_certificate_info = SnoozeCertificateInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()
+    send_control_bulletin_email = SendControlBulletinEmail.Field()
 
 
 class Queries(
