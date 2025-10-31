@@ -209,10 +209,17 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
             ).one()
+            now = datetime.now()
             if not control.control_bulletin_creation_time:
-                control.control_bulletin_creation_time = datetime.now()
-            if control.sent_to_admin:
-                control.sent_to_admin = False
+                control.control_bulletin_creation_time = now
+                control.control_bulletin_update_time = now
+            else:
+                control.control_bulletin_update_time = now
+                if (
+                    control.sent_to_admin is None
+                    or control.sent_to_admin is True
+                ):
+                    control.sent_to_admin = False
         elif type == ControlType.sans_lic.name:
             control = ControllerControl.create_no_lic_control(
                 current_user.id, business_id

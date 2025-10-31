@@ -5,7 +5,7 @@ from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import with_authorization_policy
 from app.helpers.errors import InvalidParamsError
 from app.helpers.pdf.control_bulletin import generate_control_bulletin_pdf
-from app.models import ControllerUser, Company
+from app.models import ControllerUser
 from app.models.controller_control import ControllerControl
 from app.helpers.graphene_types import Email
 from app.domain.permissions import can_access_control_bulletin
@@ -21,7 +21,7 @@ class SendControlBulletinEmail(AuthenticatedMutation):
             required=True, description="Identifiant du contrôle"
         )
         admin_emails = graphene.List(
-            graphene.String,
+            Email,
             required=False,
             description="Adresses email personnalisées pour les contrôles NoLic",
         )
@@ -52,7 +52,6 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         else:
             admin_emails_list = []
             target_company = None
-            matching_employment = None
 
         if not admin_emails and control.user:
             employments = control.user.active_employments_at(
@@ -71,7 +70,6 @@ class SendControlBulletinEmail(AuthenticatedMutation):
                             employment.company
                             and employment.company.siren == control_siren
                         ):
-                            matching_employment = employment
                             target_company = employment.company
                             break
 
@@ -99,12 +97,10 @@ class SendControlBulletinEmail(AuthenticatedMutation):
                                 or company_name_lower in usual_name
                             )
                         ):
-                            matching_employment = employment
                             target_company = company
                             break
 
                 if not target_company and len(employments) == 1:
-                    matching_employment = employments[0]
                     target_company = employments[0].company
 
         if not admin_emails and target_company:
@@ -137,44 +133,8 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         control_date = control.qr_code_generation_time or control.creation_time
 
         if control_date:
-            try:
-                from datetime import datetime
-
-                app.logger.info(f"Parsing control_date: {control_date}")
-
-                dt = None
-                if hasattr(control_date, "strftime"):
-                    dt = control_date
-                elif isinstance(control_date, str):
-                    if "T" in control_date:
-                        dt = datetime.fromisoformat(
-                            control_date.replace("Z", "+00:00")
-                        )
-                    elif " " in control_date:
-                        if "/" in control_date:
-                            dt = datetime.strptime(
-                                control_date, "%d/%m/%Y %H:%M"
-                            )
-                        else:
-                            dt = datetime.strptime(
-                                control_date, "%Y-%m-%d %H:%M:%S"
-                            )
-
-                if dt:
-                    formatted_control_date = dt.strftime("%d/%m/%Y")
-                    formatted_control_time = dt.strftime("%H:%M")
-                    app.logger.info(
-                        f"Parsed successfully: date={formatted_control_date}, time={formatted_control_time}"
-                    )
-
-            except Exception as e:
-                app.logger.warning(
-                    f"Error parsing control_date {control_date}: {e}"
-                )
-                formatted_control_date = (
-                    str(control_date) if control_date else ""
-                )
-                formatted_control_time = ""
+            formatted_control_date = control_date.strftime("%d/%m/%Y")
+            formatted_control_time = control_date.strftime("%H:%M")
 
         company_name = control.company_name or ""
 

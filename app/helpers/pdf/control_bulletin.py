@@ -32,8 +32,8 @@ def generate_control_bulletin_pdf(control):
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
         controller_name=(
-            f"{actual_controller.last_name} {actual_controller.first_name}"
-            if actual_controller
+            f"{control.controller_user.last_name} {control.controller_user.first_name}"
+            if control.controller_user
             else "Contrôleur inconnu"
         ),
         infraction_labels=control.reported_infractions_labels,
