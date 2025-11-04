@@ -12,6 +12,7 @@ from app.seed.scenarios.busy_admin import (
     run_scenario_busy_admin,
 )
 from app.seed.scenarios.certificated_company import run_scenario_certificated
+from app.seed.scenarios.lot_of_missions import run_scenario_lot_of_missions
 from app.seed.scenarios.multi_businesses import run_scenario_multi_businesses
 from app.seed.scenarios.run_certificate import scenario_run_certificate
 from app.seed.scenarios.temps_de_liaison import (
@@ -69,6 +70,7 @@ class SeedScenario:
 
 
 scenarios = [
+    SeedScenario("Test de charge", "", [], run_scenario_lot_of_missions),
     SeedScenario(
         "Rules breachers",
         f"Creates a company where everybody break rules !",

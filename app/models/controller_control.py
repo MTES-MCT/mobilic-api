@@ -317,6 +317,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             nb_controlled_days = len(work_days)
             new_control = ControllerControl(
                 qr_code_generation_time=qr_code_generation_time,
+                control_time=qr_code_generation_time,
                 user_id=user_id,
                 user_first_name=controlled_user.first_name,
                 user_last_name=controlled_user.last_name,
