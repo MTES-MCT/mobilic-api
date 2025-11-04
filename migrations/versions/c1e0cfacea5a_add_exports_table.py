@@ -1,7 +1,7 @@
 """add exports table
 
 Revision ID: c1e0cfacea5a
-Revises: 20b56cbd2d05
+Revises: a10c18f27735
 Create Date: 2025-10-28 17:21:23.525128
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "c1e0cfacea5a"
-down_revision = "20b56cbd2d05"
+down_revision = "a10c18f27735"
 branch_labels = None
 depends_on = None
 
