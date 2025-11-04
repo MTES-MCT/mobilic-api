@@ -16,7 +16,7 @@ from app.models.export import ExportStatus
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
 
-DEFAULT_FILE_NAME = "rapport_activites"
+DEFAULT_FILE_NAME = "rapport_activités"
 
 
 @celery.task()
@@ -32,9 +32,7 @@ def async_export_excel(
     with app.app_context():
         exporter = User.query.get(exporter_id)
 
-        export = Export(
-            user=exporter,
-        )
+        export = Export(user=exporter)
         db.session.add(export)
         db.session.commit()
 
@@ -70,7 +68,6 @@ def async_export_excel(
 
             companies = Company.query.filter(Company.id.in_(company_ids)).all()
 
-            file_obj = {}
             if len(user_wdays_batches) == 1:
                 file = get_one_excel_file(
                     user_wdays_batches[0][1], companies, min_date, max_date
@@ -87,17 +84,18 @@ def async_export_excel(
                 content_type = "application/zip"
                 ext = "zip"
 
-            file_name = f"{file_name}_{export.id}.{ext}"
+            file_name = f"{file_name}.{ext}"
 
             file_content = file.read()
             base64_content = base64.b64encode(file_content).decode("utf-8")
 
-            path = f"exports/{exporter_id}/{file_name}"
+            path = f"exports/{exporter_id}/{export.id}"
             S3Client.upload_export(base64_content, path, content_type)
 
             export.status = ExportStatus.READY
             export.file_s3_path = path
             export.file_type = content_type
+            export.file_name = file_name
             db.session.commit()
 
         except Exception as e:
