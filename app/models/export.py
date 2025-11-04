@@ -25,6 +25,7 @@ class Export(BaseModel):
     )
     user = db.relationship("User", backref="exports")
     file_s3_path = db.Column(db.String, nullable=True)
+    file_name = db.Column(db.String, nullable=True)
     file_type = db.Column(db.String, nullable=True)
 
     export_type = enum_column(

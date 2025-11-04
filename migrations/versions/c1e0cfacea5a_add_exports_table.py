@@ -23,6 +23,7 @@ def upgrade():
         sa.Column("creation_time", sa.DateTime(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("file_s3_path", sa.String(), nullable=True),
+        sa.Column("file_name", sa.String(), nullable=True),
         sa.Column("file_type", sa.String(), nullable=True),
         sa.Column(
             "export_type",
