@@ -22,6 +22,7 @@ class AnonControllerControl(AnonymizedModel):
     reported_infractions_first_update_time = db.Column(
         db.DateTime, nullable=True
     )
+    control_bulletin_update_time = db.Column(db.DateTime, nullable=True)
 
     @classmethod
     def anonymize(cls, control):
@@ -85,4 +86,20 @@ class AnonControllerControl(AnonymizedModel):
             )
         else:
             anonymized.reported_infractions_first_update_time = None
+
+        # Anonymisation de control_bulletin_update_time
+        if control.control_bulletin_update_time:
+            anon_creation_time = cls.truncate_to_month(
+                control.control_bulletin_creation_time
+            )
+            time_diff = (
+                control.control_bulletin_update_time
+                - control.control_bulletin_creation_time
+            )
+            anonymized.control_bulletin_update_time = (
+                anon_creation_time + time_diff
+            )
+        else:
+            anonymized.control_bulletin_update_time = None
+
         return anonymized

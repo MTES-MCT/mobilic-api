@@ -94,17 +94,22 @@ def had_user_enough_break_last_mission(user):
     if mission_start is None or mission_end is None:
         return True
 
-    alerts = RegulatoryAlert.query.filter(
-        RegulatoryAlert.user == user,
-        RegulatoryAlert.day >= mission_start,
-        RegulatoryAlert.day <= mission_end,
-        RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
-        RegulatoryAlert.regulation_check.has(
-            RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
-        ),
-    ).all()
+    # Optimized query: filter directly in SQL and use exists() for performance
+    alert_exists = db.session.query(
+        RegulatoryAlert.query.filter(
+            RegulatoryAlert.user == user,
+            RegulatoryAlert.day >= mission_start,
+            RegulatoryAlert.day <= mission_end,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
+            ),
+            # Filter directly in SQL using JSON operator
+            RegulatoryAlert.extra["not_enough_break"].as_boolean() == True,
+        ).exists()
+    ).scalar()
 
-    return len([a for a in alerts if a.extra["not_enough_break"]]) == 0
+    return not alert_exists
 
 
 def get_start_end_time_at_employee_validation(mission, users_ids):

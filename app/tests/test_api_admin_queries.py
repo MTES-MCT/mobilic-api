@@ -511,7 +511,7 @@ class TestApiAdminQueries(BaseTest):
 
         send_reminder_response = test_post_graphql(
             query=ApiRequests.send_invite_reminder,
-            variables={"employmentId": employment_id},
+            variables={"employmentIds": [employment_id]},
             headers={
                 "X-CLIENT-ID": self.client_id,
                 "X-EMPLOYMENT-TOKEN": self.access_token,
