@@ -84,7 +84,7 @@ class Config:
     )
     MIN_DELAY_BETWEEN_INVITATION_EMAILS = timedelta(
         minutes=os.environ.get(
-            "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 24
+            "MIN_MINUTES_BETWEEN_INVITATION_EMAILS", 60 * 12
         )
     )
     MIN_MINUTES_BETWEEN_ACTIVATION_EMAILS = timedelta(
