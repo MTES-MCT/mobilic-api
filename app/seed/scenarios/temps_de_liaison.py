@@ -58,8 +58,6 @@ def run_scenario_temps_de_liaison():
         missions.append(mission)
     db.session.commit()
 
-    db.session.commit()
-
     with AuthenticatedUserContext(user=employee):
 
         ## Mission 1
