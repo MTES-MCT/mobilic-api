@@ -45,9 +45,8 @@ def run_scenario_lot_of_missions():
     EmploymentFactory.create(
         company=company, submitter=admin, user=admin, has_admin_rights=True
     )
-    vehicles = [create_vehicle(company=company) for _ in range(NB_VEHICLES)]
-    db.session.commit()
-
+    [create_vehicle(company=company) for _ in range(NB_VEHICLES)]
+    [create_address(company=company) for _ in range(NB_ADDRESSES)]
     employees = [
         add_employee(
             company=company,
@@ -55,9 +54,6 @@ def run_scenario_lot_of_missions():
         )
         for _ in range(NB_EMPLOYEES)
     ]
-    db.session.commit()
-
-    addresses = [create_address(company=company) for _ in range(NB_ADDRESSES)]
     db.session.commit()
 
     deleted_missions = []
@@ -68,8 +64,8 @@ def run_scenario_lot_of_missions():
                 f"Mission supprimée {nb_days_ago + 1}",
                 company=company,
                 employee=employee,
-                vehicle=random.choice(vehicles),
-                address=random.choice(addresses),
+                vehicle=random.choice(company.vehicles),
+                address=random.choice(company.known_addresses),
                 add_location_entry=True,
                 work_periods=[
                     [
@@ -108,8 +104,8 @@ def run_scenario_lot_of_missions():
                 mission_name=f"Mission {nb_days_ago}",
                 company=company,
                 employee=employee,
-                vehicle=random.choice(vehicles),
-                address=random.choice(addresses),
+                vehicle=random.choice(company.vehicles),
+                address=random.choice(company.known_addresses),
                 add_location_entry=True,
                 work_periods=[
                     [

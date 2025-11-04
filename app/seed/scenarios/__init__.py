@@ -70,12 +70,7 @@ class SeedScenario:
 
 
 scenarios = [
-    # SeedScenario(
-    #     "Test de charge",
-    #     "",
-    #     [],
-    #     run_scenario_lot_of_missions
-    # ),
+    SeedScenario("Test de charge", "", [], run_scenario_lot_of_missions),
     SeedScenario(
         "Rules breachers",
         f"Creates a company where everybody break rules !",

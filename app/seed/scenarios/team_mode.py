@@ -8,6 +8,7 @@ from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
+    AuthenticatedUserContext,
 )
 from app.seed.helpers import (
     get_time,
@@ -170,8 +171,9 @@ def run_scenario_team_mode():
         for idx_e, e in enumerate(employees)
     ]
     for idx_m, m in enumerate(mission_validated):
-        validate_mission(
-            mission=m, submitter=super_admin, for_user=employees[idx_m]
-        )
+        with AuthenticatedUserContext(user=super_admin):
+            validate_mission(
+                mission=m, submitter=super_admin, for_user=employees[idx_m]
+            )
 
     db.session.commit()
