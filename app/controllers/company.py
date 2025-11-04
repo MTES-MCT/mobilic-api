@@ -767,6 +767,8 @@ def checkout_exports():
     for ready in exports_ready:
         if ready.id in ready_exports_links:
             ready.status = ExportStatus.DOWNLOADED
+            if ready.export_type == ExportType.REFUSED_CGU:
+                UserAgreement.set_transferred_data_date(ready.user_id)
 
     db.session.commit()
     return (
@@ -833,8 +835,6 @@ def download_full_data_report(user_id):
                 file_name=file_name,
                 export_type=ExportType.REFUSED_CGU,
             )
-
-        UserAgreement.set_transferred_data_date(user.id)
 
         response = make_response(jsonify({"result": "ok"}), 200)
         response.headers["Content-Type"] = "application/json"
