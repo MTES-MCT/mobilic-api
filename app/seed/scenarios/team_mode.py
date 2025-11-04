@@ -8,12 +8,12 @@ from app.seed import (
     CompanyFactory,
     UserFactory,
     EmploymentFactory,
-    AuthenticatedUserContext,
 )
 from app.seed.helpers import (
     get_time,
     log_and_validate_mission,
     DEFAULT_PASSWORD,
+    AuthenticatedUserContext,
 )
 
 SUPER_ADMIN_EMAIL = "super.admin.teams@test.com"
@@ -171,9 +171,10 @@ def run_scenario_team_mode():
         for idx_e, e in enumerate(employees)
     ]
     for idx_m, m in enumerate(mission_validated):
+        employee = employees[idx_m]
         with AuthenticatedUserContext(user=super_admin):
             validate_mission(
-                mission=m, submitter=super_admin, for_user=employees[idx_m]
+                mission=m, submitter=super_admin, for_user=employee
             )
 
     db.session.commit()

@@ -56,6 +56,7 @@ def run_scenario_temps_de_liaison():
         )
         db.session.add(mission)
         missions.append(mission)
+    db.session.commit()
 
     db.session.commit()
 

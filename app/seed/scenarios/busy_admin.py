@@ -51,7 +51,6 @@ def run_scenario_busy_admin():
         load_missions.run(
             company, admin, NB_EMPLOYEES, NB_HISTORY, INTERVAL_HISTORY
         )
-
     db.session.commit()
 
     from app.tests.helpers import make_authenticated_request, ApiRequests

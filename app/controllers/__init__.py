@@ -25,7 +25,7 @@ from app.controllers.company import (
     InviteCompanies,
 )
 from app.controllers.company import Query as CompanyQuery
-from app.controllers.control import AddControlNote
+from app.controllers.control import AddControlNote, UpdateControlTime
 from app.controllers.third_party_company import (
     DismissCompanyToken,
     GenerateCompanyToken,
@@ -42,6 +42,7 @@ from app.controllers.controller import (
     ControllerSaveControlBulletin,
     ControllerChangeGrecoId,
     ControllerSaveReportedInfractions,
+    ControllerUpdateDeliveryStatus,
 )
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.control_location import Query as ControlLocationQuery
@@ -54,13 +55,13 @@ from app.controllers.employment import (
     GetInvitation,
     RedeemInvitation,
     RejectEmployment,
-    SendInvitationReminder,
     TerminateEmployment,
     ValidateEmployment,
     SyncThirdPartyEmployees,
     UpdateHideEmail,
     ChangeEmployeeBusinessType,
     SnoozeNbWorkerInfo,
+    SendInvitationsReminders,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -114,6 +115,7 @@ from app.data_access.user_agreement import AcceptCgu, RejectCgu
 from app.helpers.authentication import CheckQuery
 from app.models.address import AddressOutput
 from app.controllers.notification import MarkNotificationsAsRead
+from app.controllers.control_bulletin import SendControlBulletinEmail
 
 
 class Activities(graphene.ObjectType):
@@ -188,7 +190,7 @@ class Employments(graphene.ObjectType):
     reject_employment = RejectEmployment.Field()
     terminate_employment = TerminateEmployment.Field()
     cancel_employment = CancelEmployment.Field()
-    send_invitation_reminder = SendInvitationReminder.Field()
+    send_invitations_reminders = SendInvitationsReminders.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
     change_employee_business_type = ChangeEmployeeBusinessType.Field()
@@ -272,7 +274,9 @@ class PrivateMutations(graphene.ObjectType):
     controller_save_reported_infractions = (
         ControllerSaveReportedInfractions.Field()
     )
+    controller_update_delivery_status = ControllerUpdateDeliveryStatus.Field()
     controller_add_control_note = AddControlNote.Field()
+    controller_update_control_time = UpdateControlTime.Field()
     controller_change_greco_id = ControllerChangeGrecoId.Field()
 
     generate_employment_token = GenerateEmploymentToken.Field()
@@ -286,6 +290,7 @@ class PrivateMutations(graphene.ObjectType):
     snooze_certificate_info = SnoozeCertificateInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()
+    send_control_bulletin_email = SendControlBulletinEmail.Field()
 
 
 class Queries(
