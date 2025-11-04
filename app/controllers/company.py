@@ -54,7 +54,7 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.models import Company, Employment, Business, UserAgreement
-from app.models.export import ExportStatus, Export
+from app.models.export import ExportStatus, Export, ExportType
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -831,6 +831,7 @@ def download_full_data_report(user_id):
                 max_date=max_date,
                 one_file_by_employee=False,
                 file_name=file_name,
+                export_type=ExportType.REFUSED_CGU,
             )
 
         UserAgreement.set_transferred_data_date(user.id)

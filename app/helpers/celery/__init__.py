@@ -11,7 +11,7 @@ from app.helpers.xls.companies import (
     get_archive_excel_file,
 )
 from app.models import User, Export
-from app.models.export import ExportStatus
+from app.models.export import ExportStatus, ExportType
 
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
@@ -28,11 +28,12 @@ def async_export_excel(
     max_date,
     one_file_by_employee,
     file_name=DEFAULT_FILE_NAME,
+    export_type=ExportType.EXCEL,
 ):
     with app.app_context():
         exporter = User.query.get(exporter_id)
 
-        export = Export(user=exporter)
+        export = Export(user=exporter, export_type=export_type)
         db.session.add(export)
         db.session.commit()
 

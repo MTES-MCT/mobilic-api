@@ -27,7 +27,9 @@ def upgrade():
         sa.Column("file_type", sa.String(), nullable=True),
         sa.Column(
             "export_type",
-            sa.Enum("excel", name="exporttype", native_enum=False),
+            sa.Enum(
+                "excel", "refused_cgu", name="exporttype", native_enum=False
+            ),
             server_default="excel",
             nullable=False,
         ),

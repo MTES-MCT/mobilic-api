@@ -7,6 +7,7 @@ from app.models.utils import enum_column
 
 class ExportType(str, Enum):
     EXCEL = "excel"
+    REFUSED_CGU = "refused_cgu"
 
 
 class ExportStatus(str, Enum):
