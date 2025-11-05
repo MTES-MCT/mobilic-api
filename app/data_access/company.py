@@ -165,6 +165,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     missions_deleted = graphene.Field(
         MissionConnection,
+        first=graphene.Int(
+            required=False,
+            description="Nombre maximal de missions retournées, par ordre de récence.",
+        ),
         description="Liste des missions supprimées de l'entreprise",
     )
     vehicles = graphene.List(
@@ -292,15 +296,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
-    def resolve_missions_deleted(self, info):
-        deleted_missions = (
+    def resolve_missions_deleted(self, info, first=None):
+        deleted_missions_query = (
             Mission.query.filter(
                 Mission.company_id == self.id,
             )
             .join(Activity, Activity.mission_id == Mission.id)
             .group_by(Mission.id)
             .having(func.every(Activity.dismissed_at.isnot(None)))
-        ).all()
+        )
+        if first is not None:
+            deleted_missions_query = deleted_missions_query.limit(first)
+        deleted_missions = deleted_missions_query.all()
 
         edges = [{"node": mission} for mission in deleted_missions]
 
