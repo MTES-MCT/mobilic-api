@@ -616,7 +616,8 @@ class SendInvitationsReminders(AuthenticatedMutation):
             required=True,
         )
 
-    Output = Void
+    success = graphene.Boolean()
+    sent_to_employment_ids = graphene.List(graphene.Int)
 
     @classmethod
     @with_authorization_policy(
@@ -633,6 +634,7 @@ class SendInvitationsReminders(AuthenticatedMutation):
         min_time_between_emails = app.config[
             "MIN_DELAY_BETWEEN_INVITATION_EMAILS"
         ]
+        sent_to_employment_ids = []
         for employment_id in employment_ids:
             employment = Employment.query.get(employment_id)
             if (
@@ -645,8 +647,11 @@ class SendInvitationsReminders(AuthenticatedMutation):
             ):
                 mailer.send_employee_invite(employment, reminder=True)
                 db.session.commit()
+                sent_to_employment_ids.append(employment_id)
 
-        return Void(success=True)
+        return SendInvitationsReminders(
+            success=True, sent_to_employment_ids=sent_to_employment_ids
+        )
 
 
 class ChangeEmployeeRole(AuthenticatedMutation):

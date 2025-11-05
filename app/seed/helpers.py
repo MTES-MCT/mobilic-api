@@ -1,16 +1,29 @@
 from unittest.mock import MagicMock, patch
 import datetime
 
+from faker import Faker
+
 from app import db
+from app.domain.expenditure import log_expenditure
 from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.time import FR_TIMEZONE, from_tz
-from app.models import Mission, LocationEntry, MissionEnd, MissionValidation
+from app.models import (
+    Mission,
+    LocationEntry,
+    MissionEnd,
+    MissionValidation,
+    Vehicle,
+    CompanyKnownAddress,
+    Address,
+    Comment,
+)
 from app.models.activity import ActivityType
 from app.models.location_entry import LocationEntryType
 from app.seed.factories import EmploymentFactory, UserFactory
 
 DEFAULT_PASSWORD = "password123!"
+fake = Faker("fr_FR")
 
 
 class AuthenticatedUserContext:
@@ -90,6 +103,30 @@ def create_mission(
     return mission
 
 
+def end_mission(
+    mission, submitter, for_user, time, address=None, add_location_entry=False
+):
+    db.session.add(
+        MissionEnd(
+            submitter=submitter,
+            reception_time=time,
+            user=for_user,
+            mission=mission,
+        )
+    )
+    if add_location_entry:
+        location_entry = LocationEntry(
+            _address=address.address,
+            mission=mission,
+            reception_time=time,
+            submitter=submitter,
+            _company_known_address=address,
+            type=LocationEntryType.MISSION_END_LOCATION,
+            creation_time=time,
+        )
+        db.session.add(location_entry)
+
+
 # work_periods=[
 #   [start_time_0, end_time_0],
 #   ...,
@@ -103,6 +140,10 @@ def log_and_validate_mission(
     vehicle=None,
     validate=True,
     admin_validating=None,
+    address=None,
+    add_location_entry=False,
+    employee_expenditure=None,
+    employee_comment=None,
 ):
     if not vehicle and company.vehicles:
         vehicle = company.vehicles[0]
@@ -112,6 +153,8 @@ def log_and_validate_mission(
         time=work_periods[0][0],
         submitter=employee,
         vehicle=vehicle,
+        add_location_entry=add_location_entry,
+        address=address,
     )
     db.session.commit()
 
@@ -128,13 +171,32 @@ def log_and_validate_mission(
                 start_time=wp[0],
                 end_time=wp[1],
             )
-        db.session.add(
-            MissionEnd(
+        if employee_expenditure:
+            log_expenditure(
                 submitter=employee,
-                reception_time=work_periods[-1][1],
                 user=employee,
                 mission=mission,
+                type=employee_expenditure,
+                reception_time=work_periods[-1][1],
+                spending_date=work_periods[-1][1].date(),
+                creation_time=work_periods[-1][1],
             )
+        if employee_comment:
+            db.session.add(
+                Comment(
+                    submitter=employee,
+                    mission=mission,
+                    text=employee_comment,
+                    reception_time=work_periods[-1][1],
+                )
+            )
+        end_mission(
+            mission=mission,
+            submitter=employee,
+            for_user=employee,
+            time=work_periods[-1][1],
+            add_location_entry=add_location_entry,
+            address=address,
         )
         if validate:
             validate_mission(
@@ -159,7 +221,14 @@ def log_and_validate_mission(
     return mission
 
 
-def add_employee(email, first_name, last_name, company, admin):
+def add_employee(company, admin, email="", first_name="", last_name=""):
+    if first_name == "" and last_name == "":
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+
+    if email == "":
+        email = f"{first_name.lower()}.{last_name.lower()}@employee.com"
+
     employee = UserFactory.create(
         email=email,
         password=DEFAULT_PASSWORD,
@@ -173,3 +242,25 @@ def add_employee(email, first_name, last_name, company, admin):
         has_admin_rights=False,
     )
     return employee
+
+
+def create_vehicle(company):
+    vehicle = Vehicle(
+        registration_number=fake.license_plate(),
+        alias=fake.word(),
+        company_id=company.id,
+    )
+    db.session.add(vehicle)
+    return vehicle
+
+
+def create_address(company):
+    address = CompanyKnownAddress(
+        alias=fake.company(),
+        address=Address.get_or_create(
+            geo_api_data=None, manual_address=fake.address()
+        ),
+        company_id=company.id,
+    )
+    db.session.add(address)
+    return address
