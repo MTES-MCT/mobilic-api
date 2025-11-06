@@ -1091,5 +1091,67 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
+    def send_control_bulletin_email(
+        self,
+        admin_emails,
+        control_data,
+        bulletin_content=None,
+        bulletin_filename=None,
+    ):
+        """
+        Send control bulletin by email to company admins.
+
+        Args:
+            admin_emails: List of admin emails
+            control_data: Control data (id, company_name, employee_name, etc.)
+            bulletin_content: Binary content of bulletin PDF (optional)
+            bulletin_filename: PDF filename (optional)
+
+        return number of emails sent
+        """
+        messages = []
+
+        # Prepare attachment if PDF is available
+        attachment = None
+        if bulletin_content and bulletin_filename:
+            import base64
+
+            attachment = {
+                "ContentType": "application/pdf",
+                "Filename": bulletin_filename,
+                "Base64Content": base64.b64encode(
+                    bulletin_content.getvalue()
+                ).decode("utf-8"),
+            }
+
+        employee_name = f"{control_data['employee_first_name']} {control_data['employee_last_name']}".strip()
+        control_date_formatted = control_data["control_date"]
+        subject = f"Bulletin de contrôle n°{control_data['control_id']} - {employee_name} - {control_date_formatted}"
+
+        for admin_email in admin_emails:
+            message = self._create_message_from_flask_template(
+                template="control_bulletin_email.html",
+                subject=subject,
+                recipient=admin_email,
+                type_=EmailType.CONTROL_BULLETIN_SEND,
+                employee_name=employee_name,
+                control_location=control_data["control_location"],
+                control_date=control_data["control_date"],
+                control_time=control_data["control_time"],
+                controller_info=control_data["controller_info"],
+                nb_infractions=control_data["nb_infractions"],
+            )
+
+            # Add attachment to message if available
+            if attachment:
+                message.attachment = attachment
+
+            messages.append(message)
+
+        if messages:
+            self.send_batch(messages, _disable_commit=False)
+            return len(messages)
+        return 0
+
 
 mailer = Mailer()

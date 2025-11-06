@@ -8,7 +8,8 @@ jobs:
           POSTGRES_USER: circleci
           POSTGRES_DB: mobilic-test
     steps:
-      - checkout
+      - checkout:
+          method: full
       - restore_cache:
           keys:
             - pip-cache-{{ .Branch }}-{{ checksum "Pipfile.lock" }}
@@ -39,7 +40,8 @@ jobs:
     docker:
       - image: cimg/python:3.13
     steps:
-      - checkout
+      - checkout:
+          method: full
       - run:
           name: Add Scalingo to known_hosts
           command: ssh-keyscan -H ssh.osc-fr1.scalingo.com >> ~/.ssh/known_hosts

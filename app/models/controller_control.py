@@ -2,7 +2,7 @@ import datetime
 import enum
 from datetime import date
 
-from sqlalchemy import Enum
+from sqlalchemy import Enum, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 
@@ -56,6 +56,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_bulletin_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    control_bulletin_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
     control_bulletin_first_download_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
@@ -67,6 +70,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     reported_infractions_last_update_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    delivered_by_hand = db.Column(db.Boolean, nullable=True)
+    sent_to_admin = db.Column(db.Boolean, nullable=True)
+    control_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @property
     def history_end_date(self):
@@ -311,6 +317,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
             nb_controlled_days = len(work_days)
             new_control = ControllerControl(
                 qr_code_generation_time=qr_code_generation_time,
+                control_time=qr_code_generation_time,
                 user_id=user_id,
                 user_first_name=controlled_user.first_name,
                 user_last_name=controlled_user.last_name,
@@ -326,3 +333,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
             new_control.report_infractions()
             return new_control
+
+
+@event.listens_for(ControllerControl, "before_insert")
+def set_control_time(mapper, connection, target):
+    if not target.control_time:
+        target.control_time = (
+            target.qr_code_generation_time
+            if target.qr_code_generation_time
+            else datetime.datetime.now()
+        )

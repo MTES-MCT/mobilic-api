@@ -12,7 +12,11 @@ from app.controllers.utils import atomic_transaction, Void
 from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
 from app.domain.employment import create_employment_by_third_party_if_needed
-from app.domain.permissions import company_admin, only_self_employment
+from app.domain.permissions import (
+    company_admin,
+    only_self_employment,
+    companies_admin,
+)
 from app.domain.team import remove_admin_from_teams
 from app.domain.third_party_employment import (
     create_third_party_employment_link_if_needed,
@@ -604,41 +608,50 @@ class CancelEmployment(AuthenticatedMutation):
         return Void(success=True)
 
 
-class SendInvitationReminder(AuthenticatedMutation):
+class SendInvitationsReminders(AuthenticatedMutation):
     class Arguments:
-        employment_id = graphene.Argument(
+        employment_ids = graphene.List(
             graphene.Int,
+            description="Identifiants des rattachements pour lequels relancer un email d'invitation",
             required=True,
-            description="Identifiant du rattachement pour lequel relancer un email d'invitation",
         )
 
-    Output = Void
+    success = graphene.Boolean()
+    sent_to_employment_ids = graphene.List(graphene.Int)
 
     @classmethod
     @with_authorization_policy(
-        company_admin,
-        get_target_from_args=lambda *args, **kwargs: Employment.query.get(
-            kwargs["employment_id"]
-        ).company_id,
-        error_message="Actor is not authorized to send invitation emails for the employment",
+        companies_admin,
+        get_target_from_args=lambda *args, **kwargs: [
+            e.company_id
+            for e in Employment.query.filter(
+                Employment.id.in_(kwargs["employment_ids"])
+            ).all()
+        ],
+        error_message="Actor is not authorized to send invitation email for at least one of these employments",
     )
-    def mutate(cls, _, info, employment_id):
-        employment = Employment.query.get(employment_id)
+    def mutate(cls, _, info, employment_ids):
         min_time_between_emails = app.config[
             "MIN_DELAY_BETWEEN_INVITATION_EMAILS"
         ]
-        if (
-            datetime.now()
-            - (
-                employment.latest_invite_email_time
-                or employment.reception_time
-            )
-            >= min_time_between_emails
-        ):
-            mailer.send_employee_invite(employment, reminder=True)
-            db.session.commit()
+        sent_to_employment_ids = []
+        for employment_id in employment_ids:
+            employment = Employment.query.get(employment_id)
+            if (
+                datetime.now()
+                - (
+                    employment.latest_invite_email_time
+                    or employment.reception_time
+                )
+                >= min_time_between_emails
+            ):
+                mailer.send_employee_invite(employment, reminder=True)
+                db.session.commit()
+                sent_to_employment_ids.append(employment_id)
 
-        return Void(success=True)
+        return SendInvitationsReminders(
+            success=True, sent_to_employment_ids=sent_to_employment_ids
+        )
 
 
 class ChangeEmployeeRole(AuthenticatedMutation):
