@@ -1,3 +1,5 @@
+import re
+
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 from graphene_sqlalchemy.converter import convert_sqlalchemy_type
@@ -149,3 +151,40 @@ class Password(graphene.Scalar):
         if is_valid_password(value):
             return value
         raise GraphQLError(f"Invalid Password")
+
+
+class ShortMonth(graphene.Scalar):
+    """
+    Custom GraphQL scalar to represent a month in the format YYYY-MM
+    Serialized as YYYY-MM.
+    Parsed as datetime.date(year, month, 1)
+    """
+
+    @staticmethod
+    def serialize(date_obj):
+        if isinstance(date_obj, (datetime.date, datetime.datetime)):
+            return date_obj.strftime("%Y-%m")
+        return None
+
+    @staticmethod
+    def parse_value(value):
+        if not isinstance(value, str):
+            return None
+
+        # Validate YYYY-MM format
+        if not re.match(r"^\d{4}-\d{2}$", value):
+            return None
+
+        year, month = map(int, value.split("-"))
+
+        # Build normalized first-day-of-month date
+        try:
+            return datetime.date(year, month, 1)
+        except ValueError:
+            return None
+
+    @classmethod
+    def parse_literal(cls, node):
+        if isinstance(node, ast.StringValue):
+            return cls.parse_value(node.value)
+        return None
