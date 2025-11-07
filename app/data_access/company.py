@@ -3,7 +3,13 @@ from flask import g
 
 from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
-from app.data_access.regulatory_alerts_summary import RegulatoryAlertsSummary
+from app.data_access.regulation_computation import (
+    get_regulation_checks_by_unit,
+)
+from app.data_access.regulatory_alerts_summary import (
+    RegulatoryAlertsSummary,
+    AlertsGroup,
+)
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -29,6 +35,7 @@ from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
 )
+from app.helpers.errors import AuthorizationError
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
@@ -45,6 +52,7 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
+from app.models.regulation_check import UnitType, RegulationCheckType
 from app.models.vehicle import VehicleOutput
 
 
@@ -458,7 +466,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
         company_user_ids = [u.id for u in self.users]
         if unique_user_id and unique_user_id not in company_user_ids:
-            raise Exception()
+            raise AuthorizationError("Employee is not part of the company")
 
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
@@ -488,8 +496,74 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             _user_ids=user_ids,
         )
 
+        daily_checks = get_regulation_checks_by_unit(
+            unit=UnitType.DAY, date=start_date
+        )
+        daily_alerts = []
+        for check in daily_checks:
+            if check.type == RegulationCheckType.NO_LIC:
+                continue
+            if check.type == RegulationCheckType.ENOUGH_BREAK:
+                alerts = [
+                    a
+                    for a in current_month_alerts
+                    if a.regulation_check_id == check.id
+                ]
+                not_enough_break_alerts = [
+                    a for a in alerts if a.extra["not_enough_break"]
+                ]
+                daily_alerts.append(
+                    AlertsGroup(
+                        alerts_type="not_enough_break",
+                        nb_alerts=len(not_enough_break_alerts),
+                        days=[],
+                    )
+                )
+                too_much_uninterrupted_work_time_alerts = [
+                    a
+                    for a in alerts
+                    if a.extra["too_much_uninterrupted_work_time"]
+                ]
+                daily_alerts.append(
+                    AlertsGroup(
+                        alerts_type="too_much_uninterrupted_work_time",
+                        nb_alerts=len(too_much_uninterrupted_work_time_alerts),
+                        days=[],
+                    )
+                )
+                continue
+
+            alerts = [
+                a
+                for a in current_month_alerts
+                if a.regulation_check_id == check.id
+            ]
+            daily_alerts.append(
+                AlertsGroup(
+                    alerts_type=check.type, nb_alerts=len(alerts), days=[]
+                )
+            )
+
+        weekly_checks = get_regulation_checks_by_unit(
+            unit=UnitType.WEEK, date=start_date
+        )
+        weekly_alerts = []
+        for check in weekly_checks:
+            alerts = [
+                a
+                for a in current_month_alerts
+                if a.regulation_check_id == check.id
+            ]
+            weekly_alerts.append(
+                AlertsGroup(
+                    alerts_type=check.type, nb_alerts=len(alerts), days=[]
+                )
+            )
+
         return RegulatoryAlertsSummary(
             month=month,
             total_nb_alerts=len(current_month_alerts),
             total_nb_alerts_previous_month=previous_month_alerts_count,
+            daily_alerts=daily_alerts,
+            weekly_alerts=weekly_alerts,
         )
