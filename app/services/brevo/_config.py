@@ -4,10 +4,13 @@ from datetime import date
 
 
 class BrevoFunnelConfig:
-    # Acquisition thresholds
-    NEW_COMPANIES_SINCE_DATE = date(2025, 3, 1)
-    NO_INVITE_WARNING_DAYS = 7
-    NO_INVITE_CRITICAL_DAYS = 30
+    # Acquisition V2
+    ACCOUNT_ACTIVATION_DEADLINE_DAYS = 14
+
+    # TODO: Enable after email reminder system implementation
+    # Ticket: https://trello.com/c/2Q0k0kzu/2174
+    # ACCOUNT_ACTIVATION_REMINDER_DAYS = 2
+    # REMINDER_EMAIL_TYPE = "company_no_activation_reminder"
 
     # Activation thresholds
     LOW_INVITATION_THRESHOLD = 30
