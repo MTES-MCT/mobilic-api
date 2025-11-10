@@ -31,7 +31,9 @@ class EmailType(str, Enum):
     COMPANY_PENDING_INVITATION = "company_pending_invitation"
     HOLIDAY_LOGGING_BY_ADMIN = "holiday_logging_by_admin"
     HOLIDAY_CHANGES_WARNING = "holiday_changes_warning"
+    # Deprecated
     ADMIN_EXPORT_EXCEL = "admin_export_excel"
+    # Deprecated
     EMPLOYEE_EXPORT_EXCEL = "employee_export_excel"
     EMPLOYEE_REJECTS_CGU = "employee_rejects_cgu"
     COMPANY_SUSPENDED_CGU = "company_suspended_cgu"
