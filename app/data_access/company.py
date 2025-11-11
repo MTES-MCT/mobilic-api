@@ -500,6 +500,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             unit=UnitType.DAY, date=start_date
         )
         daily_alerts = []
+
+        def _append_alerts(alerts, type):
+            daily_alerts.append(
+                AlertsGroup(
+                    alerts_type=type,
+                    nb_alerts=len(alerts),
+                    days=[a.day for a in alerts] if unique_user_id else [],
+                )
+            )
+
         for check in daily_checks:
             if check.type == RegulationCheckType.NO_LIC:
                 continue
@@ -512,24 +522,17 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 not_enough_break_alerts = [
                     a for a in alerts if a.extra["not_enough_break"]
                 ]
-                daily_alerts.append(
-                    AlertsGroup(
-                        alerts_type="not_enough_break",
-                        nb_alerts=len(not_enough_break_alerts),
-                        days=[],
-                    )
+                _append_alerts(
+                    alerts=not_enough_break_alerts, type="not_enough_break"
                 )
                 too_much_uninterrupted_work_time_alerts = [
                     a
                     for a in alerts
                     if a.extra["too_much_uninterrupted_work_time"]
                 ]
-                daily_alerts.append(
-                    AlertsGroup(
-                        alerts_type="too_much_uninterrupted_work_time",
-                        nb_alerts=len(too_much_uninterrupted_work_time_alerts),
-                        days=[],
-                    )
+                _append_alerts(
+                    alerts=too_much_uninterrupted_work_time_alerts,
+                    type="too_much_uninterrupted_work_time",
                 )
                 continue
 
@@ -538,11 +541,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 for a in current_month_alerts
                 if a.regulation_check_id == check.id
             ]
-            daily_alerts.append(
-                AlertsGroup(
-                    alerts_type=check.type, nb_alerts=len(alerts), days=[]
-                )
-            )
+            _append_alerts(alerts=alerts, type=check.type)
 
         weekly_checks = get_regulation_checks_by_unit(
             unit=UnitType.WEEK, date=start_date
@@ -556,7 +555,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             ]
             weekly_alerts.append(
                 AlertsGroup(
-                    alerts_type=check.type, nb_alerts=len(alerts), days=[]
+                    alerts_type=check.type,
+                    nb_alerts=len(alerts),
+                    days=[] if unique_user_id else [],
                 )
             )
 
