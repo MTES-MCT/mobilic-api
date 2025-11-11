@@ -84,6 +84,14 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
             return SirenAPIClient._get_legal_unit_name(legal_unit_dict)
         return ""
 
+    def active_users_in_team(self, team_id):
+        today = date.today()
+        return [
+            e.user
+            for e in self.active_employments_at(today)
+            if e.team_id == team_id
+        ]
+
     def users_ids_between(self, start, end):
         active_employments = self.active_employments_between(start, end)
         return [e.user_id for e in active_employments]

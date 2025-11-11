@@ -226,6 +226,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Identifiant d'un des salariés de l'entreprise",
         ),
+        team_id=graphene.Int(
+            required=False, description="Identifiant du groupe sélectionné"
+        ),
     )
 
     def resolve_name(self, info):
@@ -461,12 +464,19 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'resolve_regulatory_alerts_recap' of company object. Actor must be company admin.",
     )
     def resolve_regulatory_alerts_recap(
-        self, info, month, unique_user_id=None
+        self, info, month, unique_user_id=None, team_id=None
     ):
 
-        company_user_ids = [u.id for u in self.users]
+        company_user_ids = (
+            [u.id for u in self.active_users_in_team(team_id)]
+            if team_id
+            else [u.id for u in self.users]
+        )
+
         if unique_user_id and unique_user_id not in company_user_ids:
-            raise AuthorizationError("Employee is not part of the company")
+            raise AuthorizationError(
+                f"Employee is not part of the {'team' if team_id else 'company'}"
+            )
 
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
