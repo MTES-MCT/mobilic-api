@@ -155,6 +155,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Curseur de connection GraphQL, utilisé pour la pagination",
         ),
+        user_ids=graphene.List(
+            lambda: graphene.Int, description="Identifiants des utilisateurs"
+        ),
     )
     missions = graphene.Field(
         MissionConnection,
@@ -339,7 +342,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(
-        self, info, from_date=None, until_date=None, first=None, after=None
+        self,
+        info,
+        from_date=None,
+        until_date=None,
+        first=None,
+        after=None,
+        user_ids=None,
     ):
         # There are two ways to build the work days :
         # - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
@@ -376,6 +385,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             end_date=until_date,
             first=first,
             after=after,
+            user_ids=user_ids,
         )
         user_ids = set([row.user_id for row in work_day_stats])
 
