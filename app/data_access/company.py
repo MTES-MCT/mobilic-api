@@ -42,6 +42,7 @@ from app.helpers.graphene_types import (
     ShortMonth,
 )
 from app.helpers.pagination import to_connection
+from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_datetime
 from app.models import Company, User, Mission, Activity, RegulatoryAlert
 from app.models.activity import ActivityType
@@ -485,6 +486,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 RegulatoryAlert.user_id.in_(_user_ids),
                 RegulatoryAlert.day >= _start_date,
                 RegulatoryAlert.day < _end_date,
+                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
             )
             if count_only:
                 return query.count()
