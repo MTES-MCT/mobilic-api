@@ -17,6 +17,7 @@ from app.models import (
     ControllerControl,
     RegulationComputation,
     RegulatoryAlert,
+    Comment,
 )
 
 
@@ -41,6 +42,9 @@ def _clean_recent_data(employee):
         ActivityVersion.activity_id.in_(activity_ids)
     ).delete(synchronize_session=False)
     Activity.query.filter(Activity.id.in_(activity_ids)).delete(
+        synchronize_session=False
+    )
+    Comment.query.filter(Comment.mission_id.in_(mission_ids)).delete(
         synchronize_session=False
     )
     LocationEntry.query.filter(
