@@ -89,7 +89,9 @@ class S3Client:
 
     @staticmethod
     def upload_export(content, path, content_type):
-        S3.put_object(
+        # Scaleway Object Storage does not support AWS ExpectedBucketOwner.
+        # This Sonar rule (S6257) is not applicable.
+        S3.put_object(  # NOSONAR
             Bucket=BUCKET_NAME,
             Key=path,
             Body=content,
