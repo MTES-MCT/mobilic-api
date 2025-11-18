@@ -118,3 +118,24 @@ class RegulationComputationByDayOutput(graphene.ObjectType):
 
     def __repr__(self):
         return f"Day {self.day} - #{len(self.regulation_computations)}"
+
+
+class CompanyAdminRegulationComputationsByUserAndDay(graphene.ObjectType):
+    day = graphene.Field(
+        graphene.Date,
+        description="Journée pour laquelle les seuils sont calculés (pour les calculs hebdomadaires, il s'agit du premier jour de la semaine en considérant qu'elle commence le lundi)",
+    )
+    user_id = graphene.Field(
+        graphene.Int, description="Identifiant de l'utilisateur"
+    )
+    nb_alerts_daily_admin = graphene.Field(
+        graphene.Int,
+        description="Nombres d'alertes gestionnaire journalières sur la journée",
+    )
+    nb_alerts_weekly_admin = graphene.Field(
+        graphene.Int,
+        description="Nombres d'alertes gestionnaire hebdomadaires sur la journée",
+    )
+
+    def __repr__(self):
+        return f"day={self.day} - user={self.user_id} #{self.nb_alerts_admin}"
