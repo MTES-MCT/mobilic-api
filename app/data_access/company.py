@@ -5,6 +5,7 @@ from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.regulation_computation import (
     get_regulation_checks_by_unit,
+    CompanyAdminRegulationComputationsByUserAndDay,
 )
 from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
@@ -44,7 +45,14 @@ from app.helpers.graphene_types import (
 from app.helpers.pagination import to_connection
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_datetime
-from app.models import Company, User, Mission, Activity, RegulatoryAlert
+from app.models import (
+    Company,
+    User,
+    Mission,
+    Activity,
+    RegulatoryAlert,
+    RegulationComputation,
+)
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -53,7 +61,11 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
-from app.models.regulation_check import UnitType, RegulationCheckType
+from app.models.regulation_check import (
+    UnitType,
+    RegulationCheckType,
+    RegulationCheck,
+)
 from app.models.vehicle import VehicleOutput
 
 
@@ -233,6 +245,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         team_id=graphene.Int(
             required=False, description="Identifiant du groupe sélectionné"
         ),
+    )
+    admin_regulation_computations_by_user_and_by_day = graphene.List(
+        lambda: CompanyAdminRegulationComputationsByUserAndDay,
+        from_date=graphene.Date(
+            required=False,
+            description="Date de début de l'historique des alertes",
+        ),
+        to_date=graphene.Date(
+            required=False,
+            description="Date de fin de l'historique des alertes",
+        ),
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_name(self, info):
@@ -590,3 +614,62 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             daily_alerts=daily_alerts,
             weekly_alerts=weekly_alerts,
         )
+
+    def resolve_admin_regulation_computations_by_user_and_by_day(
+        self, info, from_date=None, to_date=None
+    ):
+        user_ids = [u.id for u in self.users]
+        regulation_computations_query = RegulationComputation.query.filter(
+            RegulationComputation.user_id.in_(user_ids),
+            RegulationComputation.submitter_type == SubmitterType.ADMIN,
+        )
+        if from_date:
+            regulation_computations_query = (
+                regulation_computations_query.filter(
+                    RegulationComputation.day >= from_date
+                )
+            )
+        if to_date:
+            regulation_computations_query = (
+                regulation_computations_query.filter(
+                    RegulationComputation.day <= to_date
+                )
+            )
+        regulation_computations = regulation_computations_query.all()
+
+        def _get_alerts(unit):
+            query = RegulatoryAlert.query.join(RegulationCheck).filter(
+                RegulatoryAlert.user_id.in_(user_ids),
+                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+                RegulationCheck.unit == unit,
+            )
+            if from_date:
+                query = query.filter(RegulatoryAlert.day >= from_date)
+            if to_date:
+                query = query.filter(RegulatoryAlert.day <= to_date)
+            return query.all()
+
+        daily_alerts = _get_alerts(UnitType.DAY)
+        weekly_alerts = _get_alerts(UnitType.WEEK)
+
+        return [
+            CompanyAdminRegulationComputationsByUserAndDay(
+                day=rc.day,
+                user_id=rc.user_id,
+                nb_alerts_daily_admin=len(
+                    [
+                        a
+                        for a in daily_alerts
+                        if a.user_id == rc.user_id and a.day == rc.day
+                    ]
+                ),
+                nb_alerts_weekly_admin=len(
+                    [
+                        a
+                        for a in weekly_alerts
+                        if a.user_id == rc.user_id and a.day == rc.day
+                    ]
+                ),
+            )
+            for rc in regulation_computations
+        ]
