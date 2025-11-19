@@ -33,7 +33,18 @@ def async_export_excel(
     with app.app_context():
         exporter = User.query.get(exporter_id)
 
-        export = Export(user=exporter, export_type=export_type)
+        export = Export(
+            user=exporter,
+            export_type=export_type,
+            context={
+                "exporter_id": exporter_id,
+                "user_ids": user_ids,
+                "company_ids": company_ids,
+                "min_date": min_date.isoformat(),
+                "max_date": max_date.isoformat(),
+                "one_file_by_employee": one_file_by_employee,
+            },
+        )
         db.session.add(export)
         db.session.commit()
 

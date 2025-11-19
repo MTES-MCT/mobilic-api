@@ -1,5 +1,7 @@
 from enum import Enum
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 from app import db
 from app.models.base import BaseModel
 from app.models.utils import enum_column
@@ -41,3 +43,4 @@ class Export(BaseModel):
         default=ExportStatus.WIP,
         server_default=ExportStatus.WIP.value,
     )
+    context = db.Column(JSONB(none_as_null=True), nullable=True)

@@ -8,7 +8,7 @@ Create Date: 2025-10-28 17:21:23.525128
 
 from alembic import op
 import sqlalchemy as sa
-
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "c1e0cfacea5a"
@@ -25,6 +25,11 @@ def upgrade():
         sa.Column("file_s3_path", sa.String(), nullable=True),
         sa.Column("file_name", sa.String(), nullable=True),
         sa.Column("file_type", sa.String(), nullable=True),
+        sa.Column(
+            "context",
+            postgresql.JSONB(none_as_null=True, astext_type=sa.Text()),
+            nullable=True,
+        ),
         sa.Column(
             "export_type",
             sa.Enum(
