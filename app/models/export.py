@@ -1,5 +1,6 @@
 from enum import Enum
 
+from sqlalchemy import BigInteger
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app import db
@@ -44,3 +45,5 @@ class Export(BaseModel):
         server_default=ExportStatus.WIP.value,
     )
     context = db.Column(JSONB(none_as_null=True), nullable=True)
+    file_size = db.Column(BigInteger, nullable=True, default=0)
+    duration = db.Column(db.Integer, nullable=True, default=0)

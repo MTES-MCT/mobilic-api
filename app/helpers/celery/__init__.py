@@ -1,3 +1,5 @@
+import time
+
 from celery import Celery
 
 from app import app, db
@@ -42,7 +44,8 @@ def async_export_excel(
         db.session.commit()
 
         try:
-            base64_content, content_type, file_name = (
+            start_time = time.perf_counter()
+            base64_content, content_type, file_name, file_size_bytes = (
                 generate_admin_export_file(
                     user_ids=user_ids,
                     company_ids=company_ids,
@@ -52,6 +55,10 @@ def async_export_excel(
                     file_name=file_name,
                 )
             )
+            end_time = time.perf_counter()
+            export.file_size = file_size_bytes
+            export.duration = (end_time - start_time) * 1000
+            db.session.commit()
 
             db.session.refresh(export)
             if export.status == ExportStatus.CANCELLED:
