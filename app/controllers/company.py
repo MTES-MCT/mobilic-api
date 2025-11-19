@@ -5,6 +5,7 @@ from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from webargs import fields
 
@@ -736,13 +737,18 @@ def download_activity_report(
 @app.route("/exports/cancel", methods=["POST"])
 @doc(description="Annule les exports en cours pour l'utilisateur")
 def cancel_exports():
-    db.session.execute(
-        update(Export)
-        .where(Export.user_id == current_user.id)
-        .values(status=ExportStatus.CANCELLED)
-    )
-    db.session.commit()
-    return jsonify({"result": "ok"}), 200
+    try:
+        db.session.execute(
+            update(Export)
+            .where(Export.user_id == current_user.id)
+            .values(status=ExportStatus.CANCELLED)
+        )
+        db.session.commit()
+        return jsonify({"result": "ok"}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        app.logger.error("Failed to cancel exports", exc_info=True)
+        return jsonify({"result": "ko", "error": "Database error"}), 500
 
 
 @app.route("/exports/checkout", methods=["POST"])
