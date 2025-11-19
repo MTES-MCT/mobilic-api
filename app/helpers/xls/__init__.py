@@ -1,5 +1,3 @@
-import base64
-
 from app import app
 from app.helpers.xls.signature import retrieve_and_verify_signature
 
@@ -65,7 +63,9 @@ def generate_admin_export_file(
         ext = "zip"
 
     file_name = f"{file_name}.{ext}"
+    file.seek(0)
     file_content = file.read()
-    base64_content = base64.b64encode(file_content).decode("utf-8")
+    file_size_bytes = len(file_content)
+    file.seek(0)
 
-    return base64_content, content_type, file_name
+    return file_content, content_type, file_name, file_size_bytes

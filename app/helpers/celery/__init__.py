@@ -45,7 +45,7 @@ def async_export_excel(
 
         try:
             start_time = time.perf_counter()
-            base64_content, content_type, file_name, file_size_bytes = (
+            file_content, content_type, file_name, file_size_bytes = (
                 generate_admin_export_file(
                     user_ids=user_ids,
                     company_ids=company_ids,
@@ -68,7 +68,7 @@ def async_export_excel(
                 return
 
             path = f"exports/{exporter_id}/{export.id}"
-            S3Client.upload_export(base64_content, path, content_type)
+            S3Client.upload_export(file_content, path, content_type)
 
             export.status = ExportStatus.READY
             export.file_s3_path = path
