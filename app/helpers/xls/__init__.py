@@ -1,5 +1,6 @@
 import base64
 
+from app import app
 from app.helpers.xls.signature import retrieve_and_verify_signature
 
 from .companies import get_one_excel_file, get_archive_excel_file
@@ -11,6 +12,9 @@ from app.domain.work_days import group_user_events_by_day_with_limit
 def generate_admin_export_file(
     user_ids, company_ids, one_file_by_employee, min_date, max_date, file_name
 ):
+    app.logger.info(
+        f"Generating export user_ids={user_ids} company_ids={company_ids} min_date={min_date} max_date={max_date} one_file_by_employee={one_file_by_employee}"
+    )
     users = User.query.filter(User.id.in_(user_ids)).all()
     scope = ConsultationScope(company_ids=company_ids)
     if one_file_by_employee:
