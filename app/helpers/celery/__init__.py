@@ -1,15 +1,12 @@
-import base64
+import time
 
 from celery import Celery
 
-from app import app, mailer, Company
-from app.domain.permissions import ConsultationScope
-from app.domain.work_days import group_user_events_by_day_with_limit
-from app.helpers.xls.companies import (
-    get_one_excel_file,
-    get_archive_excel_file,
-)
-from app.models import User
+from app import app, db
+from app.helpers.s3 import S3Client
+from app.helpers.xls import generate_admin_export_file
+from app.models import User, Export
+from app.models.export import ExportStatus, ExportType
 
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
 celery.conf.update(app.config)
@@ -25,76 +22,61 @@ def async_export_excel(
     min_date,
     max_date,
     one_file_by_employee,
-    idx_bucket=1,
-    nb_buckets=1,
     file_name=DEFAULT_FILE_NAME,
-    is_admin=True,
+    export_type=ExportType.EXCEL,
 ):
     with app.app_context():
         exporter = User.query.get(exporter_id)
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        scope = ConsultationScope(company_ids=company_ids)
-        if one_file_by_employee:
-            user_wdays_batches = []
-            for user in users:
-                user_wdays_batches += [
-                    (
-                        user,
-                        group_user_events_by_day_with_limit(
-                            user,
-                            consultation_scope=scope,
-                            from_date=min_date,
-                            until_date=max_date,
-                            include_dismissed_or_empty_days=True,
-                        )[0],
-                    )
-                ]
-        else:
-            all_users_work_days = []
-            for user in users:
-                all_users_work_days += group_user_events_by_day_with_limit(
-                    user,
-                    consultation_scope=scope,
-                    from_date=min_date,
-                    until_date=max_date,
-                    include_dismissed_or_empty_days=True,
-                )[0]
-            user_wdays_batches = [(None, all_users_work_days)]
 
-        companies = Company.query.filter(Company.id.in_(company_ids)).all()
-
-        file_obj = {}
-        if len(user_wdays_batches) == 1:
-            file = get_one_excel_file(
-                user_wdays_batches[0][1], companies, min_date, max_date
-            )
-            file_obj[
-                "ContentType"
-            ] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            file_obj["Filename"] = f"{file_name}.xlsx"
-        else:
-            file = get_archive_excel_file(
-                batches=user_wdays_batches,
-                companies=companies,
-                min_date=min_date,
-                max_date=max_date,
-            )
-            file_obj["ContentType"] = "application/zip"
-            file_obj["Filename"] = f"{file_name}.zip"
-
-        file_content = file.read()
-        base64_content = base64.b64encode(file_content).decode("utf-8")
-        file_obj["Base64Content"] = base64_content
+        export = Export(
+            user=exporter,
+            export_type=export_type,
+            context={
+                "exporter_id": exporter_id,
+                "user_ids": user_ids,
+                "company_ids": company_ids,
+                "min_date": min_date.isoformat(),
+                "max_date": max_date.isoformat(),
+                "one_file_by_employee": one_file_by_employee,
+            },
+        )
+        db.session.add(export)
+        db.session.commit()
 
         try:
-            mailer.send_export_excel(
-                user=exporter,
-                company_name=companies[0].usual_name,
-                file=file_obj,
-                subject_suffix=f" ({idx_bucket}/{nb_buckets})"
-                if nb_buckets > 1
-                else "",
-                is_admin=is_admin,
+            start_time = time.perf_counter()
+            file_content, content_type, file_name, file_size_bytes = (
+                generate_admin_export_file(
+                    user_ids=user_ids,
+                    company_ids=company_ids,
+                    one_file_by_employee=one_file_by_employee,
+                    min_date=min_date,
+                    max_date=max_date,
+                    file_name=file_name,
+                )
             )
+            end_time = time.perf_counter()
+            export.file_size = file_size_bytes
+            export.duration = (end_time - start_time) * 1000
+            db.session.commit()
+
+            db.session.refresh(export)
+            if export.status == ExportStatus.CANCELLED:
+                app.logger.warning(
+                    "Abort file upload because export was cancelled"
+                )
+                return
+
+            path = f"exports/{exporter_id}/{export.id}"
+            S3Client.upload_export(file_content, path, content_type)
+
+            export.status = ExportStatus.READY
+            export.file_s3_path = path
+            export.file_type = content_type
+            export.file_name = file_name
+            db.session.commit()
+
         except Exception as e:
-            app.logger.exception(e)
+            export.status = ExportStatus.FAILED
+            db.session.commit()
+            raise e

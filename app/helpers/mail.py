@@ -990,33 +990,6 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
-    def send_export_excel(
-        self, user, company_name, file, subject_suffix="", is_admin=True
-    ):
-        subject = (
-            f"Téléchargement des données Mobilic de l’entreprise {company_name}"
-            if is_admin
-            else "Téléchargement de vos temps de travail saisis dans Mobilic"
-        )
-        self._send_single(
-            self._create_message_from_flask_template(
-                template=(
-                    "admin_export_excel.html"
-                    if is_admin
-                    else "employee_export_excel.html"
-                ),
-                user=user,
-                subject=f"{subject}{subject_suffix}",
-                type_=(
-                    EmailType.ADMIN_EXPORT_EXCEL
-                    if is_admin
-                    else EmailType.EMPLOYEE_EXPORT_EXCEL
-                ),
-                attachment=file,
-            ),
-            _apply_whitelist_if_not_prod=False,
-        )
-
     def send_email_discover_mobilic(self, to_email, from_company):
         subject = f"{from_company.usual_name.capitalize()} vous fait découvrir Mobilic !"
         button_link = Markup(
