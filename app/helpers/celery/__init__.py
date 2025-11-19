@@ -96,6 +96,13 @@ def async_export_excel(
                 content_type = "application/zip"
                 ext = "zip"
 
+            db.session.refresh(export)
+            if export.status == ExportStatus.CANCELLED:
+                app.logger.warning(
+                    "Abort file upload because export was cancelled"
+                )
+                return
+
             file_name = f"{file_name}.{ext}"
 
             file_content = file.read()
@@ -111,7 +118,6 @@ def async_export_excel(
             db.session.commit()
 
         except Exception as e:
-
             export.status = ExportStatus.FAILED
             db.session.commit()
             raise e
