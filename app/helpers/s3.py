@@ -115,7 +115,10 @@ class S3Client:
                 )
                 presigned_urls[export.id] = presigned_url
             except Exception as e:
-                print(f"Error {e}")
+                app.logger.error(
+                    f"Failed to generate presigned url for export #{export.id}"
+                )
+                app.logger.error(e)
         return presigned_urls
 
     # this method can be called to allow a list of accepted origins to do some calls on the bucket

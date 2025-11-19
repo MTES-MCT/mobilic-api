@@ -770,13 +770,13 @@ def checkout_exports():
         exports_ready
     )
 
-    for ready in exports_ready:
-        if ready.id in ready_exports_links:
-            ready.status = ExportStatus.DOWNLOADED
-            if ready.export_type == ExportType.REFUSED_CGU:
-                UserAgreement.set_transferred_data_date(ready.user_id)
+    with atomic_transaction(commit_at_end=True):
+        for ready in exports_ready:
+            if ready.id in ready_exports_links:
+                ready.status = ExportStatus.DOWNLOADED
+                if ready.export_type == ExportType.REFUSED_CGU:
+                    UserAgreement.set_transferred_data_date(ready.user_id)
 
-    db.session.commit()
     return (
         jsonify(
             {
