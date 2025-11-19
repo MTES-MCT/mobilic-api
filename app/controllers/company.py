@@ -730,7 +730,7 @@ def download_activity_report(
         one_file_by_employee=one_file_by_employee,
     )
 
-    return jsonify({"result": "ok"}), 200
+    return jsonify({"result": "ok"}), 202
 
 
 @app.route("/exports/cancel", methods=["POST"])
