@@ -741,6 +741,7 @@ def cancel_exports():
         db.session.execute(
             update(Export)
             .where(Export.user_id == current_user.id)
+            .where(Export.status.in_(ExportStatus.WIP, ExportStatus.READY))
             .values(status=ExportStatus.CANCELLED)
         )
         db.session.commit()
