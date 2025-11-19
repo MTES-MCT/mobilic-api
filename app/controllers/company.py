@@ -777,6 +777,8 @@ def checkout_exports():
                 ready.status = ExportStatus.DOWNLOADED
                 if ready.export_type == ExportType.REFUSED_CGU:
                     UserAgreement.set_transferred_data_date(ready.user_id)
+            else:
+                ready.status = ExportStatus.FAILED
 
     return (
         jsonify(
