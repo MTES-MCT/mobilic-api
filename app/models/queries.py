@@ -275,6 +275,7 @@ def query_work_day_stats(
     first=None,
     after=None,
     tzname="Europe/Paris",
+    user_ids=None,
 ):
     # The following is a bit complex because we want to compute day-centric statistics from data that are not day-centric (an activity period can for instance span over several days)
 
@@ -340,6 +341,9 @@ def query_work_day_stats(
         to_datetime(start_date, tz_for_date=tz),
         to_datetime(end_date, tz_for_date=tz, date_as_end_of_day=True),
     )
+
+    if user_ids:
+        query = query.filter(Activity.user_id.in_(user_ids))
 
     has_next_page = False
     if first:

@@ -1,7 +1,15 @@
+from dateutil.relativedelta import relativedelta
 from flask import g
 
 from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
+from app.data_access.regulation_computation import (
+    get_regulation_checks_by_unit,
+)
+from app.data_access.regulatory_alerts_summary import (
+    RegulatoryAlertsSummary,
+    AlertsGroup,
+)
 from app.data_access.work_day import WorkDayConnection
 from app.data_access.user import UserOutput
 from datetime import date
@@ -27,10 +35,16 @@ from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
 )
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.errors import AuthorizationError
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    TimeStamp,
+    ShortMonth,
+)
 from app.helpers.pagination import to_connection
+from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_datetime
-from app.models import Company, User, Mission, Activity
+from app.models import Company, User, Mission, Activity, RegulatoryAlert
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -39,6 +53,7 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
+from app.models.regulation_check import UnitType, RegulationCheckType
 from app.models.vehicle import VehicleOutput
 
 
@@ -140,6 +155,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Curseur de connection GraphQL, utilisé pour la pagination",
         ),
+        user_ids=graphene.List(
+            lambda: graphene.Int, description="Identifiants des utilisateurs"
+        ),
     )
     missions = graphene.Field(
         MissionConnection,
@@ -203,6 +221,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     current_company_certification = graphene.Field(
         CompanyCertificationType,
         description="Informations relatives au certificat en cours pour l'entreprise",
+    )
+    regulatory_alerts_recap = graphene.Field(
+        RegulatoryAlertsSummary,
+        description="Résumé des alertes règlementaires au cours d'un mois donné",
+        month=ShortMonth(required=True),
+        unique_user_id=graphene.Int(
+            required=False,
+            description="Identifiant d'un des salariés de l'entreprise",
+        ),
+        team_id=graphene.Int(
+            required=False, description="Identifiant du groupe sélectionné"
+        ),
     )
 
     def resolve_name(self, info):
@@ -312,7 +342,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(
-        self, info, from_date=None, until_date=None, first=None, after=None
+        self,
+        info,
+        from_date=None,
+        until_date=None,
+        first=None,
+        after=None,
+        user_ids=None,
     ):
         # There are two ways to build the work days :
         # - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
@@ -349,6 +385,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             end_date=until_date,
             first=first,
             after=after,
+            user_ids=user_ids,
         )
         user_ids = set([row.user_id for row in work_day_stats])
 
@@ -431,3 +468,125 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_current_company_certification(self, info):
         return CompanyCertificationType.from_company_id(self.id)
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'resolve_regulatory_alerts_recap' of company object. Actor must be company admin.",
+    )
+    def resolve_regulatory_alerts_recap(
+        self, info, month, unique_user_id=None, team_id=None
+    ):
+
+        company_user_ids = (
+            [u.id for u in self.active_users_in_team(team_id)]
+            if team_id
+            else [u.id for u in self.users]
+        )
+
+        if unique_user_id and unique_user_id not in company_user_ids:
+            raise AuthorizationError(
+                f"Employee is not part of the {'team' if team_id else 'company'}"
+            )
+
+        user_ids = [unique_user_id] if unique_user_id else company_user_ids
+
+        def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
+            query = RegulatoryAlert.query.filter(
+                RegulatoryAlert.user_id.in_(_user_ids),
+                RegulatoryAlert.day >= _start_date,
+                RegulatoryAlert.day < _end_date,
+                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+            )
+            if count_only:
+                return query.count()
+            return query.all()
+
+        start_date = month
+        end_date = month + relativedelta(months=1)
+
+        current_month_alerts = query_alerts(
+            _start_date=start_date,
+            _end_date=end_date,
+            _user_ids=user_ids,
+            count_only=False,
+        )
+        previous_start = month + relativedelta(months=-1)
+        previous_month_alerts_count = query_alerts(
+            _start_date=previous_start,
+            _end_date=start_date,
+            _user_ids=user_ids,
+        )
+
+        daily_checks = get_regulation_checks_by_unit(
+            unit=UnitType.DAY, date=start_date
+        )
+        daily_alerts = []
+
+        def _append_alerts(alerts, type):
+            daily_alerts.append(
+                AlertsGroup(
+                    alerts_type=type,
+                    nb_alerts=len(alerts),
+                    days=[a.day for a in alerts] if unique_user_id else [],
+                )
+            )
+
+        for check in daily_checks:
+            if check.type == RegulationCheckType.NO_LIC:
+                continue
+            if check.type == RegulationCheckType.ENOUGH_BREAK:
+                alerts = [
+                    a
+                    for a in current_month_alerts
+                    if a.regulation_check_id == check.id
+                ]
+                not_enough_break_alerts = [
+                    a for a in alerts if a.extra["not_enough_break"]
+                ]
+                _append_alerts(
+                    alerts=not_enough_break_alerts, type="not_enough_break"
+                )
+                too_much_uninterrupted_work_time_alerts = [
+                    a
+                    for a in alerts
+                    if a.extra["too_much_uninterrupted_work_time"]
+                ]
+                _append_alerts(
+                    alerts=too_much_uninterrupted_work_time_alerts,
+                    type="too_much_uninterrupted_work_time",
+                )
+                continue
+
+            alerts = [
+                a
+                for a in current_month_alerts
+                if a.regulation_check_id == check.id
+            ]
+            _append_alerts(alerts=alerts, type=check.type)
+
+        weekly_checks = get_regulation_checks_by_unit(
+            unit=UnitType.WEEK, date=start_date
+        )
+        weekly_alerts = []
+        for check in weekly_checks:
+            alerts = [
+                a
+                for a in current_month_alerts
+                if a.regulation_check_id == check.id
+            ]
+            weekly_alerts.append(
+                AlertsGroup(
+                    alerts_type=check.type,
+                    nb_alerts=len(alerts),
+                    days=[] if unique_user_id else [],
+                )
+            )
+
+        return RegulatoryAlertsSummary(
+            month=month,
+            total_nb_alerts=len(current_month_alerts),
+            total_nb_alerts_previous_month=previous_month_alerts_count,
+            daily_alerts=daily_alerts,
+            weekly_alerts=weekly_alerts,
+        )
