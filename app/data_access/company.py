@@ -579,7 +579,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 AlertsGroup(
                     alerts_type=check.type,
                     nb_alerts=len(alerts),
-                    days=[] if unique_user_id else [],
+                    days=[],
                 )
             )
 
