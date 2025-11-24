@@ -12,7 +12,7 @@ from app.models import RegulatoryAlert
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
-def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
+def query_alerts_for_month(month, user_ids):
     def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
         query = RegulatoryAlert.query.filter(
             RegulatoryAlert.user_id.in_(_user_ids),
@@ -39,7 +39,15 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
         _end_date=start_date,
         _user_ids=user_ids,
     )
+    return current_month_alerts, previous_month_alerts_count
 
+
+def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
+    current_month_alerts, previous_month_alerts_count = query_alerts_for_month(
+        month=month, user_ids=user_ids
+    )
+
+    start_date = month
     daily_checks = get_regulation_checks_by_unit(
         unit=UnitType.DAY, date=start_date
     )
