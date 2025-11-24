@@ -35,6 +35,7 @@ from app.models import (
     UserSurveyActions,
     UserAgreement,
     MissionAutoValidation,
+    Export,
 )
 from app.models.controller_control import ControllerControl
 from app.models.notification import Notification
@@ -114,6 +115,7 @@ def clean():
     UserAgreement.query.delete()
     ScenarioTesting.query.delete()
     UserSurveyActions.query.delete()
+    Export.query.delete()
     User.query.delete()
     db.session.commit()
 
