@@ -1,26 +1,20 @@
-from dateutil.relativedelta import relativedelta
-from flask import g
-
-from app.data_access.business import BusinessOutput
-from app.data_access.company_certification import CompanyCertificationType
-from app.data_access.regulation_computation import (
-    get_regulation_checks_by_unit,
-)
-from app.data_access.regulatory_alerts_summary import (
-    RegulatoryAlertsSummary,
-    AlertsGroup,
-)
-from app.data_access.work_day import WorkDayConnection
-from app.data_access.user import UserOutput
 from datetime import date
 
 import graphene
-from sqlalchemy import desc, func
+from flask import g
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
+from app.data_access.business import BusinessOutput
+from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.regulatory_alerts_summary import (
+    RegulatoryAlertsSummary,
+)
 from app.data_access.team import TeamOutput
+from app.data_access.user import UserOutput
+from app.data_access.work_day import WorkDayConnection
 from app.domain.company import (
     check_company_has_no_activities,
     has_any_active_admin,
@@ -30,6 +24,7 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     has_any_employment_with_company_or_controller,
 )
+from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import (
     with_authorization_policy,
@@ -42,9 +37,8 @@ from app.helpers.graphene_types import (
     ShortMonth,
 )
 from app.helpers.pagination import to_connection
-from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_datetime
-from app.models import Company, User, Mission, Activity, RegulatoryAlert
+from app.models import Company, User, Mission, Activity
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -53,7 +47,6 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
-from app.models.regulation_check import UnitType, RegulationCheckType
 from app.models.vehicle import VehicleOutput
 
 
@@ -491,102 +484,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
-        def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
-            query = RegulatoryAlert.query.filter(
-                RegulatoryAlert.user_id.in_(_user_ids),
-                RegulatoryAlert.day >= _start_date,
-                RegulatoryAlert.day < _end_date,
-                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
-            )
-            if count_only:
-                return query.count()
-            return query.all()
-
-        start_date = month
-        end_date = month + relativedelta(months=1)
-
-        current_month_alerts = query_alerts(
-            _start_date=start_date,
-            _end_date=end_date,
-            _user_ids=user_ids,
-            count_only=False,
-        )
-        previous_start = month + relativedelta(months=-1)
-        previous_month_alerts_count = query_alerts(
-            _start_date=previous_start,
-            _end_date=start_date,
-            _user_ids=user_ids,
-        )
-
-        daily_checks = get_regulation_checks_by_unit(
-            unit=UnitType.DAY, date=start_date
-        )
-        daily_alerts = []
-
-        def _append_alerts(alerts, type):
-            daily_alerts.append(
-                AlertsGroup(
-                    alerts_type=type,
-                    nb_alerts=len(alerts),
-                    days=[a.day for a in alerts] if unique_user_id else [],
-                )
-            )
-
-        for check in daily_checks:
-            if check.type == RegulationCheckType.NO_LIC:
-                continue
-            if check.type == RegulationCheckType.ENOUGH_BREAK:
-                alerts = [
-                    a
-                    for a in current_month_alerts
-                    if a.regulation_check_id == check.id
-                ]
-                not_enough_break_alerts = [
-                    a for a in alerts if a.extra["not_enough_break"]
-                ]
-                _append_alerts(
-                    alerts=not_enough_break_alerts, type="not_enough_break"
-                )
-                too_much_uninterrupted_work_time_alerts = [
-                    a
-                    for a in alerts
-                    if a.extra["too_much_uninterrupted_work_time"]
-                ]
-                _append_alerts(
-                    alerts=too_much_uninterrupted_work_time_alerts,
-                    type="too_much_uninterrupted_work_time",
-                )
-                continue
-
-            alerts = [
-                a
-                for a in current_month_alerts
-                if a.regulation_check_id == check.id
-            ]
-            _append_alerts(alerts=alerts, type=check.type)
-
-        weekly_checks = get_regulation_checks_by_unit(
-            unit=UnitType.WEEK, date=start_date
-        )
-        weekly_alerts = []
-        for check in weekly_checks:
-            alerts = [
-                a
-                for a in current_month_alerts
-                if a.regulation_check_id == check.id
-            ]
-            weekly_alerts.append(
-                AlertsGroup(
-                    alerts_type=check.type,
-                    nb_alerts=len(alerts),
-                    days=[],
-                )
-            )
-
-        return RegulatoryAlertsSummary(
-            month=month,
-            total_nb_alerts=len(current_month_alerts),
-            total_nb_alerts_previous_month=previous_month_alerts_count,
-            daily_alerts=daily_alerts,
-            weekly_alerts=weekly_alerts,
+        return get_regulatory_alerts_summary(
+            month=month, user_ids=user_ids, unique_user_id=unique_user_id
         )
