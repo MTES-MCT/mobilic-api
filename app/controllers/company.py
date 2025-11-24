@@ -4,6 +4,8 @@ import graphene
 from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
+from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from webargs import fields
 
@@ -53,6 +55,7 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.models import Company, Employment, Business, UserAgreement
+from app.models.export import ExportStatus, Export, ExportType
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -694,7 +697,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
 
 @app.route("/companies/download_activity_report", methods=["POST"])
 @doc(
-    description="Demande d'envoi du rapport d'activité au format Excel par email"
+    description="Demande de téléchargement du rapport d'activité au format Excel"
 )
 @use_kwargs(
     {
@@ -728,7 +731,64 @@ def download_activity_report(
         one_file_by_employee=one_file_by_employee,
     )
 
-    return jsonify({"result": "ok"}), 200
+    return jsonify({"result": "ok"}), 202
+
+
+@app.route("/exports/cancel", methods=["POST"])
+@doc(description="Annule les exports en cours pour l'utilisateur")
+def cancel_exports():
+    try:
+        db.session.execute(
+            update(Export)
+            .where(Export.user_id == current_user.id)
+            .where(Export.status.in_([ExportStatus.WIP, ExportStatus.READY]))
+            .values(status=ExportStatus.CANCELLED)
+        )
+        db.session.commit()
+        return jsonify({"result": "ok"}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        app.logger.error("Failed to cancel exports", exc_info=True)
+        return jsonify({"result": "ko", "error": "Database error"}), 500
+
+
+@app.route("/exports/checkout", methods=["POST"])
+@doc(
+    description="Consulte le statut des exports en cours, et le lien de téléchargement s'ils sont prêts"
+)
+def checkout_exports():
+    exports_wip = Export.query.filter(
+        Export.user_id == current_user.id,
+        Export.status == ExportStatus.WIP.value,
+    ).all()
+    exports_ready = Export.query.filter(
+        Export.user_id == current_user.id, Export.status == ExportStatus.READY
+    ).all()
+
+    from app import S3Client
+
+    ready_exports_links = S3Client.generate_presigned_urls_exports(
+        exports_ready
+    )
+
+    with atomic_transaction(commit_at_end=True):
+        for ready in exports_ready:
+            if ready.id in ready_exports_links:
+                ready.status = ExportStatus.DOWNLOADED
+                if ready.export_type == ExportType.REFUSED_CGU:
+                    UserAgreement.set_transferred_data_date(ready.user_id)
+            else:
+                ready.status = ExportStatus.FAILED
+
+    return (
+        jsonify(
+            {
+                "nb_wip_exports": len(exports_wip),
+                "ready_exports_links": list(ready_exports_links.values()),
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
@@ -782,10 +842,8 @@ def download_full_data_report(user_id):
                 max_date=max_date,
                 one_file_by_employee=False,
                 file_name=file_name,
-                is_admin=is_user_admin,
+                export_type=ExportType.REFUSED_CGU,
             )
-
-        UserAgreement.set_transferred_data_date(user.id)
 
         response = make_response(jsonify({"result": "ok"}), 200)
         response.headers["Content-Type"] = "application/json"

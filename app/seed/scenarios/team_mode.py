@@ -128,53 +128,37 @@ def run_scenario_team_mode():
 
     db.session.commit()
 
-    for idx_e, e in enumerate(employees):
-        log_and_validate_mission(
-            mission_name=f"Mission A Valider {idx_e}",
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=3, hour=6),
-                    get_time(how_many_days_ago=3, hour=10),
-                ]
-            ],
-            vehicle=vehicles[idx_e],
-            company=company,
-            employee=e,
-        )
-        log_and_validate_mission(
-            mission_name=f"Mission Non Validée {idx_e}",
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=2, hour=6),
-                    get_time(how_many_days_ago=2, hour=10),
-                ]
-            ],
-            vehicle=vehicles[idx_e - 1],
-            company=company,
-            employee=e,
-            validate=False,
-        )
-    mission_validated = [
-        log_and_validate_mission(
-            mission_name=f"Mission Validée {idx_e}",
-            work_periods=[
-                [
-                    get_time(how_many_days_ago=1, hour=6),
-                    get_time(how_many_days_ago=1, hour=10),
-                ]
-            ],
-            vehicle=vehicles[idx_e - 1],
-            company=company,
-            employee=e,
-            validate=True,
-        )
-        for idx_e, e in enumerate(employees)
-    ]
-    for idx_m, m in enumerate(mission_validated):
-        employee = employees[idx_m]
-        with AuthenticatedUserContext(user=super_admin):
-            validate_mission(
-                mission=m, submitter=super_admin, for_user=employee
+    # log missions with alerts on past few months
+    for i, days_ago in enumerate(range(0, 200, 20)):
+        mission_validated = [
+            log_and_validate_mission(
+                mission_name=f"Mission Validée {idx_e}",
+                work_periods=[
+                    [
+                        get_time(how_many_days_ago=days_ago, hour=6),
+                        get_time(how_many_days_ago=days_ago, hour=10),
+                    ],
+                    [
+                        get_time(
+                            how_many_days_ago=days_ago,
+                            hour=10 if i % 2 == 0 else 11,
+                            minute=13,
+                        ),
+                        get_time(how_many_days_ago=days_ago, hour=18),
+                    ],
+                ],
+                vehicle=vehicles[idx_e - 1],
+                company=company,
+                employee=e,
+                validate=True,
             )
+            for idx_e, e in enumerate(employees)
+        ]
+        for idx_m, m in enumerate(mission_validated):
+            employee = employees[idx_m]
+            with AuthenticatedUserContext(user=super_admin):
+                validate_mission(
+                    mission=m, submitter=super_admin, for_user=employee
+                )
 
     db.session.commit()

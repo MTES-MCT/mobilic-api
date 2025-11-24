@@ -264,8 +264,8 @@ class TestControlBulletinOperations(ControlsTest):
         self.assertTrue(updated_control.delivered_by_hand)
         self.assertFalse(updated_control.sent_to_admin)
 
-    def test_mark_delivered_by_hand_resets_sent_to_admin(self):
-        """Test that marking as delivered by hand resets sent_to_admin flag"""
+    def test_mark_delivered_by_hand_preserves_sent_to_admin(self):
+        """Test that marking as delivered by hand preserves sent_to_admin flag"""
         control = self._create_test_control()
 
         # First send email
@@ -298,12 +298,14 @@ class TestControlBulletinOperations(ControlsTest):
         self.assertIsNone(response.get("errors"))
         result = response["data"]["controllerUpdateDeliveryStatus"]
         self.assertTrue(result["deliveredByHand"])
-        self.assertFalse(result["sentToAdmin"])  # Should be reset
+        self.assertTrue(
+            result["sentToAdmin"]
+        )  # Should remain True (email was sent)
 
         # Verify in database
         updated_control = ControllerControl.query.get(control.id)
         self.assertTrue(updated_control.delivered_by_hand)
-        self.assertFalse(updated_control.sent_to_admin)
+        self.assertTrue(updated_control.sent_to_admin)  # Should remain True
 
     def test_update_delivery_status_unauthorized_user_fails(self):
         """Test that non-controller users cannot update delivery status"""

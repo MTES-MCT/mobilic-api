@@ -343,8 +343,6 @@ class ControllerUpdateDeliveryStatus(graphene.Mutation):
         control = ControllerControl.query.get(control_id)
 
         control.delivered_by_hand = delivered_by_hand
-        if control.sent_to_admin:
-            control.sent_to_admin = False
 
         db.session.commit()
         return control
