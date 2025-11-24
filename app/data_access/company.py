@@ -327,6 +327,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .join(Activity, Activity.mission_id == Mission.id)
             .group_by(Mission.id)
             .having(func.every(Activity.dismissed_at.isnot(None)))
+            .order_by(Mission.creation_time.desc())
         )
         if first is not None:
             deleted_missions_query = deleted_missions_query.limit(first)
