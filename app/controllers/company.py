@@ -129,7 +129,7 @@ class CompanySoftwareRegistration(graphene.Mutation):
         error_message="You do not have access to the provided client id",
     )
     def mutate(
-        cls, _, info, client_id, usual_name, siren, siret=None, nb_workers=None
+        cls, _, info, client_id, usual_name, siren, nb_workers, siret=None
     ):
         _validate_company_params(usual_name, siren, siret, nb_workers)
 
