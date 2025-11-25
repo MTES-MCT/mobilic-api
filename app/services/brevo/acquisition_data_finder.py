@@ -39,15 +39,13 @@ class AcquisitionDataFinder:
 
         company_ids = [c["id"] for c in companies_base]
 
-        active_employees_stats = self._get_active_employees_stats(company_ids)
+        creator_activation = self._get_creator_activation_status(company_ids)
         admin_info = get_admin_info(company_ids)
 
         acquisition_companies = []
         for company in companies_base:
             company_id = company["id"]
-            active_stats = active_employees_stats.get(
-                company_id, {"active_employees": 0}
-            )
+            is_creator_active = creator_activation.get(company_id, False)
             admin = admin_info.get(company_id, {})
 
             days_since_creation = (
@@ -60,7 +58,7 @@ class AcquisitionDataFinder:
                 "siren": company["siren"],
                 "phone_number": company["phone_number"],
                 "nb_employees": company["nb_employees"],
-                "active_employees_count": active_stats["active_employees"],
+                "active_employees_count": 1 if is_creator_active else 0,
                 "admin_email": admin.get("email"),
                 "admin_first_name": admin.get("first_name"),
                 "admin_last_name": admin.get("last_name"),
@@ -68,9 +66,7 @@ class AcquisitionDataFinder:
                 "stage_since_days": days_since_creation,
                 "acquisition_status": self._classify_acquisition_stage(
                     {
-                        "active_employees_count": active_stats[
-                            "active_employees"
-                        ],
+                        "is_creator_active": is_creator_active,
                         "days_since_creation": days_since_creation,
                     }
                 ),
@@ -86,22 +82,24 @@ class AcquisitionDataFinder:
     def _classify_acquisition_stage(
         self, company_metrics: Dict[str, Any]
     ) -> str:
-        """Classify company in acquisition funnel based on account activation.
+        """Classify company in acquisition funnel based on creator activation.
+
+        Classification is based only on the company creator's account status.
 
         Classification logic (priority order):
-        1. Companies with at least one active employee account
-        2. Companies 14+ days old with no active accounts
-        3. New companies with no active accounts (default)
+        1. Creator has activated their account → WON
+        2. 14+ days since creation without creator activation → LOST
+        3. New company without creator activation → REGISTERED (default)
 
         Args:
             company_metrics: Dictionary containing:
-                - active_employees_count: Number of employees with active accounts
+                - is_creator_active: Boolean indicating if creator account is active
                 - days_since_creation: Days since company was created
 
         Returns:
             Acquisition stage classification string
         """
-        if company_metrics["active_employees_count"] > 0:
+        if company_metrics["is_creator_active"]:
             return "gagnée : entreprise inscrite avec compte (1er gestionnaire) activé"
 
         if (
@@ -117,19 +115,21 @@ class AcquisitionDataFinder:
 
         return "entreprise inscrite sans compte activé"
 
-    def _get_active_employees_stats(
+    def _get_creator_activation_status(
         self, company_ids: List[int]
-    ) -> Dict[int, Dict[str, int]]:
-        """Get active employee statistics excluding company creators.
+    ) -> Dict[int, bool]:
+        """Check if company creators have activated their accounts.
 
-        The company creator is identified as the first admin (earliest employment ID).
-        This avoids counting the initial admin who created the company as an "active employee".
+        The creator is the first admin (earliest employment ID) who registered the company.
+        A company is considered "activated" when its creator has activated their account.
 
         Args:
-            company_ids: List of company IDs to get stats for
+            company_ids: List of company IDs to check
 
         Returns:
-            Dictionary mapping company_id to {"active_employees": count}
+            Dictionary mapping company_id to activation status (True/False)
+            - True: Creator account is active
+            - False: Creator account is not active or not found
         """
         if not company_ids:
             return {}
@@ -167,10 +167,7 @@ class AcquisitionDataFinder:
             .all()
         )
 
-        return {
-            stat.company_id: {"active_employees": stat.active_count}
-            for stat in stats
-        }
+        return {stat.company_id: stat.active_count > 0 for stat in stats}
 
 
 def get_companies_acquisition_data() -> List[Dict[str, Any]]:

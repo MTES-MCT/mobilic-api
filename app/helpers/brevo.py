@@ -90,11 +90,19 @@ class BrevoApiClient:
     ) -> None:
         """Extract and raise detailed error message from Brevo API response."""
         error_detail = ""
+
+        if error.response is None:
+            raise BrevoRequestError(
+                f"Request to Brevo API failed (no response): {error}"
+            )
+
         try:
             error_data = error.response.json()
             error_detail = f": {error_data.get('message', str(error_data))}"
         except Exception:
+            # Failed to parse JSON, use default error message
             pass
+
         raise BrevoRequestError(
             f"Request to Brevo API failed{error_detail}: {error}"
         )
