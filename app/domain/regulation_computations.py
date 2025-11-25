@@ -1,5 +1,6 @@
 from itertools import groupby
 
+from app.helpers.submitter_type import SubmitterType
 from app.models import RegulationComputation, RegulatoryAlert
 
 
@@ -53,3 +54,21 @@ def get_regulatory_computations(user_id, start_date=None, end_date=None):
         .order_by(RegulationComputation.creation_time)
         .all()
     )
+
+
+def get_admin_regulatory_computations_for_users(
+    user_ids, from_date=None, to_date=None
+):
+    regulation_computations_query = RegulationComputation.query.filter(
+        RegulationComputation.user_id.in_(user_ids),
+        RegulationComputation.submitter_type == SubmitterType.ADMIN,
+    )
+    if from_date:
+        regulation_computations_query = regulation_computations_query.filter(
+            RegulationComputation.day >= from_date
+        )
+    if to_date:
+        regulation_computations_query = regulation_computations_query.filter(
+            RegulationComputation.day <= to_date
+        )
+    return regulation_computations_query.all()
