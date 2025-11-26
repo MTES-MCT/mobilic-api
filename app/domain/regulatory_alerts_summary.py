@@ -21,7 +21,15 @@ def query_alerts_for_month(month, user_ids):
             RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
         )
         if count_only:
-            return query.count()
+            base_count = query.count()
+            double_alerts_count = query.filter(
+                RegulatoryAlert.extra["not_enough_break"].as_boolean() == True,
+                RegulatoryAlert.extra[
+                    "too_much_uninterrupted_work_time"
+                ].as_boolean()
+                == True,
+            ).count()
+            return base_count + double_alerts_count
         return query.all()
 
     start_date = month
@@ -113,9 +121,19 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
             )
         )
 
+    # alerts with too_much_uninterrupted_work_time=True and not_enough_break=True count double
+    double_alerts_to_add = len(
+        [
+            a
+            for a in current_month_alerts
+            if a.extra.get("too_much_uninterrupted_work_time", False)
+            and a.extra.get("not_enough_break", False)
+        ]
+    )
+
     return RegulatoryAlertsSummary(
         month=month,
-        total_nb_alerts=len(current_month_alerts),
+        total_nb_alerts=len(current_month_alerts) + double_alerts_to_add,
         total_nb_alerts_previous_month=previous_month_alerts_count,
         daily_alerts=daily_alerts,
         weekly_alerts=weekly_alerts,
