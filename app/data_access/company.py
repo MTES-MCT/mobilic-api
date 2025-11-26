@@ -9,6 +9,9 @@ from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.regulation_computation import (
+    CompanyAdminRegulationComputationsByUserAndDay,
+)
 from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
 )
@@ -24,6 +27,9 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     has_any_employment_with_company_or_controller,
 )
+from app.domain.regulation_computations import (
+    get_admin_regulatory_computations_for_users,
+)
 from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import (
@@ -37,8 +43,16 @@ from app.helpers.graphene_types import (
     ShortMonth,
 )
 from app.helpers.pagination import to_connection
+from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_datetime
-from app.models import Company, User, Mission, Activity
+from app.models import (
+    Company,
+    User,
+    Mission,
+    Activity,
+    RegulatoryAlert,
+    RegulationComputation,
+)
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -47,6 +61,11 @@ from app.models.employment import (
 )
 from app.models.expenditure import ExpenditureType
 from app.models.queries import query_company_missions, query_work_day_stats
+from app.models.regulation_check import (
+    UnitType,
+    RegulationCheck,
+    RegulationCheckType,
+)
 from app.models.vehicle import VehicleOutput
 
 
@@ -230,6 +249,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         team_id=graphene.Int(
             required=False, description="Identifiant du groupe sélectionné"
         ),
+    )
+    admin_regulation_computations_by_user_and_by_day = graphene.List(
+        lambda: CompanyAdminRegulationComputationsByUserAndDay,
+        from_date=graphene.Date(
+            required=False,
+            description="Date de début de l'historique des alertes",
+        ),
+        to_date=graphene.Date(
+            required=False,
+            description="Date de fin de l'historique des alertes",
+        ),
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_name(self, info):
@@ -495,3 +526,63 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return get_regulatory_alerts_summary(
             month=month, user_ids=user_ids, unique_user_id=unique_user_id
         )
+
+    def resolve_admin_regulation_computations_by_user_and_by_day(
+        self, info, from_date=None, to_date=None
+    ):
+        user_ids = [u.id for u in self.users]
+        regulation_computations = get_admin_regulatory_computations_for_users(
+            user_ids=user_ids, from_date=from_date, to_date=to_date
+        )
+
+        def _get_alerts(unit):
+            query = RegulatoryAlert.query.join(RegulationCheck).filter(
+                RegulatoryAlert.user_id.in_(user_ids),
+                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+                RegulationCheck.unit == unit,
+            )
+            if from_date:
+                query = query.filter(RegulatoryAlert.day >= from_date)
+            if to_date:
+                query = query.filter(RegulatoryAlert.day <= to_date)
+            return query.all()
+
+        daily_alerts = _get_alerts(UnitType.DAY)
+        weekly_alerts = _get_alerts(UnitType.WEEK)
+
+        ret = []
+        for rc in regulation_computations:
+            day = rc.day
+            user_id = rc.user_id
+            daily_alerts_for_user = [
+                a
+                for a in daily_alerts
+                if a.user_id == user_id and a.day == day
+            ]
+            nb_alerts_daily_admin = 0
+            for a in daily_alerts_for_user:
+                if a.regulation_check.type == RegulationCheckType.ENOUGH_BREAK:
+                    if a.extra["too_much_uninterrupted_work_time"]:
+                        nb_alerts_daily_admin += 1
+                    if a.extra["not_enough_break"]:
+                        nb_alerts_daily_admin += 1
+                else:
+                    nb_alerts_daily_admin += 1
+
+            weekly_alerts_for_user = [
+                a
+                for a in weekly_alerts
+                if a.user_id == user_id and a.day == day
+            ]
+            nb_alerts_weekly_admin = len(weekly_alerts_for_user)
+
+            ret.append(
+                CompanyAdminRegulationComputationsByUserAndDay(
+                    day=day,
+                    user_id=user_id,
+                    nb_alerts_daily_admin=nb_alerts_daily_admin,
+                    nb_alerts_weekly_admin=nb_alerts_weekly_admin,
+                )
+            )
+
+        return ret
