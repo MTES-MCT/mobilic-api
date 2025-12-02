@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 
+from app import db
 from app.data_access.regulation_computation import (
     get_regulation_checks_by_unit,
 )
@@ -8,7 +9,7 @@ from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert
+from app.models import RegulatoryAlert, RegulationComputation
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
@@ -48,6 +49,19 @@ def query_alerts_for_month(month, user_ids):
         _user_ids=user_ids,
     )
     return current_month_alerts, previous_month_alerts_count
+
+
+def has_any_regulation_computation(month, user_ids):
+    start_date = month
+    end_date = month + relativedelta(months=1)
+    db.session.query(
+        RegulationComputation.query.filter(
+            RegulationComputation.user_id.in_(user_ids),
+            RegulationComputation.day >= start_date,
+            RegulationComputation.day < end_date,
+            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+        ).exists()
+    ).scalar()
 
 
 def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
