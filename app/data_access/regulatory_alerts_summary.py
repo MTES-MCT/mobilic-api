@@ -8,6 +8,9 @@ class AlertsGroup(graphene.ObjectType):
 
 
 class RegulatoryAlertsSummary(graphene.ObjectType):
+    has_any_computation = graphene.Boolean(
+        description="Indique qu'il n'y a eu aucun calcul d'alertes sur le mois."
+    )
     month = graphene.String(description="Mois correspondant aux données.")
     total_nb_alerts = graphene.Int(
         description="Nombre d'alertes total sur le mois."
