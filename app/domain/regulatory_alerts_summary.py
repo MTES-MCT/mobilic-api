@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 
+from app import db
 from app.data_access.regulation_computation import (
     get_regulation_checks_by_unit,
 )
@@ -12,7 +13,7 @@ from app.domain.regulations_per_day import (
     EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert
+from app.models import RegulatoryAlert, RegulationComputation
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
@@ -55,7 +56,32 @@ def query_alerts_for_month(month, user_ids):
     return current_month_alerts, previous_month_alerts_count
 
 
+def has_any_regulation_computation(month, user_ids):
+    start_date = month
+    end_date = month + relativedelta(months=1)
+    query = db.session.query(RegulationComputation).filter(
+        RegulationComputation.user_id.in_(user_ids),
+        RegulationComputation.day >= start_date,
+        RegulationComputation.day < end_date,
+        RegulationComputation.submitter_type == SubmitterType.ADMIN,
+    )
+    return db.session.query(query.exists()).scalar()
+
+
 def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
+    has_no_data = not has_any_regulation_computation(
+        month=month, user_ids=user_ids
+    )
+    if has_no_data:
+        return RegulatoryAlertsSummary(
+            has_any_computation=False,
+            month=month,
+            total_nb_alerts=0,
+            total_nb_alerts_previous_month=0,
+            daily_alerts=[],
+            weekly_alerts=[],
+        )
+
     current_month_alerts, previous_month_alerts_count = query_alerts_for_month(
         month=month, user_ids=user_ids
     )
@@ -134,6 +160,7 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
 
     return RegulatoryAlertsSummary(
         month=month,
+        has_any_computation=True,
         total_nb_alerts=len(current_month_alerts) + double_alerts_to_add,
         total_nb_alerts_previous_month=previous_month_alerts_count,
         daily_alerts=daily_alerts.values(),
