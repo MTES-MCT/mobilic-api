@@ -7,6 +7,10 @@ from app.data_access.regulatory_alerts_summary import (
     AlertsGroup,
     RegulatoryAlertsSummary,
 )
+from app.domain.regulations_per_day import (
+    EXTRA_NOT_ENOUGH_BREAK,
+    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+)
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulatoryAlert
 from app.models.regulation_check import UnitType, RegulationCheckType
@@ -23,9 +27,10 @@ def query_alerts_for_month(month, user_ids):
         if count_only:
             base_count = query.count()
             double_alerts_count = query.filter(
-                RegulatoryAlert.extra["not_enough_break"].as_boolean() == True,
+                RegulatoryAlert.extra[EXTRA_NOT_ENOUGH_BREAK].as_boolean()
+                == True,
                 RegulatoryAlert.extra[
-                    "too_much_uninterrupted_work_time"
+                    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
                 ].as_boolean()
                 == True,
             ).count()
@@ -56,44 +61,23 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
     )
 
     start_date = month
-    daily_checks = get_regulation_checks_by_unit(
-        unit=UnitType.DAY, date=start_date
-    )
-    daily_alerts = []
+    daily_checks = get_regulation_checks_by_unit(unit=UnitType.DAY)
+    daily_alerts = {}
 
     def _append_alerts(alerts, type):
-        daily_alerts.append(
-            AlertsGroup(
+        if type in daily_alerts:
+            daily_alerts[type].nb_alerts += len(alerts)
+            if unique_user_id:
+                daily_alerts[type].days += [a.day for a in alerts]
+        else:
+            daily_alerts[type] = AlertsGroup(
                 alerts_type=type,
                 nb_alerts=len(alerts),
                 days=[a.day for a in alerts] if unique_user_id else [],
             )
-        )
 
     for check in daily_checks:
         if check.type == RegulationCheckType.NO_LIC:
-            continue
-        if check.type == RegulationCheckType.ENOUGH_BREAK:
-            alerts = [
-                a
-                for a in current_month_alerts
-                if a.regulation_check_id == check.id
-            ]
-            not_enough_break_alerts = [
-                a for a in alerts if a.extra["not_enough_break"]
-            ]
-            _append_alerts(
-                alerts=not_enough_break_alerts, type="not_enough_break"
-            )
-            too_much_uninterrupted_work_time_alerts = [
-                a
-                for a in alerts
-                if a.extra["too_much_uninterrupted_work_time"]
-            ]
-            _append_alerts(
-                alerts=too_much_uninterrupted_work_time_alerts,
-                type="too_much_uninterrupted_work_time",
-            )
             continue
 
         alerts = [
@@ -101,6 +85,23 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
             for a in current_month_alerts
             if a.regulation_check_id == check.id
         ]
+        if check.type == RegulationCheckType.ENOUGH_BREAK:
+            for extra_field in [
+                EXTRA_NOT_ENOUGH_BREAK,
+                EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+            ]:
+                extra_alerts = [a for a in alerts if a.extra[extra_field]]
+                _append_alerts(alerts=extra_alerts, type=extra_field)
+            continue
+
+        if check.type == RegulationCheckType.MINIMUM_WORK_DAY_BREAK:
+            _append_alerts(alerts=alerts, type=EXTRA_NOT_ENOUGH_BREAK)
+            continue
+        if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
+            _append_alerts(
+                alerts=alerts, type=EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
+            )
+            continue
         _append_alerts(alerts=alerts, type=check.type)
 
     weekly_checks = get_regulation_checks_by_unit(
@@ -126,8 +127,8 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
         [
             a
             for a in current_month_alerts
-            if a.extra.get("too_much_uninterrupted_work_time", False)
-            and a.extra.get("not_enough_break", False)
+            if a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
+            and a.extra.get(EXTRA_NOT_ENOUGH_BREAK, False)
         ]
     )
 
@@ -135,6 +136,6 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
         month=month,
         total_nb_alerts=len(current_month_alerts) + double_alerts_to_add,
         total_nb_alerts_previous_month=previous_month_alerts_count,
-        daily_alerts=daily_alerts,
+        daily_alerts=daily_alerts.values(),
         weekly_alerts=weekly_alerts,
     )
