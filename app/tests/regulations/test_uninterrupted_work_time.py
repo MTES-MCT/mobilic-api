@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from app.domain.regulations_per_day import NATINF_35187
+from app.domain.regulations_per_day import (
+    NATINF_35187,
+    EXTRA_NOT_ENOUGH_BREAK,
+    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+)
 from app.helpers.regulations_utils import HOUR, MINUTE
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulatoryAlert, User
@@ -94,8 +98,8 @@ class TestUninterruptedWorkTime(RegulationsTest):
             get_time(how_many_days_ago, hour=23, minute=15),
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_35187)
-        self.assertFalse(extra_info["not_enough_break"])
-        self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
+        self.assertFalse(extra_info[EXTRA_NOT_ENOUGH_BREAK])
+        self.assertTrue(extra_info[EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME])
 
     def test_ok_uninterrupted_work_on_two_days(self):
         how_many_days_ago = 2
@@ -178,8 +182,8 @@ class TestUninterruptedWorkTime(RegulationsTest):
             ),
             get_time(how_many_days_ago - 1, hour=1, minute=0),
         )
-        self.assertTrue(extra_info["not_enough_break"])
-        self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
+        self.assertTrue(extra_info[EXTRA_NOT_ENOUGH_BREAK])
+        self.assertTrue(extra_info[EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME])
 
     def test_new_regulation_check_triggers_only(self):
         how_many_days_ago = 2
@@ -209,8 +213,10 @@ class TestUninterruptedWorkTime(RegulationsTest):
         self.assertEqual(1, len(new_alerts))
         new_alert = new_alerts[0]
         new_alert_extra = new_alert.extra
-        self.assertTrue(new_alert_extra["not_enough_break"])
-        self.assertTrue(new_alert_extra["too_much_uninterrupted_work_time"])
+        self.assertTrue(new_alert_extra[EXTRA_NOT_ENOUGH_BREAK])
+        self.assertTrue(
+            new_alert_extra[EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME]
+        )
 
         old_alerts = RegulatoryAlert.query.filter(
             RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),

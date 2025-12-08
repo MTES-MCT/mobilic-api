@@ -2,6 +2,10 @@ from datetime import date, timedelta
 
 from app import db
 from app.domain.certificate_criteria import compute_company_certifications
+from app.domain.regulations_per_day import (
+    EXTRA_NOT_ENOUGH_BREAK,
+    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+)
 from app.helpers.time import previous_month_period
 from app.models import CompanyCertification, Company
 from app.models.company_certification import (
@@ -157,11 +161,11 @@ def scenario_run_certificate():
                     {"type": RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK},
                     {
                         "type": RegulationCheckType.ENOUGH_BREAK,
-                        "extra_field": "not_enough_break",
+                        "extra_field": EXTRA_NOT_ENOUGH_BREAK,
                     },
                     {
                         "type": RegulationCheckType.ENOUGH_BREAK,
-                        "extra_field": "too_much_uninterrupted_work_time",
+                        "extra_field": EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
                     },
                 ]
             },
