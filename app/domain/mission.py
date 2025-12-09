@@ -4,6 +4,7 @@ from dateutil.tz import gettz
 from sqlalchemy import desc
 
 from app import db
+from app.domain.regulations_per_day import EXTRA_NOT_ENOUGH_BREAK
 from app.helpers.errors import (
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
@@ -105,7 +106,7 @@ def had_user_enough_break_last_mission(user):
                 RegulationCheck.type == RegulationCheckType.ENOUGH_BREAK
             ),
             # Filter directly in SQL using JSON operator
-            RegulatoryAlert.extra["not_enough_break"].as_boolean() == True,
+            RegulatoryAlert.extra[EXTRA_NOT_ENOUGH_BREAK].as_boolean() == True,
         ).exists()
     ).scalar()
 

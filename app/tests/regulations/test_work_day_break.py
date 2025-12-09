@@ -3,7 +3,11 @@ from freezegun import freeze_time
 
 from app import db
 from app.domain.log_activities import log_activity
-from app.domain.regulations_per_day import NATINF_35187
+from app.domain.regulations_per_day import (
+    NATINF_35187,
+    EXTRA_NOT_ENOUGH_BREAK,
+    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+)
 from app.domain.validation import validate_mission
 from app.helpers.regulations_utils import MINUTE, HOUR
 from app.helpers.submitter_type import SubmitterType
@@ -62,8 +66,8 @@ class TestWorkDayBreak(RegulationsTest):
             self.assertIsNotNone(regulatory_alert)
             extra_info = regulatory_alert.extra
             self.assertEqual(extra_info["sanction_code"], NATINF_35187)
-            self.assertFalse(extra_info["not_enough_break"])
-            self.assertTrue(extra_info["too_much_uninterrupted_work_time"])
+            self.assertFalse(extra_info[EXTRA_NOT_ENOUGH_BREAK])
+            self.assertTrue(extra_info[EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME])
 
     def test_min_work_day_break_by_employee_failure(self):
         # freeze date out of clock change day to avoid errors when it happens

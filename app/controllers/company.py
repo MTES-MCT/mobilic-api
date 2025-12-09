@@ -4,6 +4,8 @@ import graphene
 from flask import send_file, jsonify, make_response
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
+from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from webargs import fields
 
@@ -53,6 +55,7 @@ from app.helpers.tachograph import (
     get_tachograph_archive_company,
 )
 from app.models import Company, Employment, Business, UserAgreement
+from app.models.export import ExportStatus, Export, ExportType
 from app.models.business import BusinessType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
@@ -69,6 +72,25 @@ import sentry_sdk
 from app.services.exports import export_activity_report
 
 from app.models.user import User
+
+
+def _validate_company_params(usual_name, siren, siret=None, nb_workers=None):
+    """Validate company registration parameters"""
+    if not usual_name or not usual_name.strip():
+        raise InvalidParamsError("Company usual name is required")
+
+    siren_error = validate_siren(siren)
+    if siren_error:
+        raise InvalidParamsError(siren_error)
+
+    if siret:
+        if len(siret) != 14 or not siret.isdigit():
+            raise InvalidParamsError("SIRET must be exactly 14 digits")
+        if not siret.startswith(siren):
+            raise InvalidParamsError("SIRET must start with the company SIREN")
+
+    if nb_workers is not None and nb_workers <= 0:
+        raise InvalidParamsError("Number of workers must be greater than 0")
 
 
 class CompanySignUpOutput(graphene.ObjectType):
@@ -96,6 +118,10 @@ class CompanySoftwareRegistration(graphene.Mutation):
         siret = graphene.String(
             required=False, description="Numéro de Siret de l'établissement"
         )
+        nb_workers = graphene.Int(
+            required=True,
+            description="Nombre de salarié de l'entreprise/établissement",
+        )
 
     Output = CompanyOutput
 
@@ -105,13 +131,15 @@ class CompanySoftwareRegistration(graphene.Mutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["client_id"],
         error_message="You do not have access to the provided client id",
     )
-    def mutate(cls, _, info, client_id, usual_name, siren, siret=None):
-        error = validate_siren(siren)
-        if error:
-            raise InvalidParamsError(error)
+    def mutate(
+        cls, _, info, client_id, usual_name, siren, nb_workers, siret=None
+    ):
+        _validate_company_params(usual_name, siren, siret, nb_workers)
 
         with atomic_transaction(commit_at_end=True):
-            company = create_company_by_third_party(usual_name, siren, siret)
+            company = create_company_by_third_party(
+                usual_name, siren, siret, nb_workers
+            )
             link_company_to_software(company.id, client_id)
         return company
 
@@ -156,6 +184,10 @@ class CompanySignUp(AuthenticatedMutation):
         phone_number="",
         nb_workers=None,
     ):
+        _validate_company_params(
+            usual_name, siren, siret=None, nb_workers=nb_workers
+        )
+
         return sign_up_company(
             usual_name, siren, business_type, phone_number, nb_workers
         )
@@ -199,6 +231,20 @@ class CompaniesSignUp(AuthenticatedMutation):
 
     @classmethod
     def mutate(cls, _, info, siren, companies):
+        if not companies or len(companies) == 0:
+            raise InvalidParamsError("Companies list cannot be empty")
+
+        for idx, company in enumerate(companies):
+            try:
+                _validate_company_params(
+                    usual_name=company.get("usual_name"),
+                    siren=siren,
+                    siret=company.get("siret"),
+                    nb_workers=company.get("nb_workers"),
+                )
+            except InvalidParamsError as e:
+                raise InvalidParamsError(f"Company {idx + 1}: {str(e)}")
+
         return sign_up_companies(siren, companies)
 
 
@@ -231,9 +277,9 @@ def sign_up_companies(siren, companies):
     return created_companies
 
 
-def create_company_by_third_party(usual_name, siren, siret):
+def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     created_company = store_company(
-        siren, [siret] if siret else [], usual_name
+        siren, [siret] if siret else [], usual_name, nb_workers=nb_workers
     )
     return created_company
 
@@ -579,6 +625,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 current_nb_workers != new_nb_workers
                 and new_nb_workers is not None
             ):
+                if new_nb_workers <= 0:
+                    raise InvalidParamsError(
+                        "Number of workers must be greater than 0"
+                    )
                 company.number_workers = new_nb_workers
                 app.logger.info(
                     f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"
@@ -694,7 +744,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
 
 @app.route("/companies/download_activity_report", methods=["POST"])
 @doc(
-    description="Demande d'envoi du rapport d'activité au format Excel par email"
+    description="Demande de téléchargement du rapport d'activité au format Excel"
 )
 @use_kwargs(
     {
@@ -728,7 +778,64 @@ def download_activity_report(
         one_file_by_employee=one_file_by_employee,
     )
 
-    return jsonify({"result": "ok"}), 200
+    return jsonify({"result": "ok"}), 202
+
+
+@app.route("/exports/cancel", methods=["POST"])
+@doc(description="Annule les exports en cours pour l'utilisateur")
+def cancel_exports():
+    try:
+        db.session.execute(
+            update(Export)
+            .where(Export.user_id == current_user.id)
+            .where(Export.status.in_([ExportStatus.WIP, ExportStatus.READY]))
+            .values(status=ExportStatus.CANCELLED)
+        )
+        db.session.commit()
+        return jsonify({"result": "ok"}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        app.logger.error("Failed to cancel exports", exc_info=True)
+        return jsonify({"result": "ko", "error": "Database error"}), 500
+
+
+@app.route("/exports/checkout", methods=["POST"])
+@doc(
+    description="Consulte le statut des exports en cours, et le lien de téléchargement s'ils sont prêts"
+)
+def checkout_exports():
+    exports_wip = Export.query.filter(
+        Export.user_id == current_user.id,
+        Export.status == ExportStatus.WIP.value,
+    ).all()
+    exports_ready = Export.query.filter(
+        Export.user_id == current_user.id, Export.status == ExportStatus.READY
+    ).all()
+
+    from app import S3Client
+
+    ready_exports_links = S3Client.generate_presigned_urls_exports(
+        exports_ready
+    )
+
+    with atomic_transaction(commit_at_end=True):
+        for ready in exports_ready:
+            if ready.id in ready_exports_links:
+                ready.status = ExportStatus.DOWNLOADED
+                if ready.export_type == ExportType.REFUSED_CGU:
+                    UserAgreement.set_transferred_data_date(ready.user_id)
+            else:
+                ready.status = ExportStatus.FAILED
+
+    return (
+        jsonify(
+            {
+                "nb_wip_exports": len(exports_wip),
+                "ready_exports_links": list(ready_exports_links.values()),
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/users/download_full_data_when_CGU_refused", methods=["POST"])
@@ -782,10 +889,8 @@ def download_full_data_report(user_id):
                 max_date=max_date,
                 one_file_by_employee=False,
                 file_name=file_name,
-                is_admin=is_user_admin,
+                export_type=ExportType.REFUSED_CGU,
             )
-
-        UserAgreement.set_transferred_data_date(user.id)
 
         response = make_response(jsonify({"result": "ok"}), 200)
         response.headers["Content-Type"] = "application/json"

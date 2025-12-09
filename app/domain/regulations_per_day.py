@@ -22,6 +22,9 @@ NATINF_20525 = "NATINF 20525"
 NATINF_35187 = "NATINF 35187"
 SANCTION_CODE = "Non-respect du Code des transports"
 
+EXTRA_NOT_ENOUGH_BREAK = "not_enough_break"
+EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME = "too_much_uninterrupted_work_time"
+
 
 def filter_work_days_to_current_day(work_days, day_start_time, day_end_time):
     return list(
@@ -525,8 +528,8 @@ def check_has_enough_break(activity_groups, regulation_check, business):
     not_enough_break = not min_work_day_break_result.success
     too_much_uninterrupted_work_time = not uninterrupted_result.success
 
-    merged_extra["not_enough_break"] = not_enough_break
-    merged_extra["too_much_uninterrupted_work_time"] = (
+    merged_extra[EXTRA_NOT_ENOUGH_BREAK] = not_enough_break
+    merged_extra[EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME] = (
         too_much_uninterrupted_work_time
     )
 

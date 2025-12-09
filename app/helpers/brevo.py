@@ -85,6 +85,28 @@ class BrevoApiClient:
 
         self._companies_cache = None
 
+    def _handle_request_error(
+        self, error: requests.exceptions.HTTPError
+    ) -> None:
+        """Extract and raise detailed error message from Brevo API response."""
+        error_detail = ""
+
+        if error.response is None:
+            raise BrevoRequestError(
+                f"Request to Brevo API failed (no response): {error}"
+            )
+
+        try:
+            error_data = error.response.json()
+            error_detail = f": {error_data.get('message', str(error_data))}"
+        except Exception:
+            # Failed to parse JSON, use default error message
+            pass
+
+        raise BrevoRequestError(
+            f"Request to Brevo API failed{error_detail}: {error}"
+        )
+
     @check_api_key
     def create_contact(self, data: CreateContactData):
         try:
@@ -135,12 +157,7 @@ class BrevoApiClient:
             response.raise_for_status()
             return response.json()["id"]
         except requests.exceptions.HTTPError as e:
-            app.logger.error(
-                f"Brevo API error: {e.response.status_code} - {e.response.text}"
-            )
-            raise BrevoRequestError(
-                f"Request to Brevo API failed: {e.response.status_code} - {e.response.text}"
-            )
+            self._handle_request_error(e)
         except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -153,12 +170,7 @@ class BrevoApiClient:
             response.raise_for_status()
             return response
         except requests.exceptions.HTTPError as e:
-            app.logger.error(
-                f"Brevo API error: {e.response.status_code} - {e.response.text}"
-            )
-            raise BrevoRequestError(
-                f"Request to Brevo API failed: {e.response.status_code} - {e.response.text}"
-            )
+            self._handle_request_error(e)
         except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -179,6 +191,8 @@ class BrevoApiClient:
                 return {"message": "Deal stage updated successfully"}
 
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -215,6 +229,8 @@ class BrevoApiClient:
                 offset += limit
 
             return {"items": all_deals}
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except requests.exceptions.RequestException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -225,6 +241,8 @@ class BrevoApiClient:
             response = self._session.get(url)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -235,6 +253,8 @@ class BrevoApiClient:
             response = self._session.get(url)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -278,6 +298,8 @@ class BrevoApiClient:
             result = response.json()
             app.logger.debug(f"Deal attributes response: {result}")
             return result
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except Exception as e:
             app.logger.error(f"Failed to get deal attributes: {e}")
             return {}
@@ -369,6 +391,8 @@ class BrevoApiClient:
 
             return deal_id
 
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except Exception as e:
             app.logger.error(
                 f"Failed to create deal for company ID {company_data.get('company_id')}: {e}"
@@ -478,26 +502,29 @@ class BrevoApiClient:
 
         all_companies = []
 
-        for page in range(1, max_pages + 1):
-            url = f"{self.BASE_URL}/companies"
-            params = {"limit": limit, "page": page}
-            response = self._session.get(url, params=params)
-            response.raise_for_status()
+        try:
+            for page in range(1, max_pages + 1):
+                url = f"{self.BASE_URL}/companies"
+                params = {"limit": limit, "page": page}
+                response = self._session.get(url, params=params)
+                response.raise_for_status()
 
-            companies_batch = response.json().get("items", [])
-            if not companies_batch:
-                break
+                companies_batch = response.json().get("items", [])
+                if not companies_batch:
+                    break
 
-            all_companies.extend(companies_batch)
+                all_companies.extend(companies_batch)
 
-            if len(companies_batch) < limit:
-                break
+                if len(companies_batch) < limit:
+                    break
 
-        app.logger.debug(
-            f"Retrieved {len(all_companies)} companies from Brevo API"
-        )
-        self._companies_cache = all_companies
-        return all_companies
+            app.logger.debug(
+                f"Retrieved {len(all_companies)} companies from Brevo API"
+            )
+            self._companies_cache = all_companies
+            return all_companies
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
 
     @check_api_key
     def search_companies_by_identifier(
@@ -566,6 +593,8 @@ class BrevoApiClient:
             response.raise_for_status()
             return True
 
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
         except Exception as e:
             app.logger.error(
                 f"Failed to link deal {deal_id} to company {company_id}: {e}"
@@ -581,7 +610,13 @@ class BrevoApiClient:
             response.raise_for_status()
 
             response_data = response.json()
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
+        except Exception as e:
+            app.logger.error(f"Failed to get companies count: {e}")
+            return 0
 
+        try:
             total_count = (
                 response_data.get("pager", {}).get("total", 0)
                 or response_data.get("count", 0)
@@ -693,14 +728,20 @@ class BrevoApiClient:
             current_page = 1
 
             while current_page <= total_pages and unlinked_deals:
-                url = f"{self.BASE_URL}/companies"
-                params = {"limit": companies_per_page, "page": current_page}
-                response = self._session.get(url, params=params)
-                response.raise_for_status()
+                try:
+                    url = f"{self.BASE_URL}/companies"
+                    params = {
+                        "limit": companies_per_page,
+                        "page": current_page,
+                    }
+                    response = self._session.get(url, params=params)
+                    response.raise_for_status()
 
-                companies_batch = response.json().get("items", [])
-                if not companies_batch:
-                    break
+                    companies_batch = response.json().get("items", [])
+                    if not companies_batch:
+                        break
+                except requests.exceptions.HTTPError as e:
+                    self._handle_request_error(e)
 
                 app.logger.info(
                     f"Processing companies page {current_page} ({len(companies_batch)} companies)"

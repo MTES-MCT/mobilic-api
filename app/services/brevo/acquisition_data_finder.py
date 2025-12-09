@@ -6,6 +6,7 @@ from typing import List, Dict, Any
 
 from app import db
 from app.models import Employment, User
+from app.models.user import UserAccountStatus
 from ._config import BrevoFunnelConfig
 from .utils import get_companies_base_data, get_admin_info
 
@@ -37,13 +38,14 @@ class AcquisitionDataFinder:
             ]
 
         company_ids = [c["id"] for c in companies_base]
-        invitation_stats = self._get_invitation_stats(company_ids)
+
+        creator_activation = self._get_creator_activation_status(company_ids)
         admin_info = get_admin_info(company_ids)
 
         acquisition_companies = []
         for company in companies_base:
             company_id = company["id"]
-            invitation_data = invitation_stats.get(company_id, {"invited": 0})
+            is_creator_active = creator_activation.get(company_id, False)
             admin = admin_info.get(company_id, {})
 
             days_since_creation = (
@@ -56,7 +58,7 @@ class AcquisitionDataFinder:
                 "siren": company["siren"],
                 "phone_number": company["phone_number"],
                 "nb_employees": company["nb_employees"],
-                "invited_employees_count": invitation_data["invited"],
+                "active_employees_count": 1 if is_creator_active else 0,
                 "admin_email": admin.get("email"),
                 "admin_first_name": admin.get("first_name"),
                 "admin_last_name": admin.get("last_name"),
@@ -64,9 +66,8 @@ class AcquisitionDataFinder:
                 "stage_since_days": days_since_creation,
                 "acquisition_status": self._classify_acquisition_stage(
                     {
-                        "creation_date": company["creation_date"],
+                        "is_creator_active": is_creator_active,
                         "days_since_creation": days_since_creation,
-                        "invited_employees": invitation_data["invited"],
                     }
                 ),
             }
@@ -81,56 +82,58 @@ class AcquisitionDataFinder:
     def _classify_acquisition_stage(
         self, company_metrics: Dict[str, Any]
     ) -> str:
-        """Classify company in acquisition funnel based on creation date and invitations.
+        """Classify company in acquisition funnel based on creator activation.
+
+        Classification is based only on the company creator's account status.
 
         Classification logic (priority order):
-        1. Companies 30+ days old with no invitations
-        2. Companies 7-29 days old with no invitations
-        3. New companies since March 2025
-        4. All other companies
+        1. Creator has activated their account → WON
+        2. 14+ days since creation without creator activation → LOST
+        3. New company without creator activation → REGISTERED (default)
 
         Args:
             company_metrics: Dictionary containing:
-                - creation_date: Company creation date
+                - is_creator_active: Boolean indicating if creator account is active
                 - days_since_creation: Days since company was created
-                - invited_employees: Number of invited employees
 
         Returns:
             Acquisition stage classification string
         """
-        # Priority 1: Critical case - 1 month+ without invitations
-        if self._is_no_invite_1_month(company_metrics):
-            return "Entreprise inscrite depuis 1 mois sans salarié invité"
+        if company_metrics["is_creator_active"]:
+            return "gagnée : entreprise inscrite avec compte (1er gestionnaire) activé"
 
-        # Priority 2: Warning case - 7+ days without invitations
-        if self._is_no_invite_7_days(company_metrics):
-            return "Entreprise inscrite depuis 7 jours sans salarié invité"
+        if (
+            company_metrics["days_since_creation"]
+            >= self.config.ACCOUNT_ACTIVATION_DEADLINE_DAYS
+        ):
+            return "perdue : entreprise qui n'active pas son compte au bout de 2 semaines"
 
-        # Priority 3: Recent companies since March 2025
-        if self._is_new_company_since_march(company_metrics):
-            return "Nouvelles entreprises inscrites depuis mars 2025"
+        # TODO: Add reminder email status check when ticket is implemented
+        # Ticket: https://trello.com/c/2Q0k0kzu/2174
+        # if company_metrics.get("has_reminder_email", False):
+        #     return "entreprise inscrite sans compte activé relancée par mail j+2"
 
-        # Default: All other cases
-        return "Entreprise inscrite"
+        return "entreprise inscrite sans compte activé"
 
-    def _get_invitation_stats(
+    def _get_creator_activation_status(
         self, company_ids: List[int]
-    ) -> Dict[int, Dict[str, int]]:
-        """Get invitation statistics excluding company creators.
+    ) -> Dict[int, bool]:
+        """Check if company creators have activated their accounts.
 
-        The company creator is identified as the first admin (earliest employment ID).
-        This avoids counting the initial admin who created the company as an "invited" employee.
+        The creator is the first admin (earliest employment ID) who registered the company.
+        A company is considered "activated" when its creator has activated their account.
 
         Args:
-            company_ids: List of company IDs to get stats for
+            company_ids: List of company IDs to check
 
         Returns:
-            Dictionary mapping company_id to {"invited": count}
+            Dictionary mapping company_id to activation status (True/False)
+            - True: Creator account is active
+            - False: Creator account is not active or not found
         """
         if not company_ids:
             return {}
 
-        # Find the first admin (creator) for each company
         first_admins = (
             db.session.query(
                 Employment.company_id,
@@ -144,52 +147,27 @@ class AcquisitionDataFinder:
             .subquery()
         )
 
-        # Count employments excluding creators
         stats = (
             db.session.query(
                 Employment.company_id,
-                func.count(Employment.user_id).label("invited_count"),
+                func.count(User.id).label("active_count"),
             )
-            .outerjoin(
+            .join(User, Employment.user_id == User.id)
+            .join(
                 first_admins,
                 (Employment.company_id == first_admins.c.company_id)
                 & (Employment.id == first_admins.c.creator_id),
             )
             .filter(
                 Employment.company_id.in_(company_ids),
-                Employment.validation_status != "rejected",
-                Employment.dismissed_at.is_(None),
-                Employment.user_id.isnot(None),
-                # Exclude if it's the creator
-                first_admins.c.creator_id.is_(None),
+                Employment.has_admin_rights == True,
+                User.status == UserAccountStatus.ACTIVE,
             )
             .group_by(Employment.company_id)
             .all()
         )
 
-        return {
-            stat.company_id: {"invited": stat.invited_count} for stat in stats
-        }
-
-    def _is_new_company_since_march(self, metrics: Dict[str, Any]) -> bool:
-        return metrics["creation_date"] >= self.config.NEW_COMPANIES_SINCE_DATE
-
-    def _is_no_invite_1_month(self, metrics: Dict[str, Any]) -> bool:
-        """Companies 30+ days old with no invitations (critical case)."""
-        return (
-            metrics["invited_employees"] == 0
-            and metrics["days_since_creation"]
-            >= self.config.NO_INVITE_CRITICAL_DAYS
-        )
-
-    def _is_no_invite_7_days(self, metrics: Dict[str, Any]) -> bool:
-        """Companies 7-29 days old with no invitations (warning case)."""
-        return (
-            metrics["invited_employees"] == 0
-            and self.config.NO_INVITE_WARNING_DAYS
-            <= metrics["days_since_creation"]
-            < self.config.NO_INVITE_CRITICAL_DAYS
-        )
+        return {stat.company_id: stat.active_count > 0 for stat in stats}
 
 
 def get_companies_acquisition_data() -> List[Dict[str, Any]]:

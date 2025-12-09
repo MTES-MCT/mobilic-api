@@ -1,18 +1,20 @@
-from flask import g
-
-from app.data_access.business import BusinessOutput
-from app.data_access.company_certification import CompanyCertificationType
-from app.data_access.work_day import WorkDayConnection
-from app.data_access.user import UserOutput
 from datetime import date
 
 import graphene
-from sqlalchemy import desc, func
+from flask import g
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
+from app.data_access.business import BusinessOutput
+from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.regulatory_alerts_summary import (
+    RegulatoryAlertsSummary,
+)
 from app.data_access.team import TeamOutput
+from app.data_access.user import UserOutput
+from app.data_access.work_day import WorkDayConnection
 from app.domain.company import (
     check_company_has_no_activities,
     has_any_active_admin,
@@ -22,12 +24,18 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     has_any_employment_with_company_or_controller,
 )
+from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
 )
-from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
+from app.helpers.errors import AuthorizationError
+from app.helpers.graphene_types import (
+    BaseSQLAlchemyObjectType,
+    TimeStamp,
+    ShortMonth,
+)
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
 from app.models import Company, User, Mission, Activity
@@ -140,6 +148,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Curseur de connection GraphQL, utilisé pour la pagination",
         ),
+        user_ids=graphene.List(
+            lambda: graphene.Int, description="Identifiants des utilisateurs"
+        ),
     )
     missions = graphene.Field(
         MissionConnection,
@@ -165,6 +176,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     missions_deleted = graphene.Field(
         MissionConnection,
+        first=graphene.Int(
+            required=False,
+            description="Nombre maximal de missions retournées, par ordre de récence.",
+        ),
         description="Liste des missions supprimées de l'entreprise",
     )
     vehicles = graphene.List(
@@ -203,6 +218,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     current_company_certification = graphene.Field(
         CompanyCertificationType,
         description="Informations relatives au certificat en cours pour l'entreprise",
+    )
+    regulatory_alerts_recap = graphene.Field(
+        RegulatoryAlertsSummary,
+        description="Résumé des alertes règlementaires au cours d'un mois donné",
+        month=ShortMonth(required=True),
+        unique_user_id=graphene.Int(
+            required=False,
+            description="Identifiant d'un des salariés de l'entreprise",
+        ),
+        team_id=graphene.Int(
+            required=False, description="Identifiant du groupe sélectionné"
+        ),
     )
 
     def resolve_name(self, info):
@@ -292,15 +319,19 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
-    def resolve_missions_deleted(self, info):
-        deleted_missions = (
+    def resolve_missions_deleted(self, info, first=None):
+        deleted_missions_query = (
             Mission.query.filter(
                 Mission.company_id == self.id,
             )
             .join(Activity, Activity.mission_id == Mission.id)
             .group_by(Mission.id)
             .having(func.every(Activity.dismissed_at.isnot(None)))
-        ).all()
+            .order_by(Mission.creation_time.desc())
+        )
+        if first is not None:
+            deleted_missions_query = deleted_missions_query.limit(first)
+        deleted_missions = deleted_missions_query.all()
 
         edges = [{"node": mission} for mission in deleted_missions]
 
@@ -312,7 +343,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'workDays' of company object. Actor must be company admin.",
     )
     def resolve_work_days(
-        self, info, from_date=None, until_date=None, first=None, after=None
+        self,
+        info,
+        from_date=None,
+        until_date=None,
+        first=None,
+        after=None,
+        user_ids=None,
     ):
         # There are two ways to build the work days :
         # - Either retrieve all objects at the finest level from the DB and compute aggregates on them, which is rather costly
@@ -349,6 +386,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             end_date=until_date,
             first=first,
             after=after,
+            user_ids=user_ids,
         )
         user_ids = set([row.user_id for row in work_day_stats])
 
@@ -431,3 +469,29 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_current_company_certification(self, info):
         return CompanyCertificationType.from_company_id(self.id)
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'resolve_regulatory_alerts_recap' of company object. Actor must be company admin.",
+    )
+    def resolve_regulatory_alerts_recap(
+        self, info, month, unique_user_id=None, team_id=None
+    ):
+
+        company_user_ids = (
+            [u.id for u in self.active_users_in_team(team_id)]
+            if team_id
+            else [u.id for u in self.users]
+        )
+
+        if unique_user_id and unique_user_id not in company_user_ids:
+            raise AuthorizationError(
+                f"Employee is not part of the {'team' if team_id else 'company'}"
+            )
+
+        user_ids = [unique_user_id] if unique_user_id else company_user_ids
+
+        return get_regulatory_alerts_summary(
+            month=month, user_ids=user_ids, unique_user_id=unique_user_id
+        )

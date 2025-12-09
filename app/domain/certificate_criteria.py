@@ -8,6 +8,10 @@ from sqlalchemy import func, distinct
 
 from app import db, app
 from app.controllers.utils import atomic_transaction
+from app.domain.regulations_per_day import (
+    EXTRA_NOT_ENOUGH_BREAK,
+    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+)
 from app.helpers.time import end_of_month, previous_month_period, to_datetime
 from app.models import (
     RegulatoryAlert,
@@ -69,8 +73,8 @@ def compute_compliancy(company, start, end, nb_activities):
             info_alerts.append({"type": type})
 
     for extra_field in [
-        "not_enough_break",
-        "too_much_uninterrupted_work_time",
+        EXTRA_NOT_ENOUGH_BREAK,
+        EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
     ]:
         _alerts = _get_alerts(
             users=users,

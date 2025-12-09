@@ -26,11 +26,14 @@ from app.tests.helpers import (
 )
 
 
-def _software_registration(self, usual_name, siren):
+def _software_registration(self, usual_name, siren, nb_workers=10):
     software_registration_response = make_protected_request(
         query=ApiRequests.software_registration,
         variables=dict(
-            client_id=self.client_id, usual_name=usual_name, siren=siren
+            client_id=self.client_id,
+            usual_name=usual_name,
+            siren=siren,
+            nb_workers=nb_workers,
         ),
         headers={
             "X-CLIENT-ID": self.client_id,

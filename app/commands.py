@@ -461,7 +461,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
 @app.cli.command("sync_brevo_funnel", with_appcontext=True)
 @click.option(
     "--acquisition-pipeline",
-    default="Acquisition",
+    default="Acquisition V2",
     help="Brevo pipeline name for acquisition funnel",
 )
 @click.option(
@@ -508,11 +508,11 @@ def sync_brevo_funnel_command(
 
     This command syncs companies to two separate Brevo pipelines based on their funnel stage:
 
-    ACQUISITION PIPELINE - Focus on company registration and initial engagement:
-    - Entreprise inscrite
-    - Nouvelles entreprises inscrites depuis mars 2025
-    - Entreprise inscrite depuis 7 jours sans salarié invité
-    - Entreprise inscrite depuis 1 mois sans salarié invité
+    ACQUISITION PIPELINE - Focus on employee account activation:
+    - Entreprise inscrite sans compte activé
+    - Entreprise inscrite sans compte activé relancée par mail J+2 (TODO - ticket Trello)
+    - Entreprise gagnée (at least 1 active employee)
+    - Entreprise perdue (no activation after 14 days)
 
     ACTIVATION PIPELINE - Focus on employee onboarding and platform usage:
     - Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée
@@ -574,10 +574,17 @@ def sync_brevo_funnel_command(
             acquisition_data, activation_data = [], []
 
             if acquisition_only:
-                acquisition_data = AcquisitionDataFinder().find_companies()
-                app.logger.info(
-                    f"  - Acquisition only: {len(acquisition_data)} companies"
+                activation_data = ActivationDataFinder().find_companies()
+                activation_company_ids = [
+                    c["company_id"] for c in activation_data
+                ]
+                acquisition_data = AcquisitionDataFinder().find_companies(
+                    exclude_company_ids=activation_company_ids
                 )
+                app.logger.info(
+                    f"  - Acquisition only: {len(acquisition_data)} companies (excluding {len(activation_company_ids)} in activation)"
+                )
+                activation_data = []
 
             if activation_only:
                 activation_data = ActivationDataFinder().find_companies()

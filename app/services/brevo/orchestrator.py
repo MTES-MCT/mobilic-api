@@ -41,7 +41,7 @@ class BrevoSyncOrchestrator:
 
         self.MAX_REQUESTS_PER_BATCH = 50
         self.DELAY_BETWEEN_BATCHES = 2
-        self.DEFAULT_ACQUISITION_PIPELINE = "Acquisition"
+        self.DEFAULT_ACQUISITION_PIPELINE = "Acquisition V2"
         self.DEFAULT_ACTIVATION_PIPELINE = "Activation"
 
     def sync_all_funnels(
@@ -301,9 +301,8 @@ class BrevoSyncOrchestrator:
         result = SyncResult()
 
         target_status = company.get(status_field, "Entreprise inscrite")
-        target_stage_id = stage_mapping.get(
-            self._normalize_status(target_status)
-        )
+        normalized_status = self._normalize_status(target_status)
+        target_stage_id = stage_mapping.get(normalized_status)
 
         if not target_stage_id:
             result.errors.append(
@@ -325,23 +324,13 @@ class BrevoSyncOrchestrator:
                 self.brevo.update_deal_stage(update_data)
                 result.updated_deals += 1
         else:
-            self.logger.debug(
-                f"Creating new deal for company ID: {company.get('company_id')}"
-            )
             deal_id = self.brevo.create_deal_with_attributes(
                 company, pipeline_id, target_stage_id, target_status
             )
             if deal_id:
-                self.logger.debug(
-                    f"Deal created successfully with ID: {deal_id}"
-                )
                 result.created_deals += 1
                 self._update_deal_identifier(
                     company, deal_id, target_stage_id, deals_by_identifier
-                )
-            else:
-                self.logger.debug(
-                    f"Failed to create deal for company ID: {company.get('company_id')}"
                 )
 
         return result
@@ -388,7 +377,11 @@ class BrevoSyncOrchestrator:
         return result
 
     def _normalize_status(self, status: str) -> str:
-        return status.strip().lower()
+        normalized = status.strip().lower()
+        # Replace typographic apostrophes with ASCII apostrophe
+        normalized = normalized.replace("'", "'")  # U+2019 -> U+0027
+        normalized = normalized.replace("'", "'")  # U+2018 -> U+0027
+        return normalized
 
 
 def sync_all_funnels(
