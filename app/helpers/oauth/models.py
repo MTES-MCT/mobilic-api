@@ -39,7 +39,7 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
     def check_client_secret(self, client_secret):
         return self.secret == client_secret
 
-    def check_token_endpoint_auth_method(self, method):
+    def check_endpoint_auth_method(self, method, endpoint):
         return True
 
     def check_response_type(self, response_type):
@@ -87,17 +87,21 @@ class OAuth2Token(BaseModel, TokenMixin):
     def get_client_id(self):
         return self.client_id
 
+    def check_client(self, client):
+        return self.client_id == client.client_id
+
     def get_scope(self):
         return ""
 
     def get_expires_in(self):
         return 86400
 
-    def expires_at(self):
-        return time.time() + 86400
+    def is_expired(self):
+        expired_at = self.issued_at + 86400
+        return expired_at < time.time()
 
     @property
-    def revoked(self):
+    def is_revoked(self):
         return self.revoked_at is not None
 
 

@@ -107,7 +107,7 @@ def authorize():
 @oauth_blueprint.route("/parse_authorization_request", methods=["POST"])
 def parse_authorization_request():
     try:
-        grant = authorization.validate_consent_request()
+        grant = authorization.get_consent_grant()
         client = grant.request.client
         redirect_uri = grant.request.redirect_uri
 
