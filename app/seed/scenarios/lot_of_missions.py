@@ -26,6 +26,25 @@ NB_HISTORY_DELETED = 4
 NB_HISTORY_REGULAR = 5
 NB_VEHICLES = 20
 NB_ADDRESSES = 20
+MINIMUM_HOUR = 3
+MAXIMUM_HOUR = 18
+
+
+def _get_random_work_periods(days_ago):
+    work_periods = []
+    nb_activities = random.choice([1, 2])
+    hours = random.sample(
+        range(MINIMUM_HOUR, MAXIMUM_HOUR + 1), nb_activities * 2
+    )
+    hours.sort()
+    for i in range(nb_activities):
+        work_periods.append(
+            [
+                get_time(how_many_days_ago=days_ago, hour=hours[i * 2]),
+                get_time(how_many_days_ago=days_ago, hour=hours[i * 2 + 1]),
+            ]
+        )
+    return work_periods
 
 
 def run_scenario_lot_of_missions():
@@ -67,12 +86,9 @@ def run_scenario_lot_of_missions():
                 vehicle=random.choice(company.vehicles),
                 address=random.choice(company.known_addresses),
                 add_location_entry=True,
-                work_periods=[
-                    [
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=14),
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=15),
-                    ]
-                ],
+                work_periods=_get_random_work_periods(
+                    days_ago=nb_days_ago + 1
+                ),
                 employee_comment="Commentaire du salarié",
                 employee_expenditure=random.choice(list(ExpenditureType)),
             )
@@ -85,7 +101,7 @@ def run_scenario_lot_of_missions():
     # Admin cancels missions
     for deleted_mission in deleted_missions:
         make_authenticated_request(
-            time=get_time(how_many_days_ago=1, hour=17),
+            time=get_time(how_many_days_ago=1, hour=MAXIMUM_HOUR + 2),
             submitter_id=admin.id,
             query=ApiRequests.cancel_mission,
             variables=dict(
@@ -107,16 +123,9 @@ def run_scenario_lot_of_missions():
                 vehicle=random.choice(company.vehicles),
                 address=random.choice(company.known_addresses),
                 add_location_entry=True,
-                work_periods=[
-                    [
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=6),
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=10),
-                    ],
-                    [
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=14),
-                        get_time(how_many_days_ago=nb_days_ago + 1, hour=18),
-                    ],
-                ],
+                work_periods=_get_random_work_periods(
+                    days_ago=nb_days_ago + 1
+                ),
                 employee_expenditure=random.choice(list(ExpenditureType)),
                 validate=employee_validates,
                 admin_validating=admin if admin_validates else None,

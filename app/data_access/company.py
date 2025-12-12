@@ -9,6 +9,9 @@ from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
 from app.data_access.employment import EmploymentOutput, OAuth2ClientOutput
 from app.data_access.mission import MissionConnection
+from app.data_access.regulation_computation import (
+    CompanyAdminRegulationComputationsByUserAndDay,
+)
 from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
 )
@@ -24,6 +27,9 @@ from app.domain.permissions import (
     is_employed_by_company_over_period,
     has_any_employment_with_company_or_controller,
 )
+from app.domain.regulation_computations import (
+    get_company_admin_regulation_computations,
+)
 from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import (
@@ -38,7 +44,12 @@ from app.helpers.graphene_types import (
 )
 from app.helpers.pagination import to_connection
 from app.helpers.time import to_datetime
-from app.models import Company, User, Mission, Activity
+from app.models import (
+    Company,
+    User,
+    Mission,
+    Activity,
+)
 from app.models.activity import ActivityType
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
@@ -230,6 +241,18 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         team_id=graphene.Int(
             required=False, description="Identifiant du groupe sélectionné"
         ),
+    )
+    admin_regulation_computations_by_user_and_by_day = graphene.List(
+        lambda: CompanyAdminRegulationComputationsByUserAndDay,
+        from_date=graphene.Date(
+            required=False,
+            description="Date de début de l'historique des alertes",
+        ),
+        to_date=graphene.Date(
+            required=False,
+            description="Date de fin de l'historique des alertes",
+        ),
+        description="Résultats de calcul de seuils règlementaires groupés par jour",
     )
 
     def resolve_name(self, info):
@@ -494,4 +517,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
         return get_regulatory_alerts_summary(
             month=month, user_ids=user_ids, unique_user_id=unique_user_id
+        )
+
+    def resolve_admin_regulation_computations_by_user_and_by_day(
+        self, info, from_date=None, to_date=None
+    ):
+        user_ids = [u.id for u in self.users]
+        return get_company_admin_regulation_computations(
+            user_ids=user_ids, from_date=from_date, to_date=to_date
         )
