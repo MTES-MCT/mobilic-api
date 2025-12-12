@@ -206,16 +206,12 @@ def log_and_validate_mission(
                 creation_time=work_periods[-1][1],
             )
     if admin_validating is not None:
-        db.session.add(
-            MissionValidation(
-                submitter=admin_validating,
-                mission=mission,
-                user=employee,
-                reception_time=work_periods[-1][1]
-                + datetime.timedelta(days=1),
-                is_admin=True,
-                creation_time=work_periods[-1][1] + datetime.timedelta(days=1),
-            )
+        validate_mission(
+            mission=mission,
+            is_admin_validation=True,
+            for_user=employee,
+            submitter=admin_validating,
+            creation_time=work_periods[-1][1] + datetime.timedelta(days=1),
         )
 
     return mission
