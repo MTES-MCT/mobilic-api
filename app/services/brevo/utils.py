@@ -143,6 +143,7 @@ def get_creator_activation_status(
         .filter(
             Employment.company_id.in_(company_ids),
             Employment.has_admin_rights == True,
+            User.has_activated_email == True,
             User.status == UserAccountStatus.ACTIVE,
         )
         .group_by(Employment.company_id)
