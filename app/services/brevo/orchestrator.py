@@ -345,16 +345,23 @@ class BrevoSyncOrchestrator:
         if existing_deal:
             attributes = self._build_deal_attributes(company)
             stage_changed = existing_deal["stage_id"] != target_stage_id
+            changed_attributes = {}
+            for key, value in attributes.items():
+                if existing_deal.get(key) != value:
+                    changed_attributes[key] = value
 
-            self.brevo.update_deal(
-                deal_id=existing_deal["id"],
-                pipeline_id=pipeline_id if stage_changed else None,
-                stage_id=target_stage_id if stage_changed else None,
-                attributes=attributes,
-            )
+            if stage_changed or changed_attributes:
+                self.brevo.update_deal(
+                    deal_id=existing_deal["id"],
+                    pipeline_id=pipeline_id if stage_changed else None,
+                    stage_id=target_stage_id if stage_changed else None,
+                    attributes=(
+                        changed_attributes if changed_attributes else None
+                    ),
+                )
 
-            if stage_changed:
-                result.updated_deals += 1
+                if stage_changed:
+                    result.updated_deals += 1
         else:
             deal_id = self.brevo.create_deal_with_attributes(
                 company, pipeline_id, target_stage_id, target_status

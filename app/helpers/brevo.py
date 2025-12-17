@@ -428,6 +428,26 @@ class BrevoApiClient:
                             "stage_id": deal_attrs.get("deal_stage"),
                             "siren": deal_attrs.get("siren"),
                             "siret": deal_attrs.get("siret"),
+                            "phone_number": deal_attrs.get("phone_number"),
+                            "nb_employees": deal_attrs.get("nb_employees"),
+                            "stage_since_days": deal_attrs.get(
+                                "stage_since_days"
+                            ),
+                            "total_employees_count": deal_attrs.get(
+                                "total_employees_count"
+                            ),
+                            "invited_employees_count": deal_attrs.get(
+                                "invited_employees_count"
+                            ),
+                            "invitation_percentage": deal_attrs.get(
+                                "invitation_percentage"
+                            ),
+                            "validated_missions_count": deal_attrs.get(
+                                "validated_missions_count"
+                            ),
+                            "active_employees_count": deal_attrs.get(
+                                "active_employees_count"
+                            ),
                         }
                     )
 
