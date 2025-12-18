@@ -34,6 +34,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "should_force_nb_worker_info",
             "should_see_certificate_info",
             "is_acknowledged",
+            "last_active_at",
         )
 
     id = graphene.Field(
@@ -106,6 +107,11 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     should_force_nb_worker_info = graphene.Field(
         graphene.Boolean,
         description="Indique si l'on doit forcer la demande des informations liées au nombre de chauffeurs pour ce rattachement",
+    )
+    last_active_at = graphene.Field(
+        TimeStamp,
+        required=False,
+        description="Horodatage de la dernière activité du salarié",
     )
 
     @with_authorization_policy(
