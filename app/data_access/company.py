@@ -523,12 +523,13 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_admin_regulation_computations_by_user_and_by_day(
-        self, info, from_date=None, to_date=None, user_ids=[]
+        self, info, from_date=None, to_date=None, user_ids=None
     ):
         company_user_ids = [u.id for u in self.users]
-        if user_ids and len(user_ids) > 0:
+        if user_ids:
+            user_ids_set = set(user_ids)
             company_user_ids = [
-                u_id for u_id in company_user_ids if u_id in user_ids
+                u_id for u_id in company_user_ids if u_id in user_ids_set
             ]
 
         return get_company_admin_regulation_computations(
