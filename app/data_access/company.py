@@ -253,6 +253,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             description="Date de fin de l'historique des alertes",
         ),
         description="Résultats de calcul de seuils règlementaires groupés par jour",
+        user_ids=graphene.List(
+            lambda: graphene.Int, description="Identifiants des utilisateurs"
+        ),
     )
 
     def resolve_name(self, info):
@@ -520,9 +523,15 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
     def resolve_admin_regulation_computations_by_user_and_by_day(
-        self, info, from_date=None, to_date=None
+        self, info, from_date=None, to_date=None, user_ids=None
     ):
-        user_ids = [u.id for u in self.users]
+        company_user_ids = [u.id for u in self.users]
+        if user_ids:
+            user_ids_set = set(user_ids)
+            company_user_ids = [
+                u_id for u_id in company_user_ids if u_id in user_ids_set
+            ]
+
         return get_company_admin_regulation_computations(
-            user_ids=user_ids, from_date=from_date, to_date=to_date
+            user_ids=company_user_ids, from_date=from_date, to_date=to_date
         )
