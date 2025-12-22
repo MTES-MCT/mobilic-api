@@ -380,6 +380,8 @@ class Mailer:
         else:
             invitation_link = f"{app.config['FRONTEND_URL']}/invite?token={employment.invite_token}"
 
+        login_link = f"{app.config['FRONTEND_URL']}/login"
+
         company_name = employment.company.name
         if scheduled_reminder:
             subject = (
@@ -411,6 +413,7 @@ class Mailer:
             first_name=employment.user.first_name if employment.user else None,
             custom_id=employment.invite_token,
             invitation_link=Markup(invitation_link),
+            login_link=Markup(login_link),
             company_name=company_name,
             reminder=reminder,
             scheduled_reminder=scheduled_reminder,
