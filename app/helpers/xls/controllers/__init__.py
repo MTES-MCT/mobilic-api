@@ -30,7 +30,7 @@ def send_control_as_one_excel_file(control):
     if control.control_type == ControlType.mobilic:
         max_date = control.history_end_date
         min_date = control.history_start_date
-        from app import group_user_events_by_day_with_limit
+        from app.domain.work_days import group_user_events_by_day_with_limit
 
         work_days_data = group_user_events_by_day_with_limit(
             control.user,
