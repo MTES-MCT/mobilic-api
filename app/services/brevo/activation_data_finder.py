@@ -7,7 +7,11 @@ from typing import List, Dict, Any, Optional
 from app import db
 from app.models import Employment, User, Mission, MissionValidation
 from ._config import BrevoFunnelConfig
-from .utils import get_companies_base_data, get_admin_info
+from .utils import (
+    get_companies_base_data,
+    get_admin_info,
+    get_creator_activation_status,
+)
 
 
 class ActivationDataFinder:
@@ -33,6 +37,7 @@ class ActivationDataFinder:
             return []
 
         company_ids = [c["id"] for c in companies_base]
+        creator_activation = get_creator_activation_status(company_ids)
 
         employment_stats = self._get_employment_stats(company_ids)
         mission_stats = self._get_mission_stats(company_ids)
@@ -41,6 +46,10 @@ class ActivationDataFinder:
         activation_companies = []
         for company in companies_base:
             company_id = company["id"]
+
+            is_creator_active = creator_activation.get(company_id, False)
+            if not is_creator_active:
+                continue
 
             emp_stats = employment_stats.get(
                 company_id, {"total": 0, "invited": 0}

@@ -1,8 +1,10 @@
 """Shared utilities for Brevo data processing."""
 
 from typing import List, Dict, Any
+from sqlalchemy import func
 from app import db
 from app.models import Company, Employment, User
+from app.models.user import UserAccountStatus
 
 
 def extract_siren(siren_api_info):
@@ -88,3 +90,64 @@ def get_admin_info(company_ids: List[int]) -> Dict[int, Dict[str, str]]:
         }
         for admin in admins
     }
+
+
+def get_creator_activation_status(
+    company_ids: List[int],
+) -> Dict[int, bool]:
+    """Check if company creators have activated their accounts.
+
+    IMPORTANT: This function checks ONLY the company creator's account status.
+    The creator is the first admin (earliest employment ID) who registered the company.
+    A company is considered "activated" when its creator has activated their account.
+
+    This is used to determine if a company should be in Acquisition or Activation funnel:
+    - No creator activation → Acquisition funnel
+    - Creator activated → Activation funnel (if other criteria met)
+
+    Args:
+        company_ids: List of company IDs to check
+
+    Returns:
+        Dictionary mapping company_id to activation status (True/False)
+        - True: Creator account is active
+        - False: Creator account is not active or not found
+    """
+    if not company_ids:
+        return {}
+
+    first_admins = (
+        db.session.query(
+            Employment.company_id,
+            func.min(Employment.id).label("creator_id"),
+        )
+        .filter(
+            Employment.company_id.in_(company_ids),
+            Employment.has_admin_rights == True,
+        )
+        .group_by(Employment.company_id)
+        .subquery()
+    )
+
+    stats = (
+        db.session.query(
+            Employment.company_id,
+            func.count(User.id).label("active_count"),
+        )
+        .join(User, Employment.user_id == User.id)
+        .join(
+            first_admins,
+            (Employment.company_id == first_admins.c.company_id)
+            & (Employment.id == first_admins.c.creator_id),
+        )
+        .filter(
+            Employment.company_id.in_(company_ids),
+            Employment.has_admin_rights == True,
+            User.has_activated_email == True,
+            User.status == UserAccountStatus.ACTIVE,
+        )
+        .group_by(Employment.company_id)
+        .all()
+    )
+
+    return {stat.company_id: stat.active_count > 0 for stat in stats}
