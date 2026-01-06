@@ -5,11 +5,7 @@ import time
 from typing import List, Dict, Any
 from dataclasses import dataclass, field
 
-from app.helpers.brevo import (
-    BrevoApiClient,
-    UpdateDealStageData,
-    BrevoRequestError,
-)
+from app.helpers.brevo import BrevoApiClient
 from .acquisition_data_finder import AcquisitionDataFinder
 from .activation_data_finder import ActivationDataFinder
 
@@ -290,6 +286,38 @@ class BrevoSyncOrchestrator:
         else:
             deals_by_identifier[f"name_{company_name}"] = deal_info
 
+    def _build_deal_attributes(
+        self, company: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Build attributes payload for deal update.
+
+        Only includes fields that are present in company data to avoid
+        overwriting existing Brevo values with None.
+        """
+        # Fields mapping: company_data_key -> brevo_attribute_name
+        field_mappings = {
+            "siren": "siren",
+            "siret": "siret",
+            "phone_number": "phone_number",
+            "nb_employees": "nb_employees",
+            "stage_since_days": "stage_since_days",
+            # Activation-specific fields
+            "total_employees_count": "total_employees_count",
+            "invited_employees_count": "invited_employees_count",
+            "invitation_percentage": "invitation_percentage",
+            "validated_missions_count": "validated_missions_count",
+            # Acquisition-specific fields
+            "active_employees_count": "active_employees_count",
+        }
+
+        attributes = {}
+        for company_key, brevo_key in field_mappings.items():
+            value = company.get(company_key)
+            if value is not None:
+                attributes[brevo_key] = value
+
+        return attributes
+
     def _sync_single_company(
         self,
         company: Dict[str, Any],
@@ -315,14 +343,25 @@ class BrevoSyncOrchestrator:
         )
 
         if existing_deal:
-            if existing_deal["stage_id"] != target_stage_id:
-                update_data = UpdateDealStageData(
+            attributes = self._build_deal_attributes(company)
+            stage_changed = existing_deal["stage_id"] != target_stage_id
+            changed_attributes = {}
+            for key, value in attributes.items():
+                if existing_deal.get(key) != value:
+                    changed_attributes[key] = value
+
+            if stage_changed or changed_attributes:
+                self.brevo.update_deal(
                     deal_id=existing_deal["id"],
-                    pipeline_id=pipeline_id,
-                    stage_id=target_stage_id,
+                    pipeline_id=pipeline_id if stage_changed else None,
+                    stage_id=target_stage_id if stage_changed else None,
+                    attributes=(
+                        changed_attributes if changed_attributes else None
+                    ),
                 )
-                self.brevo.update_deal_stage(update_data)
-                result.updated_deals += 1
+
+                if stage_changed:
+                    result.updated_deals += 1
         else:
             deal_id = self.brevo.create_deal_with_attributes(
                 company, pipeline_id, target_stage_id, target_status

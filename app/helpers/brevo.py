@@ -40,13 +40,6 @@ class LinkCompanyContactData:
 
 
 @dataclass
-class UpdateDealStageData:
-    deal_id: str
-    pipeline_id: str
-    stage_id: str
-
-
-@dataclass
 class GetAllDealsByPipelineData:
     pipeline_id: str
 
@@ -70,9 +63,12 @@ class BrevoApiClient:
         self._configuration = sib_api_v3_sdk.Configuration()
         self._configuration.api_key["api-key"] = api_key
         self.api_key = api_key
-        self._api_instance = sib_api_v3_sdk.ContactsApi(
-            sib_api_v3_sdk.ApiClient(self._configuration)
-        )
+        self._api_client = sib_api_v3_sdk.ApiClient(self._configuration)
+        self._contacts_api = sib_api_v3_sdk.ContactsApi(self._api_client)
+        self._deals_api = sib_api_v3_sdk.DealsApi(self._api_client)
+
+        # Legacy: kept for backward compatibility with existing code
+        self._api_instance = self._contacts_api
 
         self._session = requests.Session()
         self._session.headers.update(
@@ -175,24 +171,37 @@ class BrevoApiClient:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
-    def update_deal_stage(self, data: UpdateDealStageData):
+    def update_deal(
+        self,
+        deal_id: str,
+        pipeline_id: str = None,
+        stage_id: str = None,
+        attributes: dict = None,
+    ) -> None:
+        """Update a deal with stage and/or attributes in a single API call.
+
+        Args:
+            deal_id: Brevo deal identifier
+            pipeline_id: Pipeline ID (required if updating stage)
+            stage_id: Stage ID (required if updating stage)
+            attributes: Additional attributes to update
+        """
         try:
-            url = f"{self.BASE_URL}/crm/deals/{data.deal_id}"
-            payload = {
-                "attributes": {
-                    "pipeline": data.pipeline_id,
-                    "deal_stage": data.stage_id,
-                }
-            }
-            response = self._session.patch(url, json=payload)
-            response.raise_for_status()
+            payload_attributes = {}
 
-            if response.status_code == 204:
-                return {"message": "Deal stage updated successfully"}
+            if pipeline_id and stage_id:
+                payload_attributes["pipeline"] = pipeline_id
+                payload_attributes["deal_stage"] = stage_id
 
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            self._handle_request_error(e)
+            if attributes:
+                payload_attributes.update(attributes)
+
+            if not payload_attributes:
+                return
+
+            body = {"attributes": payload_attributes}
+            self._deals_api.crm_deals_id_patch(id=deal_id, body=body)
+
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -419,6 +428,26 @@ class BrevoApiClient:
                             "stage_id": deal_attrs.get("deal_stage"),
                             "siren": deal_attrs.get("siren"),
                             "siret": deal_attrs.get("siret"),
+                            "phone_number": deal_attrs.get("phone_number"),
+                            "nb_employees": deal_attrs.get("nb_employees"),
+                            "stage_since_days": deal_attrs.get(
+                                "stage_since_days"
+                            ),
+                            "total_employees_count": deal_attrs.get(
+                                "total_employees_count"
+                            ),
+                            "invited_employees_count": deal_attrs.get(
+                                "invited_employees_count"
+                            ),
+                            "invitation_percentage": deal_attrs.get(
+                                "invitation_percentage"
+                            ),
+                            "validated_missions_count": deal_attrs.get(
+                                "validated_missions_count"
+                            ),
+                            "active_employees_count": deal_attrs.get(
+                                "active_employees_count"
+                            ),
                         }
                     )
 
