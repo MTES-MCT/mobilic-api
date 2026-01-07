@@ -13,10 +13,8 @@ def send_certificate_compute_end_notification():
     nb_certified_companies = (
         db.session.query(CompanyCertification.company_id)
         .filter(
-            CompanyCertification.log_in_real_time,
-            CompanyCertification.admin_changes,
-            CompanyCertification.compliancy,
-            CompanyCertification.certification_level,
+            CompanyCertification.certification_level_int
+            >= CertificationLevel.BRONZE,
             CompanyCertification.expiration_date > now(),
         )
         .distinct()
