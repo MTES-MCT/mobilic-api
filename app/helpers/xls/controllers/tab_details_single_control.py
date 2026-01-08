@@ -148,7 +148,7 @@ def write_details_sheet(wb, control, work_days_data):
             merge_cells_if_needed(
                 wb,
                 sheet,
-                workday_starting_row_idx,
+                mission_starting_row_idx,
                 row_idx,
                 2,
                 to_fr_tz(wday.start_time),
@@ -164,7 +164,7 @@ def write_details_sheet(wb, control, work_days_data):
             merge_cells_if_needed(
                 wb,
                 sheet,
-                workday_starting_row_idx,
+                mission_starting_row_idx,
                 row_idx,
                 1,
                 COLUMN_SIREN.lambda_value(wday),
@@ -173,7 +173,7 @@ def write_details_sheet(wb, control, work_days_data):
             merge_cells_if_needed(
                 wb,
                 sheet,
-                workday_starting_row_idx,
+                mission_starting_row_idx,
                 row_idx,
                 0,
                 COLUMN_ENTREPRISE.lambda_value(wday),
