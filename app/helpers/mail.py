@@ -394,10 +394,10 @@ class Mailer:
             )
 
         android_install_link = Markup(
-            f"https://www.youtube.com/watch?v=-UlsFtkAw54&ab_channel=Mobilic"
+            "https://www.youtube.com/watch?v=-UlsFtkAw54&ab_channel=Mobilic"
         )
         iphone_install_link = Markup(
-            f"https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
+            "https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
         )
 
         return Mailer._create_message_from_flask_template(
