@@ -393,6 +393,13 @@ class Mailer:
                 f"Votre entreprise {company_name} vous invite à rejoindre Mobilic."
             )
 
+        android_install_link = Markup(
+            "https://www.youtube.com/watch?v=-UlsFtkAw54&ab_channel=Mobilic"
+        )
+        iphone_install_link = Markup(
+            "https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
+        )
+
         return Mailer._create_message_from_flask_template(
             template=(
                 "scheduled_invitation_email.html"
@@ -417,6 +424,8 @@ class Mailer:
             company_name=company_name,
             reminder=reminder,
             scheduled_reminder=scheduled_reminder,
+            android_install_link=android_install_link,
+            iphone_install_link=iphone_install_link,
         )
 
     def send_employee_invite(self, employment, reminder=False):
