@@ -230,18 +230,10 @@ def _compute_regulations_after_validation(
         activities=activities, user=user
     )
 
-    # Look back 7 days to recalculate multi-day regulatory alerts.
-    # This ensures that alerts spanning multiple consecutive days are properly
-    # recalculated when validating a new mission. For example, a night work alert
-    # covering days D-2, D-1, and D could disappear when validating a new mission
-    # on day D if we only recalculate from mission_start.
-    REGULATION_LOOKBACK_DAYS = 7
-    lookback_start = mission_start - timedelta(days=REGULATION_LOOKBACK_DAYS)
-
     period_start = (
-        min(lookback_start, employee_version_start_time.date())
+        min(mission_start, employee_version_start_time.date())
         if employee_version_start_time
-        else lookback_start
+        else mission_start
     )
 
     if employee_version_end_time:
