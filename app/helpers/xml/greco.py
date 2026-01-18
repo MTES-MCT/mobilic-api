@@ -2,13 +2,14 @@ import xml.etree.cElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
+import json
+import re
 
 from flask import send_file
 
 from app.domain.regulations import get_default_business
 from app.domain.regulations_helper import resolve_variables
 from app.models import (
-    ControlLocation,
     ControllerUser,
     RegulationCheck,
     Business,
@@ -55,9 +56,54 @@ def add_date_element(element, field_name, dt, no_hours_and_minutes=False):
 
 
 def process_control(control, bdc, doc, infractions):
-    control_location = ControlLocation.query.filter(
-        ControlLocation.id == bdc.get("location_id")
-    ).first()
+    location_department = bdc.get("location_department", "")
+    location_commune = bdc.get("location_commune", "")
+    location_lieu = bdc.get("location_lieu", "")
+
+    # Extract postal code from commune or lieu
+    postal_code = ""
+    if (
+        location_commune
+        and "(" in location_commune
+        and ")" in location_commune
+    ):
+        potential_postal = (
+            location_commune.split("(")[-1].split(")")[0].strip()
+        )
+        if potential_postal.isdigit() and len(potential_postal) == 5:
+            postal_code = potential_postal
+
+    if not postal_code and location_lieu:
+        postal_match = re.search(r"\b(\d{5})\b", location_lieu)
+        if postal_match:
+            postal_code = postal_match.group(1)
+
+    # Parse department info
+    departement_code = ""
+    department_label = ""
+
+    if location_department:
+        try:
+            dept_obj = json.loads(location_department)
+            if isinstance(dept_obj, dict) and "code" in dept_obj:
+                departement_code = dept_obj["code"]
+                department_label = dept_obj.get("label", "")
+            else:
+                department_label = location_department
+        except (json.JSONDecodeError, TypeError):
+            department_label = location_department
+
+    # Fallback to postal code if needed
+    if not departement_code and postal_code:
+        dept_from_postal = postal_code[:2]
+        if dept_from_postal == "20":
+            departement_code = "20"
+        else:
+            departement_code = dept_from_postal
+
+    if not departement_code:
+        departement_code = "00"
+
     controller = ControllerUser.query.filter(
         ControllerUser.id == control.controller_id
     ).first()
@@ -68,10 +114,9 @@ def process_control(control, bdc, doc, infractions):
     add_content_element(
         element_control,
         "lieuDepartement_Intitule",
-        bdc.get("location_department", ""),
+        department_label,
     )
 
-    departement_code = str(control_location.department).zfill(2)
     add_content_element(
         element_control,
         "lieuDepartement_Code",
@@ -80,7 +125,9 @@ def process_control(control, bdc, doc, infractions):
 
     add_content_element(element_control, "lieuVoie", "")
     add_content_element(
-        element_control, "lieuDescription", control_location.label
+        element_control,
+        "lieuDescription",
+        location_lieu or location_commune or "",
     )
 
     add_content_element(element_control, "controleur_Civilite", "-")
@@ -94,28 +141,24 @@ def process_control(control, bdc, doc, infractions):
         element_control, "controleur_Identification", controller.greco_id
     )
 
-    add_content_element(
-        element_control, "lieuAire_Code", str(control_location.greco_code)
-    )
-    # ?
-    add_content_element(
-        element_control, "lieuType", str(control_location.greco_extra1)
-    )
+    # GRECO-specific fields - empty values since we no longer have the ControlLocation table
+    add_content_element(element_control, "lieuAire_Code", "")
+    add_content_element(element_control, "lieuType", "")
     add_content_element(element_control, "lieuTypeVoie", "")
     add_content_element(
-        element_control, "lieuAire_Intitule", control_location.greco_label
+        element_control, "lieuAire_Intitule", location_lieu or ""
     )
-    add_content_element(
-        element_control, "lieuAire_TypeLieu", control_location.type
-    )
+    add_content_element(element_control, "lieuAire_TypeLieu", "")
 
     add_content_element(
-        element_control, "lieuCommune_Intitule", control_location.commune
+        element_control, "lieuCommune_Intitule", location_commune or ""
     )
+
+    # postal_code was already extracted at the beginning of the function
     add_content_element(
         element_control,
         "lieuCommune_CodePostal",
-        str(control_location.postal_code),
+        postal_code,
     )
 
     add_content_element(
