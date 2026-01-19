@@ -229,6 +229,7 @@ def _compute_regulations_after_validation(
     mission_start, mission_end = get_mission_start_and_end_from_activities(
         activities=activities, user=user
     )
+
     period_start = (
         min(mission_start, employee_version_start_time.date())
         if employee_version_start_time
