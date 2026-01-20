@@ -28,26 +28,40 @@ def send_anonymization_warnings():
 
     anonymization_manager = AnonymizationManager("warning")
     base_cutoff_date = anonymization_manager.calculate_cutoff_date()
-    warning_date = base_cutoff_date + timedelta(days=WARNING_DAYS_AHEAD)
 
-    app.logger.info(
-        f"Base cutoff date: {base_cutoff_date.date()}, Warning date: {warning_date.date()}"
+    # Find users who will become eligible for anonymization in 15 days
+    inactivity_cutoff_date = base_cutoff_date + timedelta(
+        days=WARNING_DAYS_AHEAD
     )
 
-    classifier = UserClassifier(warning_date)
+    # Date shown in email when anonymization will happen
+    anonymization_scheduled_date = datetime.now() + timedelta(
+        days=WARNING_DAYS_AHEAD
+    )
+
+    app.logger.info(
+        f"Base cutoff: {base_cutoff_date.date()}, "
+        f"Inactivity cutoff: {inactivity_cutoff_date.date()}, "
+        f"Anonymization scheduled: {anonymization_scheduled_date.date()}"
+    )
+
+    classifier = UserClassifier(inactivity_cutoff_date)
     inactive_data = classifier.find_inactive_users()
 
     if not inactive_data["users"] and not inactive_data["admins"]:
         app.logger.info("No users found for anonymization warning")
         return {"employees_sent": 0, "managers_sent": 0, "total_sent": 0}
 
-    cutoff_date = datetime.now() - timedelta(days=DUPLICATE_PREVENTION_DAYS)
+    # Don't re-warn users who received warning email in last 14 days
+    duplicate_check_cutoff = datetime.now() - timedelta(
+        days=DUPLICATE_PREVENTION_DAYS
+    )
     warned_user_ids = get_warned_user_ids(
         [
             EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
             EmailType.ANONYMIZATION_WARNING_MANAGER,
         ],
-        cutoff_date,
+        duplicate_check_cutoff,
     )
 
     employees = get_employees_for_anonymization_warning(
@@ -62,9 +76,9 @@ def send_anonymization_warnings():
         f"Found {len(employees)} employees and {len(managers)} managers to warn"
     )
 
-    warning_date_str = warning_date.strftime("%d/%m/%Y")
-    employees_sent = _send_employee_warnings(employees, warning_date_str)
-    managers_sent = _send_manager_warnings(managers, warning_date_str)
+    anonymization_date_str = anonymization_scheduled_date.strftime("%d/%m/%Y")
+    employees_sent = _send_employee_warnings(employees, anonymization_date_str)
+    managers_sent = _send_manager_warnings(managers, anonymization_date_str)
 
     total_sent = employees_sent + managers_sent
     app.logger.info(
@@ -134,18 +148,30 @@ def get_anonymization_warning_preview():
 
     anonymization_manager = AnonymizationManager("warning")
     base_cutoff_date = anonymization_manager.calculate_cutoff_date()
-    warning_date = base_cutoff_date + timedelta(days=WARNING_DAYS_AHEAD)
 
-    classifier = UserClassifier(warning_date)
+    # Users inactive before this date will be warned
+    classifier_cutoff_date = base_cutoff_date + timedelta(
+        days=WARNING_DAYS_AHEAD
+    )
+
+    # Date shown in email when anonymization will happen
+    anonymization_scheduled_date = datetime.now() + timedelta(
+        days=WARNING_DAYS_AHEAD
+    )
+
+    classifier = UserClassifier(classifier_cutoff_date)
     inactive_data = classifier.find_inactive_users()
 
-    cutoff_date = datetime.now() - timedelta(days=DUPLICATE_PREVENTION_DAYS)
+    # Don't re-warn users who received warning email in last 14 days
+    duplicate_check_cutoff = datetime.now() - timedelta(
+        days=DUPLICATE_PREVENTION_DAYS
+    )
     warned_user_ids = get_warned_user_ids(
         [
             EmailType.ANONYMIZATION_WARNING_EMPLOYEE,
             EmailType.ANONYMIZATION_WARNING_MANAGER,
         ],
-        cutoff_date,
+        duplicate_check_cutoff,
     )
 
     total_employees = len(inactive_data["users"])
@@ -158,7 +184,7 @@ def get_anonymization_warning_preview():
     )
 
     return {
-        "target_date": warning_date.strftime("%d/%m/%Y"),
+        "target_date": anonymization_scheduled_date.strftime("%d/%m/%Y"),
         "total_inactive_employees": total_employees,
         "total_inactive_managers": total_managers,
         "employees_to_warn": total_employees - employees_already_warned,
