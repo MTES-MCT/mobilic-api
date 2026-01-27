@@ -5,7 +5,8 @@ from sqlalchemy import func
 from typing import List, Dict, Any, Optional
 
 from app import db
-from app.models import Employment, User, Mission, MissionValidation
+from app.models import Email, Employment, User, Mission, MissionValidation
+from app.helpers.mail_type import EmailType
 from ._config import BrevoFunnelConfig
 from .utils import (
     get_companies_base_data,
@@ -38,6 +39,8 @@ class ActivationDataFinder:
 
         company_ids = [c["id"] for c in companies_base]
         creator_activation = get_creator_activation_status(company_ids)
+        first_mission_dates = self._get_first_mission_validation_dates(company_ids)
+        activity_email_status = self._get_activity_email_status(company_ids)
 
         employment_stats = self._get_employment_stats(company_ids)
         mission_stats = self._get_mission_stats(company_ids)
@@ -55,6 +58,10 @@ class ActivationDataFinder:
                 company_id, {"total": 0, "invited": 0}
             )
             mission_count = mission_stats.get(company_id, 0)
+            first_mission_date = first_mission_dates.get(company_id)
+            email_status = activity_email_status.get(
+                company_id, {"has_first_email": False, "has_reminder_email": False}
+            )
             admin = admin_info.get(company_id, {})
 
             declared_employees = company["nb_employees"] or 0
@@ -79,10 +86,12 @@ class ActivationDataFinder:
 
             activation_status = self._classify_activation_stage(
                 {
-                    "total_employees": total_employees,
-                    "invited_employees": invited_employees,
-                    "invitation_percentage": invitation_percentage,
+                    "days_since_creation": days_since_creation,
                     "validated_missions": mission_count,
+                    "first_mission_date": first_mission_date,
+                    "company_creation_date": company["creation_date"],
+                    "has_first_email": email_status["has_first_email"],
+                    "has_reminder_email": email_status["has_reminder_email"],
                 }
             )
 
@@ -171,74 +180,106 @@ class ActivationDataFinder:
 
         return {stat.company_id: stat.validated_count for stat in stats}
 
+    def _get_first_mission_validation_dates(
+        self, company_ids: List[int]
+    ) -> Dict[int, date]:
+        if not company_ids:
+            return {}
+
+        stats = (
+            db.session.query(
+                Mission.company_id,
+                func.min(MissionValidation.reception_time).label(
+                    "first_validation"
+                ),
+            )
+            .join(
+                MissionValidation, Mission.id == MissionValidation.mission_id
+            )
+            .filter(
+                Mission.company_id.in_(company_ids),
+                MissionValidation.is_admin == True,
+            )
+            .group_by(Mission.company_id)
+            .all()
+        )
+
+        return {
+            stat.company_id: stat.first_validation.date()
+            for stat in stats
+            if stat.first_validation
+        }
+
+    def _get_activity_email_status(
+        self, company_ids: List[int]
+    ) -> Dict[int, Dict[str, bool]]:
+        if not company_ids:
+            return {}
+
+        first_email_stats = (
+            db.session.query(Employment.company_id)
+            .join(Email, Email.employment_id == Employment.id)
+            .filter(
+                Employment.company_id.in_(company_ids),
+                Email.type == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+            )
+            .distinct()
+            .all()
+        )
+
+        reminder_email_stats = (
+            db.session.query(Employment.company_id)
+            .join(Email, Email.employment_id == Employment.id)
+            .filter(
+                Employment.company_id.in_(company_ids),
+                Email.type
+                == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER,
+            )
+            .distinct()
+            .all()
+        )
+
+        first_email_company_ids = {stat.company_id for stat in first_email_stats}
+        reminder_email_company_ids = {
+            stat.company_id for stat in reminder_email_stats
+        }
+
+        return {
+            company_id: {
+                "has_first_email": company_id in first_email_company_ids,
+                "has_reminder_email": company_id in reminder_email_company_ids,
+            }
+            for company_id in company_ids
+        }
+
     def _classify_activation_stage(
         self, metrics: Dict[str, Any]
     ) -> Optional[str]:
-        """Classify company in activation funnel with strict criteria.
+        days = metrics["days_since_creation"]
+        missions = metrics["validated_missions"]
+        first_mission_date = metrics.get("first_mission_date")
+        company_creation_date = metrics["company_creation_date"]
+        has_first_email = metrics.get("has_first_email", False)
+        has_reminder_email = metrics.get("has_reminder_email", False)
 
-        Args:
-            metrics: Dictionary containing company metrics:
-                - total_employees: Total number of employees
-                - invited_employees: Number of invited employees
-                - invitation_percentage: Percentage of employees invited
-                - validated_missions: Number of validated missions
+        if missions >= 1 and first_mission_date:
+            days_to_first_mission = (first_mission_date - company_creation_date).days
+            if days_to_first_mission <= self.config.ACTIVATION_DEADLINE_DAYS:
+                return "gagnée"
 
-        Returns:
-            Activation stage classification string or None if doesn't qualify
-        """
+        if missions == 0 and days > self.config.ACTIVATION_DEADLINE_DAYS:
+            return "perdue"
 
-        if metrics["total_employees"] == 0:
-            return
+        if missions == 0:
+            if has_reminder_email:
+                return "Entreprise sans mission : relancée par mail à J+14"
+            if has_first_email and days >= self.config.ACTIVATION_PHONING_J10_DAYS:
+                return "Entreprise sans mission à J+10"
+            if has_first_email:
+                return "Entreprise sans mission : relancée par mail à J+7"
+            return "Entreprise avec compte activé ayant 0 mission"
 
-        if metrics["invited_employees"] == 0:
-            return
-
-        if self._is_full_activation(metrics):
-            return "Entreprise ayant invité 100% de leurs salariés + au moins 1 mission validée par le gestionnaire"
-
-        if self._is_complete_activation_no_mission(metrics):
-            return "Entreprise ayant invité entre 80 et 100% de leurs salariés + 0 mission validée"
-
-        if self._is_mid_activation(metrics):
-            return "Entreprise ayant invité entre 30 et 80% de leurs salariés + 0 mission validée"
-
-        if self._is_low_activation(metrics):
-            return "Entreprise ayant invité moins de 30% de leurs salariés + 0 mission validée"
-
-    def _is_full_activation(self, metrics: Dict[str, Any]) -> bool:
-        return (
-            metrics["total_employees"] > 0
-            and metrics["invitation_percentage"] >= 100
-            and metrics["validated_missions"] >= 1
-        )
-
-    def _is_complete_activation_no_mission(
-        self, metrics: Dict[str, Any]
-    ) -> bool:
-        return (
-            metrics["total_employees"] > 0
-            and self.config.HIGH_INVITATION_THRESHOLD
-            < metrics["invitation_percentage"]
-            <= self.config.COMPLETE_INVITATION_THRESHOLD
-            and metrics["validated_missions"] == 0
-        )
-
-    def _is_mid_activation(self, metrics: Dict[str, Any]) -> bool:
-        return (
-            metrics["total_employees"] > 0
-            and self.config.LOW_INVITATION_THRESHOLD
-            <= metrics["invitation_percentage"]
-            <= self.config.HIGH_INVITATION_THRESHOLD
-            and metrics["validated_missions"] == 0
-        )
-
-    def _is_low_activation(self, metrics: Dict[str, Any]) -> bool:
-        return (
-            metrics["total_employees"] > 0
-            and metrics["invitation_percentage"]
-            < self.config.LOW_INVITATION_THRESHOLD
-            and metrics["validated_missions"] == 0
-        )
+        return None
 
 
 def get_companies_activation_data() -> List[Dict[str, Any]]:

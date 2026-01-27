@@ -298,6 +298,44 @@ def find_admins_of_companies_with_an_employee_but_without_any_activity(
     ).all()
 
 
+def find_admins_of_companies_still_without_activity_for_reminder(
+    received_first_email_before_date, companies_to_exclude=None
+):
+    companies_without_activity_subquery = (
+        db.session.query(Company.id)
+        .filter(~exists().where(Mission.company_id == Company.id))
+        .subquery()
+    )
+
+    return Employment.query.filter(
+        exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+                Email.creation_time
+                <= datetime.datetime.combine(
+                    received_first_email_before_date,
+                    datetime.datetime.max.time(),
+                ),
+            )
+        ),
+        ~exists().where(
+            and_(
+                Email.employment_id == Employment.id,
+                Email.type
+                == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER,
+            )
+        ),
+        Employment.company_id.notin_(companies_to_exclude or []),
+        Employment.has_admin_rights,
+        ~Employment.is_dismissed,
+        Employment.end_date.is_(None),
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
+        Employment.company_id.in_(companies_without_activity_subquery),
+    ).all()
+
+
 def find_admins_still_without_invitations(
     received_first_email_before_date, companies_to_exclude=None
 ):

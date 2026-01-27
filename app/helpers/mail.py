@@ -941,6 +941,20 @@ class Mailer:
             _apply_whitelist_if_not_prod=True,
         )
 
+    def send_companies_with_employees_but_with_no_activity_reminder(
+        self, employment
+    ):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="company_with_employees_but_with_no_activity.html",
+                subject="Rappel : enregistrez du temps de travail sur Mobilic !",
+                employment=employment,
+                user=employment.user,
+                type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
     def send_worker_holiday_logging_notification(
         self, admin, user, company, title, periods
     ):
