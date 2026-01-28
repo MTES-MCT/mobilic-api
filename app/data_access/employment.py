@@ -18,6 +18,8 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "reception_time",
             "start_date",
             "end_date",
+            "dismissed_at",
+            "validation_status",
             "user_id",
             "user",
             "submitter_id",
@@ -34,6 +36,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "should_force_nb_worker_info",
             "should_see_certificate_info",
             "is_acknowledged",
+            "last_active_at",
         )
 
     id = graphene.Field(
@@ -60,6 +63,14 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     end_date = graphene.Field(
         graphene.String,
         description="Date de fin du rattachement au format AAAA-MM-JJ, si présente.",
+    )
+    dismissed_at = graphene.Field(
+        TimeStamp,
+        description="Horodatage de rejet du rattachement, si présent.",
+    )
+    validation_status = graphene.Field(
+        graphene.String,
+        description="Statut de validation du rattachement (pending, approved, rejected).",
     )
     company_id = graphene.Field(
         graphene.Int,
@@ -106,6 +117,11 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     should_force_nb_worker_info = graphene.Field(
         graphene.Boolean,
         description="Indique si l'on doit forcer la demande des informations liées au nombre de chauffeurs pour ce rattachement",
+    )
+    last_active_at = graphene.Field(
+        TimeStamp,
+        required=False,
+        description="Horodatage de la dernière activité du salarié",
     )
 
     @with_authorization_policy(
