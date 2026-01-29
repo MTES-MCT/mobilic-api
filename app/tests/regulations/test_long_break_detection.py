@@ -27,6 +27,8 @@ def _get_alert_for_date(target_date, submitter_type=SubmitterType.EMPLOYEE):
 
 
 class TestLongBreakDetection(RegulationsTest):
+    DAYS_BEFORE_TODAY_FOR_TEST = 2
+
     def test_long_break_should_reset_work_time_counters(self):
         """
         Scenario:
@@ -42,7 +44,7 @@ class TestLongBreakDetection(RegulationsTest):
         - Alert generated for continuous night work exceeding limit
         """
 
-        how_many_days_ago = 2
+        how_many_days_ago = self.DAYS_BEFORE_TODAY_FOR_TEST
 
         # Mission 1: Night shift
         # Activity from 22:46 to 03:32 (~5h night work)
@@ -114,7 +116,7 @@ class TestLongBreakDetection(RegulationsTest):
 
         The 14h44 pause should reset work time counters.
         """
-        how_many_days_ago = 2
+        how_many_days_ago = self.DAYS_BEFORE_TODAY_FOR_TEST
 
         # Mission 1: 06/01 23:46 → 07/01 01:57
         self._log_and_validate_mission(
@@ -270,7 +272,7 @@ class TestLongBreakDetection(RegulationsTest):
         Control scenario: Without a long break, alert SHOULD be generated.
         """
 
-        how_many_days_ago = 2
+        how_many_days_ago = self.DAYS_BEFORE_TODAY_FOR_TEST
 
         # Continuous night work with short break (< 10h)
         # First period: 6h night work

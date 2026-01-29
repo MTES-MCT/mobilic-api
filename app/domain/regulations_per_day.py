@@ -327,7 +327,7 @@ def check_max_work_day_time(
         for activity in group.activities:
             activity_to_workday[activity.id] = group
 
-    for i, activity in enumerate(all_activities):
+    for activity in all_activities:
         # Reset work time counters when encountering an activity after a long break
         if activity.id in reset_activity_ids:
             amplitude = 0
