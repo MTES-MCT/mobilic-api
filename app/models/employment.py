@@ -53,6 +53,8 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
     )
     team = db.relationship(Team, backref="employments")
 
+    last_active_at = db.Column(db.DateTime, index=True, nullable=True)
+
     # Needed for anonymization process if the submitter is still linked to an active user
     @declared_attr
     def submitter_id(cls):

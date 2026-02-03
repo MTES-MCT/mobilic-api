@@ -47,6 +47,7 @@ from app.controllers.controller import (
 from app.controllers.controller import Query as ControllerUserQuery
 from app.controllers.control_location import Query as ControlLocationQuery
 from app.controllers.employment import (
+    BatchTerminateEmployments,
     CancelEmployment,
     ChangeEmployeeRole,
     ChangeEmployeeTeam,
@@ -189,6 +190,7 @@ class Employments(graphene.ObjectType):
     validate_employment = ValidateEmployment.Field()
     reject_employment = RejectEmployment.Field()
     terminate_employment = TerminateEmployment.Field()
+    batch_terminate_employments = BatchTerminateEmployments.Field()
     cancel_employment = CancelEmployment.Field()
     send_invitations_reminders = SendInvitationsReminders.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()

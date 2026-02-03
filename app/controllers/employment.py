@@ -504,6 +504,42 @@ class RedeemInvitation(graphene.Mutation):
         return employment
 
 
+def _terminate_single_employment(employment_id, end_date=None):
+    """
+    Helper function to terminate a single employment.
+    Returns (employment, error_message) tuple.
+    """
+    employment_end_date = end_date or date.today()
+    employment = Employment.query.get(employment_id)
+
+    if not employment:
+        return None, "Employment not found"
+
+    if current_user.id == employment.user_id:
+        return None, "Cannot terminate your own employment"
+
+    if not employment.is_acknowledged or employment.end_date:
+        return None, "Employment is inactive or already terminated"
+
+    if employment.start_date > employment_end_date:
+        return None, "End date is before the employment start date"
+
+    if (
+        query_activities(
+            user_id=employment.user_id,
+            start_time=employment_end_date + timedelta(days=1),
+            company_ids=[employment.company_id],
+        ).count()
+        > 0
+    ):
+        return None, "User has logged activities after this end date"
+
+    employment.end_date = employment_end_date
+    db.session.add(employment)
+
+    return employment, None
+
+
 class TerminateEmployment(AuthenticatedMutation):
     """
     Fin du rattachement d'un salarié.
@@ -535,39 +571,87 @@ class TerminateEmployment(AuthenticatedMutation):
     )
     def mutate(cls, _, info, employment_id, end_date=None):
         with atomic_transaction(commit_at_end=True):
-            employment_end_date = end_date or date.today()
-            employment = Employment.query.get(employment_id)
-
-            if current_user.id == employment.user_id:
-                raise UserSelfTerminateEmploymentError
-
-            if not employment.is_acknowledged or employment.end_date:
-                raise EmploymentAlreadyTerminated(
-                    f"Employment is inactive or has already an end date"
-                )
-
-            if employment.start_date > employment_end_date:
-                raise InvalidParamsError(
-                    "End date is before the employment start date"
-                )
-
-            if (
-                query_activities(
-                    user_id=employment.user_id,
-                    start_time=employment_end_date + timedelta(days=1),
-                    company_ids=[employment.company_id],
-                ).count()
-                > 0
-            ):
-                raise ActivityExistAfterEmploymentEndDate(
-                    "User has logged activities for the company after this end date"
-                )
-
-            employment.end_date = employment_end_date
-
-            db.session.add(employment)
+            employment, error = _terminate_single_employment(
+                employment_id, end_date
+            )
+            if error:
+                if "Cannot terminate your own" in error:
+                    raise UserSelfTerminateEmploymentError
+                if "inactive or already terminated" in error:
+                    raise EmploymentAlreadyTerminated(error)
+                if "before the employment start date" in error:
+                    raise InvalidParamsError(error)
+                if "activities after" in error:
+                    raise ActivityExistAfterEmploymentEndDate(error)
+                raise InvalidResourceError(error)
 
         return employment
+
+
+class TerminateEmploymentInput(graphene.InputObjectType):
+    employment_id = graphene.Int(
+        required=True, description="Identifiant du rattachement à terminer"
+    )
+    end_date = graphene.Date(
+        required=False,
+        description="Date de fin du rattachement. Si non précisée, la date du jour sera utilisée.",
+    )
+
+
+class TerminateEmploymentResult(graphene.ObjectType):
+    employment_id = graphene.Int()
+    success = graphene.Boolean()
+    error = graphene.String()
+
+
+class BatchTerminateEmployments(AuthenticatedMutation):
+    """
+    Fin du rattachement de plusieurs salariés en une seule opération.
+
+    Retourne la liste des résultats pour chaque rattachement.
+    """
+
+    class Arguments:
+        employments = graphene.List(
+            TerminateEmploymentInput,
+            required=True,
+            description="Liste des rattachements à terminer avec leurs dates de fin",
+        )
+
+    Output = graphene.List(TerminateEmploymentResult)
+
+    @classmethod
+    @with_authorization_policy(
+        companies_admin,
+        get_target_from_args=lambda *args, **kwargs: list(
+            set(
+                e.company_id
+                for e in Employment.query.filter(
+                    Employment.id.in_(
+                        [emp["employment_id"] for emp in kwargs["employments"]]
+                    )
+                ).all()
+            )
+        ),
+        error_message="Actor is not authorized to terminate at least one of these employments",
+    )
+    def mutate(cls, _, info, employments):
+        results = []
+        with atomic_transaction(commit_at_end=True):
+            for emp_input in employments:
+                employment, error = _terminate_single_employment(
+                    emp_input["employment_id"],
+                    emp_input.get("end_date"),
+                )
+                results.append(
+                    TerminateEmploymentResult(
+                        employment_id=emp_input["employment_id"],
+                        success=error is None,
+                        error=error,
+                    )
+                )
+
+        return results
 
 
 class CancelEmployment(AuthenticatedMutation):
