@@ -181,3 +181,187 @@ class TestEmployment(BaseTest):
         ][0]
 
         self.assertEqual(worker_employment["user"]["email"], HIDDEN_EMAIL)
+
+
+class TestReattachEmployment(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.user_admin = UserFactory.create(
+            first_name="Admin",
+            last_name="User",
+            post__company=self.company,
+            post__has_admin_rights=True,
+        )
+        self.user_worker = UserFactory.create(
+            first_name="Worker",
+            last_name="User",
+            post__company=self.company,
+            post__has_admin_rights=False,
+        )
+        self.worker_employment = self.user_worker.employments[0]
+
+    def test_reattach_terminated_employment(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        from datetime import date
+
+        # Terminate the employment first
+        self.worker_employment.end_date = date(2020, 2, 1)
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNone(response.get("errors"))
+        new_employment = response["data"]["employments"]["reattachEmployment"]
+        self.assertIsNone(new_employment["endDate"])
+        self.assertEqual(new_employment["validationStatus"], "approved")
+        self.assertFalse(new_employment["hasAdminRights"])
+
+    def test_reattach_preserves_admin_rights(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        from datetime import date
+
+        # Give admin rights then terminate
+        self.worker_employment.has_admin_rights = True
+        self.worker_employment.end_date = date(2020, 2, 1)
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNone(response.get("errors"))
+        new_employment = response["data"]["employments"]["reattachEmployment"]
+        self.assertTrue(new_employment["hasAdminRights"])
+
+    def test_reattach_fails_for_non_admin(self, time=datetime(2020, 2, 7, 6)):
+        from datetime import date
+
+        other_worker = UserFactory.create(
+            first_name="Other",
+            last_name="Worker",
+            post__company=self.company,
+            post__has_admin_rights=False,
+        )
+        self.worker_employment.end_date = date(2020, 2, 1)
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=other_worker.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "AUTHORIZATION_ERROR"
+        )
+
+    def test_reattach_fails_when_no_terminated_employment(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        # Employment is still active (no end_date)
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "INVALID_INPUTS"
+        )
+
+    def test_reattach_fails_when_active_employment_exists(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        from datetime import date
+        from app.models.employment import EmploymentRequestValidationStatus
+
+        # Terminate existing employment, then reattach, then try again
+        self.worker_employment.end_date = date(2020, 1, 15)
+        db.session.commit()
+
+        # First reattach should work
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+        self.assertIsNone(response.get("errors"))
+
+        # Second reattach should fail - active employment now exists
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "INVALID_INPUTS"
+        )
+
+    def test_reattach_same_day_cancels_termination(
+        self, time=datetime(2020, 2, 7, 6)
+    ):
+        from datetime import date
+
+        # Terminate the employment on the same day as the reattach request
+        # The test runs at 2020-02-07, so we set end_date to 2020-02-07
+        same_day = date(2020, 2, 7)
+        self.worker_employment.end_date = same_day
+        original_employment_id = self.worker_employment.id
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNone(response.get("errors"))
+        reattached_employment = response["data"]["employments"][
+            "reattachEmployment"
+        ]
+
+        # Same-day reattach should cancel termination, not create new employment
+        self.assertEqual(reattached_employment["id"], original_employment_id)
+        self.assertIsNone(reattached_employment["endDate"])
+        self.assertEqual(reattached_employment["validationStatus"], "approved")
