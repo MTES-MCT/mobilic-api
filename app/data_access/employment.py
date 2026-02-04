@@ -18,6 +18,8 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "reception_time",
             "start_date",
             "end_date",
+            "dismissed_at",
+            "validation_status",
             "user_id",
             "user",
             "submitter_id",
@@ -61,6 +63,14 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     end_date = graphene.Field(
         graphene.String,
         description="Date de fin du rattachement au format AAAA-MM-JJ, si présente.",
+    )
+    dismissed_at = graphene.Field(
+        TimeStamp,
+        description="Horodatage de rejet du rattachement, si présent.",
+    )
+    validation_status = graphene.Field(
+        graphene.String,
+        description="Statut de validation du rattachement (pending, approved, rejected).",
     )
     company_id = graphene.Field(
         graphene.Int,
