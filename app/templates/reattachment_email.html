@@ -1,0 +1,16 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block subject %}
+L'entreprise {{ company_name }} a réactivé votre rattachement à son compte Mobilic
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour</p>
+    <p>L'entreprise <strong>{{ company_name | upper }}</strong> a réactivé votre rattachement à son compte Mobilic.</p>
+    <p>Vous pouvez dès à présent enregistrer du temps de travail pour cet employeur.</p>
+    <p>Connectez-vous en cliquant ici :</p>
+    {{ button.button('Je me connecte', login_link) }}
+    <p>Cordialement,</p>
+    <p>L'équipe Mobilic</p>
+{% endblock %}
