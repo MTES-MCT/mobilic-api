@@ -54,6 +54,7 @@ from app.controllers.employment import (
     CreateEmployment,
     CreateWorkerEmploymentsFromEmails,
     GetInvitation,
+    ReattachEmployment,
     RedeemInvitation,
     RejectEmployment,
     TerminateEmployment,
@@ -192,6 +193,7 @@ class Employments(graphene.ObjectType):
     terminate_employment = TerminateEmployment.Field()
     batch_terminate_employments = BatchTerminateEmployments.Field()
     cancel_employment = CancelEmployment.Field()
+    reattach_employment = ReattachEmployment.Field()
     send_invitations_reminders = SendInvitationsReminders.Field()
     batch_create_worker_employments = CreateWorkerEmploymentsFromEmails.Field()
     change_employee_role = ChangeEmployeeRole.Field()
