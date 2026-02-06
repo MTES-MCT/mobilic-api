@@ -949,7 +949,8 @@ class ReattachEmployment(AuthenticatedMutation):
             description="Identifiant de l'entreprise",
         )
 
-    Output = EmploymentOutput
+    employment = graphene.Field(EmploymentOutput)
+    email_sent = graphene.Boolean()
 
     @classmethod
     @with_authorization_policy(
@@ -967,13 +968,42 @@ class ReattachEmployment(AuthenticatedMutation):
             if not company:
                 raise InvalidResourceError("Company not found")
 
+            dismissed_employment = Employment.query.filter(
+                Employment.user_id == user_id,
+                Employment.company_id == company_id,
+                Employment.is_dismissed == True,
+                Employment.end_date.is_(None),
+            ).first()
+
+            if dismissed_employment:
+                # Reactivate dismissed employment
+                dismissed_employment.dismissed_at = None
+                dismissed_employment.dismiss_author_id = None
+                dismissed_employment.validation_status = (
+                    EmploymentRequestValidationStatus.APPROVED
+                )
+                dismissed_employment.validation_time = datetime.now()
+                db.session.flush()
+
+                email_sent = True
+                try:
+                    mailer.send_employment_reattachment_email(
+                        dismissed_employment
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
+                    email_sent = False
+
+                return ReattachEmployment(
+                    employment=dismissed_employment, email_sent=email_sent
+                )
+
             terminated_employment = (
                 Employment.query.filter(
                     Employment.user_id == user_id,
                     Employment.company_id == company_id,
                     Employment.end_date.isnot(None),
                     Employment.end_date <= date.today(),
-                    ~Employment.is_dismissed,
                 )
                 .order_by(Employment.end_date.desc())
                 .first()
@@ -1003,14 +1033,18 @@ class ReattachEmployment(AuthenticatedMutation):
                 terminated_employment.end_date = None
                 db.session.flush()
 
+                email_sent = True
                 try:
                     mailer.send_employment_reattachment_email(
                         terminated_employment
                     )
                 except Exception as e:
                     app.logger.exception(e)
+                    email_sent = False
 
-                return terminated_employment
+                return ReattachEmployment(
+                    employment=terminated_employment, email_sent=email_sent
+                )
 
             # Case 2: Termination with days gap → Create new employment
             new_employment = Employment(
@@ -1024,16 +1058,20 @@ class ReattachEmployment(AuthenticatedMutation):
                 user=user,
                 user_id=user_id,
                 has_admin_rights=terminated_employment.has_admin_rights,
-                team_id=None,
+                team_id=terminated_employment.team_id,
                 hide_email=terminated_employment.hide_email,
                 business=company.business,
             )
             db.session.add(new_employment)
             db.session.flush()
 
+            email_sent = True
             try:
                 mailer.send_employment_reattachment_email(new_employment)
             except Exception as e:
                 app.logger.exception(e)
+                email_sent = False
 
-        return new_employment
+        return ReattachEmployment(
+            employment=new_employment, email_sent=email_sent
+        )
