@@ -565,6 +565,20 @@ class Mailer:
             )
         )
 
+    def send_employment_reattachment_email(self, employment):
+        login_link = f"{app.config['FRONTEND_URL']}/login"
+        self._send_single(
+            self._create_message_from_flask_template(
+                "reattachment_email.html",
+                subject=f"L'entreprise {employment.company.name} a réactivé votre rattachement à son compte Mobilic",
+                type_=EmailType.EMPLOYMENT_REATTACHMENT,
+                user=employment.user,
+                company_name=employment.company.name,
+                login_link=Markup(login_link),
+            ),
+            _disable_commit=True,
+        )
+
     @staticmethod
     def _generate_reset_password_link(user):
         token = jwt.encode(

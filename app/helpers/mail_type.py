@@ -41,3 +41,4 @@ class EmailType(str, Enum):
     DISCOVER_MOBILIC = "discover_mobilic"
     ANONYMIZATION_WARNING_EMPLOYEE = "anonymization_warning_employee"
     ANONYMIZATION_WARNING_MANAGER = "anonymization_warning_manager"
+    EMPLOYMENT_REATTACHMENT = "employment_reattachment"

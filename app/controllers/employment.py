@@ -332,7 +332,6 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     )
     def mutate(cls, _, info, company_id, mails):
         with atomic_transaction(commit_at_end=True):
-            print(mails)
             if len(mails) > MAX_SIZE_OF_INVITATION_BATCH:
                 raise InvalidParamsError(
                     f"List of emails to invite cannot exceed {MAX_SIZE_OF_INVITATION_BATCH} in length"
@@ -928,3 +927,151 @@ class SnoozeNbWorkerInfo(AuthenticatedMutation):
             employment.nb_worker_info_snooze_date = date.today()
 
         return Void(success=True)
+
+
+class ReattachEmployment(AuthenticatedMutation):
+    """
+    Réattachement d'un salarié précédemment détaché à une entreprise.
+    Crée un nouvel Employment avec statut APPROVED (pas de validation requise).
+
+    Retourne le nouveau rattachement.
+    """
+
+    class Arguments:
+        user_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du salarié à réattacher",
+        )
+        company_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de l'entreprise",
+        )
+
+    employment = graphene.Field(EmploymentOutput)
+    email_sent = graphene.Boolean()
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
+        error_message="Actor is not authorized to reattach employee",
+    )
+    def mutate(cls, _, info, user_id, company_id):
+        with atomic_transaction(commit_at_end=True):
+            user = User.query.get(user_id)
+            if not user:
+                raise InvalidResourceError("User not found")
+
+            company = Company.query.get(company_id)
+            if not company:
+                raise InvalidResourceError("Company not found")
+
+            dismissed_employment = Employment.query.filter(
+                Employment.user_id == user_id,
+                Employment.company_id == company_id,
+                Employment.is_dismissed == True,
+                Employment.end_date.is_(None),
+            ).first()
+
+            if dismissed_employment:
+                # Reactivate dismissed employment
+                dismissed_employment.dismissed_at = None
+                dismissed_employment.dismiss_author_id = None
+                dismissed_employment.validation_status = (
+                    EmploymentRequestValidationStatus.APPROVED
+                )
+                dismissed_employment.validation_time = datetime.now()
+                db.session.flush()
+
+                email_sent = True
+                try:
+                    mailer.send_employment_reattachment_email(
+                        dismissed_employment
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
+                    email_sent = False
+
+                return ReattachEmployment(
+                    employment=dismissed_employment, email_sent=email_sent
+                )
+
+            terminated_employment = (
+                Employment.query.filter(
+                    Employment.user_id == user_id,
+                    Employment.company_id == company_id,
+                    Employment.end_date.isnot(None),
+                    Employment.end_date <= date.today(),
+                )
+                .order_by(Employment.end_date.desc())
+                .first()
+            )
+
+            if not terminated_employment:
+                raise InvalidParamsError(
+                    "No terminated employment found for this user and company"
+                )
+
+            active_employment = Employment.query.filter(
+                Employment.user_id == user_id,
+                Employment.company_id == company_id,
+                Employment.end_date.is_(None),
+                ~Employment.is_dismissed,
+                Employment.validation_status
+                == EmploymentRequestValidationStatus.APPROVED,
+            ).first()
+
+            if active_employment:
+                raise InvalidParamsError(
+                    "An active employment already exists for this user and company"
+                )
+
+            # Case 1: Same-day termination → Cancel the termination (error correction)
+            if terminated_employment.end_date == date.today():
+                terminated_employment.end_date = None
+                db.session.flush()
+
+                email_sent = True
+                try:
+                    mailer.send_employment_reattachment_email(
+                        terminated_employment
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
+                    email_sent = False
+
+                return ReattachEmployment(
+                    employment=terminated_employment, email_sent=email_sent
+                )
+
+            # Case 2: Termination with days gap → Create new employment
+            new_employment = Employment(
+                reception_time=datetime.now(),
+                submitter=current_user,
+                validation_status=EmploymentRequestValidationStatus.APPROVED,
+                validation_time=datetime.now(),
+                start_date=date.today(),
+                end_date=None,
+                company=company,
+                user=user,
+                user_id=user_id,
+                has_admin_rights=terminated_employment.has_admin_rights,
+                team_id=terminated_employment.team_id,
+                hide_email=terminated_employment.hide_email,
+                business=company.business,
+            )
+            db.session.add(new_employment)
+            db.session.flush()
+
+            email_sent = True
+            try:
+                mailer.send_employment_reattachment_email(new_employment)
+            except Exception as e:
+                app.logger.exception(e)
+                email_sent = False
+
+        return ReattachEmployment(
+            employment=new_employment, email_sent=email_sent
+        )

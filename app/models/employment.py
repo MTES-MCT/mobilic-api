@@ -1,5 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from enum import Enum
+
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
@@ -13,6 +15,7 @@ from sqlalchemy import Index, text
 from sqlalchemy.ext.declarative import declared_attr
 
 NB_WORKER_INFO_SNOOZE_DAYS = 15
+INACTIVE_THRESHOLD_DAYS = 90  # 3 months
 
 
 class EmploymentRequestValidationStatus(str, Enum):
@@ -131,6 +134,65 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
             == EmploymentRequestValidationStatus.APPROVED
             and not self.is_dismissed
         )
+
+    @hybrid_property
+    def is_active(self):
+        """
+        An employment is active if:
+        - It is APPROVED (is_acknowledged)
+        - It is not dismissed
+        - It has no end_date OR end_date >= today
+        """
+        if not self.is_acknowledged:
+            return False
+        if self.end_date is None:
+            return True
+        return self.end_date >= date.today()
+
+    @hybrid_property
+    def is_terminated(self):
+        """An employment is terminated if it has an end_date in the past."""
+        return self.end_date is not None and self.end_date < date.today()
+
+    @hybrid_property
+    def is_inactive(self):
+        """
+        An employment is inactive if:
+        - It is active (not terminated, not dismissed)
+        - last_active_at is more than 3 months ago
+        """
+        if not self.is_active:
+            return False
+        if self.last_active_at is None:
+            return False
+        threshold = datetime.now() - timedelta(days=INACTIVE_THRESHOLD_DAYS)
+        return self.last_active_at < threshold
+
+    @hybrid_property
+    def status(self):
+        """
+        Returns a clear status:
+        - PENDING: waiting for validation
+        - ACTIVE: active employment
+        - INACTIVE: active but no activity for 3 months
+        - TERMINATED: ended (end_date in the past)
+        - DISMISSED: manually detached
+        - REJECTED: refused
+        """
+        if self.is_dismissed:
+            return "DISMISSED"
+        if (
+            self.validation_status
+            == EmploymentRequestValidationStatus.REJECTED
+        ):
+            return "REJECTED"
+        if self.validation_status == EmploymentRequestValidationStatus.PENDING:
+            return "PENDING"
+        if self.is_terminated:
+            return "TERMINATED"
+        if self.is_inactive:
+            return "INACTIVE"
+        return "ACTIVE"
 
     def bind(self, user):
         self.user_id = user.id

@@ -264,6 +264,24 @@ class ApiRequests:
         }
     """
 
+    reattach_employment = """
+        mutation reattachEmployment($userId: Int!, $companyId: Int!) {
+            employments {
+              reattachEmployment(userId: $userId, companyId: $companyId) {
+                employment {
+                  id
+                  startDate
+                  endDate
+                  validationStatus
+                  hasAdminRights
+                  teamId
+                }
+                emailSent
+              }
+            }
+        }
+    """
+
     read_control_data = """
     query readControlData($controlId: Int!) {
         controlData(controlId: $controlId) {
