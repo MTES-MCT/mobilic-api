@@ -416,3 +416,51 @@ class TestIDORExpenditure(BaseTest):
             )
         else:
             self.assertIn("authorization", error.get("message", "").lower())
+
+
+class TestIDOREmployment(BaseTest):
+    """Test IDOR vulnerabilities for employment-related mutations"""
+
+    def setUp(self):
+        super().setUp()
+        from datetime import date
+
+        self.company_a = CompanyFactory.create()
+        self.admin_a = UserFactory.create(
+            post__company=self.company_a, post__has_admin_rights=True
+        )
+        self.worker_a = UserFactory.create(post__company=self.company_a)
+
+        self.company_b = CompanyFactory.create()
+        self.admin_b = UserFactory.create(
+            post__company=self.company_b, post__has_admin_rights=True
+        )
+
+        # Terminate worker_a's employment so it can be reattached
+        self.worker_a.employments[0].end_date = date(2020, 1, 15)
+        db.session.commit()
+
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    def test_idor_reattach_employment_cross_company_blocked(self):
+        """Admin from company B cannot reattach worker from company A"""
+        response = make_authenticated_request(
+            time=datetime(2020, 2, 7, 6),
+            submitter_id=self.admin_b.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.worker_a.id,
+                "companyId": self.company_a.id,
+            },
+        )
+
+        self.assertIn("errors", response)
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )

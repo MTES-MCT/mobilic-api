@@ -2,7 +2,7 @@ from datetime import date
 
 import graphene
 from flask import g
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import selectinload
 
 from app.data_access.business import BusinessOutput
@@ -198,6 +198,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     employments = graphene.List(
         EmploymentOutput,
+        latest_per_user=graphene.Boolean(
+            default_value=False,
+            description="Si true, retourne uniquement le dernier rattachement par salarié",
+        ),
         description="Liste des rattachements validés ou en cours de validation de l'entreprise. Inclut également les rattachements qui ne sont plus actifs",
     )
     known_addresses = graphene.List(
@@ -302,18 +306,34 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     @with_authorization_policy(
         company_admin,
-        get_target_from_args=lambda self, info: self,
+        get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'employments' of company object. Actor must be company admin.",
     )
-    def resolve_employments(self, info):
+    def resolve_employments(self, info, latest_per_user=False):
+        base_filters = [
+            Employment.company_id == self.id,
+            ~Employment.is_dismissed,
+            Employment.validation_status
+            != EmploymentRequestValidationStatus.REJECTED,
+        ]
+
+        if not latest_per_user:
+            return (
+                Employment.query.options(selectinload(Employment.user))
+                .filter(*base_filters)
+                .all()
+            )
+
         return (
             Employment.query.options(selectinload(Employment.user))
-            .filter(
-                Employment.company_id == self.id,
-                ~Employment.is_dismissed,
-                Employment.validation_status
-                != EmploymentRequestValidationStatus.REJECTED,
+            .filter(*base_filters)
+            .order_by(
+                Employment.user_id,
+                case([(Employment.end_date.is_(None), 0)], else_=1),
+                Employment.start_date.desc(),
+                Employment.id.desc(),
             )
+            .distinct(Employment.user_id)
             .all()
         )
 
