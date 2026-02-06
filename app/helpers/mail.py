@@ -575,7 +575,8 @@ class Mailer:
                 user=employment.user,
                 company_name=employment.company.name,
                 login_link=Markup(login_link),
-            )
+            ),
+            _disable_commit=True,
         )
 
     @staticmethod
