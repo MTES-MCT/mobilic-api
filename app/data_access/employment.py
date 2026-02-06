@@ -37,6 +37,10 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "should_see_certificate_info",
             "is_acknowledged",
             "last_active_at",
+            "is_active",
+            "is_terminated",
+            "is_inactive",
+            "status",
         )
 
     id = graphene.Field(
@@ -122,6 +126,22 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         TimeStamp,
         required=False,
         description="Horodatage de la dernière activité du salarié",
+    )
+    is_active = graphene.Field(
+        graphene.Boolean,
+        description="Indique si le rattachement est actif (approuvé, non détaché, et non terminé)",
+    )
+    is_terminated = graphene.Field(
+        graphene.Boolean,
+        description="Indique si le rattachement est terminé (end_date dans le passé)",
+    )
+    is_inactive = graphene.Field(
+        graphene.Boolean,
+        description="Indique si le rattachement est actif mais sans activité depuis plus de 3 mois",
+    )
+    status = graphene.Field(
+        graphene.String,
+        description="Statut calculé du rattachement (PENDING, ACTIVE, INACTIVE, TERMINATED, DISMISSED, REJECTED)",
     )
 
     @with_authorization_policy(

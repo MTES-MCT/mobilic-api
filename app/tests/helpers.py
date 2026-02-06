@@ -268,11 +268,15 @@ class ApiRequests:
         mutation reattachEmployment($userId: Int!, $companyId: Int!) {
             employments {
               reattachEmployment(userId: $userId, companyId: $companyId) {
-                id
-                startDate
-                endDate
-                validationStatus
-                hasAdminRights
+                employment {
+                  id
+                  startDate
+                  endDate
+                  validationStatus
+                  hasAdminRights
+                  teamId
+                }
+                emailSent
               }
             }
         }

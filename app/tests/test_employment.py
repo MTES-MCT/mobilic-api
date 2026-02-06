@@ -221,7 +221,9 @@ class TestReattachEmployment(BaseTest):
         )
 
         self.assertIsNone(response.get("errors"))
-        new_employment = response["data"]["employments"]["reattachEmployment"]
+        result = response["data"]["employments"]["reattachEmployment"]
+        new_employment = result["employment"]
+        self.assertTrue(result["emailSent"])
         self.assertIsNone(new_employment["endDate"])
         self.assertEqual(new_employment["validationStatus"], "approved")
         self.assertFalse(new_employment["hasAdminRights"])
@@ -247,7 +249,9 @@ class TestReattachEmployment(BaseTest):
         )
 
         self.assertIsNone(response.get("errors"))
-        new_employment = response["data"]["employments"]["reattachEmployment"]
+        new_employment = response["data"]["employments"]["reattachEmployment"][
+            "employment"
+        ]
         self.assertTrue(new_employment["hasAdminRights"])
 
     def test_reattach_fails_for_non_admin(self, time=datetime(2020, 2, 7, 6)):
@@ -359,9 +363,185 @@ class TestReattachEmployment(BaseTest):
         self.assertIsNone(response.get("errors"))
         reattached_employment = response["data"]["employments"][
             "reattachEmployment"
-        ]
+        ]["employment"]
 
         # Same-day reattach should cancel termination, not create new employment
         self.assertEqual(reattached_employment["id"], original_employment_id)
         self.assertIsNone(reattached_employment["endDate"])
         self.assertEqual(reattached_employment["validationStatus"], "approved")
+
+    def test_reattach_dismissed_employment(self, time=datetime(2020, 2, 7, 6)):
+        """Test reattaching a dismissed (not terminated) employment."""
+        # Dismiss the employment (not terminate with end_date)
+        self.worker_employment.dismissed_at = datetime(2020, 2, 1)
+        self.worker_employment.dismiss_author_id = self.user_admin.id
+        original_employment_id = self.worker_employment.id
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNone(response.get("errors"))
+        result = response["data"]["employments"]["reattachEmployment"]
+        reattached_employment = result["employment"]
+
+        # Dismissed employment should be reactivated, not create new
+        self.assertEqual(reattached_employment["id"], original_employment_id)
+        self.assertIsNone(reattached_employment["endDate"])
+        self.assertEqual(reattached_employment["validationStatus"], "approved")
+        self.assertTrue(result["emailSent"])
+
+        # Verify dismissed_at was cleared in DB
+        refreshed_employment = Employment.query.get(original_employment_id)
+        self.assertIsNone(refreshed_employment.dismissed_at)
+        self.assertIsNone(refreshed_employment.dismiss_author_id)
+
+    def test_reattach_preserves_team_id(self, time=datetime(2020, 2, 7, 6)):
+        """Test that team_id is preserved when reattaching terminated employment."""
+        from datetime import date
+        from app.models.team import Team
+
+        # Create a team and assign the worker to it
+        team = Team(name="Test Team", company_id=self.company.id)
+        db.session.add(team)
+        db.session.flush()
+
+        self.worker_employment.team_id = team.id
+        self.worker_employment.end_date = date(2020, 2, 1)
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.user_admin.id,
+            query=ApiRequests.reattach_employment,
+            variables={
+                "userId": self.user_worker.id,
+                "companyId": self.company.id,
+            },
+        )
+
+        self.assertIsNone(response.get("errors"))
+        new_employment = response["data"]["employments"]["reattachEmployment"][
+            "employment"
+        ]
+
+        # team_id should be preserved from terminated employment
+        self.assertEqual(new_employment["teamId"], team.id)
+
+
+class TestEmploymentStatusProperties(BaseTest):
+    """Tests for is_active, is_terminated, is_inactive, and status hybrid properties."""
+
+    def setUp(self):
+        super().setUp()
+        from datetime import date, timedelta
+        from app.models.employment import EmploymentRequestValidationStatus
+
+        self.company = CompanyFactory.create()
+        self.user_admin = UserFactory.create(
+            first_name="Admin",
+            last_name="User",
+            post__company=self.company,
+            post__has_admin_rights=True,
+        )
+        self.user_worker = UserFactory.create(
+            first_name="Worker",
+            last_name="User",
+            post__company=self.company,
+            post__has_admin_rights=False,
+        )
+        self.employment = self.user_worker.employments[0]
+
+    def test_active_employment_status(self):
+        """An approved employment with no end_date should be ACTIVE."""
+        self.assertTrue(self.employment.is_active)
+        self.assertFalse(self.employment.is_terminated)
+        self.assertFalse(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_terminated_employment_status(self):
+        """An employment with end_date in the past should be TERMINATED."""
+        from datetime import date, timedelta
+
+        self.employment.end_date = date.today() - timedelta(days=1)
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_active)
+        self.assertTrue(self.employment.is_terminated)
+        self.assertFalse(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "TERMINATED")
+
+    def test_dismissed_employment_status(self):
+        """A dismissed employment should have DISMISSED status."""
+        self.employment.dismissed_at = datetime.now()
+        self.employment.dismiss_author_id = self.user_admin.id
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_active)
+        self.assertFalse(self.employment.is_terminated)
+        self.assertEqual(self.employment.status, "DISMISSED")
+
+    def test_pending_employment_status(self):
+        """A pending employment should have PENDING status."""
+        from app.models.employment import EmploymentRequestValidationStatus
+
+        self.employment.validation_status = (
+            EmploymentRequestValidationStatus.PENDING
+        )
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_active)
+        self.assertEqual(self.employment.status, "PENDING")
+
+    def test_rejected_employment_status(self):
+        """A rejected employment should have REJECTED status."""
+        from app.models.employment import EmploymentRequestValidationStatus
+
+        self.employment.validation_status = (
+            EmploymentRequestValidationStatus.REJECTED
+        )
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_active)
+        self.assertEqual(self.employment.status, "REJECTED")
+
+    def test_inactive_employment_status(self):
+        """An employment with no activity for 3+ months should be INACTIVE."""
+        from datetime import timedelta
+
+        # Set last_active_at to more than 90 days ago
+        self.employment.last_active_at = datetime.now() - timedelta(days=91)
+        db.session.commit()
+
+        self.assertTrue(self.employment.is_active)
+        self.assertTrue(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "INACTIVE")
+
+    def test_active_with_recent_activity(self):
+        """An employment with recent activity should be ACTIVE, not INACTIVE."""
+        from datetime import timedelta
+
+        self.employment.last_active_at = datetime.now() - timedelta(days=30)
+        db.session.commit()
+
+        self.assertTrue(self.employment.is_active)
+        self.assertFalse(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_ending_today_is_still_active(self):
+        """An employment with end_date = today should still be active."""
+        from datetime import date
+
+        self.employment.end_date = date.today()
+        db.session.commit()
+
+        self.assertTrue(self.employment.is_active)
+        self.assertFalse(self.employment.is_terminated)
+        self.assertEqual(self.employment.status, "ACTIVE")
