@@ -6,8 +6,8 @@ from app.models.controller_control import ControlType
 
 def generate_control_bulletin_pdf(control):
 
+    #Déterminer le(s) type(s) d'activités à afficher dans le BDC
     is_control_mobilic = control.control_type == ControlType.mobilic
-
     if is_control_mobilic:
         business_ids = list(
             control.control_bulletin.get("employments_business_types").values()
@@ -18,16 +18,18 @@ def generate_control_bulletin_pdf(control):
         business = get_default_business(business_id=business_id)
         business_types = business.display_name
 
+    #Signature de l'agent
+    #CTT=greco id
+    #IT=nom de l'agent
+    controller = control.controller_user
+    controller_signature = controller.greco_id if controller._is_ctt() else f"{controller.last_name} {controller.first_name}"
+
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
-        organizational_unit=getattr(
-            control.controller_user, "pretty_organizational_unit", None
-        ),
         control_time=control.creation_time,
         control_end_time=control.control_bulletin_update_time,
         control_date=control.creation_time,
-        # control_location=f"{control.control_bulletin.get('location_lieu')}, {control.control_bulletin.get('location_commune')}",
         controlled_employee_first_name=control.user_first_name,
         controlled_employee_last_name=control.user_last_name,
         controlled_employee_birth_date=control.control_bulletin.get('user_birth_date'),
@@ -51,14 +53,6 @@ def generate_control_bulletin_pdf(control):
         transport_from=control.control_bulletin.get("mission_address_begin"),
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
-        controller_name=(
-            f"{control.controller_user.last_name} {control.controller_user.first_name}"
-            if control.controller_user
-            else "Contrôleur inconnu"
-        ),
-        controller_greco_id=control.controller_user.greco_id,
-        infraction_labels=control.reported_infractions_labels,
-        history_start_date=control.history_start_date,
-        history_end_date=control.history_end_date,
-        business_types=business_types
+        business_types=business_types,
+        controller_signature=controller_signature
     )
