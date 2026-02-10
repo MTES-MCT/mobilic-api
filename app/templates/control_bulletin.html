@@ -143,12 +143,12 @@
             <td class="value">{{ control_date | full_format_day }}</td>
         </tr>
         <tr>
-            <td class="label">Heure de début de contrôle :</td>
-            <td class="value">{{ control_time | format_time(False) }}</td>
+            <td class="label">Horaire de contrôle :</td>
+            <td class="value">{{ control_time | format_time(False) }} - {{ control_end_time | format_time(False) }}</td>
         </tr>
         <tr>
-            <td class="label">Heure de fin de contrôle :</td>
-            <td class="value">{{ control_end_time | format_time(False) }}</td>
+            <td class="label">Lieu de contrôle :</td>
+            <td class="value">{{ control_location }}</td>
         </tr>
     </table>
 
@@ -179,7 +179,7 @@
             <td class="value">{{ license_number | format_none_bdc }}</td>
         </tr>
         <tr>
-            <td class="label">N° de la copie confirme de la licence :</td>
+            <td class="label">N° de la copie conforme de la licence :</td>
             <td class="value">{{ license_copy_number | format_none_bdc }}</td>
         </tr>
     </table>
@@ -251,7 +251,7 @@
         </tr>
         <tr>
             <td class="label">Poids du véhicule : </td>
-            <td class="value">???</td>
+            <td class="value">-</td>
         </tr>
     </table>
 

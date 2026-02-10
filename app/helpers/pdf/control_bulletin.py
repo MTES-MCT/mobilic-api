@@ -30,6 +30,7 @@ def generate_control_bulletin_pdf(control):
         control_time=control.creation_time,
         control_end_time=control.control_bulletin_update_time,
         control_date=control.creation_time,
+        control_location=f"{control.control_bulletin.get('location_lieu')}, {control.control_bulletin.get('location_commune')}",
         controlled_employee_first_name=control.user_first_name,
         controlled_employee_last_name=control.user_last_name,
         controlled_employee_birth_date=control.control_bulletin.get('user_birth_date'),
