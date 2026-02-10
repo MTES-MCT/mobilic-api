@@ -1,11 +1,17 @@
 from app.domain.business import get_businesses_display_name
 from app.domain.regulations import get_default_business
-from app.helpers.pdf import generate_pdf_from_template
+from app.helpers.pdf import generate_pdf_from_template, generate_pdf_from_list
 from app.models.controller_control import ControlType
 
-
 def generate_control_bulletin_pdf(control):
+    part_one = _generate_part_one(control=control)
+    part_two = _generate_part_one(control=control)
+    pdf_files = [part_one, part_two]
 
+    pdf = generate_pdf_from_list(pdf_files)
+    return pdf
+
+def _generate_part_one(control):
     #Déterminer le(s) type(s) d'activités à afficher dans le BDC
     is_control_mobilic = control.control_type == ControlType.mobilic
     if is_control_mobilic:
