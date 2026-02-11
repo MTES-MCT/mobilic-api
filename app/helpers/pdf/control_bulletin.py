@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from app.domain.business import get_businesses_display_name
 from app.domain.regulations import get_default_business
 from app.helpers.pdf import generate_pdf_from_template, generate_pdf_from_list
@@ -5,7 +7,7 @@ from app.models.controller_control import ControlType
 
 def generate_control_bulletin_pdf(control):
     part_one = _generate_part_one(control=control)
-    part_two = _generate_part_one(control=control)
+    part_two = _generate_part_two(control=control)
     pdf_files = [part_one, part_two]
 
     pdf = generate_pdf_from_list(pdf_files)
@@ -62,4 +64,32 @@ def _generate_part_one(control):
         observations=control.control_bulletin.get("observation"),
         business_types=business_types,
         controller_signature=controller_signature
+    )
+
+
+def _generate_part_two(control):
+
+    infractions_by_date = {}
+    for idx_r, r in enumerate(control.reported_infractions):
+        extra = r.get("extra")
+        sanction_code = None
+        if extra:
+            sanction_code = extra.get("sanction_code", "")
+        if not sanction_code:
+            sanction_code = r.get("sanction", "")
+        natinf = sanction_code.replace("NATINF ", "")
+
+        date_str = r.get("date")
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+        formatted_date = date_obj.strftime("%d/%m/%y")
+
+        if natinf in infractions_by_date:
+            infractions_by_date[natinf].append(formatted_date)
+        else:
+            infractions_by_date[natinf] = [formatted_date]
+
+
+    return generate_pdf_from_template(
+        "control_bulletin_annexe.html",
+        infractions_by_date=infractions_by_date
     )

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+
+        @font-face {
+            font-family: 'Marianne';
+            src: url('fonts/Marianne-Regular.ttf');
+            font-weight: normal;
+        }
+
+        @font-face {
+            font-family: 'Marianne';
+            src: url('fonts/Marianne-Bold.ttf');
+            font-weight: bold;
+        }
+
+        @font-face {
+            font-family: 'Marianne-Medium';
+            src: url('fonts/Marianne-Medium.ttf') format('truetype');
+            font-weight: normal;
+        }
+
+        @page {
+            size: 842px 595px;
+            margin: 8pt 16pt;
+        }
+
+        body {
+            font-family: 'Marianne', Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            color: #000000;
+        }
+
+        table {
+            border: none;
+            border-spacing: 0;
+        }
+
+        table td,
+        table th {
+            border: none;
+        }
+
+        /* Header styles */
+        .header-logo {
+            width: 70pt;
+        }
+        .header-title,
+        .header-subtitle {
+            line-height: 1.2;
+        }
+
+        .header-title {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 10pt 0 1pt 0;
+            color: #161616;
+        }
+
+        .header-subtitle {
+            font-size: 8.25pt;
+            font-weight: 400;
+            margin: 0 0 15pt 0;
+            color: #3A3A3A;
+        }
+
+        /* Table utilities */
+        .table-full {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-bordered {
+            border: 1px solid #DDDDDD;
+        }
+        .table-bordered tr{
+            border: none;
+        }
+        .table-bordered td {
+            border-top: 1px solid #DDDDDD !important;
+        }
+        th, td {
+            font-size: 7.5pt;
+            line-height: 8pt;
+            padding: 2pt 4pt;
+            color: #3A3A3A;
+        }
+        thead th {
+            background-color: #F6F6F6;
+            font-weight: bold;
+            text-align: left;
+        }
+        tbody td {
+            vertical-align: middle;
+        }
+
+        .small-text {
+            font-size: 7pt;
+            color: #666666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header with logo -->
+    <table class="table-full">
+        <tr>
+            <td style="width:12%; white-space:nowrap;">
+                <img class="header-logo" alt="Logo" src="data:image/png;base64,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"/>
+            </td>
+            <td style="vertical-align: middle;">
+                <div class="header-title">Tableau récapitulatif des infractions relevées</div>
+                <div class="header-subtitle">avec Mobilic</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Control Info -->
+    <table class="table-full table-bordered">
+        <thead>
+            <tr>
+                <th style="width: 42pt">NATINF</th>
+                <th style="width: 72pt">Nature de l’infraction</th>
+                <th style="width: 24pt">Nb</th>
+                <th style="width: 105pt">Date</th>
+                <th style="width: 182pt">Qualification</th>
+                <th style="width: 182pt">Définie par</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if "11292" in infractions_by_date %}
+                <tr>
+                    <td>11292</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["11292"] | length }}</td>
+                    <td>{{ infractions_by_date["11292"] | join(", ") }}</td>
+                    <td>EMPLOI DE SALARIE AU DELA DE LA DUREE QUOTIDIENNE MAXIMALE DE TRAVAIL EFFECTIF - ENTREPRISE DE TRANSPORT ROUTIER</td>
+                    <td>ART.R.3315-5 AL.1, ART.R.3312-51, ART.D.3312-64, ART.R.3312-34, ART.D.3312-6, ART.R.3312-11, ART.D.3312-31, ART.R.3312-3 C.TRANSPORTS.</td>
+                </tr>
+            {% endif %}
+            {% if "11289" in infractions_by_date %}
+                <tr>
+                    <td>11289</td>
+                    <td>Contravention de 5ème classe</td>
+                    <td>{{ infractions_by_date["11289"] | length }}</td>
+                    <td>{{ infractions_by_date["11289"] | join(", ") }}</td>
+                    <td>EMPLOI, PAR ENTREPRISE DE TRANSPORT ROUTIER DE MARCHANDISES, DE PERSONNEL ROULANT AU DELA DE LA DUREE DE TEMPS DE SERVICE MAXIMALE HEBDOMADAIRE SUR UNE SEMAINE ISOLEE</td>
+                    <td>ART.R.3315-6 AL.1, ART.R.3312-50, ART.D.3312-45, ART.R.3312-34, ART.D.3312-37 C.TRANSPORTS.</td>
+                </tr>
+            {% endif %}
+            {% if "20525" in infractions_by_date %}
+                <tr>
+                    <td>20525</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["20525"] | length }}</td>
+                    <td>{{ infractions_by_date["20525"] | join(", ") }}</td>
+                    <td>EMPLOI DE PERSONNEL ROULANT SANS REPOS QUOTIDIEN SUFFISANT - ENTREPRISE DE TRANSPORT ROUTIER</td>
+                    <td>ART.R.3315-5 AL.1, ART.R.3312-13, ART.R.3312-30 AL.5, ART.R.3312-53 2°, ART.R.3312-3, ART.R.3312-34 C.TRANSPORTS.</td>
+                </tr>
+            {% endif %}
+            {% if "32083" in infractions_by_date %}
+                <tr>
+                    <td>32083</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["32083"] | length }}</td>
+                    <td>{{ infractions_by_date["32083"] | join(", ") }}</td>
+                    <td>DEPASSEMENT DE LA DUREE MAXIMALE QUOTIDIENNE DE TRAVAIL DU PERSONNEL ROULANT DE NUIT - ENTREPRISE DE TRANSPORT ROUTIER</td>
+                    <td>ART.R.3315-3 AL.1, ART.L.3312-1 C.TRANSPORTS. ART.L.3122-5 C.TRAVAIL.</td>
+                </tr>
+            {% endif %}
+            {% if "13152" in infractions_by_date %}
+                <tr>
+                    <td>13152</td>
+                    <td>Contravention de 5ème classe</td>
+                    <td>{{ infractions_by_date["13152"] | length }}</td>
+                    <td>{{ infractions_by_date["13152"] | join(", ") }}</td>
+                    <td>EMPLOI DE SALARIE SANS RESPECT DE LA DUREE MINIMALE DE REPOS HEBDOMADAIRE</td>
+                    <td>ART.R.3135-2 AL.1, ART.L.3132-1, ART.L.3132-2 C.TRAVAIL.</td>
+                </tr>
+            {% endif %}
+            {% if "23103" in infractions_by_date %}
+                <tr>
+                    <td>23103</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["23103"] | length }}</td>
+                    <td>{{ infractions_by_date["23103"] | join(", ") }}</td>
+                    <td>TRANSPORT ROUTIER DE MARCHANDISES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME - TRANSPORT SANS HORAIRE FIXE</td>
+                    <td>ART.R.3315-5 AL.1, ART.R.3312-58 2°, ART.R.3312-34 C.TRANSPORTS. ART.3 ANX.II ARR.MINIST DU 20/07/1998.</td>
+                </tr>
+            {% endif %}
+            {% if "25666" in infractions_by_date %}
+                <tr>
+                    <td>25666</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["25666"] | length }}</td>
+                    <td>{{ infractions_by_date["25666"] | join(", ") }}</td>
+                    <td>TRANSPORT ROUTIER DE PERSONNES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME</td>
+                    <td>ART.R.3315-5 AL.1, ART.R.3312-19 2°, ART.R.3312-3 C.TRANSPORTS.</td>
+                </tr>
+            {% endif %}
+            {% if "35187" in infractions_by_date %}
+                <tr>
+                    <td>35187</td>
+                    <td>Contravention de 4ème classe</td>
+                    <td>{{ infractions_by_date["35187"] | length }}</td>
+                    <td>{{ infractions_by_date["35187"] | join(", ") }}</td>
+                    <td>PRISE INSUFFISANTE DE PAUSE PENDANT LE TEMPS DE TRAVAIL PAR PERSONNEL ROULANT D'UNE ENTREPRISE DE TRANSPORT PUBLIC ROUTIER</td>
+                    <td>ART.R.3315-5 AL.1, ART.L.3312-2 C.TRANSPORTS.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="small-text center" style="margin-top: 8pt">
+        Les infractions mentionnées au PV pourront être différentes de celles relevées au sein du présent bulletin de contrôle.
+    </div>
+
+</body>
+</html>
