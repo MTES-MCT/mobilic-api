@@ -32,6 +32,10 @@ def _generate_part_one(control):
     controller = control.controller_user
     controller_signature = controller.greco_id if controller._is_ctt() else f"{controller.last_name} {controller.first_name}"
 
+    birth_date_str = control.control_bulletin.get('user_birth_date')
+    birth_date_obj = datetime.strptime(birth_date_str, "%Y-%m-%d")
+    formatted_birth_date = birth_date_obj.strftime("%d/%m/%Y")
+
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
@@ -41,7 +45,7 @@ def _generate_part_one(control):
         control_location=f"{control.control_bulletin.get('location_lieu')}, {control.control_bulletin.get('location_commune')}",
         controlled_employee_first_name=control.user_first_name,
         controlled_employee_last_name=control.user_last_name,
-        controlled_employee_birth_date=control.control_bulletin.get('user_birth_date'),
+        controlled_employee_birth_date=formatted_birth_date,
         controlled_employee_nationality=control.control_bulletin.get('user_nationality'),
         controlled_company_siren=control.control_bulletin.get('siren'),
         controlled_company_name=control.company_name,
