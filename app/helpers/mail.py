@@ -565,6 +565,20 @@ class Mailer:
             )
         )
 
+    def send_employment_reattachment_email(self, employment):
+        login_link = f"{app.config['FRONTEND_URL']}/login"
+        self._send_single(
+            self._create_message_from_flask_template(
+                "reattachment_email.html",
+                subject=f"L'entreprise {employment.company.name} a réactivé votre rattachement à son compte Mobilic",
+                type_=EmailType.EMPLOYMENT_REATTACHMENT,
+                user=employment.user,
+                company_name=employment.company.name,
+                login_link=Markup(login_link),
+            ),
+            _disable_commit=True,
+        )
+
     @staticmethod
     def _generate_reset_password_link(user):
         token = jwt.encode(
@@ -937,6 +951,20 @@ class Mailer:
                 employment=employment,
                 user=employment.user,
                 type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_companies_with_employees_but_with_no_activity_reminder(
+        self, employment
+    ):
+        self._send_single(
+            self._create_message_from_flask_template(
+                template="company_with_employees_but_with_no_activity.html",
+                subject="Rappel : enregistrez du temps de travail sur Mobilic !",
+                employment=employment,
+                user=employment.user,
+                type_=EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER,
             ),
             _apply_whitelist_if_not_prod=True,
         )

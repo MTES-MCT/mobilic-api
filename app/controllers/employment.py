@@ -332,7 +332,6 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     )
     def mutate(cls, _, info, company_id, mails):
         with atomic_transaction(commit_at_end=True):
-            print(mails)
             if len(mails) > MAX_SIZE_OF_INVITATION_BATCH:
                 raise InvalidParamsError(
                     f"List of emails to invite cannot exceed {MAX_SIZE_OF_INVITATION_BATCH} in length"
@@ -504,6 +503,42 @@ class RedeemInvitation(graphene.Mutation):
         return employment
 
 
+def _terminate_single_employment(employment_id, end_date=None):
+    """
+    Helper function to terminate a single employment.
+    Returns (employment, error_message) tuple.
+    """
+    employment_end_date = end_date or date.today()
+    employment = Employment.query.get(employment_id)
+
+    if not employment:
+        return None, "Employment not found"
+
+    if current_user.id == employment.user_id:
+        return None, "Cannot terminate your own employment"
+
+    if not employment.is_acknowledged or employment.end_date:
+        return None, "Employment is inactive or already terminated"
+
+    if employment.start_date > employment_end_date:
+        return None, "End date is before the employment start date"
+
+    if (
+        query_activities(
+            user_id=employment.user_id,
+            start_time=employment_end_date + timedelta(days=1),
+            company_ids=[employment.company_id],
+        ).count()
+        > 0
+    ):
+        return None, "User has logged activities after this end date"
+
+    employment.end_date = employment_end_date
+    db.session.add(employment)
+
+    return employment, None
+
+
 class TerminateEmployment(AuthenticatedMutation):
     """
     Fin du rattachement d'un salarié.
@@ -535,39 +570,87 @@ class TerminateEmployment(AuthenticatedMutation):
     )
     def mutate(cls, _, info, employment_id, end_date=None):
         with atomic_transaction(commit_at_end=True):
-            employment_end_date = end_date or date.today()
-            employment = Employment.query.get(employment_id)
-
-            if current_user.id == employment.user_id:
-                raise UserSelfTerminateEmploymentError
-
-            if not employment.is_acknowledged or employment.end_date:
-                raise EmploymentAlreadyTerminated(
-                    f"Employment is inactive or has already an end date"
-                )
-
-            if employment.start_date > employment_end_date:
-                raise InvalidParamsError(
-                    "End date is before the employment start date"
-                )
-
-            if (
-                query_activities(
-                    user_id=employment.user_id,
-                    start_time=employment_end_date + timedelta(days=1),
-                    company_ids=[employment.company_id],
-                ).count()
-                > 0
-            ):
-                raise ActivityExistAfterEmploymentEndDate(
-                    "User has logged activities for the company after this end date"
-                )
-
-            employment.end_date = employment_end_date
-
-            db.session.add(employment)
+            employment, error = _terminate_single_employment(
+                employment_id, end_date
+            )
+            if error:
+                if "Cannot terminate your own" in error:
+                    raise UserSelfTerminateEmploymentError
+                if "inactive or already terminated" in error:
+                    raise EmploymentAlreadyTerminated(error)
+                if "before the employment start date" in error:
+                    raise InvalidParamsError(error)
+                if "activities after" in error:
+                    raise ActivityExistAfterEmploymentEndDate(error)
+                raise InvalidResourceError(error)
 
         return employment
+
+
+class TerminateEmploymentInput(graphene.InputObjectType):
+    employment_id = graphene.Int(
+        required=True, description="Identifiant du rattachement à terminer"
+    )
+    end_date = graphene.Date(
+        required=False,
+        description="Date de fin du rattachement. Si non précisée, la date du jour sera utilisée.",
+    )
+
+
+class TerminateEmploymentResult(graphene.ObjectType):
+    employment_id = graphene.Int()
+    success = graphene.Boolean()
+    error = graphene.String()
+
+
+class BatchTerminateEmployments(AuthenticatedMutation):
+    """
+    Fin du rattachement de plusieurs salariés en une seule opération.
+
+    Retourne la liste des résultats pour chaque rattachement.
+    """
+
+    class Arguments:
+        employments = graphene.List(
+            TerminateEmploymentInput,
+            required=True,
+            description="Liste des rattachements à terminer avec leurs dates de fin",
+        )
+
+    Output = graphene.List(TerminateEmploymentResult)
+
+    @classmethod
+    @with_authorization_policy(
+        companies_admin,
+        get_target_from_args=lambda *args, **kwargs: list(
+            set(
+                e.company_id
+                for e in Employment.query.filter(
+                    Employment.id.in_(
+                        [emp["employment_id"] for emp in kwargs["employments"]]
+                    )
+                ).all()
+            )
+        ),
+        error_message="Actor is not authorized to terminate at least one of these employments",
+    )
+    def mutate(cls, _, info, employments):
+        results = []
+        with atomic_transaction(commit_at_end=True):
+            for emp_input in employments:
+                employment, error = _terminate_single_employment(
+                    emp_input["employment_id"],
+                    emp_input.get("end_date"),
+                )
+                results.append(
+                    TerminateEmploymentResult(
+                        employment_id=emp_input["employment_id"],
+                        success=error is None,
+                        error=error,
+                    )
+                )
+
+        return results
 
 
 class CancelEmployment(AuthenticatedMutation):
@@ -844,3 +927,151 @@ class SnoozeNbWorkerInfo(AuthenticatedMutation):
             employment.nb_worker_info_snooze_date = date.today()
 
         return Void(success=True)
+
+
+class ReattachEmployment(AuthenticatedMutation):
+    """
+    Réattachement d'un salarié précédemment détaché à une entreprise.
+    Crée un nouvel Employment avec statut APPROVED (pas de validation requise).
+
+    Retourne le nouveau rattachement.
+    """
+
+    class Arguments:
+        user_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant du salarié à réattacher",
+        )
+        company_id = graphene.Argument(
+            graphene.Int,
+            required=True,
+            description="Identifiant de l'entreprise",
+        )
+
+    employment = graphene.Field(EmploymentOutput)
+    email_sent = graphene.Boolean()
+
+    @classmethod
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
+        error_message="Actor is not authorized to reattach employee",
+    )
+    def mutate(cls, _, info, user_id, company_id):
+        with atomic_transaction(commit_at_end=True):
+            user = User.query.get(user_id)
+            if not user:
+                raise InvalidResourceError("User not found")
+
+            company = Company.query.get(company_id)
+            if not company:
+                raise InvalidResourceError("Company not found")
+
+            dismissed_employment = Employment.query.filter(
+                Employment.user_id == user_id,
+                Employment.company_id == company_id,
+                Employment.is_dismissed == True,
+                Employment.end_date.is_(None),
+            ).first()
+
+            if dismissed_employment:
+                # Reactivate dismissed employment
+                dismissed_employment.dismissed_at = None
+                dismissed_employment.dismiss_author_id = None
+                dismissed_employment.validation_status = (
+                    EmploymentRequestValidationStatus.APPROVED
+                )
+                dismissed_employment.validation_time = datetime.now()
+                db.session.flush()
+
+                email_sent = True
+                try:
+                    mailer.send_employment_reattachment_email(
+                        dismissed_employment
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
+                    email_sent = False
+
+                return ReattachEmployment(
+                    employment=dismissed_employment, email_sent=email_sent
+                )
+
+            terminated_employment = (
+                Employment.query.filter(
+                    Employment.user_id == user_id,
+                    Employment.company_id == company_id,
+                    Employment.end_date.isnot(None),
+                    Employment.end_date <= date.today(),
+                )
+                .order_by(Employment.end_date.desc())
+                .first()
+            )
+
+            if not terminated_employment:
+                raise InvalidParamsError(
+                    "No terminated employment found for this user and company"
+                )
+
+            active_employment = Employment.query.filter(
+                Employment.user_id == user_id,
+                Employment.company_id == company_id,
+                Employment.end_date.is_(None),
+                ~Employment.is_dismissed,
+                Employment.validation_status
+                == EmploymentRequestValidationStatus.APPROVED,
+            ).first()
+
+            if active_employment:
+                raise InvalidParamsError(
+                    "An active employment already exists for this user and company"
+                )
+
+            # Case 1: Same-day termination → Cancel the termination (error correction)
+            if terminated_employment.end_date == date.today():
+                terminated_employment.end_date = None
+                db.session.flush()
+
+                email_sent = True
+                try:
+                    mailer.send_employment_reattachment_email(
+                        terminated_employment
+                    )
+                except Exception as e:
+                    app.logger.exception(e)
+                    email_sent = False
+
+                return ReattachEmployment(
+                    employment=terminated_employment, email_sent=email_sent
+                )
+
+            # Case 2: Termination with days gap → Create new employment
+            new_employment = Employment(
+                reception_time=datetime.now(),
+                submitter=current_user,
+                validation_status=EmploymentRequestValidationStatus.APPROVED,
+                validation_time=datetime.now(),
+                start_date=date.today(),
+                end_date=None,
+                company=company,
+                user=user,
+                user_id=user_id,
+                has_admin_rights=terminated_employment.has_admin_rights,
+                team_id=terminated_employment.team_id,
+                hide_email=terminated_employment.hide_email,
+                business=company.business,
+            )
+            db.session.add(new_employment)
+            db.session.flush()
+
+            email_sent = True
+            try:
+                mailer.send_employment_reattachment_email(new_employment)
+            except Exception as e:
+                app.logger.exception(e)
+                email_sent = False
+
+        return ReattachEmployment(
+            employment=new_employment, email_sent=email_sent
+        )
