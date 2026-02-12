@@ -294,6 +294,7 @@ def send_daily_emails():
         send_onboarding_emails,
         send_companies_without_any_employee_invitation_emails,
         send_companies_with_employees_but_without_activities_emails,
+        send_companies_without_activity_reminder_emails,
         send_reminder_no_invitation_emails,
         send_invitation_emails,
         send_companies_with_pending_invitation_emails,
@@ -302,6 +303,7 @@ def send_daily_emails():
     send_onboarding_emails(date.today())
     send_companies_without_any_employee_invitation_emails(date.today())
     send_companies_with_employees_but_without_activities_emails(date.today())
+    send_companies_without_activity_reminder_emails(date.today())
     send_reminder_no_invitation_emails(date.today())
     send_invitation_emails(date.today())
     send_companies_with_pending_invitation_emails(date.today())

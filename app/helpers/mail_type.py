@@ -25,6 +25,7 @@ class EmailType(str, Enum):
     COMPANY_WITHOUT_ANY_INVITATION = "company_without_any_invitation"
     COMPANY_REMINDER_NO_INVITATION = "company_reminder_no_invitation"
     COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY = "company_without_activity"
+    COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER = "company_without_activity_reminder"
     # Deprecated
     COMPANY_ACTIVE_THEN_INACTIVE = "company_active_then_inactive"
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
