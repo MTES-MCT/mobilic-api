@@ -14,8 +14,11 @@ def check_idp_allowed(ac_info):
     allowed_idp_ids = app.config["PC_ALLOWED_IDP_IDS"]
     idp_id = ac_info.get("idp_id")
     if not allowed_idp_ids or idp_id not in allowed_idp_ids:
+        app.logger.warning(
+            f"Controller login blocked: idp_id '{idp_id}' is not in allowed list"
+        )
         raise AgentConnectIdpNotAllowedError(
-            f"Identity provider '{idp_id}' is not allowed for controller login"
+            "Identity provider is not allowed for controller login"
         )
 
 
