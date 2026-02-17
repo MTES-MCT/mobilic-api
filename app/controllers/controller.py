@@ -17,6 +17,7 @@ from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
 from app.domain.control_bulletin import save_control_bulletin
 from app.domain.controller import (
+    check_idp_allowed,
     create_controller_user,
     get_controller_from_ac_info,
 )
@@ -67,7 +68,7 @@ def redirect_to_ac_authorize():
         "state": uuid4().hex,
         "nonce": uuid4().hex,
         "response_type": "code",
-        "scope": "openid uid email given_name usual_name organizational_unit",
+        "scope": "openid uid email given_name usual_name organizational_unit idp_id",
         "client_id": app.config["AC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
@@ -370,6 +371,7 @@ class AgentConnectLogin(graphene.Mutation):
             ac_user_info, ac_token = get_agent_connect_user_info(
                 authorization_code, original_redirect_uri
             )
+            check_idp_allowed(ac_user_info)
             controller = get_controller_from_ac_info(ac_user_info)
 
             if not controller:
