@@ -7,15 +7,33 @@ Valider votre compte Mobilic
 
 {% block body %}
     <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
-    <p>Le logiciel {{software_name}} a initialisé votre compte Mobilic rattaché à l'entreprise <strong>{{company_name | upper}}</strong>.</p>
-    <p>Une validation de votre part est nécessaire, afin que votre compte soit définitivement créé.</p>
-    {{button.button('Valider mon compte', validation_link)}}
-    <br/>
+    <p>Votre entreprise <strong>{{company_name | upper}}</strong> a choisi d'utiliser le logiciel
+    <strong>{{software_name}}</strong>, connecté à Mobilic, pour le suivi de votre temps de
+    travail, vous évitant ainsi de multiples outils et des saisies manuelles.</p>
+    <p>La création de votre compte Mobilic reste tout de même indispensable pour
+    que vos temps de travail (heures de conduite, de travail, de pause, etc.)
+    saisis sur votre logiciel <strong>{{software_name}}</strong> soient automatiquement
+    transmis vers Mobilic.</p>
+    <p>Pour finaliser la création de votre compte, cliquez sur le bouton
+    ci-dessous et validez votre rattachement :</p>
+    {{button.button('Je crée mon compte Mobilic', validation_link, width=300)}}
+    {% if help_video_url %}
+    <p>Besoin d'aide ? Une courte vidéo vous guide pas à pas pour finaliser
+    votre inscription, <a href="{{help_video_url}}" target="_blank" rel="noopener noreferrer">cliquez ici</a>.</p>
+    {% endif %}
     <p>
-        <strong>Qu'est ce que Mobilic ?</strong>
+        <strong>Pourquoi est-ce obligatoire ?</strong>
         <br/>
-        <i>Mobilic est la plateforme gouvernementale pour <strong>le suivi du temps de travail</strong> dans le transport routier léger. C’est une alternative numérique au livret individuel de contrôle (LIC).</i>
+        Conformément à la réglementation en vigueur, tout salarié du transport
+        routier léger doit voir son temps de travail, de conduite et de pause
+        enregistré de manière obligatoire. Lorsque ce suivi est dématérialisé, il
+        doit être effectué via Mobilic, le service public officiel, afin de
+        garantir la conformité légale et la transmission correcte des données. Le
+        choix de votre entreprise d'utiliser le logiciel <strong>{{software_name}}</strong>
+        connecté à Mobilic vous permet d'éviter plusieurs outils, tout en
+        respectant vos obligations réglementaires.
     </p>
     <br/>
-    <p>Bien à vous,</p>
+    <p>Bien cordialement,</p>
+    <p>L'équipe Mobilic</p>
 {% endblock %}
