@@ -2,18 +2,37 @@
 {% import 'button.html' as button %}
 
 {% block subject %}
-Demande d'accès à votre compte Mobilic
+Ouverture d'accès à votre compte Mobilic
 {% endblock %}
 
 {% block body %}
     <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
     {% if employment_already_exists %}
-        <p>Le logiciel {{software_name}} demande des droits d'accès à votre compte Mobilic, rattaché à l'entreprise <strong>{{company_name | upper}}</strong>.</p>
+        <p>Le logiciel <strong>{{software_name}}</strong>, connecté à Mobilic, demande des droits
+        d'accès à votre compte Mobilic rattaché à l'entreprise <strong>{{company_name | upper}}</strong>.</p>
+        <p>Cet accès permettra la transmission automatique de vos temps de travail
+        (heures de conduite, de travail, de pause, etc.) saisis sur <strong>{{software_name}}</strong>
+        vers Mobilic, vous évitant ainsi de multiples outils et des saisies manuelles.</p>
     {% else %}
-        <p>Le logiciel {{software_name}} demande des droits d'accès à votre compte Mobilic, pour le compte de l'entreprise <strong>{{company_name | upper}}</strong>.</p>
+        <p>Votre entreprise <strong>{{company_name | upper}}</strong> a choisi d'utiliser le logiciel
+        <strong>{{software_name}}</strong>, connecté à Mobilic, pour le suivi de votre temps de
+        travail, vous évitant ainsi de multiples outils et des saisies manuelles.</p>
+        <p>Une validation de votre part est nécessaire pour que vos temps de travail
+        (heures de conduite, de travail, de pause, etc.) saisis sur <strong>{{software_name}}</strong>
+        soient automatiquement transmis vers Mobilic.</p>
     {% endif %}
-    <p>Une validation de votre part est requise.</p>
-    {{button.button("Valider l'accès", validation_link)}}
+    <p>Pour valider cet accès, cliquez sur le bouton ci-dessous :</p>
+    {{button.button("Je valide l'accès", validation_link, width=300)}}
+    <p>
+        <strong>Pourquoi est-ce obligatoire ?</strong>
+        <br/>
+        Conformément à la réglementation en vigueur, tout salarié du transport
+        routier léger doit voir son temps de travail, de conduite et de pause
+        enregistré de manière obligatoire. Lorsque ce suivi est dématérialisé, il
+        doit être effectué via Mobilic, le service public officiel, afin de
+        garantir la conformité légale et la transmission correcte des données.
+    </p>
     <br/>
-    <p>Bien à vous,</p>
+    <p>Bien cordialement,</p>
+    <p>L'équipe Mobilic</p>
 {% endblock %}
