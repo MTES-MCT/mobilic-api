@@ -74,6 +74,7 @@ def compute_regulations(
         only_missions_validated_by_user=submitter_type
         == SubmitterType.EMPLOYEE,
         include_holidays=False,
+        employee_version=submitter_type == SubmitterType.EMPLOYEE,
     )
 
     if business is None:
