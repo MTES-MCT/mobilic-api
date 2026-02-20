@@ -39,4 +39,10 @@ def generate_control_bulletin_pdf(control):
         infraction_labels=control.reported_infractions_labels,
         history_start_date=control.history_start_date,
         history_end_date=control.history_end_date,
+        vehicle_weight=(
+            control.control_bulletin.get("real_vehicle_weight")
+            if control.control_bulletin
+            and control.control_bulletin.get("real_vehicle_weight")
+            else "-"
+        )
     )
