@@ -155,6 +155,40 @@ class ControllerControl(BaseModel, RandomNineIntId):
             end_date=self.history_end_date,
         )
         observed_infractions = []
+
+        # Check if the current day has been filled
+        control_date = self.history_end_date
+        work_days = group_user_events_by_day_with_limit(
+            user=self.user,
+            from_date=control_date,
+            until_date=control_date,
+            include_dismissed_or_empty_days=False,
+        )[0]
+
+        is_current_day_filled = len(work_days) > 0
+
+        if not is_current_day_filled:
+            # Get business_id from control_bulletin or active employment
+            business_id = None
+            if (
+                self.control_bulletin
+                and "business_id" in self.control_bulletin
+            ):
+                business_id = self.control_bulletin["business_id"]
+            else:
+                current_employments = self.user.active_employments_at(
+                    control_date
+                )
+                if current_employments:
+                    business_id = current_employments[0].business_id
+
+            if business_id:
+                # Add infraction
+                no_lic_infractions = get_no_lic_observed_infractions(
+                    control_date, business_id
+                )
+                observed_infractions.extend(no_lic_infractions)
+
         for regulatory_alert in regulatory_alerts:
 
             extra = regulatory_alert.extra
