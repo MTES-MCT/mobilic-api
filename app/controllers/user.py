@@ -65,7 +65,7 @@ from app.helpers.time import min_or_none, max_or_none
 from app.models.queries import add_mission_relations
 from app.models.user_agreement import UserAgreementStatus
 from app.templates.filters import full_format_day
-from app.models import User, Mission, UserAgreement
+from app.models import User, Mission, UserAgreement, Employment
 from app import app, db, mailer
 from app.models.email import Email
 from app.helpers.graphene_types import Email as EmailGrapheneType
@@ -137,11 +137,39 @@ class UserSignUp(graphene.Mutation):
             is_employee = data.pop("is_employee", True)
             user = create_user(**data)
             user.create_activation_link()
+        
+        invitation_email = None
+        employment = None
+        email_in_email_table = None
+        new_email_in_email_table = None
+        invite_token = data.get("invite_token")
+        
+        if invite_token:
+            employment = Employment.query.filter(Employment.invite_token == invite_token).first()
+            invitation_email = employment.email if employment else None
+            email_in_email_table = Email.query.filter(Email.address == invitation_email).first()
 
-        try:
-            mailer.send_activation_email(user, is_employee=is_employee)
-        except Exception as e:
-            app.logger.exception(e)
+        # if invitation_email is None or user.email != invitation_email: 
+        if user.email != invitation_email: 
+
+            try:
+                mailer.send_activation_email(user, is_employee=is_employee)
+            except Exception as e:
+                db.session.rollback()
+                app.logger.exception(e)
+
+            if employment:
+                # If the user registers with a different email than the one set by the employer,
+                # update the email in the employment table to avoid potential conflicts
+                employment.email = user.email
+
+                new_email_in_email_table = Email.query.filter(Email.address == user.email).first()
+
+                if new_email_in_email_table and employment.id:
+                    new_email_in_email_table.employment_id = employment.id
+
+                    if email_in_email_table:
+                        db.session.delete(email_in_email_table)
 
         if has_subscribed_to_newsletter:
             try:
