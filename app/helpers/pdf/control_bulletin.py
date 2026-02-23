@@ -29,12 +29,14 @@ def _generate_part_one(control):
     #Signature de l'agent
     #CTT=greco id
     #IT=nom de l'agent
-    controller = control.controller_user
-    controller_signature = controller.greco_id if controller._is_ctt() else f"{controller.last_name} {controller.first_name}"
+    if not control.controller_user:
+        controller_signature = "-"
+    else:
+        controller = control.controller_user
+        controller_signature = controller.greco_id if controller._is_ctt() else f"{controller.last_name} {controller.first_name}"
 
     birth_date_str = control.control_bulletin.get('user_birth_date')
-    birth_date_obj = datetime.strptime(birth_date_str, "%Y-%m-%d")
-    formatted_birth_date = birth_date_obj.strftime("%d/%m/%Y")
+    formatted_birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d").strftime("%d/%m/%Y") if birth_date_str else "-"
 
     return generate_pdf_from_template(
         "control_bulletin.html",
