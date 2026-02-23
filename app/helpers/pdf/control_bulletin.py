@@ -5,6 +5,49 @@ from app.domain.regulations import get_default_business
 from app.helpers.pdf import generate_pdf_from_template, generate_pdf_from_list
 from app.models.controller_control import ControlType
 
+NATINF_METADATA = {
+    "11292": {
+        "nature": "Contravention de 4ème classe",
+        "qualification": "EMPLOI DE SALARIE AU DELA DE LA DUREE QUOTIDIENNE MAXIMALE DE TRAVAIL EFFECTIF - ENTREPRISE DE TRANSPORT ROUTIER",
+        "definition": "ART.R.3315-5 AL.1, ART.R.3312-51, ART.D.3312-64, ART.R.3312-34, ART.D.3312-6, ART.R.3312-11, ART.D.3312-31, ART.R.3312-3 C.TRANSPORTS."
+    },
+    "11289": {
+        "nature": "Contravention de 5ème classe",
+        "qualification": "EMPLOI, PAR ENTREPRISE DE TRANSPORT ROUTIER DE MARCHANDISES, DE PERSONNEL ROULANT AU DELA DE LA DUREE DE TEMPS DE SERVICE MAXIMALE HEBDOMADAIRE SUR UNE SEMAINE ISOLEE",
+        "definition": "ART.R.3315-6 AL.1, ART.R.3312-50, ART.D.3312-45, ART.R.3312-34, ART.D.3312-37 C.TRANSPORTS."
+    },
+    "20525": {
+        "nature": "Contravention de 4ème classe",
+        "qualification": "EMPLOI DE PERSONNEL ROULANT SANS REPOS QUOTIDIEN SUFFISANT - ENTREPRISE DE TRANSPORT ROUTIER",
+        "definition": "ART.R.3315-5 AL.1, ART.R.3312-13, ART.R.3312-30 AL.5, ART.R.3312-53 2°, ART.R.3312-3, ART.R.3312-34 C.TRANSPORTS."
+    },
+    "32083": {
+        "nature": "Contravention de 5ème classe",
+        "qualification": "DEPASSEMENT DE LA DUREE MAXIMALE QUOTIDIENNE DE TRAVAIL DU PERSONNEL ROULANT DE NUIT - ENTREPRISE DE TRANSPORT ROUTIER",
+        "definition": "ART.R.3315-3 AL.1, ART.L.3312-1 C.TRANSPORTS. ART.L.3122-5 C.TRAVAIL."
+    },
+    "13152": {
+        "nature": "Contravention de 5ème classe",
+        "qualification": "EMPLOI DE SALARIE SANS RESPECT DE LA DUREE MINIMALE DE REPOS HEBDOMADAIRE",
+        "definition": "ART.R.3135-2 AL.1, ART.L.3132-1, ART.L.3132-2 C.TRAVAIL."
+    },
+    "23103": {
+        "nature": "Contravention de 4ème classe",
+        "qualification": "TRANSPORT ROUTIER DE MARCHANDISES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME - TRANSPORT SANS HORAIRE FIXE",
+        "definition": "ART.R.3315-5 AL.1, ART.R.3312-58 2°, ART.R.3312-34 C.TRANSPORTS. ART.3 ANX.II ARR.MINIST DU 20/07/1998."
+    },
+    "25666": {
+        "nature": "Contravention de 4ème classe",
+        "qualification": "TRANSPORT ROUTIER DE PERSONNES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME",
+        "definition": "ART.R.3315-5 AL.1, ART.R.3312-19 2°, ART.R.3312-3 C.TRANSPORTS."
+    },
+    "35187": {
+        "nature": "Contravention de 4ème classe",
+        "qualification": "PRISE INSUFFISANTE DE PAUSE PENDANT LE TEMPS DE TRAVAIL PAR PERSONNEL ROULANT D'UNE ENTREPRISE DE TRANSPORT PUBLIC ROUTIER",
+        "definition": "ART.R.3315-5 AL.1, ART.L.3312-2 C.TRANSPORTS."
+    },
+}
+
 def generate_control_bulletin_pdf(control):
     part_one = _generate_part_one(control=control)
     part_two = _generate_part_two(control=control)
@@ -97,5 +140,6 @@ def _generate_part_two(control):
 
     return generate_pdf_from_template(
         "control_bulletin_annexe.html",
-        infractions_by_date=infractions_by_date
+        infractions_by_date=infractions_by_date,
+        natinf_metadata=NATINF_METADATA
     )

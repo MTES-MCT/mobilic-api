@@ -134,86 +134,18 @@
             </tr>
         </thead>
         <tbody>
-            {% if "11292" in infractions_by_date %}
-                <tr>
-                    <td>11292</td>
-                    <td>Contravention de 4ème classe</td>
-                    <td>{{ infractions_by_date["11292"] | length }}</td>
-                    <td>{{ infractions_by_date["11292"] | join(", ") }}</td>
-                    <td>EMPLOI DE SALARIE AU DELA DE LA DUREE QUOTIDIENNE MAXIMALE DE TRAVAIL EFFECTIF - ENTREPRISE DE TRANSPORT ROUTIER</td>
-                    <td>ART.R.3315-5 AL.1, ART.R.3312-51, ART.D.3312-64, ART.R.3312-34, ART.D.3312-6, ART.R.3312-11, ART.D.3312-31, ART.R.3312-3 C.TRANSPORTS.</td>
-                </tr>
-            {% endif %}
-            {% if "11289" in infractions_by_date %}
-                <tr>
-                    <td>11289</td>
-                    <td>Contravention de 5ème classe</td>
-                    <td>{{ infractions_by_date["11289"] | length }}</td>
-                    <td>{{ infractions_by_date["11289"] | join(", ") }}</td>
-                    <td>EMPLOI, PAR ENTREPRISE DE TRANSPORT ROUTIER DE MARCHANDISES, DE PERSONNEL ROULANT AU DELA DE LA DUREE DE TEMPS DE SERVICE MAXIMALE HEBDOMADAIRE SUR UNE SEMAINE ISOLEE</td>
-                    <td>ART.R.3315-6 AL.1, ART.R.3312-50, ART.D.3312-45, ART.R.3312-34, ART.D.3312-37 C.TRANSPORTS.</td>
-                </tr>
-            {% endif %}
-            {% if "20525" in infractions_by_date %}
-                <tr>
-                    <td>20525</td>
-                    <td>Contravention de 4ème classe</td>
-                    <td>{{ infractions_by_date["20525"] | length }}</td>
-                    <td>{{ infractions_by_date["20525"] | join(", ") }}</td>
-                    <td>EMPLOI DE PERSONNEL ROULANT SANS REPOS QUOTIDIEN SUFFISANT - ENTREPRISE DE TRANSPORT ROUTIER</td>
-                    <td>ART.R.3315-5 AL.1, ART.R.3312-13, ART.R.3312-30 AL.5, ART.R.3312-53 2°, ART.R.3312-3, ART.R.3312-34 C.TRANSPORTS.</td>
-                </tr>
-            {% endif %}
-            {% if "32083" in infractions_by_date %}
-                <tr>
-                    <td>32083</td>
-                    <td>Contravention de 5ème classe</td>
-                    <td>{{ infractions_by_date["32083"] | length }}</td>
-                    <td>{{ infractions_by_date["32083"] | join(", ") }}</td>
-                    <td>DEPASSEMENT DE LA DUREE MAXIMALE QUOTIDIENNE DE TRAVAIL DU PERSONNEL ROULANT DE NUIT - ENTREPRISE DE TRANSPORT ROUTIER</td>
-                    <td>ART.R.3315-3 AL.1, ART.L.3312-1 C.TRANSPORTS. ART.L.3122-5 C.TRAVAIL.</td>
-                </tr>
-            {% endif %}
-            {% if "13152" in infractions_by_date %}
-                <tr>
-                    <td>13152</td>
-                    <td>Contravention de 5ème classe</td>
-                    <td>{{ infractions_by_date["13152"] | length }}</td>
-                    <td>{{ infractions_by_date["13152"] | join(", ") }}</td>
-                    <td>EMPLOI DE SALARIE SANS RESPECT DE LA DUREE MINIMALE DE REPOS HEBDOMADAIRE</td>
-                    <td>ART.R.3135-2 AL.1, ART.L.3132-1, ART.L.3132-2 C.TRAVAIL.</td>
-                </tr>
-            {% endif %}
-            {% if "23103" in infractions_by_date %}
-                <tr>
-                    <td>23103</td>
-                    <td>Contravention de 4ème classe</td>
-                    <td>{{ infractions_by_date["23103"] | length }}</td>
-                    <td>{{ infractions_by_date["23103"] | join(", ") }}</td>
-                    <td>TRANSPORT ROUTIER DE MARCHANDISES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME - TRANSPORT SANS HORAIRE FIXE</td>
-                    <td>ART.R.3315-5 AL.1, ART.R.3312-58 2°, ART.R.3312-34 C.TRANSPORTS. ART.3 ANX.II ARR.MINIST DU 20/07/1998.</td>
-                </tr>
-            {% endif %}
-            {% if "25666" in infractions_by_date %}
-                <tr>
-                    <td>25666</td>
-                    <td>Contravention de 4ème classe</td>
-                    <td>{{ infractions_by_date["25666"] | length }}</td>
-                    <td>{{ infractions_by_date["25666"] | join(", ") }}</td>
-                    <td>TRANSPORT ROUTIER DE PERSONNES SANS LIVRET INDIVIDUEL DE CONTROLE CONFORME</td>
-                    <td>ART.R.3315-5 AL.1, ART.R.3312-19 2°, ART.R.3312-3 C.TRANSPORTS.</td>
-                </tr>
-            {% endif %}
-            {% if "35187" in infractions_by_date %}
-                <tr>
-                    <td>35187</td>
-                    <td>Contravention de 4ème classe</td>
-                    <td>{{ infractions_by_date["35187"] | length }}</td>
-                    <td>{{ infractions_by_date["35187"] | join(", ") }}</td>
-                    <td>PRISE INSUFFISANTE DE PAUSE PENDANT LE TEMPS DE TRAVAIL PAR PERSONNEL ROULANT D'UNE ENTREPRISE DE TRANSPORT PUBLIC ROUTIER</td>
-                    <td>ART.R.3315-5 AL.1, ART.L.3312-2 C.TRANSPORTS.</td>
-                </tr>
-            {% endif %}
+            {% for natinf_code, metadata in natinf_metadata.items() %}
+                {% if natinf_code in infractions_by_date %}
+                    <tr>
+                        <td>{{ natinf_code }}</td>
+                        <td>{{ metadata.nature }}</td>
+                        <td>{{ infractions_by_date[natinf_code] | length }}</td>
+                        <td>{{ infractions_by_date[natinf_code] | join(", ") }}</td>
+                        <td>{{ metadata.qualification }}</td>
+                        <td>{{ metadata.definition }}</td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
         </tbody>
     </table>
 
