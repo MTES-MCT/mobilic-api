@@ -10,6 +10,15 @@ from app.helpers.xls.companies.tab_details import write_day_details_sheet
 from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 
+def _is_export_empty_for_user(wdays_data):
+    """Check if export will be empty for this user's data."""
+    if not wdays_data:
+        return True
+
+    complete_work_days = [wd for wd in wdays_data if wd.is_complete]
+    return not any(len(wd.activities) > 0 for wd in complete_work_days)
+
+
 def get_archive_excel_file(batches, companies, min_date, max_date):
     memory_file = BytesIO()
     with zipfile.ZipFile(
@@ -23,6 +32,11 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
             last_name = clean_string(batch_user.last_name)
             first_name = clean_string(batch_user.first_name)
             user_name = f"{batch_user.id}_{last_name}_{first_name}"
+
+            # Check if this user's export is empty
+            if _is_export_empty_for_user(batch_data):
+                user_name = f"{user_name}_vide"
+
             zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
 
     memory_file.seek(0)
