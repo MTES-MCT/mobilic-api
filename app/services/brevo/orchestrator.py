@@ -37,7 +37,7 @@ class BrevoSyncOrchestrator:
 
         self.MAX_REQUESTS_PER_BATCH = 50
         self.DELAY_BETWEEN_BATCHES = 2
-        self.DEFAULT_ACQUISITION_PIPELINE = "Acquisition V2"
+        self.DEFAULT_ACQUISITION_PIPELINE = "Acquisition"
         self.DEFAULT_ACTIVATION_PIPELINE = "Activation"
 
     def sync_all_funnels(
