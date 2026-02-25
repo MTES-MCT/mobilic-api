@@ -176,8 +176,14 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
             if not business_id:
                 # Get business_id from the latest activity's employment
+                # Use the original datetime (qr_code_generation_time or creation_time)
+                control_datetime = (
+                    self.qr_code_generation_time
+                    if self.qr_code_generation_time
+                    else self.creation_time
+                )
                 latest_activity_before = self.user.latest_activity_before(
-                    control_date
+                    control_datetime
                 )
                 if latest_activity_before:
                     latest_mission = latest_activity_before.mission
