@@ -4,7 +4,22 @@ from sqlalchemy import func
 from app import app, db
 from app.models.controller_user import ControllerUser
 from app.helpers.validation import clean_email_string
-from app.helpers.errors import AgentConnectOrganizationalUnitError
+from app.helpers.errors import (
+    AgentConnectIdpNotAllowedError,
+    AgentConnectOrganizationalUnitError,
+)
+
+
+def check_idp_allowed(ac_info):
+    allowed_idp_ids = app.config["PC_ALLOWED_IDP_IDS"]
+    idp_id = ac_info.get("idp_id")
+    if not allowed_idp_ids or idp_id not in allowed_idp_ids:
+        app.logger.warning(
+            f"Controller login blocked: idp_id '{idp_id}' is not in allowed list"
+        )
+        raise AgentConnectIdpNotAllowedError(
+            "Identity provider is not allowed for controller login"
+        )
 
 
 def create_controller_user(ac_info):
