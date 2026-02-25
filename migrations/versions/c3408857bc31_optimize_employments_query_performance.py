@@ -21,8 +21,13 @@ def upgrade():
     # Add composite index to optimize latestPerUser query
     # CONCURRENTLY: Index creation without blocking INSERT/UPDATE/DELETE
     # This is safer for production but takes longer to complete
-    op.execute(
-        """
+    # Must commit the current transaction before CONCURRENTLY operations
+    conn = op.get_bind()
+    conn.execute(sa.text("COMMIT"))
+
+    conn.execute(
+        sa.text(
+            """
         CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_employment_latest_per_user
         ON employment (
             user_id,
@@ -32,20 +37,23 @@ def upgrade():
         )
         WHERE dismissed_at IS NULL AND validation_status != 'rejected'
         """
+        )
     )
 
     # Add composite index for base filters used in resolve_employments
-    op.execute(
-        """
+    conn.execute(
+        sa.text(
+            """
         CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_employment_company_active
         ON employment (company_id, validation_status)
         WHERE dismissed_at IS NULL
         """
+        )
     )
 
     # Optimize the trigger function to reduce overhead
-    # Keep the same function name for continuity with the previous migration
-    # Just replace the implementation with CREATE OR REPLACE
+    # The original function is kept as-is, we only ensure it's properly set up
+    # The real optimization comes from the indexes above
     op.execute(
         """
     CREATE OR REPLACE FUNCTION insert_last_active_at()
@@ -63,8 +71,6 @@ def upgrade():
 
         -- Only update if we found a valid end time
         IF mission_end_time IS NOT NULL THEN
-            -- Optimization: Use EXISTS subquery to avoid unnecessary updates
-            -- This reduces overhead when employment doesn't exist or is already up-to-date
             UPDATE employment e
             SET last_active_at = mission_end_time
             FROM mission m
@@ -74,16 +80,7 @@ def upgrade():
             AND e.company_id = m.company_id
             AND e.end_date IS NULL
             AND e.dismissed_at IS NULL
-            AND (e.last_active_at IS NULL OR e.last_active_at < mission_end_time)
-            -- Skip update if employment doesn't exist (avoids useless work)
-            AND EXISTS (
-                SELECT 1 FROM employment e2
-                WHERE e2.user_id = NEW.user_id
-                AND e2.company_id = m.company_id
-                AND e2.validation_status = 'approved'
-                AND e2.end_date IS NULL
-                AND e2.dismissed_at IS NULL
-            );
+            AND (e.last_active_at IS NULL OR e.last_active_at < mission_end_time);
         END IF;
         RETURN NEW;
     END;
@@ -94,11 +91,19 @@ def upgrade():
 
 def downgrade():
     # Remove the indexes (CONCURRENTLY for safe removal)
-    op.execute(
-        "DROP INDEX CONCURRENTLY IF EXISTS idx_employment_latest_per_user"
+    # Must commit the current transaction before CONCURRENTLY operations
+    conn = op.get_bind()
+    conn.execute(sa.text("COMMIT"))
+
+    conn.execute(
+        sa.text(
+            "DROP INDEX CONCURRENTLY IF EXISTS idx_employment_latest_per_user"
+        )
     )
-    op.execute(
-        "DROP INDEX CONCURRENTLY IF EXISTS idx_employment_company_active"
+    conn.execute(
+        sa.text(
+            "DROP INDEX CONCURRENTLY IF EXISTS idx_employment_company_active"
+        )
     )
 
     # Restore the original trigger function (without the EXISTS optimization)
