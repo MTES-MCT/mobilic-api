@@ -3,6 +3,7 @@ from datetime import datetime
 from app.domain.business import get_businesses_display_name
 from app.domain.regulations import get_default_business
 from app.helpers.pdf import generate_pdf_from_template, generate_pdf_from_list
+from app.models import Business
 from app.models.controller_control import ControlType
 
 NATINF_METADATA = {
@@ -63,11 +64,12 @@ def _generate_part_one(control):
         business_ids = list(
             control.control_bulletin.get("employments_business_types").values()
         )
-        business_types = get_businesses_display_name(business_ids=business_ids)
     else:
         business_id = control.control_bulletin.get("business_id", None)
         business = get_default_business(business_id=business_id)
-        business_types = business.display_name
+        business_ids = [business_id]
+    businesses = Business.query.filter(Business.id.in_(business_ids)).all()
+    business_types = ', '.join(list(set([b.transport_type.name for b in businesses])))
 
     #Signature de l'agent
     #CTT=greco id
