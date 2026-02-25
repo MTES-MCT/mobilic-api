@@ -463,7 +463,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
 @app.cli.command("sync_brevo_funnel", with_appcontext=True)
 @click.option(
     "--acquisition-pipeline",
-    default="Acquisition V2",
+    default="Acquisition",
     help="Brevo pipeline name for acquisition funnel",
 )
 @click.option(
