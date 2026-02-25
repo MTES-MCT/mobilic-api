@@ -157,18 +157,19 @@ class ControllerControl(BaseModel, RandomNineIntId):
         )
         observed_infractions = []
 
-        # Check if the current day has been filled
+        # Check if the user has an ongoing activity at the time of control
         control_date = self.history_end_date
-        work_days = group_user_events_by_day_with_limit(
-            user=self.user,
-            from_date=control_date,
-            until_date=control_date,
-            include_dismissed_or_empty_days=False,
-        )[0]
+        control_datetime = (
+            self.qr_code_generation_time
+            if self.qr_code_generation_time
+            else self.creation_time
+        )
 
-        is_current_day_filled = len(work_days) > 0
+        # Get the activity at the time of control if any
+        activity_at_control = self.user.activity_at(control_datetime)
 
-        if not is_current_day_filled:
+        if not activity_at_control:
+            # No ongoing activity at the time of control
             # Get business_id from control_bulletin or from the employment corresponding to the latest activity
             business_id = None
             if self.control_bulletin:
@@ -176,12 +177,6 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
             if not business_id:
                 # Get business_id from the latest activity's employment
-                # Use the original datetime (qr_code_generation_time or creation_time)
-                control_datetime = (
-                    self.qr_code_generation_time
-                    if self.qr_code_generation_time
-                    else self.creation_time
-                )
                 latest_activity_before = self.user.latest_activity_before(
                     control_datetime
                 )
