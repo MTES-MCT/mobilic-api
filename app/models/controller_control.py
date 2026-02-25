@@ -12,6 +12,7 @@ from app.domain.regulation_computations import (
     get_regulatory_alerts,
     get_regulatory_computations,
 )
+from app.domain.user import get_current_employment_in_company
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.submitter_type import SubmitterType
@@ -168,14 +169,26 @@ class ControllerControl(BaseModel, RandomNineIntId):
         is_current_day_filled = len(work_days) > 0
 
         if not is_current_day_filled:
-            # Get business_id from control_bulletin or active employment
+            # Get business_id from control_bulletin or from the employment corresponding to the latest activity
             business_id = None
-            if (
-                self.control_bulletin
-                and "business_id" in self.control_bulletin
-            ):
-                business_id = self.control_bulletin["business_id"]
-            else:
+            if self.control_bulletin:
+                business_id = self.control_bulletin.get("business_id")
+
+            if not business_id:
+                # Get business_id from the latest activity's employment
+                latest_activity_before = self.user.latest_activity_before(
+                    control_date
+                )
+                if latest_activity_before:
+                    latest_mission = latest_activity_before.mission
+                    employment = get_current_employment_in_company(
+                        self.user, latest_mission.company
+                    )
+                    if employment:
+                        business_id = employment.business_id
+
+            if not business_id:
+                # Fallback: if still no business_id, take the first active employment
                 current_employments = self.user.active_employments_at(
                     control_date
                 )
