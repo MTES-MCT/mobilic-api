@@ -67,7 +67,7 @@ def _generate_part_one(control):
     else:
         business_id = control.control_bulletin.get("business_id", None)
         business = get_default_business(business_id=business_id)
-        business_ids = [business_id]
+        business_ids = [business.id]
     businesses = Business.query.filter(Business.id.in_(business_ids)).all()
     business_types = ', '.join(list(set([b.transport_type.name for b in businesses])))
 
