@@ -12,6 +12,7 @@ from app.domain.regulation_computations import (
     get_regulatory_alerts,
     get_regulatory_computations,
 )
+from app.domain.user import get_current_employment_in_company
 from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.db import DateTimeStoredAsUTC
 from app.helpers.submitter_type import SubmitterType
@@ -155,6 +156,53 @@ class ControllerControl(BaseModel, RandomNineIntId):
             end_date=self.history_end_date,
         )
         observed_infractions = []
+
+        # Check if the user has an ongoing activity at the time of control
+        control_date = self.history_end_date
+        control_datetime = (
+            self.qr_code_generation_time
+            if self.qr_code_generation_time
+            else self.creation_time
+        )
+
+        # Get the activity at the time of control if any
+        activity_at_control = self.user.activity_at(control_datetime)
+
+        if not activity_at_control:
+            # No ongoing activity at the time of control
+            # Get business_id from control_bulletin or from the employment corresponding to the latest activity
+            business_id = None
+            if self.control_bulletin:
+                business_id = self.control_bulletin.get("business_id")
+
+            if not business_id:
+                # Get business_id from the latest activity's employment
+                latest_activity_before = self.user.latest_activity_before(
+                    control_datetime
+                )
+                if latest_activity_before:
+                    latest_mission = latest_activity_before.mission
+                    employment = get_current_employment_in_company(
+                        self.user, latest_mission.company
+                    )
+                    if employment:
+                        business_id = employment.business_id
+
+            if not business_id:
+                # Fallback: if still no business_id, take the first active employment
+                current_employments = self.user.active_employments_at(
+                    control_date
+                )
+                if current_employments:
+                    business_id = current_employments[0].business_id
+
+            if business_id:
+                # Add infraction
+                no_lic_infractions = get_no_lic_observed_infractions(
+                    control_date, business_id
+                )
+                observed_infractions.extend(no_lic_infractions)
+
         for regulatory_alert in regulatory_alerts:
 
             extra = regulatory_alert.extra

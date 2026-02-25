@@ -122,6 +122,11 @@ class AgentConnectOrganizationalUnitError(MobilicError):
     code = "AGENT_CONNECT_ORGANIZATIONAL_UNIT_NOT_FOUND_ERROR"
 
 
+class AgentConnectIdpNotAllowedError(MobilicError):
+    code = "AGENT_CONNECT_IDP_NOT_ALLOWED_ERROR"
+    default_should_alert_team = False
+
+
 class InvalidTokenError(MobilicError):
     code = "INVALID_TOKEN"
     default_should_alert_team = False

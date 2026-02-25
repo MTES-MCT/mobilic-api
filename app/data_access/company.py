@@ -3,7 +3,7 @@ from datetime import date
 import graphene
 from flask import g
 from sqlalchemy import case, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
@@ -325,7 +325,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             )
 
         return (
-            Employment.query.options(selectinload(Employment.user))
+            Employment.query.options(joinedload(Employment.user))
             .filter(*base_filters)
             .order_by(
                 Employment.user_id,

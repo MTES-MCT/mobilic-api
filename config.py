@@ -109,6 +109,7 @@ class Config:
         os.environ.get("BATCH_EMAIL_WHITELIST", "[]")
     )
     USERS_BLACKLIST = json.loads(os.environ.get("USERS_BLACKLIST", "[]"))
+    PC_ALLOWED_IDP_IDS = json.loads(os.environ.get("PC_ALLOWED_IDP_IDS", "[]"))
     SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
     BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
         "BREVO_COMPANY_SUBSCRIBE_LIST", 19
