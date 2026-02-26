@@ -630,6 +630,7 @@ class Mailer:
             type_=EmailType.THIRD_PARTY_ACCOUNT_CREATION,
             template="third_party_software_account_creation.html",
             subject="Valider votre compte Mobilic",
+            help_video_url="https://www.youtube.com/watch?v=M4iHHsNXKUc",
         )
 
     def generate_third_party_software_employment_creation_email(
