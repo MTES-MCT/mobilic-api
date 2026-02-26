@@ -708,7 +708,8 @@ class Mailer:
         new_timers,
         is_holiday,
     ):
-        mission_day = to_fr_tz(old_start_time).strftime("%d/%m")
+        user_timezone = user.timezone
+        mission_day = to_tz(old_start_time, tz=user_timezone).strftime("%d/%m")
 
         if is_holiday:
             template = "holiday_changes_warning_email.html"
@@ -762,10 +763,10 @@ class Mailer:
                         [
                             dt.date()
                             for dt in [
-                                to_fr_tz(new_end_time),
-                                to_fr_tz(new_start_time),
-                                to_fr_tz(old_start_time),
-                                to_fr_tz(old_end_time),
+                                to_tz(new_end_time, tz=user_timezone),
+                                to_tz(new_start_time, tz=user_timezone),
+                                to_tz(old_start_time, tz=user_timezone),
+                                to_tz(old_end_time, tz=user_timezone),
                             ]
                         ]
                     )
