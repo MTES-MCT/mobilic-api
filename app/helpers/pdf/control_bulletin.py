@@ -114,7 +114,13 @@ def _generate_part_one(control):
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
         business_types=business_types,
-        controller_signature=controller_signature
+        controller_signature=controller_signature,
+        vehicle_weight=(
+            control.control_bulletin.get("real_vehicle_weight")
+            if control.control_bulletin
+            and control.control_bulletin.get("real_vehicle_weight")
+            else "-"
+        ) 
     )
 
 
