@@ -772,6 +772,7 @@ class Mailer:
                     )
                 )
                 > 1,
+                user_timezone=user_timezone
             ),
             _disable_commit=True,
         )
