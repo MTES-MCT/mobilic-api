@@ -18,6 +18,7 @@ def generate_admin_export_file(
     if one_file_by_employee:
         user_wdays_batches = []
         for user in users:
+            user_timezone = user.timezone
             user_wdays_batches += [
                 (
                     user,
@@ -27,18 +28,21 @@ def generate_admin_export_file(
                         from_date=min_date,
                         until_date=max_date,
                         include_dismissed_or_empty_days=True,
+                        tz=user_timezone
                     )[0],
                 )
             ]
     else:
         all_users_work_days = []
         for user in users:
+            user_timezone = user.timezone
             all_users_work_days += group_user_events_by_day_with_limit(
                 user,
                 consultation_scope=scope,
                 from_date=min_date,
                 until_date=max_date,
                 include_dismissed_or_empty_days=True,
+                tz=user_timezone
             )[0]
         user_wdays_batches = [(None, all_users_work_days)]
 

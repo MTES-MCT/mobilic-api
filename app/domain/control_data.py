@@ -1,5 +1,4 @@
 import datetime
-import pytz
 from app.models import User
 
 EXTRA_DATETIME_FIELDS = [
@@ -20,7 +19,7 @@ def convert_extra_datetime_to_user_tz(extra, user_id):
         return
 
     controlled_user = User.query.filter(User.id == user_id).one()
-    timezone = pytz.timezone(controlled_user.timezone_name)
+    timezone = controlled_user.timezone
 
     for key in EXTRA_DATETIME_FIELDS:
         if key not in extra:

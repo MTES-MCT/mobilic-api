@@ -280,6 +280,7 @@ def _generate_work_days_pdf(
     include_transfers=False,
     include_other_task=False,
 ):
+    user_timezone = user.timezone
     months = []
     weeks = []
 
@@ -367,10 +368,10 @@ def _generate_work_days_pdf(
                 "date": wd.day,
                 "start_time": "-"
                 if wd.is_first_mission_overlapping_with_previous_day
-                else format_time(wd.start_time, False),
+                else format_time(wd.start_time, False, user_timezone),
                 "end_time": "-"
                 if wd.is_last_mission_overlapping_with_next_day
-                else format_time(wd.end_time or wd.end_of_day, False),
+                else format_time(wd.end_time or wd.end_of_day, False, user_timezone),
                 "service": wd.service_duration,
                 "total_work": wd.total_work_duration,
                 **{

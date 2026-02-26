@@ -20,7 +20,6 @@ from app.models import MissionValidation, MissionEnd, MissionAutoValidation
 from app.helpers.notification_type import NotificationType
 from app.helpers.time import to_tz
 from app.models.notification import create_notification
-from dateutil.tz import gettz
 
 MIN_MISSION_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(days=10)
 MIN_LAST_ACTIVITY_LIFETIME_FOR_ADMIN_FORCE_VALIDATION = timedelta(hours=24)
@@ -159,7 +158,7 @@ def validate_mission(
         )
 
     if not is_admin_validation and is_auto_validation:
-        user_timezone = gettz(for_user.timezone_name)
+        user_timezone = for_user.timezone
 
         mission_start_time = (
             activities_to_validate[0].start_time
