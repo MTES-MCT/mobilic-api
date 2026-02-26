@@ -9,7 +9,7 @@ from markupsafe import Markup
 
 from app import app
 from app.helpers.errors import MobilicError
-from app.helpers.time import to_fr_tz
+from app.helpers.time import to_tz
 from app.helpers.mail_type import EmailType
 from config import MOBILIC_ENV
 
@@ -778,8 +778,9 @@ class Mailer:
     def send_information_email_about_new_mission(
         self, user, admin, mission, start_time, end_time, timers
     ):
-        start_time = to_fr_tz(start_time)
-        end_time = to_fr_tz(end_time)
+        user_timezone = user.timezone
+        start_time = to_tz(start_time, tz=user_timezone)
+        end_time = to_tz(end_time, tz=user_timezone)
         mission_day = start_time.strftime("%d/%m")
         self._send_single(
             self._create_message_from_flask_template(
@@ -799,6 +800,7 @@ class Mailer:
                 end_time=end_time,
                 work_duration=timers["total_work"],
                 show_dates=start_time.date() != end_time.date(),
+                user_timezone=user_timezone
             ),
             _disable_commit=True,
         )
