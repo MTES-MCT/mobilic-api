@@ -990,6 +990,7 @@ class Mailer:
                 company_name=company.name,
                 title=title,
                 periods=periods,
+                user_timezone=user.timezone
             ),
             _apply_whitelist_if_not_prod=True,
         )
