@@ -28,8 +28,6 @@ def save_control_bulletin(
     business_id=None,
     is_day_page_filled=None,
     delivered_by_hand=None,
-    vehicle_weight=None,
-    real_vehicle_weight=None,
 ):
     if control.control_bulletin:
         existing_bulletin = control.control_bulletin
@@ -64,7 +62,5 @@ def save_control_bulletin(
     existing_bulletin["observation"] = observation
     existing_bulletin["is_vehicle_immobilized"] = is_vehicle_immobilized
     existing_bulletin["business_id"] = business_id
-    existing_bulletin["vehicle_weight"] = vehicle_weight
-    existing_bulletin["real_vehicle_weight"] = real_vehicle_weight
 
     control.control_bulletin = existing_bulletin
