@@ -222,7 +222,7 @@
                                         width="20pt"                                    >
                                 </td>
                                 <td class="mission-start-end-info-table-value">
-                                    {{ start_time | format_time(show_dates) }}
+                                    {{ start_time | format_time(show_dates, user_timezone) }}
                                 </td>
                                 <td class="mission-start-end-info-table-icon">
                                     <img
@@ -232,7 +232,7 @@
                                 </td>
                                     <td class="mission-start-end-info-table-value">
                                         {% if end_time %}
-                                            {{ end_time | format_time(show_dates) }}
+                                            {{ end_time | format_time(show_dates, user_timezone) }}
                                         {% else %}
                                             En cours
                                         {% endif %}
@@ -379,13 +379,13 @@
                             </td>
                             <td
                             >
-                                {{ activity.start_time | format_time(show_dates) }}
+                                {{ activity.start_time | format_time(show_dates, user_timezone) }}
                             </td>
                             <td
                                 align="left"
                             >
                                 {% if activity.end_time %}
-                                    {{ activity.end_time | format_time(show_dates) }}
+                                    {{ activity.end_time | format_time(show_dates, user_timezone) }}
                                 {% else %}
                                     En cours
                                 {% endif %}

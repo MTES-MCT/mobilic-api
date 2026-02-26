@@ -137,6 +137,7 @@ def generate_mission_details_pdf(
     show_history_before_employee_validation=True,
     max_reception_time=None,
 ):
+    user_timezone = user.timezone
     mission_name = mission.name
     mission_subtitle = None
 
@@ -276,4 +277,5 @@ def generate_mission_details_pdf(
         deleted_at_text=f"Cette mission a été supprimée le {full_format_day(mission.deleted_at())} par {mission.deleted_by()}"
         if mission.is_deleted()
         else "",
+        user_timezone=user_timezone
     )
