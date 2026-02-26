@@ -1,7 +1,6 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
-import pytz
-from dateutil.tz import gettz
 from freezegun import freeze_time
 
 from app import db
@@ -363,7 +362,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         how_many_days_ago = 2
 
         GY_TZ_NAME = "America/Cayenne"
-        GY_TIMEZONE = gettz(GY_TZ_NAME)
+        GY_TIMEZONE = ZoneInfo(GY_TZ_NAME)
 
         employee = UserFactory.create(
             email="employee-guyana@email.com",

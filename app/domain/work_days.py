@@ -18,7 +18,6 @@ from app.helpers.time import (
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
 from cached_property import cached_property
-from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
@@ -63,7 +62,7 @@ def compute_aggregate_durations(
         )
         timers[period.type] += total_duration
         if period.type not in NOT_WORK_ACTIVITIES and min_time:
-            user_timezone = gettz(period.user.timezone_name)
+            user_timezone = period.user.timezone
             day_duration_tarification = int(
                 period.duration_over(
                     from_tz(
