@@ -160,6 +160,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         business_type = graphene.String(required=False)
         is_day_page_filled = graphene.Boolean(required=False)
         delivered_by_hand = graphene.Boolean(required=False)
+        vehicle_weight = graphene.String(required=False)
+        real_vehicle_weight = graphene.Int(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -193,6 +195,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         business_type=None,
         is_day_page_filled=None,
         delivered_by_hand=None,
+        vehicle_weight=None,
+        real_vehicle_weight=None,
     ):
         business_id = None
         if business_type is not None:
@@ -263,6 +267,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             business_id,
             is_day_page_filled,
             delivered_by_hand,
+            vehicle_weight,
+            real_vehicle_weight,
         )
         db.session.commit()
         return control
