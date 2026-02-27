@@ -170,6 +170,9 @@ class UserSignUp(graphene.Mutation):
 
                     if email_in_email_table:
                         db.session.delete(email_in_email_table)
+        else:
+            user.has_activated_email = True
+            user.activation_email_token = None
 
         if has_subscribed_to_newsletter:
             try:
