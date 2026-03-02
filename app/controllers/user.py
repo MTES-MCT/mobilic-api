@@ -140,39 +140,23 @@ class UserSignUp(graphene.Mutation):
         
         invitation_email = None
         employment = None
-        email_in_email_table = None
-        new_email_in_email_table = None
         invite_token = data.get("invite_token")
         
         if invite_token:
             employment = Employment.query.filter(Employment.invite_token == invite_token).first()
             invitation_email = employment.email if employment else None
-            email_in_email_table = Email.query.filter(Email.address == invitation_email).first()
 
-        # if invitation_email is None or user.email != invitation_email: 
+        # If the user registered with an email different from the one provided by the employer
         if user.email != invitation_email: 
-
             try:
                 mailer.send_activation_email(user, is_employee=is_employee)
             except Exception as e:
-                db.session.rollback()
                 app.logger.exception(e)
-
-            if employment:
-                # If the user registers with a different email than the one set by the employer,
-                # update the email in the employment table to avoid potential conflicts
-                employment.email = user.email
-
-                new_email_in_email_table = Email.query.filter(Email.address == user.email).first()
-
-                if new_email_in_email_table and employment.id:
-                    new_email_in_email_table.employment_id = employment.id
-
-                    if email_in_email_table:
-                        db.session.delete(email_in_email_table)
         else:
-            user.has_activated_email = True
-            user.activation_email_token = None
+            # Auto-validate the user account if the user registered with the employer-provided email
+            with atomic_transaction(commit_at_end=True):
+                user.has_activated_email = True
+                user.activation_email_token = None
 
         if has_subscribed_to_newsletter:
             try:
