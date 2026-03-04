@@ -1,6 +1,8 @@
 from argon2 import PasswordHasher
 
 from app.helpers.oauth.models import OAuth2Client, ThirdPartyClientEmployment
+from app.models import User
+from app.models.user import UserAccountStatus
 from app.seed.factories import ThirdPartyApiKeyFactory
 from app.tests import BaseTest, test_post_graphql_unexposed
 from app.tests.helpers import (
@@ -181,3 +183,38 @@ class TestApiEmploymentToken(BaseTest):
             "employmentToken"
         ]["accessToken"]
         self.assertIsNotNone(access_token)
+
+    def test_generate_employment_token_activates_third_party_user(self):
+        third_party_client_employment = (
+            ThirdPartyClientEmployment.query.filter(
+                ThirdPartyClientEmployment.employment_id == self.employment_id,
+                ThirdPartyClientEmployment.client_id == self.client_id,
+            ).one_or_none()
+        )
+        self.assertIsNotNone(third_party_client_employment)
+
+        user = third_party_client_employment.employment.user
+        self.assertEqual(
+            user.status, UserAccountStatus.THIRD_PARTY_PENDING_APPROVAL
+        )
+
+        invitation_token = third_party_client_employment.invitation_token
+        generate_response = test_post_graphql_unexposed(
+            query=ApiRequests.generate_employment_token,
+            variables=dict(
+                clientId=self.client_id,
+                employmentId=self.employment_id,
+                invitationToken=invitation_token,
+            ),
+        )
+        self.assertEqual(generate_response.status_code, 200)
+        self.assertTrue(
+            generate_response.json["data"]["generateEmploymentToken"][
+                "success"
+            ]
+        )
+
+        updated_user = User.query.get(user.id)
+        self.assertEqual(updated_user.status, UserAccountStatus.ACTIVE)
+        self.assertTrue(updated_user.has_confirmed_email)
+        self.assertTrue(updated_user.has_activated_email)
