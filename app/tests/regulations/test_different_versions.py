@@ -10,6 +10,202 @@ from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
 
 
 class TestDifferentVersions(RegulationsTest):
+    def test_employee_max_work_day_alert_preserved_after_admin_edit(self):
+        """Admin reduces work hours below 12h threshold, but employee version
+        should still show the MAXIMUM_WORK_DAY_TIME alert based on original hours.
+        """
+        how_many_days_ago = 3
+        day_start = get_date(how_many_days_ago)
+
+        mission = self._log_and_validate_mission(
+            mission_name="13h work day",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=21),
+                ],
+            ],
+        )
+
+        employee_alerts_before = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(employee_alerts_before), 1)
+
+        activity = mission.activities_for(user=self.employee)[0]
+        test_post_graphql(
+            query=ApiRequests.validate_mission,
+            mock_authentication_with_user=self.admin,
+            variables={
+                "missionId": mission.id,
+                "usersIds": [self.employee.id],
+                "activityItems": [
+                    {
+                        "edit": {
+                            "activityId": activity.id,
+                            "endTime": int(
+                                get_time(
+                                    how_many_days_ago=how_many_days_ago,
+                                    hour=19,
+                                ).timestamp()
+                            ),
+                        }
+                    }
+                ],
+            },
+        )
+
+        employee_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(employee_alerts), 1)
+
+        admin_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+        ).all()
+        self.assertEqual(len(admin_alerts), 0)
+
+        res = test_post_graphql(
+            query=ApiRequests.regulation_computations_by_day,
+            mock_authentication_with_user=self.employee,
+            variables={
+                "userId": self.employee.id,
+                "fromDate": day_start.strftime("%Y-%m-%d"),
+                "endDate": day_start.strftime("%Y-%m-%d"),
+            },
+        )
+        result_computations = res.json["data"]["user"][
+            "regulationComputationsByDay"
+        ][0]["regulationComputations"]
+
+        for rc in result_computations:
+            alert = [
+                check
+                for check in rc["regulationChecks"]
+                if check["type"] == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ][0]["alert"]
+            if rc["submitterType"] == SubmitterType.ADMIN:
+                self.assertIsNone(alert)
+            else:
+                self.assertIsNotNone(alert)
+
+    def test_admin_adds_hours_creates_admin_alert_not_employee(self):
+        """Admin increases work hours above 12h threshold, but employee version
+        should NOT show the MAXIMUM_WORK_DAY_TIME alert since original hours were below.
+        """
+        how_many_days_ago = 3
+        day_start = get_date(how_many_days_ago)
+
+        mission = self._log_and_validate_mission(
+            mission_name="11h work day",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(how_many_days_ago=how_many_days_ago, hour=8),
+                    get_time(how_many_days_ago=how_many_days_ago, hour=19),
+                ],
+            ],
+        )
+
+        employee_alerts_before = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(employee_alerts_before), 0)
+
+        activity = mission.activities_for(user=self.employee)[0]
+        test_post_graphql(
+            query=ApiRequests.validate_mission,
+            mock_authentication_with_user=self.admin,
+            variables={
+                "missionId": mission.id,
+                "usersIds": [self.employee.id],
+                "activityItems": [
+                    {
+                        "edit": {
+                            "activityId": activity.id,
+                            "endTime": int(
+                                get_time(
+                                    how_many_days_ago=how_many_days_ago,
+                                    hour=22,
+                                ).timestamp()
+                            ),
+                        }
+                    }
+                ],
+            },
+        )
+
+        employee_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.EMPLOYEE,
+        ).all()
+        self.assertEqual(len(employee_alerts), 0)
+
+        admin_alerts = RegulatoryAlert.query.filter(
+            RegulatoryAlert.user.has(User.email == EMPLOYEE_EMAIL),
+            RegulatoryAlert.regulation_check.has(
+                RegulationCheck.type
+                == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ),
+            RegulatoryAlert.day == day_start,
+            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+        ).all()
+        self.assertEqual(len(admin_alerts), 1)
+
+        res = test_post_graphql(
+            query=ApiRequests.regulation_computations_by_day,
+            mock_authentication_with_user=self.employee,
+            variables={
+                "userId": self.employee.id,
+                "fromDate": day_start.strftime("%Y-%m-%d"),
+                "endDate": day_start.strftime("%Y-%m-%d"),
+            },
+        )
+        result_computations = res.json["data"]["user"][
+            "regulationComputationsByDay"
+        ][0]["regulationComputations"]
+
+        for rc in result_computations:
+            alert = [
+                check
+                for check in rc["regulationChecks"]
+                if check["type"] == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+            ][0]["alert"]
+            if rc["submitterType"] == SubmitterType.ADMIN:
+                self.assertIsNotNone(alert)
+            else:
+                self.assertIsNone(alert)
+
     def test_employee_alert_admin_no_alert_regulations_query(self):
         how_many_days_ago = 3
         day_start = get_date(how_many_days_ago)
