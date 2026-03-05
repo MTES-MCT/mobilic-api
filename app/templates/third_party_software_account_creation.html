@@ -8,12 +8,12 @@ Valider votre compte Mobilic
 {% block body %}
     <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
     <p>Votre entreprise <strong>{{company_name | upper}}</strong> a choisi d'utiliser le logiciel
-    <strong>{{software_name}}</strong>, connecté à Mobilic, pour le suivi de votre temps de
+    <strong>{{software_name}}</strong>, connecté à <strong>Mobilic</strong>, pour le suivi de votre temps de
     travail, vous évitant ainsi de multiples outils et des saisies manuelles.</p>
-    <p>La création de votre compte Mobilic reste tout de même indispensable pour
+    <p>La création de votre compte Mobilic reste tout de même <strong>indispensable</strong> pour
     que vos temps de travail (heures de conduite, de travail, de pause, etc.)
     saisis sur votre logiciel <strong>{{software_name}}</strong> soient automatiquement
-    transmis vers Mobilic.</p>
+    transmis vers <strong>Mobilic</strong>.</p>
     <p>Pour finaliser la création de votre compte, cliquez sur le bouton
     ci-dessous et validez votre rattachement :</p>
     {{button.button('Je crée mon compte Mobilic', validation_link, width=300)}}
@@ -23,17 +23,16 @@ Valider votre compte Mobilic
     {% endif %}
     <p>
         <strong>Pourquoi est-ce obligatoire ?</strong>
-        <br/>
+        <br/><br/>
         Conformément à la réglementation en vigueur, tout salarié du transport
         routier léger doit voir son temps de travail, de conduite et de pause
         enregistré de manière obligatoire. Lorsque ce suivi est dématérialisé, il
         doit être effectué via Mobilic, le service public officiel, afin de
         garantir la conformité légale et la transmission correcte des données. Le
         choix de votre entreprise d'utiliser le logiciel <strong>{{software_name}}</strong>
-        connecté à Mobilic vous permet d'éviter plusieurs outils, tout en
+        connecté à Mobilic vous permet d'éviter d'utiliser plusieurs outils, tout en
         respectant vos obligations réglementaires.
     </p>
     <br/>
-    <p>Bien cordialement,</p>
-    <p>L'équipe Mobilic</p>
+    <p>Cordialement,</p>
 {% endblock %}
