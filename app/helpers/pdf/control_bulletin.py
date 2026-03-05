@@ -116,10 +116,12 @@ def _generate_part_one(control):
         business_types=business_types,
         controller_signature=controller_signature,
         vehicle_weight=(
-            control.control_bulletin.get("real_vehicle_weight")
-            if control.control_bulletin
-            and control.control_bulletin.get("real_vehicle_weight")
-            else "-"
+            f"{control.control_bulletin.get('real_vehicle_weight')} tonnes"
+            if control.control_bulletin and control.control_bulletin.get("real_vehicle_weight")
+            else control.control_bulletin.get("vehicle_weight")
+            if control.control_bulletin and control.control_bulletin.get("vehicle_weight")
+            else
+                None
         ) 
     )
 
