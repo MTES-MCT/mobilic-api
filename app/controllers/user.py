@@ -65,7 +65,7 @@ from app.helpers.time import min_or_none, max_or_none
 from app.models.queries import add_mission_relations
 from app.models.user_agreement import UserAgreementStatus
 from app.templates.filters import full_format_day
-from app.models import User, Mission, UserAgreement
+from app.models import User, Mission, UserAgreement, Employment
 from app import app, db, mailer
 from app.models.email import Email
 from app.helpers.graphene_types import Email as EmailGrapheneType
@@ -137,11 +137,26 @@ class UserSignUp(graphene.Mutation):
             is_employee = data.pop("is_employee", True)
             user = create_user(**data)
             user.create_activation_link()
+        
+        invitation_email = None
+        employment = None
+        invite_token = data.get("invite_token")
+        
+        if invite_token:
+            employment = Employment.query.filter(Employment.invite_token == invite_token).first()
+            invitation_email = employment.email if employment else None
 
-        try:
-            mailer.send_activation_email(user, is_employee=is_employee)
-        except Exception as e:
-            app.logger.exception(e)
+        # If the user registered with an email different from the one provided by the employer
+        if user.email != invitation_email: 
+            try:
+                mailer.send_activation_email(user, is_employee=is_employee)
+            except Exception as e:
+                app.logger.exception(e)
+        else:
+            # Auto-validate the user account if the user registered with the employer-provided email
+            with atomic_transaction(commit_at_end=True):
+                user.has_activated_email = True
+                user.activation_email_token = None
 
         if has_subscribed_to_newsletter:
             try:
