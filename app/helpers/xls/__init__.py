@@ -82,7 +82,7 @@ def generate_admin_export_file_from_chunks(
         files_data.extend(chunk_files)
 
     # Build final export (single file or ZIP)
-    return build_final_export(files_data, file_name, strategy)
+    return build_final_export(files_data, file_name)
 
 
 def generate_admin_export_file(
