@@ -29,6 +29,10 @@ def async_export_excel(
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
 
+        strategy = chunks[0].get("strategy") if chunks else None
+        if strategy:
+            sentry_sdk.set_tag("export_chunking_strategy", strategy)
+
         exporter = User.query.get(exporter_id)
 
         export = Export(
@@ -38,7 +42,7 @@ def async_export_excel(
                 "exporter_id": exporter_id,
                 "company_ids": company_ids,
                 "chunks": chunks,
-                "strategy": chunks[0].get("strategy") if chunks else None,
+                "strategy": strategy,
             },
         )
         db.session.add(export)
