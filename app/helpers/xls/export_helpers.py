@@ -172,7 +172,6 @@ def generate_excel_files_from_batch(
 def build_final_export(
     files_data: List[Dict[str, Any]],
     file_name: str,
-    strategy: Optional[str] = None,
 ) -> Tuple[bytes, str, str, int]:
     if len(files_data) == 1:
         file_content = files_data[0]["content"]

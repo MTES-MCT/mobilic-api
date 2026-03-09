@@ -125,6 +125,149 @@ def split_date_range_into_months(
     return ranges
 
 
+def _get_user_name(
+    user_id: int, user_names: Optional[Dict[int, Tuple[str, str]]]
+) -> str:
+    if user_names and user_id in user_names:
+        first_name, last_name = user_names[user_id]
+        return _format_user_name(first_name, last_name)
+    return f"user_{user_id}"
+
+
+def _chunk_over_365_days(
+    user_ids: List[int],
+    min_date: date,
+    max_date: date,
+    user_names: Optional[Dict[int, Tuple[str, str]]],
+) -> ExportChunkingResult:
+    chunks = []
+    date_ranges = split_date_range_into_years(min_date, max_date)
+
+    for user_id in user_ids:
+        user_name = _get_user_name(user_id, user_names)
+
+        for start_date, end_date in date_ranges:
+            year_suffix = (
+                f"{start_date.year}"
+                if start_date.year == end_date.year
+                else f"{start_date.year}_{end_date.year}"
+            )
+            suffix = f"{user_name}_{year_suffix}"
+
+            chunks.append(
+                ExportChunkInfo(
+                    user_ids=[user_id],
+                    min_date=start_date,
+                    max_date=end_date,
+                    file_suffix=suffix,
+                )
+            )
+
+    return ExportChunkingResult(
+        strategy=ExportChunkingStrategy.OVER_365_DAYS, chunks=chunks
+    )
+
+
+def _chunk_over_31_days(
+    user_ids: List[int],
+    min_date: date,
+    max_date: date,
+) -> ExportChunkingResult:
+    chunks = []
+    user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
+    date_ranges = split_date_range_into_months(min_date, max_date)
+
+    for user_chunk_idx, user_chunk in enumerate(user_chunks):
+        for start_date, end_date in date_ranges:
+            user_suffix = (
+                f"batch_{user_chunk_idx + 1}" if len(user_chunks) > 1 else ""
+            )
+
+            if (
+                start_date.year == end_date.year
+                and start_date.month == end_date.month
+            ):
+                date_suffix = (
+                    f"{MONTH_NAMES[start_date.month]}_{start_date.year}"
+                )
+            else:
+                date_suffix = f"{MONTH_NAMES[start_date.month]}_{start_date.year}_{MONTH_NAMES[end_date.month]}_{end_date.year}"
+
+            suffix_parts = [p for p in [user_suffix, date_suffix] if p]
+            suffix = "_".join(suffix_parts) if suffix_parts else "export"
+
+            chunks.append(
+                ExportChunkInfo(
+                    user_ids=user_chunk,
+                    min_date=start_date,
+                    max_date=end_date,
+                    file_suffix=suffix,
+                )
+            )
+
+    return ExportChunkingResult(
+        strategy=ExportChunkingStrategy.OVER_31_DAYS, chunks=chunks
+    )
+
+
+def _chunk_over_100_users(
+    user_ids: List[int],
+    min_date: date,
+    max_date: date,
+) -> ExportChunkingResult:
+    chunks = []
+    user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
+
+    for idx, user_chunk in enumerate(user_chunks):
+        suffix = f"batch_{idx + 1}" if len(user_chunks) > 1 else "export"
+        chunks.append(
+            ExportChunkInfo(
+                user_ids=user_chunk,
+                min_date=min_date,
+                max_date=max_date,
+                file_suffix=suffix,
+            )
+        )
+
+    return ExportChunkingResult(
+        strategy=ExportChunkingStrategy.OVER_100_USERS, chunks=chunks
+    )
+
+
+def _chunk_single_or_consolidated(
+    user_ids: List[int],
+    min_date: date,
+    max_date: date,
+    one_file_by_employee: bool,
+    user_names: Optional[Dict[int, Tuple[str, str]]],
+) -> ExportChunkingResult:
+    if one_file_by_employee:
+        chunks = []
+        for user_id in user_ids:
+            user_name = _get_user_name(user_id, user_names)
+            chunks.append(
+                ExportChunkInfo(
+                    user_ids=[user_id],
+                    min_date=min_date,
+                    max_date=max_date,
+                    file_suffix=user_name,
+                )
+            )
+    else:
+        chunks = [
+            ExportChunkInfo(
+                user_ids=user_ids,
+                min_date=min_date,
+                max_date=max_date,
+                file_suffix="consolide",
+            )
+        ]
+
+    return ExportChunkingResult(
+        strategy=ExportChunkingStrategy.SINGLE_OR_CONSOLIDATED, chunks=chunks
+    )
+
+
 def get_export_chunks(
     user_ids: List[int],
     min_date: date,
@@ -147,123 +290,14 @@ def get_export_chunks(
     num_days = calculate_days_between(min_date, max_date)
 
     if num_days >= MAX_DAYS_FOR_YEAR_SPLIT:
-        chunks = []
-        date_ranges = split_date_range_into_years(min_date, max_date)
-
-        for user_id in user_ids:
-            if user_names and user_id in user_names:
-                first_name, last_name = user_names[user_id]
-                user_name = _format_user_name(first_name, last_name)
-            else:
-                user_name = f"user_{user_id}"
-
-            for start_date, end_date in date_ranges:
-                if start_date.year == end_date.year:
-                    year_suffix = f"{start_date.year}"
-                else:
-                    year_suffix = f"{start_date.year}_{end_date.year}"
-
-                suffix = f"{user_name}_{year_suffix}"
-
-                chunks.append(
-                    ExportChunkInfo(
-                        user_ids=[user_id],
-                        min_date=start_date,
-                        max_date=end_date,
-                        file_suffix=suffix,
-                    )
-                )
-
-        return ExportChunkingResult(
-            strategy=ExportChunkingStrategy.OVER_365_DAYS, chunks=chunks
-        )
+        return _chunk_over_365_days(user_ids, min_date, max_date, user_names)
 
     if num_days > MAX_DAYS_FOR_MONTH_SPLIT:
-        chunks = []
-        user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
-        date_ranges = split_date_range_into_months(min_date, max_date)
-
-        for user_chunk_idx, user_chunk in enumerate(user_chunks):
-            for start_date, end_date in date_ranges:
-                user_suffix = (
-                    f"batch_{user_chunk_idx + 1}"
-                    if len(user_chunks) > 1
-                    else ""
-                )
-
-                if (
-                    start_date.year == end_date.year
-                    and start_date.month == end_date.month
-                ):
-                    date_suffix = (
-                        f"{MONTH_NAMES[start_date.month]}_{start_date.year}"
-                    )
-                else:
-                    date_suffix = f"{MONTH_NAMES[start_date.month]}_{start_date.year}_{MONTH_NAMES[end_date.month]}_{end_date.year}"
-
-                suffix_parts = [p for p in [user_suffix, date_suffix] if p]
-                suffix = "_".join(suffix_parts) if suffix_parts else "export"
-
-                chunks.append(
-                    ExportChunkInfo(
-                        user_ids=user_chunk,
-                        min_date=start_date,
-                        max_date=end_date,
-                        file_suffix=suffix,
-                    )
-                )
-
-        return ExportChunkingResult(
-            strategy=ExportChunkingStrategy.OVER_31_DAYS, chunks=chunks
-        )
+        return _chunk_over_31_days(user_ids, min_date, max_date)
 
     if num_users > MAX_USERS_PER_BATCH:
-        chunks = []
-        user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
+        return _chunk_over_100_users(user_ids, min_date, max_date)
 
-        for idx, user_chunk in enumerate(user_chunks):
-            suffix = f"batch_{idx + 1}" if len(user_chunks) > 1 else "export"
-            chunks.append(
-                ExportChunkInfo(
-                    user_ids=user_chunk,
-                    min_date=min_date,
-                    max_date=max_date,
-                    file_suffix=suffix,
-                )
-            )
-
-        return ExportChunkingResult(
-            strategy=ExportChunkingStrategy.OVER_100_USERS, chunks=chunks
-        )
-
-    if one_file_by_employee:
-        chunks = []
-
-        for user_id in user_ids:
-            if user_names and user_id in user_names:
-                first_name, last_name = user_names[user_id]
-                user_name = _format_user_name(first_name, last_name)
-            else:
-                user_name = f"user_{user_id}"
-
-            chunks.append(
-                ExportChunkInfo(
-                    user_ids=[user_id],
-                    min_date=min_date,
-                    max_date=max_date,
-                    file_suffix=user_name,
-                )
-            )
-    else:
-        chunks = [
-            ExportChunkInfo(
-                user_ids=user_ids,
-                min_date=min_date,
-                max_date=max_date,
-                file_suffix="consolide",
-            )
-        ]
-
-    return ExportChunkingResult(
-        strategy=ExportChunkingStrategy.SINGLE_OR_CONSOLIDATED, chunks=chunks
+    return _chunk_single_or_consolidated(
+        user_ids, min_date, max_date, one_file_by_employee, user_names
     )
