@@ -22,3 +22,5 @@ class ControlBulletinFields(graphene.ObjectType):
         required=False, default_value=False
     )
     business_type = graphene.String(required=False)
+    vehicle_weight = graphene.String(required=False)
+    real_vehicle_weight = graphene.Int(required=False)
