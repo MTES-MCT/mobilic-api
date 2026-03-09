@@ -8,6 +8,7 @@ import re
 from flask import send_file
 
 from app.domain.regulations import get_default_business
+from app.helpers.errors import InvalidParamsError
 from app.domain.regulations_helper import resolve_variables
 from app.models import (
     ControllerUser,
@@ -107,6 +108,18 @@ def process_control(control, bdc, doc, infractions):
     controller = ControllerUser.query.filter(
         ControllerUser.id == control.controller_id
     ).first()
+
+    if not controller:
+        raise InvalidParamsError("Contrôleur introuvable pour ce contrôle")
+
+    if controller._is_mi() and not (
+        controller.greco_id and controller.greco_id.strip()
+    ):
+        raise InvalidParamsError(
+            "Le matricule (RIO/greco_id) est obligatoire pour "
+            "les contrôleurs du Ministère de l'Intérieur"
+        )
+
     element_control = ET.SubElement(doc, "Controle")
 
     add_date_element(element_control, "controleDate", control.creation_time)
@@ -131,12 +144,18 @@ def process_control(control, bdc, doc, infractions):
     )
 
     add_content_element(element_control, "controleur_Civilite", "-")
-    add_content_element(
-        element_control, "controleur_Nom", controller.last_name.upper()
-    )
-    add_content_element(
-        element_control, "controleur_Prenom", controller.first_name
-    )
+    if controller._is_mi():
+        add_content_element(element_control, "controleur_Nom", "-")
+        add_content_element(element_control, "controleur_Prenom", "-")
+    else:
+        add_content_element(
+            element_control,
+            "controleur_Nom",
+            controller.last_name.upper(),
+        )
+        add_content_element(
+            element_control, "controleur_Prenom", controller.first_name
+        )
     add_content_element(
         element_control, "controleur_Identification", controller.greco_id
     )
@@ -232,10 +251,13 @@ def process_control(control, bdc, doc, infractions):
                 ET.SubElement(infractions_element, "id"), "DbValue"
             ).text = r.id
 
-    controller_name = f"{controller.first_name} {controller.last_name}"
-    initials = "".join(
-        [part[0].capitalize() for part in controller_name.split()]
-    )
+    if controller._is_mi():
+        initials = controller.greco_id or "MI"
+    else:
+        controller_name = f"{controller.first_name} {controller.last_name}"
+        initials = "".join(
+            [part[0].capitalize() for part in controller_name.split()]
+        )
     return f"R{departement_code}{initials}{control.creation_time.strftime('%Y%m%d%H%M')}{control.vehicle_registration_number}.xml"
 
 
