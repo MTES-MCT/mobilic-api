@@ -176,6 +176,13 @@ def compute_excel_sum_col_range(col_idx, row_start, row_end):
     )
 
 
+def is_export_empty(wdays):
+    if not wdays:
+        return True
+    complete_work_days = [wd for wd in wdays if wd.is_complete]
+    return not any(len(wd.activities) > 0 for wd in complete_work_days)
+
+
 def clean_string(s):
     return "".join(filter(str.isalnum, s))
 

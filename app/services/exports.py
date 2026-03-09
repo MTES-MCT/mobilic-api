@@ -15,6 +15,8 @@ def export_activity_report(
 ):
     users = list(users)
     user_ids = [user.id for user in users]
+    # Build user names map for file naming (user_id -> (first_name, last_name))
+    user_names = {u.id: (u.first_name, u.last_name) for u in users}
 
     effective_min_date = min_date if min_date else date(2000, 1, 1)
     effective_max_date = max_date if max_date else date.today()
@@ -24,6 +26,7 @@ def export_activity_report(
         min_date=effective_min_date,
         max_date=effective_max_date,
         one_file_by_employee=one_file_by_employee,
+        user_names=user_names,
     )
 
     chunks_data = [

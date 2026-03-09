@@ -38,6 +38,7 @@ def async_export_excel(
                 "exporter_id": exporter_id,
                 "company_ids": company_ids,
                 "chunks": chunks,
+                "strategy": chunks[0].get("strategy") if chunks else None,
             },
         )
         db.session.add(export)

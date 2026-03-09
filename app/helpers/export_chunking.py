@@ -1,19 +1,8 @@
-"""
-Utilities for managing Excel export chunking according to business rules.
-
-Chunking rules:
-1. > 365 days (regardless of number of employees) → 1 file per calendar year per employee
-2. < 365 days AND > 31 days → 1 file per batch of 100 employees per calendar month
-3. < 365 days AND < 31 days AND > 100 employees → 1 consolidated file per batch of 100 employees
-4. < 365 days AND < 31 days AND < 100 employees → consolidated file OR file per employee (user choice)
-"""
-
-from datetime import timedelta, date
-from typing import List, Tuple, Optional
+from datetime import date
+from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
 from calendar import monthrange
-from app.models import User
 from app.helpers.xls.common import clean_string
 
 # Date range thresholds
@@ -77,15 +66,13 @@ def split_into_chunks(items: List, chunk_size: int) -> List[List]:
     ]
 
 
-def _format_user_name(user: User) -> str:
-    """Format user name for file suffix."""
-    return f"{clean_string(user.last_name)}_{clean_string(user.first_name)}"
+def _format_user_name(first_name: str, last_name: str) -> str:
+    return f"{clean_string(last_name)}_{clean_string(first_name)}"
 
 
 def split_date_range_into_years(
     min_date: date, max_date: date
 ) -> List[Tuple[date, date]]:
-    """Split into calendar year periods (1st to last day of each year)."""
     ranges = []
     current_year = min_date.year
 
@@ -111,7 +98,6 @@ def split_date_range_into_years(
 def split_date_range_into_months(
     min_date: date, max_date: date
 ) -> List[Tuple[date, date]]:
-    """Split into calendar month periods (1st to last day of each month)."""
     ranges = []
     current_date = min_date
 
@@ -144,23 +130,32 @@ def get_export_chunks(
     min_date: date,
     max_date: date,
     one_file_by_employee: bool = False,
+    user_names: Optional[Dict[int, Tuple[str, str]]] = None,
 ) -> ExportChunkingResult:
-    """Determine chunking strategy and generate chunks based on date range and user count."""
+    """
+    Determine chunking strategy and generate chunks based on date range and user count.
+
+    Args:
+        user_ids: List of user IDs to include in export
+        min_date: Start date of export period
+        max_date: End date of export period
+        one_file_by_employee: If True, generate one file per employee
+        user_names: Optional dict mapping user_id -> (first_name, last_name) for file naming.
+                   Required when generating individual files per user.
+    """
     num_users = len(user_ids)
     num_days = calculate_days_between(min_date, max_date)
 
     if num_days >= MAX_DAYS_FOR_YEAR_SPLIT:
         chunks = []
         date_ranges = split_date_range_into_years(min_date, max_date)
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        user_map = {u.id: u for u in users}
 
         for user_id in user_ids:
-            user = user_map.get(user_id)
-            if not user:
-                continue
-
-            user_name = _format_user_name(user)
+            if user_names and user_id in user_names:
+                first_name, last_name = user_names[user_id]
+                user_name = _format_user_name(first_name, last_name)
+            else:
+                user_name = f"user_{user_id}"
 
             for start_date, end_date in date_ranges:
                 if start_date.year == end_date.year:
@@ -242,16 +237,15 @@ def get_export_chunks(
         )
 
     if one_file_by_employee:
-        users = User.query.filter(User.id.in_(user_ids)).all()
-        user_map = {u.id: u for u in users}
         chunks = []
 
         for user_id in user_ids:
-            user = user_map.get(user_id)
-            if not user:
-                continue
+            if user_names and user_id in user_names:
+                first_name, last_name = user_names[user_id]
+                user_name = _format_user_name(first_name, last_name)
+            else:
+                user_name = f"user_{user_id}"
 
-            user_name = _format_user_name(user)
             chunks.append(
                 ExportChunkInfo(
                     user_ids=[user_id],
