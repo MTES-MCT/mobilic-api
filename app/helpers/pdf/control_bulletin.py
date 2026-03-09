@@ -83,6 +83,17 @@ def _generate_part_one(control):
     birth_date_str = control.control_bulletin.get('user_birth_date')
     formatted_birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d").strftime("%d/%m/%Y") if birth_date_str else "-"
 
+    
+    printedVehicleWeightValue = '-'
+    
+    # Détermine la valeur du poids de véhicule à afficher (Poids réel, PTAC, PV ou '-' si pas de valeur renseignée)
+    if control.control_bulletin and control.control_bulletin.get("real_vehicle_weight") is not None:
+        printedVehicleWeightValue = f"{control.control_bulletin.get('real_vehicle_weight')} tonnes"
+    elif control.control_bulletin and control.control_bulletin.get("vehicle_weight"):
+        printedVehicleWeightValue = control.control_bulletin.get("vehicle_weight")
+    else:
+        printedVehicleWeightValue = '-'
+
     return generate_pdf_from_template(
         "control_bulletin.html",
         control_bulletin_id=control.reference,
@@ -114,7 +125,9 @@ def _generate_part_one(control):
         transport_to=control.control_bulletin.get("mission_address_end"),
         observations=control.control_bulletin.get("observation"),
         business_types=business_types,
-        controller_signature=controller_signature
+        controller_signature=controller_signature,
+
+        vehicle_weight=printedVehicleWeightValue
     )
 
 
