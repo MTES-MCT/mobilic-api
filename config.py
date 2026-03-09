@@ -110,6 +110,12 @@ class Config:
     )
     USERS_BLACKLIST = json.loads(os.environ.get("USERS_BLACKLIST", "[]"))
     PC_ALLOWED_IDP_IDS = json.loads(os.environ.get("PC_ALLOWED_IDP_IDS", "[]"))
+    MI_SIRENS = json.loads(
+        os.environ.get(
+            "MI_SIRENS",
+            '["110014016","120015011","130020373","157000019"]',
+        )
+    )
     SENTRY_ENVIRONMENT = os.environ.get("SENTRY_ENVIRONMENT", "development")
     BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
         "BREVO_COMPANY_SUBSCRIBE_LIST", 19
