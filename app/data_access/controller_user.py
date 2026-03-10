@@ -29,6 +29,15 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
     greco_id = graphene.Field(
         graphene.String, required=False, description="Identifiant Greco"
     )
+    is_ministry_of_interior = graphene.Field(
+        graphene.Boolean,
+        required=True,
+        description="Contrôleur rattaché au Ministère de l'Intérieur",
+    )
+
+    def resolve_is_ministry_of_interior(self, info):
+        return self.is_ministry_of_interior
+
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),
         description="Liste des contrôles réalisés par le contrôleur",
