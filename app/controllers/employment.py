@@ -304,13 +304,23 @@ class CreateEmployment(AuthenticatedMutation):
         return employment
 
 
+def _send_batch_invites_and_cleanup(employments):
+    unsent = []
+    for cursor in range(0, len(employments), MAILJET_BATCH_SEND_LIMIT):
+        batch = employments[cursor : cursor + MAILJET_BATCH_SEND_LIMIT]
+        messages = mailer.batch_send_employee_invites(batch)
+        for index, message in enumerate(messages):
+            if isinstance(message.response, MailjetError):
+                unsent.append(batch[index])
+                db.session.delete(batch[index])
+    return [e for e in employments if e not in unsent]
+
+
 class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     """
     Invitation d'un groupe de travailleurs mobile à une entreprise. Les invitations doivent être approuvées par les salariés pour être effectives.
 
     Accepte une liste d'emails et/ou une liste d'identifiants utilisateur.
-    Les invitations par email déclenchent un envoi de mail.
-    Les rattachements par identifiant créent un employment PENDING sans envoi d'email.
 
     Retourne la liste des rattachements.
     """
@@ -359,9 +369,7 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             reception_time = datetime.now()
             company = Company.query.get(company_id)
-            created_employments = []
 
-            # Batch-load users for ID-based invites (avoid N+1)
             users_by_id = {}
             if user_ids:
                 users_by_id = {
@@ -369,15 +377,12 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                     for u in User.query.filter(User.id.in_(user_ids)).all()
                 }
 
-            # Exclude emails that belong to users already in user_ids
-            mail_user_ids = set(users_by_id.keys())
-            if mails and mail_user_ids:
+            if mails and users_by_id:
                 existing_emails = {
                     u.email.lower() for u in users_by_id.values() if u.email
                 }
                 mails = [m for m in mails if m.lower() not in existing_emails]
 
-            # Email-based employments (with invitation email)
             email_employments = [
                 Employment(
                     reception_time=reception_time,
@@ -393,29 +398,8 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                 )
                 for mail in mails
             ]
-            db.session.flush()
 
-            unsent_employments = []
-            if email_employments:
-                messages = []
-                for cursor in range(0, len(mails), MAILJET_BATCH_SEND_LIMIT):
-                    messages.extend(
-                        mailer.batch_send_employee_invites(
-                            email_employments[
-                                cursor : (cursor + MAILJET_BATCH_SEND_LIMIT)
-                            ]
-                        )
-                    )
-                for index, message in enumerate(messages):
-                    if isinstance(message.response, MailjetError):
-                        unsent_employments.append(email_employments[index])
-                        db.session.delete(email_employments[index])
-
-            created_employments.extend(
-                e for e in email_employments if e not in unsent_employments
-            )
-
-            # User ID-based employments (no invitation email)
+            id_employments = []
             for user_id in user_ids:
                 user = users_by_id.get(user_id)
                 if not user:
@@ -435,9 +419,12 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                     business=company.business,
                 )
                 db.session.add(employment)
-                created_employments.append(employment)
+                id_employments.append(employment)
 
-        return created_employments
+            db.session.flush()
+
+            all_employments = email_employments + id_employments
+            return _send_batch_invites_and_cleanup(all_employments)
 
 
 def review_employment(employment_id, reject):
