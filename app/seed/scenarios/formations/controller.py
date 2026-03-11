@@ -1,4 +1,4 @@
-from future.backports.datetime import timedelta
+from datetime import timedelta
 
 from app import db
 from app.domain.log_activities import log_activity
