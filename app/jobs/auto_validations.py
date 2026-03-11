@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+import sentry_sdk
 from jours_feries_france import JoursFeries
 from sqlalchemy.orm import selectinload
 
@@ -83,6 +84,25 @@ def job_process_auto_validations():
                     )
                     db.session.add(validation)
             except Exception as e:
+                with sentry_sdk.new_scope() as scope:
+                    scope.fingerprint = [
+                        "auto-validation-failure",
+                        type(e).__name__,
+                    ]
+                    scope.set_tag("job", "process_auto_validations")
+                    scope.set_tag("is_admin", str(is_admin))
+                    scope.set_context(
+                        "auto_validation",
+                        {
+                            "mission_id": mission.id,
+                            "user_id": for_user.id,
+                            "user_email": for_user.email,
+                            "reception_time": str(
+                                auto_validation.reception_time
+                            ),
+                        },
+                    )
+                    sentry_sdk.capture_exception(e)
                 app.logger.warning(
                     f"Could not auto validate mission <{mission.id}>: {e}"
                 )
