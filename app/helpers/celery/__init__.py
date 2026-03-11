@@ -5,11 +5,8 @@ import sentry_sdk
 
 from app import app, db
 from app.helpers.s3 import S3Client
-from app.helpers.xls import (
-    generate_admin_export_file,
-    generate_admin_export_file_from_chunks,
-)
-from app.models import User, Export
+from app.helpers.xls import generate_admin_export_file_from_chunks
+from app.models import User, Export, Company
 from app.models.export import ExportStatus, ExportType
 
 celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
@@ -50,10 +47,22 @@ def async_export_excel(
 
         try:
             start_time = time.perf_counter()
+
+            all_user_ids = set()
+            for chunk in chunks:
+                all_user_ids.update(chunk["user_ids"])
+            users = User.query.filter(User.id.in_(all_user_ids)).all()
+            companies = (
+                db.session.query(Company)
+                .filter(Company.id.in_(company_ids))
+                .all()
+            )
+
             file_content, content_type, file_name, file_size_bytes = (
                 generate_admin_export_file_from_chunks(
                     chunks=chunks,
-                    company_ids=company_ids,
+                    users=users,
+                    companies=companies,
                     file_name=file_name,
                 )
             )
