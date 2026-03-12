@@ -71,16 +71,16 @@ def write_day_details_sheet(
                 mission_starting_row_idx = row_idx
                 if (
                     first_activities_for_user
-                    and to_tz(first_activities_for_user.start_time, tz=tz).date()
+                    and to_tz(
+                        first_activities_for_user.start_time, tz=wday.tz
+                    ).date()
                     == wday.day
                 ):
                     if row_idx == user_starting_row_idx:
                         column_base_formats = write_tab_headers(
                             wb, sheet, row_idx, all_columns
                         )
-                        row_idx = (
-                            user_starting_row_idx
-                        ) = (
+                        row_idx = user_starting_row_idx = (
                             workday_starting_row_idx
                         ) = mission_starting_row_idx = (row_idx + 1)
                     for history_event in sorted(
@@ -105,9 +105,11 @@ def write_day_details_sheet(
                             column_base_formats,
                             col_idx,
                             row_idx,
-                            deleted_workday_columns
-                            if deleted_missions
-                            else workday_columns,
+                            (
+                                deleted_workday_columns
+                                if deleted_missions
+                                else workday_columns
+                            ),
                             wday,
                         )
                         col_idx = write_cells(
@@ -147,7 +149,11 @@ def write_day_details_sheet(
                 workday_starting_row_idx,
                 row_idx,
                 1,
-                to_tz(wday.start_time, tz=tz) if wday.start_time else wday.day,
+                (
+                    to_tz(wday.start_time, tz=wday.tz)
+                    if wday.start_time
+                    else wday.day
+                ),
                 formats.get("merged_date_format"),
             )
         merge_cells_if_needed(
