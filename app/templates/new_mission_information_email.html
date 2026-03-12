@@ -10,10 +10,10 @@ La mission {{ mission_name }} du {{ mission_day }} a été rajoutée à votre hi
     <p>Vos horaires d'activité sur cette mission sont : </p>
     <ul>
         <li>
-            Heure de début : <strong>{{ start_time | format_time(show_dates) }}</strong>.
+            Heure de début : <strong>{{ start_time | format_time(show_dates, user_timezone) }}</strong>.
         </li>
         <li>
-            Heure de fin : <strong>{{ end_time | format_time(show_dates) }}</strong>.
+            Heure de fin : <strong>{{ end_time | format_time(show_dates, user_timezone) }}</strong>.
         </li>
         <li>
             Temps de travail : <strong>{{ work_duration | format_duration }}</strong>.

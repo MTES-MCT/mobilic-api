@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from dateutil.tz import gettz
 from sqlalchemy import or_, and_
 
 from app import db
@@ -58,7 +57,7 @@ def compute_regulations(
         submitter_type,
     )
 
-    user_timezone = gettz(user.timezone_name)
+    user_timezone = user.timezone
 
     # Next day is needed for some computation rules
     day_after_period_end = period_end + timedelta(days=1)

@@ -14,12 +14,10 @@ from app.helpers.time import (
     to_timestamp,
     to_tz,
     min_or_none,
-    to_fr_tz,
 )
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
 from cached_property import cached_property
-from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
@@ -64,7 +62,7 @@ def compute_aggregate_durations(
         )
         timers[period.type] += total_duration
         if period.type not in NOT_WORK_ACTIVITIES and min_time:
-            user_timezone = gettz(period.user.timezone_name)
+            user_timezone = period.user.timezone
             day_duration_tarification = int(
                 period.duration_over(
                     from_tz(
@@ -383,7 +381,7 @@ class WorkDay:
             return ("-", "center")
         start_time = self.get_start_time(include_off_activities=False)
         return (
-            to_fr_tz(start_time) if start_time else None,
+            to_tz(start_time, tz=self.tz) if start_time else None,
             get_time_format(),
         )
 
@@ -394,7 +392,7 @@ class WorkDay:
         if self.is_last_mission_overlapping_with_next_day or self.is_off_day:
             return ("-", "center")
         end_time = self.get_end_time(include_off_activities=False)
-        return (to_fr_tz(end_time) if end_time else None, get_time_format())
+        return (to_tz(end_time, tz=self.tz) if end_time else None, get_time_format())
 
 
 class WorkDayStatsOnly:

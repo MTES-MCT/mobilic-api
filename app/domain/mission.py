@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from dateutil.tz import gettz
 from sqlalchemy import desc
 
 from app import db
@@ -57,7 +56,7 @@ def get_mission_start_and_end(mission, user):
 
 
 def get_mission_start_and_end_from_activities(activities, user):
-    user_timezone = gettz(user.timezone_name)
+    user_timezone = user.timezone
     mission_start = to_tz(activities[0].start_time, user_timezone).date()
     mission_end = (
         to_tz(activities[-1].end_time, user_timezone).date()

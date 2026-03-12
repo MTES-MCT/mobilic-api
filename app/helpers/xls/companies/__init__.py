@@ -4,6 +4,7 @@ from io import BytesIO
 
 from xlsxwriter import Workbook
 
+from app.helpers.time import FR_TIMEZONE
 from app.helpers.xls.common import clean_string
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
@@ -18,7 +19,11 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
         for idx_user, batch in enumerate(batches):
             (batch_user, batch_data) = batch
             excel_file = get_one_excel_file(
-                batch_data, companies, min_date, max_date
+                batch_data,
+                companies,
+                min_date,
+                max_date,
+                tz=batch_user.timezone,
             )
             last_name = clean_string(batch_user.last_name)
             first_name = clean_string(batch_user.first_name)
@@ -29,7 +34,9 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
     return memory_file
 
 
-def get_one_excel_file(wdays_data, companies, min_date, max_date):
+def get_one_excel_file(
+    wdays_data, companies, min_date, max_date, tz=FR_TIMEZONE
+):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     wdays_by_user = defaultdict(list)
     wdays_by_user_deleted_missions = defaultdict(list)
@@ -67,6 +74,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         companies=companies,
         min_date=min_date,
         max_date=max_date,
+        tz=tz,
     )
     write_day_details_sheet(
         wb,
@@ -76,6 +84,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         min_date=min_date,
         max_date=max_date,
         deleted_missions=True,
+        tz=tz,
     )
     wb.close()
 

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from app.helpers.time import FR_TIMEZONE
 from app.models import (
     User,
     Activity,
@@ -87,6 +88,7 @@ class UserChange(HistoryItem):
     type: LogActionType
     version: any = None
     holiday_mission_name: str = ""
+    tz: any = FR_TIMEZONE
 
     def picto(self):
         if self.is_validation:
@@ -154,7 +156,7 @@ class UserChange(HistoryItem):
                             else format_activity_type(activity.type)
                         )
                         auto_end_texts_set.add(
-                            f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True)}"
+                            f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True, self.tz)}"
                         )
             return list(auto_end_texts_set)
         return []
@@ -203,15 +205,15 @@ class UserChange(HistoryItem):
             if self.type == LogActionType.CREATE:
                 if self.version.end_time:
                     return [
-                        f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True)} au {format_time(self.version.end_time, True)}"
+                        f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
                     ]
                 return [
-                    f"s'est mis en {activity_name} le {format_time(self.version.start_time, True)}"
+                    f"s'est mis en {activity_name} le {format_time(self.version.start_time, True, self.tz)}"
                 ]
 
             if self.type == LogActionType.DELETE:
                 return [
-                    f"a supprimé l'activité {activity_name} démarrée le {format_time(self.resource.start_time, True)}"
+                    f"a supprimé l'activité {activity_name} démarrée le {format_time(self.resource.start_time, True, self.tz)}"
                 ]
 
             previous_version = self.version.previous_version
@@ -240,21 +242,21 @@ class UserChange(HistoryItem):
                                 break
                 if not self.version.end_time:
                     texts.append(
-                        f"a repris l'activité {activity_name} le {format_time(self.time, True)}"
+                        f"a repris l'activité {activity_name} le {format_time(self.time, True, self.tz)}"
                     )
                 elif not previous_version.end_time:
                     if not is_auto_end:
                         texts.append(
-                            f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True)}"
+                            f"a mis fin à l'activité {activity_name} le {format_time(self.version.end_time, True, self.tz)}"
                         )
                 else:
                     texts.append(
-                        f"a décalé la fin de l'activité {activity_name} du {format_time(previous_version.end_time, True)} au {format_time(self.version.end_time, True)}"
+                        f"a décalé la fin de l'activité {activity_name} du {format_time(previous_version.end_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
                     )
 
             if self.version.start_time != previous_version.start_time:
                 texts.append(
-                    f"a décalé le début de l'activité {activity_name} du {format_time(previous_version.start_time, True)} au {format_time(self.version.start_time, True)}"
+                    f"a décalé le début de l'activité {activity_name} du {format_time(previous_version.start_time, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
                 )
             return texts
 
@@ -329,6 +331,7 @@ def actions_history(
                     if type(resource) is Activity
                     else None,
                     holiday_mission_name=holiday_mission_name,
+                    tz=user.timezone
                 )
             )
 
@@ -347,6 +350,7 @@ def actions_history(
                         if user_validation
                         else False,
                         holiday_mission_name=holiday_mission_name,
+                        tz=user.timezone
                     )
                 )
 
@@ -374,6 +378,7 @@ def actions_history(
                             else False,
                             version=revision,
                             holiday_mission_name=holiday_mission_name,
+                            tz=user.timezone
                         )
                     )
 

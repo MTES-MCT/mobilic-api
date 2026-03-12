@@ -1,4 +1,5 @@
 from app import app
+from app.helpers.time import FR_TIMEZONE
 from app.helpers.xls.signature import retrieve_and_verify_signature
 
 from .companies import get_one_excel_file, get_archive_excel_file
@@ -18,6 +19,7 @@ def generate_admin_export_file(
     if one_file_by_employee:
         user_wdays_batches = []
         for user in users:
+            user_timezone = user.timezone
             user_wdays_batches += [
                 (
                     user,
@@ -27,26 +29,38 @@ def generate_admin_export_file(
                         from_date=min_date,
                         until_date=max_date,
                         include_dismissed_or_empty_days=True,
+                        tz=user_timezone,
                     )[0],
                 )
             ]
     else:
         all_users_work_days = []
         for user in users:
+            user_timezone = user.timezone
             all_users_work_days += group_user_events_by_day_with_limit(
                 user,
                 consultation_scope=scope,
                 from_date=min_date,
                 until_date=max_date,
                 include_dismissed_or_empty_days=True,
+                tz=user_timezone,
             )[0]
         user_wdays_batches = [(None, all_users_work_days)]
 
     companies = Company.query.filter(Company.id.in_(company_ids)).all()
 
     if len(user_wdays_batches) == 1:
+        tz_for_export = (
+            user_wdays_batches[0][0].timezone
+            if user_wdays_batches[0][0]
+            else FR_TIMEZONE
+        )
         file = get_one_excel_file(
-            user_wdays_batches[0][1], companies, min_date, max_date
+            user_wdays_batches[0][1],
+            companies,
+            min_date,
+            max_date,
+            tz=tz_for_export,
         )
         content_type = (
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

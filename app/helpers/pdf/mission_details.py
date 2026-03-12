@@ -1,8 +1,6 @@
 from collections import defaultdict
 from typing import NamedTuple
 
-from dateutil.tz import gettz
-
 from app.domain.history import actions_history
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.pdf import generate_pdf_from_template, Column
@@ -139,6 +137,7 @@ def generate_mission_details_pdf(
     show_history_before_employee_validation=True,
     max_reception_time=None,
 ):
+    user_timezone = user.timezone
     mission_name = mission.name
     mission_subtitle = None
 
@@ -225,7 +224,7 @@ def generate_mission_details_pdf(
     )
 
     try:
-        tz = gettz(user.timezone_name)
+        tz = user.timezone
         night_work_tarification = compute_aggregate_durations(
             activities, min_time=start_time, tz=tz
         )[2]["night_work_tarification"]
@@ -278,4 +277,5 @@ def generate_mission_details_pdf(
         deleted_at_text=f"Cette mission a été supprimée le {full_format_day(mission.deleted_at())} par {mission.deleted_by()}"
         if mission.is_deleted()
         else "",
+        user_timezone=user_timezone
     )
