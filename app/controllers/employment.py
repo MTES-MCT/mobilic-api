@@ -304,9 +304,23 @@ class CreateEmployment(AuthenticatedMutation):
         return employment
 
 
+def _send_batch_invites_and_cleanup(employments):
+    unsent = []
+    for cursor in range(0, len(employments), MAILJET_BATCH_SEND_LIMIT):
+        batch = employments[cursor : cursor + MAILJET_BATCH_SEND_LIMIT]
+        messages = mailer.batch_send_employee_invites(batch)
+        for index, message in enumerate(messages):
+            if isinstance(message.response, MailjetError):
+                unsent.append(batch[index])
+                db.session.delete(batch[index])
+    return [e for e in employments if e not in unsent]
+
+
 class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     """
     Invitation d'un groupe de travailleurs mobile à une entreprise. Les invitations doivent être approuvées par les salariés pour être effectives.
+
+    Accepte une liste d'emails et/ou une liste d'identifiants utilisateur.
 
     Retourne la liste des rattachements.
     """
@@ -319,8 +333,15 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
         )
         mails = graphene.Argument(
             graphene.List(Email),
-            required=True,
+            required=False,
             description="Liste d'emails à rattacher.",
+            default_value=[],
+        )
+        user_ids = graphene.Argument(
+            graphene.List(graphene.Int),
+            required=False,
+            description="Liste d'identifiants utilisateur Mobilic à rattacher.",
+            default_value=[],
         )
 
     Output = graphene.List(EmploymentOutput)
@@ -330,16 +351,39 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
         company_admin,
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
-    def mutate(cls, _, info, company_id, mails):
+    def mutate(cls, _, info, company_id, mails=None, user_ids=None):
+        mails = mails or []
+        user_ids = list(dict.fromkeys(user_ids or []))
+        total_count = len(mails) + len(user_ids)
+
+        if total_count == 0:
+            raise InvalidParamsError(
+                "At least one email or user id must be provided"
+            )
+
+        if total_count > MAX_SIZE_OF_INVITATION_BATCH:
+            raise InvalidParamsError(
+                f"Total invitations cannot exceed {MAX_SIZE_OF_INVITATION_BATCH}"
+            )
+
         with atomic_transaction(commit_at_end=True):
-            if len(mails) > MAX_SIZE_OF_INVITATION_BATCH:
-                raise InvalidParamsError(
-                    f"List of emails to invite cannot exceed {MAX_SIZE_OF_INVITATION_BATCH} in length"
-                )
             reception_time = datetime.now()
             company = Company.query.get(company_id)
 
-            employments = [
+            users_by_id = {}
+            if user_ids:
+                users_by_id = {
+                    u.id: u
+                    for u in User.query.filter(User.id.in_(user_ids)).all()
+                }
+
+            if mails and users_by_id:
+                existing_emails = {
+                    u.email.lower() for u in users_by_id.values() if u.email
+                }
+                mails = [m for m in mails if m.lower() not in existing_emails]
+
+            email_employments = [
                 Employment(
                     reception_time=reception_time,
                     submitter=current_user,
@@ -354,24 +398,33 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                 )
                 for mail in mails
             ]
+
+            id_employments = []
+            for user_id in user_ids:
+                user = users_by_id.get(user_id)
+                if not user:
+                    continue
+                employment = Employment(
+                    reception_time=reception_time,
+                    submitter=current_user,
+                    validation_status=EmploymentRequestValidationStatus.PENDING,
+                    start_date=reception_time.date(),
+                    end_date=None,
+                    company=company,
+                    has_admin_rights=False,
+                    user=user,
+                    user_id=user_id,
+                    invite_token=uuid4().hex,
+                    hide_email=True,
+                    business=company.business,
+                )
+                db.session.add(employment)
+                id_employments.append(employment)
+
             db.session.flush()
 
-            messages = []
-            for cursor in range(0, len(mails), MAILJET_BATCH_SEND_LIMIT):
-                messages.extend(
-                    mailer.batch_send_employee_invites(
-                        employments[
-                            cursor : (cursor + MAILJET_BATCH_SEND_LIMIT)
-                        ]
-                    )
-                )
-            unsent_employments = []
-            for index, message in enumerate(messages):
-                if isinstance(message.response, MailjetError):
-                    unsent_employments.append(employments[index])
-                    db.session.delete(employments[index])
-
-        return [e for e in employments if not e in unsent_employments]
+            all_employments = email_employments + id_employments
+            return _send_batch_invites_and_cleanup(all_employments)
 
 
 def review_employment(employment_id, reject):
