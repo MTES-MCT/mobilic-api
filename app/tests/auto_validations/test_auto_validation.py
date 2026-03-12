@@ -596,6 +596,41 @@ class TestAutoValidation(BaseTest):
                     end=activity.end_time,
                 )
 
+    def test_auto_validation_with_running_activity(self):
+        employee = self.team_mates[0]
+
+        with freeze_time(datetime(2025, 4, 17, 18, 0)):
+            mission_id = _log_activities_in_mission(
+                submitter=employee,
+                company=self.company,
+                user=employee,
+                work_periods=[
+                    WorkPeriod(start_time=get_time(0, 8)),
+                ],
+            )
+
+        mission = Mission.query.get(mission_id)
+        activities = mission.activities_for(employee)
+        self.assertIsNone(activities[0].end_time)
+
+        with freeze_time(datetime(2025, 4, 18, 19, 0)):
+            job_process_auto_validations()
+
+        mission = Mission.query.get(mission_id)
+        activities = mission.activities_for(employee)
+        self.assertIsNotNone(activities[0].end_time)
+
+        auto_validations = MissionAutoValidation.query.all()
+        self.assertEqual(1, len(auto_validations))
+        self.assertTrue(auto_validations[0].is_admin)
+
+        validations = MissionValidation.query.filter(
+            MissionValidation.mission_id == mission_id,
+            MissionValidation.is_auto == True,
+            MissionValidation.is_admin == False,
+        ).all()
+        self.assertEqual(1, len(validations))
+
     def test_employee_cannot_add_activity_after_auto_validation(self):
         employee = self.team_mates[0]
         (
