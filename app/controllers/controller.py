@@ -161,7 +161,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         is_day_page_filled = graphene.Boolean(required=False)
         delivered_by_hand = graphene.Boolean(required=False)
         vehicle_weight = graphene.String(required=False)
-        real_vehicle_weight = graphene.Int(required=False)
+        real_vehicle_weight = graphene.Float(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
