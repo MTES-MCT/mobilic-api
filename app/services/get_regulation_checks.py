@@ -179,7 +179,7 @@ def get_regulation_checks():
         RegulationCheckData(
             id=7,
             type="noLic",
-            label="Absence de livret individuel de contrôle à bord",
+            label="Tenue non conforme du livret individuel de contrôle",
             regulation_rule=None,
             variables=dict(
                 DESCRIPTION={
