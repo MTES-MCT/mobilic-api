@@ -43,7 +43,12 @@ def get_default_business(business_id=None):
 
 
 def compute_regulations(
-    user, period_start, period_end, submitter_type, business=None
+    user,
+    period_start,
+    period_end,
+    submitter_type,
+    business=None,
+    employee_version=None,
 ):
     period_start = period_start - timedelta(days=1)
     week_period_start = get_first_day_of_week(period_start)
@@ -74,7 +79,11 @@ def compute_regulations(
         only_missions_validated_by_user=submitter_type
         == SubmitterType.EMPLOYEE,
         include_holidays=False,
-        employee_version=submitter_type == SubmitterType.EMPLOYEE,
+        employee_version=(
+            employee_version
+            if employee_version is not None
+            else submitter_type == SubmitterType.EMPLOYEE
+        ),
     )
 
     if business is None:

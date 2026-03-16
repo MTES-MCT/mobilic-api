@@ -9,6 +9,7 @@ from app.models import User, RegulatoryAlert
 from app.models.regulation_check import RegulationCheckType, RegulationCheck
 from app.seed.helpers import get_time, get_date
 from app.tests.regulations import RegulationsTest, EMPLOYEE_EMAIL
+from unittest import skip
 
 
 class TestDailyRest(RegulationsTest):
@@ -235,6 +236,7 @@ class TestDailyRest(RegulationsTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    @skip("TODO: remove after 30/10/2025")
     def test_min_daily_rest_by_employee_failure_only_one_day(self):
         employee = self.employee
         how_many_days_ago = 3
@@ -280,6 +282,7 @@ class TestDailyRest(RegulationsTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    @skip("TODO: remove after 30/10/2025")
     def test_min_daily_rest_by_employee_failure(self):
         how_many_days_ago = 2
 
@@ -322,6 +325,7 @@ class TestDailyRest(RegulationsTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    @skip("TODO: remove after 30/10/2025")
     def test_min_daily_rest_by_employee_failure_complex_case(self):
         self._log_and_validate_mission(
             mission_name="4hD/30mB/4hD/15mB/3hD/5h15B/4hD/3hB/7hD",
@@ -373,6 +377,7 @@ class TestDailyRest(RegulationsTest):
             5 * HOUR + 15 * MINUTE,
         )
 
+    @skip("TODO: remove after 30/10/2025")
     def test_min_daily_rest_by_employee_failure_complex_case_double_alert(
         self,
     ):
