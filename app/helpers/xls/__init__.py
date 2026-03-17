@@ -61,4 +61,7 @@ def generate_admin_export_file_from_chunks(
         )
         files_data.extend(chunk_files)
 
+    if not files_data:
+        raise ValueError("Aucune donnée à exporter.")
+
     return build_final_export(files_data, file_name)

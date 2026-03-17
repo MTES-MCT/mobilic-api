@@ -1,6 +1,25 @@
-from datetime import date
+from datetime import date, timedelta
 from app.helpers.celery import async_export_excel, DEFAULT_FILE_NAME
 from app.helpers.export_chunking import get_export_chunks
+
+
+def prepare_export_chunks(users, min_date, max_date, one_file_by_employee):
+    users = list(users)
+    user_ids = [user.id for user in users]
+    user_names = {u.id: (u.first_name, u.last_name) for u in users}
+
+    effective_min_date = (
+        min_date if min_date else date.today() - timedelta(days=364)
+    )
+    effective_max_date = max_date if max_date else date.today()
+
+    return get_export_chunks(
+        user_ids=user_ids,
+        min_date=effective_min_date,
+        max_date=effective_max_date,
+        one_file_by_employee=one_file_by_employee,
+        user_names=user_names,
+    )
 
 
 def export_activity_report(
@@ -13,20 +32,8 @@ def export_activity_report(
     file_name=None,
     export_type=None,
 ):
-    users = list(users)
-    user_ids = [user.id for user in users]
-    # Build user names map for file naming (user_id -> (first_name, last_name))
-    user_names = {u.id: (u.first_name, u.last_name) for u in users}
-
-    effective_min_date = min_date if min_date else date(2000, 1, 1)
-    effective_max_date = max_date if max_date else date.today()
-
-    chunking_result = get_export_chunks(
-        user_ids=user_ids,
-        min_date=effective_min_date,
-        max_date=effective_max_date,
-        one_file_by_employee=one_file_by_employee,
-        user_names=user_names,
+    chunking_result = prepare_export_chunks(
+        users, min_date, max_date, one_file_by_employee
     )
 
     chunks_data = [

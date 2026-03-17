@@ -51,6 +51,44 @@ def calculate_days_between(min_date, max_date):
     return (max_date - min_date).days + 1
 
 
+def get_strategy_message(strategy, num_users):
+    if strategy == ExportChunkingStrategy.OVER_365_DAYS:
+        return (
+            "La période sélectionnée étant d'au moins 1 an, le téléchargement sera divisé "
+            "en plusieurs fichiers pour des raisons techniques. Vous recevrez un fichier par "
+            "année et par salarié."
+        )
+
+    if strategy == ExportChunkingStrategy.OVER_31_DAYS:
+        if num_users > MAX_USERS_PER_BATCH:
+            return (
+                "Le nombre de salariés sélectionnés étant supérieur à 100 et la période supérieure à 31 jours, "
+                "le téléchargement sera divisé en plusieurs fichiers pour des raisons techniques. "
+                "Vous recevrez un fichier par mois et par tranche de 100 salariés."
+            )
+        else:
+            return (
+                "La période sélectionnée étant supérieure à 31 jours, "
+                "le téléchargement sera divisé en plusieurs fichiers pour des raisons techniques. "
+                "Vous recevrez un fichier par mois."
+            )
+
+    if strategy == ExportChunkingStrategy.OVER_100_USERS:
+        return (
+            "Le nombre de salariés sélectionnés étant supérieur à 100, le téléchargement sera divisé "
+            "en plusieurs fichiers pour des raisons techniques. Vous recevrez un fichier par "
+            "tranche de 100 salariés."
+        )
+
+    if strategy == ExportChunkingStrategy.SINGLE_OR_CONSOLIDATED:
+        return (
+            "Vous pouvez choisir un fichier consolidé ou un fichier par salarié en utilisant "
+            "le paramètre 'one_file_by_employee' (true pour un fichier par salarié, false ou omis pour un fichier consolidé)."
+        )
+
+    return None
+
+
 def split_into_chunks(items, chunk_size):
     return [
         items[i : i + chunk_size] for i in range(0, len(items), chunk_size)
@@ -233,10 +271,11 @@ def _chunk_single_or_consolidated(
 def get_export_chunks(
     user_ids, min_date, max_date, one_file_by_employee=False, user_names=None
 ):
+    user_ids = sorted(user_ids)
     num_users = len(user_ids)
     num_days = calculate_days_between(min_date, max_date)
 
-    if num_days >= MAX_DAYS_FOR_YEAR_SPLIT:
+    if num_days > MAX_DAYS_FOR_YEAR_SPLIT:
         return _chunk_over_365_days(user_ids, min_date, max_date, user_names)
 
     if num_days > MAX_DAYS_FOR_MONTH_SPLIT:
