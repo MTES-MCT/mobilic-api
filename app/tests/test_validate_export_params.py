@@ -204,8 +204,8 @@ class TestValidateExportParams(BaseTest):
 
         self.assertEqual(response.status_code, 200)
         data = response.json
-        # With 1 year of data and < 100 users, should be OVER_31_DAYS
-        self.assertEqual(data["strategy"], "over_31_days")
+        # With 1 year of data and < 100 users, should be OVER_365_DAYS
+        self.assertEqual(data["strategy"], "over_365_days")
 
     def test_validation_without_user_ids(self):
         """Test without user_ids → all company users"""
