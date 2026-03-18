@@ -115,10 +115,10 @@ class TestExportChunkingStrategyOver365Days(TestCase):
     # Strategy triggered when period exceeds MAX_DAYS_FOR_YEAR_SPLIT days
 
     def test_exactly_365_days(self):
-        # 366 days (leap year) → split by year and user
+        # Exactly 365 days (non-leap year) → split by year and user
         user_ids = [1, 2]
-        min_date = date(2024, 1, 1)
-        max_date = date(2024, 12, 31)
+        min_date = date(2023, 1, 1)
+        max_date = date(2023, 12, 31)
 
         result = get_export_chunks(
             user_ids=user_ids,
@@ -130,9 +130,9 @@ class TestExportChunkingStrategyOver365Days(TestCase):
         self.assertEqual(result.strategy, ExportChunkingStrategy.OVER_365_DAYS)
         self.assertEqual(len(result.chunks), 2)
         self.assertEqual(result.chunks[0].user_ids, [1])
-        self.assertEqual(result.chunks[0].min_date, date(2024, 1, 1))
-        self.assertEqual(result.chunks[0].max_date, date(2024, 12, 31))
-        self.assertIn("2024", result.chunks[0].file_suffix)
+        self.assertEqual(result.chunks[0].min_date, date(2023, 1, 1))
+        self.assertEqual(result.chunks[0].max_date, date(2023, 12, 31))
+        self.assertIn("2023", result.chunks[0].file_suffix)
         self.assertEqual(result.chunks[1].user_ids, [2])
 
     def test_multiple_years(self):

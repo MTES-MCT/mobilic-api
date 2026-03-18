@@ -275,7 +275,7 @@ def get_export_chunks(
     num_users = len(user_ids)
     num_days = calculate_days_between(min_date, max_date)
 
-    if num_days > MAX_DAYS_FOR_YEAR_SPLIT:
+    if num_days >= MAX_DAYS_FOR_YEAR_SPLIT:
         return _chunk_over_365_days(user_ids, min_date, max_date, user_names)
 
     if num_days > MAX_DAYS_FOR_MONTH_SPLIT:
