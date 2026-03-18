@@ -43,6 +43,12 @@ def create_controller_user(ac_info):
     return controller
 
 
+def update_controller_user(controller, ac_info):
+    organizational_unit = ac_info.get("organizational_unit")
+    if organizational_unit:
+        controller.organizational_unit = organizational_unit
+
+
 def get_controller_from_ac_info(ac_info):
     ac_id = ac_info.get("sub")
     email = ac_info.get("email")

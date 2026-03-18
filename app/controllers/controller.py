@@ -20,6 +20,7 @@ from app.domain.controller import (
     check_idp_allowed,
     create_controller_user,
     get_controller_from_ac_info,
+    update_controller_user,
 )
 from app.domain.permissions import (
     controller_can_see_control,
@@ -382,6 +383,8 @@ class AgentConnectLogin(graphene.Mutation):
 
             if not controller:
                 controller = create_controller_user(ac_info=ac_user_info)
+            else:
+                update_controller_user(controller, ac_user_info)
 
         tokens = create_access_tokens_for_controller(controller)
 
