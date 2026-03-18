@@ -4,7 +4,7 @@ from io import BytesIO
 
 from xlsxwriter import Workbook
 
-from app.helpers.xls.common import clean_string
+from app.helpers.xls.common import clean_string, is_export_empty
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
 from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
@@ -23,6 +23,11 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
             last_name = clean_string(batch_user.last_name)
             first_name = clean_string(batch_user.first_name)
             user_name = f"{batch_user.id}_{last_name}_{first_name}"
+
+            # Check if this user's export is empty
+            if is_export_empty(batch_data):
+                user_name = f"{user_name}_vide"
+
             zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
 
     memory_file.seek(0)
