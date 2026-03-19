@@ -174,6 +174,8 @@ def raise_expired_token_error(jwt_header, jwt_payload):
 
 @jwt.user_lookup_loader
 def get_user_from_token_identity(jwt_header, jwt_payload):
+    if jwt_payload["identity"].get("totp_required"):
+        return None
     if jwt_payload["identity"].get("controller"):
         controller_user = ControllerUser.query.get(
             jwt_payload["identity"]["controllerUserId"]
@@ -360,6 +362,21 @@ def unset_ac_auth_cookies(response):
 class UserTokens(graphene.ObjectType):
     access_token = graphene.String(description="Jeton d'accès")
     refresh_token = graphene.String(description="Jeton de rafraichissement")
+
+
+class LoginOutput(graphene.ObjectType):
+    access_token = graphene.String(description="Jeton d'accès")
+    refresh_token = graphene.String(description="Jeton de rafraichissement")
+    totp_required = graphene.Boolean(description="2FA TOTP requis")
+
+
+def create_totp_challenge_token(user):
+    from datetime import timedelta
+
+    return create_access_token(
+        {"id": user.id, "totp_required": True},
+        expires_delta=timedelta(minutes=5),
+    )
 
 
 class UserTokensWithFC(UserTokens, graphene.ObjectType):
