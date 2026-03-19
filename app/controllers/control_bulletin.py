@@ -152,10 +152,15 @@ class SendControlBulletinEmail(AuthenticatedMutation):
             "employee_first_name": control.user_first_name or "",
             "employee_last_name": control.user_last_name or "",
             "controller_info": (
-                f"{current_user.first_name} {current_user.last_name}"
-                if current_user.first_name
-                else None
+                f"ayant le matricule {current_user.greco_id} du Ministère de l'Intérieur"
+                if current_user._is_mi()
+                else (
+                    f"{current_user.first_name} {current_user.last_name}"
+                    if current_user.first_name
+                    else None
+                )
             ),
+            "is_mi": current_user._is_mi(),
             "nb_infractions": control.nb_reported_infractions,
         }
 
