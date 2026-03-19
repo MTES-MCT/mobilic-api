@@ -1,3 +1,4 @@
+from .totp_credential import TotpCredential
 from .user import User
 from .controller_user import ControllerUser
 from .business import Business
