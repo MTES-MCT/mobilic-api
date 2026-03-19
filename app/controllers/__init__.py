@@ -13,6 +13,7 @@ from app.controllers.authentication import (
     LoginMutation,
     RefreshMutation,
     LogoutMutation,
+    ValidateTOTPLogin,
 )
 from app.controllers.comment import CancelComment, LogComment
 from app.controllers.company import (
@@ -92,6 +93,8 @@ from app.controllers.user import (
     DisableWarning,
     FranceConnectLogin,
     ResetPasswordConnected,
+    SetupTOTP,
+    VerifyTOTP,
 )
 from app.controllers.user import Query as UserQuery
 from app.controllers.user import (
@@ -180,6 +183,8 @@ class Account(graphene.ObjectType):
     accept_cgu = AcceptCgu.Field()
     reject_cgu = RejectCgu.Field()
     mark_notifications_as_read = MarkNotificationsAsRead.Field()
+    setup_totp = SetupTOTP.Field()
+    verify_totp = VerifyTOTP.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -234,6 +239,7 @@ class Auth(graphene.ObjectType):
     """
 
     login = LoginMutation.Field()
+    validate_totp_login = ValidateTOTPLogin.Field()
     refresh = RefreshMutation.Field()
     logout = LogoutMutation.Field()
 
