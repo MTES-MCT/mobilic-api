@@ -58,6 +58,7 @@ def generate_admin_export_file_from_chunks(
             chunk_max_date,
             file_name,
             chunk_suffix,
+            all_users=users,
         )
         files_data.extend(chunk_files)
 

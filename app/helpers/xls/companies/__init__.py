@@ -34,7 +34,9 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
     return memory_file
 
 
-def get_one_excel_file(wdays_data, companies, min_date, max_date):
+def get_one_excel_file(
+    wdays_data, companies, min_date, max_date, all_users=None
+):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     wdays_by_user = defaultdict(list)
     wdays_by_user_deleted_missions = defaultdict(list)
@@ -64,6 +66,7 @@ def get_one_excel_file(wdays_data, companies, min_date, max_date):
         companies=companies,
         min_date=min_date,
         max_date=max_date,
+        all_users=all_users,
     )
     write_day_details_sheet(
         wb,

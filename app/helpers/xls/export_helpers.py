@@ -70,7 +70,13 @@ def get_work_days_for_users(
 
 
 def generate_excel_files_from_batch(
-    user_wdays_batches, companies, min_date, max_date, file_name, chunk_suffix
+    user_wdays_batches,
+    companies,
+    min_date,
+    max_date,
+    file_name,
+    chunk_suffix,
+    all_users=None,
 ):
     files_data = []
 
@@ -82,7 +88,9 @@ def generate_excel_files_from_batch(
         if is_export_empty(wdays):
             chunk_file_name = f"{chunk_file_name}_vide"
 
-        excel_file = get_one_excel_file(wdays, companies, min_date, max_date)
+        excel_file = get_one_excel_file(
+            wdays, companies, min_date, max_date, all_users=all_users
+        )
         excel_file.seek(0)
         files_data.append(
             {"name": f"{chunk_file_name}.xlsx", "content": excel_file.read()}
@@ -95,7 +103,7 @@ def generate_excel_files_from_batch(
                 chunk_file_name = f"{chunk_file_name}_vide"
 
             excel_file = get_one_excel_file(
-                wdays, companies, min_date, max_date
+                wdays, companies, min_date, max_date, all_users=[user]
             )
             excel_file.seek(0)
             files_data.append(
