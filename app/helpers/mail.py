@@ -1154,6 +1154,7 @@ class Mailer:
                 control_time=control_data["control_time"],
                 controller_info=control_data["controller_info"],
                 nb_infractions=control_data["nb_infractions"],
+                is_mi=control_data.get("is_mi", False),
             )
 
             # Add attachment to message if available
