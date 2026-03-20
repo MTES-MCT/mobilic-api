@@ -130,7 +130,7 @@ def build_final_export(files_data, file_name):
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
     ) as zip_file:
-        for file_data in sorted(files_data, key=lambda f: f["name"]):
+        for file_data in files_data:
             zip_file.writestr(file_data["name"], file_data["content"])
 
     memory_file.seek(0)
