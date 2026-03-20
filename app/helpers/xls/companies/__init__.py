@@ -12,23 +12,28 @@ from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 def get_archive_excel_file(batches, companies, min_date, max_date):
     memory_file = BytesIO()
+    files_to_zip = []
+
+    for idx_user, batch in enumerate(batches):
+        (batch_user, batch_data) = batch
+        excel_file = get_one_excel_file(
+            batch_data, companies, min_date, max_date
+        )
+        last_name = clean_string(batch_user.last_name)
+        first_name = clean_string(batch_user.first_name)
+        user_name = f"{batch_user.id}_{last_name}_{first_name}"
+        if is_export_empty(batch_data):
+            user_name = f"{user_name}_vide"
+        files_to_zip.append((f"{user_name}.xlsx", excel_file.getvalue()))
+
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
     ) as zipObject:
-        for idx_user, batch in enumerate(batches):
-            (batch_user, batch_data) = batch
-            excel_file = get_one_excel_file(
-                batch_data, companies, min_date, max_date
-            )
-            last_name = clean_string(batch_user.last_name)
-            first_name = clean_string(batch_user.first_name)
-            user_name = f"{batch_user.id}_{last_name}_{first_name}"
+        for file_name, file_content in sorted(files_to_zip):
+            zipObject.writestr(file_name, file_content)
 
-            # Check if this user's export is empty
-            if is_export_empty(batch_data):
-                user_name = f"{user_name}_vide"
-
-            zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
+    memory_file.seek(0)
+    return memory_file
 
     memory_file.seek(0)
     return memory_file
