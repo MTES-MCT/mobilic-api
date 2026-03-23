@@ -227,10 +227,10 @@ class TestExportChunkingStrategyOver31Days(TestCase):
 
         self.assertEqual(result.strategy, ExportChunkingStrategy.OVER_31_DAYS)
         self.assertEqual(len(result.chunks), 6)
-        # Order: batch1_march, batch1_april, batch2_march, batch2_april, batch3_march, batch3_april
+        # Avec sort_by_date=True: batch1_mars, batch2_mars, batch3_mars, batch1_avril, batch2_avril, batch3_avril
         self.assertEqual(len(result.chunks[0].user_ids), MAX_USERS_PER_BATCH)
-        self.assertEqual(len(result.chunks[2].user_ids), MAX_USERS_PER_BATCH)
-        self.assertEqual(len(result.chunks[4].user_ids), 50)
+        self.assertEqual(len(result.chunks[1].user_ids), MAX_USERS_PER_BATCH)
+        self.assertEqual(len(result.chunks[2].user_ids), 50)
 
     def test_partial_month_ranges(self):
         user_ids = [1, 2]
@@ -358,11 +358,12 @@ class TestExportChunkingStrategySingleOrConsolidated(TestCase):
             result.strategy, ExportChunkingStrategy.SINGLE_OR_CONSOLIDATED
         )
         self.assertEqual(len(result.chunks), 3)
-        self.assertEqual(result.chunks[0].user_ids, [1])
-        self.assertEqual(result.chunks[1].user_ids, [2])
+        # Tri alphabétique: Jones, Smith, White
+        self.assertEqual(result.chunks[0].user_ids, [2])
+        self.assertEqual(result.chunks[1].user_ids, [1])
         self.assertEqual(result.chunks[2].user_ids, [3])
-        self.assertIn("Smith_Alice", result.chunks[0].file_suffix)
-        self.assertIn("Jones_Bob", result.chunks[1].file_suffix)
+        self.assertIn("Jones_Bob", result.chunks[0].file_suffix)
+        self.assertIn("Smith_Alice", result.chunks[1].file_suffix)
         self.assertIn("White_Carol", result.chunks[2].file_suffix)
 
     def test_single_user(self):
@@ -460,7 +461,8 @@ class TestExportChunkingEdgeCases(TestCase):
         )
 
         self.assertEqual(len(result.chunks), 3)
-        self.assertIn("user_3", result.chunks[2].file_suffix)
+        # Tri: "3" < "jones" < "smith" alphabétiquement
+        self.assertIn("user_3", result.chunks[0].file_suffix)
 
     def test_same_date(self):
         user_ids = [1]

@@ -32,8 +32,14 @@ def generate_admin_export_file_from_chunks(
     if strategy == ExportChunkingStrategy.OVER_31_DAYS.value:
         cache = load_work_days_cache(users, chunks, scope, _parse_date)
 
-    if strategy != ExportChunkingStrategy.OVER_31_DAYS.value:
-        chunks = sorted(chunks, key=lambda c: c["file_suffix"])
+    chunks = sorted(
+        chunks,
+        key=lambda c: (
+            _parse_date(c["min_date"]),
+            _parse_date(c["max_date"]),
+            c["file_suffix"],
+        ),
+    )
 
     files_data = []
     for chunk in chunks:

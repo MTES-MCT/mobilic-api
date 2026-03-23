@@ -24,6 +24,19 @@ MONTH_NAMES = {
 }
 
 
+def _sort_user_ids(user_ids, user_names):
+    if not user_names:
+        return sorted(user_ids)
+    return sorted(
+        user_ids,
+        key=lambda uid: (
+            (user_names[uid][1].lower(), user_names[uid][0].lower())
+            if uid in user_names
+            else (str(uid), "")
+        ),
+    )
+
+
 class ExportChunkingStrategy(str, Enum):
     OVER_365_DAYS = "over_365_days"
     OVER_31_DAYS = "over_31_days"
@@ -152,19 +165,20 @@ def _get_user_name(user_id, user_names):
 
 
 def _chunk_over_365_days(user_ids, min_date, max_date, user_names):
+    """Crée des chunks par année et par salarié, triés alphabétiquement par nom."""
     chunks = []
     date_ranges = split_date_range_into_years(min_date, max_date)
+    user_ids_sorted = _sort_user_ids(user_ids, user_names)
 
-    for user_id in user_ids:
+    for user_id in user_ids_sorted:
         user_name = _get_user_name(user_id, user_names)
 
         for start_date, end_date in date_ranges:
-            year_suffix = (
-                f"{start_date.year}"
-                if start_date.year == end_date.year
-                else f"{start_date.year}_{end_date.year}"
-            )
-            suffix = f"{user_name}_{year_suffix}"
+            # Format : nom_utilisateur_YYYY pour tri alphabétique puis chronologique
+            if start_date.year == end_date.year:
+                suffix = f"{user_name}_{start_date.year}"
+            else:
+                suffix = f"{user_name}_{start_date.year}_{end_date.year}"
 
             chunks.append(
                 ExportChunkInfo(
@@ -180,36 +194,23 @@ def _chunk_over_365_days(user_ids, min_date, max_date, user_names):
     )
 
 
-def _chunk_over_31_days(user_ids, min_date, max_date):
+def _chunk_over_31_days(user_ids, min_date, max_date, user_names=None):
+    """Crée des chunks par mois, triés chronologiquement."""
     chunks = []
-    user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
+    user_ids_sorted = _sort_user_ids(user_ids, user_names)
+    user_chunks = split_into_chunks(user_ids_sorted, MAX_USERS_PER_BATCH)
     date_ranges = split_date_range_into_months(min_date, max_date)
 
-    for user_chunk_idx, user_chunk in enumerate(user_chunks):
-        for start_date, end_date in date_ranges:
-            user_suffix = (
-                f"batch_{user_chunk_idx + 1}" if len(user_chunks) > 1 else ""
-            )
-
-            if (
-                start_date.year == end_date.year
-                and start_date.month == end_date.month
-            ):
-                date_suffix = (
-                    f"{MONTH_NAMES[start_date.month]}_{start_date.year}"
-                )
-            else:
-                date_suffix = f"{MONTH_NAMES[start_date.month]}_{start_date.year}_{MONTH_NAMES[end_date.month]}_{end_date.year}"
-
-            suffix_parts = [p for p in [user_suffix, date_suffix] if p]
-            suffix = "_".join(suffix_parts) if suffix_parts else "export"
-
+    # Toujours trier par date puis user pour ordre chronologique
+    for start_date, end_date in date_ranges:
+        for user_chunk_idx, user_chunk in enumerate(user_chunks):
             chunks.append(
-                ExportChunkInfo(
-                    user_ids=user_chunk,
-                    min_date=start_date,
-                    max_date=end_date,
-                    file_suffix=suffix,
+                _make_monthly_chunk(
+                    user_chunk,
+                    user_chunk_idx,
+                    len(user_chunks),
+                    start_date,
+                    end_date,
                 )
             )
 
@@ -218,9 +219,38 @@ def _chunk_over_31_days(user_ids, min_date, max_date):
     )
 
 
-def _chunk_over_100_users(user_ids, min_date, max_date):
+def _make_monthly_chunk(
+    user_chunk, user_chunk_idx, total_chunks, start_date, end_date
+):
+    """Crée un chunk mensuel avec préfixe YYYY-MM pour tri chronologique."""
+    user_suffix = f"batch_{user_chunk_idx + 1}" if total_chunks > 1 else ""
+
+    # Préfixe YYYY-MM pour garantir tri chronologique alphabétique
+    sort_prefix = f"{start_date.year}-{start_date.month:02d}"
+
+    if start_date.year == end_date.year and start_date.month == end_date.month:
+        date_suffix = f"{MONTH_NAMES[start_date.month]}_{start_date.year}"
+    else:
+        date_suffix = f"{MONTH_NAMES[start_date.month]}_{start_date.year}_{MONTH_NAMES[end_date.month]}_{end_date.year}"
+
+    suffix_parts = [sort_prefix]
+    if user_suffix:
+        suffix_parts.append(user_suffix)
+    suffix_parts.append(date_suffix)
+    suffix = "_".join(suffix_parts)
+
+    return ExportChunkInfo(
+        user_ids=user_chunk,
+        min_date=start_date,
+        max_date=end_date,
+        file_suffix=suffix,
+    )
+
+
+def _chunk_over_100_users(user_ids, min_date, max_date, user_names=None):
     chunks = []
-    user_chunks = split_into_chunks(user_ids, MAX_USERS_PER_BATCH)
+    user_ids_sorted = _sort_user_ids(user_ids, user_names)
+    user_chunks = split_into_chunks(user_ids_sorted, MAX_USERS_PER_BATCH)
 
     for idx, user_chunk in enumerate(user_chunks):
         suffix = f"batch_{idx + 1}" if len(user_chunks) > 1 else "export"
@@ -243,7 +273,8 @@ def _chunk_single_or_consolidated(
 ):
     if one_file_by_employee:
         chunks = []
-        for user_id in user_ids:
+        user_ids_sorted = _sort_user_ids(user_ids, user_names)
+        for user_id in user_ids_sorted:
             user_name = _get_user_name(user_id, user_names)
             chunks.append(
                 ExportChunkInfo(
@@ -271,6 +302,7 @@ def _chunk_single_or_consolidated(
 def get_export_chunks(
     user_ids, min_date, max_date, one_file_by_employee=False, user_names=None
 ):
+    """Calcule les chunks pour l'export avec tri alphabétique des utilisateurs."""
     user_ids = sorted(user_ids)
     num_users = len(user_ids)
     num_days = calculate_days_between(min_date, max_date)
@@ -279,10 +311,10 @@ def get_export_chunks(
         return _chunk_over_365_days(user_ids, min_date, max_date, user_names)
 
     if num_days > MAX_DAYS_FOR_MONTH_SPLIT:
-        return _chunk_over_31_days(user_ids, min_date, max_date)
+        return _chunk_over_31_days(user_ids, min_date, max_date, user_names)
 
     if num_users > MAX_USERS_PER_BATCH:
-        return _chunk_over_100_users(user_ids, min_date, max_date)
+        return _chunk_over_100_users(user_ids, min_date, max_date, user_names)
 
     return _chunk_single_or_consolidated(
         user_ids, min_date, max_date, one_file_by_employee, user_names
