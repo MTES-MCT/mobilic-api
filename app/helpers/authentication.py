@@ -181,7 +181,8 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
             jwt_payload["identity"]["controllerUserId"]
         )
         return controller_user
-    user = User.query.get(jwt_payload["identity"]["id"])
+    identity = jwt_payload["identity"]
+    user = User.query.get(identity["id"])
     if not user:
         return None
     # Check that token is not revoked
@@ -190,7 +191,14 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
         user.latest_token_revocation_time.timestamp()
     ):
         return None
-    g.client_id = jwt_payload["identity"].get("client_id")
+    g.client_id = identity.get("client_id")
+
+    # Impersonation context
+    impersonate_by = identity.get("impersonate_by")
+    if impersonate_by:
+        g.impersonate_by = impersonate_by
+        g.impersonated_user_id = user.id
+
     return user
 
 
