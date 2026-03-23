@@ -106,7 +106,8 @@ def write_work_days_sheet(
             )
             row_idx += 1
             for user in sorted(
-                users_without_data, key=lambda u: u.display_name
+                users_without_data,
+                key=lambda u: (u.last_name.lower(), u.first_name.lower()),
             ):
                 sheet.write(
                     row_idx,
