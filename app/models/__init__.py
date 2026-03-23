@@ -36,3 +36,4 @@ from .controller_control import ControllerControl
 from .mission_auto_validation import MissionAutoValidation
 from .anonymized import *
 from .export import Export
+from .support_action_log import SupportActionLog
