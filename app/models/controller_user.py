@@ -2,7 +2,7 @@ import re
 
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app import db
+from app import app, db
 from app.models.base import BaseModel, RandomNineIntId
 
 
@@ -41,3 +41,14 @@ class ControllerUser(BaseModel, RandomNineIntId):
         return re.search(
             "DREETS|DRIETS|DDETS", self.organizational_unit, re.IGNORECASE
         )
+
+    def _is_mi(self):
+        ou = self.organizational_unit or ""
+        sirens = app.config["MI_SIRENS"]
+        if any(siren in ou for siren in sirens):
+            return True
+        return bool(re.search(r"MINISTERE.INTERIEUR", ou, re.IGNORECASE))
+
+    @property
+    def is_ministry_of_interior(self):
+        return bool(self._is_mi())
