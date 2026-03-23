@@ -82,6 +82,10 @@ from app.controllers.mission import (
 )
 from app.controllers.mission import Query as MissionQuery
 from app.controllers.mission import UpdateMissionVehicle, ValidateMission
+from app.controllers.impersonation import (
+    StartImpersonation,
+    StopImpersonation,
+)
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
@@ -185,6 +189,8 @@ class Account(graphene.ObjectType):
     mark_notifications_as_read = MarkNotificationsAsRead.Field()
     setup_totp = SetupTOTP.Field()
     verify_totp = VerifyTOTP.Field()
+    start_impersonation = StartImpersonation.Field()
+    stop_impersonation = StopImpersonation.Field()
 
 
 class Employments(graphene.ObjectType):
