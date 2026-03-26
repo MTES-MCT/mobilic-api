@@ -89,11 +89,12 @@ from app.helpers import logging
 from . import commands
 
 
-@app.before_first_request
 def configure_app():
     if MOBILIC_ENV == "prod":
         db.engine.dispose()
 
+
+configure_app()
 
 graphql_api_path = "/graphql"
 graphql_private_api_path = "/unexposed"
