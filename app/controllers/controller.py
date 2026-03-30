@@ -78,10 +78,15 @@ def redirect_to_ac_authorize():
         "redirect_uri": redirect_uri,
         "acr_values": "eidas1",
     }
-    return redirect(
-        f"{app.config['AC_AUTHORIZE_URL']}?{urlencode(query_params, quote_via=quote)}",
-        code=302,
+
+    authorize_url = (
+        f"{app.config['AC_AUTHORIZE_URL']}?{urlencode(query_params)}"
     )
+    app.logger.info(
+        f"Agent Connect authorize redirect - client_id: {app.config['AC_CLIENT_ID']}, redirect_uri: {redirect_uri}"
+    )
+
+    return redirect(authorize_url, code=302)
 
 
 @app.route("/ac/logout")
