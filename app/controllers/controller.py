@@ -65,16 +65,21 @@ from app.models.queries import add_mission_relations, query_controls
 
 @app.route("/ac/authorize")
 def redirect_to_ac_authorize():
+    redirect_uri = request.args.get("redirect_uri")
+    if not redirect_uri:
+        return "Missing redirect_uri parameter", 400
+
     query_params = {
         "state": uuid4().hex,
         "nonce": uuid4().hex,
         "response_type": "code",
         "scope": "openid uid email given_name usual_name organizational_unit idp_id",
         "client_id": app.config["AC_CLIENT_ID"],
+        "redirect_uri": redirect_uri,
         "acr_values": "eidas1",
     }
     return redirect(
-        f"{app.config['AC_AUTHORIZE_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
+        f"{app.config['AC_AUTHORIZE_URL']}?{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
 
