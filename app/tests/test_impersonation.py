@@ -1,4 +1,6 @@
 from datetime import timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.helpers.errors import AuthorizationError
 
@@ -9,6 +11,7 @@ from app.domain.totp import encrypt_secret, generate_totp_secret
 from app.helpers.authentication import create_access_tokens_for
 from app.models.support_action_log import SupportActionLog
 from app.models.totp_credential import TotpCredential
+from app.models.user import User
 from app.seed.factories import UserFactory
 from app.tests import (
     BaseTest,
@@ -365,3 +368,240 @@ class TestImpersonationMiddleware(BaseTest):
             headers=[("Authorization", f"Bearer {expired_token}")],
         )
         self.assertIsNotNone(check_resp.json.get("errors"))
+
+
+class TestImpersonationAuditListener(BaseTest):
+    LISTENER_G = "app.helpers.impersonate_listener.g"
+
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(admin=True)
+        self.target = UserFactory.create()
+        db.session.commit()
+
+    def _impersonation_g(self):
+        return SimpleNamespace(
+            impersonate_by=self.admin.id,
+            impersonated_user_id=self.target.id,
+        )
+
+    def test_insert_logged_during_impersonation(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            new_user = UserFactory.create()
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            support_user_id=self.admin.id,
+            action="INSERT",
+            table_name="user",
+            row_id=new_user.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+        self.assertIsNotNone(logs[0].new_values)
+        self.assertIsNone(logs[0].old_values)
+        self.assertEqual(logs[0].impersonated_user_id, self.target.id)
+
+    def test_update_logged_during_impersonation(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.target.email = "updated@test.com"
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            support_user_id=self.admin.id,
+            action="UPDATE",
+            table_name="user",
+            row_id=self.target.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+        self.assertIsNotNone(logs[0].old_values)
+        self.assertIn("email", logs[0].old_values)
+        self.assertIsNotNone(logs[0].new_values)
+        self.assertEqual(logs[0].new_values["email"], "updated@test.com")
+        # new_values should only contain changed columns
+        self.assertNotIn("first_name", logs[0].new_values)
+
+    def test_delete_logged_during_impersonation(self):
+        other_user = UserFactory.create()
+        db.session.commit()
+        other_user_id = other_user.id
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            db.session.delete(other_user)
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            support_user_id=self.admin.id,
+            action="DELETE",
+            table_name="user",
+            row_id=other_user_id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+        self.assertIsNotNone(logs[0].old_values)
+        self.assertIsNone(logs[0].new_values)
+
+    def test_no_log_without_impersonation(self):
+        new_user = UserFactory.create()
+        db.session.commit()
+
+        logs = SupportActionLog.query.all()
+        self.assertEqual(len(logs), 0)
+
+    def test_no_recursive_log_on_support_action_log(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            log = SupportActionLog(
+                support_user_id=self.admin.id,
+                impersonated_user_id=self.target.id,
+                table_name="user",
+                row_id=1,
+                action="UPDATE",
+            )
+            db.session.add(log)
+            db.session.commit()
+
+        all_logs = SupportActionLog.query.all()
+        self.assertEqual(len(all_logs), 1)
+
+    def test_sensitive_columns_excluded_from_audit_log(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            new_user = UserFactory.create()
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            support_user_id=self.admin.id,
+            action="INSERT",
+            table_name="user",
+            row_id=new_user.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+        new_values = logs[0].new_values
+        # Sensitive columns must be excluded
+        for key in (
+            "password",
+            "ssn",
+            "activation_email_token",
+            "france_connect_id",
+            "france_connect_info",
+        ):
+            self.assertNotIn(key, new_values)
+        # Non-sensitive columns should be present
+        self.assertIn("email", new_values)
+        self.assertIn("first_name", new_values)
+
+    def test_listener_registered_on_session(self):
+        from sqlalchemy import event
+
+        from app.helpers.impersonate_listener import (
+            log_impersonation_actions,
+        )
+
+        self.assertTrue(
+            event.contains(
+                db.session,
+                "after_flush",
+                log_impersonation_actions,
+            ),
+            "after_flush audit listener must be registered",
+        )
+
+
+class TestImpersonationScopeGuard(BaseTest):
+    LISTENER_G = "app.helpers.impersonate_listener.g"
+
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(admin=True)
+        self.target = UserFactory.create()
+        db.session.commit()
+        self._orig_guard = app.config.get(
+            "IMPERSONATION_SCOPE_GUARD"
+        )
+
+    def tearDown(self):
+        app.config["IMPERSONATION_SCOPE_GUARD"] = (
+            self._orig_guard
+        )
+        super().tearDown()
+
+    def _impersonation_g(self):
+        return SimpleNamespace(
+            impersonate_by=self.admin.id,
+            impersonated_user_id=self.target.id,
+        )
+
+    def test_guard_enabled_allowed_table_passes(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            self.target.email = "guard-allowed@test.com"
+            db.session.commit()
+
+        self.assertEqual(
+            User.query.get(self.target.id).email,
+            "guard-allowed@test.com",
+        )
+
+    def test_guard_enabled_disallowed_insert_raises(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            cred = TotpCredential(
+                owner_type="user",
+                owner_id=self.target.id,
+                secret="fake-secret",
+                enabled=False,
+            )
+            db.session.add(cred)
+            with self.assertRaises(AuthorizationError) as ctx:
+                db.session.flush()
+            self.assertIn(
+                "totp_credential", str(ctx.exception)
+            )
+            db.session.rollback()
+
+    def test_guard_enabled_disallowed_update_raises(self):
+        cred = TotpCredential(
+            owner_type="user",
+            owner_id=self.target.id,
+            secret="fake-secret",
+            enabled=False,
+        )
+        db.session.add(cred)
+        db.session.commit()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            cred.enabled = True
+            with self.assertRaises(AuthorizationError) as ctx:
+                db.session.flush()
+            self.assertIn(
+                "totp_credential", str(ctx.exception)
+            )
+            db.session.rollback()
+
+    def test_guard_disabled_all_passes(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            app.config["IMPERSONATION_SCOPE_GUARD"] = False
+            cred = TotpCredential(
+                owner_type="user",
+                owner_id=self.target.id,
+                secret="fake-secret",
+                enabled=False,
+            )
+            db.session.add(cred)
+            db.session.commit()
+
+        self.assertEqual(TotpCredential.query.count(), 1)
+
+    def test_guard_listener_registered_on_session(self):
+        from sqlalchemy import event
+
+        from app.helpers.impersonate_listener import (
+            guard_impersonation_scope,
+        )
+
+        self.assertTrue(
+            event.contains(
+                db.session,
+                "before_flush",
+                guard_impersonation_scope,
+            ),
+            "scope guard listener must be registered",
+        )
