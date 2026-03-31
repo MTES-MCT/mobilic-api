@@ -8,6 +8,10 @@ from app import app, db
 from app.domain.validation import validate_mission
 from app.jobs import log_execution
 from app.models import MissionAutoValidation
+from app.helpers.errors import (
+    NoActivitiesToValidateError,
+    MissionAlreadyAutoValidatedError,
+)
 
 ADMIN_THRESHOLD_DAYS = 2
 EMPLOYEE_THRESHOLD_DAYS = 1
@@ -44,6 +48,9 @@ def get_employee_auto_validations(now):
     threshold_time = _get_threshold_time(
         now=now, days_to_remove=EMPLOYEE_THRESHOLD_DAYS
     )
+    app.logger.info(
+        f"Employee auto-validation threshold: {threshold_time} (current time: {now})"
+    )
     auto_validations = _get_auto_validations(
         threshold_time=threshold_time, is_admin=False
     )
@@ -53,6 +60,9 @@ def get_employee_auto_validations(now):
 def get_admin_auto_validations(now):
     threshold_time = _get_threshold_time(
         now=now, days_to_remove=ADMIN_THRESHOLD_DAYS
+    )
+    app.logger.info(
+        f"Admin auto-validation threshold: {threshold_time} (current time: {now})"
     )
 
     auto_validations = _get_auto_validations(
@@ -72,6 +82,17 @@ def job_process_auto_validations():
             for_user = auto_validation.user
             mission = auto_validation.mission
 
+            if not for_user:
+                app.logger.warning(
+                    f"Skipping auto-validation for mission {mission.id}: user not found (deleted?)"
+                )
+                db.session.delete(auto_validation)
+                continue
+
+            app.logger.info(
+                f"Processing auto-validation for mission {mission.id}, user {for_user.id}, reception_time {auto_validation.reception_time}"
+            )
+
             try:
                 with atomic_transaction(commit_at_end=True):
                     validation = validate_mission(
@@ -83,6 +104,16 @@ def job_process_auto_validations():
                         is_admin_validation=is_admin,
                     )
                     db.session.add(validation)
+            except (
+                NoActivitiesToValidateError,
+                MissionAlreadyAutoValidatedError,
+            ) as e:
+                app.logger.warning(
+                    f"Could not auto validate mission <{mission.id}>: {e} (removing from queue)"
+                )
+                db.session.delete(auto_validation)
+                db.session.commit()
+                continue
             except Exception as e:
                 with sentry_sdk.new_scope() as scope:
                     scope.fingerprint = [
@@ -103,11 +134,9 @@ def job_process_auto_validations():
                         },
                     )
                     sentry_sdk.capture_exception(e)
-                app.logger.warning(
-                    f"Could not auto validate mission <{mission.id}>: {e}"
+                app.logger.error(
+                    f"Could not auto validate mission <{mission.id}>: {e} (keeping in queue for retry)"
                 )
-                db.session.delete(auto_validation)
-                db.session.commit()
                 continue
 
     employee_auto_validations = get_employee_auto_validations(now=now)[

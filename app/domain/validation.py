@@ -106,6 +106,10 @@ def validate_mission(
         end_mission_for_user(
             user=for_user,
             mission=mission,
+            submitter=for_user,
+            reception_time=validation_time,
+            end_time=validation_time,
+            creation_time=creation_time,
             raise_already_ended=False,
             bypass_auth_check=True,
         )
