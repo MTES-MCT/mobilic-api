@@ -38,9 +38,7 @@ def _get_impersonation_context():
         return None
     if not impersonate_by:
         return None
-    impersonated_user_id = getattr(
-        g, "impersonated_user_id", None
-    )
+    impersonated_user_id = getattr(g, "impersonated_user_id", None)
     return impersonate_by, impersonated_user_id
 
 
@@ -88,9 +86,7 @@ def _get_changed_new_values(obj):
 
 
 @event.listens_for(db.session, "before_flush")
-def guard_impersonation_scope(
-    session, flush_context, instances
-):
+def guard_impersonation_scope(session, flush_context, instances):
     ctx = _get_impersonation_context()
     if not ctx:
         return
@@ -104,8 +100,7 @@ def guard_impersonation_scope(
             table = obj.__class__.__tablename__
             if table not in IMPERSONATION_ALLOWED_TABLES:
                 raise AuthorizationError(
-                    "Impersonation: write blocked on"
-                    f" table '{table}'"
+                    "Impersonation: write blocked on" f" table '{table}'"
                 )
 
 
@@ -120,7 +115,7 @@ def log_impersonation_actions(session, flush_context):
 
     session.info["_is_auditing"] = True
     try:
-        for obj in list(session.new):
+        for obj in session.new:
             if isinstance(obj, SupportActionLog):
                 continue
             session.add(
@@ -135,7 +130,7 @@ def log_impersonation_actions(session, flush_context):
                 )
             )
 
-        for obj in list(session.dirty):
+        for obj in session.dirty:
             if isinstance(obj, SupportActionLog):
                 continue
             session.add(
@@ -150,7 +145,7 @@ def log_impersonation_actions(session, flush_context):
                 )
             )
 
-        for obj in list(session.deleted):
+        for obj in session.deleted:
             if isinstance(obj, SupportActionLog):
                 continue
             session.add(
