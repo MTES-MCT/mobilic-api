@@ -318,7 +318,7 @@ class TestStopImpersonation(BaseTest):
             user_id_cookie = [
                 c for c in set_cookies if c.startswith("userId=")
             ]
-            self.assertTrue(len(user_id_cookie) > 0)
+            self.assertGreater(len(user_id_cookie), 0)
             self.assertIn(
                 f"userId={admin.id}",
                 user_id_cookie[0],
@@ -652,8 +652,8 @@ class TestSearchUsersForImpersonation(BaseTest):
         )
         data = response.json
         self.assertNotIn("errors", data)
-        results = data["data"]["searchUsersForImpersonation"]
-        self.assertTrue(len(results) >= 1)
+        results = data["data"]["searchUsersForImpersonation"]["results"]
+        self.assertGreaterEqual(len(results), 1)
         emails = [r["email"] for r in results]
         self.assertIn("john.doe@example.com", emails)
 
@@ -665,8 +665,8 @@ class TestSearchUsersForImpersonation(BaseTest):
         )
         data = response.json
         self.assertNotIn("errors", data)
-        results = data["data"]["searchUsersForImpersonation"]
-        self.assertTrue(len(results) >= 1)
+        results = data["data"]["searchUsersForImpersonation"]["results"]
+        self.assertGreaterEqual(len(results), 1)
         names = [r["lastName"] for r in results]
         self.assertIn("Doe", names)
 
@@ -678,8 +678,8 @@ class TestSearchUsersForImpersonation(BaseTest):
         )
         data = response.json
         self.assertNotIn("errors", data)
-        results = data["data"]["searchUsersForImpersonation"]
-        self.assertTrue(len(results) >= 1)
+        results = data["data"]["searchUsersForImpersonation"]["results"]
+        self.assertGreaterEqual(len(results), 1)
         ids = [r["id"] for r in results]
         self.assertIn(self.target.id, ids)
 
