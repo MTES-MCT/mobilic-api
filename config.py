@@ -39,9 +39,7 @@ class Config:
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
     IMPERSONATION_SCOPE_GUARD = (
-        os.environ.get("IMPERSONATION_SCOPE_GUARD", "")
-        .lower()
-        == "true"
+        os.environ.get("IMPERSONATION_SCOPE_GUARD", "").lower() == "true"
     )
 
     # FranceConnect v2
