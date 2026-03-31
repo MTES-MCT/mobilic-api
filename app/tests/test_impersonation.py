@@ -12,7 +12,11 @@ from app.helpers.authentication import create_access_tokens_for
 from app.models.support_action_log import SupportActionLog
 from app.models.totp_credential import TotpCredential
 from app.models.user import User
-from app.seed.factories import UserFactory
+from app.seed.factories import (
+    CompanyFactory,
+    EmploymentFactory,
+    UserFactory,
+)
 from app.tests import (
     BaseTest,
     graphql_private_api_path,
@@ -512,14 +516,10 @@ class TestImpersonationScopeGuard(BaseTest):
         self.admin = UserFactory.create(admin=True)
         self.target = UserFactory.create()
         db.session.commit()
-        self._orig_guard = app.config.get(
-            "IMPERSONATION_SCOPE_GUARD"
-        )
+        self._orig_guard = app.config.get("IMPERSONATION_SCOPE_GUARD")
 
     def tearDown(self):
-        app.config["IMPERSONATION_SCOPE_GUARD"] = (
-            self._orig_guard
-        )
+        app.config["IMPERSONATION_SCOPE_GUARD"] = self._orig_guard
         super().tearDown()
 
     def _impersonation_g(self):
@@ -551,9 +551,7 @@ class TestImpersonationScopeGuard(BaseTest):
             db.session.add(cred)
             with self.assertRaises(AuthorizationError) as ctx:
                 db.session.flush()
-            self.assertIn(
-                "totp_credential", str(ctx.exception)
-            )
+            self.assertIn("totp_credential", str(ctx.exception))
             db.session.rollback()
 
     def test_guard_enabled_disallowed_update_raises(self):
@@ -571,9 +569,7 @@ class TestImpersonationScopeGuard(BaseTest):
             cred.enabled = True
             with self.assertRaises(AuthorizationError) as ctx:
                 db.session.flush()
-            self.assertIn(
-                "totp_credential", str(ctx.exception)
-            )
+            self.assertIn("totp_credential", str(ctx.exception))
             db.session.rollback()
 
     def test_guard_disabled_all_passes(self):
@@ -605,3 +601,153 @@ class TestImpersonationScopeGuard(BaseTest):
             ),
             "scope guard listener must be registered",
         )
+
+
+SEARCH_USERS_QUERY = """
+    query ($search: String!, $offset: Int) {
+        searchUsersForImpersonation(search: $search, offset: $offset) {
+            results {
+                id
+                email
+                firstName
+                lastName
+                companies { name siren }
+            }
+            hasMore
+        }
+    }
+"""
+
+
+class TestSearchUsersForImpersonation(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(
+            admin=True,
+            email="admin@mobilic.test",
+            first_name="Kelly",
+            last_name="Support",
+        )
+        _enable_2fa(self.admin)
+        self.target = UserFactory.create(
+            email="john.doe@example.com",
+            first_name="John",
+            last_name="Doe",
+        )
+        self.company = CompanyFactory.create(
+            usual_name="Transport Express",
+            siren="123456789",
+        )
+        EmploymentFactory.create(
+            user=self.target,
+            company=self.company,
+        )
+        db.session.commit()
+
+    def test_search_by_email(self):
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "john.doe"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]
+        self.assertTrue(len(results) >= 1)
+        emails = [r["email"] for r in results]
+        self.assertIn("john.doe@example.com", emails)
+
+    def test_search_by_name(self):
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "Doe"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]
+        self.assertTrue(len(results) >= 1)
+        names = [r["lastName"] for r in results]
+        self.assertIn("Doe", names)
+
+    def test_search_by_siren(self):
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "123456789"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]
+        self.assertTrue(len(results) >= 1)
+        ids = [r["id"] for r in results]
+        self.assertIn(self.target.id, ids)
+
+    def test_search_requires_admin(self):
+        regular_user = UserFactory.create(admin=False)
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=regular_user,
+            variables={"search": "john"},
+        )
+        data = response.json
+        self.assertIn("errors", data)
+
+    def test_search_min_3_chars(self):
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "ab"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]["results"]
+        self.assertEqual(len(results), 0)
+
+    def test_search_requires_2fa(self):
+        admin_no_2fa = UserFactory.create(
+            admin=True,
+            email="admin-no2fa@mobilic.test",
+        )
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=admin_no_2fa,
+            variables={"search": "john"},
+        )
+        data = response.json
+        self.assertIn("errors", data)
+
+    def test_search_special_characters_escaped(self):
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "%_%"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]["results"]
+        self.assertEqual(len(results), 0)
+
+    def test_search_results_limited_to_20_with_has_more(self):
+        for i in range(25):
+            user = UserFactory.create(
+                email=f"bulkuser{i}@test.com",
+                first_name="BulkTest",
+                last_name=f"User{i}",
+            )
+            EmploymentFactory.create(
+                user=user,
+                company=self.company,
+            )
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "BulkTest"},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        results = data["data"]["searchUsersForImpersonation"]
+        self.assertLessEqual(len(results), 20)
