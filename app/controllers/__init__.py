@@ -83,6 +83,7 @@ from app.controllers.mission import (
 from app.controllers.mission import Query as MissionQuery
 from app.controllers.mission import UpdateMissionVehicle, ValidateMission
 from app.controllers.impersonation import (
+    Query as ImpersonationQuery,
     StartImpersonation,
     StopImpersonation,
 )
@@ -334,6 +335,7 @@ class PrivateQueries(
     NonPublicQuery,
     GetInvitation,
     UserReadTokenQuery,
+    ImpersonationQuery,
     UserOAuthTokenQuery,
     OAuthClientQuery,
     ControllerUserQuery,
