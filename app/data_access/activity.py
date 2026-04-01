@@ -48,6 +48,9 @@ class ActivityVersionOutput(BaseSQLAlchemyObjectType, ResolveUser):
         required=False,
         description="Horodatage de fin de l'activité pour cette version",
     )
+    context = graphene.Field(
+        GenericScalar, description="Données contextuelles libres"
+    )
     submitter_id = graphene.Field(
         graphene.Int,
         required=True,
@@ -70,7 +73,6 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "dismiss_author_id",
             "dismiss_author",
             "type",
-            "context",
             "user_id",
             "user",
             "submitter_id",
@@ -120,9 +122,6 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
         graphene.Int,
         description="Identifiant de la personne qui a effacé l'activité, si jamais l'activité a été effacée",
     )
-    context = graphene.Field(
-        GenericScalar, description="Données contextuelles libres"
-    )
     submitter_id = graphene.Field(
         graphene.Int,
         required=True,
@@ -133,7 +132,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     versions = graphene.List(
         ActivityVersionOutput,
-        description="Historique des versions de l'activité.",
+        description="Historique des versions de l'activité, triées de la plus récente à la plus ancienne.",
     )
     last_submitter_id = graphene.Field(
         graphene.Int,
