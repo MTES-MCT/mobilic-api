@@ -1,20 +1,27 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
-
-from app.helpers.errors import AuthorizationError
 
 import jwt as pyjwt
 
 from app import app, db
 from app.domain.totp import encrypt_secret, generate_totp_secret
 from app.helpers.authentication import create_access_tokens_for
+from app.helpers.errors import AuthorizationError
+from app.helpers.mail_type import EmailType
+from app.models.activity import Activity, ActivityType
+from app.models.company import Company
+from app.models.email import Email
+from app.models.employment import Employment
+from app.models.mission import Mission
 from app.models.support_action_log import SupportActionLog
+from app.models.team import Team
 from app.models.totp_credential import TotpCredential
 from app.models.user import User
 from app.seed.factories import (
     CompanyFactory,
     EmploymentFactory,
+    TeamFactory,
     UserFactory,
 )
 from app.tests import (
@@ -749,5 +756,445 @@ class TestSearchUsersForImpersonation(BaseTest):
         )
         data = response.json
         self.assertNotIn("errors", data)
-        results = data["data"]["searchUsersForImpersonation"]
-        self.assertLessEqual(len(results), 20)
+        page = data["data"]["searchUsersForImpersonation"]
+        self.assertEqual(len(page["results"]), 20)
+        self.assertTrue(page["hasMore"])
+
+    def test_search_pagination_offset(self):
+        for i in range(25):
+            user = UserFactory.create(
+                email=f"bulkuser{i}@test.com",
+                first_name="BulkTest",
+                last_name=f"User{i}",
+            )
+            EmploymentFactory.create(
+                user=user,
+                company=self.company,
+            )
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=self.admin,
+            variables={"search": "BulkTest", "offset": 20},
+        )
+        data = response.json
+        self.assertNotIn("errors", data)
+        page = data["data"]["searchUsersForImpersonation"]
+        self.assertEqual(len(page["results"]), 5)
+        self.assertFalse(page["hasMore"])
+
+
+class TestSecurityEndToEnd(BaseTest):
+    """Task 13: IDOR and cross-cutting security tests."""
+
+    LISTENER_G = "app.helpers.impersonate_listener.g"
+
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(admin=True)
+        self.target = UserFactory.create(
+            email="target-e2e@test.com",
+            first_name="Target",
+            last_name="User",
+        )
+        self.company = CompanyFactory.create(
+            usual_name="E2E Corp",
+            siren="111222333",
+        )
+        self.employment = EmploymentFactory.create(
+            user=self.target,
+            company=self.company,
+            has_admin_rights=False,
+        )
+        self.team = TeamFactory.create(
+            name="E2E Team",
+            company=self.company,
+        )
+        db.session.commit()
+        _enable_2fa(self.admin)
+        self._orig_guard = app.config.get("IMPERSONATION_SCOPE_GUARD")
+
+    def tearDown(self):
+        app.config["IMPERSONATION_SCOPE_GUARD"] = self._orig_guard
+        super().tearDown()
+
+    def _impersonation_g(self):
+        return SimpleNamespace(
+            impersonate_by=self.admin.id,
+            impersonated_user_id=self.target.id,
+        )
+
+    # --- 13.1 Non-admin IDOR ---
+
+    def test_non_admin_cannot_start_impersonation(self):
+        non_admin = UserFactory.create(admin=False)
+        db.session.commit()
+        _enable_2fa(non_admin)
+        response = test_post_graphql_unexposed(
+            START_IMPERSONATION,
+            mock_authentication_with_user=non_admin,
+            variables={"userId": self.target.id},
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"],
+            "AUTHORIZATION_ERROR",
+        )
+
+    def test_non_admin_cannot_search_users(self):
+        non_admin = UserFactory.create(admin=False)
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=non_admin,
+            variables={"search": "target"},
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"],
+            "AUTHORIZATION_ERROR",
+        )
+
+    # --- 13.2 Admin without 2FA ---
+
+    def test_admin_without_2fa_cannot_impersonate(self):
+        admin_no_2fa = UserFactory.create(admin=True)
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            START_IMPERSONATION,
+            mock_authentication_with_user=admin_no_2fa,
+            variables={"userId": self.target.id},
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"],
+            "AUTHORIZATION_ERROR",
+        )
+
+    def test_admin_without_2fa_cannot_search_users(self):
+        admin_no_2fa = UserFactory.create(admin=True)
+        db.session.commit()
+        response = test_post_graphql_unexposed(
+            SEARCH_USERS_QUERY,
+            mock_authentication_with_user=admin_no_2fa,
+            variables={"search": "target"},
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"],
+            "AUTHORIZATION_ERROR",
+        )
+
+    # --- 13.3 JWT expiration ---
+
+    def test_impersonation_jwt_has_2h_expiration(self):
+        response = test_post_graphql_unexposed(
+            START_IMPERSONATION,
+            mock_authentication_with_user=self.admin,
+            variables={"userId": self.target.id},
+        )
+        token = response.json["data"]["account"]["startImpersonation"][
+            "accessToken"
+        ]
+        decoded = pyjwt.decode(
+            token,
+            app.config["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+        )
+        ttl = decoded["exp"] - decoded["iat"]
+        # 2h = 7200s, with 60s tolerance
+        self.assertGreaterEqual(ttl, 7200 - 60)
+        self.assertLessEqual(ttl, 7200 + 60)
+
+    # --- 13.4 Whitelist exhaustivity ---
+
+    def test_whitelist_change_user_email(self):
+        """Support user changes email — table `user`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.target.email = "kelly-changed@test.com"
+            db.session.commit()
+        self.assertEqual(
+            User.query.get(self.target.id).email,
+            "kelly-changed@test.com",
+        )
+        logs = SupportActionLog.query.filter_by(
+            table_name="user",
+            action="UPDATE",
+            row_id=self.target.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+        self.assertIn("email", logs[0].new_values)
+
+    def test_whitelist_change_admin_rights(self):
+        """Support user changes admin rights — table `employment`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.employment.has_admin_rights = True
+            db.session.commit()
+        fetched = Employment.query.get(self.employment.id)
+        self.assertTrue(fetched.has_admin_rights)
+        logs = SupportActionLog.query.filter_by(
+            table_name="employment",
+            action="UPDATE",
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_terminate_employment(self):
+        """Support user terminates employment — table `employment`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.employment.end_date = date.today()
+            db.session.commit()
+        fetched = Employment.query.get(self.employment.id)
+        self.assertEqual(fetched.end_date, date.today())
+        logs = SupportActionLog.query.filter_by(
+            table_name="employment",
+            action="UPDATE",
+            row_id=self.employment.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_modify_company_settings(self):
+        """Support user modifies company settings — table `company`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.company.require_mission_name = True
+            db.session.commit()
+        fetched = Company.query.get(self.company.id)
+        self.assertTrue(fetched.require_mission_name)
+        logs = SupportActionLog.query.filter_by(
+            table_name="company",
+            action="UPDATE",
+            row_id=self.company.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_end_activity(self):
+        """Support user stops ongoing activity — table `activity`."""
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        start = now - timedelta(hours=1)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=start,
+            submitter_id=self.target.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+        activity = Activity(
+            mission_id=mission.id,
+            user_id=self.target.id,
+            submitter_id=self.target.id,
+            reception_time=start,
+            start_time=start,
+            end_time=None,
+            type=ActivityType.DRIVE,
+            last_update_time=start,
+        )
+        db.session.add(activity)
+        db.session.commit()
+
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            activity.end_time = now
+            activity.last_update_time = now
+            db.session.commit()
+        fetched = Activity.query.get(activity.id)
+        self.assertEqual(fetched.end_time, now)
+        logs = SupportActionLog.query.filter_by(
+            table_name="activity",
+            action="UPDATE",
+            row_id=activity.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_modify_team(self):
+        """Support user renames team — table `team`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            self.team.name = "Renamed Team"
+            db.session.commit()
+        fetched = Team.query.get(self.team.id)
+        self.assertEqual(fetched.name, "Renamed Team")
+        logs = SupportActionLog.query.filter_by(
+            table_name="team",
+            action="UPDATE",
+            row_id=self.team.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_modify_mission_name(self):
+        """Support user renames mission — table `mission`."""
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=datetime.now(tz=timezone.utc),
+            submitter_id=self.target.id,
+            name="Original",
+        )
+        db.session.add(mission)
+        db.session.commit()
+
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            mission.name = "Support Renamed"
+            db.session.commit()
+        fetched = Mission.query.get(mission.id)
+        self.assertEqual(fetched.name, "Support Renamed")
+        logs = SupportActionLog.query.filter_by(
+            table_name="mission",
+            action="UPDATE",
+            row_id=mission.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_insert_email(self):
+        """Support user triggers email send — table `email`."""
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            email = Email(
+                mailjet_id="test-whitelist-email",
+                address="kelly-email@test.com",
+                type=EmailType.INVITATION,
+                user_id=self.target.id,
+            )
+            db.session.add(email)
+            db.session.commit()
+        logs = SupportActionLog.query.filter_by(
+            table_name="email",
+            action="INSERT",
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_whitelist_delete_employment(self):
+        """Support user deletes employment — DELETE on `employment`."""
+        other_company = CompanyFactory.create(
+            usual_name="Delete Corp",
+            siren="999888777",
+        )
+        extra_emp = EmploymentFactory.create(
+            user=self.target,
+            company=other_company,
+        )
+        db.session.commit()
+        emp_id = extra_emp.id
+
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            db.session.delete(extra_emp)
+            db.session.commit()
+        self.assertIsNone(Employment.query.get(emp_id))
+        logs = SupportActionLog.query.filter_by(
+            table_name="employment",
+            action="DELETE",
+            row_id=emp_id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_expired_impersonation_token_rejected(self):
+        from flask_jwt_extended import create_access_token
+
+        expired_token = create_access_token(
+            {
+                "id": self.target.id,
+                "impersonate_by": self.admin.id,
+            },
+            expires_delta=timedelta(seconds=-1),
+        )
+        check_resp = test_post_graphql(
+            CHECK_AUTH,
+            headers=[("Authorization", f"Bearer {expired_token}")],
+        )
+        self.assertIsNotNone(check_resp.json.get("errors"))
+
+    def test_self_impersonation_still_audited(self):
+        """Self-impersonation (edge case) still generates audit logs."""
+        with patch(
+            self.LISTENER_G,
+            SimpleNamespace(
+                impersonate_by=self.admin.id,
+                impersonated_user_id=self.admin.id,
+            ),
+        ):
+            self.admin.first_name = "SelfTest"
+            db.session.commit()
+        logs = SupportActionLog.query.filter_by(
+            support_user_id=self.admin.id,
+            impersonated_user_id=self.admin.id,
+        ).all()
+        self.assertEqual(len(logs), 1)
+
+    def test_all_kelly_tables_covered_by_whitelist(self):
+        """Meta-test: run all support user actions, collect touched tables,
+        verify all are in IMPERSONATION_ALLOWED_TABLES."""
+        from app.helpers.impersonate_listener import (
+            IMPERSONATION_ALLOWED_TABLES,
+        )
+
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        start = now - timedelta(hours=1)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=start,
+            submitter_id=self.target.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+        activity = Activity(
+            mission_id=mission.id,
+            user_id=self.target.id,
+            submitter_id=self.target.id,
+            reception_time=start,
+            start_time=start,
+            end_time=None,
+            type=ActivityType.DRIVE,
+            last_update_time=start,
+        )
+        db.session.add(activity)
+        db.session.commit()
+
+        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            # Change email (user)
+            self.target.email = "meta-kelly@test.com"
+            db.session.commit()
+            # Change admin rights (employment)
+            self.employment.has_admin_rights = True
+            db.session.commit()
+            # Modify company (company)
+            self.company.require_mission_name = True
+            db.session.commit()
+            # Modify team (team)
+            self.team.name = "Meta Team"
+            db.session.commit()
+            # End activity (activity)
+            activity.end_time = now
+            activity.last_update_time = now
+            db.session.commit()
+            # Modify mission (mission)
+            mission.name = "Meta Mission"
+            db.session.commit()
+            # Send email (email)
+            email = Email(
+                mailjet_id="meta-test-email",
+                address="meta@test.com",
+                type=EmailType.INVITATION,
+                user_id=self.target.id,
+            )
+            db.session.add(email)
+            db.session.commit()
+
+        tables_touched = {
+            log.table_name for log in SupportActionLog.query.all()
+        }
+        self.assertGreater(len(tables_touched), 0)
+        for table in tables_touched:
+            self.assertIn(
+                table,
+                IMPERSONATION_ALLOWED_TABLES,
+                f"Table '{table}' touched during impersonation "
+                f"but NOT in whitelist",
+            )
