@@ -87,6 +87,7 @@ def job_process_auto_validations():
                     f"Skipping auto-validation for mission {mission.id}: user not found (deleted?)"
                 )
                 db.session.delete(auto_validation)
+                db.session.commit()
                 continue
 
             app.logger.info(
