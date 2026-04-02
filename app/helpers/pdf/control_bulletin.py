@@ -109,19 +109,17 @@ def _generate_part_one(control):
         else "-"
     )
 
-    printedVehicleWeightValue = "-"
+    printed_vehicle_weight_value = "-"
 
-   # Détermine la valeur du poids de véhicule à afficher (Poids réel "real_vehicle_weight", PTAC, PV ou '-' si pas de valeur renseignée)
+    # Détermine la valeur du poids de véhicule à afficher (Poids réel "real_vehicle_weight", PTAC, PV ou '-' si pas de valeur renseignée)
     if control.control_bulletin and control.control_bulletin.get("real_vehicle_weight") is not None:
         value = control.control_bulletin.get("real_vehicle_weight")
         formatted_value = str(value)
         if value is not None:
             formatted_value = str(value).replace(".", ",")
-        printedVehicleWeightValue = f"{formatted_value} tonnes"
+        printed_vehicle_weight_value = f"{formatted_value} tonnes"
     elif control.control_bulletin and control.control_bulletin.get("vehicle_weight"):
-        printedVehicleWeightValue = control.control_bulletin.get("vehicle_weight")
-    else:
-        printedVehicleWeightValue = "-"
+        printed_vehicle_weight_value = control.control_bulletin.get("vehicle_weight")
 
     return generate_pdf_from_template(
         "control_bulletin.html",
@@ -157,7 +155,7 @@ def _generate_part_one(control):
         observations=control.control_bulletin.get("observation"),
         business_types=business_types,
         controller_signature=controller_signature,
-        vehicle_weight=printedVehicleWeightValue,
+        vehicle_weight=printed_vehicle_weight_value,
     )
 
 
