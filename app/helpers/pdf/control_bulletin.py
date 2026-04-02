@@ -114,9 +114,7 @@ def _generate_part_one(control):
     # Détermine la valeur du poids de véhicule à afficher (Poids réel "real_vehicle_weight", PTAC, PV ou '-' si pas de valeur renseignée)
     if control.control_bulletin and control.control_bulletin.get("real_vehicle_weight") is not None:
         value = control.control_bulletin.get("real_vehicle_weight")
-        formatted_value = str(value)
-        if value is not None:
-            formatted_value = str(value).replace(".", ",")
+        formatted_value = str(value).replace(".", ",")
         printed_vehicle_weight_value = f"{formatted_value} tonnes"
     elif control.control_bulletin and control.control_bulletin.get("vehicle_weight"):
         printed_vehicle_weight_value = control.control_bulletin.get("vehicle_weight")
