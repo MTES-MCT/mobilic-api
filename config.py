@@ -43,6 +43,9 @@ class Config:
         for t in os.environ.get("IMPERSONATION_ALLOWED_TABLES", "").split(",")
         if t.strip()
     )
+    SUPPORT_LOG_RETENTION_MONTHS = int(
+        os.environ.get("SUPPORT_LOG_RETENTION_MONTHS", 3)
+    )
 
     # FranceConnect v2
     FC_V2_URL = os.environ.get(
