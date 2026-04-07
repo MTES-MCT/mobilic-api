@@ -85,6 +85,7 @@ class TestDailyRest(RegulationsTest):
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
+    @freeze_time("2026-01-15")
     def test_min_daily_rest_by_employee_failure_one_minute(self):
         employee = self.employee
         how_many_days_ago = 4
@@ -131,6 +132,7 @@ class TestDailyRest(RegulationsTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    @freeze_time("2026-01-15")
     def test_min_daily_rest_simple_case(self):
         how_many_days_ago = 4
 
@@ -174,6 +176,7 @@ class TestDailyRest(RegulationsTest):
         )
         self.assertEqual(extra_info["sanction_code"], NATINF_20525)
 
+    @freeze_time("2026-01-15")
     def test_min_daily_rest_lot_of_activities(self):
         how_many_days_ago = 4
 

@@ -146,6 +146,7 @@ def end_mission_for_user(
     creation_time=None,
     submitter=None,
     raise_already_ended=True,
+    bypass_auth_check=False,
 ):
 
     if reception_time is None:
@@ -184,6 +185,7 @@ def end_mission_for_user(
                 end_time=end_time,
                 creation_time=creation_time,
                 submitter=user,
+                bypass_auth_check=bypass_auth_check,
             )
 
     db.session.add(

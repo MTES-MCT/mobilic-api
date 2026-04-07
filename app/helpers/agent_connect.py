@@ -18,11 +18,25 @@ def get_agent_connect_user_info(authorization_code, original_redirect_uri):
         "redirect_uri": original_redirect_uri,
     }
 
+    app.logger.info(
+        f"Agent Connect token request - redirect_uri: {original_redirect_uri}"
+    )
+
     token_response = requests.post(f"{app.config['AC_TOKEN_URL']}", data=data)
 
     if token_response.status_code != 200:
+        error_details = ""
+        try:
+            error_json = token_response.json()
+            error_details = f" - Details: {error_json}"
+        except Exception:
+            error_details = f" - Response: {token_response.text}"
+
+        app.logger.error(
+            f"Agent Connect token request failed with status {token_response.status_code}{error_details}"
+        )
         raise AgentConnectAuthenticationError(
-            "Unable to get a token from the authorization code"
+            f"Unable to get a token from the authorization code (status {token_response.status_code})"
         )
 
     token_response_json = token_response.json()
@@ -36,8 +50,18 @@ def get_agent_connect_user_info(authorization_code, original_redirect_uri):
     )
 
     if user_info_response.status_code != 200:
+        error_details = ""
+        try:
+            error_json = user_info_response.json()
+            error_details = f" - Details: {error_json}"
+        except Exception:
+            error_details = f" - Response: {user_info_response.text}"
+
+        app.logger.error(
+            f"Agent Connect user info request failed with status {user_info_response.status_code}{error_details}"
+        )
         raise AgentConnectAuthenticationError(
-            "Unable to get user info from token"
+            f"Unable to get user info from token (status {user_info_response.status_code})"
         )
 
     jwt_token_response = user_info_response.content.decode("utf-8")
