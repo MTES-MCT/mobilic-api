@@ -6,16 +6,15 @@ from app import app, db
 from app.helpers.errors import AuthorizationError
 from app.models.support_action_log import SupportActionLog
 
-IMPERSONATION_ALLOWED_TABLES = frozenset(
+# Audit: tables to ignore (infrastructure noise)
+AUDIT_IGNORED_TABLES = frozenset(
     {
-        "user",
-        "employment",
-        "company",
-        "activity",
-        "mission",
-        "email",
-        "team",
-        "team_affiliation",
+        "refresh_token",
+        "regulatory_alert",
+        "activity_version",
+        "mission_auto_validation",
+        "user_agreement",
+        "support_action_log",
     }
 )
 
@@ -27,6 +26,7 @@ REDACTED_COLUMNS = frozenset(
         "france_connect_id",
         "france_connect_info",
         "secret",
+        "token",
     }
 )
 
@@ -85,12 +85,17 @@ def _get_changed_new_values(obj):
     return new or None
 
 
+def _should_audit(table_name):
+    return table_name not in AUDIT_IGNORED_TABLES
+
+
 @event.listens_for(db.session, "before_flush")
 def guard_impersonation_scope(session, flush_context, instances):
     ctx = _get_impersonation_context()
     if not ctx:
         return
-    if not app.config.get("IMPERSONATION_SCOPE_GUARD", False):
+    allowed = app.config.get("IMPERSONATION_ALLOWED_TABLES")
+    if not allowed:
         return
 
     for objects in (session.new, session.dirty, session.deleted):
@@ -98,7 +103,7 @@ def guard_impersonation_scope(session, flush_context, instances):
             if isinstance(obj, SupportActionLog):
                 continue
             table = obj.__class__.__tablename__
-            if table not in IMPERSONATION_ALLOWED_TABLES:
+            if table not in allowed:
                 raise AuthorizationError(
                     "Impersonation: write blocked on" f" table '{table}'"
                 )
@@ -116,13 +121,14 @@ def log_impersonation_actions(session, flush_context):
     session.info["_is_auditing"] = True
     try:
         for obj in session.new:
-            if isinstance(obj, SupportActionLog):
+            table = obj.__class__.__tablename__
+            if not _should_audit(table):
                 continue
             session.add(
                 SupportActionLog(
                     support_user_id=impersonate_by,
                     impersonated_user_id=impersonated_user_id,
-                    table_name=obj.__class__.__tablename__,
+                    table_name=table,
                     row_id=obj.id,
                     action="INSERT",
                     old_values=None,
@@ -131,28 +137,34 @@ def log_impersonation_actions(session, flush_context):
             )
 
         for obj in session.dirty:
-            if isinstance(obj, SupportActionLog):
+            table = obj.__class__.__tablename__
+            if not _should_audit(table):
+                continue
+            old = _get_old_values(obj)
+            new = _get_changed_new_values(obj)
+            if old is None and new is None:
                 continue
             session.add(
                 SupportActionLog(
                     support_user_id=impersonate_by,
                     impersonated_user_id=impersonated_user_id,
-                    table_name=obj.__class__.__tablename__,
+                    table_name=table,
                     row_id=obj.id,
                     action="UPDATE",
-                    old_values=_get_old_values(obj),
-                    new_values=_get_changed_new_values(obj),
+                    old_values=old,
+                    new_values=new,
                 )
             )
 
         for obj in session.deleted:
-            if isinstance(obj, SupportActionLog):
+            table = obj.__class__.__tablename__
+            if not _should_audit(table):
                 continue
             session.add(
                 SupportActionLog(
                     support_user_id=impersonate_by,
                     impersonated_user_id=impersonated_user_id,
-                    table_name=obj.__class__.__tablename__,
+                    table_name=table,
                     row_id=obj.id,
                     action="DELETE",
                     old_values=_serialize_obj(obj),
