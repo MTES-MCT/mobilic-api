@@ -38,8 +38,10 @@ class Config:
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
-    IMPERSONATION_SCOPE_GUARD = (
-        os.environ.get("IMPERSONATION_SCOPE_GUARD", "").lower() == "true"
+    IMPERSONATION_ALLOWED_TABLES = frozenset(
+        t.strip()
+        for t in os.environ.get("IMPERSONATION_ALLOWED_TABLES", "").split(",")
+        if t.strip()
     )
 
     # FranceConnect v2

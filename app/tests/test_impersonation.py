@@ -58,6 +58,20 @@ CHECK_AUTH = """
 """
 
 
+TEST_SCOPE_GUARD_ALLOWED_TABLES = frozenset(
+    {
+        "user",
+        "employment",
+        "company",
+        "activity",
+        "mission",
+        "email",
+        "team",
+        "team_affiliation",
+    }
+)
+
+
 def _enable_2fa(user):
     secret = generate_totp_secret()
     cred = TotpCredential(
@@ -514,6 +528,59 @@ class TestImpersonationAuditListener(BaseTest):
             "after_flush audit listener must be registered",
         )
 
+    def test_ignored_tables_not_logged(self):
+        """Tables in AUDIT_IGNORED_TABLES must not be logged."""
+        from app.helpers.impersonate_listener import (
+            AUDIT_IGNORED_TABLES,
+        )
+
+        self.assertIn("user_agreement", AUDIT_IGNORED_TABLES)
+
+        from app.models.user_agreement import UserAgreement
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            agreement = UserAgreement(
+                user_id=self.target.id,
+                status="pending",
+                cgu_version="v1.0",
+            )
+            db.session.add(agreement)
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            table_name="user_agreement",
+        ).all()
+        self.assertEqual(len(logs), 0)
+
+    def test_empty_update_not_logged(self):
+        """Guard functions return None on unmodified object,
+        preventing spurious audit entries."""
+        from app.helpers.impersonate_listener import (
+            _get_old_values,
+            _get_changed_new_values,
+        )
+
+        # Verify guard functions return None for unmodified obj
+        self.assertIsNone(_get_old_values(self.target))
+        self.assertIsNone(_get_changed_new_values(self.target))
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            db.session.commit()
+
+        logs = SupportActionLog.query.filter_by(
+            action="UPDATE",
+            table_name="user",
+            row_id=self.target.id,
+        ).all()
+        self.assertEqual(len(logs), 0)
+
+    def test_token_in_redacted_columns(self):
+        from app.helpers.impersonate_listener import (
+            REDACTED_COLUMNS,
+        )
+
+        self.assertIn("token", REDACTED_COLUMNS)
+
 
 class TestImpersonationScopeGuard(BaseTest):
     LISTENER_G = "app.helpers.impersonate_listener.g"
@@ -523,10 +590,10 @@ class TestImpersonationScopeGuard(BaseTest):
         self.admin = UserFactory.create(admin=True)
         self.target = UserFactory.create()
         db.session.commit()
-        self._orig_guard = app.config.get("IMPERSONATION_SCOPE_GUARD")
+        self._orig_guard = app.config.get("IMPERSONATION_ALLOWED_TABLES")
 
     def tearDown(self):
-        app.config["IMPERSONATION_SCOPE_GUARD"] = self._orig_guard
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = self._orig_guard
         super().tearDown()
 
     def _impersonation_g(self):
@@ -537,7 +604,9 @@ class TestImpersonationScopeGuard(BaseTest):
 
     def test_guard_enabled_allowed_table_passes(self):
         with patch(self.LISTENER_G, self._impersonation_g()):
-            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+                TEST_SCOPE_GUARD_ALLOWED_TABLES
+            )
             self.target.email = "guard-allowed@test.com"
             db.session.commit()
 
@@ -548,7 +617,9 @@ class TestImpersonationScopeGuard(BaseTest):
 
     def test_guard_enabled_disallowed_insert_raises(self):
         with patch(self.LISTENER_G, self._impersonation_g()):
-            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+                TEST_SCOPE_GUARD_ALLOWED_TABLES
+            )
             cred = TotpCredential(
                 owner_type="user",
                 owner_id=self.target.id,
@@ -572,7 +643,9 @@ class TestImpersonationScopeGuard(BaseTest):
         db.session.commit()
 
         with patch(self.LISTENER_G, self._impersonation_g()):
-            app.config["IMPERSONATION_SCOPE_GUARD"] = True
+            app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+                TEST_SCOPE_GUARD_ALLOWED_TABLES
+            )
             cred.enabled = True
             with self.assertRaises(AuthorizationError) as ctx:
                 db.session.flush()
@@ -581,7 +654,7 @@ class TestImpersonationScopeGuard(BaseTest):
 
     def test_guard_disabled_all_passes(self):
         with patch(self.LISTENER_G, self._impersonation_g()):
-            app.config["IMPERSONATION_SCOPE_GUARD"] = False
+            app.config["IMPERSONATION_ALLOWED_TABLES"] = frozenset()
             cred = TotpCredential(
                 owner_type="user",
                 owner_id=self.target.id,
@@ -812,10 +885,10 @@ class TestSecurityEndToEnd(BaseTest):
         )
         db.session.commit()
         _enable_2fa(self.admin)
-        self._orig_guard = app.config.get("IMPERSONATION_SCOPE_GUARD")
+        self._orig_guard = app.config.get("IMPERSONATION_ALLOWED_TABLES")
 
     def tearDown(self):
-        app.config["IMPERSONATION_SCOPE_GUARD"] = self._orig_guard
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = self._orig_guard
         super().tearDown()
 
     def _impersonation_g(self):
@@ -914,7 +987,9 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_change_user_email(self):
         """Support user changes email — table `user`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             self.target.email = "kelly-changed@test.com"
             db.session.commit()
@@ -932,7 +1007,9 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_change_admin_rights(self):
         """Support user changes admin rights — table `employment`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             self.employment.has_admin_rights = True
             db.session.commit()
@@ -946,7 +1023,9 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_terminate_employment(self):
         """Support user terminates employment — table `employment`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             self.employment.end_date = date.today()
             db.session.commit()
@@ -961,12 +1040,14 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_modify_company_settings(self):
         """Support user modifies company settings — table `company`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
-            self.company.require_mission_name = True
+            self.company.require_mission_name = False
             db.session.commit()
         fetched = Company.query.get(self.company.id)
-        self.assertTrue(fetched.require_mission_name)
+        self.assertFalse(fetched.require_mission_name)
         logs = SupportActionLog.query.filter_by(
             table_name="company",
             action="UPDATE",
@@ -998,7 +1079,9 @@ class TestSecurityEndToEnd(BaseTest):
         db.session.add(activity)
         db.session.commit()
 
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             activity.end_time = now
             activity.last_update_time = now
@@ -1014,7 +1097,9 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_modify_team(self):
         """Support user renames team — table `team`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             self.team.name = "Renamed Team"
             db.session.commit()
@@ -1038,7 +1123,9 @@ class TestSecurityEndToEnd(BaseTest):
         db.session.add(mission)
         db.session.commit()
 
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             mission.name = "Support Renamed"
             db.session.commit()
@@ -1053,7 +1140,9 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_whitelist_insert_email(self):
         """Support user triggers email send — table `email`."""
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             email = Email(
                 mailjet_id="test-whitelist-email",
@@ -1082,7 +1171,9 @@ class TestSecurityEndToEnd(BaseTest):
         db.session.commit()
         emp_id = extra_emp.id
 
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             db.session.delete(extra_emp)
             db.session.commit()
@@ -1129,10 +1220,7 @@ class TestSecurityEndToEnd(BaseTest):
 
     def test_all_kelly_tables_covered_by_whitelist(self):
         """Meta-test: run all support user actions, collect touched tables,
-        verify all are in IMPERSONATION_ALLOWED_TABLES."""
-        from app.helpers.impersonate_listener import (
-            IMPERSONATION_ALLOWED_TABLES,
-        )
+        verify all are in scope guard whitelist."""
 
         now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
         start = now - timedelta(hours=1)
@@ -1156,7 +1244,9 @@ class TestSecurityEndToEnd(BaseTest):
         db.session.add(activity)
         db.session.commit()
 
-        app.config["IMPERSONATION_SCOPE_GUARD"] = True
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
         with patch(self.LISTENER_G, self._impersonation_g()):
             # Change email (user)
             self.target.email = "meta-kelly@test.com"
@@ -1194,7 +1284,66 @@ class TestSecurityEndToEnd(BaseTest):
         for table in tables_touched:
             self.assertIn(
                 table,
-                IMPERSONATION_ALLOWED_TABLES,
+                TEST_SCOPE_GUARD_ALLOWED_TABLES,
                 f"Table '{table}' touched during impersonation "
                 f"but NOT in whitelist",
             )
+
+
+class TestPurgeSupportActionLogs(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(admin=True)
+        self.target = UserFactory.create()
+        db.session.commit()
+
+    def _create_log(self, age_years=0):
+        now = datetime.now(tz=timezone.utc)
+        log = SupportActionLog(
+            support_user_id=self.admin.id,
+            impersonated_user_id=self.target.id,
+            table_name="user",
+            row_id=self.target.id,
+            action="UPDATE",
+            old_values={"email": "old@test.com"},
+            new_values={"email": "new@test.com"},
+        )
+        db.session.add(log)
+        db.session.commit()
+        if age_years > 0:
+            old_date = now - timedelta(days=365 * age_years + 1)
+            db.session.execute(
+                db.text(
+                    "UPDATE support_action_log "
+                    "SET creation_time = :d WHERE id = :id"
+                ),
+                {"d": old_date, "id": log.id},
+            )
+            db.session.commit()
+        return log
+
+    def test_purge_deletes_old_entries(self):
+        from app.services.anonymization.purge_support_action_logs import (
+            purge_expired_support_action_logs,
+        )
+
+        old_log_id = self._create_log(age_years=4).id
+        recent_log_id = self._create_log(age_years=0).id
+
+        deleted = purge_expired_support_action_logs()
+        self.assertEqual(deleted, 1)
+        db.session.expire_all()
+        self.assertIsNone(SupportActionLog.query.get(old_log_id))
+        self.assertIsNotNone(SupportActionLog.query.get(recent_log_id))
+
+    def test_purge_preserves_recent_entries(self):
+        from app.services.anonymization.purge_support_action_logs import (
+            purge_expired_support_action_logs,
+        )
+
+        self._create_log(age_years=0)
+        self._create_log(age_years=2)
+
+        deleted = purge_expired_support_action_logs()
+        self.assertEqual(deleted, 0)
+        self.assertEqual(SupportActionLog.query.count(), 2)

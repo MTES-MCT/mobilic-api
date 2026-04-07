@@ -10,13 +10,11 @@ class SupportActionLog(BaseModel):
 
     support_user_id = db.Column(
         db.Integer,
-        db.ForeignKey("user.id"),
         nullable=False,
         index=True,
     )
     impersonated_user_id = db.Column(
         db.Integer,
-        db.ForeignKey("user.id"),
         nullable=False,
         index=True,
     )

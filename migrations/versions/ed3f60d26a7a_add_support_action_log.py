@@ -21,7 +21,12 @@ depends_on = None
 def upgrade():
     op.create_table(
         "support_action_log",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column(
+            "id",
+            sa.Integer(),
+            autoincrement=True,
+            nullable=False,
+        ),
         sa.Column(
             "creation_time",
             sa.DateTime(timezone=True),
@@ -31,13 +36,11 @@ def upgrade():
         sa.Column(
             "support_user_id",
             sa.Integer(),
-            sa.ForeignKey("user.id"),
             nullable=False,
         ),
         sa.Column(
             "impersonated_user_id",
             sa.Integer(),
-            sa.ForeignKey("user.id"),
             nullable=False,
         ),
         sa.Column("table_name", sa.String(255), nullable=False),
@@ -65,9 +68,18 @@ def upgrade():
         "support_action_log",
         ["impersonated_user_id"],
     )
+    op.create_index(
+        "ix_support_action_log_creation_time",
+        "support_action_log",
+        ["creation_time"],
+    )
 
 
 def downgrade():
+    op.drop_index(
+        "ix_support_action_log_creation_time",
+        "support_action_log",
+    )
     op.drop_index(
         "ix_support_action_log_impersonated_user_id",
         "support_action_log",
