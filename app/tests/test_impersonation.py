@@ -1297,7 +1297,7 @@ class TestPurgeSupportActionLogs(BaseTest):
         self.target = UserFactory.create()
         db.session.commit()
 
-    def _create_log(self, age_years=0):
+    def _create_log(self, age_months=0):
         now = datetime.now(tz=timezone.utc)
         log = SupportActionLog(
             support_user_id=self.admin.id,
@@ -1310,8 +1310,8 @@ class TestPurgeSupportActionLogs(BaseTest):
         )
         db.session.add(log)
         db.session.commit()
-        if age_years > 0:
-            old_date = now - timedelta(days=365 * age_years + 1)
+        if age_months > 0:
+            old_date = now - timedelta(days=30 * age_months + 1)
             db.session.execute(
                 db.text(
                     "UPDATE support_action_log "
@@ -1327,8 +1327,8 @@ class TestPurgeSupportActionLogs(BaseTest):
             purge_expired_support_action_logs,
         )
 
-        old_log_id = self._create_log(age_years=4).id
-        recent_log_id = self._create_log(age_years=0).id
+        old_log_id = self._create_log(age_months=4).id
+        recent_log_id = self._create_log(age_months=0).id
 
         deleted = purge_expired_support_action_logs()
         self.assertEqual(deleted, 1)
@@ -1341,8 +1341,8 @@ class TestPurgeSupportActionLogs(BaseTest):
             purge_expired_support_action_logs,
         )
 
-        self._create_log(age_years=0)
-        self._create_log(age_years=2)
+        self._create_log(age_months=0)
+        self._create_log(age_months=2)
 
         deleted = purge_expired_support_action_logs()
         self.assertEqual(deleted, 0)

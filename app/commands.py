@@ -875,6 +875,22 @@ def link_brevo_deals_command(
         raise
 
 
+@app.cli.command("purge_support_action_logs", with_appcontext=True)
+@click.option("--dry-run", is_flag=True)
+def purge_support_action_logs_command(dry_run):
+    """Purge support_action_log entries older than retention
+    threshold."""
+    from app.services.anonymization.purge_support_action_logs import (
+        purge_expired_support_action_logs,
+    )
+
+    count = purge_expired_support_action_logs(dry_run=dry_run)
+    if dry_run:
+        print(f"Dry run: {count} rows would be purged.")
+    else:
+        print(f"Purged {count} support_action_log rows.")
+
+
 @app.cli.command("delete_old_notifications", with_appcontext=True)
 def delete_old_notifications():
     """Delete notifications older than 1 month."""
