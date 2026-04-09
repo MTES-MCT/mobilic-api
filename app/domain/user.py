@@ -1,11 +1,13 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from flask import g
-from sqlalchemy import func
+from sqlalchemy import func, and_, exists
 
 from app import app, db, mailer
 from app.models import User, Employment, Company
+from app.models.email import Email
 from app.models.user import UserAccountStatus
+from app.helpers.mail_type import EmailType
 
 HIDDEN_EMAIL = "***"
 
@@ -248,3 +250,155 @@ def get_managers_with_companies_for_anonymization_warning(
         managers_dict[manager.id]["companies"].append(company)
 
     return list(managers_dict.values())
+
+
+def find_employees_for_activation_reminder_d2(trigger_date):
+    trigger_start = datetime.combine(trigger_date, datetime.min.time())
+    trigger_end = datetime.combine(
+        trigger_date + timedelta(days=1), datetime.min.time()
+    )
+
+    return (
+        db.session.query(User)
+        .filter(
+            User.has_activated_email == False,
+            User.status == UserAccountStatus.ACTIVE,
+            User.email.isnot(None),
+            exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type == EmailType.ACCOUNT_ACTIVATION,
+                    Email.creation_time >= trigger_start,
+                    Email.creation_time < trigger_end,
+                )
+            ),
+            ~exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type
+                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2,
+                )
+            ),
+            # Skip if manager already sent a reminder (invitation) since activation
+            ~exists().where(
+                and_(
+                    Employment.user_id == User.id,
+                    Email.employment_id == Employment.id,
+                    Email.type.in_(
+                        [
+                            EmailType.INVITATION,
+                            EmailType.SCHEDULED_INVITATION,
+                        ]
+                    ),
+                    Email.creation_time >= trigger_start,
+                )
+            ),
+            exists().where(
+                and_(
+                    Employment.user_id == User.id,
+                    Employment.has_admin_rights == False,
+                    ~Employment.is_dismissed,
+                )
+            ),
+        )
+        .all()
+    )
+
+
+def find_employees_for_activation_reminder_d4(trigger_date):
+    trigger_start = datetime.combine(trigger_date, datetime.min.time())
+    trigger_end = datetime.combine(
+        trigger_date + timedelta(days=1), datetime.min.time()
+    )
+
+    return (
+        db.session.query(User)
+        .filter(
+            User.has_activated_email == False,
+            User.status == UserAccountStatus.ACTIVE,
+            User.email.isnot(None),
+            exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type == EmailType.ACCOUNT_ACTIVATION,
+                    Email.creation_time >= trigger_start,
+                    Email.creation_time < trigger_end,
+                )
+            ),
+            exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type
+                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2,
+                )
+            ),
+            ~exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type
+                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D4,
+                )
+            ),
+            # Skip if manager already sent a reminder (invitation) since activation
+            ~exists().where(
+                and_(
+                    Employment.user_id == User.id,
+                    Email.employment_id == Employment.id,
+                    Email.type.in_(
+                        [
+                            EmailType.INVITATION,
+                            EmailType.SCHEDULED_INVITATION,
+                        ]
+                    ),
+                    Email.creation_time >= trigger_start,
+                )
+            ),
+            exists().where(
+                and_(
+                    Employment.user_id == User.id,
+                    Employment.has_admin_rights == False,
+                    ~Employment.is_dismissed,
+                )
+            ),
+        )
+        .all()
+    )
+
+
+def find_managers_for_activation_reminder_d2(trigger_date):
+    trigger_start = datetime.combine(trigger_date, datetime.min.time())
+    trigger_end = datetime.combine(
+        trigger_date + timedelta(days=1), datetime.min.time()
+    )
+
+    return (
+        db.session.query(User)
+        .filter(
+            User.has_activated_email == False,
+            User.status == UserAccountStatus.ACTIVE,
+            User.email.isnot(None),
+            exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type == EmailType.ACCOUNT_ACTIVATION,
+                    Email.creation_time >= trigger_start,
+                    Email.creation_time < trigger_end,
+                )
+            ),
+            ~exists().where(
+                and_(
+                    Email.user_id == User.id,
+                    Email.type
+                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_MANAGER_D2,
+                )
+            ),
+            exists().where(
+                and_(
+                    Employment.user_id == User.id,
+                    Employment.has_admin_rights == True,
+                    ~Employment.is_dismissed,
+                )
+            ),
+        )
+        .all()
+    )

@@ -1,0 +1,22 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block subject %}
+Dernier rappel pour activer votre compte Mobilic
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
+    <p>Votre compte <span style="font-weight: bold;">Mobilic</span> est toujours en attente d'activation.</p>
+    <p>Sans cette étape, vous ne pourrez pas :</p>
+    <ul>
+        <li>vérifier que toutes vos heures de travail sont bien prises en compte et rémunérées ;</li>
+        <li>faire valoir vos droits en cas de litige ;</li>
+        <li>bénéficier du suivi numérique de vos temps de travail. Sans Mobilic, vous devrez continuer avec la version papier.</li>
+    </ul>
+    <p>⚠️ Pour des raisons de sécurité, ce lien d'activation expirera d'ici 3 jours.</p>
+
+    {{button.button('Activer mon compte', activation_link)}}
+
+    <p>Cordialement,</p>
+{% endblock %}

@@ -25,7 +25,9 @@ class EmailType(str, Enum):
     COMPANY_WITHOUT_ANY_INVITATION = "company_without_any_invitation"
     COMPANY_REMINDER_NO_INVITATION = "company_reminder_no_invitation"
     COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY = "company_without_activity"
-    COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER = "company_without_activity_reminder"
+    COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY_REMINDER = (
+        "company_without_activity_reminder"
+    )
     # Deprecated
     COMPANY_ACTIVE_THEN_INACTIVE = "company_active_then_inactive"
     COMPANY_ABOUT_TO_LOSE_CERTIFICATE = "company_about_to_lose_certificate"
@@ -43,3 +45,12 @@ class EmailType(str, Enum):
     ANONYMIZATION_WARNING_EMPLOYEE = "anonymization_warning_employee"
     ANONYMIZATION_WARNING_MANAGER = "anonymization_warning_manager"
     EMPLOYMENT_REATTACHMENT = "employment_reattachment"
+    ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2 = (
+        "account_activation_reminder_employee_d2"
+    )
+    ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D4 = (
+        "account_activation_reminder_employee_d4"
+    )
+    ACCOUNT_ACTIVATION_REMINDER_MANAGER_D2 = (
+        "account_activation_reminder_manager_d2"
+    )

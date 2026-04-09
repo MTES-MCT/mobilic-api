@@ -17,3 +17,9 @@ from .send_invitation_emails import (
 from .send_companies_with_pending_invitation_emails import (
     send_companies_with_pending_invitation_emails,
 )
+from .send_activation_reminder_employee_emails import (
+    send_activation_reminder_employee_emails,
+)
+from .send_activation_reminder_manager_emails import (
+    send_activation_reminder_manager_emails,
+)
