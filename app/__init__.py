@@ -100,6 +100,9 @@ graphql_api_path = "/graphql"
 graphql_private_api_path = "/unexposed"
 graphql_protected_api_path = "/protected"
 
+# Disable GraphiQL in production (Sonarqube security requirement)
+enable_graphiql = MOBILIC_ENV != "prod"
+
 _safe_backend = SafeGraphQLBackend()
 
 app.add_url_rule(
@@ -107,7 +110,7 @@ app.add_url_rule(
     view_func=CustomGraphQLView.as_view(
         "graphql",
         schema=graphql_schema,
-        graphiql=True,
+        graphiql=enable_graphiql,
         batch=True,
         backend=_safe_backend,
     ),
@@ -128,7 +131,7 @@ app.add_url_rule(
     view_func=CustomGraphQLView.as_view(
         "protected",
         schema=protected_graphql_schema,
-        graphiql=True,
+        graphiql=enable_graphiql,
         backend=_safe_backend,
     ),
 )
