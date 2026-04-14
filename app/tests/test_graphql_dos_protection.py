@@ -70,3 +70,10 @@ class TestGraphQLDosProtection(TestCase):
             "not json at all", content_type="application/json"
         )
         self.assertEqual(response.status_code, 400)
+
+    def test_oversized_payload_rejected(self):
+        """Requests exceeding MAX_CONTENT_LENGTH should be rejected."""
+        # Create a payload just over 10MB
+        huge_payload = {"query": "x" * (11 * 1024 * 1024)}
+        response = self._post_graphql(huge_payload)
+        self.assertEqual(response.status_code, 413)
