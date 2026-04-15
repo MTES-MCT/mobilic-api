@@ -392,7 +392,10 @@ class WorkDay:
         if self.is_last_mission_overlapping_with_next_day or self.is_off_day:
             return ("-", "center")
         end_time = self.get_end_time(include_off_activities=False)
-        return (to_tz(end_time, tz=self.tz) if end_time else None, get_time_format())
+        return (
+            to_tz(end_time, tz=self.tz) if end_time else None,
+            get_time_format(),
+        )
 
 
 class WorkDayStatsOnly:
@@ -471,17 +474,19 @@ def group_user_events_by_day_with_limit(
     missions, has_next = user.query_missions_with_limit(
         include_deleted_missions=True,
         include_revisions=True,  # To be updated locally on init regulation alerts only!
-        start_time=to_datetime(from_date, tz_for_date=tz)
-        if from_date
-        else None,
-        end_time=to_datetime(
-            until_date, tz_for_date=tz, date_as_end_of_day=True
-        )
-        if until_date
-        else None,
-        restrict_to_company_ids=(consultation_scope.company_ids or None)
-        if consultation_scope
-        else None,
+        start_time=(
+            to_datetime(from_date, tz_for_date=tz) if from_date else None
+        ),
+        end_time=(
+            to_datetime(until_date, tz_for_date=tz, date_as_end_of_day=True)
+            if until_date
+            else None
+        ),
+        restrict_to_company_ids=(
+            (consultation_scope.company_ids or None)
+            if consultation_scope
+            else None
+        ),
         additional_activity_filters=additional_activity_filters,
         limit_fetch_activities=max(first * 5, 200) if first else None,
         max_reception_time=max_reception_time,
@@ -533,17 +538,19 @@ def group_user_events_by_day_with_limit_both_submitter(
     missions, has_next = user.query_missions_with_limit(
         include_deleted_missions=True,
         include_revisions=False,
-        start_time=to_datetime(from_date, tz_for_date=tz)
-        if from_date
-        else None,
-        end_time=to_datetime(
-            until_date, tz_for_date=tz, date_as_end_of_day=True
-        )
-        if until_date
-        else None,
-        restrict_to_company_ids=(consultation_scope.company_ids or None)
-        if consultation_scope
-        else None,
+        start_time=(
+            to_datetime(from_date, tz_for_date=tz) if from_date else None
+        ),
+        end_time=(
+            to_datetime(until_date, tz_for_date=tz, date_as_end_of_day=True)
+            if until_date
+            else None
+        ),
+        restrict_to_company_ids=(
+            (consultation_scope.company_ids or None)
+            if consultation_scope
+            else None
+        ),
         additional_activity_filters=lambda query: query.order_by(
             desc(Activity.start_time), desc(Activity.id)
         ),
@@ -577,6 +584,7 @@ def group_user_events_by_day_with_limit_both_submitter(
         tz=tz,
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
         max_reception_time=max_reception_time,
+        employee_version=True,
     )
     return work_days_admin, work_days_user
 

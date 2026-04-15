@@ -630,6 +630,7 @@ class Mailer:
             type_=EmailType.THIRD_PARTY_ACCOUNT_CREATION,
             template="third_party_software_account_creation.html",
             subject="Valider votre compte Mobilic",
+            help_video_url="https://www.youtube.com/watch?v=M4iHHsNXKUc",
         )
 
     def generate_third_party_software_employment_creation_email(
@@ -772,7 +773,7 @@ class Mailer:
                     )
                 )
                 > 1,
-                user_timezone=user_timezone
+                user_timezone=user_timezone,
             ),
             _disable_commit=True,
         )
@@ -802,7 +803,7 @@ class Mailer:
                 end_time=end_time,
                 work_duration=timers["total_work"],
                 show_dates=start_time.date() != end_time.date(),
-                user_timezone=user_timezone
+                user_timezone=user_timezone,
             ),
             _disable_commit=True,
         )
@@ -990,7 +991,7 @@ class Mailer:
                 company_name=company.name,
                 title=title,
                 periods=periods,
-                user_timezone=user.timezone
+                user_timezone=user.timezone,
             ),
             _apply_whitelist_if_not_prod=True,
         )
@@ -1158,6 +1159,7 @@ class Mailer:
                 control_time=control_data["control_time"],
                 controller_info=control_data["controller_info"],
                 nb_infractions=control_data["nb_infractions"],
+                is_mi=control_data.get("is_mi", False),
             )
 
             # Add attachment to message if available

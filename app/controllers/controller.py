@@ -20,6 +20,7 @@ from app.domain.controller import (
     check_idp_allowed,
     create_controller_user,
     get_controller_from_ac_info,
+    update_controller_user,
 )
 from app.domain.permissions import (
     controller_can_see_control,
@@ -160,6 +161,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         business_type = graphene.String(required=False)
         is_day_page_filled = graphene.Boolean(required=False)
         delivered_by_hand = graphene.Boolean(required=False)
+        vehicle_weight = graphene.String(required=False)
+        real_vehicle_weight = graphene.Float(required=False)
 
     @classmethod
     @with_authorization_policy(controller_only)
@@ -193,6 +196,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
         business_type=None,
         is_day_page_filled=None,
         delivered_by_hand=None,
+        vehicle_weight=None,
+        real_vehicle_weight=None,
     ):
         business_id = None
         if business_type is not None:
@@ -263,6 +268,8 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             business_id,
             is_day_page_filled,
             delivered_by_hand,
+            vehicle_weight,
+            real_vehicle_weight,
         )
         db.session.commit()
         return control
@@ -376,6 +383,8 @@ class AgentConnectLogin(graphene.Mutation):
 
             if not controller:
                 controller = create_controller_user(ac_info=ac_user_info)
+            else:
+                update_controller_user(controller, ac_user_info)
 
         tokens = create_access_tokens_for_controller(controller)
 

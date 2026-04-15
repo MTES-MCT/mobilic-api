@@ -111,6 +111,8 @@ def bind_user_to_pending_employments(user):
 def activate_user(user):
     user.has_confirmed_email = True
     user.has_activated_email = True
+    if user.status == UserAccountStatus.THIRD_PARTY_PENDING_APPROVAL:
+        user.status = UserAccountStatus.ACTIVE
 
 
 def increment_user_password_tries(user):

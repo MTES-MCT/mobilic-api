@@ -5,7 +5,7 @@ from io import BytesIO
 from xlsxwriter import Workbook
 
 from app.helpers.time import FR_TIMEZONE
-from app.helpers.xls.common import clean_string
+from app.helpers.xls.common import clean_string, is_export_empty
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
 from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
@@ -13,29 +13,32 @@ from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
 def get_archive_excel_file(batches, companies, min_date, max_date):
     memory_file = BytesIO()
+    files_to_zip = []
+
+    for idx_user, batch in enumerate(batches):
+        (batch_user, batch_data) = batch
+        excel_file = get_one_excel_file(
+            batch_data, companies, min_date, max_date
+        )
+        last_name = clean_string(batch_user.last_name)
+        first_name = clean_string(batch_user.first_name)
+        user_name = f"{batch_user.id}_{last_name}_{first_name}"
+        if is_export_empty(batch_data):
+            user_name = f"{user_name}_vide"
+        files_to_zip.append((f"{user_name}.xlsx", excel_file.getvalue()))
+
     with zipfile.ZipFile(
         memory_file, "w", compression=zipfile.ZIP_DEFLATED
     ) as zipObject:
-        for idx_user, batch in enumerate(batches):
-            (batch_user, batch_data) = batch
-            excel_file = get_one_excel_file(
-                batch_data,
-                companies,
-                min_date,
-                max_date,
-                tz=batch_user.timezone,
-            )
-            last_name = clean_string(batch_user.last_name)
-            first_name = clean_string(batch_user.first_name)
-            user_name = f"{batch_user.id}_{last_name}_{first_name}"
-            zipObject.writestr(f"{user_name}.xlsx", excel_file.getvalue())
+        for file_name, file_content in sorted(files_to_zip):
+            zipObject.writestr(file_name, file_content)
 
     memory_file.seek(0)
     return memory_file
 
 
 def get_one_excel_file(
-    wdays_data, companies, min_date, max_date, tz=FR_TIMEZONE
+    wdays_data, companies, min_date, max_date, all_users=None, tz=FR_TIMEZONE
 ):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     wdays_by_user = defaultdict(list)
@@ -66,6 +69,7 @@ def get_one_excel_file(
         companies=companies,
         min_date=min_date,
         max_date=max_date,
+        all_users=all_users,
     )
     write_day_details_sheet(
         wb,

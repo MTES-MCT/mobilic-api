@@ -2,84 +2,77 @@ from app import app
 from app.helpers.time import FR_TIMEZONE
 from app.helpers.xls.signature import retrieve_and_verify_signature
 
-from .companies import get_one_excel_file, get_archive_excel_file
-from app.models import User, Company
+from .companies import get_archive_excel_file
+from .common import clean_string
+from .export_helpers import (
+    load_work_days_cache,
+    get_work_days_for_users,
+    generate_excel_files_from_batch,
+    build_final_export,
+)
 from app.domain.permissions import ConsultationScope
-from app.domain.work_days import group_user_events_by_day_with_limit
+from app.helpers.export_chunking import ExportChunkingStrategy
+from datetime import date
 
 
-def generate_admin_export_file(
-    user_ids, company_ids, one_file_by_employee, min_date, max_date, file_name
+def _parse_date(date_value):
+    if isinstance(date_value, str):
+        return date.fromisoformat(date_value)
+    return date_value
+
+
+def generate_admin_export_file_from_chunks(
+    chunks, users, companies, file_name
 ):
-    app.logger.info(
-        f"Generating export user_ids={user_ids} company_ids={company_ids} min_date={min_date} max_date={max_date} one_file_by_employee={one_file_by_employee}"
-    )
-    users = User.query.filter(User.id.in_(user_ids)).all()
+    strategy = chunks[0].get("strategy") if chunks else None
+    company_ids = [c.id for c in companies]
     scope = ConsultationScope(company_ids=company_ids)
-    if one_file_by_employee:
-        user_wdays_batches = []
-        for user in users:
-            user_timezone = user.timezone
-            user_wdays_batches += [
-                (
-                    user,
-                    group_user_events_by_day_with_limit(
-                        user,
-                        consultation_scope=scope,
-                        from_date=min_date,
-                        until_date=max_date,
-                        include_dismissed_or_empty_days=True,
-                        tz=user_timezone,
-                    )[0],
-                )
-            ]
-    else:
-        all_users_work_days = []
-        for user in users:
-            user_timezone = user.timezone
-            all_users_work_days += group_user_events_by_day_with_limit(
-                user,
-                consultation_scope=scope,
-                from_date=min_date,
-                until_date=max_date,
-                include_dismissed_or_empty_days=True,
-                tz=user_timezone,
-            )[0]
-        user_wdays_batches = [(None, all_users_work_days)]
+    user_map = {u.id: u for u in users}
 
-    companies = Company.query.filter(Company.id.in_(company_ids)).all()
+    cache = {}
+    if strategy == ExportChunkingStrategy.OVER_31_DAYS.value:
+        cache = load_work_days_cache(users, chunks, scope, _parse_date)
 
-    if len(user_wdays_batches) == 1:
-        tz_for_export = (
-            user_wdays_batches[0][0].timezone
-            if user_wdays_batches[0][0]
-            else FR_TIMEZONE
+    chunks = sorted(
+        chunks,
+        key=lambda c: (
+            _parse_date(c["min_date"]),
+            _parse_date(c["max_date"]),
+            c["file_suffix"],
+        ),
+    )
+
+    files_data = []
+    for chunk in chunks:
+        chunk_min_date = _parse_date(chunk["min_date"])
+        chunk_max_date = _parse_date(chunk["max_date"])
+        chunk_user_ids = chunk["user_ids"]
+        chunk_suffix = chunk["file_suffix"]
+
+        users = [user_map[uid] for uid in chunk_user_ids if uid in user_map]
+        one_file_by_employee = len(chunk_user_ids) == 1
+
+        user_wdays_batches = get_work_days_for_users(
+            users,
+            cache,
+            scope,
+            chunk_min_date,
+            chunk_max_date,
+            one_file_by_employee,
         )
-        file = get_one_excel_file(
-            user_wdays_batches[0][1],
+
+        chunk_files = generate_excel_files_from_batch(
+            user_wdays_batches,
             companies,
-            min_date,
-            max_date,
-            tz=tz_for_export,
+            chunk_min_date,
+            chunk_max_date,
+            file_name,
+            chunk_suffix,
+            all_users=users,
         )
-        content_type = (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        ext = "xlsx"
-    else:
-        file = get_archive_excel_file(
-            batches=user_wdays_batches,
-            companies=companies,
-            min_date=min_date,
-            max_date=max_date,
-        )
-        content_type = "application/zip"
-        ext = "zip"
+        files_data.extend(chunk_files)
 
-    file_name = f"{file_name}.{ext}"
-    file.seek(0)
-    file_content = file.read()
-    file_size_bytes = len(file_content)
-    file.seek(0)
+    if not files_data:
+        raise ValueError("Aucune donnée à exporter.")
 
-    return file_content, content_type, file_name, file_size_bytes
+    return build_final_export(files_data, file_name)

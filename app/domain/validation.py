@@ -103,7 +103,14 @@ def validate_mission(
 
     if is_auto_validation:
         end_mission_for_user(
-            user=for_user, mission=mission, raise_already_ended=False
+            user=for_user,
+            mission=mission,
+            submitter=for_user,
+            reception_time=validation_time,
+            end_time=validation_time,
+            creation_time=creation_time,
+            raise_already_ended=False,
+            bypass_auth_check=True,
         )
     else:
         if any([not a.end_time for a in activities_to_validate]):
@@ -252,4 +259,5 @@ def _compute_regulations_after_validation(
         period_end=period_end,
         submitter_type=submitter_type,
         business=business,
+        employee_version=False,
     )

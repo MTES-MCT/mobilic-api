@@ -69,7 +69,8 @@ from app.helpers.brevo import (
 )
 import sentry_sdk
 
-from app.services.exports import export_activity_report
+from app.services.exports import export_activity_report, prepare_export_chunks
+from app.helpers.export_chunking import get_strategy_message
 
 from app.models.user import User
 
@@ -781,8 +782,89 @@ def download_activity_report(
     return jsonify({"result": "ok"}), 202
 
 
+@app.route("/companies/validate_export_params", methods=["POST"])
+@doc(
+    description="""
+    Valide les paramètres d'export et retourne la stratégie de chunking qui sera appliquée.
+    
+    Cet endpoint permet aux éditeurs tiers de connaître à l'avance :
+    - La stratégie de chunking qui sera utilisée
+    - Le nombre de fichiers qui seront générés
+    - Un message explicatif de la stratégie appliquée
+    - Si le paramètre one_file_by_employee sera pris en compte
+    - (Optionnel avec detailed=true) Les détails de chaque chunk
+    
+    Stratégies de chunking :
+    - OVER_365_DAYS : Période >= 365 jours → 1 fichier par an par salarié
+    - OVER_31_DAYS : Période > 31 jours → 1 fichier par mois (et par tranche de 100 salariés si > 100)
+    - OVER_100_USERS : > 100 salariés → 1 fichier par tranche de 100 salariés
+    - SINGLE_OR_CONSOLIDATED : Cas nominal → choix consolidé ou individuel possible
+    
+    Note : Si min_date n'est pas fournie, un fallback à 1 an en arrière est appliqué.
+    """
+)
+@use_kwargs(
+    {
+        "company_ids": fields.List(
+            fields.Int(), required=True, validate=lambda l: len(l) > 0
+        ),
+        "user_ids": fields.List(fields.Int(), required=False),
+        "min_date": fields.Date(required=False),
+        "max_date": fields.Date(required=False),
+        "one_file_by_employee": fields.Boolean(required=False),
+        "detailed": fields.Boolean(required=False, missing=False),
+    },
+    apply=True,
+)
+def validate_export_params(
+    company_ids,
+    user_ids=None,
+    min_date=None,
+    max_date=None,
+    one_file_by_employee=False,
+    detailed=False,
+):
+    users = check_auth_and_get_users_list(
+        company_ids, user_ids, min_date, max_date
+    )
+
+    # Calculate chunk strategy and chunks based on the users and date range
+    chunking_result = prepare_export_chunks(
+        users, min_date, max_date, one_file_by_employee
+    )
+
+    num_users = len(users)
+    strategy = chunking_result.strategy
+    num_chunks = len(chunking_result.chunks)
+
+    can_choose_consolidated = strategy.value == "single_or_consolidated"
+
+    message = get_strategy_message(strategy, num_users)
+
+    response = {
+        "strategy": strategy.value,
+        "message": message,
+        "can_choose_consolidated": can_choose_consolidated,
+        "num_chunks": num_chunks,
+    }
+
+    if detailed:
+        response["chunks"] = [
+            {
+                "user_ids": chunk.user_ids,
+                "min_date": chunk.min_date.isoformat(),
+                "max_date": chunk.max_date.isoformat(),
+                "file_suffix": chunk.file_suffix,
+            }
+            for chunk in chunking_result.chunks
+        ]
+
+    return jsonify(response), 200
+
+
 @app.route("/exports/cancel", methods=["POST"])
 @doc(description="Annule les exports en cours pour l'utilisateur")
+@require_auth
 def cancel_exports():
     try:
         db.session.execute(
@@ -803,6 +885,7 @@ def cancel_exports():
 @doc(
     description="Consulte le statut des exports en cours, et le lien de téléchargement s'ils sont prêts"
 )
+@require_auth
 def checkout_exports():
     exports_wip = Export.query.filter(
         Export.user_id == current_user.id,

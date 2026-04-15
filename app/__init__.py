@@ -1,6 +1,8 @@
 import os
+import logging
 
 import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import Flask, g
@@ -22,6 +24,9 @@ from config import MOBILIC_ENV
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
     traces_sample_rate=os.environ.get("SENTRY_SAMPLE_RATE", 0),
+    integrations=[
+        LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+    ],
 )
 app = Flask(__name__)
 
@@ -84,11 +89,12 @@ from app.helpers import logging
 from . import commands
 
 
-@app.before_first_request
 def configure_app():
     if MOBILIC_ENV == "prod":
         db.engine.dispose()
 
+
+configure_app()
 
 graphql_api_path = "/graphql"
 graphql_private_api_path = "/unexposed"

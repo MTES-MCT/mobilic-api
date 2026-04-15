@@ -22,6 +22,7 @@ def write_work_days_sheet(
     companies,
     min_date,
     max_date,
+    all_users=None,
 ):
     sheet = wb.add_worksheet("Activités")
     sheet.protect()
@@ -92,13 +93,29 @@ def write_work_days_sheet(
         )
         row_idx += 4
 
-    if len(wdays_by_user) == 0:
-        sheet.write(
-            row_idx - 1,
-            0,
-            "Cette période ne contient pas de temps de travail.",
-            wb.add_format({"bold": True}),
-        )
+    if all_users:
+        users_with_data = set(wdays_by_user.keys())
+        users_without_data = [u for u in all_users if u not in users_with_data]
+
+        if users_without_data:
+            sheet.write(
+                row_idx,
+                0,
+                "Cette période ne contient pas de temps de travail pour les salariés suivants :",
+                wb.add_format({"bold": True}),
+            )
+            row_idx += 1
+            for user in sorted(
+                users_without_data,
+                key=lambda u: (u.last_name.lower(), u.first_name.lower()),
+            ):
+                sheet.write(
+                    row_idx,
+                    0,
+                    f"• {user.display_name}",
+                    wb.add_format({}),
+                )
+                row_idx += 1
 
     write_sheet_legend(
         wb=wb,
