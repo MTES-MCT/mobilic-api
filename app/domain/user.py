@@ -252,33 +252,53 @@ def get_managers_with_companies_for_anonymization_warning(
     return list(managers_dict.values())
 
 
-def find_employees_for_activation_reminder_d2(trigger_date):
+def _find_users_for_activation_reminder(
+    trigger_date, reminder_type, is_admin, required_prior=None
+):
     trigger_start = datetime.combine(trigger_date, datetime.min.time())
     trigger_end = datetime.combine(
         trigger_date + timedelta(days=1), datetime.min.time()
     )
 
-    return (
-        db.session.query(User)
-        .filter(
-            User.has_activated_email == False,
-            User.status == UserAccountStatus.ACTIVE,
-            User.email.isnot(None),
+    filters = [
+        User.has_activated_email == False,
+        User.status == UserAccountStatus.ACTIVE,
+        User.email.isnot(None),
+        exists().where(
+            and_(
+                Email.user_id == User.id,
+                Email.type == EmailType.ACCOUNT_ACTIVATION,
+                Email.creation_time >= trigger_start,
+                Email.creation_time < trigger_end,
+            )
+        ),
+        ~exists().where(
+            and_(
+                Email.user_id == User.id,
+                Email.type == reminder_type,
+            )
+        ),
+        exists().where(
+            and_(
+                Employment.user_id == User.id,
+                Employment.has_admin_rights == is_admin,
+                ~Employment.is_dismissed,
+            )
+        ),
+    ]
+
+    if required_prior:
+        filters.append(
             exists().where(
                 and_(
                     Email.user_id == User.id,
-                    Email.type == EmailType.ACCOUNT_ACTIVATION,
-                    Email.creation_time >= trigger_start,
-                    Email.creation_time < trigger_end,
+                    Email.type == required_prior,
                 )
-            ),
-            ~exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
-                )
-            ),
-            # Skip if manager already sent a reminder (invitation) since activation
+            )
+        )
+
+    if not is_admin:
+        filters.append(
             ~exists().where(
                 and_(
                     Employment.user_id == User.id,
@@ -291,110 +311,32 @@ def find_employees_for_activation_reminder_d2(trigger_date):
                     ),
                     Email.creation_time >= trigger_start,
                 )
-            ),
-            exists().where(
-                and_(
-                    Employment.user_id == User.id,
-                    Employment.has_admin_rights == False,
-                    ~Employment.is_dismissed,
-                )
-            ),
+            )
         )
-        .all()
+
+    return db.session.query(User).filter(*filters).all()
+
+
+def find_employees_for_activation_reminder_d2(trigger_date):
+    return _find_users_for_activation_reminder(
+        trigger_date,
+        reminder_type=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
+        is_admin=False,
     )
 
 
 def find_employees_for_activation_reminder_d4(trigger_date):
-    trigger_start = datetime.combine(trigger_date, datetime.min.time())
-    trigger_end = datetime.combine(
-        trigger_date + timedelta(days=1), datetime.min.time()
-    )
-
-    return (
-        db.session.query(User)
-        .filter(
-            User.has_activated_email == False,
-            User.status == UserAccountStatus.ACTIVE,
-            User.email.isnot(None),
-            exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACCOUNT_ACTIVATION,
-                    Email.creation_time >= trigger_start,
-                    Email.creation_time < trigger_end,
-                )
-            ),
-            exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
-                )
-            ),
-            ~exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D4,
-                )
-            ),
-            # Skip if manager already sent a reminder (invitation) since activation
-            ~exists().where(
-                and_(
-                    Employment.user_id == User.id,
-                    Email.employment_id == Employment.id,
-                    Email.type.in_(
-                        [
-                            EmailType.INVITATION,
-                            EmailType.SCHEDULED_INVITATION,
-                        ]
-                    ),
-                    Email.creation_time >= trigger_start,
-                )
-            ),
-            exists().where(
-                and_(
-                    Employment.user_id == User.id,
-                    Employment.has_admin_rights == False,
-                    ~Employment.is_dismissed,
-                )
-            ),
-        )
-        .all()
+    return _find_users_for_activation_reminder(
+        trigger_date,
+        reminder_type=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D4,
+        is_admin=False,
+        required_prior=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
     )
 
 
 def find_managers_for_activation_reminder_d2(trigger_date):
-    trigger_start = datetime.combine(trigger_date, datetime.min.time())
-    trigger_end = datetime.combine(
-        trigger_date + timedelta(days=1), datetime.min.time()
-    )
-
-    return (
-        db.session.query(User)
-        .filter(
-            User.has_activated_email == False,
-            User.status == UserAccountStatus.ACTIVE,
-            User.email.isnot(None),
-            exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACCOUNT_ACTIVATION,
-                    Email.creation_time >= trigger_start,
-                    Email.creation_time < trigger_end,
-                )
-            ),
-            ~exists().where(
-                and_(
-                    Email.user_id == User.id,
-                    Email.type == EmailType.ACTIVATION_REMINDER_ADMIN_D2,
-                )
-            ),
-            exists().where(
-                and_(
-                    Employment.user_id == User.id,
-                    Employment.has_admin_rights == True,
-                    ~Employment.is_dismissed,
-                )
-            ),
-        )
-        .all()
+    return _find_users_for_activation_reminder(
+        trigger_date,
+        reminder_type=EmailType.ACTIVATION_REMINDER_ADMIN_D2,
+        is_admin=True,
     )
