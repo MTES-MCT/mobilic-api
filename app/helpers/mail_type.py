@@ -45,12 +45,6 @@ class EmailType(str, Enum):
     ANONYMIZATION_WARNING_EMPLOYEE = "anonymization_warning_employee"
     ANONYMIZATION_WARNING_MANAGER = "anonymization_warning_manager"
     EMPLOYMENT_REATTACHMENT = "employment_reattachment"
-    ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2 = (
-        "account_activation_reminder_employee_d2"
-    )
-    ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D4 = (
-        "account_activation_reminder_employee_d4"
-    )
-    ACCOUNT_ACTIVATION_REMINDER_MANAGER_D2 = (
-        "account_activation_reminder_manager_d2"
-    )
+    ACTIVATION_REMINDER_EMPLOYEE_D2 = "activation_reminder_employee_d2"
+    ACTIVATION_REMINDER_EMPLOYEE_D4 = "activation_reminder_employee_d4"
+    ACTIVATION_REMINDER_ADMIN_D2 = "activation_reminder_admin_d2"

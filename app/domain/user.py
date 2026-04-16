@@ -275,8 +275,7 @@ def find_employees_for_activation_reminder_d2(trigger_date):
             ~exists().where(
                 and_(
                     Email.user_id == User.id,
-                    Email.type
-                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2,
+                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
                 )
             ),
             # Skip if manager already sent a reminder (invitation) since activation
@@ -328,15 +327,13 @@ def find_employees_for_activation_reminder_d4(trigger_date):
             exists().where(
                 and_(
                     Email.user_id == User.id,
-                    Email.type
-                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2,
+                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
                 )
             ),
             ~exists().where(
                 and_(
                     Email.user_id == User.id,
-                    Email.type
-                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D4,
+                    Email.type == EmailType.ACTIVATION_REMINDER_EMPLOYEE_D4,
                 )
             ),
             # Skip if manager already sent a reminder (invitation) since activation
@@ -388,8 +385,7 @@ def find_managers_for_activation_reminder_d2(trigger_date):
             ~exists().where(
                 and_(
                     Email.user_id == User.id,
-                    Email.type
-                    == EmailType.ACCOUNT_ACTIVATION_REMINDER_MANAGER_D2,
+                    Email.type == EmailType.ACTIVATION_REMINDER_ADMIN_D2,
                 )
             ),
             exists().where(

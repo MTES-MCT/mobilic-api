@@ -1175,7 +1175,7 @@ class Mailer:
             self._create_message_from_flask_template(
                 "account_activation_reminder_employee_d2.html",
                 subject="N'oubliez pas d'activer votre compte Mobilic",
-                type_=EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D2,
+                type_=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
                 user=user,
                 first_name=user.first_name,
                 activation_link=Markup(activation_link),
@@ -1189,7 +1189,7 @@ class Mailer:
             self._create_message_from_flask_template(
                 "account_activation_reminder_employee_d4.html",
                 subject=("Dernier rappel pour activer votre compte Mobilic"),
-                type_=EmailType.ACCOUNT_ACTIVATION_REMINDER_EMPLOYEE_D4,
+                type_=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D4,
                 user=user,
                 first_name=user.first_name,
                 activation_link=Markup(activation_link),
@@ -1208,7 +1208,7 @@ class Mailer:
                     " commencer à utiliser Mobilic :"
                     " activer votre compte !"
                 ),
-                type_=EmailType.ACCOUNT_ACTIVATION_REMINDER_MANAGER_D2,
+                type_=EmailType.ACTIVATION_REMINDER_ADMIN_D2,
                 user=user,
                 activation_link=Markup(activation_link),
             ),
