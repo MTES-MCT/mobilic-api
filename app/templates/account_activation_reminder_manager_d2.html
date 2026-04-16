@@ -1,0 +1,23 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block subject %}
+Rappel : activez votre compte Mobilic
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>Sans l'activation de votre compte, le suivi du temps de travail de vos salariés devra s'effectuer au format papier. Vous ne bénéficiez pas de la simplification du suivi de leurs heures mise en place par l'État.</p>
+    <p>⚠️ Attention : l'utilisation de logiciels tiers non habilités pour le suivi du temps de travail peut constituer un délit.</p>
+    <p>En activant votre compte dès aujourd'hui, vous pourrez :</p>
+    <ul>
+        <li>centraliser les temps de travail de vos salariés en toute conformité ;</li>
+        <li>faciliter vos démarches administratives au quotidien ;</li>
+        <li>être prêt en cas de contrôle de votre entreprise.</li>
+    </ul>
+    <p>Pour des raisons de sécurité, ce lien d'activation expirera d'ici à 3 jours.</p>
+
+    {{button.button('Activer mon compte', activation_link)}}
+
+    <p>Cordialement,</p>
+{% endblock %}

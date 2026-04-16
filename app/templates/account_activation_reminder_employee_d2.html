@@ -1,0 +1,17 @@
+{% extends "transactional_base.html" %}
+{% import 'button.html' as button %}
+
+{% block subject %}
+N'oubliez pas d'activer votre compte Mobilic
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
+    <p>Vous avez créé un compte sur <span style="font-weight: bold;">Mobilic</span>, mais il n'est pas encore activé.</p>
+    <p>Sans activation, vous ne pourrez pas enregistrer ni suivre vos temps de travail.</p>
+    <p>Cliquez ci-dessous pour finaliser votre inscription en 1 minute :</p>
+
+    {{button.button('Activer mon compte', activation_link)}}
+
+    <p>À bientôt,</p>
+{% endblock %}
