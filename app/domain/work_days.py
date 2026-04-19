@@ -127,9 +127,9 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user, day, tz=FR_TIMEZONE, max_reception_time=None):
+    def __init__(self, user, day, tz=None, max_reception_time=None):
         self.day = day
-        self.tz = tz
+        self.tz = tz if tz is not None else user.timezone
         self._are_activities_sorted = True
         self.user = user
         self.missions = []
@@ -447,7 +447,7 @@ def group_user_events_by_day_with_limit(
     consultation_scope=None,
     from_date=None,
     until_date=None,
-    tz=FR_TIMEZONE,
+    tz=None,
     include_holidays=True,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
@@ -457,6 +457,8 @@ def group_user_events_by_day_with_limit(
     max_reception_time=None,
     employee_version=False,
 ):
+    if tz is None:
+        tz = user.timezone
     if after:
         try:
             max_date = b64decode(after).decode()
@@ -594,11 +596,13 @@ def group_user_missions_by_day(
     missions,
     from_date=None,
     until_date=None,
-    tz=FR_TIMEZONE,
+    tz=None,
     include_dismissed_or_empty_days=False,
     max_reception_time=None,
     employee_version=False,
 ):
+    if tz is None:
+        tz = user.timezone
     work_days = []
     current_work_day = None
     current_date = None
@@ -658,7 +662,7 @@ def group_user_missions_by_day(
                         tz=tz,
                         max_reception_time=mission_max_reception_time,
                     )
-                    work_days.append(current_work_day)
+                work_days.append(current_work_day)
                 current_work_day.add_mission(mission)
                 mission_running_day += timedelta(days=1)
 

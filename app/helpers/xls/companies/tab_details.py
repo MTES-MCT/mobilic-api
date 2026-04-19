@@ -1,4 +1,4 @@
-from app.helpers.time import FR_TIMEZONE, to_tz
+from app.helpers.time import to_tz
 from app.helpers.xls.columns import *
 from app.helpers.xls.common import (
     formats,
@@ -18,7 +18,6 @@ def write_day_details_sheet(
     min_date,
     max_date,
     deleted_missions=False,
-    tz=FR_TIMEZONE,
 ):
     if deleted_missions:
         sheet = wb.add_worksheet("Missions supprimées")
