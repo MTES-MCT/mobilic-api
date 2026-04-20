@@ -14,10 +14,12 @@ from app.helpers.time import (
     to_timestamp,
     to_tz,
     min_or_none,
+    to_fr_tz,
 )
 from app.models import Activity, Comment, Company, Mission, User
 from app.models.activity import ActivityType
 from cached_property import cached_property
+from dateutil.tz import gettz
 from sqlalchemy import desc
 
 
@@ -662,7 +664,7 @@ def group_user_missions_by_day(
                         tz=tz,
                         max_reception_time=mission_max_reception_time,
                     )
-                work_days.append(current_work_day)
+                    work_days.append(current_work_day)
                 current_work_day.add_mission(mission)
                 mission_running_day += timedelta(days=1)
 

@@ -29,11 +29,17 @@ def to_timestamp(date_time):
 
 
 def to_tz(date_time, tz):
+    if date_time.tzinfo is None:
+        date_time = date_time.replace(tzinfo=datetime.timezone.utc)
     return date_time.astimezone(tz).replace(tzinfo=None)
 
 
 def from_tz(date_time, tz):
-    return date_time.replace(tzinfo=tz).astimezone().replace(tzinfo=None)
+    return (
+        date_time.replace(tzinfo=tz)
+        .astimezone(datetime.timezone.utc)
+        .replace(tzinfo=None)
+    )
 
 
 def to_fr_tz(date_time):

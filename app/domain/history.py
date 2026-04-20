@@ -88,7 +88,13 @@ class UserChange(HistoryItem):
     type: LogActionType
     version: any = None
     holiday_mission_name: str = ""
-    tz: any = FR_TIMEZONE
+    tz: any = None
+
+    def __post_init__(self):
+        if self.tz is None:
+            from app.helpers.time import FR_TIMEZONE
+
+            self.tz = FR_TIMEZONE
 
     def picto(self):
         if self.is_validation:
@@ -273,6 +279,13 @@ class LogAction(HistoryItem):
     picto: str
     version: any = None
     holiday_mission_name: str = ""
+    tz: any = None
+
+    def __post_init__(self):
+        if self.tz is None:
+            from app.helpers.time import FR_TIMEZONE
+
+            self.tz = FR_TIMEZONE
 
 
 def actions_history(
@@ -316,22 +329,26 @@ def actions_history(
                 UserChange(
                     time=resource.reception_time,
                     submitter=resource.submitter,
-                    submitter_has_admin_rights=resource.submitter.has_admin_rights(
-                        mission.company_id
-                    )
-                    if resource.submitter
-                    else False,
+                    submitter_has_admin_rights=(
+                        resource.submitter.has_admin_rights(mission.company_id)
+                        if resource.submitter
+                        else False
+                    ),
                     resource=resource,
                     type=LogActionType.CREATE,
-                    is_after_employee_validation=user_validation.reception_time
-                    < resource.reception_time
-                    if user_validation
-                    else False,
-                    version=resource.version_at(resource.reception_time)
-                    if type(resource) is Activity
-                    else None,
+                    is_after_employee_validation=(
+                        user_validation.reception_time
+                        < resource.reception_time
+                        if user_validation
+                        else False
+                    ),
+                    version=(
+                        resource.version_at(resource.reception_time)
+                        if type(resource) is Activity
+                        else None
+                    ),
                     holiday_mission_name=holiday_mission_name,
-                    tz=user.timezone
+                    tz=user.timezone,
                 )
             )
 
@@ -345,12 +362,14 @@ def actions_history(
                         ),
                         resource=resource,
                         type=LogActionType.DELETE,
-                        is_after_employee_validation=user_validation.reception_time
-                        < resource.dismissed_at
-                        if user_validation
-                        else False,
+                        is_after_employee_validation=(
+                            user_validation.reception_time
+                            < resource.dismissed_at
+                            if user_validation
+                            else False
+                        ),
                         holiday_mission_name=holiday_mission_name,
-                        tz=user.timezone
+                        tz=user.timezone,
                     )
                 )
 
@@ -372,13 +391,15 @@ def actions_history(
                             ),
                             resource=resource,
                             type=LogActionType.UPDATE,
-                            is_after_employee_validation=user_validation.reception_time
-                            < revision.reception_time
-                            if user_validation
-                            else False,
+                            is_after_employee_validation=(
+                                user_validation.reception_time
+                                < revision.reception_time
+                                if user_validation
+                                else False
+                            ),
                             version=revision,
                             holiday_mission_name=holiday_mission_name,
-                            tz=user.timezone
+                            tz=user.timezone,
                         )
                     )
 
@@ -402,6 +423,7 @@ def actions_history(
                     text=text,
                     picto=user_change.picto(),
                     holiday_mission_name=holiday_mission_name,
+                    tz=user_change.tz,
                 )
             )
     return sorted(actions, key=lambda a: (a.time, a.type))
