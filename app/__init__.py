@@ -69,7 +69,7 @@ Migrate(app, db)
 
 CORS(app)
 
-from app.helpers.graphql import CustomGraphQLView
+from app.helpers.graphql import CustomGraphQLView, SafeGraphQLBackend
 from app.controllers import (
     graphql_schema,
     private_graphql_schema,
@@ -100,25 +100,39 @@ graphql_api_path = "/graphql"
 graphql_private_api_path = "/unexposed"
 graphql_protected_api_path = "/protected"
 
+# Disable GraphiQL in production (Sonarqube security requirement)
+enable_graphiql = MOBILIC_ENV != "prod"
+
+_safe_backend = SafeGraphQLBackend()
 
 app.add_url_rule(
     graphql_api_path,
     view_func=CustomGraphQLView.as_view(
-        "graphql", schema=graphql_schema, graphiql=True, batch=True
+        "graphql",
+        schema=graphql_schema,
+        graphiql=enable_graphiql,
+        batch=True,
+        backend=_safe_backend,
     ),
 )
 
 app.add_url_rule(
     graphql_private_api_path,
     view_func=CustomGraphQLView.as_view(
-        "unexposed", schema=private_graphql_schema, graphiql=False
+        "unexposed",
+        schema=private_graphql_schema,
+        graphiql=False,
+        backend=_safe_backend,
     ),
 )
 
 app.add_url_rule(
     graphql_protected_api_path,
     view_func=CustomGraphQLView.as_view(
-        "protected", schema=protected_graphql_schema, graphiql=True
+        "protected",
+        schema=protected_graphql_schema,
+        graphiql=enable_graphiql,
+        backend=_safe_backend,
     ),
 )
 

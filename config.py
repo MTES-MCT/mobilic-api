@@ -69,6 +69,9 @@ class Config:
     JWT_COOKIE_SECURE = True
     JWT_IDENTITY_CLAIM = "identity"
     SESSION_COOKIE_LIFETIME = timedelta(days=365)
+    MAX_CONTENT_LENGTH = (
+        10 * 1024 * 1024
+    )  # 10MB - Protection against oversized payloads (DoS mitigation)
     RESET_PASSWORD_TOKEN_EXPIRATION = timedelta(days=1)
     METABASE_COMPANY_DASHBOARD_BASE_URL = os.environ.get(
         "METABASE_COMPANY_DASHBOARD_BASE_URL",
