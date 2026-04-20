@@ -35,9 +35,6 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
     memory_file.seek(0)
     return memory_file
 
-    memory_file.seek(0)
-    return memory_file
-
 
 def get_one_excel_file(
     wdays_data, companies, min_date, max_date, all_users=None

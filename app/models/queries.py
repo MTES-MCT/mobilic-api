@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo
+
 from sqlalchemy.orm import selectinload, subqueryload, joinedload
 from sqlalchemy import (
     and_,
@@ -14,7 +16,6 @@ from datetime import timezone
 from psycopg2.extras import DateTimeRange
 from sqlalchemy.sql import func, case, extract, distinct
 from functools import reduce
-from dateutil.tz import gettz
 
 from app import db
 from app.domain.work_days import NOT_WORK_ACTIVITIES
@@ -279,7 +280,7 @@ def query_work_day_stats(
 ):
     # The following is a bit complex because we want to compute day-centric statistics from data that are not day-centric (an activity period can for instance span over several days)
 
-    tz = gettz(tzname)
+    tz = ZoneInfo(tzname)
 
     # Cursor pagination : work days are sorted by descending date and user id
     if after:

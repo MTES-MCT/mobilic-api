@@ -12,7 +12,6 @@ from app.models import Company, UserAgreement
 from app.helpers.notification_type import NotificationType
 from app.helpers.time import to_tz
 from app.models.notification import create_notification
-from dateutil.tz import gettz
 
 
 def warn_if_mission_changes_since_latest_user_action(mission, user):
@@ -43,7 +42,7 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 timers=timers,
             )
             if not user.is_an_admin:
-                user_timezone = gettz(user.timezone_name)
+                user_timezone = user.timezone
                 create_notification(
                     user_id=user.id,
                     notification_type=NotificationType.NEW_MISSION_BY_ADMIN,
@@ -99,7 +98,7 @@ def warn_if_mission_changes_since_latest_user_action(mission, user):
                 )
 
                 if not user.is_an_admin:
-                    user_timezone = gettz(user.timezone_name)
+                    user_timezone = user.timezone
                     create_notification(
                         user_id=user.id,
                         notification_type=NotificationType.MISSION_CHANGES_WARNING,
