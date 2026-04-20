@@ -1,12 +1,10 @@
 from collections import defaultdict
 from typing import NamedTuple
 
-from dateutil.tz import gettz
-
 from app.domain.history import actions_history
 from app.domain.work_days import compute_aggregate_durations
 from app.helpers.pdf import generate_pdf_from_template, Column
-from app.helpers.time import max_or_none
+from app.helpers.time import max_or_none, to_tz
 from app.models.activity import ActivityType, is_activity_considered_work
 from app.templates.filters import (
     format_seconds_duration,
@@ -139,6 +137,7 @@ def generate_mission_details_pdf(
     show_history_before_employee_validation=True,
     max_reception_time=None,
 ):
+    user_timezone = user.timezone
     mission_name = mission.name
     mission_subtitle = None
 
@@ -186,9 +185,9 @@ def generate_mission_details_pdf(
 
     if mission_name:
         mission_name = f"Mission : {mission_name}"
-        mission_subtitle = f"Journée du {full_format_day((activities or all_user_activities)[0].start_time)}"
+        mission_subtitle = f"Journée du {full_format_day(to_tz((activities or all_user_activities)[0].start_time, tz=user_timezone))}"
     else:
-        mission_name = f"Mission du {full_format_day((activities or all_user_activities)[0].start_time)}"
+        mission_name = f"Mission du {full_format_day(to_tz((activities or all_user_activities)[0].start_time, tz=user_timezone))}"
 
     activities_with_breaks = sort_and_fill_with_breaks(activities)
     stats = defaultdict(lambda: timedelta(0))
@@ -225,7 +224,7 @@ def generate_mission_details_pdf(
     )
 
     try:
-        tz = gettz(user.timezone_name)
+        tz = user.timezone
         night_work_tarification = compute_aggregate_durations(
             activities, min_time=start_time, tz=tz
         )[2]["night_work_tarification"]
@@ -238,23 +237,27 @@ def generate_mission_details_pdf(
         mission_name=mission_name,
         mission_subtitle=mission_subtitle,
         company_name=mission.company.name,
-        vehicle_name=mission.vehicle.registration_number
-        if mission.vehicle
-        else None,
+        vehicle_name=(
+            mission.vehicle.registration_number if mission.vehicle else None
+        ),
         user=user,
         show_dates=show_dates,
         start_time=start_time,
         end_time=end_time,
-        start_location=mission.start_location.address.format()
-        if mission.start_location
-        else None,
+        start_location=(
+            mission.start_location.address.format()
+            if mission.start_location
+            else None
+        ),
         end_location=end_location.address.format() if end_location else None,
-        start_kilometer_reading=mission.start_location.kilometer_reading
-        if mission.start_location
-        else None,
-        end_kilometer_reading=end_location.kilometer_reading
-        if end_location
-        else None,
+        start_kilometer_reading=(
+            mission.start_location.kilometer_reading
+            if mission.start_location
+            else None
+        ),
+        end_kilometer_reading=(
+            end_location.kilometer_reading if end_location else None
+        ),
         columns=columns,
         apply_max_width_columns=len(columns) >= 8,
         stats=stats,
@@ -275,7 +278,10 @@ def generate_mission_details_pdf(
             max_reception_time,
         ),
         is_deleted=mission.is_deleted(),
-        deleted_at_text=f"Cette mission a été supprimée le {full_format_day(mission.deleted_at())} par {mission.deleted_by()}"
-        if mission.is_deleted()
-        else "",
+        deleted_at_text=(
+            f"Cette mission a été supprimée le {full_format_day(to_tz(mission.deleted_at(), tz=user_timezone))} par {mission.deleted_by()}"
+            if mission.is_deleted()
+            else ""
+        ),
+        user_timezone=user_timezone,
     )

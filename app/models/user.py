@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta
 from enum import Enum
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from cached_property import cached_property
 from sqlalchemy import desc, or_
@@ -367,3 +368,7 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
             None,
         )
         return last_employment.has_admin_rights if last_employment else False
+
+    @cached_property
+    def timezone(self):
+        return ZoneInfo(self.timezone_name)

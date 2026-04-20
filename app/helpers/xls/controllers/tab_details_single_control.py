@@ -72,7 +72,10 @@ def write_details_sheet(wb, control, work_days_data):
             ## skip mission if necessary
             if (
                 not first_activities_for_user
-                or to_fr_tz(first_activities_for_user.start_time).date()
+                or to_tz(
+                    first_activities_for_user.start_time,
+                    tz=control.user.timezone,
+                ).date()
                 != wday.day
             ):
                 continue
@@ -151,7 +154,7 @@ def write_details_sheet(wb, control, work_days_data):
                 mission_starting_row_idx,
                 row_idx,
                 2,
-                to_fr_tz(wday.start_time),
+                to_tz(wday.start_time, tz=control.user.timezone),
                 formats.get("merged_date_format"),
             )
             for col_to_format in range(col_idx):
