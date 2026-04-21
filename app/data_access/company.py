@@ -552,9 +552,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
-        return get_regulatory_alerts_summary(
-            month=month, user_ids=user_ids, unique_user_id=unique_user_id
-        )
+        return get_regulatory_alerts_summary(month=month, user_ids=user_ids)
 
     def resolve_admin_regulation_computations_by_user_and_by_day(
         self, info, from_date=None, to_date=None, user_ids=None

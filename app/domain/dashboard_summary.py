@@ -60,7 +60,6 @@ def _count_pending_validations(company_id):
         MissionValidation.mission_id
     ).filter(
         MissionValidation.is_admin.is_(True),
-        MissionValidation.user_id.is_(None),
     )
 
     return (
@@ -130,7 +129,6 @@ def _count_auto_validated_missions(company_id):
             Mission.company_id == company_id,
             MissionValidation.is_admin.is_(True),
             MissionValidation.is_auto.is_(True),
-            MissionValidation.user_id.is_(None),
         )
         .scalar()
     ) or 0

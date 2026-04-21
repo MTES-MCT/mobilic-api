@@ -1,10 +1,13 @@
 from dateutil.relativedelta import relativedelta
 
+from sqlalchemy.orm import joinedload
+
 from app import db
 from app.data_access.regulation_computation import (
     get_regulation_checks_by_unit,
 )
 from app.data_access.regulatory_alerts_summary import (
+    AlertDayDetail,
     AlertsGroup,
     RegulatoryAlertsSummary,
 )
@@ -19,7 +22,9 @@ from app.models.regulation_check import UnitType, RegulationCheckType
 
 def query_alerts_for_month(month, user_ids):
     def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
-        query = RegulatoryAlert.query.filter(
+        query = RegulatoryAlert.query.options(
+            joinedload(RegulatoryAlert.user)
+        ).filter(
             RegulatoryAlert.user_id.in_(_user_ids),
             RegulatoryAlert.day >= _start_date,
             RegulatoryAlert.day < _end_date,
@@ -68,7 +73,7 @@ def has_any_regulation_computation(month, user_ids):
     return db.session.query(query.exists()).scalar()
 
 
-def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
+def get_regulatory_alerts_summary(month, user_ids):
     has_no_data = not has_any_regulation_computation(
         month=month, user_ids=user_ids
     )
@@ -90,16 +95,38 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
     daily_checks = get_regulation_checks_by_unit(unit=UnitType.DAY)
     daily_alerts = {}
 
+    # Track unique day_details per alert type to avoid post-hoc dedup
+    daily_details_seen = {}
+
+    def _make_unique_day_details(alerts, type):
+        if type not in daily_details_seen:
+            daily_details_seen[type] = {}
+        seen = daily_details_seen[type]
+        result = []
+        for a in alerts:
+            key = (a.day, a.user_id)
+            if key not in seen:
+                detail = AlertDayDetail(
+                    day=a.day,
+                    user_name=f"{a.user.first_name} {a.user.last_name}",
+                    user_id=a.user_id,
+                )
+                seen[key] = detail
+                result.append(detail)
+        return result
+
     def _append_alerts(alerts, type):
+        new_details = _make_unique_day_details(alerts, type)
         if type in daily_alerts:
             daily_alerts[type].nb_alerts += len(alerts)
-            if unique_user_id:
-                daily_alerts[type].days += [a.day for a in alerts]
+            daily_alerts[type].days += [a.day for a in alerts]
+            daily_alerts[type].day_details += new_details
         else:
             daily_alerts[type] = AlertsGroup(
                 alerts_type=type,
                 nb_alerts=len(alerts),
-                days=[a.day for a in alerts] if unique_user_id else [],
+                days=[a.day for a in alerts],
+                day_details=new_details,
             )
 
     for check in daily_checks:
@@ -144,7 +171,8 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
             AlertsGroup(
                 alerts_type=check.type,
                 nb_alerts=len(alerts),
-                days=[],
+                days=sorted({a.day for a in alerts}),
+                day_details=_make_unique_day_details(alerts, check.type),
             )
         )
 
@@ -153,10 +181,15 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
         [
             a
             for a in current_month_alerts
-            if a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
+            if a.extra
+            and a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
             and a.extra.get(EXTRA_NOT_ENOUGH_BREAK, False)
         ]
     )
+
+    for group in daily_alerts.values():
+        group.days = sorted({*group.days})
+        group.day_details = sorted(group.day_details, key=lambda x: x.day)
 
     return RegulatoryAlertsSummary(
         month=month,

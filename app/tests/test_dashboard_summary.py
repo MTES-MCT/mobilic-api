@@ -77,12 +77,12 @@ class TestDashboardSummary(BaseTest):
         )
         db.session.commit()
 
-    def _validate_mission(self, mission, is_auto=False):
+    def _validate_mission(self, mission, is_auto=False, user=None):
         db.session.add(
             MissionValidation(
                 submitter=self.admin if not is_auto else None,
                 mission=mission,
-                user=None,
+                user=user,
                 reception_time=self.now,
                 is_admin=True,
                 is_auto=is_auto,
@@ -152,7 +152,7 @@ class TestDashboardSummary(BaseTest):
     def test_auto_validated_missions_count(self):
         mission = self._create_mission_with_activity()
         self._end_mission(mission)
-        self._validate_mission(mission, is_auto=True)
+        self._validate_mission(mission, is_auto=True, user=self.employee)
         response = self._query()
         data = self._get_summary(response)
         self.assertEqual(data["autoValidatedMissionsCount"], 1)
