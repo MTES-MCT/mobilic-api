@@ -12,6 +12,7 @@ from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
     CompanyAdminRegulationComputationsByUserAndDay,
 )
+from app.data_access.dashboard_summary import DashboardSummary
 from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
 )
@@ -30,6 +31,7 @@ from app.domain.permissions import (
 from app.domain.regulation_computations import (
     get_company_admin_regulation_computations,
 )
+from app.domain.dashboard_summary import get_dashboard_summary
 from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
 from app.helpers.authorization import (
@@ -233,6 +235,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     current_company_certification = graphene.Field(
         CompanyCertificationType,
         description="Informations relatives au certificat en cours pour l'entreprise",
+    )
+    dashboard_summary = graphene.Field(
+        DashboardSummary,
+        description="Synthèse des indicateurs du tableau de bord gestionnaire",
     )
     regulatory_alerts_recap = graphene.Field(
         RegulatoryAlertsSummary,
@@ -515,6 +521,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_current_company_certification(self, info):
         return CompanyCertificationType.from_company_id(self.id)
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'dashboardSummary' of company object. Actor must be company admin.",
+    )
+    def resolve_dashboard_summary(self, info):
+        return get_dashboard_summary(self.id)
 
     @with_authorization_policy(
         company_admin,
