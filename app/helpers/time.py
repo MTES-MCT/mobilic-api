@@ -1,11 +1,11 @@
 import calendar
 import datetime
+from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
-from dateutil.tz import gettz
 from jours_feries_france import JoursFeries
 
-FR_TIMEZONE = gettz("Europe/Paris")
+FR_TIMEZONE = ZoneInfo("Europe/Paris")
 LOCAL_TIMEZONE = (
     datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
 )
@@ -29,11 +29,17 @@ def to_timestamp(date_time):
 
 
 def to_tz(date_time, tz):
+    if date_time.tzinfo is None:
+        date_time = date_time.replace(tzinfo=datetime.timezone.utc)
     return date_time.astimezone(tz).replace(tzinfo=None)
 
 
 def from_tz(date_time, tz):
-    return date_time.replace(tzinfo=tz).astimezone().replace(tzinfo=None)
+    return (
+        date_time.replace(tzinfo=tz)
+        .astimezone(datetime.timezone.utc)
+        .replace(tzinfo=None)
+    )
 
 
 def to_fr_tz(date_time):
