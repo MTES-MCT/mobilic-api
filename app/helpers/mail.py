@@ -462,27 +462,8 @@ class Mailer:
                 f"Cannot send activation email because user has no email address"
             )
 
-        if not user.activation_email_token:
-            user.create_activation_link()
-
+        activation_link = self._generate_activation_link(user)
         id = user.id
-
-        token = jwt.encode(
-            {
-                "email": user.email,
-                "expires_at": (
-                    datetime.now()
-                    + app.config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
-                ).timestamp(),
-                "user_id": id,
-                "token": user.activation_email_token,
-            },
-            app.config["JWT_SECRET_KEY"],
-            algorithm="HS256",
-        )
-        activation_link = (
-            f"{app.config['FRONTEND_URL']}/activate_email?token={token}"
-        )
 
         company = None
         has_admin_rights = None
@@ -578,6 +559,26 @@ class Mailer:
             ),
             _disable_commit=True,
         )
+
+    @staticmethod
+    def _generate_activation_link(user):
+        if not user.activation_email_token:
+            user.create_activation_link()
+
+        token = jwt.encode(
+            {
+                "email": user.email,
+                "expires_at": (
+                    datetime.now()
+                    + app.config["EMAIL_ACTIVATION_TOKEN_EXPIRATION"]
+                ).timestamp(),
+                "user_id": user.id,
+                "token": user.activation_email_token,
+            },
+            app.config["JWT_SECRET_KEY"],
+            algorithm="HS256",
+        )
+        return f"{app.config['FRONTEND_URL']}/activate_email?token={token}"
 
     @staticmethod
     def _generate_reset_password_link(user):
@@ -1172,6 +1173,52 @@ class Mailer:
             self.send_batch(messages, _disable_commit=False)
             return len(messages)
         return 0
+
+    def send_activation_reminder_employee_d2(self, user):
+        activation_link = self._generate_activation_link(user)
+        self._send_single(
+            self._create_message_from_flask_template(
+                "account_activation_reminder_employee_d2.html",
+                subject="N'oubliez pas d'activer votre compte Mobilic",
+                type_=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D2,
+                user=user,
+                first_name=user.first_name,
+                activation_link=Markup(activation_link),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_activation_reminder_employee_d4(self, user):
+        activation_link = self._generate_activation_link(user)
+        self._send_single(
+            self._create_message_from_flask_template(
+                "account_activation_reminder_employee_d4.html",
+                subject=("Dernier rappel pour activer votre compte Mobilic"),
+                type_=EmailType.ACTIVATION_REMINDER_EMPLOYEE_D4,
+                user=user,
+                first_name=user.first_name,
+                activation_link=Markup(activation_link),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
+
+    def send_activation_reminder_manager_d2(self, user):
+        activation_link = self._generate_activation_link(user)
+        self._send_single(
+            self._create_message_from_flask_template(
+                "account_activation_reminder_manager_d2.html",
+                subject=(
+                    "Rappel : activez votre compte Mobilic."
+                    " Il ne vous reste plus qu'une étape pour"
+                    " commencer à utiliser Mobilic :"
+                    " activer votre compte !"
+                ),
+                type_=EmailType.ACTIVATION_REMINDER_ADMIN_D2,
+                user=user,
+                activation_link=Markup(activation_link),
+            ),
+            _apply_whitelist_if_not_prod=True,
+        )
 
 
 mailer = Mailer()
