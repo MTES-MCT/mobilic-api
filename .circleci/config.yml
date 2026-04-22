@@ -16,6 +16,9 @@ jobs:
             - pip-cache-{{ .Branch }}
             - pip-cache
       - run:
+          name: Upgrade pipenv
+          command: pip install --upgrade pipenv==2026.5.2
+      - run:
           name: Install dependencies with pipenv
           command: |
             export PIPENV_VENV_IN_PROJECT=1

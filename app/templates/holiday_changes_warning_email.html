@@ -10,30 +10,30 @@ Modification de votre {{ mission_name | lower }} du {{ mission_day }}
     <ul>
         {% if new_start_time and new_work_duration and not new_end_time %}
             <li>
-                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_start_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
-                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
+                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
                 Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
         {% elif new_end_time and new_work_duration and not new_start_time %}
              <li>
-                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
+                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
-                La fin est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+                La fin est passée de <strong>{{ old_end_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_end_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
                 Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
         {% elif new_end_time and new_work_duration and new_start_time %}
             <li>
-                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_start_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
-                La fin est passé de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+                La fin est passé de <strong>{{ old_end_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_end_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
                 Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
@@ -43,17 +43,17 @@ Modification de votre {{ mission_name | lower }} du {{ mission_day }}
                 Le temps total a été {{ "réduit" if old_work_duration > new_work_duration else "allongé" }} de <strong>{{ old_work_duration | format_duration }}</strong> à <strong>{{ new_work_duration | format_duration }}</strong>.
             </li>
             <li>
-                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates) }}</strong>.
+                Le début est resté inchangé à <strong>{{ old_start_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
-                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates) }}</strong>.
+                La fin est restée inchangée à <strong>{{ old_end_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
         {% elif new_start_time and new_end_time %}
             <li>
-                Le début est passé de <strong>{{ old_start_time | format_time(show_dates) }}</strong> à <strong>{{ new_start_time | format_time(show_dates) }}</strong>.
+                Le début est passé de <strong>{{ old_start_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_start_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
-                La fin est passée de <strong>{{ old_end_time | format_time(show_dates) }}</strong> à <strong>{{ new_end_time | format_time(show_dates) }}</strong>.
+                La fin est passée de <strong>{{ old_end_time | format_time(show_dates, user_timezone) }}</strong> à <strong>{{ new_end_time | format_time(show_dates, user_timezone) }}</strong>.
             </li>
             <li>
                 Le temps total est resté inchangé à <strong>{{ old_work_duration | format_duration }}</strong>.

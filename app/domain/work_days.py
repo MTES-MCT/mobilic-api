@@ -64,7 +64,7 @@ def compute_aggregate_durations(
         )
         timers[period.type] += total_duration
         if period.type not in NOT_WORK_ACTIVITIES and min_time:
-            user_timezone = gettz(period.user.timezone_name)
+            user_timezone = period.user.timezone
             day_duration_tarification = int(
                 period.duration_over(
                     from_tz(
@@ -129,9 +129,9 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user, day, tz=FR_TIMEZONE, max_reception_time=None):
+    def __init__(self, user, day, tz=None, max_reception_time=None):
         self.day = day
-        self.tz = tz
+        self.tz = tz if tz is not None else user.timezone
         self._are_activities_sorted = True
         self.user = user
         self.missions = []
@@ -383,7 +383,7 @@ class WorkDay:
             return ("-", "center")
         start_time = self.get_start_time(include_off_activities=False)
         return (
-            to_fr_tz(start_time) if start_time else None,
+            to_tz(start_time, tz=self.tz) if start_time else None,
             get_time_format(),
         )
 
@@ -394,7 +394,10 @@ class WorkDay:
         if self.is_last_mission_overlapping_with_next_day or self.is_off_day:
             return ("-", "center")
         end_time = self.get_end_time(include_off_activities=False)
-        return (to_fr_tz(end_time) if end_time else None, get_time_format())
+        return (
+            to_tz(end_time, tz=self.tz) if end_time else None,
+            get_time_format(),
+        )
 
 
 class WorkDayStatsOnly:
@@ -446,7 +449,7 @@ def group_user_events_by_day_with_limit(
     consultation_scope=None,
     from_date=None,
     until_date=None,
-    tz=FR_TIMEZONE,
+    tz=None,
     include_holidays=True,
     include_dismissed_or_empty_days=False,
     only_missions_validated_by_admin=False,
@@ -456,6 +459,8 @@ def group_user_events_by_day_with_limit(
     max_reception_time=None,
     employee_version=False,
 ):
+    if tz is None:
+        tz = user.timezone
     if after:
         try:
             max_date = b64decode(after).decode()
@@ -593,11 +598,13 @@ def group_user_missions_by_day(
     missions,
     from_date=None,
     until_date=None,
-    tz=FR_TIMEZONE,
+    tz=None,
     include_dismissed_or_empty_days=False,
     max_reception_time=None,
     employee_version=False,
 ):
+    if tz is None:
+        tz = user.timezone
     work_days = []
     current_work_day = None
     current_date = None

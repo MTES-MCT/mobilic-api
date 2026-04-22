@@ -33,9 +33,13 @@ class VehiclesInCompanyLoader(DataLoader):
 
 class ActivityVersionsInActivityLoader(DataLoader):
     def batch_load_fn(self, activity_ids):
-        activity_versions = ActivityVersion.query.filter(
-            ActivityVersion.activity_id.in_(activity_ids)
-        ).all()
+        activity_versions = (
+            ActivityVersion.query.filter(
+                ActivityVersion.activity_id.in_(activity_ids)
+            )
+            .order_by(ActivityVersion.version_number.desc())
+            .all()
+        )
         return Promise.resolve(
             [
                 [

@@ -2,7 +2,7 @@ from collections import namedtuple
 from datetime import timedelta
 
 from app.domain.history import LogActionType
-from app.helpers.time import to_fr_tz
+from app.helpers.time import to_tz
 from app.helpers.xls.common import (
     light_grey_hex,
     light_yellow_hex,
@@ -96,7 +96,9 @@ COLUMN_DAY = ExcelColumn(
 )
 COLUMN_DETAILS_DAY = ExcelColumn(
     "Jour",
-    lambda a: to_fr_tz(a.start_time),
+    lambda wday: (
+        to_tz(wday.start_time, tz=wday.tz) if wday.start_time else wday.day
+    ),
     lambda _: "date_format",
     20,
     light_yellow_hex,
@@ -222,9 +224,9 @@ COLUMN_AMPLITUDE = ExcelColumn(
 )
 COLUMN_START_LOCATION = ExcelColumn(
     "Lieu de début de service",
-    lambda wday: wday.start_location.address.format()
-    if wday.start_location
-    else "",
+    lambda wday: (
+        wday.start_location.address.format() if wday.start_location else ""
+    ),
     lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
@@ -232,9 +234,9 @@ COLUMN_START_LOCATION = ExcelColumn(
 )
 COLUMN_END_LOCATION = ExcelColumn(
     "Lieu de fin de service",
-    lambda wday: wday.end_location.address.format()
-    if wday.end_location
-    else "",
+    lambda wday: (
+        wday.end_location.address.format() if wday.end_location else ""
+    ),
     lambda wday: get_wrap_format(),
     30,
     light_blue_hex,
@@ -330,7 +332,7 @@ COLUMN_NB_INFRACTIONS = ExcelColumn(
 )
 COLUMN_EVENT_TIME = ExcelColumn(
     "Date et heure de l'enregistrement",
-    lambda event: to_fr_tz(event.time),
+    lambda event: to_tz(event.time, tz=event.tz),
     lambda _: "date_and_time_format",
     20,
     light_green_hex,
@@ -381,9 +383,11 @@ COLUMN_EVENT_ACTIVITIES = ExcelColumn(
 )
 COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
     "Observations",
-    lambda event: event.version.context.get("userComment")
-    if event.version and event.version.context
-    else None,
+    lambda event: (
+        event.version.context.get("userComment")
+        if event.version and event.version.context
+        else None
+    ),
     lambda _: "wrap",
     60,
     light_red_hex,
