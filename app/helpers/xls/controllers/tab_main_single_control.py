@@ -186,11 +186,21 @@ def _write_main_sheet_mobilic_lic_papier(wb, sheet, row_idx, control):
         _write_centered(
             _col_idx=1, _value=len(infractions_by_date[infraction_date])
         )
+
+        def format_infraction(infraction):
+            sanction = infraction.get("sanction", "")
+            # For custom infractions, include the label
+            if infraction.get("check_type") == "custom":
+                custom_label = infraction.get("custom_label", "")
+                if custom_label:
+                    return f"{sanction}: {custom_label}"
+            return sanction
+
         _write_centered(
             _col_idx=2,
             _value=", ".join(
                 [
-                    i.get("sanction")
+                    format_infraction(i)
                     for i in infractions_by_date[infraction_date]
                 ]
             ),

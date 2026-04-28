@@ -27,6 +27,7 @@ def search_natinf(query, limit=50):
                 "code": item.get("numero_natinf"),
                 "label": item.get("qualification_infraction", ""),
                 "description": item.get("sanctions_encourues", ""),
+                "articles": item.get("definie_par", ""),
             }
             for item in results[:limit]
         ]

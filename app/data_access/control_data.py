@@ -49,6 +49,9 @@ class ObservedInfraction(ObjectType):
     description = graphene.String(
         description="Description de la règle du seuil règlementaire"
     )
+    articles = graphene.String(
+        description="Articles de loi définissant l'infraction (pour les infractions custom)"
+    )
     type = graphene.String()
     unit = graphene.String()
     sanction = graphene.String()
@@ -131,6 +134,7 @@ class ObservedInfraction(ObjectType):
                 is_reported=infraction.get("is_reported"),
                 label=label,
                 description=infraction.get("custom_description", ""),
+                articles=infraction.get("custom_articles", ""),
                 type="custom",
                 unit=(infraction.get("check_unit") or "day").lower(),
                 extra=None,
@@ -162,6 +166,7 @@ class ObservedInfraction(ObjectType):
             is_reported=infraction.get("is_reported"),
             label=_label,
             description=_description,
+            articles=None,
             type=infraction.get("check_type"),
             unit=infraction.get("check_unit"),
             extra=extra,

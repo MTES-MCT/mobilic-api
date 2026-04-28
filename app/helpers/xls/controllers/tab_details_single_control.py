@@ -50,8 +50,18 @@ def write_details_sheet(wb, control, work_days_data):
             text_infractions = "Pas d'infraction retenue"
             infractions_business_types = ""
         else:
+
+            def format_infraction(infraction):
+                sanction = infraction.get("sanction", "")
+                # For custom infractions, include the label
+                if infraction.get("check_type") == "custom":
+                    custom_label = infraction.get("custom_label", "")
+                    if custom_label:
+                        return f"{sanction}: {custom_label}"
+                return sanction
+
             text_infractions = ",\n".join(
-                [i.get("sanction", "") for i in infractions_for_day]
+                [format_infraction(i) for i in infractions_for_day]
             )
             infractions_business_ids = [
                 inf.get("business_id") for inf in infractions_for_day

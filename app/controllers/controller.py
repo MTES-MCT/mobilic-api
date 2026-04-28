@@ -283,6 +283,7 @@ class ReportedInfractionInput(InputObjectType):
     unit = graphene.String()
     custom_label = graphene.String()
     custom_description = graphene.String()
+    custom_articles = graphene.String()
 
 
 class ControllerSaveReportedInfractions(graphene.Mutation):
@@ -341,6 +342,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                     "check_unit": reported_infraction.unit,
                     "custom_label": reported_infraction.custom_label,
                     "custom_description": reported_infraction.custom_description,
+                    "custom_articles": reported_infraction.custom_articles,
                 }
                 for reported_infraction in reported_infractions
             ]
@@ -384,6 +386,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                     custom_description = (
                         reported_infraction.custom_description or ""
                     )
+                    custom_articles = reported_infraction.custom_articles or ""
                     unit = reported_infraction.unit or "day"
                     label = (
                         custom_label.strip() or reported_infraction.sanction
@@ -401,6 +404,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                             "check_unit": unit,
                             "custom_label": label,
                             "custom_description": custom_description,
+                            "custom_articles": custom_articles,
                         }
                     )
 
@@ -499,6 +503,7 @@ class NatinfResult(graphene.ObjectType):
     code = graphene.String(required=True)
     label = graphene.String(required=True)
     description = graphene.String()
+    articles = graphene.String()
 
 
 class Query(graphene.ObjectType):

@@ -554,7 +554,9 @@ def get_greco_xml_and_filename(control):
             # For custom infractions, use the custom_label and custom_description
             custom_label = r.get("custom_label", "")
             label = (custom_label or "").strip() or r.get("sanction", "")
-            description = r.get("custom_description", "")
+            description = r.get("custom_articles", "") or r.get(
+                "custom_description", ""
+            )
 
             # Custom infractions have a single date (no period)
             date_start = datetime.fromisoformat(r.get("date"))

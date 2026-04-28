@@ -112,12 +112,19 @@ def _generate_part_one(control):
     printed_vehicle_weight_value = "-"
 
     # Détermine la valeur du poids de véhicule à afficher (Poids réel "real_vehicle_weight", PTAC, PV ou '-' si pas de valeur renseignée)
-    if control.control_bulletin and control.control_bulletin.get("real_vehicle_weight") is not None:
+    if (
+        control.control_bulletin
+        and control.control_bulletin.get("real_vehicle_weight") is not None
+    ):
         value = control.control_bulletin.get("real_vehicle_weight")
         formatted_value = str(value).replace(".", ",")
         printed_vehicle_weight_value = f"{formatted_value} tonnes"
-    elif control.control_bulletin and control.control_bulletin.get("vehicle_weight"):
-        printed_vehicle_weight_value = control.control_bulletin.get("vehicle_weight")
+    elif control.control_bulletin and control.control_bulletin.get(
+        "vehicle_weight"
+    ):
+        printed_vehicle_weight_value = control.control_bulletin.get(
+            "vehicle_weight"
+        )
 
     return generate_pdf_from_template(
         "control_bulletin.html",
@@ -160,7 +167,11 @@ def _generate_part_one(control):
 def _generate_part_two(control):
 
     infractions_by_date = {}
+    custom_infractions_by_date = {}
+    custom_infractions_metadata = {}
+
     for idx_r, r in enumerate(control.reported_infractions):
+        check_type = r.get("check_type")
         extra = r.get("extra")
         sanction_code = None
         if extra:
@@ -173,13 +184,30 @@ def _generate_part_two(control):
         date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         formatted_date = date_obj.strftime("%d/%m/%y")
 
-        if natinf in infractions_by_date:
-            infractions_by_date[natinf].append(formatted_date)
+        # Handle custom infractions separately
+        if check_type == "custom":
+            if natinf in custom_infractions_by_date:
+                custom_infractions_by_date[natinf].append(formatted_date)
+            else:
+                custom_infractions_by_date[natinf] = [formatted_date]
+                # Store metadata for this custom infraction
+                custom_infractions_metadata[natinf] = {
+                    "nature": "Infraction personnalisée",
+                    "qualification": r.get("custom_label", ""),
+                    "definition": r.get("custom_articles", "")
+                    or r.get("custom_description", ""),
+                }
         else:
-            infractions_by_date[natinf] = [formatted_date]
+            # Standard computed infraction
+            if natinf in infractions_by_date:
+                infractions_by_date[natinf].append(formatted_date)
+            else:
+                infractions_by_date[natinf] = [formatted_date]
 
     return generate_pdf_from_template(
         "control_bulletin_annexe.html",
         infractions_by_date=infractions_by_date,
         natinf_metadata=NATINF_METADATA,
+        custom_infractions_by_date=custom_infractions_by_date,
+        custom_infractions_metadata=custom_infractions_metadata,
     )
