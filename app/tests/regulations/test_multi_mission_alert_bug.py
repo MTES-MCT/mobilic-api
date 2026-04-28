@@ -19,6 +19,7 @@ from datetime import datetime
 
 from app import db
 from app.domain.log_activities import log_activity
+from app.domain.regulations_per_day import NATINF_32083
 from app.domain.validation import validate_mission
 from app.helpers.submitter_type import SubmitterType
 from app.models import Mission, RegulatoryAlert, User, RegulationComputation
@@ -223,13 +224,12 @@ class TestMultiMissionAlertBug(RegulationsTest):
                 len(alerts_for_day), 0, f"Alert for day {day} has disappeared!"
             )
 
-    def test_alert_should_disappear_when_long_break_follows(self):
+    def test_alert_persists_when_long_break_follows_breach(self):
         """
-        Tests that the NATINF 32083 alert (night work time exceeded)
-        CORRECTLY DISAPPEARS when a long break (>10h) follows.
-
-        This test verifies that the Bug 2 fix (long break detection) works
-        and that invalid alerts are properly removed during recalculation.
+        A NATINF 32083 breach detected BEFORE a long break must NOT be
+        erased by the post-reset period staying below the threshold.
+        The long break resets the counters for the work that follows,
+        but the earlier breach remains a real infraction.
         """
 
         # Create a continuous night work period
@@ -323,14 +323,22 @@ class TestMultiMissionAlertBug(RegulationsTest):
                 f"Day: {alert.day}, Period: {alert.extra.get('work_range_start')} → {alert.extra.get('work_range_end')}"
             )
 
-        # The previous alert should have disappeared because the long break resets the counters
-        # Mission 3 alone (2h) does NOT generate an alert
+        # The 11h continuous night work breach is real and must remain
+        # reported even if the post-reset period stays below threshold.
+        # The mission spans midnight, so the breach is reported on each
+        # of the two affected days (DB unique constraint allows one alert
+        # per (day, user, check, submitter_type, business)).
         self.assertEqual(
             len(alerts_after),
-            0,
-            "Alert should have disappeared after a 12h long break. "
-            "If it persists, the long break detection bug is not fixed.",
+            2,
+            "Exactly two NATINF 32083 alerts (one per day spanned by the "
+            "11h breach crossing midnight) must persist.",
         )
+        for alert in alerts_after:
+            self.assertEqual(alert.extra.get("sanction_code"), NATINF_32083)
+            self.assertGreater(
+                alert.extra.get("work_range_in_seconds"), 10 * 3600
+            )
 
     def test_computation_is_marked_for_all_affected_days(self):
         """
