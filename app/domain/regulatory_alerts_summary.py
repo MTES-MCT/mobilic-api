@@ -16,6 +16,7 @@ from app.data_access.regulatory_alerts_summary import (
 from app.domain.regulations_per_day import (
     EXTRA_NOT_ENOUGH_BREAK,
     EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+    NATINF_32083,
 )
 from app.helpers.submitter_type import SubmitterType
 from app.helpers.time import to_tz
@@ -28,6 +29,8 @@ from app.models import (
     User,
 )
 from app.models.regulation_check import UnitType, RegulationCheckType
+
+MAXIMUM_NIGHT_WORK_DAY_TIME_TYPE = "maximumNightWorkDayTime"
 
 
 def _query_alerts_in_window(start_date, end_date, user_ids):
@@ -133,6 +136,67 @@ def _append_to_daily_alerts(alerts, alert_type, daily_alerts, seen_by_type):
         )
 
 
+def _partition_day_night_max_work_alerts(alerts):
+    """Split MAXIMUM_WORK_DAY_TIME alerts by sanction code (night = 32083)."""
+    day_alerts = []
+    night_alerts = []
+    for a in alerts:
+        if (a.extra or {}).get("sanction_code") == NATINF_32083:
+            night_alerts.append(a)
+        else:
+            day_alerts.append(a)
+    return day_alerts, night_alerts
+
+
+def _append_enough_break_alerts(alerts, daily_alerts, seen_by_type):
+    for extra_field in [
+        EXTRA_NOT_ENOUGH_BREAK,
+        EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+    ]:
+        extra_alerts = [a for a in alerts if a.extra[extra_field]]
+        _append_to_daily_alerts(
+            extra_alerts, extra_field, daily_alerts, seen_by_type
+        )
+
+
+def _append_max_work_day_time_alerts(
+    alerts, check_type, daily_alerts, seen_by_type
+):
+    day_alerts, night_alerts = _partition_day_night_max_work_alerts(alerts)
+    _append_to_daily_alerts(day_alerts, check_type, daily_alerts, seen_by_type)
+    _append_to_daily_alerts(
+        night_alerts,
+        MAXIMUM_NIGHT_WORK_DAY_TIME_TYPE,
+        daily_alerts,
+        seen_by_type,
+    )
+
+
+def _append_alerts_for_check(check, alerts, daily_alerts, seen_by_type):
+    if check.type == RegulationCheckType.ENOUGH_BREAK:
+        _append_enough_break_alerts(alerts, daily_alerts, seen_by_type)
+        return
+    if check.type == RegulationCheckType.MINIMUM_WORK_DAY_BREAK:
+        _append_to_daily_alerts(
+            alerts, EXTRA_NOT_ENOUGH_BREAK, daily_alerts, seen_by_type
+        )
+        return
+    if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
+        _append_to_daily_alerts(
+            alerts,
+            EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+            daily_alerts,
+            seen_by_type,
+        )
+        return
+    if check.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME:
+        _append_max_work_day_time_alerts(
+            alerts, check.type, daily_alerts, seen_by_type
+        )
+        return
+    _append_to_daily_alerts(alerts, check.type, daily_alerts, seen_by_type)
+
+
 def _build_daily_alerts(current_alerts):
     """Group alerts by daily regulation check type."""
     daily_checks = get_regulation_checks_by_unit(unit=UnitType.DAY)
@@ -142,38 +206,10 @@ def _build_daily_alerts(current_alerts):
     for check in daily_checks:
         if check.type == RegulationCheckType.NO_LIC:
             continue
-
         alerts = [
             a for a in current_alerts if a.regulation_check_id == check.id
         ]
-        if check.type == RegulationCheckType.ENOUGH_BREAK:
-            for extra_field in [
-                EXTRA_NOT_ENOUGH_BREAK,
-                EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
-            ]:
-                extra_alerts = [a for a in alerts if a.extra[extra_field]]
-                _append_to_daily_alerts(
-                    extra_alerts, extra_field, daily_alerts, seen_by_type
-                )
-            continue
-
-        if check.type == RegulationCheckType.MINIMUM_WORK_DAY_BREAK:
-            _append_to_daily_alerts(
-                alerts,
-                EXTRA_NOT_ENOUGH_BREAK,
-                daily_alerts,
-                seen_by_type,
-            )
-            continue
-        if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
-            _append_to_daily_alerts(
-                alerts,
-                EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
-                daily_alerts,
-                seen_by_type,
-            )
-            continue
-        _append_to_daily_alerts(alerts, check.type, daily_alerts, seen_by_type)
+        _append_alerts_for_check(check, alerts, daily_alerts, seen_by_type)
 
     for group in daily_alerts.values():
         group.days = sorted({*group.days})
