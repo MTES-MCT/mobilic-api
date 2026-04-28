@@ -11,10 +11,13 @@ from app.data_access.regulatory_alerts_summary import (
 from app.domain.regulations_per_day import (
     EXTRA_NOT_ENOUGH_BREAK,
     EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+    NATINF_32083,
 )
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulatoryAlert, RegulationComputation
 from app.models.regulation_check import UnitType, RegulationCheckType
+
+MAXIMUM_NIGHT_WORK_DAY_TIME_TYPE = "maximumNightWorkDayTime"
 
 
 def query_alerts_for_month(month, user_ids):
@@ -126,6 +129,19 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
         if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
             _append_alerts(
                 alerts=alerts, type=EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
+            )
+            continue
+        if check.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME:
+            night_alerts = []
+            day_alerts = []
+            for a in alerts:
+                if (a.extra or {}).get("sanction_code") == NATINF_32083:
+                    night_alerts.append(a)
+                else:
+                    day_alerts.append(a)
+            _append_alerts(alerts=day_alerts, type=check.type)
+            _append_alerts(
+                alerts=night_alerts, type=MAXIMUM_NIGHT_WORK_DAY_TIME_TYPE
             )
             continue
         _append_alerts(alerts=alerts, type=check.type)

@@ -327,13 +327,59 @@ def check_max_work_day_time(
         for activity in group.activities:
             activity_to_workday[activity.id] = group
 
+    def _max_time_in_hours_for(period_night_work, period_amplitude):
+        if period_night_work:
+            return MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
+        if (
+            AMPLITUDE_TRIGGER_IN_HOURS
+            and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
+            and period_amplitude > AMPLITUDE_TRIGGER_IN_HOURS * HOUR
+        ):
+            return MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
+        return MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
+
+    # If the threshold is breached BEFORE a long-break reset, remember it:
+    # the post-reset period may stay below the threshold and would otherwise
+    # mask the earlier breach (NATINF 32083 lost).
+    # AC5 (double-breach): when several breaches occur on the same day
+    # we keep the one with the largest work_range_in_seconds ("most severe
+    # infraction" semantics) — see test_long_break_after_night_threshold_breach.
+    # Mixed day/night case: if the post-reset final period also breaches
+    # with a larger work range, the final extra (with its own sanction_code)
+    # wins, so the alert reflects the worst breach regardless of period.
+    breach_extra = None
+    prev_work_activity_end_time = None
+
     for activity in all_activities:
         # Reset work time counters when encountering an activity after a long break
         if activity.id in reset_activity_ids:
+            period_max = _max_time_in_hours_for(night_work, amplitude)
+            if (
+                start_time is not None
+                and prev_work_activity_end_time is not None
+                and worked_time_in_seconds > period_max * HOUR
+            ):
+                candidate_extra = {
+                    "night_work": night_work,
+                    "max_work_range_in_hours": period_max,
+                    "work_range_in_seconds": worked_time_in_seconds,
+                    "work_range_start": start_time.isoformat(),
+                    "work_range_end": prev_work_activity_end_time.isoformat(),
+                    "sanction_code": (
+                        NATINF_32083 if night_work else NATINF_11292
+                    ),
+                }
+                if (
+                    breach_extra is None
+                    or worked_time_in_seconds
+                    > breach_extra["work_range_in_seconds"]
+                ):
+                    breach_extra = candidate_extra
             amplitude = 0
             worked_time_in_seconds = 0
             night_work = False
             start_time = None
+            prev_work_activity_end_time = None
 
         workday = activity_to_workday[activity.id]
 
@@ -350,30 +396,19 @@ def check_max_work_day_time(
         if not start_time:
             start_time = max(activity.start_time, workday.start_time)
 
-        # Only count work activities (exclude OFF and TRANSFER)
+        # Only count work activities (exclude OFF and TRANSFER).
+        # prev_work_activity_end_time is used as work_range_end if a long-break
+        # reset follows: it must reflect the last *work* activity, not an OFF
+        # period that would shift the reported end time.
         if activity.type not in NOT_WORK_ACTIVITIES:
             activity_work_duration = (
                 activity.end_time - activity.start_time
             ).total_seconds()
             worked_time_in_seconds += activity_work_duration
+            if activity.end_time:
+                prev_work_activity_end_time = activity.end_time
 
-    # Check if work time exceeds the applicable limit
-    max_work_day_time_in_hours = MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
-
-    if (
-        AMPLITUDE_TRIGGER_IN_HOURS
-        and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
-    ):
-        if amplitude > AMPLITUDE_TRIGGER_IN_HOURS * HOUR:
-            max_work_day_time_in_hours = (
-                MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
-            )
-
-    max_time_in_hours = (
-        MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
-        if night_work
-        else max_work_day_time_in_hours
-    )
+    max_time_in_hours = _max_time_in_hours_for(night_work, amplitude)
 
     extra = dict(
         night_work=night_work,
@@ -385,7 +420,15 @@ def check_max_work_day_time(
 
     if worked_time_in_seconds > max_time_in_hours * HOUR:
         extra["sanction_code"] = NATINF_32083 if night_work else NATINF_11292
+        if (
+            breach_extra
+            and breach_extra["work_range_in_seconds"] > worked_time_in_seconds
+        ):
+            return ComputationResult(success=False, extra=breach_extra)
         return ComputationResult(success=False, extra=extra)
+
+    if breach_extra:
+        return ComputationResult(success=False, extra=breach_extra)
 
     return ComputationResult(success=True, extra=extra)
 
