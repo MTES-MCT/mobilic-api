@@ -71,6 +71,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
     reported_infractions_last_update_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
+    reported_custom_infractions_last_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
     delivered_by_hand = db.Column(db.Boolean, nullable=True)
     sent_to_admin = db.Column(db.Boolean, nullable=True)
     control_time = db.Column(DateTimeStoredAsUTC, nullable=False)

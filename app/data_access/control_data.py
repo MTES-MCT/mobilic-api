@@ -116,6 +116,28 @@ class ObservedInfraction(ObjectType):
     @classmethod
     def from_infraction(cls, infraction, user_id):
         check_type = infraction.get("check_type")
+
+        # Handle custom infractions
+        if check_type == "custom":
+            custom_label = infraction.get("custom_label", "")
+            label = (custom_label or "").strip() or infraction.get(
+                "sanction", ""
+            )
+
+            return cls(
+                sanction=infraction.get("sanction"),
+                date=infraction.get("date"),
+                is_reportable=infraction.get("is_reportable"),
+                is_reported=infraction.get("is_reported"),
+                label=label,
+                description=infraction.get("custom_description", ""),
+                type="custom",
+                unit=(infraction.get("check_unit") or "day").lower(),
+                extra=None,
+                business=None,
+            )
+
+        # Handle standard infractions
         regulation_check = get_regulation_check_by_type(type=check_type)
         if regulation_check is None:
             return None
@@ -231,6 +253,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Nombre d'infractions retenues",
     )
     reported_infractions_last_update_time = graphene.Field(
+        TimeStamp, required=False
+    )
+    reported_custom_infractions_last_update_time = graphene.Field(
         TimeStamp, required=False
     )
     can_take_pictures = graphene.Field(
