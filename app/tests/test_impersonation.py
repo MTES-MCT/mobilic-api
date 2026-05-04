@@ -171,16 +171,16 @@ class TestStartImpersonation(BaseTest):
         self.assertIsNotNone(data["accessToken"])
         self.assertEqual(data["impersonatedUserId"], self.target.id)
 
-        # Verify JWT contains impersonate_by claim
+        # JWT subject is the admin; target lives in impersonate_as claim
         decoded = pyjwt.decode(
             data["accessToken"],
             app.config["JWT_SECRET_KEY"],
             algorithms=["HS256"],
         )
-        self.assertEqual(decoded["identity"]["impersonate_by"], self.admin.id)
-        self.assertEqual(decoded["identity"]["id"], self.target.id)
+        self.assertEqual(decoded["identity"]["id"], self.admin.id)
+        self.assertEqual(decoded["identity"]["impersonate_as"], self.target.id)
 
-    def test_admin_token_cookie_set_on_start(self):
+    def test_no_admin_token_cookie_on_start(self):
         _enable_2fa(self.admin)
         admin_tokens = create_access_tokens_for(self.admin)
 
@@ -201,9 +201,9 @@ class TestStartImpersonation(BaseTest):
             admin_cookie_found = any(
                 "admin_token=" in c for c in set_cookie_headers
             )
-            self.assertTrue(
+            self.assertFalse(
                 admin_cookie_found,
-                "admin_token cookie must be set after start",
+                "admin_token cookie must not be used anymore",
             )
 
     def test_non_admin_rejected(self):
@@ -256,31 +256,6 @@ class TestStartImpersonation(BaseTest):
 
 
 class TestStopImpersonation(BaseTest):
-    def test_stop_without_admin_cookie_fails(self):
-        admin = UserFactory.create(admin=True)
-        target = UserFactory.create()
-        db.session.commit()
-        _enable_2fa(admin)
-
-        # Get impersonation token (so g.impersonate_by is set)
-        start_resp = test_post_graphql_unexposed(
-            START_IMPERSONATION,
-            mock_authentication_with_user=admin,
-            variables={"userId": target.id},
-        )
-        imp_token = start_resp.json["data"]["account"]["startImpersonation"][
-            "accessToken"
-        ]
-
-        # Call stop with impersonation JWT but no admin_token cookie
-        with app.test_client() as c, app.app_context():
-            resp = c.post(
-                graphql_private_api_path,
-                json=dict(query=STOP_IMPERSONATION),
-                headers=[("Authorization", f"Bearer {imp_token}")],
-            )
-            self.assertIsNotNone(resp.json.get("errors"))
-
     def test_stop_without_impersonation_session_fails(self):
         admin = UserFactory.create(admin=True)
         db.session.commit()
@@ -298,10 +273,6 @@ class TestStopImpersonation(BaseTest):
         db.session.commit()
         _enable_2fa(admin)
 
-        # Create admin access token
-        admin_tokens = create_access_tokens_for(admin)
-        admin_access_token = admin_tokens["access_token"]
-
         # Start impersonation to get token
         start_resp = test_post_graphql_unexposed(
             START_IMPERSONATION,
@@ -312,9 +283,8 @@ class TestStopImpersonation(BaseTest):
             "accessToken"
         ]
 
-        # Stop impersonation with valid admin_token cookie
+        # Stop impersonation — no admin_token cookie needed anymore
         with app.test_client() as c, app.app_context():
-            c.set_cookie("admin_token", admin_access_token)
             resp = c.post(
                 graphql_private_api_path,
                 json=dict(query=STOP_IMPERSONATION),
@@ -323,18 +293,7 @@ class TestStopImpersonation(BaseTest):
             data = resp.json["data"]["account"]["stopImpersonation"]
             self.assertTrue(data["success"])
 
-            # Verify admin_token cookie is deleted
             set_cookies = resp.headers.getlist("Set-Cookie")
-            admin_token_deleted = any(
-                "admin_token=" in c
-                and ("Max-Age=0" in c or "expires=" in c.lower())
-                for c in set_cookies
-            )
-            self.assertTrue(
-                admin_token_deleted,
-                "admin_token cookie must be deleted after stop",
-            )
-
             # Verify userId cookie is set to admin's ID
             user_id_cookie = [
                 c for c in set_cookies if c.startswith("userId=")
@@ -344,6 +303,21 @@ class TestStopImpersonation(BaseTest):
                 f"userId={admin.id}",
                 user_id_cookie[0],
             )
+
+            # Verify the new access token's identity matches the admin (no impersonate_as)
+            access_cookie = [
+                c
+                for c in set_cookies
+                if c.startswith(f"{app.config['JWT_ACCESS_COOKIE_NAME']}=")
+            ][0]
+            new_token = access_cookie.split(";", 1)[0].split("=", 1)[1]
+            decoded = pyjwt.decode(
+                new_token,
+                app.config["JWT_SECRET_KEY"],
+                algorithms=["HS256"],
+            )
+            self.assertEqual(decoded["identity"]["id"], admin.id)
+            self.assertNotIn("impersonate_as", decoded["identity"])
 
 
 class TestImpersonationMiddleware(BaseTest):
@@ -382,8 +356,8 @@ class TestImpersonationMiddleware(BaseTest):
         # Create an already-expired impersonation token
         expired_token = create_access_token(
             {
-                "id": target.id,
-                "impersonate_by": admin.id,
+                "id": admin.id,
+                "impersonate_as": target.id,
             },
             expires_delta=timedelta(seconds=-1),
         )
@@ -1217,8 +1191,8 @@ class TestSecurityEndToEnd(BaseTest):
 
         expired_token = create_access_token(
             {
-                "id": self.target.id,
-                "impersonate_by": self.admin.id,
+                "id": self.admin.id,
+                "impersonate_as": self.target.id,
             },
             expires_delta=timedelta(seconds=-1),
         )
