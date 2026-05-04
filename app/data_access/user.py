@@ -57,6 +57,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "has_confirmed_email",
             "has_activated_email",
             "disabled_warnings",
+            "admin",
         )
 
     id = graphene.Field(
@@ -86,6 +87,12 @@ class UserOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         required=False,
         description="Numéro de téléphone",
+    )
+    totp_enabled = graphene.Boolean(
+        description="Indique si la 2FA TOTP est activée",
+    )
+    is_impersonated = graphene.Boolean(
+        description="True si la session est en mode impersonation",
     )
     timezone_name = graphene.Field(
         graphene.String,
@@ -223,6 +230,15 @@ class UserOutput(BaseSQLAlchemyObjectType):
 
     def resolve_gender(self, info):
         return self.gender.value if self.gender else None
+
+    def resolve_totp_enabled(self, info):
+        cred = self.totp_credential
+        return cred.enabled if cred else False
+
+    def resolve_is_impersonated(self, info):
+        from flask import g
+
+        return bool(getattr(g, "impersonate_by", None))
 
     @user_resolver_with_consultation_scope(
         error_message="Forbidden access to field 'activities' of user object. The field is only accessible to the user himself of company admins."

@@ -40,6 +40,18 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     gender = enum_column(Gender, nullable=True)
     admin = db.Column(db.Boolean, default=False, nullable=False)
     ssn = db.Column(db.String(13), nullable=True)
+
+    totp_credential = db.relationship(
+        "TotpCredential",
+        primaryjoin=(
+            "and_(TotpCredential.owner_type=='user',"
+            " TotpCredential.owner_id==User.id)"
+        ),
+        foreign_keys="TotpCredential.owner_id",
+        uselist=False,
+        lazy="joined",
+        viewonly=True,
+    )
     phone_number = db.Column(
         db.String(30), unique=False, nullable=True, default=None
     )
