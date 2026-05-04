@@ -20,6 +20,9 @@ from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
 
+CUSTOM_CHECK_TYPE = "custom"
+
+
 class ControlType(enum.Enum):
     mobilic = "Mobilic"
     lic_papier = "LIC papier"
@@ -69,6 +72,9 @@ class ControllerControl(BaseModel, RandomNineIntId):
         DateTimeStoredAsUTC, nullable=True
     )
     reported_infractions_last_update_time = db.Column(
+        DateTimeStoredAsUTC, nullable=True
+    )
+    reported_custom_infractions_last_update_time = db.Column(
         DateTimeStoredAsUTC, nullable=True
     )
     delivered_by_hand = db.Column(db.Boolean, nullable=True)

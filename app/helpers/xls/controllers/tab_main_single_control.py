@@ -9,6 +9,7 @@ from app.helpers.xls.common import (
     light_brown_hex,
     merge_cells_if_needed,
     formats,
+    format_infraction,
 )
 from app.helpers.xls.companies.legend import write_sheet_legend
 from app.helpers.xls.controllers.header import write_header
@@ -186,11 +187,12 @@ def _write_main_sheet_mobilic_lic_papier(wb, sheet, row_idx, control):
         _write_centered(
             _col_idx=1, _value=len(infractions_by_date[infraction_date])
         )
+
         _write_centered(
             _col_idx=2,
             _value=", ".join(
                 [
-                    i.get("sanction")
+                    format_infraction(i)
                     for i in infractions_by_date[infraction_date]
                 ]
             ),

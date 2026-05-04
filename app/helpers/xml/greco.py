@@ -15,6 +15,7 @@ from app.models import (
     RegulationCheck,
     Business,
 )
+from app.models.controller_control import CUSTOM_CHECK_TYPE
 
 TRANSPORT_TYPES = {
     "unknown": -1,
@@ -548,6 +549,36 @@ def get_greco_xml_and_filename(control):
             sanction_code = r.get("sanction", "")
         natinf = sanction_code.replace("NATINF ", "")
         check_type = r.get("check_type")
+
+        # Handle custom infractions separately
+        if check_type == CUSTOM_CHECK_TYPE:
+            # For custom infractions, use the custom_label and custom_description
+            custom_label = r.get("custom_label", "")
+            label = (custom_label or "").strip() or r.get("sanction", "")
+            description = r.get("custom_articles", "") or r.get(
+                "custom_description", ""
+            )
+
+            # Custom infractions have a single date (no period)
+            date_start = datetime.fromisoformat(r.get("date"))
+            date_end = date_start
+
+            short_id = str(idx_r + 1).zfill(4)
+            id = f"100100{short_id}"
+
+            infractions.append(
+                GrecoInfraction(
+                    natinf=natinf,
+                    short_id=short_id,
+                    id=id,
+                    date_start=date_start,
+                    date_end=date_end,
+                    label=label,
+                    object=description,
+                )
+            )
+            continue
+
         regulation_check = RegulationCheck.query.filter(
             RegulationCheck.type == check_type
         ).first()
