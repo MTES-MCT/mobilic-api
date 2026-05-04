@@ -394,6 +394,33 @@ class TestImpersonationMiddleware(BaseTest):
         )
         self.assertIsNotNone(check_resp.json.get("errors"))
 
+    def test_impersonation_session_survives_target_token_revocation(self):
+        # JWT subject must be the admin so that target.latest_token_revocation_time
+        # does not break the impersonation session (e.g. target resets password).
+        from flask_jwt_extended import create_access_token
+
+        admin = UserFactory.create(admin=True)
+        target = UserFactory.create()
+        db.session.commit()
+        _enable_2fa(admin)
+
+        imp_token = create_access_token(
+            {"id": admin.id, "impersonate_as": target.id},
+            expires_delta=timedelta(hours=2),
+        )
+
+        target.latest_token_revocation_time = datetime.now()
+        db.session.commit()
+
+        check_resp = test_post_graphql(
+            CHECK_AUTH,
+            headers=[("Authorization", f"Bearer {imp_token}")],
+        )
+        self.assertIsNone(check_resp.json.get("errors"))
+        self.assertEqual(
+            check_resp.json["data"]["checkAuth"]["userId"], target.id
+        )
+
 
 class TestImpersonationAuditListener(BaseTest):
     LISTENER_G = "app.helpers.impersonate_listener.g"
