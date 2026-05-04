@@ -4,6 +4,7 @@ from app.helpers.xls.common import (
     write_cells,
     merge_cells_if_needed,
     formats,
+    format_infraction,
 )
 from app.helpers.xls.controllers.header import write_header
 from app.helpers.xls.columns import *
@@ -50,15 +51,6 @@ def write_details_sheet(wb, control, work_days_data):
             text_infractions = "Pas d'infraction retenue"
             infractions_business_types = ""
         else:
-
-            def format_infraction(infraction):
-                sanction = infraction.get("sanction", "")
-                # For custom infractions, include the label
-                if infraction.get("check_type") == "custom":
-                    custom_label = infraction.get("custom_label", "")
-                    if custom_label:
-                        return f"{sanction}: {custom_label}"
-                return sanction
 
             text_infractions = ",\n".join(
                 [format_infraction(i) for i in infractions_for_day]

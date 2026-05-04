@@ -25,7 +25,11 @@ from app.helpers.graphene_types import (
 from app.helpers.s3 import S3Client
 from app.helpers.submitter_type import SubmitterType
 from app.models import Business
-from app.models.controller_control import ControllerControl, ControlType
+from app.models.controller_control import (
+    ControllerControl,
+    ControlType,
+    CUSTOM_CHECK_TYPE,
+)
 from app.models.regulation_check import RegulationCheckType
 
 # TODO refactor sanction code in regulations_per_day and here for consistency
@@ -121,7 +125,7 @@ class ObservedInfraction(ObjectType):
         check_type = infraction.get("check_type")
 
         # Handle custom infractions
-        if check_type == "custom":
+        if check_type == CUSTOM_CHECK_TYPE:
             custom_label = infraction.get("custom_label", "")
             label = (custom_label or "").strip() or infraction.get(
                 "sanction", ""

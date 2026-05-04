@@ -58,7 +58,11 @@ from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
 from app.models.business import Business, BusinessType
-from app.models.controller_control import ControllerControl, ControlType
+from app.models.controller_control import (
+    ControllerControl,
+    ControlType,
+    CUSTOM_CHECK_TYPE,
+)
 from app.models.controller_user import ControllerUser
 from app.models.queries import add_mission_relations, query_controls
 from app.services.natinf_search import search_natinf
@@ -311,13 +315,13 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         existing_custom_keys = {
             (inf.get("date"), inf.get("sanction"))
             for inf in (control.observed_infractions or [])
-            if inf.get("check_type") == "custom"
+            if inf.get("check_type") == CUSTOM_CHECK_TYPE
             and inf.get("is_reported", False)
         }
         reported_custom_keys = {
             (ri.date_str, ri.sanction)
             for ri in reported_infractions
-            if ri.type == "custom"
+            if ri.type == CUSTOM_CHECK_TYPE
         }
         has_custom_changes = existing_custom_keys != reported_custom_keys
 
@@ -361,7 +365,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
             observed_infractions = [
                 inf
                 for inf in observed_infractions
-                if inf.get("check_type") != "custom"
+                if inf.get("check_type") != CUSTOM_CHECK_TYPE
                 or inf.get("is_reported", False)
             ]
 
@@ -400,7 +404,7 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                             "is_reported": True,
                             "extra": None,
                             "business_id": None,
-                            "check_type": "custom",
+                            "check_type": CUSTOM_CHECK_TYPE,
                             "check_unit": unit,
                             "custom_label": label,
                             "custom_description": custom_description,

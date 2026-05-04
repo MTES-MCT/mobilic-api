@@ -5,7 +5,7 @@ from app.domain.regulations import get_default_business
 from app.helpers.errors import InvalidParamsError
 from app.helpers.pdf import generate_pdf_from_template, generate_pdf_from_list
 from app.models import Business
-from app.models.controller_control import ControlType
+from app.models.controller_control import ControlType, CUSTOM_CHECK_TYPE
 
 NATINF_METADATA = {
     "11292": {
@@ -185,7 +185,7 @@ def _generate_part_two(control):
         formatted_date = date_obj.strftime("%d/%m/%y")
 
         # Handle custom infractions separately
-        if check_type == "custom":
+        if check_type == CUSTOM_CHECK_TYPE:
             if natinf in custom_infractions_by_date:
                 custom_infractions_by_date[natinf].append(formatted_date)
             else:

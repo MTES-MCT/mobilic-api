@@ -1,5 +1,7 @@
 from flask import send_file
 
+from app.models.controller_control import CUSTOM_CHECK_TYPE
+
 light_brown_hex = "#ffe599"
 light_yellow_hex = "#fdffbc"
 light_grey_hex = "#dadada"
@@ -194,3 +196,12 @@ def send_excel_file(file, name):
         as_attachment=True,
         download_name=name,
     )
+
+
+def format_infraction(infraction):
+    sanction = infraction.get("sanction", "")
+    if infraction.get("check_type") == CUSTOM_CHECK_TYPE:
+        custom_label = infraction.get("custom_label", "")
+        if custom_label:
+            return f"{sanction}: {custom_label}"
+    return sanction

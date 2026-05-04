@@ -15,6 +15,7 @@ from app.models import (
     RegulationCheck,
     Business,
 )
+from app.models.controller_control import CUSTOM_CHECK_TYPE
 
 TRANSPORT_TYPES = {
     "unknown": -1,
@@ -550,7 +551,7 @@ def get_greco_xml_and_filename(control):
         check_type = r.get("check_type")
 
         # Handle custom infractions separately
-        if check_type == "custom":
+        if check_type == CUSTOM_CHECK_TYPE:
             # For custom infractions, use the custom_label and custom_description
             custom_label = r.get("custom_label", "")
             label = (custom_label or "").strip() or r.get("sanction", "")

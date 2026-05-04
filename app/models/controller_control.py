@@ -20,6 +20,9 @@ from app.models import User, RegulationCheck
 from app.models.base import BaseModel, RandomNineIntId
 
 
+CUSTOM_CHECK_TYPE = "custom"
+
+
 class ControlType(enum.Enum):
     mobilic = "Mobilic"
     lic_papier = "LIC papier"
