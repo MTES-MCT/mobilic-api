@@ -193,11 +193,15 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
         return None
     g.client_id = identity.get("client_id")
 
-    # Impersonation context
-    impersonate_by = identity.get("impersonate_by")
-    if impersonate_by:
-        g.impersonate_by = impersonate_by
-        g.impersonated_user_id = user.id
+    # Impersonation: JWT subject is the admin, target is in impersonate_as
+    impersonate_as = identity.get("impersonate_as")
+    if impersonate_as:
+        target = User.query.get(impersonate_as)
+        if not target:
+            return None
+        g.impersonate_by = user.id
+        g.impersonated_user_id = target.id
+        return target
 
     return user
 

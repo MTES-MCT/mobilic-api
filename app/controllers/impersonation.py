@@ -2,15 +2,15 @@ from calendar import timegm
 from datetime import datetime, timezone
 
 import graphene
-from flask import after_this_request, g, request
+from flask import after_this_request, g
 from sqlalchemy import or_
 
 from app import app, db
 from app.controllers.utils import Void
 from app.domain.impersonation import (
     IMPERSONATION_EXPIRATION,
+    create_admin_restore_token,
     create_impersonation_token,
-    get_admin_token_from_cookie,
     validate_impersonation_prerequisites,
 )
 from app.helpers.authentication import (
@@ -71,21 +71,8 @@ class StartImpersonation(AuthenticatedMutation):
         validate_impersonation_prerequisites(current_user)
         result = create_impersonation_token(current_user, user_id)
 
-        current_admin_token = request.cookies.get(
-            app.config["JWT_ACCESS_COOKIE_NAME"]
-        )
-
         @after_this_request
         def set_cookies(response):
-            if current_admin_token:
-                response.set_cookie(
-                    "admin_token",
-                    value=current_admin_token,
-                    httponly=True,
-                    secure=app.config["JWT_COOKIE_SECURE"],
-                    samesite="Lax",
-                    path="/",
-                )
             _set_impersonation_access_cookie(
                 response,
                 result["access_token"],
@@ -108,14 +95,16 @@ class StopImpersonation(AuthenticatedMutation):
         impersonate_by = getattr(g, "impersonate_by", None)
         if not impersonate_by:
             raise AuthorizationError("Not in impersonation session")
-        admin_token = get_admin_token_from_cookie()
+        admin_user = User.query.get(impersonate_by)
+        if not admin_user:
+            raise AuthorizationError("Admin user not found")
+        new_token = create_admin_restore_token(admin_user)
 
         @after_this_request
         def restore_cookies(response):
             _set_impersonation_access_cookie(
-                response, admin_token, impersonate_by
+                response, new_token, admin_user.id
             )
-            response.delete_cookie("admin_token", path="/")
             return response
 
         return Void(success=True)
@@ -176,9 +165,7 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(admin_only)
-    def resolve_search_users_for_impersonation(
-        self, info, search, offset=0
-    ):
+    def resolve_search_users_for_impersonation(self, info, search, offset=0):
         validate_impersonation_prerequisites(current_user)
         if len(search) < 3:
             return UserSearchResultPage(results=[], has_more=False)
@@ -202,9 +189,7 @@ class Query(graphene.ObjectType):
         )
         users = (
             User.query.options(
-                db.joinedload(User.employments).joinedload(
-                    Employment.company
-                )
+                db.joinedload(User.employments).joinedload(Employment.company)
             )
             .filter(or_(user_filters, User.id.in_(siren_subq)))
             .offset(offset)
@@ -213,9 +198,6 @@ class Query(graphene.ObjectType):
         )
         has_more = len(users) > PAGE_SIZE
         return UserSearchResultPage(
-            results=[
-                _user_to_search_result(u)
-                for u in users[:PAGE_SIZE]
-            ],
+            results=[_user_to_search_result(u) for u in users[:PAGE_SIZE]],
             has_more=has_more,
         )

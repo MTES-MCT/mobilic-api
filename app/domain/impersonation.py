@@ -1,11 +1,9 @@
 from datetime import timedelta
 
-from flask import request
 from flask_jwt_extended import create_access_token
 
 from app import app
 from app.helpers.errors import (
-    AuthenticationError,
     AuthorizationError,
     InvalidParamsError,
 )
@@ -25,8 +23,10 @@ def validate_impersonation_prerequisites(admin_user):
 def create_impersonation_token(admin_user, target_user_id):
     """Create a JWT for impersonating a target user.
 
-    Returns:
-        dict with access_token and target user display info.
+    The JWT subject stays the admin (id=admin.id) and the impersonation
+    target is carried in the impersonate_as claim. The admin's own
+    revocation rules apply to the session, so target-side revocations
+    (e.g. password reset) do not break the impersonation.
     """
     target_user = User.query.get(target_user_id)
     if not target_user:
@@ -34,8 +34,8 @@ def create_impersonation_token(admin_user, target_user_id):
 
     access_token = create_access_token(
         {
-            "id": target_user.id,
-            "impersonate_by": admin_user.id,
+            "id": admin_user.id,
+            "impersonate_as": target_user.id,
         },
         expires_delta=IMPERSONATION_EXPIRATION,
     )
@@ -45,9 +45,9 @@ def create_impersonation_token(admin_user, target_user_id):
     }
 
 
-def get_admin_token_from_cookie():
-    """Read the saved admin token from the admin_token cookie."""
-    token = request.cookies.get("admin_token")
-    if not token:
-        raise AuthenticationError("No admin session to restore")
-    return token
+def create_admin_restore_token(admin_user):
+    """Create a regular access token for the admin (used to stop impersonation)."""
+    return create_access_token(
+        {"id": admin_user.id},
+        expires_delta=app.config["ACCESS_TOKEN_EXPIRATION"],
+    )
