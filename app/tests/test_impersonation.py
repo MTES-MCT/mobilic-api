@@ -254,6 +254,26 @@ class TestStartImpersonation(BaseTest):
         )
         self.assertIsNotNone(response.json.get("errors"))
 
+    def test_self_impersonation_rejected(self):
+        _enable_2fa(self.admin)
+        response = test_post_graphql_unexposed(
+            START_IMPERSONATION,
+            mock_authentication_with_user=self.admin,
+            variables={"userId": self.admin.id},
+        )
+        self.assertIsNotNone(response.json.get("errors"))
+
+    def test_admin_target_rejected(self):
+        other_admin = UserFactory.create(admin=True)
+        db.session.commit()
+        _enable_2fa(self.admin)
+        response = test_post_graphql_unexposed(
+            START_IMPERSONATION,
+            mock_authentication_with_user=self.admin,
+            variables={"userId": other_admin.id},
+        )
+        self.assertIsNotNone(response.json.get("errors"))
+
 
 class TestStopImpersonation(BaseTest):
     def test_stop_without_impersonation_session_fails(self):

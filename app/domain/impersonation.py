@@ -31,6 +31,10 @@ def create_impersonation_token(admin_user, target_user_id):
     target_user = User.query.get(target_user_id)
     if not target_user:
         raise InvalidParamsError("Target user not found")
+    if target_user.id == admin_user.id:
+        raise InvalidParamsError("Cannot impersonate yourself")
+    if target_user.admin:
+        raise AuthorizationError("Cannot impersonate another admin")
 
     access_token = create_access_token(
         {
