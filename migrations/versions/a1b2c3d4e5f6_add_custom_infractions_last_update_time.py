@@ -1,7 +1,7 @@
 """add custom infractions last update time
 
 Revision ID: a1b2c3d4e5f6
-Revises: f8a1b2c3d4e5
+Revises: 584e53171959
 Create Date: 2026-04-27 14:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "a1b2c3d4e5f6"
-down_revision = "f8a1b2c3d4e5"
+down_revision = "584e53171959"
 branch_labels = None
 depends_on = None
 
