@@ -298,6 +298,8 @@ def send_daily_emails():
         send_reminder_no_invitation_emails,
         send_invitation_emails,
         send_companies_with_pending_invitation_emails,
+        send_activation_reminder_employee_emails,
+        send_activation_reminder_manager_emails,
     )
 
     send_onboarding_emails(date.today())
@@ -307,6 +309,8 @@ def send_daily_emails():
     send_reminder_no_invitation_emails(date.today())
     send_invitation_emails(date.today())
     send_companies_with_pending_invitation_emails(date.today())
+    send_activation_reminder_employee_emails(date.today())
+    send_activation_reminder_manager_emails(date.today())
 
     from app.jobs.emails.cgu import (
         send_expiry_warning_email,
