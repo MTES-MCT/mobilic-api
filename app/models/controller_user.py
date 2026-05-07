@@ -52,3 +52,7 @@ class ControllerUser(BaseModel, RandomNineIntId):
     @property
     def is_ministry_of_interior(self):
         return bool(self._is_mi())
+
+    @property
+    def is_ctt(self):
+        return bool(self._is_ctt())
