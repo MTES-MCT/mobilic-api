@@ -1,10 +1,17 @@
 import graphene
 
 
+class AlertDayDetail(graphene.ObjectType):
+    day = graphene.Date()
+    user_name = graphene.String()
+    user_id = graphene.Int()
+
+
 class AlertsGroup(graphene.ObjectType):
     alerts_type = graphene.String()
     nb_alerts = graphene.Int()
     days = graphene.List(graphene.Date)
+    day_details = graphene.List(AlertDayDetail)
 
 
 class RegulatoryAlertsSummary(graphene.ObjectType):
