@@ -18,6 +18,7 @@ DASHBOARD_SUMMARY_QUERY = """
                 pendingInvitationsCount
                 inactiveEmployeesCount
                 autoValidatedMissionsCount
+                hasAnyMissionThisWeek
             }
         }
     }
@@ -115,6 +116,34 @@ class TestDashboardSummary(BaseTest):
         # employee never active → not counted as recently inactive
         self.assertEqual(data["inactiveEmployeesCount"], 0)
         self.assertEqual(data["autoValidatedMissionsCount"], 0)
+        self.assertFalse(data["hasAnyMissionThisWeek"])
+
+    def test_has_any_mission_this_week_true(self):
+        self._create_mission_with_activity()
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertTrue(data["hasAnyMissionThisWeek"])
+
+    def test_has_any_mission_this_week_false_when_only_old(self):
+        """Activities older than the current week do not count."""
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=self.now - timedelta(days=30),
+        )
+        old_time = self.now - timedelta(days=30)
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=old_time,
+            start_time=old_time,
+            last_update_time=old_time,
+        )
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertFalse(data["hasAnyMissionThisWeek"])
 
     def _set_last_active_at(self, user, days_ago):
         from app.models import Employment

@@ -130,6 +130,23 @@ def _count_inactive_employees(company_id):
     ) or 0
 
 
+def _has_any_mission_this_week(company_id):
+    """True if the company has at least one non-dismissed activity since Monday."""
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    week_start = datetime.combine(monday, time.min, tzinfo=timezone.utc)
+    return db.session.query(
+        db.session.query(Activity.id)
+        .join(Mission, Activity.mission_id == Mission.id)
+        .filter(
+            Mission.company_id == company_id,
+            ~Activity.is_dismissed,
+            Activity.start_time >= week_start,
+        )
+        .exists()
+    ).scalar()
+
+
 def _count_auto_validated_missions(company_id):
     """Missions auto-validated by the system today.
 
@@ -168,4 +185,5 @@ def get_dashboard_summary(company_id):
         auto_validated_missions_count=(
             _count_auto_validated_missions(company_id)
         ),
+        has_any_mission_this_week=_has_any_mission_this_week(company_id),
     )
