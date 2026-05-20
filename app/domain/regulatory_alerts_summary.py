@@ -1,3 +1,5 @@
+from datetime import datetime, time, timedelta, timezone
+
 from dateutil.relativedelta import relativedelta
 
 from sqlalchemy.orm import joinedload
@@ -16,7 +18,15 @@ from app.domain.regulations_per_day import (
     EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert, RegulationComputation
+from app.helpers.time import to_tz
+from app.models import (
+    Activity,
+    Company,
+    Mission,
+    RegulatoryAlert,
+    RegulationComputation,
+    User,
+)
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
@@ -195,7 +205,87 @@ def _count_double_alerts(current_month_alerts):
     )
 
 
-def get_regulatory_alerts_summary(month, user_ids):
+def _build_other_company_relations(month, user_ids, current_company_id):
+    """Return a dict (user_id, day) -> 'company' | 'establishment' for each
+    pair where the user has at least one non-dismissed activity in a company
+    other than `current_company_id`.
+
+    'establishment' means the other company shares the same SIREN as the
+    current one (same parent enterprise, different sub-establishment).
+    'company' means the SIREN differs (entirely different enterprise).
+
+    When both kinds coexist on the same (user, day), 'company' wins since it
+    is the more surprising signal for the manager.
+
+    The day is computed in the user's own timezone so it matches how
+    RegulatoryAlert.day is built.
+    """
+    if not user_ids or current_company_id is None:
+        return {}
+
+    current_siren = (
+        db.session.query(Company.siren)
+        .filter(Company.id == current_company_id)
+        .scalar()
+    )
+
+    start_date = month
+    end_date = month + relativedelta(months=1)
+    # Widen the SQL window by one day on each side to be safe with timezones
+    window_start = datetime.combine(
+        start_date - timedelta(days=1), time.min, tzinfo=timezone.utc
+    )
+    window_end = datetime.combine(
+        end_date + timedelta(days=1), time.min, tzinfo=timezone.utc
+    )
+
+    rows = (
+        db.session.query(
+            Activity.user_id, Activity.start_time, User, Company.siren
+        )
+        .join(Mission, Mission.id == Activity.mission_id)
+        .join(Company, Company.id == Mission.company_id)
+        .join(User, User.id == Activity.user_id)
+        .filter(
+            Mission.company_id != current_company_id,
+            Activity.user_id.in_(user_ids),
+            Activity.start_time >= window_start,
+            Activity.start_time < window_end,
+            ~Activity.is_dismissed,
+        )
+        .all()
+    )
+
+    relations = {}
+    for user_id, start_time, user, other_siren in rows:
+        # start_time is stored as UTC-naive (cf. DateTimeStoredAsUTC),
+        # to_tz adds the UTC tzinfo and converts to the user timezone
+        local_day = to_tz(start_time, user.timezone).date()
+        if not (start_date <= local_day < end_date):
+            continue
+        same_siren = (
+            current_siren is not None
+            and other_siren is not None
+            and other_siren == current_siren
+        )
+        kind = "establishment" if same_siren else "company"
+        key = (user_id, local_day)
+        # 'company' wins over 'establishment' for the same pair
+        if relations.get(key) != "company":
+            relations[key] = kind
+    return relations
+
+
+def _mark_other_company_days(alerts_group, relations):
+    """Set other_company_relation on every AlertDayDetail whose (user, day)
+    matches a key in `relations`."""
+    for detail in alerts_group.day_details or []:
+        detail.other_company_relation = relations.get(
+            (detail.user_id, detail.day)
+        )
+
+
+def get_regulatory_alerts_summary(month, user_ids, company_id=None):
     if not has_any_regulation_computation(month=month, user_ids=user_ids):
         return RegulatoryAlertsSummary(
             has_any_computation=False,
@@ -215,6 +305,14 @@ def get_regulatory_alerts_summary(month, user_ids):
         current_month_alerts, month, seen_by_type
     )
     double_alerts_to_add = _count_double_alerts(current_month_alerts)
+
+    other_relations = _build_other_company_relations(
+        month=month, user_ids=user_ids, current_company_id=company_id
+    )
+    for group in daily_alerts.values():
+        _mark_other_company_days(group, other_relations)
+    for group in weekly_alerts:
+        _mark_other_company_days(group, other_relations)
 
     return RegulatoryAlertsSummary(
         month=month,
