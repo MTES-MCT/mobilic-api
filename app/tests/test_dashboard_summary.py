@@ -48,13 +48,14 @@ class TestDashboardSummary(BaseTest):
     def _get_summary(self, response):
         return response.json["data"]["company"]["dashboardSummary"]
 
-    def _create_mission_with_activity(self, user=None):
+    def _create_mission_with_activity(self, user=None, end_time=None):
         user = user or self.employee
         mission = MissionFactory.create(
             company_id=self.company.id,
             submitter_id=user.id,
             reception_time=self.now,
         )
+        last_update = end_time + timedelta(minutes=1) if end_time else self.now
         ActivityFactory.create(
             mission=mission,
             user=user,
@@ -62,7 +63,8 @@ class TestDashboardSummary(BaseTest):
             type=ActivityType.DRIVE,
             reception_time=self.now,
             start_time=self.now,
-            last_update_time=self.now,
+            end_time=end_time,
+            last_update_time=last_update,
         )
         return mission
 
@@ -125,13 +127,17 @@ class TestDashboardSummary(BaseTest):
         self.assertTrue(data["hasAnyMissionThisWeek"])
 
     def test_has_any_mission_this_week_false_when_only_old(self):
-        """Activities older than the current week do not count."""
+        """Activities older than the current week do not count.
+
+        Use a 60-day offset so the test stays stable regardless of the
+        weekday it runs on (a 30-day offset can still fall in the same
+        ISO week when today is a Monday)."""
+        old_time = self.now - timedelta(days=60)
         mission = MissionFactory.create(
             company_id=self.company.id,
             submitter_id=self.employee.id,
-            reception_time=self.now - timedelta(days=30),
+            reception_time=old_time,
         )
-        old_time = self.now - timedelta(days=30)
         ActivityFactory.create(
             mission=mission,
             user=self.employee,
@@ -173,25 +179,60 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["inactiveEmployeesCount"], 0)
 
-    def test_inactive_employee_active_today_not_counted(self):
-        """last_active_at within today → not counted."""
+    def test_inactive_employee_last_active_today_no_activity_counted(self):
+        """last_active_at today but no Activity today → counted as inactive
+        (aligned with the InactiveEmployeesDropdown which only excludes
+        users that have a workDay for today)."""
         self._set_last_active_at(self.employee, days_ago=0)
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["inactiveEmployeesCount"], 1)
+
+    def test_inactive_employee_with_activity_today_excluded(self):
+        """Activity today excludes the user from the count even when
+        last_active_at also falls today."""
+        self._set_last_active_at(self.employee, days_ago=0)
+        self._create_mission_with_activity(user=self.employee)
         response = self._query()
         data = self._get_summary(response)
         self.assertEqual(data["inactiveEmployeesCount"], 0)
 
-    def test_active_missions_count(self):
+    def test_running_activity_counts_as_active(self):
         self._create_mission_with_activity()
         response = self._query()
         data = self._get_summary(response)
         self.assertEqual(data["activeMissionsCount"], 1)
 
-    def test_ended_mission_not_active(self):
-        mission = self._create_mission_with_activity()
-        self._end_mission(mission)
+    def test_closed_activity_not_active(self):
+        """Mission whose activities all have an end_time set is not active,
+        even if no MissionEnd has been recorded yet (worker still needs
+        to validate, but the chronometer is no longer ticking)."""
+        self._create_mission_with_activity(
+            end_time=self.now + timedelta(hours=1)
+        )
         response = self._query()
         data = self._get_summary(response)
         self.assertEqual(data["activeMissionsCount"], 0)
+
+    def test_mission_active_when_one_user_still_running(self):
+        """Mission where user A has closed her activity but user B is
+        still on the road must remain counted as active."""
+        mission = self._create_mission_with_activity(
+            end_time=self.now + timedelta(hours=1)
+        )
+        other = UserFactory.create(post__company=self.company)
+        ActivityFactory.create(
+            mission=mission,
+            user=other,
+            submitter=other,
+            type=ActivityType.DRIVE,
+            reception_time=self.now,
+            start_time=self.now,
+            last_update_time=self.now,
+        )
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["activeMissionsCount"], 1)
 
     def test_pending_validations_count(self):
         mission = self._create_mission_with_activity()
