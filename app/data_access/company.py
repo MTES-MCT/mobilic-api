@@ -34,6 +34,7 @@ from app.domain.regulation_computations import (
 from app.domain.dashboard_summary import get_dashboard_summary
 from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
+from app.helpers.authentication import current_user
 from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
@@ -528,7 +529,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'dashboardSummary' of company object. Actor must be company admin.",
     )
     def resolve_dashboard_summary(self, info):
-        return get_dashboard_summary(self.id)
+        return get_dashboard_summary(
+            self.id, user_timezone=current_user.timezone
+        )
 
     @with_authorization_policy(
         company_admin,
@@ -552,7 +555,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
-        return get_regulatory_alerts_summary(month=month, user_ids=user_ids)
+        return get_regulatory_alerts_summary(
+            month=month, user_ids=user_ids, company_id=self.id
+        )
 
     def resolve_admin_regulation_computations_by_user_and_by_day(
         self, info, from_date=None, to_date=None, user_ids=None

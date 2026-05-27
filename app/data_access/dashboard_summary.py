@@ -21,3 +21,9 @@ class DashboardSummary(graphene.ObjectType):
         graphene.Int,
         description=("IDs des emplois avec invitation en attente"),
     )
+    has_any_mission_this_week = graphene.Boolean(
+        description=(
+            "Vrai si au moins une mission a une activité enregistrée "
+            "depuis le début de la semaine en cours"
+        )
+    )
