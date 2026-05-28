@@ -1,7 +1,7 @@
 from datetime import datetime, date, time, timezone, timedelta
 
 from app import db
-from app.models import MissionEnd, MissionValidation
+from app.models import Activity, MissionEnd, MissionValidation
 from app.models.activity import ActivityType
 from app.models.employment import EmploymentRequestValidationStatus
 from app.seed import CompanyFactory, UserFactory, EmploymentFactory
@@ -255,6 +255,26 @@ class TestDashboardSummary(BaseTest):
         self._end_mission(mission)
         self._worker_validate_mission(mission)
         self._validate_mission(mission)
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
+    def test_pending_validation_before_current_month_excluded(self):
+        """Mission whose only activity started before the 1st of the current
+        month is out of the loading window of /admin/validations and must
+        therefore not be counted."""
+        mission = self._create_mission_with_activity()
+        old_start = self.now.replace(day=1) - timedelta(days=5)
+        activity = (
+            db.session.query(Activity)
+            .filter(Activity.mission_id == mission.id)
+            .one()
+        )
+        activity.start_time = old_start
+        activity.last_update_time = old_start
+        db.session.commit()
+        self._end_mission(mission)
+        self._worker_validate_mission(mission)
         response = self._query()
         data = self._get_summary(response)
         self.assertEqual(data["pendingValidationsCount"], 0)
