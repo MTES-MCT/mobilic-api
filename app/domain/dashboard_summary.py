@@ -56,13 +56,23 @@ def _count_active_missions(company_id):
     ) or 0
 
 
-def _count_pending_validations(company_id):
+def _count_pending_validations(company_id, user_timezone):
     """Ended missions validated by at least one worker but not yet by admin.
 
     A mission requires admin action only once a worker has confirmed it;
     counting ended-but-not-yet-worker-validated missions would mismatch the
     Validations panel.
+
+    Restricted to missions with at least one activity since the 1st of the
+    current month, mirroring the loading window of the /admin/validations
+    panel so the counter matches what the manager actually sees there.
     """
+    today_local = datetime.now(tz=user_timezone).date()
+    start_of_month_local = datetime.combine(
+        today_local.replace(day=1), time.min
+    )
+    start_of_month = from_tz(start_of_month_local, user_timezone)
+
     ended_missions = (
         db.session.query(Mission.id)
         .join(Activity, Activity.mission_id == Mission.id)
@@ -76,6 +86,7 @@ def _count_pending_validations(company_id):
         .filter(
             Mission.company_id == company_id,
             ~Activity.is_dismissed,
+            Activity.start_time >= start_of_month,
         )
         .group_by(Mission.id)
         .having(func.every(MissionEnd.id.isnot(None)))
@@ -214,7 +225,9 @@ def get_dashboard_summary(company_id, user_timezone):
     pending_ids = _get_pending_invitations(company_id)
     return DashboardSummary(
         active_missions_count=_count_active_missions(company_id),
-        pending_validations_count=_count_pending_validations(company_id),
+        pending_validations_count=_count_pending_validations(
+            company_id, user_timezone
+        ),
         pending_invitations_count=len(pending_ids),
         pending_invitation_employment_ids=pending_ids,
         inactive_employees_count=_count_inactive_employees(
