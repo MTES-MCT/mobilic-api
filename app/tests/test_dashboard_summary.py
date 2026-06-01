@@ -242,6 +242,30 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["pendingValidationsCount"], 1)
 
+    def test_pending_validations_count_ignores_old_missions(self):
+        """Missions older than the loaded window are not counted, even if
+        technically waiting for an admin validation."""
+        old_time = self.now - timedelta(days=60)
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=old_time,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=old_time,
+            start_time=old_time,
+            last_update_time=old_time,
+        )
+        self._end_mission(mission)
+        self._worker_validate_mission(mission)
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
     def test_ended_mission_without_worker_validation_not_pending(self):
         """Mission terminée mais pas encore validée par le salarié → ne compte pas."""
         mission = self._create_mission_with_activity()
@@ -266,6 +290,21 @@ class TestDashboardSummary(BaseTest):
             user=None,
             validation_status=EmploymentRequestValidationStatus.PENDING,
             email="invite@test.com",
+        )
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingInvitationsCount"], 1)
+
+    def test_pending_invitations_count_includes_invited_existing_user(self):
+        """Pending employments attached to an already-registered Mobilic
+        user must also be reported (e.g. invitation by user ID)."""
+        invited = UserFactory.create()
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=invited,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+            email=invited.email,
         )
         response = self._query()
         data = self._get_summary(response)

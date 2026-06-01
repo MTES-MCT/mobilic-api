@@ -331,9 +331,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 .all()
             )
 
-        return (
+        # Employments attached to a known user: keep only the most
+        # recent row per worker.
+        per_user = (
             Employment.query.options(joinedload(Employment.user))
-            .filter(*base_filters)
+            .filter(*base_filters, Employment.user_id.isnot(None))
             .order_by(
                 Employment.user_id,
                 case([(Employment.end_date.is_(None), 0)], else_=1),
@@ -343,6 +345,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .distinct(Employment.user_id)
             .all()
         )
+        # Invitations not yet attached to a Mobilic user: every row is
+        # a distinct invitation, no deduplication needed.
+        unattached = (
+            Employment.query.options(joinedload(Employment.user))
+            .filter(*base_filters, Employment.user_id.is_(None))
+            .all()
+        )
+        return per_user + unattached
 
     @with_authorization_policy(
         company_admin,

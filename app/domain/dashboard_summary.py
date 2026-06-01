@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import and_, func, or_
 
@@ -56,13 +56,16 @@ def _count_active_missions(company_id):
     ) or 0
 
 
-def _count_pending_validations(company_id):
-    """Ended missions validated by at least one worker but not yet by admin.
+PENDING_VALIDATIONS_WINDOW_DAYS = 31
 
-    A mission requires admin action only once a worker has confirmed it;
-    counting ended-but-not-yet-worker-validated missions would mismatch the
-    Validations panel.
+
+def _count_pending_validations(company_id):
+    """Missions started in the last 31 days that are ended by every user,
+    validated by at least one worker, and not yet validated by an admin.
     """
+    window_start = datetime.now(tz=timezone.utc).replace(
+        tzinfo=None
+    ) - timedelta(days=PENDING_VALIDATIONS_WINDOW_DAYS)
     ended_missions = (
         db.session.query(Mission.id)
         .join(Activity, Activity.mission_id == Mission.id)
@@ -76,6 +79,7 @@ def _count_pending_validations(company_id):
         .filter(
             Mission.company_id == company_id,
             ~Activity.is_dismissed,
+            Activity.start_time >= window_start,
         )
         .group_by(Mission.id)
         .having(func.every(MissionEnd.id.isnot(None)))
@@ -105,14 +109,14 @@ def _count_pending_validations(company_id):
 
 
 def _get_pending_invitations(company_id):
-    """Employments with pending status and no linked user."""
+    """Employments in pending status (not dismissed), whether they target
+    a fresh email or an already-registered Mobilic user."""
     pending = (
         db.session.query(Employment.id)
         .filter(
             Employment.company_id == company_id,
             Employment.validation_status
             == EmploymentRequestValidationStatus.PENDING,
-            Employment.user_id.is_(None),
             ~Employment.is_dismissed,
         )
         .all()
