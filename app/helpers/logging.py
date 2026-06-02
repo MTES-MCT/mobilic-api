@@ -10,7 +10,9 @@ from logging_ldp.formatters import LDPGELFFormatter
 from logging_ldp.handlers import LDPGELFTCPSocketHandler
 from logging_ldp.schemas import LDPSchema
 from marshmallow import fields
-from sentry_sdk import set_tag
+from sentry_sdk import set_tag, set_measurement
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from werkzeug.exceptions import HTTPException
 
 from app import app
@@ -41,9 +43,11 @@ def _user_info():
         user=str(current_user),
         user_id=current_user.id if current_user else None,
         email=str(current_user.email if current_user else None),
-        metabase=f"https://metabase.mobilic.beta.gouv.fr/dashboard/6?id={current_user.id}"
-        if current_user
-        else None,
+        metabase=(
+            f"https://metabase.mobilic.beta.gouv.fr/dashboard/6?id={current_user.id}"
+            if current_user
+            else None
+        ),
     )
 
 
@@ -52,9 +56,11 @@ def _strip_unwanted_and_sensitive_fields_from_log_data(data):
         return data
     if type(data) is dict:
         return {
-            k: "***"
-            if k in SENSITIVE_FIELDS
-            else _strip_unwanted_and_sensitive_fields_from_log_data(v)
+            k: (
+                "***"
+                if k in SENSITIVE_FIELDS
+                else _strip_unwanted_and_sensitive_fields_from_log_data(v)
+            )
             for k, v in data.items()
             if k not in UNWANTED_FIELDS
         }
@@ -76,6 +82,30 @@ def _get_request_endpoint():
     if graphql_op_short:
         return f'{method_with_path} "{graphql_op_short}"'
     return method_with_path
+
+
+@event.listens_for(Engine, "before_cursor_execute")
+def _sql_perf_before(
+    conn, cursor, statement, parameters, context, executemany
+):
+    context._mobilic_sql_start = time()
+
+
+@event.listens_for(Engine, "after_cursor_execute")
+def _sql_perf_after(conn, cursor, statement, parameters, context, executemany):
+    if not has_request_context():
+        return
+    log_info = getattr(g, "log_info", None)
+    if not log_info:
+        return
+    duration_ms = (time() - context._mobilic_sql_start) * 1000
+    log_info["sql_query_count"] = log_info.get("sql_query_count", 0) + 1
+    log_info["sql_total_time_ms"] = (
+        log_info.get("sql_total_time_ms", 0) + duration_ms
+    )
+    if duration_ms > log_info.get("sql_slowest_ms", 0):
+        log_info["sql_slowest_ms"] = round(duration_ms, 2)
+        log_info["sql_slowest_query"] = (statement or "")[:200]
 
 
 @app.before_request
@@ -104,6 +134,27 @@ def enrich_sentry_with_user_information():
         sentry_sdk.set_user(
             {"id": current_user.id, "email": current_user.email}
         )
+
+
+# set_measurement is deprecated in sentry-sdk 2.28+; migrate to span
+# attributes (span.set_attribute / start_span(attributes=...)) when
+# upgrading to sentry-sdk 3.x.
+def _push_sql_measurements_to_sentry(log_info, request_time_ms):
+    sql_total = log_info.get("sql_total_time_ms", 0)
+    sql_count = log_info.get("sql_query_count", 0)
+    sql_ratio = sql_total / request_time_ms if request_time_ms > 0 else 0
+    try:
+        set_measurement("sql.total_time", sql_total, "millisecond")
+        set_measurement("sql.query_count", sql_count, "none")
+        set_measurement("sql.ratio", sql_ratio, "ratio")
+        if log_info.get("sql_slowest_ms"):
+            set_measurement(
+                "sql.slowest_ms",
+                log_info["sql_slowest_ms"],
+                "millisecond",
+            )
+    except Exception:
+        pass
 
 
 @app.after_request
@@ -139,6 +190,8 @@ def log_request_info(response):
             except:
                 pass
             app.logger.error(BadGraphQLRequestError())
+
+        _push_sql_measurements_to_sentry(log_info, request_time)
 
         app.logger.info(
             log_message,
