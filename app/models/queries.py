@@ -121,8 +121,11 @@ def query_activities(
         base_query = base_query.filter(Activity.user_id == user_id)
 
     if max_reception_time:
+        # For controls, filter by activity start_time (when it occurred)
+        # not reception_time (when it was created), to include activities
+        # added late but that occurred before the control date
         base_query = base_query.filter(
-            Activity.reception_time <= max_reception_time
+            Activity.start_time <= max_reception_time
         )
 
     if mission_id:

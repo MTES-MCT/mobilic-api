@@ -87,7 +87,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
         )
 
     def version_at(self, at_time, include_dismissed_activities=False):
-        if self.reception_time > at_time:
+        # For controls, check if the activity occured before the control time,
+        # not just when it was created (reception_time).
+        # If activity started after the control time, exclude it
+        if self.start_time > at_time:
             return None
         if (
             not include_dismissed_activities
@@ -105,6 +108,9 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 key=lambda r: r.version_number,
             )
         else:
+            # If no version was created before at_time, but the activity started
+            # before at_time, include it with its earliest version
+            # (this covers activities added "a posteriori")
             return min(
                 [r for r in self.versions],
                 default=None,
