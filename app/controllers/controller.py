@@ -58,9 +58,14 @@ from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
 from app.models.business import Business, BusinessType
-from app.models.controller_control import ControllerControl, ControlType
+from app.models.controller_control import (
+    ControllerControl,
+    ControlType,
+    CUSTOM_CHECK_TYPE,
+)
 from app.models.controller_user import ControllerUser
 from app.models.queries import add_mission_relations, query_controls
+from app.services.natinf_search import search_natinf
 
 
 @app.route("/ac/authorize")
@@ -280,6 +285,9 @@ class ReportedInfractionInput(InputObjectType):
     date_str = graphene.String()
     type = graphene.String()
     unit = graphene.String()
+    custom_label = graphene.String()
+    custom_description = graphene.String()
+    custom_articles = graphene.String()
 
 
 class ControllerSaveReportedInfractions(graphene.Mutation):
@@ -300,9 +308,28 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
         control = ControllerControl.query.get(control_id)
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
-        control.reported_infractions_last_update_time = now
         if control.sent_to_admin:
             control.sent_to_admin = False
+
+        # Compute sets of custom infractions before and after to detect changes
+        existing_custom_keys = {
+            (inf.get("date"), inf.get("sanction"))
+            for inf in (control.observed_infractions or [])
+            if inf.get("check_type") == CUSTOM_CHECK_TYPE
+            and inf.get("is_reported", False)
+        }
+        reported_custom_keys = {
+            (ri.date_str, ri.sanction)
+            for ri in reported_infractions
+            if ri.type == CUSTOM_CHECK_TYPE
+        }
+        has_custom_changes = existing_custom_keys != reported_custom_keys
+
+        # Always update the global last update time
+        control.reported_infractions_last_update_time = now
+        # Update custom-specific timestamp only when custom infractions changed
+        if has_custom_changes:
+            control.reported_custom_infractions_last_update_time = now
 
         if control.control_type == ControlType.lic_papier:
             control.observed_infractions = []
@@ -315,19 +342,76 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
                     "is_reported": True,
                     "extra": None,
                     "business_id": business_id,
-                    "check_type": reported_infraction.get("type"),
-                    "check_unit": reported_infraction.get("unit"),
+                    "check_type": reported_infraction.type,
+                    "check_unit": reported_infraction.unit,
+                    "custom_label": reported_infraction.custom_label,
+                    "custom_description": reported_infraction.custom_description,
+                    "custom_articles": reported_infraction.custom_articles,
                 }
                 for reported_infraction in reported_infractions
             ]
         else:
             observed_infractions = copy.deepcopy(control.observed_infractions)
+
+            # Mark existing infractions as reported/not reported
             for infraction in observed_infractions:
                 infraction["is_reported"] = any(
                     ri.date_str == infraction.get("date")
                     and ri.sanction == infraction.get("sanction")
                     for ri in reported_infractions
                 )
+
+            # Keep all computed infractions and only reported custom infractions
+            observed_infractions = [
+                inf
+                for inf in observed_infractions
+                if inf.get("check_type") != CUSTOM_CHECK_TYPE
+                or inf.get("is_reported", False)
+            ]
+
+            # Add new custom infractions that don't exist yet
+            existing_infraction_keys = {
+                (inf.get("date"), inf.get("sanction"))
+                for inf in observed_infractions
+            }
+
+            for reported_infraction in reported_infractions:
+                infraction_key = (
+                    reported_infraction.date_str,
+                    reported_infraction.sanction,
+                )
+
+                # If this is a new custom infraction, add it
+                if (
+                    infraction_key not in existing_infraction_keys
+                    and reported_infraction.type == "custom"
+                ):
+                    custom_label = reported_infraction.custom_label or ""
+                    custom_description = (
+                        reported_infraction.custom_description or ""
+                    )
+                    custom_articles = reported_infraction.custom_articles or ""
+                    unit = reported_infraction.unit or "day"
+                    label = (
+                        custom_label.strip() or reported_infraction.sanction
+                    )
+
+                    observed_infractions.append(
+                        {
+                            "sanction": reported_infraction.sanction,
+                            "date": reported_infraction.date_str,
+                            "is_reportable": True,
+                            "is_reported": True,
+                            "extra": None,
+                            "business_id": None,
+                            "check_type": CUSTOM_CHECK_TYPE,
+                            "check_unit": unit,
+                            "custom_label": label,
+                            "custom_description": custom_description,
+                            "custom_articles": custom_articles,
+                        }
+                    )
+
             control.observed_infractions = observed_infractions
 
         db.session.commit()
@@ -417,6 +501,15 @@ class ControllerChangeGrecoId(graphene.Mutation):
         return current_user
 
 
+class NatinfResult(graphene.ObjectType):
+    """NATINF search result"""
+
+    code = graphene.String(required=True)
+    label = graphene.String(required=True)
+    description = graphene.String()
+    articles = graphene.String()
+
+
 class Query(graphene.ObjectType):
     controller_user = graphene.Field(
         ControllerUserOutput,
@@ -428,6 +521,12 @@ class Query(graphene.ObjectType):
         ControllerControlOutput,
         control_id=graphene.Int(required=True),
         description="Identifiant du contrôle à récupérer",
+    )
+
+    search_natinf = graphene.List(
+        NatinfResult,
+        query=graphene.String(required=True),
+        description="Recherche de codes NATINF depuis natinfo.app",
     )
 
     @with_authorization_policy(controller_only)
@@ -449,6 +548,12 @@ class Query(graphene.ObjectType):
                 db.session().execute("SET CONSTRAINTS ALL DEFERRED")
                 controller_control = ControllerControl.query.get(control_id)
                 return controller_control
+
+    @with_authorization_policy(controller_only)
+    def resolve_search_natinf(self, info, query):
+        """Search for NATINF codes - only accessible by controllers"""
+        results = search_natinf(query)
+        return [NatinfResult(**result) for result in results]
 
 
 class MissionControlExportSchema(Schema):

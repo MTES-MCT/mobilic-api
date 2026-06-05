@@ -21,6 +21,13 @@ from app.domain.permissions import (
     can_actor_read_mission,
     only_self,
 )
+from app.domain.totp import (
+    encrypt_secret,
+    generate_totp_secret,
+    get_or_create_totp_credential,
+    get_provisioning_uri,
+    verify_totp_code,
+)
 from app.domain.user import (
     create_user,
     get_user_from_fc_info,
@@ -41,6 +48,7 @@ from app.helpers.authentication import (
 )
 from app.helpers.authorization import (
     AuthorizationError,
+    admin_only,
     with_authorization_policy,
 )
 from app.helpers.errors import (
@@ -137,17 +145,19 @@ class UserSignUp(graphene.Mutation):
             is_employee = data.pop("is_employee", True)
             user = create_user(**data)
             user.create_activation_link()
-        
+
         invitation_email = None
         employment = None
         invite_token = data.get("invite_token")
-        
+
         if invite_token:
-            employment = Employment.query.filter(Employment.invite_token == invite_token).first()
+            employment = Employment.query.filter(
+                Employment.invite_token == invite_token
+            ).first()
             invitation_email = employment.email if employment else None
 
         # If the user registered with an email different from the one provided by the employer
-        if user.email != invitation_email: 
+        if user.email != invitation_email:
             try:
                 mailer.send_activation_email(user, is_employee=is_employee)
             except Exception as e:
@@ -1055,3 +1065,45 @@ class ChangePhoneNumber(AuthenticatedMutation):
         with atomic_transaction(commit_at_end=True):
             user.phone_number = new_phone_number
         return user
+
+
+class SetupTOTPOutput(graphene.ObjectType):
+    provisioning_uri = graphene.String(required=True)
+
+
+class SetupTOTP(AuthenticatedMutation):
+    class Arguments:
+        pass
+
+    Output = SetupTOTPOutput
+
+    @classmethod
+    @with_authorization_policy(admin_only)
+    def mutate(cls, _, info):
+        secret = generate_totp_secret()
+        encrypted = encrypt_secret(secret)
+        with atomic_transaction(commit_at_end=True):
+            cred = get_or_create_totp_credential(current_user)
+            cred.secret = encrypted
+            cred.enabled = False
+        uri = get_provisioning_uri(encrypted, current_user.email)
+        return SetupTOTPOutput(provisioning_uri=uri)
+
+
+class VerifyTOTP(AuthenticatedMutation):
+    class Arguments:
+        code = graphene.String(required=True)
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(admin_only)
+    def mutate(cls, _, info, code):
+        cred = current_user.totp_credential
+        if not cred or not cred.secret:
+            raise InvalidParamsError("TOTP not set up. Call setupTotp first.")
+        if not verify_totp_code(cred.secret, code):
+            raise AuthenticationError("Invalid TOTP code")
+        with atomic_transaction(commit_at_end=True):
+            cred.enabled = True
+        return Void(success=True)

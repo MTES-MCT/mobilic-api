@@ -901,14 +901,18 @@ def checkout_exports():
         exports_ready
     )
 
+    cgu_user_ids = []
     with atomic_transaction(commit_at_end=True):
         for ready in exports_ready:
             if ready.id in ready_exports_links:
                 ready.status = ExportStatus.DOWNLOADED
                 if ready.export_type == ExportType.REFUSED_CGU:
-                    UserAgreement.set_transferred_data_date(ready.user_id)
+                    cgu_user_ids.append(ready.user_id)
             else:
                 ready.status = ExportStatus.FAILED
+
+    for user_id in cgu_user_ids:
+        UserAgreement.set_transferred_data_date(user_id)
 
     return (
         jsonify(

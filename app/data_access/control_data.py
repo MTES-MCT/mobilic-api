@@ -25,7 +25,11 @@ from app.helpers.graphene_types import (
 from app.helpers.s3 import S3Client
 from app.helpers.submitter_type import SubmitterType
 from app.models import Business
-from app.models.controller_control import ControllerControl, ControlType
+from app.models.controller_control import (
+    ControllerControl,
+    ControlType,
+    CUSTOM_CHECK_TYPE,
+)
 from app.models.regulation_check import RegulationCheckType
 
 # TODO refactor sanction code in regulations_per_day and here for consistency
@@ -48,6 +52,9 @@ class ObservedInfraction(ObjectType):
     )
     description = graphene.String(
         description="Description de la règle du seuil règlementaire"
+    )
+    articles = graphene.String(
+        description="Articles de loi définissant l'infraction (pour les infractions custom)"
     )
     type = graphene.String()
     unit = graphene.String()
@@ -116,6 +123,29 @@ class ObservedInfraction(ObjectType):
     @classmethod
     def from_infraction(cls, infraction, user_id):
         check_type = infraction.get("check_type")
+
+        # Handle custom infractions
+        if check_type == CUSTOM_CHECK_TYPE:
+            custom_label = infraction.get("custom_label", "")
+            label = (custom_label or "").strip() or infraction.get(
+                "sanction", ""
+            )
+
+            return cls(
+                sanction=infraction.get("sanction"),
+                date=infraction.get("date"),
+                is_reportable=infraction.get("is_reportable"),
+                is_reported=infraction.get("is_reported"),
+                label=label,
+                description=infraction.get("custom_description", ""),
+                articles=infraction.get("custom_articles", ""),
+                type="custom",
+                unit=(infraction.get("check_unit") or "day").lower(),
+                extra=None,
+                business=None,
+            )
+
+        # Handle standard infractions
         regulation_check = get_regulation_check_by_type(type=check_type)
         if regulation_check is None:
             return None
@@ -140,6 +170,7 @@ class ObservedInfraction(ObjectType):
             is_reported=infraction.get("is_reported"),
             label=_label,
             description=_description,
+            articles=None,
             type=infraction.get("check_type"),
             unit=infraction.get("check_unit"),
             extra=extra,
@@ -231,6 +262,9 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         description="Nombre d'infractions retenues",
     )
     reported_infractions_last_update_time = graphene.Field(
+        TimeStamp, required=False
+    )
+    reported_custom_infractions_last_update_time = graphene.Field(
         TimeStamp, required=False
     )
     can_take_pictures = graphene.Field(

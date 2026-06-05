@@ -130,5 +130,13 @@ def seed():
     for scenario in scenarios:
         scenario.run()
 
+    UserFactory.create(
+        email="super.user@support.com",
+        password="password123!",
+        first_name="Kelly",
+        last_name="Support",
+        admin=True,
+    )
+
     init_user_agreement(session=db.session, cgu_version="v2.0")
     db.session.commit()

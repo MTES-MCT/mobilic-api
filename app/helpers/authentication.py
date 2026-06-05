@@ -174,12 +174,15 @@ def raise_expired_token_error(jwt_header, jwt_payload):
 
 @jwt.user_lookup_loader
 def get_user_from_token_identity(jwt_header, jwt_payload):
+    if jwt_payload["identity"].get("totp_required"):
+        return None
     if jwt_payload["identity"].get("controller"):
         controller_user = ControllerUser.query.get(
             jwt_payload["identity"]["controllerUserId"]
         )
         return controller_user
-    user = User.query.get(jwt_payload["identity"]["id"])
+    identity = jwt_payload["identity"]
+    user = User.query.get(identity["id"])
     if not user:
         return None
     # Check that token is not revoked
@@ -188,7 +191,18 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
         user.latest_token_revocation_time.timestamp()
     ):
         return None
-    g.client_id = jwt_payload["identity"].get("client_id")
+    g.client_id = identity.get("client_id")
+
+    # Impersonation: JWT subject is the admin, target is in impersonate_as
+    impersonate_as = identity.get("impersonate_as")
+    if impersonate_as:
+        target = User.query.get(impersonate_as)
+        if not target:
+            return None
+        g.impersonate_by = user.id
+        g.impersonated_user_id = target.id
+        return target
+
     return user
 
 
@@ -360,6 +374,21 @@ def unset_ac_auth_cookies(response):
 class UserTokens(graphene.ObjectType):
     access_token = graphene.String(description="Jeton d'accès")
     refresh_token = graphene.String(description="Jeton de rafraichissement")
+
+
+class LoginOutput(graphene.ObjectType):
+    access_token = graphene.String(description="Jeton d'accès")
+    refresh_token = graphene.String(description="Jeton de rafraichissement")
+    totp_required = graphene.Boolean(description="2FA TOTP requis")
+
+
+def create_totp_challenge_token(user):
+    from datetime import timedelta
+
+    return create_access_token(
+        {"id": user.id, "totp_required": True},
+        expires_delta=timedelta(minutes=5),
+    )
 
 
 class UserTokensWithFC(UserTokens, graphene.ObjectType):

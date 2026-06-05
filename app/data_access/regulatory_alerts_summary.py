@@ -1,10 +1,26 @@
 import graphene
 
 
+class AlertDayDetail(graphene.ObjectType):
+    day = graphene.Date()
+    user_name = graphene.String()
+    user_id = graphene.Int()
+    other_company_relation = graphene.String(
+        description=(
+            "Indique si le salarié a aussi travaillé ce jour-là pour une "
+            "autre société Mobilic. Valeurs possibles : establishment "
+            "(même SIREN = autre établissement de l'entreprise), company "
+            "(SIREN différent = autre entreprise), null (aucune autre "
+            "activité)."
+        )
+    )
+
+
 class AlertsGroup(graphene.ObjectType):
     alerts_type = graphene.String()
     nb_alerts = graphene.Int()
     days = graphene.List(graphene.Date)
+    day_details = graphene.List(AlertDayDetail)
 
 
 class RegulatoryAlertsSummary(graphene.ObjectType):

@@ -12,6 +12,7 @@ from app.data_access.mission import MissionConnection
 from app.data_access.regulation_computation import (
     CompanyAdminRegulationComputationsByUserAndDay,
 )
+from app.data_access.dashboard_summary import DashboardSummary
 from app.data_access.regulatory_alerts_summary import (
     RegulatoryAlertsSummary,
 )
@@ -30,8 +31,10 @@ from app.domain.permissions import (
 from app.domain.regulation_computations import (
     get_company_admin_regulation_computations,
 )
+from app.domain.dashboard_summary import get_dashboard_summary
 from app.domain.regulatory_alerts_summary import get_regulatory_alerts_summary
 from app.domain.work_days import WorkDayStatsOnly
+from app.helpers.authentication import current_user
 from app.helpers.authorization import (
     with_authorization_policy,
     controller_only,
@@ -234,6 +237,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         CompanyCertificationType,
         description="Informations relatives au certificat en cours pour l'entreprise",
     )
+    dashboard_summary = graphene.Field(
+        DashboardSummary,
+        description="Synthèse des indicateurs du tableau de bord gestionnaire",
+    )
     regulatory_alerts_recap = graphene.Field(
         RegulatoryAlertsSummary,
         description="Résumé des alertes règlementaires au cours d'un mois donné",
@@ -324,9 +331,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
                 .all()
             )
 
-        return (
+        # Employments attached to a known user: keep only the most
+        # recent row per worker.
+        per_user = (
             Employment.query.options(joinedload(Employment.user))
-            .filter(*base_filters)
+            .filter(*base_filters, Employment.user_id.isnot(None))
             .order_by(
                 Employment.user_id,
                 case([(Employment.end_date.is_(None), 0)], else_=1),
@@ -336,6 +345,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .distinct(Employment.user_id)
             .all()
         )
+        # Invitations not yet attached to a Mobilic user: every row is
+        # a distinct invitation, no deduplication needed.
+        unattached = (
+            Employment.query.options(joinedload(Employment.user))
+            .filter(*base_filters, Employment.user_id.is_(None))
+            .all()
+        )
+        return per_user + unattached
 
     @with_authorization_policy(
         company_admin,
@@ -519,6 +536,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     @with_authorization_policy(
         company_admin,
         get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'dashboardSummary' of company object. Actor must be company admin.",
+    )
+    def resolve_dashboard_summary(self, info):
+        return get_dashboard_summary(
+            self.id, user_timezone=current_user.timezone
+        )
+
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'resolve_regulatory_alerts_recap' of company object. Actor must be company admin.",
     )
     def resolve_regulatory_alerts_recap(
@@ -539,7 +566,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
         return get_regulatory_alerts_summary(
-            month=month, user_ids=user_ids, unique_user_id=unique_user_id
+            month=month, user_ids=user_ids, company_id=self.id
         )
 
     def resolve_admin_regulation_computations_by_user_and_by_day(

@@ -1,7 +1,9 @@
+import base64
 import json
-from datetime import timedelta, datetime
-from dotenv import load_dotenv
 import os
+from datetime import timedelta, datetime
+
+from dotenv import load_dotenv
 
 if os.environ.get("DOTENV_FILE", False):
     load_dotenv(os.environ.get("DOTENV_FILE"))
@@ -35,6 +37,15 @@ class Config:
     S3_REGION = os.environ.get("S3_REGION")
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+    TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
+    IMPERSONATION_ALLOWED_TABLES = frozenset(
+        t.strip()
+        for t in os.environ.get("IMPERSONATION_ALLOWED_TABLES", "").split(",")
+        if t.strip()
+    )
+    SUPPORT_LOG_RETENTION_MONTHS = int(
+        os.environ.get("SUPPORT_LOG_RETENTION_MONTHS", 3)
+    )
 
     # FranceConnect v2
     FC_V2_URL = os.environ.get(
@@ -214,6 +225,7 @@ class TestConfig(Config):
     BREVO_COMPANY_SUBSCRIBE_LIST = os.environ.get(
         "BREVO_COMPANY_SUBSCRIBE_LIST", 22
     )
+    TOTP_ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
 
     TRUSTED_REDIRECT_DOMAINS = {
         "localhost",

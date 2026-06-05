@@ -34,9 +34,17 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
         required=True,
         description="Contrôleur rattaché au Ministère de l'Intérieur",
     )
+    is_ctt = graphene.Field(
+        graphene.Boolean,
+        required=True,
+        description="Contrôleur rattaché au CTT (transport routier)",
+    )
 
     def resolve_is_ministry_of_interior(self, info):
         return self.is_ministry_of_interior
+
+    def resolve_is_ctt(self, info):
+        return self.is_ctt
 
     controls = graphene.Field(
         graphene.List(ControllerControlOutput),

@@ -264,7 +264,8 @@ class BrevoSyncOrchestrator:
             if existing_deal:
                 return existing_deal, deal_key
 
-        deal_key = f"name_{company_name}"
+        sanitized_name = self.brevo.sanitize_company_name(company_name)
+        deal_key = f"name_{sanitized_name}"
         existing_deal = deals_by_identifier.get(deal_key)
         return existing_deal, deal_key
 
@@ -284,7 +285,8 @@ class BrevoSyncOrchestrator:
         elif company.get("siren"):
             deals_by_identifier[f"siren_{company['siren']}"] = deal_info
         else:
-            deals_by_identifier[f"name_{company_name}"] = deal_info
+            sanitized_name = self.brevo.sanitize_company_name(company_name)
+            deals_by_identifier[f"name_{sanitized_name}"] = deal_info
 
     def _build_deal_attributes(
         self, company: Dict[str, Any]

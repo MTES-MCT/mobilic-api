@@ -1,10 +1,15 @@
+from datetime import datetime, time, timedelta, timezone
+
 from dateutil.relativedelta import relativedelta
+
+from sqlalchemy.orm import joinedload
 
 from app import db
 from app.data_access.regulation_computation import (
     get_regulation_checks_by_unit,
 )
 from app.data_access.regulatory_alerts_summary import (
+    AlertDayDetail,
     AlertsGroup,
     RegulatoryAlertsSummary,
 )
@@ -13,13 +18,23 @@ from app.domain.regulations_per_day import (
     EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
 )
 from app.helpers.submitter_type import SubmitterType
-from app.models import RegulatoryAlert, RegulationComputation
+from app.helpers.time import to_tz
+from app.models import (
+    Activity,
+    Company,
+    Mission,
+    RegulatoryAlert,
+    RegulationComputation,
+    User,
+)
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
 def query_alerts_for_month(month, user_ids):
     def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
-        query = RegulatoryAlert.query.filter(
+        query = RegulatoryAlert.query.options(
+            joinedload(RegulatoryAlert.user)
+        ).filter(
             RegulatoryAlert.user_id.in_(_user_ids),
             RegulatoryAlert.day >= _start_date,
             RegulatoryAlert.day < _end_date,
@@ -68,39 +83,46 @@ def has_any_regulation_computation(month, user_ids):
     return db.session.query(query.exists()).scalar()
 
 
-def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
-    has_no_data = not has_any_regulation_computation(
-        month=month, user_ids=user_ids
-    )
-    if has_no_data:
-        return RegulatoryAlertsSummary(
-            has_any_computation=False,
-            month=month,
-            total_nb_alerts=0,
-            total_nb_alerts_previous_month=0,
-            daily_alerts=[],
-            weekly_alerts=[],
+def _make_unique_day_details(alerts, alert_type, seen_by_type):
+    """Build deduplicated AlertDayDetail list for a given alert type."""
+    if alert_type not in seen_by_type:
+        seen_by_type[alert_type] = {}
+    seen = seen_by_type[alert_type]
+    result = []
+    for a in alerts:
+        key = (a.day, a.user_id)
+        if key not in seen:
+            detail = AlertDayDetail(
+                day=a.day,
+                user_name=f"{a.user.first_name} {a.user.last_name}",
+                user_id=a.user_id,
+            )
+            seen[key] = detail
+            result.append(detail)
+    return result
+
+
+def _append_to_daily_alerts(alerts, alert_type, daily_alerts, seen_by_type):
+    """Append alerts to the daily_alerts dict, deduplicating day_details."""
+    new_details = _make_unique_day_details(alerts, alert_type, seen_by_type)
+    if alert_type in daily_alerts:
+        daily_alerts[alert_type].nb_alerts += len(alerts)
+        daily_alerts[alert_type].days += [a.day for a in alerts]
+        daily_alerts[alert_type].day_details += new_details
+    else:
+        daily_alerts[alert_type] = AlertsGroup(
+            alerts_type=alert_type,
+            nb_alerts=len(alerts),
+            days=[a.day for a in alerts],
+            day_details=new_details,
         )
 
-    current_month_alerts, previous_month_alerts_count = query_alerts_for_month(
-        month=month, user_ids=user_ids
-    )
 
-    start_date = month
+def _build_daily_alerts(current_month_alerts):
+    """Group current month alerts by daily regulation check type."""
     daily_checks = get_regulation_checks_by_unit(unit=UnitType.DAY)
     daily_alerts = {}
-
-    def _append_alerts(alerts, type):
-        if type in daily_alerts:
-            daily_alerts[type].nb_alerts += len(alerts)
-            if unique_user_id:
-                daily_alerts[type].days += [a.day for a in alerts]
-        else:
-            daily_alerts[type] = AlertsGroup(
-                alerts_type=type,
-                nb_alerts=len(alerts),
-                days=[a.day for a in alerts] if unique_user_id else [],
-            )
+    seen_by_type = {}
 
     for check in daily_checks:
         if check.type == RegulationCheckType.NO_LIC:
@@ -117,19 +139,38 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
                 EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
             ]:
                 extra_alerts = [a for a in alerts if a.extra[extra_field]]
-                _append_alerts(alerts=extra_alerts, type=extra_field)
+                _append_to_daily_alerts(
+                    extra_alerts, extra_field, daily_alerts, seen_by_type
+                )
             continue
 
         if check.type == RegulationCheckType.MINIMUM_WORK_DAY_BREAK:
-            _append_alerts(alerts=alerts, type=EXTRA_NOT_ENOUGH_BREAK)
-            continue
-        if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
-            _append_alerts(
-                alerts=alerts, type=EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
+            _append_to_daily_alerts(
+                alerts,
+                EXTRA_NOT_ENOUGH_BREAK,
+                daily_alerts,
+                seen_by_type,
             )
             continue
-        _append_alerts(alerts=alerts, type=check.type)
+        if check.type == RegulationCheckType.MAXIMUM_UNINTERRUPTED_WORK_TIME:
+            _append_to_daily_alerts(
+                alerts,
+                EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME,
+                daily_alerts,
+                seen_by_type,
+            )
+            continue
+        _append_to_daily_alerts(alerts, check.type, daily_alerts, seen_by_type)
 
+    for group in daily_alerts.values():
+        group.days = sorted({*group.days})
+        group.day_details = sorted(group.day_details, key=lambda x: x.day)
+
+    return daily_alerts, seen_by_type
+
+
+def _build_weekly_alerts(current_month_alerts, start_date, seen_by_type):
+    """Group current month alerts by weekly regulation check type."""
     weekly_checks = get_regulation_checks_by_unit(
         unit=UnitType.WEEK, date=start_date
     )
@@ -144,19 +185,134 @@ def get_regulatory_alerts_summary(month, user_ids, unique_user_id=False):
             AlertsGroup(
                 alerts_type=check.type,
                 nb_alerts=len(alerts),
-                days=[],
+                days=sorted({a.day for a in alerts}),
+                day_details=_make_unique_day_details(
+                    alerts, check.type, seen_by_type
+                ),
             )
         )
+    return weekly_alerts
 
-    # alerts with too_much_uninterrupted_work_time=True and not_enough_break=True count double
-    double_alerts_to_add = len(
-        [
-            a
-            for a in current_month_alerts
-            if a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
-            and a.extra.get(EXTRA_NOT_ENOUGH_BREAK, False)
-        ]
+
+def _count_double_alerts(current_month_alerts):
+    """Count alerts with both uninterrupted work and break violations."""
+    return sum(
+        1
+        for a in current_month_alerts
+        if a.extra
+        and a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
+        and a.extra.get(EXTRA_NOT_ENOUGH_BREAK, False)
     )
+
+
+def _build_other_company_relations(month, user_ids, current_company_id):
+    """Return a dict (user_id, day) -> 'company' | 'establishment' for each
+    pair where the user has at least one non-dismissed activity in a company
+    other than `current_company_id`.
+
+    'establishment' means the other company shares the same SIREN as the
+    current one (same parent enterprise, different sub-establishment).
+    'company' means the SIREN differs (entirely different enterprise).
+
+    When both kinds coexist on the same (user, day), 'company' wins since it
+    is the more surprising signal for the manager.
+
+    The day is computed in the user's own timezone so it matches how
+    RegulatoryAlert.day is built.
+    """
+    if not user_ids or current_company_id is None:
+        return {}
+
+    current_siren = (
+        db.session.query(Company.siren)
+        .filter(Company.id == current_company_id)
+        .scalar()
+    )
+
+    start_date = month
+    end_date = month + relativedelta(months=1)
+    # Widen the SQL window by one day on each side to be safe with timezones
+    window_start = datetime.combine(
+        start_date - timedelta(days=1), time.min, tzinfo=timezone.utc
+    )
+    window_end = datetime.combine(
+        end_date + timedelta(days=1), time.min, tzinfo=timezone.utc
+    )
+
+    rows = (
+        db.session.query(
+            Activity.user_id, Activity.start_time, User, Company.siren
+        )
+        .join(Mission, Mission.id == Activity.mission_id)
+        .join(Company, Company.id == Mission.company_id)
+        .join(User, User.id == Activity.user_id)
+        .filter(
+            Mission.company_id != current_company_id,
+            Activity.user_id.in_(user_ids),
+            Activity.start_time >= window_start,
+            Activity.start_time < window_end,
+            ~Activity.is_dismissed,
+        )
+        .all()
+    )
+
+    relations = {}
+    for user_id, start_time, user, other_siren in rows:
+        # start_time is stored as UTC-naive (cf. DateTimeStoredAsUTC),
+        # to_tz adds the UTC tzinfo and converts to the user timezone
+        local_day = to_tz(start_time, user.timezone).date()
+        if not (start_date <= local_day < end_date):
+            continue
+        same_siren = (
+            current_siren is not None
+            and other_siren is not None
+            and other_siren == current_siren
+        )
+        kind = "establishment" if same_siren else "company"
+        key = (user_id, local_day)
+        # 'company' wins over 'establishment' for the same pair
+        if relations.get(key) != "company":
+            relations[key] = kind
+    return relations
+
+
+def _mark_other_company_days(alerts_group, relations):
+    """Set other_company_relation on every AlertDayDetail whose (user, day)
+    matches a key in `relations`."""
+    for detail in alerts_group.day_details or []:
+        detail.other_company_relation = relations.get(
+            (detail.user_id, detail.day)
+        )
+
+
+def get_regulatory_alerts_summary(month, user_ids, company_id=None):
+    if not has_any_regulation_computation(month=month, user_ids=user_ids):
+        return RegulatoryAlertsSummary(
+            has_any_computation=False,
+            month=month,
+            total_nb_alerts=0,
+            total_nb_alerts_previous_month=0,
+            daily_alerts=[],
+            weekly_alerts=[],
+        )
+
+    current_month_alerts, previous_month_alerts_count = query_alerts_for_month(
+        month=month, user_ids=user_ids
+    )
+
+    daily_alerts, seen_by_type = _build_daily_alerts(current_month_alerts)
+    weekly_alerts = _build_weekly_alerts(
+        current_month_alerts, month, seen_by_type
+    )
+    double_alerts_to_add = _count_double_alerts(current_month_alerts)
+
+    other_relations = _build_other_company_relations(
+        month=month, user_ids=user_ids, current_company_id=company_id
+    )
+    for group in daily_alerts.values():
+        _mark_other_company_days(group, other_relations)
+    for group in weekly_alerts:
+        _mark_other_company_days(group, other_relations)
 
     return RegulatoryAlertsSummary(
         month=month,

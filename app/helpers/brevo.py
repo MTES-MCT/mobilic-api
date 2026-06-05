@@ -331,7 +331,7 @@ class BrevoApiClient:
         company_name = company_data.get("company_name", "Unknown")
 
         try:
-            clean_name = self._sanitize_company_name(company_name)
+            clean_name = self.sanitize_company_name(company_name)
 
             deal_payload = {
                 "name": clean_name,
@@ -460,7 +460,7 @@ class BrevoApiClient:
     def _extract_deal_name(self, deal: dict) -> str:
         return deal["attributes"].get("deal_name", "Unknown")
 
-    def _sanitize_company_name(self, name: str) -> str:
+    def sanitize_company_name(self, name: str) -> str:
         if not name:
             return "Unknown Company"
 
