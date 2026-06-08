@@ -87,6 +87,7 @@ promise = "~=2.3"
 psycopg2 = "~=2.9.5" # Upgraded from 2.8.4
 pycparser = "~=2.20"
 pyjwt = "~=2.4.0"
+pyotp = "~=2.9.0"
 pyparsing = "~=2.4.7"
 pypdf = "~=6.7.0"
 python-bidi = "~=0.4.2"

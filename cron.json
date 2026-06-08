@@ -30,6 +30,9 @@
     {
       "command": "30 3 * * * flask anonymize_users --no-dry-run --verbose && flask migrate_anonymize_data --verbose && flask migrate_anonymize_data --delete-only --verbose",
       "size": "2XL"
+    },
+    {
+      "command": "0 5 * * * flask purge_support_action_logs"
     }
   ]
 }

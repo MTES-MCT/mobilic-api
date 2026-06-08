@@ -298,6 +298,8 @@ def send_daily_emails():
         send_reminder_no_invitation_emails,
         send_invitation_emails,
         send_companies_with_pending_invitation_emails,
+        send_activation_reminder_employee_emails,
+        send_activation_reminder_manager_emails,
     )
 
     send_onboarding_emails(date.today())
@@ -307,6 +309,8 @@ def send_daily_emails():
     send_reminder_no_invitation_emails(date.today())
     send_invitation_emails(date.today())
     send_companies_with_pending_invitation_emails(date.today())
+    send_activation_reminder_employee_emails(date.today())
+    send_activation_reminder_manager_emails(date.today())
 
     from app.jobs.emails.cgu import (
         send_expiry_warning_email,
@@ -873,6 +877,22 @@ def link_brevo_deals_command(
             )
 
         raise
+
+
+@app.cli.command("purge_support_action_logs", with_appcontext=True)
+@click.option("--dry-run", is_flag=True)
+def purge_support_action_logs_command(dry_run):
+    """Purge support_action_log entries older than retention
+    threshold."""
+    from app.services.anonymization.purge_support_action_logs import (
+        purge_expired_support_action_logs,
+    )
+
+    count = purge_expired_support_action_logs(dry_run=dry_run)
+    if dry_run:
+        print(f"Dry run: {count} rows would be purged.")
+    else:
+        print(f"Purged {count} support_action_log rows.")
 
 
 @app.cli.command("delete_old_notifications", with_appcontext=True)

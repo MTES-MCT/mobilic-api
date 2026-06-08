@@ -1,19 +1,25 @@
+from datetime import datetime, timedelta, timezone
+
 import graphene
-from flask import after_this_request, jsonify
+from flask import after_this_request, jsonify, request
 from flask_jwt_extended import (
+    decode_token,
     jwt_required,
     get_jwt_identity,
     current_user as current_actor,
 )
 from app import app, db
 from app.controllers.utils import Void
+from app.domain.totp import verify_totp_code
 from app.domain.user import (
     increment_user_password_tries,
     reset_user_password_tries,
 )
 from app.helpers.authentication import (
     create_access_tokens_for,
+    create_totp_challenge_token,
     set_auth_cookies,
+    LoginOutput,
     UserTokens,
     logout,
     refresh_token,
@@ -33,9 +39,10 @@ from app.models.user import UserAccountStatus
 
 class LoginMutation(graphene.Mutation):
     """
-    Authentification par email/mot de passe.
+    Authenticate via email/password.
 
-    Retourne un jeton d'accès avec une certaine durée de validité et un jeton de rafraichissement
+    Returns an access token and a refresh token.
+    If the user has 2FA TOTP enabled, returns a temporary token with totp_required=true.
     """
 
     class Arguments:
@@ -45,7 +52,7 @@ class LoginMutation(graphene.Mutation):
         )
         password = graphene.String(required=True)
 
-    Output = UserTokens
+    Output = LoginOutput
 
     @classmethod
     def mutate(cls, _, info, email, password):
@@ -86,6 +93,85 @@ class LoginMutation(graphene.Mutation):
                 )
             reset_user_password_tries(user)
 
+        totp_cred = user.totp_credential
+        if totp_cred and totp_cred.enabled:
+            temp_token = create_totp_challenge_token(user)
+            return LoginOutput(
+                access_token=temp_token,
+                refresh_token=None,
+                totp_required=True,
+            )
+
+        tokens = create_access_tokens_for(user)
+
+        @after_this_request
+        def set_cookies(response):
+            set_auth_cookies(response, user_id=user.id, **tokens)
+            return response
+
+        return LoginOutput(**tokens, totp_required=False)
+
+
+TOTP_MAX_ATTEMPTS = 5
+TOTP_RATE_LIMIT_WINDOW = timedelta(minutes=5)
+
+
+class ValidateTOTPLogin(graphene.Mutation):
+    """
+    Validate TOTP code after a 2FA login.
+    Requires the temporary challenge token in the Authorization header.
+    """
+
+    class Arguments:
+        code = graphene.String(required=True)
+
+    Output = UserTokens
+
+    @classmethod
+    def mutate(cls, _, info, code):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            raise AuthenticationError("Missing authorization header")
+
+        token_str = auth_header.split(" ", 1)[1]
+        try:
+            payload = decode_token(token_str)
+        except Exception:
+            raise AuthenticationError(
+                "Invalid or expired TOTP challenge token"
+            )
+
+        identity = payload.get("identity")
+        if not identity or not identity.get("totp_required"):
+            raise AuthenticationError("Invalid TOTP challenge token")
+
+        user = User.query.get(identity["id"])
+        if not user:
+            raise AuthenticationError("Invalid TOTP challenge token")
+
+        totp_cred = user.totp_credential
+        if not totp_cred:
+            raise AuthenticationError("TOTP not configured")
+
+        now = datetime.now(tz=timezone.utc)
+        if totp_cred.failed_attempts >= TOTP_MAX_ATTEMPTS:
+            if (
+                totp_cred.last_failed_at
+                and now - totp_cred.last_failed_at < TOTP_RATE_LIMIT_WINDOW
+            ):
+                raise BlockedAccountError
+            totp_cred.failed_attempts = 0
+
+        if not verify_totp_code(totp_cred.secret, code):
+            totp_cred.failed_attempts += 1
+            totp_cred.last_failed_at = now
+            db.session.commit()
+            raise AuthenticationError("Invalid TOTP code")
+
+        totp_cred.failed_attempts = 0
+        totp_cred.last_failed_at = None
+        db.session.commit()
+
         tokens = create_access_tokens_for(user)
 
         @after_this_request
@@ -97,10 +183,7 @@ class LoginMutation(graphene.Mutation):
 
 
 class LogoutMutation(graphene.Mutation):
-    """
-    Invalidation du jeton existant de rafraichissement pour l'utilisateur.
-
-    """
+    """Invalidate the existing refresh token for the user."""
 
     Output = Void
 
@@ -112,11 +195,11 @@ class LogoutMutation(graphene.Mutation):
 
 class RefreshMutation(graphene.Mutation):
     """
-    Rafraichissement du jeton d'accès. La requête doit comporter l'en-tête "Authorization: Bearer <JETON_DE_RAFRAICHISSEMENT>"
+    Refresh the access token. The request must include the
+    "Authorization: Bearer <REFRESH_TOKEN>" header.
 
-    Attention, un jeton de rafraichissement ne peut être utilisé qu'une seule fois
-
-    Retourne un nouveau jeton d'accès et un nouveau jeton de rafraichissement
+    A refresh token can only be used once.
+    Returns a new access token and a new refresh token.
     """
 
     Output = UserTokens
