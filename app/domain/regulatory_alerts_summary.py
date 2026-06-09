@@ -30,50 +30,57 @@ from app.models import (
 from app.models.regulation_check import UnitType, RegulationCheckType
 
 
-def query_alerts_for_month(month, user_ids):
-    def query_alerts(_start_date, _end_date, _user_ids, count_only=True):
-        query = RegulatoryAlert.query.options(
-            joinedload(RegulatoryAlert.user)
-        ).filter(
-            RegulatoryAlert.user_id.in_(_user_ids),
-            RegulatoryAlert.day >= _start_date,
-            RegulatoryAlert.day < _end_date,
+def _query_alerts_in_window(start_date, end_date, user_ids):
+    """Load alerts in [start_date, end_date) for given users."""
+    return (
+        RegulatoryAlert.query.options(joinedload(RegulatoryAlert.user))
+        .filter(
+            RegulatoryAlert.user_id.in_(user_ids),
+            RegulatoryAlert.day >= start_date,
+            RegulatoryAlert.day < end_date,
             RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
         )
-        if count_only:
-            base_count = query.count()
-            double_alerts_count = query.filter(
-                RegulatoryAlert.extra[EXTRA_NOT_ENOUGH_BREAK].as_boolean()
-                == True,
-                RegulatoryAlert.extra[
-                    EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
-                ].as_boolean()
-                == True,
-            ).count()
-            return base_count + double_alerts_count
-        return query.all()
+        .all()
+    )
 
+
+def _count_alerts_in_window(start_date, end_date, user_ids):
+    """Count alerts in [start_date, end_date), counting "double" alerts
+    (NOT_ENOUGH_BREAK + TOO_MUCH_UNINTERRUPTED_WORK_TIME on the same row)
+    twice — preserves the historical semantic."""
+    base_query = RegulatoryAlert.query.filter(
+        RegulatoryAlert.user_id.in_(user_ids),
+        RegulatoryAlert.day >= start_date,
+        RegulatoryAlert.day < end_date,
+        RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+    )
+    base_count = base_query.count()
+    double_alerts_count = base_query.filter(
+        RegulatoryAlert.extra[EXTRA_NOT_ENOUGH_BREAK].as_boolean() == True,
+        RegulatoryAlert.extra[
+            EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
+        ].as_boolean()
+        == True,
+    ).count()
+    return base_count + double_alerts_count
+
+
+def query_alerts_for_month(month, user_ids):
+    """Legacy entry point: load alerts for `month` and count alerts for
+    the previous month. Kept for backward compatibility."""
     start_date = month
     end_date = month + relativedelta(months=1)
-
-    current_month_alerts = query_alerts(
-        _start_date=start_date,
-        _end_date=end_date,
-        _user_ids=user_ids,
-        count_only=False,
+    current_month_alerts = _query_alerts_in_window(
+        start_date, end_date, user_ids
     )
     previous_start = month + relativedelta(months=-1)
-    previous_month_alerts_count = query_alerts(
-        _start_date=previous_start,
-        _end_date=start_date,
-        _user_ids=user_ids,
+    previous_month_alerts_count = _count_alerts_in_window(
+        previous_start, start_date, user_ids
     )
     return current_month_alerts, previous_month_alerts_count
 
 
-def has_any_regulation_computation(month, user_ids):
-    start_date = month
-    end_date = month + relativedelta(months=1)
+def _has_regulation_computation_in_window(start_date, end_date, user_ids):
     query = db.session.query(RegulationComputation).filter(
         RegulationComputation.user_id.in_(user_ids),
         RegulationComputation.day >= start_date,
@@ -81,6 +88,14 @@ def has_any_regulation_computation(month, user_ids):
         RegulationComputation.submitter_type == SubmitterType.ADMIN,
     )
     return db.session.query(query.exists()).scalar()
+
+
+def has_any_regulation_computation(month, user_ids):
+    start_date = month
+    end_date = month + relativedelta(months=1)
+    return _has_regulation_computation_in_window(
+        start_date, end_date, user_ids
+    )
 
 
 def _make_unique_day_details(alerts, alert_type, seen_by_type):
@@ -118,8 +133,8 @@ def _append_to_daily_alerts(alerts, alert_type, daily_alerts, seen_by_type):
         )
 
 
-def _build_daily_alerts(current_month_alerts):
-    """Group current month alerts by daily regulation check type."""
+def _build_daily_alerts(current_alerts):
+    """Group alerts by daily regulation check type."""
     daily_checks = get_regulation_checks_by_unit(unit=UnitType.DAY)
     daily_alerts = {}
     seen_by_type = {}
@@ -129,9 +144,7 @@ def _build_daily_alerts(current_month_alerts):
             continue
 
         alerts = [
-            a
-            for a in current_month_alerts
-            if a.regulation_check_id == check.id
+            a for a in current_alerts if a.regulation_check_id == check.id
         ]
         if check.type == RegulationCheckType.ENOUGH_BREAK:
             for extra_field in [
@@ -169,17 +182,15 @@ def _build_daily_alerts(current_month_alerts):
     return daily_alerts, seen_by_type
 
 
-def _build_weekly_alerts(current_month_alerts, start_date, seen_by_type):
-    """Group current month alerts by weekly regulation check type."""
+def _build_weekly_alerts(current_alerts, reference_date, seen_by_type):
+    """Group alerts by weekly regulation check type."""
     weekly_checks = get_regulation_checks_by_unit(
-        unit=UnitType.WEEK, date=start_date
+        unit=UnitType.WEEK, date=reference_date
     )
     weekly_alerts = []
     for check in weekly_checks:
         alerts = [
-            a
-            for a in current_month_alerts
-            if a.regulation_check_id == check.id
+            a for a in current_alerts if a.regulation_check_id == check.id
         ]
         weekly_alerts.append(
             AlertsGroup(
@@ -194,31 +205,23 @@ def _build_weekly_alerts(current_month_alerts, start_date, seen_by_type):
     return weekly_alerts
 
 
-def _count_double_alerts(current_month_alerts):
+def _count_double_alerts(current_alerts):
     """Count alerts with both uninterrupted work and break violations."""
     return sum(
         1
-        for a in current_month_alerts
+        for a in current_alerts
         if a.extra
         and a.extra.get(EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME, False)
         and a.extra.get(EXTRA_NOT_ENOUGH_BREAK, False)
     )
 
 
-def _build_other_company_relations(month, user_ids, current_company_id):
+def _build_other_company_relations(
+    window_start, window_end, user_ids, current_company_id
+):
     """Return a dict (user_id, day) -> 'company' | 'establishment' for each
     pair where the user has at least one non-dismissed activity in a company
-    other than `current_company_id`.
-
-    'establishment' means the other company shares the same SIREN as the
-    current one (same parent enterprise, different sub-establishment).
-    'company' means the SIREN differs (entirely different enterprise).
-
-    When both kinds coexist on the same (user, day), 'company' wins since it
-    is the more surprising signal for the manager.
-
-    The day is computed in the user's own timezone so it matches how
-    RegulatoryAlert.day is built.
+    other than `current_company_id`, within [window_start, window_end).
     """
     if not user_ids or current_company_id is None:
         return {}
@@ -229,14 +232,12 @@ def _build_other_company_relations(month, user_ids, current_company_id):
         .scalar()
     )
 
-    start_date = month
-    end_date = month + relativedelta(months=1)
-    # Widen the SQL window by one day on each side to be safe with timezones
-    window_start = datetime.combine(
-        start_date - timedelta(days=1), time.min, tzinfo=timezone.utc
+    # Widen by one day on each side to be safe with user timezones
+    sql_start = datetime.combine(
+        window_start - timedelta(days=1), time.min, tzinfo=timezone.utc
     )
-    window_end = datetime.combine(
-        end_date + timedelta(days=1), time.min, tzinfo=timezone.utc
+    sql_end = datetime.combine(
+        window_end + timedelta(days=1), time.min, tzinfo=timezone.utc
     )
 
     rows = (
@@ -249,8 +250,8 @@ def _build_other_company_relations(month, user_ids, current_company_id):
         .filter(
             Mission.company_id != current_company_id,
             Activity.user_id.in_(user_ids),
-            Activity.start_time >= window_start,
-            Activity.start_time < window_end,
+            Activity.start_time >= sql_start,
+            Activity.start_time < sql_end,
             ~Activity.is_dismissed,
         )
         .all()
@@ -261,7 +262,7 @@ def _build_other_company_relations(month, user_ids, current_company_id):
         # start_time is stored as UTC-naive (cf. DateTimeStoredAsUTC),
         # to_tz adds the UTC tzinfo and converts to the user timezone
         local_day = to_tz(start_time, user.timezone).date()
-        if not (start_date <= local_day < end_date):
+        if not (window_start <= local_day < window_end):
             continue
         same_siren = (
             current_siren is not None
@@ -270,7 +271,6 @@ def _build_other_company_relations(month, user_ids, current_company_id):
         )
         kind = "establishment" if same_siren else "company"
         key = (user_id, local_day)
-        # 'company' wins over 'establishment' for the same pair
         if relations.get(key) != "company":
             relations[key] = kind
     return relations
@@ -285,8 +285,33 @@ def _mark_other_company_days(alerts_group, relations):
         )
 
 
-def get_regulatory_alerts_summary(month, user_ids, company_id=None):
-    if not has_any_regulation_computation(month=month, user_ids=user_ids):
+def get_regulatory_alerts_summary(
+    month, user_ids, company_id=None, from_date=None, to_date=None
+):
+    """Build the regulatory alerts summary.
+
+    By default, loads alerts for the whole `month` plus a count for the
+    previous month (used for the month-over-month trend in the regulatory
+    panel).
+
+    When `from_date` and `to_date` are both provided, the alert window is
+    narrowed to [from_date, to_date) and the previous-month count is
+    skipped. This is the recommended mode for the manager homepage, which
+    only needs current-week data and was previously over-fetching a full
+    month + the cross-company JOIN over ~32 days.
+    """
+    if from_date is not None and to_date is not None:
+        window_start = from_date
+        window_end = to_date
+        compute_previous = False
+    else:
+        window_start = month
+        window_end = month + relativedelta(months=1)
+        compute_previous = True
+
+    if not _has_regulation_computation_in_window(
+        window_start, window_end, user_ids
+    ):
         return RegulatoryAlertsSummary(
             has_any_computation=False,
             month=month,
@@ -296,18 +321,29 @@ def get_regulatory_alerts_summary(month, user_ids, company_id=None):
             weekly_alerts=[],
         )
 
-    current_month_alerts, previous_month_alerts_count = query_alerts_for_month(
-        month=month, user_ids=user_ids
+    current_alerts = _query_alerts_in_window(
+        window_start, window_end, user_ids
     )
 
-    daily_alerts, seen_by_type = _build_daily_alerts(current_month_alerts)
+    if compute_previous:
+        previous_start = month + relativedelta(months=-1)
+        previous_count = _count_alerts_in_window(
+            previous_start, month, user_ids
+        )
+    else:
+        previous_count = 0
+
+    daily_alerts, seen_by_type = _build_daily_alerts(current_alerts)
     weekly_alerts = _build_weekly_alerts(
-        current_month_alerts, month, seen_by_type
+        current_alerts, window_start, seen_by_type
     )
-    double_alerts_to_add = _count_double_alerts(current_month_alerts)
+    double_alerts_to_add = _count_double_alerts(current_alerts)
 
     other_relations = _build_other_company_relations(
-        month=month, user_ids=user_ids, current_company_id=company_id
+        window_start=window_start,
+        window_end=window_end,
+        user_ids=user_ids,
+        current_company_id=company_id,
     )
     for group in daily_alerts.values():
         _mark_other_company_days(group, other_relations)
@@ -317,8 +353,8 @@ def get_regulatory_alerts_summary(month, user_ids, company_id=None):
     return RegulatoryAlertsSummary(
         month=month,
         has_any_computation=True,
-        total_nb_alerts=len(current_month_alerts) + double_alerts_to_add,
-        total_nb_alerts_previous_month=previous_month_alerts_count,
+        total_nb_alerts=len(current_alerts) + double_alerts_to_add,
+        total_nb_alerts_previous_month=previous_count,
         daily_alerts=daily_alerts.values(),
         weekly_alerts=weekly_alerts,
     )

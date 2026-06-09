@@ -254,3 +254,49 @@ class TestRegulatoryAlertsSummary(BaseTest):
         )
         self.assertIsNotNone(detail)
         self.assertIsNone(detail.other_company_relation)
+
+    def test_window_mode_restricts_alerts_to_range(self):
+        """When from_date/to_date are provided, only alerts within that
+        window are loaded — the homepage uses this mode to fetch a single
+        week instead of a full month."""
+        db.session.add(
+            RegulationComputation(
+                day=date(2025, 5, 5),
+                submitter_type=SubmitterType.ADMIN,
+                user_id=self.user.id,
+            )
+        )
+        check = RegulationCheck.query.filter(
+            RegulationCheck.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+        ).first()
+        # Alert inside the window (Mon 5 May 2025)
+        db.session.add(
+            RegulatoryAlert(
+                day=date(2025, 5, 5),
+                user_id=self.user.id,
+                regulation_check=check,
+                submitter_type=SubmitterType.ADMIN,
+                business=self.business,
+            )
+        )
+        # Alert outside the window but inside the month
+        db.session.add(
+            RegulatoryAlert(
+                day=date(2025, 5, 20),
+                user_id=self.user.id,
+                regulation_check=check,
+                submitter_type=SubmitterType.ADMIN,
+                business=self.business,
+            )
+        )
+        db.session.commit()
+
+        summary = get_regulatory_alerts_summary(
+            month=date(2025, 5, 1),
+            user_ids=[self.user.id],
+            from_date=date(2025, 5, 5),
+            to_date=date(2025, 5, 12),
+        )
+        self.assertEqual(1, summary.total_nb_alerts)
+        # Window mode does not compute the month-over-month trend
+        self.assertEqual(0, summary.total_nb_alerts_previous_month)
