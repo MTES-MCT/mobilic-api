@@ -203,6 +203,30 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["activeMissionsCount"], 1)
 
+    def test_long_running_activity_not_counted_as_active(self):
+        """An activity left open for more than the active-missions window
+        (data quality bug) is excluded from the counter, so Postgres can
+        use the start_time range filter instead of scanning the full
+        activity history of the company."""
+        old_time = self.now - timedelta(days=60)
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=old_time,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=old_time,
+            start_time=old_time,
+            last_update_time=old_time,
+        )
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["activeMissionsCount"], 0)
+
     def test_closed_activity_not_active(self):
         """Mission whose activities all have an end_time set is not active,
         even if no MissionEnd has been recorded yet (worker still needs
