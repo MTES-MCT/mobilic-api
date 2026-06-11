@@ -83,9 +83,12 @@ class ControllerControl(BaseModel, RandomNineIntId):
 
     @property
     def history_end_date(self):
+        # Use control_time if it exists (when controller updated the time),
+        # otherwise fallback to qr_code_generation_time (initial scan time)
+        reference_time = self.control_time or self.qr_code_generation_time
         return (
-            self.qr_code_generation_time.date()
-            if self.qr_code_generation_time
+            reference_time.date()
+            if reference_time
             else self.creation_time.date()
         )
 
