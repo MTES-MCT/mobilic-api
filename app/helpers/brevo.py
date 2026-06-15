@@ -174,9 +174,9 @@ class BrevoApiClient:
     def update_deal(
         self,
         deal_id: str,
-        pipeline_id: str = None,
-        stage_id: str = None,
-        attributes: dict = None,
+        pipeline_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        attributes: Optional[dict] = None,
     ) -> None:
         """Update a deal with stage and/or attributes in a single API call.
 
@@ -557,7 +557,7 @@ class BrevoApiClient:
 
     @check_api_key
     def search_companies_by_identifier(
-        self, siret: str = None, siren: str = None
+        self, siret: Optional[str] = None, siren: Optional[str] = None
     ) -> list:
         try:
             companies = self._get_all_companies()
@@ -624,9 +624,47 @@ class BrevoApiClient:
 
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return False
         except Exception as e:
             app.logger.error(
                 f"Failed to link deal {deal_id} to company {company_id}: {e}"
+            )
+            return False
+
+    @check_api_key
+    def get_contact_by_email(self, email: str) -> Optional[dict]:
+        try:
+            api_response = self._contacts_api.get_contact_info(email)
+            return {
+                "id": api_response.id,
+                "email": api_response.email,
+                "attributes": api_response.attributes,
+            }
+        except ApiException as e:
+            if e.status == 404:
+                app.logger.debug(f"Contact not found: {email}")
+                return None
+            app.logger.error(f"Failed to get contact {email}: {e}")
+            return None
+        except Exception as e:
+            app.logger.error(f"Failed to get contact {email}: {e}")
+            return None
+
+    @check_api_key
+    def link_contact_to_deal(self, deal_id: str, contact_id: int) -> bool:
+        try:
+            url = f"{self.BASE_URL}/crm/deals/link-unlink/{deal_id}"
+            payload = {"linkContactIds": [contact_id]}
+            response = self._session.patch(url, json=payload)
+            response.raise_for_status()
+            return True
+
+        except requests.exceptions.HTTPError as e:
+            self._handle_request_error(e)
+            return False
+        except Exception as e:
+            app.logger.error(
+                f"Failed to link contact {contact_id} to deal {deal_id}: {e}"
             )
             return False
 
