@@ -31,6 +31,9 @@ from app.seed.scenarios.formations.controller import (
     run_scenario_formation_controller_1,
     run_scenario_formation_controller_2,
 )
+from app.seed.scenarios.formations.real_case import (
+    run_scenario_formation_real_case,
+)
 from app.services.send_certificate_compute_end_notification import (
     send_certificate_compute_end_notification,
 )
@@ -893,8 +896,20 @@ def delete_old_notifications():
 @app.cli.command("formations", with_appcontext=True)
 def run_formations():
 
-    for i in range(1, 7):
+    for i in range(1, 4):
         run_scenario_formation_admin(f"mobilic.salarie+{i}@gmail.com")
+
+    # Real field-control cases collected by N. Maitrejean, used in CTT
+    # training so trainees can practice on situations seen on the ground.
+    real_cases = {
+        4: 324167326,
+        5: 515416315,
+        6: 234415209,
+    }
+    for sandbox_idx, control_id in real_cases.items():
+        run_scenario_formation_real_case(
+            f"mobilic.salarie+{sandbox_idx}@gmail.com", control_id
+        )
 
     run_scenario_formation_controller_1("mobilic.salarie+7@gmail.com")
     run_scenario_formation_controller_2("mobilic.salarie+9@gmail.com")
