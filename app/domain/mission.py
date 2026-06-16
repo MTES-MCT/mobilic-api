@@ -18,6 +18,7 @@ from app.models import (
     MissionEnd,
 )
 from app.models import User
+from app.models.activity import activity_versions_at
 from app.models.location_entry import LocationEntryType
 from app.models.regulation_check import RegulationCheckType
 
@@ -123,16 +124,17 @@ def get_start_end_time_at_employee_validation(mission, users_ids):
         if not employee_validation or not employee_validation.reception_time:
             continue
 
-        activities_at_employee_validation_time = mission.activities_for(
-            user=employee,
-            max_reception_time=employee_validation.reception_time,
+        # Use versions; activities_for(max_reception_time=...) mutates the rows and the surrounding transaction commits it.
+        versions_at_validation = activity_versions_at(
+            mission.activities_for(user=employee),
+            employee_validation.reception_time,
         )
-        if len(activities_at_employee_validation_time) == 0:
+        if not versions_at_validation:
             continue
 
         ret[user_id] = (
-            activities_at_employee_validation_time[0].start_time,
-            activities_at_employee_validation_time[-1].end_time,
+            versions_at_validation[0].start_time,
+            versions_at_validation[-1].end_time,
         )
     return ret
 
