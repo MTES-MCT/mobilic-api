@@ -70,6 +70,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "end_time",
             "last_update_time",
             "dismissed_at",
+            "dismiss_context",
             "dismiss_author_id",
             "dismiss_author",
             "type",
@@ -117,6 +118,10 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     dismissed_at = graphene.Field(
         TimeStamp,
         description="Horodatage de suppression de l'activité, si jamais l'activité a été effacée",
+    )
+    dismiss_context = graphene.Field(
+        GenericScalar,
+        description="Données contextuelles libres sur la suppression de l'activité",
     )
     dismiss_author_id = graphene.Field(
         graphene.Int,
