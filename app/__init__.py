@@ -2,7 +2,9 @@ import os
 import logging
 
 import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import Flask, g
@@ -21,12 +23,29 @@ from app.helpers.siren import SirenAPIClient
 from app.templates.filters import JINJA_CUSTOM_FILTERS
 from config import MOBILIC_ENV
 
+
+def _sentry_traces_sampler(sampling_context):
+    wsgi = sampling_context.get("wsgi_environ") or {}
+    path = wsgi.get("PATH_INFO", "")
+    if wsgi.get("REQUEST_METHOD") == "OPTIONS" or path in ("/", "/health"):
+        return 0.0
+    if wsgi.get("HTTP_X_CLIENT_ID"):
+        return float(os.environ.get("SENTRY_SAMPLE_RATE_THIRDPARTY", 0.3))
+    if path == "/graphql":
+        return float(os.environ.get("SENTRY_SAMPLE_RATE_GRAPHQL", 0.02))
+    return float(os.environ.get("SENTRY_SAMPLE_RATE", 0.05))
+
+
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
-    traces_sample_rate=os.environ.get("SENTRY_SAMPLE_RATE", 0),
+    traces_sampler=_sentry_traces_sampler,
     integrations=[
         LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+        FlaskIntegration(),
+        SqlalchemyIntegration(),
     ],
+    environment=os.environ.get("SENTRY_ENVIRONMENT"),
+    send_default_pii=False,
 )
 app = Flask(__name__)
 

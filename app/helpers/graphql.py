@@ -162,6 +162,8 @@ class CustomGraphQLView(GraphQLView):
                     f"Could not add GraphQl request info to log context because of following error {e}"
                 )
         with configure_scope() as scope:
-            scope.set_transaction_name(operation_name)
+            # source="custom" raises priority above FlaskIntegration's
+            # "route" source -> the operation name actually sticks in Sentry.
+            scope.set_transaction_name(operation_name, source="custom")
             response = super().dispatch_request()
             return response
