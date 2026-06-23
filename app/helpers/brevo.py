@@ -11,7 +11,10 @@ from app.helpers.errors import MobilicError
 
 
 class BrevoRequestError(MobilicError):
-    code = "BREVO_API_ERROR"
+    @property
+    def code(self):
+        return "BREVO_API_ERROR"
+
     default_message = "Request to Brevo API failed"
 
 
@@ -154,6 +157,7 @@ class BrevoApiClient:
             return response.json()["id"]
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return None
         except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -167,6 +171,7 @@ class BrevoApiClient:
             return response
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return None
         except Exception as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -240,6 +245,7 @@ class BrevoApiClient:
             return {"items": all_deals}
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return {"items": []}
         except requests.exceptions.RequestException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -252,6 +258,7 @@ class BrevoApiClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return []
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
@@ -264,12 +271,17 @@ class BrevoApiClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return None
         except ApiException as e:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
     def get_stage_name(self, pipeline_id: str, stage_id: str):
         pipeline_details = self.get_pipeline_details(pipeline_id)
+
+        if not pipeline_details:
+            app.logger.warning(f"Pipeline with ID {pipeline_id} not found.")
+            return None
 
         if isinstance(pipeline_details, list):
             pipeline = next(
@@ -309,6 +321,7 @@ class BrevoApiClient:
             return result
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return {}
         except Exception as e:
             app.logger.error(f"Failed to get deal attributes: {e}")
             return {}
@@ -316,7 +329,7 @@ class BrevoApiClient:
     @check_api_key
     def create_deal_with_attributes(
         self, company_data: dict, pipeline_id: str, stage_id: str, status: str
-    ) -> str:
+    ) -> Optional[str]:
         """Create a new deal in Brevo with company attributes.
 
         Args:
@@ -402,6 +415,7 @@ class BrevoApiClient:
 
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return None
         except Exception as e:
             app.logger.error(
                 f"Failed to create deal for company ID {company_data.get('company_id')}: {e}"
@@ -484,10 +498,12 @@ class BrevoApiClient:
     def get_pipeline_id_by_name(self, pipeline_name: str) -> Optional[str]:
         try:
             pipelines = self.get_all_pipelines()
+            if not pipelines:
+                return None
             for pipeline in pipelines:
                 if pipeline["pipeline_name"] == pipeline_name:
                     return pipeline["pipeline"]
-            return
+            return None
         except BrevoRequestError as e:
             app.logger.error(f"Failed to get pipelines: {e}")
             raise
@@ -554,6 +570,7 @@ class BrevoApiClient:
             return all_companies
         except requests.exceptions.HTTPError as e:
             self._handle_request_error(e)
+            return []
 
     @check_api_key
     def search_companies_by_identifier(
