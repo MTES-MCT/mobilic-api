@@ -320,7 +320,6 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
             end_time=self.history_end_date,
             limit_fetch_activities=2000,
             max_start_time=max_time,
-            include_posteriori_activities=True,
             mission_id=mission_id,
             include_deleted_missions=True,
         )
