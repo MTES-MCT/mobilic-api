@@ -453,6 +453,72 @@ class BrevoSyncOrchestrator:
             if company_key in company
         }
 
+    def _link_deal(
+        self,
+        company: Dict[str, Any],
+        deal_id: str,
+        existing_deal: Optional[Dict[str, Any]],
+    ) -> None:
+        """Link deal to company and contact, logging any contact errors."""
+        self._link_deal_to_company(company, deal_id, existing_deal)
+        try:
+            self._link_manager_contact_to_deal(company, deal_id, existing_deal)
+        except BrevoRequestError as e:
+            self.logger.warning(f"Could not link contact: {e}")
+
+    def _update_existing_deal(
+        self,
+        company: Dict[str, Any],
+        pipeline_id: str,
+        target_stage_id: str,
+        existing_deal: Dict[str, Any],
+    ) -> SyncResult:
+        """Update an existing deal's stage/attributes and ensure it's linked."""
+        result = SyncResult()
+
+        attributes = self._build_deal_attributes(company)
+        stage_changed = existing_deal["stage_id"] != target_stage_id
+        changed_attributes = {
+            key: value
+            for key, value in attributes.items()
+            if str(existing_deal.get(key)) != str(value)
+        }
+
+        if stage_changed or changed_attributes:
+            self.brevo.update_deal(
+                deal_id=existing_deal["id"],
+                pipeline_id=pipeline_id if stage_changed else None,
+                stage_id=target_stage_id if stage_changed else None,
+                attributes=changed_attributes or None,
+            )
+            result.updated_deals += 1
+
+        self._link_deal(company, existing_deal["id"], existing_deal)
+        return result
+
+    def _create_new_deal(
+        self,
+        company: Dict[str, Any],
+        pipeline_id: str,
+        target_stage_id: str,
+        target_status: str,
+        deals_by_identifier: Dict[str, Dict[str, Any]],
+    ) -> SyncResult:
+        """Create a new deal and link it to its company and contact."""
+        result = SyncResult()
+
+        deal_id = self.brevo.create_deal_with_attributes(
+            company, pipeline_id, target_stage_id, target_status
+        )
+        if deal_id:
+            result.created_deals += 1
+            self._update_deal_identifier(
+                company, deal_id, target_stage_id, deals_by_identifier
+            )
+            self._link_deal(company, deal_id, None)
+
+        return result
+
     def _sync_single_company(
         self,
         company: Dict[str, Any],
@@ -461,13 +527,13 @@ class BrevoSyncOrchestrator:
         deals_by_identifier: Dict[str, Dict[str, Any]],
         status_field: str,
     ) -> SyncResult:
-        result = SyncResult()
-
         target_status = company.get(status_field, "Entreprise inscrite")
-        normalized_status = self._normalize_status(target_status)
-        target_stage_id = stage_mapping.get(normalized_status)
+        target_stage_id = stage_mapping.get(
+            self._normalize_status(target_status)
+        )
 
         if not target_stage_id:
+            result = SyncResult()
             result.errors.append(
                 f"Stage '{target_status}' not found in pipeline"
             )
@@ -478,50 +544,17 @@ class BrevoSyncOrchestrator:
         )
 
         if existing_deal:
-            attributes = self._build_deal_attributes(company)
-            stage_changed = existing_deal["stage_id"] != target_stage_id
-            changed_attributes = {
-                key: value
-                for key, value in attributes.items()
-                if str(existing_deal.get(key)) != str(value)
-            }
-
-            if stage_changed or changed_attributes:
-                self.brevo.update_deal(
-                    deal_id=existing_deal["id"],
-                    pipeline_id=pipeline_id if stage_changed else None,
-                    stage_id=target_stage_id if stage_changed else None,
-                    attributes=changed_attributes or None,
-                )
-                result.updated_deals += 1
-
-            # Link deal to company and contact (skips if already linked)
-            self._link_deal_to_company(
-                company, existing_deal["id"], existing_deal
+            return self._update_existing_deal(
+                company, pipeline_id, target_stage_id, existing_deal
             )
-            try:
-                self._link_manager_contact_to_deal(
-                    company, existing_deal["id"], existing_deal
-                )
-            except BrevoRequestError as e:
-                self.logger.warning(f"Could not link contact: {e}")
-        else:
-            deal_id = self.brevo.create_deal_with_attributes(
-                company, pipeline_id, target_stage_id, target_status
-            )
-            if deal_id:
-                result.created_deals += 1
-                self._update_deal_identifier(
-                    company, deal_id, target_stage_id, deals_by_identifier
-                )
-                # Link newly created deal to company and contact
-                self._link_deal_to_company(company, deal_id, None)
-                try:
-                    self._link_manager_contact_to_deal(company, deal_id, None)
-                except BrevoRequestError as e:
-                    self.logger.warning(f"Could not link contact: {e}")
 
-        return result
+        return self._create_new_deal(
+            company,
+            pipeline_id,
+            target_stage_id,
+            target_status,
+            deals_by_identifier,
+        )
 
     def _simulate_sync(
         self,
