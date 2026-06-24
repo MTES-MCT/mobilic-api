@@ -121,7 +121,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     dismiss_context = graphene.Field(
         GenericScalar,
-        description="Données contextuelles libres sur la suppression de l'activité",
+        description='Contexte de la suppression de l\'activité, ex: {"comment": "erreur de saisie"}',
     )
     dismiss_author_id = graphene.Field(
         graphene.Int,
