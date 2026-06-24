@@ -5,7 +5,7 @@ import time
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
-from app.helpers.brevo import BrevoApiClient
+from app.helpers.brevo import BrevoApiClient, BrevoRequestError
 from .acquisition_data_finder import AcquisitionDataFinder
 from .activation_data_finder import ActivationDataFinder
 
@@ -377,59 +377,53 @@ class BrevoSyncOrchestrator:
         deal_id: str,
         existing_deal: Optional[Dict[str, Any]] = None,
     ) -> int:
-        """Link manager contact to deal."""
+        """Link manager contact to deal. Raises BrevoRequestError on API errors."""
         api_calls = 0
-        try:
-            admin_email = company.get("admin_email")
-            if not admin_email:
-                self.logger.debug(
-                    f"No admin email for company {company.get('company_name')}"
-                )
-                return api_calls
-
-            # Search for contact by email
-            contact = self.brevo.get_contact_by_email(admin_email)
-            api_calls += 1
-            if not contact:
-                self.logger.warning(
-                    f"No contact found for email {admin_email} "
-                    f"({company.get('company_name')})"
-                )
-                return api_calls
-
-            contact_id = contact.get("id")
-            if not contact_id:
-                self.logger.error(f"Contact found but no ID: {contact}")
-                return api_calls
-
-            # Check if contact is already linked to deal
-            existing_contacts = (
-                existing_deal.get("linkedContactsIds", [])
-                if existing_deal
-                else []
+        admin_email = company.get("admin_email")
+        if not admin_email:
+            self.logger.debug(
+                f"No admin email for company {company.get('company_name')}"
             )
-            if contact_id not in existing_contacts:
-                success = self.brevo.link_contact_to_deal(deal_id, contact_id)
-                api_calls += 1
+            return api_calls
 
-                if success:
-                    self.logger.debug(
-                        f"Linked contact {contact_id} ({admin_email}) to deal {deal_id}"
-                    )
-                else:
-                    self.logger.error(
-                        f"Failed to link contact {contact_id} to deal {deal_id}"
-                    )
-            else:
+        # get_contact_by_email returns None for 404, raises BrevoRequestError for API errors
+        contact = self.brevo.get_contact_by_email(admin_email)
+        api_calls += 1
+
+        if not contact:
+            self.logger.debug(
+                f"Contact not found for email {admin_email} "
+                f"({company.get('company_name')})"
+            )
+            return api_calls
+
+        contact_id = contact.get("id")
+        if not contact_id:
+            self.logger.error(f"Contact found but no ID: {contact}")
+            return api_calls
+
+        # Check if contact is already linked to deal
+        existing_contacts = (
+            existing_deal.get("linkedContactsIds", []) if existing_deal else []
+        )
+        if contact_id not in existing_contacts:
+            success = self.brevo.link_contact_to_deal(deal_id, contact_id)
+            api_calls += 1
+
+            if success:
                 self.logger.debug(
-                    f"Contact {contact_id} already linked to deal {deal_id}, skipping"
+                    f"Linked contact {contact_id} ({admin_email}) to deal {deal_id}"
                 )
+            else:
+                self.logger.error(
+                    f"Failed to link contact {contact_id} to deal {deal_id}"
+                )
+        else:
+            self.logger.debug(
+                f"Contact {contact_id} already linked to deal {deal_id}, skipping"
+            )
 
-            return api_calls
-
-        except Exception as e:
-            self.logger.error(f"Error linking contact to deal {deal_id}: {e}")
-            return api_calls
+        return api_calls
 
     def _build_deal_attributes(
         self, company: Dict[str, Any]
@@ -505,9 +499,12 @@ class BrevoSyncOrchestrator:
             self._link_deal_to_company(
                 company, existing_deal["id"], existing_deal
             )
-            self._link_manager_contact_to_deal(
-                company, existing_deal["id"], existing_deal
-            )
+            try:
+                self._link_manager_contact_to_deal(
+                    company, existing_deal["id"], existing_deal
+                )
+            except BrevoRequestError as e:
+                self.logger.warning(f"Could not link contact: {e}")
         else:
             deal_id = self.brevo.create_deal_with_attributes(
                 company, pipeline_id, target_stage_id, target_status
@@ -519,7 +516,10 @@ class BrevoSyncOrchestrator:
                 )
                 # Link newly created deal to company and contact
                 self._link_deal_to_company(company, deal_id, None)
-                self._link_manager_contact_to_deal(company, deal_id, None)
+                try:
+                    self._link_manager_contact_to_deal(company, deal_id, None)
+                except BrevoRequestError as e:
+                    self.logger.warning(f"Could not link contact: {e}")
 
         return result
 
@@ -699,9 +699,15 @@ class BrevoSyncOrchestrator:
                     company_api_calls = self._link_deal_to_company(
                         company_data, deal_id, deal
                     )
-                    contact_api_calls = self._link_manager_contact_to_deal(
-                        company_data, deal_id, deal
-                    )
+
+                    try:
+                        contact_api_calls = self._link_manager_contact_to_deal(
+                            company_data, deal_id, deal
+                        )
+                    except BrevoRequestError as e:
+                        self.logger.error(f"Failed to link contact: {e}")
+                        contact_api_calls = 1
+                        error_count += 1
 
                     api_calls_count += company_api_calls + contact_api_calls
 

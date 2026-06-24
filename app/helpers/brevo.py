@@ -661,11 +661,9 @@ class BrevoApiClient:
             if e.status == 404:
                 app.logger.debug(f"Contact not found: {email}")
                 return None
-            app.logger.error(f"Failed to get contact {email}: {e}")
-            return None
+            raise BrevoRequestError(f"Failed to get contact {email}: {e}")
         except Exception as e:
-            app.logger.error(f"Failed to get contact {email}: {e}")
-            return None
+            raise BrevoRequestError(f"Failed to get contact {email}: {e}")
 
     @check_api_key
     def link_contact_to_deal(self, deal_id: str, contact_id: int) -> bool:
