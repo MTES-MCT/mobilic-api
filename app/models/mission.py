@@ -39,7 +39,11 @@ class Mission(EventBaseModel):
     past_registration_justification = db.Column(db.String(48), nullable=True)
 
     def activities_for(
-        self, user, include_dismissed_activities=False, max_reception_time=None
+        self,
+        user,
+        include_dismissed_activities=False,
+        max_reception_time=None,
+        include_posteriori_activities=False,
     ):
         all_activities_for_user = sorted(
             [a for a in self.activities if a.user_id == user.id],
@@ -50,6 +54,7 @@ class Mission(EventBaseModel):
                 all_activities_for_user,
                 max_reception_time,
                 include_dismissed_activities,
+                include_posteriori_activities,
             )
         if not include_dismissed_activities:
             if max_reception_time:
@@ -242,14 +247,16 @@ class Mission(EventBaseModel):
             return UserMissionModificationStatus.NO_DATA_FOR_USER, None
 
         return (
-            UserMissionModificationStatus.OTHERS_MODIFIED_AFTER_USER
-            if any(
-                [
-                    activity.last_update_time > latest_user_action_time
-                    for activity in all_user_activities
-                ]
-            )
-            else UserMissionModificationStatus.USER_MODIFIED_LAST,
+            (
+                UserMissionModificationStatus.OTHERS_MODIFIED_AFTER_USER
+                if any(
+                    [
+                        activity.last_update_time > latest_user_action_time
+                        for activity in all_user_activities
+                    ]
+                )
+                else UserMissionModificationStatus.USER_MODIFIED_LAST
+            ),
             latest_user_action_time,
         )
 

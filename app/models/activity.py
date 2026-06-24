@@ -86,18 +86,31 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             else None
         )
 
-    def version_at(self, at_time, include_dismissed_activities=False):
-        # For controls, check if the activity occured before the control time,
-        # not just when it was created (reception_time).
-        # If activity started after the control time, exclude it
-        if self.start_time > at_time:
-            return None
+    def version_at(
+        self,
+        at_time,
+        include_dismissed_activities=False,
+        include_posteriori_activities=False,
+    ):
+        # Check if activity should be included based on time filter
+        if include_posteriori_activities:
+            if (
+                self.start_time > at_time
+            ):  # For controls: filter by occurrence time
+                return None
+        else:
+            if (
+                self.reception_time > at_time
+            ):  # Default: filter by creation time
+                return None
+
         if (
             not include_dismissed_activities
             and self.dismissed_at
             and self.dismissed_at <= at_time
         ):
             return None
+
         versions_before = [
             r for r in self.versions if r.reception_time <= at_time
         ]
@@ -107,21 +120,30 @@ class Activity(UserEventBaseModel, Dismissable, Period):
                 default=None,
                 key=lambda r: r.version_number,
             )
-        else:
-            # If no version was created before at_time, but the activity started
-            # before at_time, include it with its earliest version
-            # (this covers activities added "a posteriori")
+        elif include_posteriori_activities:
+            # Return earliest version for activities logged after they occurred
             return min(
                 [r for r in self.versions],
                 default=None,
                 key=lambda r: r.version_number,
             )
+        else:
+            return None
 
-    def freeze_activity_at(self, at_time, include_dismissed_activities=False):
+    def freeze_activity_at(
+        self,
+        at_time,
+        include_dismissed_activities=False,
+        include_posteriori_activities=False,
+    ):
         if self.dismissed_at and self.dismissed_at > at_time:
             self.dismissed_at = None
             self.dismiss_author_id = None
-        frozen_version = self.version_at(at_time, include_dismissed_activities)
+        frozen_version = self.version_at(
+            at_time,
+            include_dismissed_activities,
+            include_posteriori_activities,
+        )
         if frozen_version:
             self.start_time = frozen_version.start_time
             if frozen_version.end_time:

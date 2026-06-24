@@ -82,10 +82,13 @@ class ControllerControl(BaseModel, RandomNineIntId):
     control_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @property
+    def effective_control_time(self):
+        """Reference time for filtering activities (control_time or qr_code_generation_time)."""
+        return self.control_time or self.qr_code_generation_time
+
+    @property
     def history_end_date(self):
-        # Use control_time if it exists (when controller updated the time),
-        # otherwise fallback to qr_code_generation_time (initial scan time)
-        reference_time = self.control_time or self.qr_code_generation_time
+        reference_time = self.effective_control_time
         return (
             reference_time.date()
             if reference_time

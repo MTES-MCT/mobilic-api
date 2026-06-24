@@ -314,14 +314,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return employments
 
     def resolve_missions(self, info, mission_id=None):
-        # Use control_time if it exists (when controller updated the time),
-        # otherwise fallback to qr_code_generation_time (initial scan time)
-        max_time = self.control_time or self.qr_code_generation_time
+        max_time = self.effective_control_time
         missions, _ = self.user.query_missions_with_limit(
             start_time=self.history_start_date,
             end_time=self.history_end_date,
             limit_fetch_activities=2000,
-            max_reception_time=max_time,
+            max_start_time=max_time,
+            include_posteriori_activities=True,
             mission_id=mission_id,
             include_deleted_missions=True,
         )
