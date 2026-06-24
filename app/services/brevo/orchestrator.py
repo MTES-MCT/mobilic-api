@@ -571,6 +571,100 @@ class BrevoSyncOrchestrator:
         normalized = normalized.replace("'", "'")  # U+2018 -> U+0027
         return normalized
 
+    def _build_siren_company_mapping(
+        self, existing_deals: List[Dict[str, Any]]
+    ) -> Dict[str, int]:
+        """Build SIREN -> Mobilic company_id mapping from existing deals."""
+        from app.models import Company
+        from app import db
+
+        if not any(deal.get("siren") for deal in existing_deals):
+            return {}
+
+        siren_to_company_id = {}
+        companies = (
+            db.session.query(Company.id, Company.siren_api_info)
+            .filter(Company.siren_api_info.isnot(None))
+            .all()
+        )
+
+        for company in companies:
+            if company.siren_api_info and company.siren_api_info.get(
+                "uniteLegale"
+            ):
+                siren = company.siren_api_info["uniteLegale"].get("siren")
+                if siren:
+                    siren_to_company_id[siren] = company.id
+
+        return siren_to_company_id
+
+    def _prepare_deal_company_data(
+        self,
+        deal: Dict[str, Any],
+        siren_to_company_id: Dict[str, int],
+        admin_info_by_company_id: Dict[int, Dict],
+    ) -> Dict[str, Any]:
+        """Build company_data dict for a deal, including admin email if available."""
+        company_data = {
+            "company_name": deal.get("name", "Unknown"),
+            "siren": deal.get("siren"),
+            "siret": deal.get("siret"),
+        }
+
+        mobilic_company_id = siren_to_company_id.get(deal.get("siren") or "")
+        if mobilic_company_id:
+            admin_info = admin_info_by_company_id.get(mobilic_company_id, {})
+            if admin_info.get("email"):
+                company_data["admin_email"] = admin_info["email"]
+
+        return company_data
+
+    def _process_deal_linking_dry_run(
+        self, deal_id: str, company_data: Dict[str, Any]
+    ) -> tuple:
+        """Simulate deal linking (dry-run). Returns (linked, error, api_calls)."""
+        company_name = company_data.get("company_name")
+        companies = self.brevo.search_companies_by_identifier(
+            siret=company_data.get("siret"),
+            siren=company_data.get("siren"),
+        )
+        if companies:
+            self.logger.info(
+                f"[DRY RUN] Would link deal {deal_id} to company "
+                f"{companies[0].get('id')} ({company_name})"
+                f"{' with contact' if company_data.get('admin_email') else ' (no contact)'}"
+            )
+            return 1, 0, 0
+
+        self.logger.warning(
+            f"[DRY RUN] No company found for deal {deal_id} ({company_name})"
+        )
+        return 0, 1, 0
+
+    def _execute_deal_linking(
+        self, deal_id: str, deal: Dict[str, Any], company_data: Dict[str, Any]
+    ) -> tuple:
+        """Execute actual deal linking. Returns (linked, error, api_calls)."""
+        company_api_calls = self._link_deal_to_company(
+            company_data, deal_id, deal
+        )
+
+        try:
+            contact_api_calls = self._link_manager_contact_to_deal(
+                company_data, deal_id, deal
+            )
+        except BrevoRequestError as e:
+            self.logger.error(f"Failed to link contact: {e}")
+            return 1 if company_api_calls > 0 else 0, 1, company_api_calls + 1
+
+        total_api_calls = company_api_calls + contact_api_calls
+        linked = 1 if company_api_calls > 0 else 0
+        # Count as error only if company link failed, not when contact is simply absent
+        has_error = company_api_calls == 0 and (
+            company_data.get("admin_email") or contact_api_calls > 0
+        )
+        return linked, 1 if has_error else 0, total_api_calls
+
     def link_existing_deals_to_companies(
         self, pipeline_name: str, dry_run: bool = False
     ) -> Dict[str, int]:
@@ -586,8 +680,6 @@ class BrevoSyncOrchestrator:
         Returns:
             Dictionary with statistics: linked_count, error_count, skipped_count
         """
-        from app.models import Company
-        from app import db
         from .utils import get_admin_info
 
         self.logger.info(
@@ -596,20 +688,25 @@ class BrevoSyncOrchestrator:
         )
 
         try:
-            # Get pipeline ID
             pipeline_id = self.brevo.get_pipeline_id_by_name(pipeline_name)
             if not pipeline_id:
-                error_msg = f"Pipeline '{pipeline_name}' not found"
-                self.logger.error(error_msg)
+                self.logger.error(f"Pipeline '{pipeline_name}' not found")
                 return {
                     "linked_count": 0,
                     "error_count": 1,
                     "skipped_count": 0,
                 }
 
-            # Get all deals from pipeline
             existing_deals = self.brevo.get_existing_deals_by_pipeline(
                 pipeline_id
+            )
+            self.logger.info(f"Found {len(existing_deals)} deals in pipeline")
+
+            siren_to_company_id = self._build_siren_company_mapping(
+                existing_deals
+            )
+            admin_info_by_company_id = get_admin_info(
+                list(set(siren_to_company_id.values()))
             )
 
             linked_count = 0
@@ -617,113 +714,33 @@ class BrevoSyncOrchestrator:
             skipped_count = 0
             api_calls_count = 0
 
-            self.logger.info(f"Found {len(existing_deals)} deals in pipeline")
-
-            # Build SIREN -> company_id Mobilic mapping
-            sirens = [
-                deal.get("siren")
-                for deal in existing_deals
-                if deal.get("siren")
-            ]
-            siren_to_company_id = {}
-            if sirens:
-                companies = (
-                    db.session.query(Company.id, Company.siren_api_info)
-                    .filter(Company.siren_api_info.isnot(None))
-                    .all()
-                )
-
-                for company in companies:
-                    if company.siren_api_info and company.siren_api_info.get(
-                        "uniteLegale"
-                    ):
-                        siren = company.siren_api_info["uniteLegale"].get(
-                            "siren"
-                        )
-                        if siren:
-                            siren_to_company_id[siren] = company.id
-
-            # Get admin info for all companies at once
-            company_ids = list(set(siren_to_company_id.values()))
-            admin_info_by_company_id = get_admin_info(company_ids)
-
-            # Process each deal
             for deal in existing_deals:
-                deal_id = deal.get("id")
-                company_name = deal.get("name", "Unknown")
-
-                # Skip deals that don't have SIREN or SIRET
                 if not deal.get("siren") and not deal.get("siret"):
                     self.logger.debug(
-                        f"Skipping deal {deal_id} ({company_name}): no SIREN/SIRET"
+                        f"Skipping deal {deal.get('id')} ({deal.get('name', 'Unknown')}): no SIREN/SIRET"
                     )
                     skipped_count += 1
                     continue
 
-                # Prepare company data for lookup
-                company_data = {
-                    "company_name": company_name,
-                    "siren": deal.get("siren"),
-                    "siret": deal.get("siret"),
-                }
-
-                # Add admin_email from database if available
-                mobilic_company_id = siren_to_company_id.get(deal.get("siren"))
-                if mobilic_company_id:
-                    admin_info = admin_info_by_company_id.get(
-                        mobilic_company_id, {}
-                    )
-                    if admin_info.get("email"):
-                        company_data["admin_email"] = admin_info["email"]
+                company_data = self._prepare_deal_company_data(
+                    deal, siren_to_company_id, admin_info_by_company_id
+                )
 
                 if dry_run:
-                    # In dry run mode, just check if company exists
-                    companies = self.brevo.search_companies_by_identifier(
-                        siret=company_data.get("siret"),
-                        siren=company_data.get("siren"),
+                    linked, error, api_calls = (
+                        self._process_deal_linking_dry_run(
+                            deal.get("id"), company_data
+                        )
                     )
-                    if companies:
-                        self.logger.info(
-                            f"[DRY RUN] Would link deal {deal_id} to company "
-                            f"{companies[0].get('id')} ({company_name})"
-                            f"{' with contact' if company_data.get('admin_email') else ' (no contact)'}"
-                        )
-                        linked_count += 1
-                    else:
-                        self.logger.warning(
-                            f"[DRY RUN] No company found for deal {deal_id} ({company_name})"
-                        )
-                        error_count += 1
                 else:
-                    # Actually link the deal to company and contact
-                    company_api_calls = self._link_deal_to_company(
-                        company_data, deal_id, deal
+                    linked, error, api_calls = self._execute_deal_linking(
+                        deal.get("id"), deal, company_data
                     )
 
-                    try:
-                        contact_api_calls = self._link_manager_contact_to_deal(
-                            company_data, deal_id, deal
-                        )
-                    except BrevoRequestError as e:
-                        self.logger.error(f"Failed to link contact: {e}")
-                        contact_api_calls = 1
-                        error_count += 1
+                linked_count += linked
+                error_count += error
+                api_calls_count += api_calls
 
-                    api_calls_count += company_api_calls + contact_api_calls
-
-                    if company_api_calls > 0:
-                        linked_count += 1
-                    elif (
-                        not company_data.get("admin_email")
-                        and contact_api_calls == 0
-                    ):
-                        # Only count as error if company linking truly failed
-                        # (not just missing email for contact)
-                        pass
-                    else:
-                        error_count += 1
-
-                # Rate limiting: sleep every N API calls (not deals)
                 if (
                     api_calls_count > 0
                     and api_calls_count % (self.MAX_REQUESTS_PER_BATCH * 2)
@@ -739,7 +756,6 @@ class BrevoSyncOrchestrator:
                 f"Linking completed: {linked_count} linked, {error_count} errors, "
                 f"{skipped_count} skipped ({api_calls_count} total API calls)"
             )
-
             return {
                 "linked_count": linked_count,
                 "error_count": error_count,
@@ -747,8 +763,7 @@ class BrevoSyncOrchestrator:
             }
 
         except Exception as e:
-            error_msg = f"Failed to link deals: {str(e)}"
-            self.logger.error(error_msg)
+            self.logger.error(f"Failed to link deals: {str(e)}")
             return {"linked_count": 0, "error_count": 1, "skipped_count": 0}
 
 
