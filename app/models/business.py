@@ -14,6 +14,7 @@ class BusinessType(str, Enum):
     LONG_DISTANCE = "Longue distance"
     SHORT_DISTANCE = "Courte distance"
     SHIPPING = "Messagerie, Fonds et valeur"
+    MOVE = "Déménagement"
     # TRV
     FREQUENT = "Lignes régulières"
     INFREQUENT = "Occasionnels"
