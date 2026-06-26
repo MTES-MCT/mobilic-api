@@ -267,6 +267,92 @@ class TestLongBreakDetection(RegulationsTest):
             f"Alert: {alert.extra if alert else None}",
         )
 
+    def test_long_break_after_night_threshold_breach(self):
+        """
+        Night-work breach immediately followed by a long break and a
+        shorter post-reset period.
+
+        - Mission 1: J at 21:00 → J+1 at 08:30 (= 11h30 night work, > 10h)
+        - LONG BREAK: J+1 08:30 → J+1 21:00 (= 12h30, > 10h)
+        - Mission 2: J+1 at 21:00 → J+2 at 03:30 (= 6h30 night work)
+
+        Bug (before fix): the long break resets counters, second period
+        is below threshold, so NO alert is generated and the 1h30 night
+        work breach of period 1 is silently lost.
+
+        Expected (after fix): NATINF 32083 alert is generated for day J
+        with period 1 metrics (11h30 night work).
+        """
+        how_many_days_ago = self.DAYS_BEFORE_TODAY_FOR_TEST
+
+        # Mission 1: J at 21:00 → J+1 at 08:30 (11h30 night work)
+        self._log_and_validate_mission(
+            mission_name="Mission nuit 1",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago,
+                        hour=21,
+                        minute=0,
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=8,
+                        minute=30,
+                    ),
+                ],
+            ],
+        )
+
+        # LONG BREAK: 08:30 → 21:00 = 12h30 (> 10h threshold)
+
+        # Mission 2: J+1 at 21:00 → J+2 at 03:30 (6h30 night work, < 10h)
+        self._log_and_validate_mission(
+            mission_name="Mission nuit 2",
+            submitter=self.employee,
+            work_periods=[
+                [
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 1,
+                        hour=21,
+                        minute=0,
+                    ),
+                    get_time(
+                        how_many_days_ago=how_many_days_ago - 2,
+                        hour=3,
+                        minute=30,
+                    ),
+                ],
+            ],
+        )
+
+        day_start = get_date(how_many_days_ago)
+        alert = _get_alert_for_date(day_start)
+
+        self.assertIsNotNone(
+            alert,
+            "Alert NATINF 32083 should be generated for period 1 "
+            "(11h30 night work) even though a long break follows.",
+        )
+        self.assertEqual(
+            alert.extra.get("sanction_code"),
+            NATINF_32083,
+            "Alert sanction_code should be NATINF 32083 (night work).",
+        )
+        self.assertTrue(
+            alert.extra.get("night_work"),
+            "Period 1 should be flagged as night work.",
+        )
+        # Period 1 = 11h30 = 41400s. Period 2 = 6h30 = 23400s.
+        # The breach extra must report period 1 metrics, NOT period 2.
+        self.assertEqual(
+            alert.extra.get("work_range_in_seconds"),
+            11 * 3600 + 30 * 60,
+            "work_range_in_seconds must equal period 1 (41400s, 11h30), "
+            "not period 2 (23400s, 6h30).",
+        )
+
     def test_without_long_break_should_generate_alert(self):
         """
         Control scenario: Without a long break, alert SHOULD be generated.

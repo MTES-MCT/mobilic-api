@@ -261,129 +261,187 @@ def get_long_breaks(activities, regulation_check):
     return long_breaks
 
 
-def check_max_work_day_time(
-    activity_groups, regulation_check, day_start_time, business
-):
-    dict_variables = resolve_variables(regulation_check.variables, business)
-    MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS = dict_variables[
-        "MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS"
-    ]
-    MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS = dict_variables[
-        "MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS"
-    ]
-    AMPLITUDE_TRIGGER_IN_HOURS = dict_variables.get(
-        "AMPLITUDE_TRIGGER_IN_HOURS", None
-    )
-    MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS = (
-        dict_variables.get(
-            "MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS", None
-        )
-    )
-    LONG_BREAK_DURATION_IN_HOURS = dict_variables[
-        "LONG_BREAK_DURATION_IN_HOURS"
-    ]
-    extra = None
-
-    # Sort WorkDays chronologically
-    sorted_activity_groups = sorted(
-        activity_groups, key=lambda x: x.start_time
-    )
-
-    # Extract all activities to detect long breaks between them.
-    # Use a dict to deduplicate activities that may appear in multiple WorkDays
-    # when they cross midnight boundaries.
-    all_activities_dict = {}
+def _unique_sorted_activities(sorted_activity_groups):
+    """Deduplicate activities (they may appear in multiple WorkDays when
+    crossing midnight boundaries) and return them sorted chronologically."""
+    activities_by_id = {}
     for group in sorted_activity_groups:
         for activity in group.activities:
-            all_activities_dict[activity.id] = activity
-
-    all_activities = list(all_activities_dict.values())
+            activities_by_id[activity.id] = activity
+    all_activities = list(activities_by_id.values())
     all_activities.sort(key=lambda x: x.start_time)
+    return all_activities
 
-    if not all_activities:
-        return ComputationResult(success=True, extra=None)
 
-    # Detect long breaks and identify activities that should reset work time counters
-    long_breaks = get_long_breaks(all_activities, regulation_check)
-
-    reset_activity_ids = set()
+def _activity_ids_resetting_after_long_break(all_activities, long_breaks):
+    """First activity after each long break: triggers work-time counter reset."""
+    reset_ids = set()
     for long_break in long_breaks:
         for activity in all_activities:
             if activity.start_time >= long_break.end_time:
-                reset_activity_ids.add(activity.id)
+                reset_ids.add(activity.id)
                 break
+    return reset_ids
 
-    # Process activities individually to properly handle resets.
-    # We cannot process by WorkDay because a single WorkDay may contain activities
-    # both before and after a long break.
+
+def _max_work_day_time_in_hours(
+    night_work,
+    amplitude,
+    max_night,
+    max_day,
+    amplitude_trigger,
+    max_day_high_amplitude,
+):
+    if night_work:
+        return max_night
+    if (
+        amplitude_trigger
+        and max_day_high_amplitude
+        and amplitude > amplitude_trigger * HOUR
+    ):
+        return max_day_high_amplitude
+    return max_day
+
+
+def _make_max_work_day_time_breach(
+    period_max, night_work, worked, start_time, end_time
+):
+    return {
+        "night_work": night_work,
+        "max_work_range_in_hours": period_max,
+        "work_range_in_seconds": worked,
+        "work_range_start": start_time.isoformat(),
+        "work_range_end": end_time.isoformat(),
+        "sanction_code": NATINF_32083 if night_work else NATINF_11292,
+    }
+
+
+def _detect_pre_reset_breach(
+    night_work, amplitude, worked, start_time, prev_work_end, max_thresholds
+):
+    """Return breach extra if the period before a long-break reset already
+    exceeded its max work time. Without this, a sub-threshold post-reset
+    period would silently erase the earlier breach."""
+    if start_time is None or prev_work_end is None:
+        return None
+    period_max = _max_work_day_time_in_hours(
+        night_work, amplitude, **max_thresholds
+    )
+    if worked <= period_max * HOUR:
+        return None
+    return _make_max_work_day_time_breach(
+        period_max, night_work, worked, start_time, prev_work_end
+    )
+
+
+def _walk_activities_for_max_work_day_time(
+    all_activities, reset_activity_ids, activity_to_workday, max_thresholds
+):
+    """Accumulate amplitude/worked/night metrics across activities, capturing
+    a breach that occurs before a long-break reset (if any)."""
     amplitude = 0
-    worked_time_in_seconds = 0
+    worked = 0
     night_work = False
     start_time = None
-
-    # Track which WorkDay each activity belongs to for night work calculation
-    activity_to_workday = {}
-    for group in sorted_activity_groups:
-        for activity in group.activities:
-            activity_to_workday[activity.id] = group
+    prev_work_end = None
+    breach_extra = None
 
     for activity in all_activities:
-        # Reset work time counters when encountering an activity after a long break
         if activity.id in reset_activity_ids:
+            if breach_extra is None:
+                breach_extra = _detect_pre_reset_breach(
+                    night_work,
+                    amplitude,
+                    worked,
+                    start_time,
+                    prev_work_end,
+                    max_thresholds,
+                )
             amplitude = 0
-            worked_time_in_seconds = 0
+            worked = 0
             night_work = False
             start_time = None
+            prev_work_end = None
 
         workday = activity_to_workday[activity.id]
-
-        # Approximate WorkDay metrics by distributing across activities
-        num_activities_in_workday = len(workday.activities)
-        activity_service_duration = (
-            workday.service_duration / num_activities_in_workday
-        )
-
-        amplitude += activity_service_duration
+        # Approximate WorkDay metrics by distributing across its activities
+        amplitude += workday.service_duration / len(workday.activities)
         night_work = (
             night_work or workday.total_night_work_legislation_duration > 0
         )
         if not start_time:
             start_time = max(activity.start_time, workday.start_time)
 
-        # Only count work activities (exclude OFF and TRANSFER)
+        # Only count work activities (exclude OFF and TRANSFER). prev_work_end
+        # is used as work_range_end if a long-break reset follows: it must
+        # reflect the last *work* activity, not an OFF period.
         if activity.type not in NOT_WORK_ACTIVITIES:
-            activity_work_duration = (
-                activity.end_time - activity.start_time
-            ).total_seconds()
-            worked_time_in_seconds += activity_work_duration
+            worked += (activity.end_time - activity.start_time).total_seconds()
+            if activity.end_time:
+                prev_work_end = activity.end_time
 
-    # Check if work time exceeds the applicable limit
-    max_work_day_time_in_hours = MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS
+    return amplitude, worked, night_work, start_time, breach_extra
 
-    if (
-        AMPLITUDE_TRIGGER_IN_HOURS
-        and MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
-    ):
-        if amplitude > AMPLITUDE_TRIGGER_IN_HOURS * HOUR:
-            max_work_day_time_in_hours = (
-                MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS
-            )
 
-    max_time_in_hours = (
-        MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS
-        if night_work
-        else max_work_day_time_in_hours
+def check_max_work_day_time(activity_groups, regulation_check, business):
+    dict_variables = resolve_variables(regulation_check.variables, business)
+    max_thresholds = {
+        "max_night": dict_variables["MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS"],
+        "max_day": dict_variables["MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS"],
+        "amplitude_trigger": dict_variables.get(
+            "AMPLITUDE_TRIGGER_IN_HOURS", None
+        ),
+        "max_day_high_amplitude": dict_variables.get(
+            "MAXIMUM_DURATION_OF_DAY_WORK_IF_HIGH_AMPLITUDE_IN_HOURS", None
+        ),
+    }
+
+    sorted_activity_groups = sorted(
+        activity_groups, key=lambda x: x.start_time
+    )
+    all_activities = _unique_sorted_activities(sorted_activity_groups)
+
+    if not all_activities:
+        return ComputationResult(success=True, extra=None)
+
+    long_breaks = get_long_breaks(all_activities, regulation_check)
+    reset_activity_ids = _activity_ids_resetting_after_long_break(
+        all_activities, long_breaks
+    )
+    # Process activities individually to properly handle resets: a single
+    # WorkDay may contain activities both before and after a long break.
+    activity_to_workday = {
+        a.id: g for g in sorted_activity_groups for a in g.activities
+    }
+
+    (
+        amplitude,
+        worked,
+        night_work,
+        start_time,
+        breach_extra,
+    ) = _walk_activities_for_max_work_day_time(
+        all_activities,
+        reset_activity_ids,
+        activity_to_workday,
+        max_thresholds,
     )
 
+    if breach_extra:
+        return ComputationResult(success=False, extra=breach_extra)
+
+    max_time_in_hours = _max_work_day_time_in_hours(
+        night_work, amplitude, **max_thresholds
+    )
     extra = dict(
         night_work=night_work,
         max_work_range_in_hours=max_time_in_hours,
-        work_range_in_seconds=worked_time_in_seconds,
+        work_range_in_seconds=worked,
         work_range_start=start_time.isoformat(),
         work_range_end=all_activities[-1].end_time.isoformat(),
     )
 
-    if worked_time_in_seconds > max_time_in_hours * HOUR:
+    if worked > max_time_in_hours * HOUR:
         extra["sanction_code"] = NATINF_32083 if night_work else NATINF_11292
         return ComputationResult(success=False, extra=extra)
 
@@ -561,8 +619,8 @@ DAILY_REGULATION_CHECKS = {
         filter_work_days_to_current_and_next_day,
     ],
     RegulationCheckType.MAXIMUM_WORK_DAY_TIME: [
-        lambda activity_groups, regulation_check, day_start_time, business: check_max_work_day_time(
-            activity_groups, regulation_check, day_start_time, business
+        lambda activity_groups, regulation_check, _, business: check_max_work_day_time(
+            activity_groups, regulation_check, business
         ),
         filter_work_days_to_current_day,
     ],

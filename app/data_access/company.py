@@ -252,6 +252,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         team_id=graphene.Int(
             required=False, description="Identifiant du groupe sélectionné"
         ),
+        from_date=graphene.Date(
+            required=False,
+            description="Restreint la fenêtre à partir de cette date incluse (override `month` quand combiné à `toDate`). Évite l'over-fetch d'un mois entier quand seule la semaine est nécessaire.",
+        ),
+        to_date=graphene.Date(
+            required=False,
+            description="Restreint la fenêtre jusqu'à cette date exclue (override `month` quand combiné à `fromDate`).",
+        ),
     )
     admin_regulation_computations_by_user_and_by_day = graphene.List(
         lambda: CompanyAdminRegulationComputationsByUserAndDay,
@@ -549,14 +557,26 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'resolve_regulatory_alerts_recap' of company object. Actor must be company admin.",
     )
     def resolve_regulatory_alerts_recap(
-        self, info, month, unique_user_id=None, team_id=None
+        self,
+        info,
+        month,
+        unique_user_id=None,
+        team_id=None,
+        from_date=None,
+        to_date=None,
     ):
-
-        company_user_ids = (
-            [u.id for u in self.active_users_in_team(team_id)]
-            if team_id
-            else [u.id for u in self.users]
-        )
+        # Pull user_ids directly from Employment rows: avoids the N+1 on
+        # User triggered by `self.users` / `self.active_users_in_team`,
+        # which dereferences `e.user` for every active employment.
+        today = date.today()
+        active_employments = self.active_employments_at(today)
+        if team_id:
+            active_employments = [
+                e for e in active_employments if e.team_id == team_id
+            ]
+        company_user_ids = [
+            e.user_id for e in active_employments if e.user_id is not None
+        ]
 
         if unique_user_id and unique_user_id not in company_user_ids:
             raise AuthorizationError(
@@ -566,7 +586,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         user_ids = [unique_user_id] if unique_user_id else company_user_ids
 
         return get_regulatory_alerts_summary(
-            month=month, user_ids=user_ids, company_id=self.id
+            month=month,
+            user_ids=user_ids,
+            company_id=self.id,
+            from_date=from_date,
+            to_date=to_date,
         )
 
     def resolve_admin_regulation_computations_by_user_and_by_day(
