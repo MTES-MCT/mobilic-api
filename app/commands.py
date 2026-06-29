@@ -464,6 +464,59 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     )
 
 
+@app.cli.command("delete_companies_by_ids", with_appcontext=True)
+@click.option("--ids", help="Comma-separated company IDs, e.g. 1,2,3")
+@click.option(
+    "--ids-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to a text file with one company ID per line (# = comment)",
+)
+@click.option(
+    "--test", is_flag=True, help="Test mode: rollback transaction at the end"
+)
+def delete_companies_by_ids_command(ids, ids_file, test):
+    """
+    Delete specific companies by ID — ad-hoc support operation.
+
+    Companies are deleted along with their direct dependencies
+    (missions+activities, employments, teams, vehicles, …). Employments
+    are stamped with end_date=CURRENT_DATE before deletion. User accounts
+    are NEVER modified.
+
+    Exactly one of --ids or --ids-file must be provided.
+    """
+    from app.services.anonymization.standalone.targeted import (
+        delete_specific_companies,
+    )
+
+    if bool(ids) == bool(ids_file):
+        click.echo("Error: provide exactly one of --ids or --ids-file")
+        return
+
+    if ids:
+        raw_lines = ids.split(",")
+    else:
+        with open(ids_file) as f:
+            raw_lines = f.readlines()
+
+    company_ids = set()
+    for raw in raw_lines:
+        cleaned = raw.split("#", 1)[0].strip()
+        if not cleaned:
+            continue
+        try:
+            company_ids.add(int(cleaned))
+        except ValueError:
+            click.echo(f"Skipping invalid ID: {cleaned!r}")
+
+    if not company_ids:
+        click.echo("No valid company IDs found")
+        return
+
+    click.echo(f"Deleting {len(company_ids)} company(ies). test={test}")
+    delete_specific_companies(company_ids, test_mode=test)
+
+
 @app.cli.command("sync_brevo_funnel", with_appcontext=True)
 @click.option(
     "--acquisition-pipeline",
