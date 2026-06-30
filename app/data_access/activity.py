@@ -78,6 +78,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "submitter_id",
             "submitter",
             "last_submitter_id",
+            "dispute",
         )
         description = "Activité dans la journée de travail"
 
@@ -137,6 +138,10 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     last_submitter_id = graphene.Field(
         graphene.Int,
         description="Identifiant de la personne qui a effectué la dernière modification sur l'activité",
+    )
+    dispute = graphene.Field(
+        GenericScalar,
+        description='Données de contestation de l\'activité par le salarié. Exemple : {"text": "Horaires incorrects", "submitter_id": 123, "time": 1782461826, "status": "created"}. Le champ status vaut "created" ou "cancelled".',
     )
 
     def resolve_versions(self, info):

@@ -2,6 +2,7 @@ from enum import Enum
 from datetime import datetime, timedelta
 
 from sqlalchemy import event
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
@@ -64,6 +65,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     last_submitter_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=True
     )
+
+    dispute = db.Column(JSONB(none_as_null=True), nullable=True)
 
     editable_fields = {"start_time", "end_time"}
 

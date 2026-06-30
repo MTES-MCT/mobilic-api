@@ -8,7 +8,13 @@ from app.controllers.certificate import (
 from app.controllers.holiday import LogHoliday
 from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
-from app.controllers.activity import CancelActivity, EditActivity, LogActivity
+from app.controllers.activity import (
+    CancelActivity,
+    EditActivity,
+    LogActivity,
+    DisputeActivity,
+    CancelDispute,
+)
 from app.controllers.authentication import (
     LoginMutation,
     RefreshMutation,
@@ -149,6 +155,8 @@ class Activities(graphene.ObjectType):
     cancel_mission = CancelMission.Field()
     register_kilometer_at_location = RegisterKilometerAtLocation.Field()
     log_holiday = LogHoliday.Field()
+    dispute_activity = DisputeActivity.Field()
+    cancel_dispute = CancelDispute.Field()
 
 
 class SignUp(graphene.ObjectType):
