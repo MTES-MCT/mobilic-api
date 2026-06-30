@@ -313,6 +313,7 @@ class PrivateMutations(graphene.ObjectType):
     dismiss_company_token = DismissCompanyToken.Field()
     generate_company_token = GenerateCompanyToken.Field()
     snooze_certificate_info = SnoozeCertificateInfo.Field()
+    snooze_nb_worker_info = SnoozeNbWorkerInfo.Field()
     add_scenario_testing_result = AddScenarioTestingResult.Field()
     create_survey_action = CreateSurveyAction.Field()
     send_control_bulletin_email = SendControlBulletinEmail.Field()
