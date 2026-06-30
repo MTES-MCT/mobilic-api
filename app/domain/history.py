@@ -195,7 +195,6 @@ class UserChange(HistoryItem):
 
     def texts(self):
         if self.type == LogActionType.DISPUTE:
-            dispute = self.resource.dispute
             activity_name = (
                 self.holiday_mission_name
                 if self.holiday_mission_name != ""
