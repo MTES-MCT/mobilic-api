@@ -382,9 +382,12 @@ COLUMN_EVENT_ACTIVITIES = ExcelColumn(
     light_blue_hex,
 )
 COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
-    "Observations",
+    "Justification",
     lambda event: (
-        event.version.context.get("userComment")
+        event.resource.dispute.get("text")
+        if event.type == LogActionType.DISPUTE
+        and event.resource.dispute
+        else event.version.context.get("userComment")
         if event.version and event.version.context
         else None
     ),

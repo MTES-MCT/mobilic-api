@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from app.helpers.time import FR_TIMEZONE
@@ -24,6 +24,7 @@ class LogActionType(int, Enum):
     DELETE = 1
     UPDATE = 2
     CREATE = 3
+    DISPUTE = 4
 
 
 class Picto(str, Enum):
@@ -120,7 +121,9 @@ class UserChange(HistoryItem):
             self.tz = FR_TIMEZONE
 
     def picto(self):
-        if self.is_validation:
+        if self.type == LogActionType.DISPUTE:
+            return Picto.SUPPRESSION
+        elif self.is_validation:
             return Picto.VALIDATION
         elif self.type == LogActionType.DELETE:
             return Picto.SUPPRESSION
@@ -191,6 +194,17 @@ class UserChange(HistoryItem):
         return []
 
     def texts(self):
+        if self.type == LogActionType.DISPUTE:
+            dispute = self.resource.dispute
+            activity_name = (
+                self.holiday_mission_name
+                if self.holiday_mission_name != ""
+                else format_activity_type(self.resource.type)
+            )
+            return [
+                f"a contesté la modification de l'activité {activity_name}"
+            ]
+
         # For auto-validation (employee/admin):
         # We want end-of-activity messages BEFORE the auto-validation message, in the order: employee then admin.
         texts = []
@@ -425,6 +439,31 @@ def actions_history(
                                 else False
                             ),
                             version=revision,
+                            holiday_mission_name=holiday_mission_name,
+                            tz=user.timezone,
+                        )
+                    )
+
+                if (
+                    resource.dispute
+                    and resource.dispute.get("status") == "created"
+                ):
+                    dispute_time = datetime.fromtimestamp(
+                        resource.dispute["time"], tz=timezone.utc
+                    ).replace(tzinfo=None)
+                    dispute_submitter = (
+                        User.query.get(resource.dispute.get("submitter_id"))
+                        if resource.dispute.get("submitter_id")
+                        else user
+                    )
+                    user_changes.append(
+                        UserChange(
+                            time=dispute_time,
+                            submitter=dispute_submitter,
+                            submitter_has_admin_rights=False,
+                            resource=resource,
+                            type=LogActionType.DISPUTE,
+                            is_after_employee_validation=True,
                             holiday_mission_name=holiday_mission_name,
                             tz=user.timezone,
                         )
