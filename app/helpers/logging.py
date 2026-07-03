@@ -249,6 +249,12 @@ app.logger.addFilter(add_request_and_user_context)
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 logging.getLogger("gunicorn.access").setLevel(logging.ERROR)
 
+# graphql-core 2.3 logs every resolver error twice: once with exc_info via the
+# executor logger (kept: properly typed and grouped in Sentry) and once as a raw
+# traceback string via this logger (the giant untyped "Traceback..." Sentry
+# issue). Silence the redundant string log; the typed one still reaches Sentry.
+logging.getLogger("graphql.execution.utils").setLevel(logging.CRITICAL)
+
 
 class TerminalFormatter(logging.Formatter):
     def format(self, record):
