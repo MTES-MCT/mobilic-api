@@ -8,5 +8,5 @@ def retrieve_max_reception_time(info):
         controller_control = ControllerControl.query.get(
             info.variable_values["controlId"]
         )
-        return controller_control.qr_code_generation_time
+        return controller_control.effective_control_time
     return None

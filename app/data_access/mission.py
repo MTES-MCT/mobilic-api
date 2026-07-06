@@ -7,7 +7,10 @@ from app.domain.mission import (
     get_end_location,
     is_deleted_from_activities,
 )
-from app.helpers.controller_endpoint_utils import retrieve_max_reception_time
+from app.helpers.controller_endpoint_utils import (
+    retrieve_max_reception_time,
+    CONTROL_API_QUERY_NAMES,
+)
 from app.helpers.frozen_version_utils import (
     freeze_activities,
     filter_out_future_events,
@@ -102,6 +105,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
 
     def resolve_activities(self, info, include_dismissed_activities=False):
         max_reception_time = retrieve_max_reception_time(info)
+        include_posteriori = info.path[0] in CONTROL_API_QUERY_NAMES
         activities = g.dataloaders["activities_in_missions"].load(self.id)
 
         def process_activities(activities):
@@ -114,6 +118,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
                     activities,
                     max_reception_time,
                     _include_dismissed_activities,
+                    include_posteriori,
                 )
             if not _include_dismissed_activities:
                 activities = sorted(

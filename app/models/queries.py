@@ -113,6 +113,7 @@ def query_activities(
     user_id=None,
     company_ids=None,
     max_reception_time=None,
+    max_start_time=None,
     mission_id=None,
 ):
     base_query = Activity.query
@@ -121,9 +122,14 @@ def query_activities(
         base_query = base_query.filter(Activity.user_id == user_id)
 
     if max_reception_time:
+        # Filter by creation time (for historical snapshots)
         base_query = base_query.filter(
             Activity.reception_time <= max_reception_time
         )
+
+    if max_start_time:
+        # Filter by occurrence time (for controls, includes late-logged activities)
+        base_query = base_query.filter(Activity.start_time <= max_start_time)
 
     if mission_id:
         base_query = base_query.filter(Activity.mission_id == mission_id)
