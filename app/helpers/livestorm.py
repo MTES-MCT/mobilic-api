@@ -1,9 +1,13 @@
+import logging
+import time
 import requests
 import re
 from typing import NamedTuple
 
 from app import app
 from app.helpers.errors import MobilicError
+
+logger = logging.getLogger(__name__)
 
 
 class LiveStormWebinar(NamedTuple):
@@ -17,6 +21,11 @@ class LivestormRequestError(MobilicError):
     default_message = "Request to Livestorm API failed"
 
 
+class LivestormRateLimitError(MobilicError):
+    code = "LIVESTORM_RATE_LIMIT"
+    default_message = "Livestorm API monthly rate limit exceeded"
+
+
 class NoLivestormCredentialsError(MobilicError):
     code = "NO_LIVESTORM_CRENDENTIALS"
     default_message = "No Livestorm API credentials"
@@ -26,6 +35,19 @@ BASE_URL = "https://api.livestorm.co/v1"
 UPCOMING_SESSIONS_ENDPOINT = "/sessions?filter[status]=upcoming&include=event"
 MAX_PAGE_SIZE = 50
 MOBILIC_EVENT_TITLE_RE = re.compile(r"\bmobilic\b", flags=re.IGNORECASE)
+
+STATIC_FALLBACK_WEBINARS = [
+    LiveStormWebinar(
+        title="Webinaire Mobilic à destination des gestionnaires",
+        link="https://app.livestorm.co/mte/webinaire-comment-utiliser-mobilic-session-60",
+        time=1783414800,  # 7 juil. 2026 11:00 CEST
+    ),
+    LiveStormWebinar(
+        title="Webinaire Mobilic à destination des gestionnaires",
+        link="https://app.livestorm.co/mte/webinaire-comment-utiliser-mobilic-session-60",
+        time=1784019600,  # 14 juil. 2026 11:00 CEST
+    ),
+]
 
 
 # API reference : https://developers.livestorm.co/reference/get_ping
@@ -56,7 +78,11 @@ class LivestormAPIClient:
                 headers=headers,
                 **kwargs,
             )
+            if page_response.status_code == 429:
+                raise LivestormRateLimitError()
             return page_response.json()
+        except LivestormRateLimitError:
+            raise
         except Exception as e:
             raise LivestormRequestError(
                 f"Request to Livestorm API failed with error : {e}"
@@ -84,9 +110,17 @@ class LivestormAPIClient:
         return results
 
     def get_next_webinars(self):
-        upcoming_sessions_json = self._get_all_page_results(
-            UPCOMING_SESSIONS_ENDPOINT
-        )
+        try:
+            upcoming_sessions_json = self._get_all_page_results(
+                UPCOMING_SESSIONS_ENDPOINT
+            )
+        except LivestormRateLimitError:
+            logger.warning(
+                "Livestorm API monthly rate limit reached, returning static fallback webinars"
+            )
+            now = int(time.time())
+            return [w for w in STATIC_FALLBACK_WEBINARS if w.time > now]
+
         upcoming_sessions = upcoming_sessions_json["data"]
         associated_events = upcoming_sessions_json["included"]
 
