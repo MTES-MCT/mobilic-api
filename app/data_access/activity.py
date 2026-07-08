@@ -137,7 +137,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     versions = graphene.List(
         ActivityVersionOutput,
-        description="Historique des versions de l'activité, triées de la plus récente à la plus ancienne.",
+        description="Historique des versions de l'activité, triées de la plus ancienne à la plus récente (ordre chronologique).",
     )
     last_submitter_id = graphene.Field(
         graphene.Int,

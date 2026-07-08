@@ -37,7 +37,7 @@ class ActivityVersionsInActivityLoader(DataLoader):
             ActivityVersion.query.filter(
                 ActivityVersion.activity_id.in_(activity_ids)
             )
-            .order_by(ActivityVersion.version_number.desc())
+            .order_by(ActivityVersion.version_number.asc())
             .all()
         )
         return Promise.resolve(
