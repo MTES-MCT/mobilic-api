@@ -1,5 +1,5 @@
 from graphql import GraphQLError
-from abc import ABC, abstractmethod
+from abc import ABC
 from sqlalchemy.exc import IntegrityError
 import re
 
@@ -7,10 +7,7 @@ from app.helpers.time import to_timestamp
 
 
 class MobilicError(GraphQLError, ABC):
-    @property
-    @abstractmethod
-    def code(self):
-        pass
+    code: str
 
     http_status_code = 500
 

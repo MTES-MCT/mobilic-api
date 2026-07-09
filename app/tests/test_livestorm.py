@@ -1,8 +1,8 @@
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from app import app
-from app.helpers.livestorm import livestorm
+from app.helpers.livestorm import livestorm, LivestormRateLimitError
 from app.tests import BaseTest
 
 
@@ -67,8 +67,19 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    def test_webinars_endpoint(self, mock):
+    @patch("app.controllers.misc._get_redis_client")
+    def test_webinars_endpoint(self, mock_redis_factory, mock):
         app.config["LIVESTORM_API_TOKEN"] = "abc"
+
+        class FakeRedis:
+            def get(self, key):
+                return None
+
+            def setex(self, key, ttl, value):
+                pass
+
+        mock_redis_factory.return_value = FakeRedis()
+
         with app.test_client() as c:
             mock.side_effect = (
                 lambda *args, **kwargs: generate_livestorm_response_payload(
@@ -82,8 +93,23 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    def test_webinars_endpoint_caches_livestorm_requests(self, mock):
+    @patch("app.controllers.misc._get_redis_client")
+    def test_webinars_endpoint_caches_livestorm_requests(
+        self, mock_redis_factory, mock
+    ):
         app.config["LIVESTORM_API_TOKEN"] = "abc"
+
+        redis_store = {}
+
+        class FakeRedis:
+            def get(self, key):
+                return redis_store.get(key)
+
+            def setex(self, key, ttl, value):
+                redis_store[key] = value
+
+        mock_redis_factory.return_value = FakeRedis()
+
         with app.test_client() as c:
             mock.side_effect = (
                 lambda *args, **kwargs: generate_livestorm_response_payload(
@@ -98,3 +124,57 @@ class TestLiveStormWebinars(BaseTest):
             webinars_response = c.get(MOBILIC_WEBINARS_ENDPOINT)
             mock.assert_not_called()
             self.assertEqual(len(webinars_response.json), 4)
+
+    @patch(
+        "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
+    )
+    @patch("app.controllers.misc._get_redis_client")
+    def test_webinars_endpoint_returns_fallback_on_rate_limit(
+        self, mock_redis_factory, mock
+    ):
+        app.config["LIVESTORM_API_TOKEN"] = "abc"
+        mock_redis_factory.return_value = MagicMock(
+            get=lambda k: None, setex=lambda k, t, v: None
+        )
+        mock.side_effect = LivestormRateLimitError()
+
+        with app.test_client() as c:
+            webinars_response = c.get(MOBILIC_WEBINARS_ENDPOINT)
+            self.assertEqual(webinars_response.status_code, 200)
+            self.assertGreater(len(webinars_response.json), 0)
+            for webinar in webinars_response.json:
+                self.assertIn("title", webinar)
+                self.assertIn("link", webinar)
+                self.assertIn("time", webinar)
+
+    @patch("app.helpers.livestorm.time")
+    @patch(
+        "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
+    )
+    def test_fallback_filters_past_sessions(self, mock_request, mock_time):
+        # Simulate being far in the future so all fallback sessions are in the past
+        mock_time.time.return_value = 9999999999
+        mock_request.side_effect = LivestormRateLimitError()
+
+        webinars = livestorm.get_next_webinars()
+        self.assertEqual(len(webinars), 0)
+
+    @patch(
+        "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
+    )
+    @patch("app.controllers.misc._get_redis_client")
+    def test_webinars_endpoint_works_when_redis_unavailable(
+        self, mock_redis_factory, mock
+    ):
+        app.config["LIVESTORM_API_TOKEN"] = "abc"
+        mock_redis_factory.side_effect = Exception("Redis connection failed")
+        mock.side_effect = (
+            lambda *args, **kwargs: generate_livestorm_response_payload(
+                1, "Présentation Mobilic"
+            )
+        )
+
+        with app.test_client() as c:
+            webinars_response = c.get(MOBILIC_WEBINARS_ENDPOINT)
+            self.assertEqual(webinars_response.status_code, 200)
+            self.assertEqual(len(webinars_response.json), 2)
