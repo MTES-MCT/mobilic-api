@@ -19,7 +19,9 @@ def _get_redis_client():
     global _redis_client
     if _redis_client is None:
         _redis_client = redis_module.Redis.from_url(
-            app.config["CELERY_BROKER_URL"]
+            app.config["CELERY_BROKER_URL"],
+            socket_connect_timeout=3,
+            socket_timeout=3,
         )
     return _redis_client
 
