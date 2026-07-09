@@ -122,8 +122,6 @@ class LivestormAPIClient:
             )
             now = int(time.time())
             return [w for w in STATIC_FALLBACK_WEBINARS if w.time > now]
-            now = int(time.time())
-            return [w for w in STATIC_FALLBACK_WEBINARS if w.time > now]
 
         upcoming_sessions = upcoming_sessions_json["data"]
         associated_events = upcoming_sessions_json["included"]
