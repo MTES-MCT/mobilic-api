@@ -760,32 +760,27 @@ def send_anonymization_warnings_or_preview_command(preview):
     help="Brevo pipeline name for activation funnel",
 )
 @click.option(
-    "--companies-per-page",
-    default=1000,
-    type=int,
-    help="Number of companies to process per page",
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be linked without making changes",
 )
 def link_brevo_deals_command(
-    acquisition_pipeline, activation_pipeline, companies_per_page
+    acquisition_pipeline, activation_pipeline, dry_run
 ):
-    """Link unlinked deals to existing companies in Brevo using pagination."""
+    """Link existing deals to their corresponding Brevo companies and contacts."""
     import time
     from app.helpers.brevo import brevo
     from app.helpers.mattermost import (
         send_brevo_deals_linking_notification,
         DealsLinkingResult,
     )
+    from app.services.brevo.orchestrator import BrevoSyncOrchestrator
+
+    orchestrator = BrevoSyncOrchestrator(brevo)
 
     start_time = time.time()
     try:
-        app.logger.info("Starting deal linking process")
-
-        acquisition_pipeline_id = brevo.get_pipeline_id_by_name(
-            acquisition_pipeline
-        )
-        activation_pipeline_id = brevo.get_pipeline_id_by_name(
-            activation_pipeline
-        )
+        app.logger.info(f"Starting deal linking process (dry_run={dry_run})")
 
         total_linked = 0
         total_errors = 0
@@ -794,34 +789,34 @@ def link_brevo_deals_command(
         activation_linked = 0
         activation_errors = 0
 
-        if acquisition_pipeline_id:
-            print(f"🔗 Linking deals in {acquisition_pipeline} pipeline...")
-            result = brevo.link_unlinked_deals_paginated(
-                acquisition_pipeline_id, companies_per_page
+        for pipeline_name, label in [
+            (acquisition_pipeline, "acquisition"),
+            (activation_pipeline, "activation"),
+        ]:
+            print(f"🔗 Linking deals in {pipeline_name} pipeline...")
+            result = orchestrator.link_existing_deals_to_companies(
+                pipeline_name, dry_run=dry_run
             )
-            acquisition_linked = result["linked"]
-            acquisition_errors = result["errors"]
-            total_linked += acquisition_linked
-            total_errors += acquisition_errors
-            print(
-                f"   Acquisition: {result['linked']} linked, {result['errors']} errors"
-            )
+            linked = result["linked_count"]
+            errors = result["error_count"]
+            skipped = result["skipped_count"]
 
-        if activation_pipeline_id:
-            print(f"🔗 Linking deals in {activation_pipeline} pipeline...")
-            result = brevo.link_unlinked_deals_paginated(
-                activation_pipeline_id, companies_per_page
-            )
-            activation_linked = result["linked"]
-            activation_errors = result["errors"]
-            total_linked += activation_linked
-            total_errors += activation_errors
+            if label == "acquisition":
+                acquisition_linked = linked
+                acquisition_errors = errors
+            else:
+                activation_linked = linked
+                activation_errors = errors
+
+            total_linked += linked
+            total_errors += errors
             print(
-                f"   Activation: {result['linked']} linked, {result['errors']} errors"
+                f"   {pipeline_name}: {linked} linked, {errors} errors, {skipped} skipped"
             )
 
         duration = time.time() - start_time
-        print("LINKING RESULTS:")
+        mode = "DRY RUN" if dry_run else "LINKING"
+        print(f"\n{mode} RESULTS:")
         print(f"   Total linked: {total_linked}")
         print(f"   Total errors: {total_errors}")
         print(f"   Duration: {duration:.1f}s")
@@ -830,25 +825,26 @@ def link_brevo_deals_command(
             f"Deal linking completed: {total_linked} linked, {total_errors} errors in {duration:.1f}s"
         )
 
-        try:
-            linking_result = DealsLinkingResult(
-                total_linked=total_linked,
-                total_errors=total_errors,
-                acquisition_linked=acquisition_linked,
-                acquisition_errors=acquisition_errors,
-                activation_linked=activation_linked,
-                activation_errors=activation_errors,
-                duration_seconds=duration,
-            )
-            send_brevo_deals_linking_notification(
-                linking_result=linking_result,
-                acquisition_pipeline=acquisition_pipeline,
-                activation_pipeline=activation_pipeline,
-            )
-        except Exception as notify_error:
-            app.logger.warning(
-                f"Mattermost notification failed: {notify_error}"
-            )
+        if not dry_run:
+            try:
+                linking_result = DealsLinkingResult(
+                    total_linked=total_linked,
+                    total_errors=total_errors,
+                    acquisition_linked=acquisition_linked,
+                    acquisition_errors=acquisition_errors,
+                    activation_linked=activation_linked,
+                    activation_errors=activation_errors,
+                    duration_seconds=duration,
+                )
+                send_brevo_deals_linking_notification(
+                    linking_result=linking_result,
+                    acquisition_pipeline=acquisition_pipeline,
+                    activation_pipeline=activation_pipeline,
+                )
+            except Exception as notify_error:
+                app.logger.warning(
+                    f"Mattermost notification failed: {notify_error}"
+                )
 
     except Exception as e:
         duration = time.time() - start_time if start_time else None
@@ -856,25 +852,26 @@ def link_brevo_deals_command(
         print(error_msg)
         app.logger.error(error_msg)
 
-        try:
-            linking_result = DealsLinkingResult(
-                total_linked=0,
-                total_errors=1,
-                acquisition_linked=0,
-                acquisition_errors=0,
-                activation_linked=0,
-                activation_errors=0,
-                duration_seconds=duration,
-            )
-            send_brevo_deals_linking_notification(
-                linking_result=linking_result,
-                acquisition_pipeline=acquisition_pipeline,
-                activation_pipeline=activation_pipeline,
-            )
-        except Exception as notify_error:
-            app.logger.error(
-                f"Failed to send failure notification: {notify_error}"
-            )
+        if not dry_run:
+            try:
+                linking_result = DealsLinkingResult(
+                    total_linked=0,
+                    total_errors=1,
+                    acquisition_linked=0,
+                    acquisition_errors=0,
+                    activation_linked=0,
+                    activation_errors=0,
+                    duration_seconds=duration,
+                )
+                send_brevo_deals_linking_notification(
+                    linking_result=linking_result,
+                    acquisition_pipeline=acquisition_pipeline,
+                    activation_pipeline=activation_pipeline,
+                )
+            except Exception as notify_error:
+                app.logger.error(
+                    f"Failed to send failure notification: {notify_error}"
+                )
 
         raise
 

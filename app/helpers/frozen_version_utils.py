@@ -1,10 +1,15 @@
 def freeze_activities(
-    activities, freeze_time, include_dismissed_activities=False
+    activities,
+    freeze_time,
+    include_dismissed_activities=False,
+    include_posteriori_activities=False,
 ):
     frozen_activities = list(
         map(
             lambda a: a.freeze_activity_at(
-                freeze_time, include_dismissed_activities
+                freeze_time,
+                include_dismissed_activities,
+                include_posteriori_activities,
             ),
             activities,
         )

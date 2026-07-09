@@ -6,6 +6,7 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
+from app import db
 
 
 class TestControlFrozenData(ControlsTest):
@@ -161,3 +162,100 @@ class TestControlFrozenData(ControlsTest):
             len(response["data"]["controlData"]["missions"][0]["activities"]),
             1,
         )
+
+    def test_version_at_default_filters_by_reception_time(self):
+        """Non-regression: version_at without include_posteriori_activities
+        must filter by reception_time (historical behavior).
+        """
+        activity_start = datetime(2022, 3, 1, 8, 0, 0)
+        activity_end = datetime(2022, 3, 1, 9, 0, 0)
+        control_time = activity_end
+
+        mission_id = self.begin_mission(activity_start)
+        activity_id = self.begin_activity(activity_start, mission_id)
+        self.end_activity(activity_end, activity_id)
+
+        self.edit_activity(
+            control_time + timedelta(days=1),
+            activity_start + timedelta(minutes=10),
+            activity_end + timedelta(minutes=10),
+            activity_id,
+        )
+
+        from app.models import Activity
+
+        activity = Activity.query.get(activity_id)
+        db.session.refresh(activity)
+
+        frozen = activity.version_at(
+            control_time, include_posteriori_activities=False
+        )
+        self.assertIsNotNone(frozen)
+        self.assertEqual(frozen.start_time, activity_start)
+        self.assertEqual(frozen.end_time, activity_end)
+
+    def test_version_at_with_posteriori_includes_late_logged_activity(self):
+        """Controller case: version_at with include_posteriori_activities=True
+        must include an activity logged after the control but with start_time before it.
+        """
+        activity_start = datetime(2022, 3, 2, 8, 0, 0)
+        activity_end = datetime(2022, 3, 2, 9, 0, 0)
+        control_time = activity_end
+
+        mission_id = self.begin_mission(activity_start)
+
+        activity_id = self.begin_activity(
+            control_time + timedelta(hours=1), mission_id
+        )
+        self.end_activity(control_time + timedelta(hours=2), activity_id)
+        self.edit_activity(
+            control_time + timedelta(hours=2),
+            activity_start,
+            activity_end,
+            activity_id,
+        )
+
+        from app.models import Activity
+
+        activity = Activity.query.get(activity_id)
+        db.session.refresh(activity)
+
+        frozen_default = activity.version_at(
+            control_time, include_posteriori_activities=False
+        )
+        self.assertIsNone(frozen_default)
+
+        frozen_controller = activity.version_at(
+            control_time, include_posteriori_activities=True
+        )
+        self.assertIsNotNone(frozen_controller)
+
+    def test_freeze_activity_at_non_regression_default_behavior(self):
+        """Non-regression: freeze_activity_at without include_posteriori_activities
+        must freeze to the value before the edit (filters by reception_time).
+        Ensures frozen exports (C1B) and regulation alerts (DREAL) are not affected.
+        """
+        activity_start = datetime(2022, 3, 3, 8, 0, 0)
+        activity_end = datetime(2022, 3, 3, 9, 0, 0)
+        freeze_time = activity_end
+
+        mission_id = self.begin_mission(activity_start)
+        activity_id = self.begin_activity(activity_start, mission_id)
+        self.end_activity(activity_end, activity_id)
+
+        self.edit_activity(
+            freeze_time + timedelta(days=1),
+            activity_start + timedelta(minutes=30),
+            activity_end + timedelta(minutes=30),
+            activity_id,
+        )
+
+        from app.models import Activity
+
+        activity = Activity.query.get(activity_id)
+        db.session.refresh(activity)
+
+        frozen = activity.freeze_activity_at(freeze_time)
+        self.assertIsNotNone(frozen)
+        self.assertEqual(frozen.start_time, activity_start)
+        self.assertEqual(frozen.end_time, activity_end)

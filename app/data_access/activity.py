@@ -70,6 +70,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "end_time",
             "last_update_time",
             "dismissed_at",
+            "dismiss_context",
             "dismiss_author_id",
             "dismiss_author",
             "type",
@@ -118,6 +119,10 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
         TimeStamp,
         description="Horodatage de suppression de l'activité, si jamais l'activité a été effacée",
     )
+    dismiss_context = graphene.Field(
+        GenericScalar,
+        description='Contexte de la suppression de l\'activité, ex: {"comment": "erreur de saisie"}',
+    )
     dismiss_author_id = graphene.Field(
         graphene.Int,
         description="Identifiant de la personne qui a effacé l'activité, si jamais l'activité a été effacée",
@@ -132,7 +137,7 @@ class ActivityOutput(BaseSQLAlchemyObjectType, ResolveUser):
     )
     versions = graphene.List(
         ActivityVersionOutput,
-        description="Historique des versions de l'activité, triées de la plus récente à la plus ancienne.",
+        description="Historique des versions de l'activité, triées de la plus ancienne à la plus récente (ordre chronologique).",
     )
     last_submitter_id = graphene.Field(
         graphene.Int,

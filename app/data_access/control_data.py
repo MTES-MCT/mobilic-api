@@ -314,11 +314,12 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return employments
 
     def resolve_missions(self, info, mission_id=None):
+        max_time = self.effective_control_time
         missions, _ = self.user.query_missions_with_limit(
             start_time=self.history_start_date,
             end_time=self.history_end_date,
             limit_fetch_activities=2000,
-            max_reception_time=self.qr_code_generation_time,
+            max_start_time=max_time,
             mission_id=mission_id,
             include_deleted_missions=True,
         )
