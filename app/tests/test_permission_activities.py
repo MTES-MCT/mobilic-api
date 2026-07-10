@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app import app, db
 from app.domain.log_activities import log_activity
-from app.helpers.errors import AuthorizationError
+from app.helpers.errors import AuthorizationError, InvalidParamsError
 from app.models import Mission
 from app.models.activity import ActivityType, Activity
+from app.models.mission_validation import MissionValidation
 from app.seed import UserFactory, CompanyFactory
 from app.tests import (
     BaseTest,
@@ -213,6 +214,208 @@ class TestPermissionActivities(BaseTest):
                 mission_id=self.mission_by_worker.id,
                 user_id=self.worker.id,
             ),
+        )
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+
+class TestDisputeActivities(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        worker = UserFactory.create(post__company=self.company)
+        another_worker = UserFactory.create(
+            post__company=self.company
+        )
+        self.admin_id = admin.id
+        self.worker_id = worker.id
+        self.another_worker_id = another_worker.id
+        with app.app_context():
+            with AuthenticatedUserContext(user=worker):
+                mission = Mission.create(
+                    submitter=worker,
+                    company=self.company,
+                    reception_time=datetime.now(),
+                )
+                activity = log_activity(
+                    submitter=worker,
+                    user=worker,
+                    mission=mission,
+                    type=ActivityType.WORK,
+                    switch_mode=True,
+                    reception_time=datetime.now(),
+                    start_time=datetime.now() - timedelta(hours=4),
+                    end_time=datetime.now() - timedelta(hours=1),
+                )
+            self.mission_id = mission.id
+            self.activity_id = activity.id
+            db.session.commit()
+
+            worker_validation = MissionValidation(
+                submitter=worker,
+                mission=mission,
+                user_id=worker.id,
+                is_admin=False,
+                reception_time=datetime.now(),
+            )
+            admin_validation = MissionValidation(
+                submitter=admin,
+                mission=mission,
+                user_id=worker.id,
+                is_admin=True,
+                reception_time=datetime.now(),
+            )
+            db.session.add(worker_validation)
+            db.session.add(admin_validation)
+            db.session.commit()
+
+    def test_worker_can_dispute_activity(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Horaires incorrects",
+            ),
+        )
+        dispute = response["data"]["activities"]["disputeActivity"][
+            "dispute"
+        ]
+        self.assertEqual("created", dispute["status"])
+        self.assertEqual("Horaires incorrects", dispute["text"])
+        db_activity = Activity.query.get(self.activity_id)
+        self.assertEqual("created", db_activity.dispute["status"])
+
+    def test_another_worker_cannot_dispute_activity(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.another_worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Horaires incorrects",
+            ),
+        )
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_double_dispute_refused(self):
+        make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Première contestation",
+            ),
+        )
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Deuxième contestation",
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_dispute_expired_after_15_days(self):
+        with app.app_context():
+            admin_validation = MissionValidation.query.filter(
+                MissionValidation.mission_id == self.mission_id,
+                MissionValidation.is_admin.is_(True),
+            ).first()
+            admin_validation.reception_time = (
+                datetime.now() - timedelta(days=16)
+            )
+            db.session.commit()
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Contestation tardive",
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_dispute_without_admin_validation(self):
+        with app.app_context():
+            MissionValidation.query.filter(
+                MissionValidation.mission_id == self.mission_id,
+                MissionValidation.is_admin.is_(True),
+            ).delete()
+            db.session.commit()
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Contestation sans validation",
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_cancel_dispute_by_submitter(self):
+        make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Contestation à annuler",
+            ),
+        )
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.cancel_dispute,
+            variables=dict(activity_id=self.activity_id),
+        )
+        dispute = response["data"]["activities"]["cancelDispute"][
+            "dispute"
+        ]
+        self.assertEqual("cancelled", dispute["status"])
+        db_activity = Activity.query.get(self.activity_id)
+        self.assertEqual("cancelled", db_activity.dispute["status"])
+
+    def test_another_worker_cannot_cancel_dispute(self):
+        make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.dispute_activity,
+            variables=dict(
+                activity_id=self.activity_id,
+                text="Contestation",
+            ),
+        )
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.another_worker_id,
+            query=ApiRequests.cancel_dispute,
+            variables=dict(activity_id=self.activity_id),
         )
         self.assertEqual(
             AuthorizationError.code,

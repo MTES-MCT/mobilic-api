@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import graphene
 from graphene.types.generic import GenericScalar
@@ -405,6 +405,7 @@ class BulkActivity(graphene.ObjectType):
             return play_bulk_activity_items(items)
 
 
+# synced with DISPUTE_DELAY_DAYS in web/pwa/components/history/DaySummary.js
 DISPUTE_EXPIRY_DAYS = 15
 
 
@@ -450,6 +451,7 @@ class DisputeActivity(AuthenticatedMutation):
                     v.reception_time
                     for v in activity.mission.validations
                     if v.is_admin
+                    and (v.user_id == activity.user_id or v.user_id is None)
                 ),
                 default=None,
             )
@@ -505,7 +507,9 @@ class CancelDispute(AuthenticatedMutation):
                 raise AuthorizationError(
                     "Only the employee who created the dispute can cancel it"
                 )
-            dispute_time = datetime.fromtimestamp(activity.dispute["time"])
+            dispute_time = datetime.fromtimestamp(
+                activity.dispute["time"], tz=timezone.utc
+            ).replace(tzinfo=None)
             if (datetime.now() - dispute_time).days >= DISPUTE_EXPIRY_DAYS:
                 raise InvalidParamsError(
                     "Dispute can no longer be cancelled after 15 days"
