@@ -1,0 +1,14 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+Compte Mobilic détaché de l'entreprise {{ company_name }}
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>Nous vous informons que votre compte Mobilic a été détaché de l'entreprise <strong>{{ company_name }}</strong>.</p>
+    <p>Vous ne pouvez plus saisir de temps de travail pour cette entreprise depuis le {{ end_date }}.</p>
+    <p>S'il s'agit d'une erreur, veuillez vous adresser directement à votre gestionnaire.</p>
+    <p>Cordialement,</p>
+    <p>L'équipe Mobilic</p>
+{% endblock %}

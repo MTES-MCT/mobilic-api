@@ -48,3 +48,6 @@ class EmailType(str, Enum):
     ACTIVATION_REMINDER_EMPLOYEE_D2 = "activation_reminder_employee_d2"
     ACTIVATION_REMINDER_EMPLOYEE_D4 = "activation_reminder_employee_d4"
     ACTIVATION_REMINDER_ADMIN_D2 = "activation_reminder_admin_d2"
+    DETACHMENT_REQUEST = "detachment_request"
+    DETACHMENT_RELANCE = "detachment_relance"
+    EMPLOYMENT_TERMINATED = "employment_terminated"
