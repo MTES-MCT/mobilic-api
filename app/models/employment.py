@@ -58,6 +58,8 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
 
     last_active_at = db.Column(db.DateTime, index=True, nullable=True)
 
+    detachment_request = db.Column(db.JSON, nullable=True)
+
     # Needed for anonymization process if the submitter is still linked to an active user
     @declared_attr
     def submitter_id(cls):

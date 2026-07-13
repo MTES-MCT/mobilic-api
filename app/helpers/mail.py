@@ -546,6 +546,60 @@ class Mailer:
             )
         )
 
+    def send_detachment_request_email(self, employment):
+        employees_link = f"{app.config['FRONTEND_URL']}/admin/employees"
+        employee_name = employment.user.display_name
+        admins = [
+            e.user
+            for e in employment.company.employments
+            if e.has_admin_rights and e.is_active
+        ]
+        for admin in admins:
+            self._send_single(
+                self._create_message_from_flask_template(
+                    "detachment_request_email.html",
+                    subject=f"Demande de détachement de {employee_name} du compte Mobilic de votre entreprise",
+                    type_=EmailType.DETACHMENT_REQUEST,
+                    user=admin,
+                    employee_name=employee_name,
+                    employees_link=Markup(employees_link),
+                )
+            )
+
+    def send_detachment_relance_email(self, employment, request_date):
+        employees_link = f"{app.config['FRONTEND_URL']}/admin/employees"
+        employee_name = employment.user.display_name
+        admins = [
+            e.user
+            for e in employment.company.employments
+            if e.has_admin_rights and e.is_active
+        ]
+        for admin in admins:
+            self._send_single(
+                self._create_message_from_flask_template(
+                    "detachment_relance_email.html",
+                    subject=f"Relance : détachement de {employee_name} du compte Mobilic de votre entreprise",
+                    type_=EmailType.DETACHMENT_RELANCE,
+                    user=admin,
+                    employee_name=employee_name,
+                    request_date=request_date,
+                    employees_link=Markup(employees_link),
+                )
+            )
+
+    def send_employment_terminated_email(self, employment):
+        end_date = employment.end_date.strftime("%d/%m/%Y")
+        self._send_single(
+            self._create_message_from_flask_template(
+                "employment_terminated_email.html",
+                subject=f"Compte Mobilic détaché de l'entreprise {employment.company.name}",
+                type_=EmailType.EMPLOYMENT_TERMINATED,
+                user=employment.user,
+                company_name=employment.company.name,
+                end_date=end_date,
+            )
+        )
+
     def send_employment_reattachment_email(self, employment):
         login_link = f"{app.config['FRONTEND_URL']}/login"
         self._send_single(

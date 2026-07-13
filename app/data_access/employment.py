@@ -1,4 +1,5 @@
 import graphene
+from graphene.types.generic import GenericScalar
 from flask import g
 
 from app.controllers.oauth_client import OAuth2ClientOutput
@@ -41,6 +42,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "is_terminated",
             "is_inactive",
             "status",
+            "detachment_request",
         )
 
     id = graphene.Field(
@@ -142,6 +144,10 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
     status = graphene.Field(
         graphene.String,
         description="Statut calculé du rattachement (PENDING, ACTIVE, INACTIVE, TERMINATED, DISMISSED, REJECTED)",
+    )
+    detachment_request = graphene.Field(
+        GenericScalar,
+        description='Données de demande de détachement par le salarié. Exemple : {"requested_at": 1782461826, "last_sent_at": 1782461826}.',
     )
 
     @with_authorization_policy(

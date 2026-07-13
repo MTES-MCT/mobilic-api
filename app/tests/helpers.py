@@ -1060,6 +1060,18 @@ class ApiRequests:
     """
 
 
+    request_detachment = """
+        mutation ($employmentId: Int!) {
+            employments {
+                requestDetachment(employmentId: $employmentId) {
+                    id
+                    detachmentRequest
+                }
+            }
+        }
+    """
+
+
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []
     for oe in old_table_entries:
