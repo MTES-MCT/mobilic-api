@@ -10,7 +10,7 @@ from app.helpers.livestorm import livestorm, NoLivestormCredentialsError
 logger = logging.getLogger(__name__)
 
 WEBINARS_CACHE_KEY = "livestorm:next_webinars"
-WEBINARS_CACHE_TTL = 3600
+WEBINARS_CACHE_TTL = 60 * 60 * 6
 
 _redis_client = None
 
@@ -26,6 +26,21 @@ def _get_redis_client():
     return _redis_client
 
 
+def refresh_webinars_cache():
+    """Fetch upcoming Livestorm webinars and store them in Redis.
+
+    Called by the cron, off the web request path, so a slow or rate-limited
+    Livestorm can never block a web worker.
+    """
+    if not app.config["LIVESTORM_API_TOKEN"]:
+        return
+    webinars = sorted(livestorm.get_next_webinars(), key=lambda w: w.time)
+    webinars_data = [w._asdict() for w in webinars]
+    _get_redis_client().setex(
+        WEBINARS_CACHE_KEY, WEBINARS_CACHE_TTL, json.dumps(webinars_data)
+    )
+
+
 @app.route("/next-webinars", methods=["GET"])
 def get_webinars_list():
     if not app.config["LIVESTORM_API_TOKEN"]:
@@ -38,14 +53,4 @@ def get_webinars_list():
     except Exception:
         logger.warning("Redis unavailable, skipping cache read for webinars")
 
-    webinars = sorted(livestorm.get_next_webinars(), key=lambda w: w.time)
-    webinars_data = [w._asdict() for w in webinars]
-
-    try:
-        _get_redis_client().setex(
-            WEBINARS_CACHE_KEY, WEBINARS_CACHE_TTL, json.dumps(webinars_data)
-        )
-    except Exception:
-        logger.warning("Redis unavailable, skipping cache write for webinars")
-
-    return jsonify(webinars_data), 200
+    return jsonify([]), 200
