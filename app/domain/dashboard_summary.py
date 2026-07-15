@@ -112,6 +112,7 @@ def _count_pending_validations(company_id):
                     MissionEnd.mission_id == Mission.id,
                     MissionEnd.user_id == Activity.user_id,
                 )
+                .correlate(Mission, Activity)
                 .exists()
             ),
         )
