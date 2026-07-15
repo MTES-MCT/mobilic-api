@@ -40,6 +40,25 @@ class Picto(str, Enum):
 
 class HistoryItem:
     @property
+    def is_support(self):
+        # creation/edition: check version context
+        if self.version:
+            ctx = getattr(self.version, "context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        # deletion: check dismiss_context
+        if self.type == LogActionType.DELETE:
+            ctx = getattr(self.resource, "dismiss_context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        # validation: check resource context
+        if self.is_validation:
+            ctx = getattr(self.resource, "context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        return False
+
+    @property
     def is_validation(self):
         return (
             type(self.resource) is MissionValidation
@@ -66,6 +85,8 @@ class HistoryItem:
     def author_status(self):
         if self.is_auto_validation:
             return "Validation automatique"
+        if self.is_support:
+            return "Assistance utilisateur"
 
         return (
             "Administrateur"
@@ -75,6 +96,8 @@ class HistoryItem:
 
     @property
     def author_display_name(self):
+        if self.is_support:
+            return "Mobilic"
         return self.submitter.display_name if self.submitter else "Mobilic"
 
 
@@ -212,6 +235,10 @@ class UserChange(HistoryItem):
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                    ]
+                if self.is_support:
+                    return [
+                        f"a lancé l'activité {activity_name} le {format_time(self.version.start_time, True, self.tz)}"
                     ]
                 return [
                     f"s'est mis en {activity_name} le {format_time(self.version.start_time, True, self.tz)}"

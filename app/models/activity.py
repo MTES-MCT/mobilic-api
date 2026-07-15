@@ -202,7 +202,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             )
             return None
 
+        from app.helpers.impersonate_listener import sanitize_support_context
+
         submitter = submitter if submitter is not None else current_user
+        revision_context = sanitize_support_context(revision_context)
         with handle_activities_update(
             submitter=submitter,
             user=self.user,
@@ -236,6 +239,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 
     def dismiss(self, dismiss_time=None, context=None):
         from app.domain.log_activities import handle_activities_update
+        from app.helpers.impersonate_listener import sanitize_support_context
 
         if not dismiss_time:
             dismiss_time = datetime.now()
@@ -251,7 +255,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             reopen_mission_if_needed=False,
             is_revision=True,
         ):
-            super().dismiss(dismiss_time, context)
+            super().dismiss(dismiss_time, sanitize_support_context(context))
             self.last_update_time = self.dismissed_at
 
     def retrieve_all_versions(self, max_reception_time=None):
