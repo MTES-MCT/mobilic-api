@@ -1,5 +1,6 @@
 from enum import Enum
 
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import backref
 from sqlalchemy.ext.declarative import declared_attr
 import graphene
@@ -34,6 +35,7 @@ class MissionValidation(UserEventBaseModel):
     is_auto = db.Column(db.Boolean, nullable=False, default=False)
 
     justification = enum_column(OverValidationJustification, nullable=True)
+    context = db.Column(JSONB(none_as_null=True), nullable=True)
 
     @declared_attr
     def user_id(cls):
