@@ -10,6 +10,9 @@ from argon2 import PasswordHasher
 from sqlalchemy import text
 
 from app import app, db
+from app.controllers.misc import (
+    refresh_webinars_cache as refresh_webinars_cache_job,
+)
 from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.company import job_update_ceased_activity_status
@@ -412,6 +415,11 @@ def update_ceased_activity_status():
 @app.cli.command("process_auto_validations", with_appcontext=True)
 def process_auto_validations():
     job_process_auto_validations()
+
+
+@app.cli.command("refresh_webinars_cache", with_appcontext=True)
+def refresh_webinars_cache():
+    refresh_webinars_cache_job()
 
 
 @app.cli.command("anonymize_users", with_appcontext=True)
