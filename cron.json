@@ -25,7 +25,7 @@
       "command": "30 1 * * * flask update_ceased_activity_status"
     },
     {
-      "command": "0 * * * * flask process_auto_validations"
+      "command": "0 * * * * flask process_auto_validations && flask refresh_webinars_cache"
     },
     {
       "command": "30 3 * * * flask anonymize_users --no-dry-run --verbose && flask migrate_anonymize_data --verbose && flask migrate_anonymize_data --delete-only --verbose",

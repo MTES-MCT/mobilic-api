@@ -81,24 +81,24 @@ def _count_pending_validations(company_id):
     that are ended for every user, validated by at least one worker, and
     not yet validated by an admin.
 
-    Implemented as correlated EXISTS/NOT EXISTS clauses driven by the
-    company filter on Mission, so Postgres can short-circuit per row and
-    never has to materialize a full scan of mission_validation /
-    mission_end. Replaces a previous query that took >30 minutes in
-    production.
+    Driven from the bounded set of missions that have recent non-dismissed
+    activity (via the Activity.start_time index), then filtered by the
+    remaining correlated EXISTS/NOT EXISTS clauses.
     """
     window_start = datetime.now(tz=timezone.utc).replace(
         tzinfo=None
     ) - timedelta(days=PENDING_VALIDATIONS_WINDOW_DAYS)
 
-    activity_in_window = (
-        db.session.query(Activity.id)
+    recent_missions = (
+        db.session.query(Activity.mission_id)
+        .join(Mission, Activity.mission_id == Mission.id)
         .filter(
-            Activity.mission_id == Mission.id,
+            Mission.company_id == company_id,
             ~Activity.is_dismissed,
             Activity.start_time >= window_start,
         )
-        .exists()
+        .distinct()
+        .subquery()
     )
 
     activity_without_mission_end = (
@@ -112,6 +112,7 @@ def _count_pending_validations(company_id):
                     MissionEnd.mission_id == Mission.id,
                     MissionEnd.user_id == Activity.user_id,
                 )
+                .correlate(Mission, Activity)
                 .exists()
             ),
         )
@@ -138,9 +139,8 @@ def _count_pending_validations(company_id):
 
     return (
         db.session.query(func.count(Mission.id))
+        .join(recent_missions, Mission.id == recent_missions.c.mission_id)
         .filter(
-            Mission.company_id == company_id,
-            activity_in_window,
             ~activity_without_mission_end,
             has_worker_validation,
             ~has_admin_validation,

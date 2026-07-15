@@ -71,6 +71,7 @@ class LivestormAPIClient:
                     full_endpoint_url, number
                 ),
                 headers=headers,
+                timeout=10,
                 **kwargs,
             )
             if page_response.status_code == 429:
@@ -111,7 +112,13 @@ class LivestormAPIClient:
             )
         except LivestormRateLimitError:
             logger.warning(
-                "Livestorm API monthly rate limit reached, returning static fallback webinars"
+                "Livestorm API monthly rate limit reached (HTTP 429), returning static fallback webinars"
+            )
+            now = int(time.time())
+            return [w for w in STATIC_FALLBACK_WEBINARS if w.time > now]
+        except LivestormRequestError as e:
+            logger.warning(
+                f"Livestorm API unreachable (timeout or network error): {e}, returning static fallback webinars"
             )
             now = int(time.time())
             return [w for w in STATIC_FALLBACK_WEBINARS if w.time > now]
