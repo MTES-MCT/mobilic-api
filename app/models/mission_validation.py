@@ -4,6 +4,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import backref
 from sqlalchemy.ext.declarative import declared_attr
 import graphene
+from graphene.types.generic import GenericScalar
 
 from app import db
 from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
@@ -75,6 +76,7 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
             "user_id",
             "user",
             "justification",
+            "context",
         )
 
     id = graphene.Field(
@@ -103,4 +105,8 @@ class MissionValidationOutput(BaseSQLAlchemyObjectType, ResolveUser):
         graphene.Boolean,
         required=True,
         description="Indique si la validation provient d'un travailleur mobile ou d'un gestionnaire.",
+    )
+    context = graphene.Field(
+        GenericScalar,
+        description="Contexte de la validation, indique notamment si l'action a été effectuée par le support",
     )

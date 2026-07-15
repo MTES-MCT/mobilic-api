@@ -455,7 +455,7 @@
                 >
             </td>
             <td class="comment-caption">
-                <span class="comment-user">{{ action.submitter.display_name if action.submitter else 'Mobilic' }}</span> - {{ action.time | format_time(True, user_timezone) }}
+                <span class="comment-user">{{ action.author_display_name }}{% if action.is_support %} (assistance utilisateur){% endif %}</span> - {{ action.time | format_time(True, user_timezone) }}
             </td>
         </tr>
         <tr>

@@ -43,7 +43,7 @@ def _get_impersonation_context():
 
 
 def sanitize_support_context(context):
-    """Strip forged is_support flag, then inject real one if impersonating."""
+    """Remove any forged is_support key, then set it if impersonating."""
     if context and "is_support" in context:
         context = {k: v for k, v in context.items() if k != "is_support"}
     try:
