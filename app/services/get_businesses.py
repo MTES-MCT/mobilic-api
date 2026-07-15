@@ -57,9 +57,4 @@ def get_businesses():
             transport_type=TransportType.TRV,
             business_type=BusinessType.LOTI,
         ),
-        BusinessData(
-            id=10,
-            transport_type=TransportType.TRM,
-            business_type=BusinessType.MOVE,
-        ),
     ]

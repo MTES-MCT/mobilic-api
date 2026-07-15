@@ -7,14 +7,14 @@ from app.models.utils import enum_column
 class TransportType(str, Enum):
     TRM = "Marchandises"
     TRV = "Voyageurs"
+    DEM = "Déménagement"
 
 
 class BusinessType(str, Enum):
-    # TRM
+    # TRM + DEM (SHIPPING excluded)
     LONG_DISTANCE = "Longue distance"
     SHORT_DISTANCE = "Courte distance"
     SHIPPING = "Messagerie, Fonds et valeur"
-    MOVE = "Déménagement"
     # TRV
     FREQUENT = "Lignes régulières"
     INFREQUENT = "Occasionnels"
