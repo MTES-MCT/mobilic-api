@@ -1065,7 +1065,10 @@ class ApiRequests:
             employments {
                 requestDetachment(employmentId: $employmentId) {
                     id
-                    detachmentRequest
+                    detachmentRequest {
+                        requestedAt
+                        lastSentAt
+                    }
                 }
             }
         }
