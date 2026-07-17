@@ -10,14 +10,18 @@ from app.helpers.authentication import create_access_tokens_for
 from app.helpers.errors import AuthorizationError
 from app.helpers.mail_type import EmailType
 from app.models.activity import Activity, ActivityType
+from app.models.address import Address
 from app.models.company import Company
 from app.models.email import Email
 from app.models.employment import Employment
+from app.models.location_entry import LocationEntry, LocationEntryType
 from app.models.mission import Mission
+from app.models.mission_auto_validation import MissionAutoValidation
 from app.models.support_action_log import SupportActionLog
 from app.models.team import Team
 from app.models.totp_credential import TotpCredential
 from app.models.user import User
+from app.models.vehicle import Vehicle
 from app.seed.factories import (
     CompanyFactory,
     EmploymentFactory,
@@ -1576,3 +1580,60 @@ class TestSupportTracing(BaseTest):
 
         version = activity.versions[0]
         self.assertIsNone(version.context)
+
+    def test_vehicle_creation_allowed(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            vehicle = Vehicle(
+                company_id=self.company.id,
+                registration_number="AB-123-CD",
+            )
+            db.session.add(vehicle)
+            db.session.commit()
+        self.assertIsNotNone(Vehicle.query.get(vehicle.id))
+
+    def test_location_entry_creation_allowed(self):
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        address = Address(name="1 rue de la Paix", manual=True)
+        db.session.add(address)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            entry = LocationEntry(
+                mission_id=mission.id,
+                address_id=address.id,
+                type=LocationEntryType.MISSION_START_LOCATION,
+                reception_time=now,
+                submitter_id=self.worker.id,
+            )
+            db.session.add(entry)
+            db.session.commit()
+        self.assertIsNotNone(LocationEntry.query.get(entry.id))
+
+    def test_mission_auto_validation_creation_allowed(self):
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            auto_val = MissionAutoValidation(
+                mission_id=mission.id,
+                user_id=self.worker.id,
+                is_admin=False,
+                reception_time=now,
+            )
+            db.session.add(auto_val)
+            db.session.commit()
+        self.assertIsNotNone(
+            MissionAutoValidation.query.get(auto_val.id)
+        )
