@@ -576,11 +576,11 @@ class TestRequestDetachment(BaseTest):
         result = response["data"]["employments"]["requestDetachment"]
         self.assertIsNotNone(result["detachmentRequest"])
         self.assertIn(
-            "requested_at", result["detachmentRequest"]
+            "requestedAt", result["detachmentRequest"]
         )
         self.assertEqual(
-            result["detachmentRequest"]["requested_at"],
-            result["detachmentRequest"]["last_sent_at"],
+            result["detachmentRequest"]["requestedAt"],
+            result["detachmentRequest"]["lastSentAt"],
         )
         db_employment = Employment.query.get(
             self.worker_employment_id
@@ -661,11 +661,11 @@ class TestRequestDetachment(BaseTest):
         result = response["data"]["employments"]["requestDetachment"]
         self.assertEqual(
             past_ts,
-            result["detachmentRequest"]["requested_at"],
+            result["detachmentRequest"]["requestedAt"],
         )
         self.assertGreater(
-            result["detachmentRequest"]["last_sent_at"],
-            result["detachmentRequest"]["requested_at"],
+            result["detachmentRequest"]["lastSentAt"],
+            result["detachmentRequest"]["requestedAt"],
         )
 
     def test_nonexistent_employment_returns_error(self):
