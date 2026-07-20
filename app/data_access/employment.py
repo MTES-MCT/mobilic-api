@@ -10,6 +10,11 @@ from app.helpers.graphene_types import BaseSQLAlchemyObjectType, TimeStamp
 from app.models.employment import Employment
 
 
+class DetachmentRequestOutput(graphene.ObjectType):
+    requested_at = graphene.Int()
+    last_sent_at = graphene.Int()
+
+
 class EmploymentOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Employment
@@ -41,6 +46,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "is_terminated",
             "is_inactive",
             "status",
+            "detachment_request",
         )
 
     id = graphene.Field(
@@ -143,6 +149,18 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         description="Statut calculé du rattachement (PENDING, ACTIVE, INACTIVE, TERMINATED, DISMISSED, REJECTED)",
     )
+    detachment_request = graphene.Field(
+        DetachmentRequestOutput,
+        description="Données de demande de détachement par le salarié.",
+    )
+
+    def resolve_detachment_request(self, info):
+        if not self.detachment_request:
+            return None
+        return DetachmentRequestOutput(
+            requested_at=self.detachment_request.get("requested_at"),
+            last_sent_at=self.detachment_request.get("last_sent_at"),
+        )
 
     @with_authorization_policy(
         only_self_employment,

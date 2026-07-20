@@ -71,6 +71,7 @@ from app.controllers.employment import (
     ChangeEmployeeBusinessType,
     SnoozeNbWorkerInfo,
     SendInvitationsReminders,
+    RequestDetachment,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -220,6 +221,7 @@ class Employments(graphene.ObjectType):
     change_employee_business_type = ChangeEmployeeBusinessType.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
     update_hide_email = UpdateHideEmail.Field()
+    request_detachment = RequestDetachment.Field()
 
 
 class Vehicles(graphene.ObjectType):
