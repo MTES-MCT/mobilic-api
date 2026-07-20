@@ -329,7 +329,9 @@ def _generate_work_days_pdf(
 
             accumulator["total_work"] += wd.total_work_duration
             accumulator["break"] += (
-                wd.service_duration - wd.total_work_duration
+                wd.service_duration
+                - wd.total_work_duration
+                - wd.activity_durations[ActivityType.TRANSFER]
             )
             if "night_hours" in accumulator:
                 accumulator[
@@ -383,7 +385,9 @@ def _generate_work_days_pdf(
                     )
                 ),
                 "service": wd.service_duration,
-                "break": wd.service_duration - wd.total_work_duration,
+                "break": wd.service_duration
+                - wd.total_work_duration
+                - wd.activity_durations[ActivityType.TRANSFER],
                 "total_work": wd.total_work_duration,
                 **{
                     type_.value: wd.activity_durations[type_]
