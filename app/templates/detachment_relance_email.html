@@ -1,5 +1,4 @@
 {% extends "transactional_base.html" %}
-{% import 'button.html' as button %}
 
 {% block subject %}
 Relance : détachement de {{ employee_name }} du compte Mobilic de votre entreprise
@@ -7,20 +6,19 @@ Relance : détachement de {{ employee_name }} du compte Mobilic de votre entrepr
 
 {% block body %}
     <p>Bonjour,</p>
-    <p>Une demande émanant de {{ employee_name }} vous a été envoyée le {{ request_date }} afin de détacher son compte Mobilic de celui de votre entreprise.</p>
-    <p>Si ce salarié ne travaille plus pour vous, vous devez le détacher de votre entreprise. La procédure est la suivante :</p>
-    <ol>
-        <li>Rendez-vous dans l'onglet "Salariés" de votre interface : {{ button.button("Accéder à l'onglet Salariés", employees_link) }}</li>
-        <li>Cliquez sur les trois petits points se trouvant tout à droite de la ligne correspondant à {{ employee_name }}</li>
+    <p>Une demande émanant de {{ employee_name }} vous a été envoyée le {{ request_date }} afin de <strong>détacher son compte Mobilic de celui de votre entreprise.</strong></p>
+    <p>Si ce salarié ne travaille plus pour vous, <strong>vous devez le détacher de votre entreprise. La procédure est la suivante :</strong></p>
+    <ul>
+        <li>Rendez-vous dans l'<strong><a href="{{ employees_link }}">onglet "Salariés"</a></strong> de votre interface</li>
+        <li>Cliquez sur les trois petits points se trouvant tout à droite de sa ligne correspondant à {{ employee_name }}</li>
         <li>Sélectionnez ensuite "Mettre fin au rattachement"</li>
-    </ol>
-    <p>Le rattachement prendra fin le jour même à minuit.</p>
+        <li>Le rattachement prendra fin le jour même à minuit</li>
+    </ul>
     <p>Détacher les salariés qui ne font plus partie de l'entreprise permet :</p>
     <ul>
-        <li>de ne pas fausser le calcul de votre certificat</li>
-        <li>d'éviter les lourdeurs administratives en cas de contrôle</li>
+        <li>de <strong>ne pas fausser le calcul de votre certificat</strong></li>
+        <li>d'<strong>éviter les lourdeurs administratives en cas de contrôle</strong></li>
     </ul>
     <p>S'il s'agit d'une erreur, nous vous invitons à vous adresser à votre salarié.</p>
     <p>Cordialement,</p>
-    <p>L'équipe Mobilic</p>
 {% endblock %}

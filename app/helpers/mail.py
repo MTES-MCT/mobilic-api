@@ -563,7 +563,8 @@ class Mailer:
                     user=admin,
                     employee_name=employee_name,
                     employees_link=Markup(employees_link),
-                )
+                ),
+                _disable_commit=True,
             )
 
     def send_detachment_relance_email(self, employment, request_date):
@@ -584,7 +585,8 @@ class Mailer:
                     employee_name=employee_name,
                     request_date=request_date,
                     employees_link=Markup(employees_link),
-                )
+                ),
+                _disable_commit=True,
             )
 
     def send_employment_terminated_email(self, employment):
@@ -597,7 +599,8 @@ class Mailer:
                 user=employment.user,
                 company_name=employment.company.name,
                 end_date=end_date,
-            )
+            ),
+            _disable_commit=True,
         )
 
     def send_employment_reattachment_email(self, employment):
