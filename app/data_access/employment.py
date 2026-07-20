@@ -179,6 +179,8 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         force_show_email = getattr(info.context, "force_show_email", False)
         if self.hide_email and self.is_acknowledged and not force_show_email:
             return HIDDEN_EMAIL
+        if self.user:
+            return self.user.email
         return self.email
 
     def resolve_user(self, info):
