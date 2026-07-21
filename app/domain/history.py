@@ -113,7 +113,7 @@ class UserChange(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
-    disputed_action: str = None
+    disputed_action: str | None = None
 
     def __post_init__(self):
         if self.tz is None:
