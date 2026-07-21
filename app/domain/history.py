@@ -113,6 +113,7 @@ class UserChange(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
+    disputed_action: str = None
 
     def __post_init__(self):
         if self.tz is None:
@@ -200,8 +201,25 @@ class UserChange(HistoryItem):
                 if self.holiday_mission_name != ""
                 else format_activity_type(self.resource.type)
             )
+            action = self.disputed_action or "la modification"
+            detail = ""
+            if self.version and self.version.previous_version:
+                prev = self.version.previous_version
+                parts = []
+                if self.version.start_time != prev.start_time:
+                    parts.append(
+                        f"début décalé du {format_time(prev.start_time, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
+                    )
+                if self.version.end_time != prev.end_time and prev.end_time and self.version.end_time:
+                    parts.append(
+                        f"fin décalée du {format_time(prev.end_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                    )
+                if parts:
+                    detail = f" ({', '.join(parts)})"
+            motif = self.resource.dispute.get("text", "") if self.resource.dispute else ""
+            motif_text = f' (motif : "{motif}")' if motif else ""
             return [
-                f"a contesté la modification de l'activité {activity_name}"
+                f"a contesté {action} de l'activité {activity_name}{detail}{motif_text}"
             ]
 
         # For auto-validation (employee/admin):
@@ -455,6 +473,15 @@ def actions_history(
                         if resource.dispute.get("submitter_id")
                         else user
                     )
+                    if resource.dismissed_at:
+                        disputed_action = "la suppression"
+                        last_revision = None
+                    elif revisions:
+                        disputed_action = "la modification"
+                        last_revision = revisions[-1]
+                    else:
+                        disputed_action = "l'ajout"
+                        last_revision = None
                     user_changes.append(
                         UserChange(
                             time=dispute_time,
@@ -465,6 +492,8 @@ def actions_history(
                             is_after_employee_validation=True,
                             holiday_mission_name=holiday_mission_name,
                             tz=user.timezone,
+                            version=last_revision,
+                            disputed_action=disputed_action,
                         )
                     )
 
