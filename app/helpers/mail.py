@@ -547,7 +547,7 @@ class Mailer:
         )
 
     def send_detachment_request_email(self, employment):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/employees"
+        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -568,7 +568,7 @@ class Mailer:
             )
 
     def send_detachment_relance_email(self, employment, request_date):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/employees"
+        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
         employee_name = employment.user.display_name
         admins = [
             e.user
