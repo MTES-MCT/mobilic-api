@@ -83,7 +83,11 @@ def write_details_sheet(wb, control, work_days_data):
                 continue
 
             for history_event in sorted(
-                mission.history, key=lambda ev: ev.time
+                mission.history,
+                key=lambda ev: (
+                    1 if ev.type == LogActionType.DISPUTE else 0,
+                    ev.time,
+                ),
             ):
                 col_idx = 0
                 col_idx = write_cells(

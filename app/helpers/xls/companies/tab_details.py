@@ -83,7 +83,11 @@ def write_day_details_sheet(
                             workday_starting_row_idx
                         ) = mission_starting_row_idx = (row_idx + 1)
                     for history_event in sorted(
-                        mission.history, key=lambda ev: ev.time
+                        mission.history,
+                        key=lambda ev: (
+                            1 if ev.type == LogActionType.DISPUTE else 0,
+                            ev.time,
+                        ),
                     ):
                         col_idx = 0
                         additional_format = {
