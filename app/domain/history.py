@@ -194,7 +194,7 @@ class UserChange(HistoryItem):
             return list(auto_end_texts_set)
         return []
 
-    def texts(self):
+    def texts(self, include_dispute_motif=True):
         if self.type == LogActionType.DISPUTE:
             activity_name = (
                 self.holiday_mission_name
@@ -216,8 +216,10 @@ class UserChange(HistoryItem):
                     )
                 if parts:
                     detail = f" ({', '.join(parts)})"
-            motif = self.resource.dispute.get("text", "") if self.resource.dispute else ""
-            motif_text = f' (motif : "{motif}")' if motif else ""
+            motif_text = ""
+            if include_dispute_motif:
+                motif = self.resource.dispute.get("text", "") if self.resource.dispute else ""
+                motif_text = f' (motif : "{motif}")' if motif else ""
             return [
                 f"a contesté {action} de l'activité {activity_name}{detail}{motif_text}"
             ]
@@ -351,6 +353,7 @@ def actions_history(
     user,
     show_history_before_employee_validation=True,
     max_reception_time=None,
+    include_dispute_motif=True,
 ):
     activities_for_user = mission.activities_for(
         user,
@@ -504,7 +507,7 @@ def actions_history(
 
     actions = []
     for user_change in user_changes:
-        for text in user_change.texts():
+        for text in user_change.texts(include_dispute_motif=include_dispute_motif):
             actions.append(
                 LogAction(
                     time=user_change.time,
