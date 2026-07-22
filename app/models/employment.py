@@ -201,6 +201,7 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
 
     def bind(self, user):
         self.user_id = user.id
+        self.email = user.email
         for email in self.invite_emails:
             email.user_id = user.id
 
