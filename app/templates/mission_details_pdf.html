@@ -460,7 +460,7 @@
         </tr>
         <tr>
             <td class="comment-content">
-                {{ action.text }}
+                {{ action.text }}{% if action.motif %} (motif : "{{ action.motif }}"){% endif %}
             </td>
         </tr>
         {% endfor %}
