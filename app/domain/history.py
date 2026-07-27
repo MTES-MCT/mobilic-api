@@ -103,6 +103,8 @@ class HistoryItem:
 
     @property
     def motif(self):
+        if self.type == LogActionType.DISPUTE:
+            return None
         if self.version:
             ctx = getattr(self.version, "context", None)
             if ctx and ctx.get("userComment"):
