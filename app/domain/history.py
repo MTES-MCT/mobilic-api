@@ -101,6 +101,18 @@ class HistoryItem:
             return "Mobilic"
         return self.submitter.display_name if self.submitter else "Mobilic"
 
+    @property
+    def motif(self):
+        if self.version:
+            ctx = getattr(self.version, "context", None)
+            if ctx and ctx.get("userComment"):
+                return ctx["userComment"]
+        if self.type == LogActionType.DELETE:
+            ctx = getattr(self.resource, "dismiss_context", None)
+            if ctx and ctx.get("userComment"):
+                return ctx["userComment"]
+        return None
+
 
 @dataclass
 class UserChange(HistoryItem):
