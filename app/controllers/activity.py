@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import graphene
 from graphene.types.generic import GenericScalar
@@ -403,3 +403,121 @@ class BulkActivity(graphene.ObjectType):
     def resolve_output(cls, _, info, items=[]):
         with atomic_transaction(commit_at_end=False):
             return play_bulk_activity_items(items)
+
+
+# synced with DISPUTE_DELAY_DAYS in web/pwa/components/history/DaySummary.js
+DISPUTE_EXPIRY_DAYS = 15
+
+
+class ActivityDisputeInput:
+    activity_id = graphene.Argument(
+        graphene.Int,
+        required=True,
+        description="Identifiant de l'activité à contester.",
+    )
+    text = graphene.Argument(
+        graphene.String,
+        required=True,
+        description="Motif de la contestation.",
+    )
+
+
+class DisputeActivity(AuthenticatedMutation):
+    """
+    Contestation d'une activité modifiée par un gestionnaire.
+
+    Retourne l'activité contestée.
+    """
+
+    Arguments = ActivityDisputeInput
+
+    Output = ActivityOutput
+
+    @classmethod
+    @with_authorization_policy(active)
+    def mutate(cls, _, info, **dispute_input):
+        with atomic_transaction(commit_at_end=True):
+            activity = Activity.query.get(dispute_input["activity_id"])
+            if not activity:
+                raise InvalidParamsError("Activity not found")
+            if current_user.id != activity.user_id:
+                raise AuthorizationError(
+                    "Only the employee concerned by the activity can dispute it"
+                )
+            if activity.dispute and activity.dispute.get("status") == "created":
+                raise InvalidParamsError("Activity is already disputed")
+            latest_admin_validation = max(
+                (
+                    v.reception_time
+                    for v in activity.mission.validations
+                    if v.is_admin
+                    and (v.user_id == activity.user_id or v.user_id is None)
+                ),
+                default=None,
+            )
+            if not latest_admin_validation:
+                raise InvalidParamsError(
+                    "No admin validation found for this mission"
+                )
+            if (
+                datetime.now() - latest_admin_validation
+            ).days >= DISPUTE_EXPIRY_DAYS:
+                raise InvalidParamsError(
+                    "Dispute delay has expired (15 days after admin validation)"
+                )
+            activity.dispute = {
+                "text": dispute_input["text"],
+                "submitter_id": current_user.id,
+                "time": int(datetime.now().timestamp()),
+                "status": "created",
+            }
+            db.session.add(activity)
+            return activity
+
+
+class ActivityCancelDisputeInput:
+    activity_id = graphene.Argument(
+        graphene.Int,
+        required=True,
+        description="Identifiant de l'activité dont la contestation doit être annulée.",
+    )
+
+
+class CancelDispute(AuthenticatedMutation):
+    """
+    Annulation d'une contestation par le salarié.
+
+    Retourne l'activité dont la contestation a été annulée.
+    """
+
+    Arguments = ActivityCancelDisputeInput
+
+    Output = ActivityOutput
+
+    @classmethod
+    @with_authorization_policy(active)
+    def mutate(cls, _, info, **cancel_input):
+        with atomic_transaction(commit_at_end=True):
+            activity = Activity.query.get(cancel_input["activity_id"])
+            if not activity:
+                raise InvalidParamsError("Activity not found")
+            if not activity.dispute or activity.dispute.get("status") != "created":
+                raise InvalidParamsError("No active dispute on this activity")
+            if current_user.id != activity.dispute.get("submitter_id"):
+                raise AuthorizationError(
+                    "Only the employee who created the dispute can cancel it"
+                )
+            dispute_time = datetime.fromtimestamp(
+                activity.dispute["time"], tz=timezone.utc
+            ).replace(tzinfo=None)
+            if (datetime.now() - dispute_time).days >= DISPUTE_EXPIRY_DAYS:
+                raise InvalidParamsError(
+                    "Dispute can no longer be cancelled after 15 days"
+                )
+            activity.dispute = {
+                **activity.dispute,
+                "status": "cancelled",
+                "cancelled_at": int(datetime.now().timestamp()),
+            }
+            db.session.add(activity)
+            return activity

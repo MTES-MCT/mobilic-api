@@ -36,8 +36,22 @@ def _sentry_traces_sampler(sampling_context):
     return float(os.environ.get("SENTRY_SAMPLE_RATE", 0.05))
 
 
+def _sentry_before_send(event, hint):
+    exc_info = hint.get("exc_info")
+    if exc_info:
+        exc = exc_info[1]
+        # graphql-core wraps resolver errors; unwrap to the original one
+        original = getattr(exc, "original_error", None) or exc
+        if isinstance(original, MobilicError) and not getattr(
+            original, "should_alert_team", True
+        ):
+            return None
+    return event
+
+
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
+    before_send=_sentry_before_send,
     traces_sampler=_sentry_traces_sampler,
     integrations=[
         LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),

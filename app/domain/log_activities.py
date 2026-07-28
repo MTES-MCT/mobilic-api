@@ -11,6 +11,7 @@ from app.helpers.errors import (
     UnavailableSwitchModeError,
     ActivityInFutureError,
 )
+from app.helpers.impersonate_listener import sanitize_support_context
 from app.models.activity import Activity, ActivityType
 from app.models import Mission, ActivityVersion
 from app.models.mission_end import MissionEnd
@@ -186,6 +187,7 @@ def log_activity(
                         end_time=start_time,
                         creation_time=creation_time,
                     )
+        sanitized_context = sanitize_support_context(context)
         activity = Activity(
             type=type,
             reception_time=reception_time,
@@ -202,7 +204,7 @@ def log_activity(
             reception_time=reception_time,
             start_time=start_time,
             end_time=end_time,
-            context=context,
+            context=sanitized_context,
             version_number=1,
             submitter=submitter,
             creation_time=creation_time,

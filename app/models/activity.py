@@ -2,6 +2,7 @@ from enum import Enum
 from datetime import datetime, timedelta
 
 from sqlalchemy import event
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.helpers.authentication import current_user
 from sqlalchemy.orm import backref
@@ -64,6 +65,8 @@ class Activity(UserEventBaseModel, Dismissable, Period):
     last_submitter_id = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=True
     )
+
+    dispute = db.Column(JSONB(none_as_null=True), nullable=True)
 
     editable_fields = {"start_time", "end_time"}
 
@@ -202,7 +205,10 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             )
             return None
 
+        from app.helpers.impersonate_listener import sanitize_support_context
+
         submitter = submitter if submitter is not None else current_user
+        revision_context = sanitize_support_context(revision_context)
         with handle_activities_update(
             submitter=submitter,
             user=self.user,
@@ -236,6 +242,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
 
     def dismiss(self, dismiss_time=None, context=None):
         from app.domain.log_activities import handle_activities_update
+        from app.helpers.impersonate_listener import sanitize_support_context
 
         if not dismiss_time:
             dismiss_time = datetime.now()
@@ -251,7 +258,7 @@ class Activity(UserEventBaseModel, Dismissable, Period):
             reopen_mission_if_needed=False,
             is_revision=True,
         ):
-            super().dismiss(dismiss_time, context)
+            super().dismiss(dismiss_time, sanitize_support_context(context))
             self.last_update_time = self.dismissed_at
 
     def retrieve_all_versions(self, max_reception_time=None):

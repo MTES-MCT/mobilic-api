@@ -18,6 +18,7 @@ class LiveStormWebinar(NamedTuple):
 
 class LivestormRequestError(MobilicError):
     code = "LIVESTORM_API_ERROR"
+    default_should_alert_team = False
     default_message = "Request to Livestorm API failed"
 
 

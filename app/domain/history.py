@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from app.helpers.time import FR_TIMEZONE
@@ -24,6 +24,7 @@ class LogActionType(int, Enum):
     DELETE = 1
     UPDATE = 2
     CREATE = 3
+    DISPUTE = 4
 
 
 class Picto(str, Enum):
@@ -39,6 +40,25 @@ class Picto(str, Enum):
 
 
 class HistoryItem:
+    @property
+    def is_support(self):
+        # creation/edition: check version context
+        if self.version:
+            ctx = getattr(self.version, "context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        # deletion: check dismiss_context
+        if self.type == LogActionType.DELETE:
+            ctx = getattr(self.resource, "dismiss_context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        # validation: check resource context
+        if self.is_validation:
+            ctx = getattr(self.resource, "context", None)
+            if ctx and ctx.get("is_support"):
+                return True
+        return False
+
     @property
     def is_validation(self):
         return (
@@ -66,6 +86,8 @@ class HistoryItem:
     def author_status(self):
         if self.is_auto_validation:
             return "Validation automatique"
+        if self.is_support:
+            return "Assistance utilisateur"
 
         return (
             "Administrateur"
@@ -75,7 +97,23 @@ class HistoryItem:
 
     @property
     def author_display_name(self):
+        if self.is_support:
+            return "Mobilic"
         return self.submitter.display_name if self.submitter else "Mobilic"
+
+    @property
+    def motif(self):
+        if self.type == LogActionType.DISPUTE:
+            return None
+        if self.version:
+            ctx = getattr(self.version, "context", None)
+            if ctx and ctx.get("userComment"):
+                return ctx["userComment"]
+        if self.type == LogActionType.DELETE:
+            ctx = getattr(self.resource, "dismiss_context", None)
+            if ctx and ctx.get("userComment"):
+                return ctx["userComment"]
+        return None
 
 
 @dataclass
@@ -89,6 +127,7 @@ class UserChange(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
+    disputed_action: str | None = None
 
     def __post_init__(self):
         if self.tz is None:
@@ -97,7 +136,9 @@ class UserChange(HistoryItem):
             self.tz = FR_TIMEZONE
 
     def picto(self):
-        if self.is_validation:
+        if self.type == LogActionType.DISPUTE:
+            return Picto.SUPPRESSION
+        elif self.is_validation:
             return Picto.VALIDATION
         elif self.type == LogActionType.DELETE:
             return Picto.SUPPRESSION
@@ -167,7 +208,36 @@ class UserChange(HistoryItem):
             return list(auto_end_texts_set)
         return []
 
-    def texts(self):
+    def texts(self, include_dispute_motif=True):
+        if self.type == LogActionType.DISPUTE:
+            activity_name = (
+                self.holiday_mission_name
+                if self.holiday_mission_name != ""
+                else format_activity_type(self.resource.type)
+            )
+            action = self.disputed_action or "la modification"
+            detail = ""
+            if self.version and self.version.previous_version:
+                prev = self.version.previous_version
+                parts = []
+                if self.version.start_time != prev.start_time:
+                    parts.append(
+                        f"début décalé du {format_time(prev.start_time, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
+                    )
+                if self.version.end_time != prev.end_time and prev.end_time and self.version.end_time:
+                    parts.append(
+                        f"fin décalée du {format_time(prev.end_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                    )
+                if parts:
+                    detail = f" ({', '.join(parts)})"
+            motif_text = ""
+            if include_dispute_motif:
+                motif = self.resource.dispute.get("text", "") if self.resource.dispute else ""
+                motif_text = f' (motif : "{motif}")' if motif else ""
+            return [
+                f"a contesté {action} de l'activité {activity_name}{detail}{motif_text}"
+            ]
+
         # For auto-validation (employee/admin):
         # We want end-of-activity messages BEFORE the auto-validation message, in the order: employee then admin.
         texts = []
@@ -212,6 +282,10 @@ class UserChange(HistoryItem):
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                    ]
+                if self.is_support:
+                    return [
+                        f"a lancé l'activité {activity_name} le {format_time(self.version.start_time, True, self.tz)}"
                     ]
                 return [
                     f"s'est mis en {activity_name} le {format_time(self.version.start_time, True, self.tz)}"
@@ -293,6 +367,7 @@ def actions_history(
     user,
     show_history_before_employee_validation=True,
     max_reception_time=None,
+    include_dispute_motif=True,
 ):
     activities_for_user = mission.activities_for(
         user,
@@ -403,6 +478,42 @@ def actions_history(
                         )
                     )
 
+                if (
+                    resource.dispute
+                    and resource.dispute.get("status") == "created"
+                ):
+                    dispute_time = datetime.fromtimestamp(
+                        resource.dispute["time"], tz=timezone.utc
+                    ).replace(tzinfo=None)
+                    dispute_submitter = (
+                        User.query.get(resource.dispute.get("submitter_id"))
+                        if resource.dispute.get("submitter_id")
+                        else user
+                    )
+                    if resource.dismissed_at:
+                        disputed_action = "la suppression"
+                        last_revision = None
+                    elif revisions:
+                        disputed_action = "la modification"
+                        last_revision = revisions[-1]
+                    else:
+                        disputed_action = "l'ajout"
+                        last_revision = None
+                    user_changes.append(
+                        UserChange(
+                            time=dispute_time,
+                            submitter=dispute_submitter,
+                            submitter_has_admin_rights=False,
+                            resource=resource,
+                            type=LogActionType.DISPUTE,
+                            is_after_employee_validation=True,
+                            holiday_mission_name=holiday_mission_name,
+                            tz=user.timezone,
+                            version=last_revision,
+                            disputed_action=disputed_action,
+                        )
+                    )
+
     if not show_history_before_employee_validation:
         user_changes = [
             a for a in user_changes if a.is_after_employee_validation
@@ -410,7 +521,7 @@ def actions_history(
 
     actions = []
     for user_change in user_changes:
-        for text in user_change.texts():
+        for text in user_change.texts(include_dispute_motif=include_dispute_motif):
             actions.append(
                 LogAction(
                     time=user_change.time,

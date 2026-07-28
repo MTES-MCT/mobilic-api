@@ -247,7 +247,6 @@ class ActivityInFutureError(MobilicError):
 
 class OverlappingActivitiesError(MobilicError):
     code = "OVERLAPPING_ACTIVITIES"
-    default_should_alert_team = False
 
     def __init__(
         self,

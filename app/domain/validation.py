@@ -15,6 +15,7 @@ from app.helpers.errors import (
     MissionStillRunningError,
     MissionAlreadyAutoValidatedError,
 )
+from app.helpers.impersonate_listener import sanitize_support_context
 from app.helpers.submitter_type import SubmitterType
 from app.models import MissionValidation, MissionEnd, MissionAutoValidation
 from app.helpers.notification_type import NotificationType
@@ -219,6 +220,7 @@ def _get_or_create_validation(
             creation_time=creation_time,
             is_auto=is_auto_validation,
             justification=justification,
+            context=sanitize_support_context(None),
         )
         db.session.add(validation)
         return validation

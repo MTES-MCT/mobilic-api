@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 from app import db
 from app.domain.user import HIDDEN_EMAIL
+from app.helpers.errors import AuthorizationError, InvalidParamsError
 from app.models import Employment
 from app.tests import BaseTest
 from app.tests.helpers import (
@@ -545,3 +546,158 @@ class TestEmploymentStatusProperties(BaseTest):
         self.assertTrue(self.employment.is_active)
         self.assertFalse(self.employment.is_terminated)
         self.assertEqual(self.employment.status, "ACTIVE")
+
+
+class TestRequestDetachment(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        worker = UserFactory.create(post__company=self.company)
+        another_worker = UserFactory.create(
+            post__company=self.company
+        )
+        self.admin_id = admin.id
+        self.worker_id = worker.id
+        self.another_worker_id = another_worker.id
+        self.worker_employment_id = worker.employments[0].id
+
+    def test_worker_can_request_detachment(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        result = response["data"]["employments"]["requestDetachment"]
+        self.assertIsNotNone(result["detachmentRequest"])
+        self.assertIn(
+            "requestedAt", result["detachmentRequest"]
+        )
+        self.assertEqual(
+            result["detachmentRequest"]["requestedAt"],
+            result["detachmentRequest"]["lastSentAt"],
+        )
+        db_employment = Employment.query.get(
+            self.worker_employment_id
+        )
+        self.assertIsNotNone(db_employment.detachment_request)
+
+    def test_another_worker_cannot_request_detachment(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.another_worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_admin_cannot_request_detachment_for_worker(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_cooldown_48h_enforced(self):
+        make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_relance_after_cooldown(self):
+        past_ts = int(
+            (datetime.now() - timedelta(hours=49)).timestamp()
+        )
+        employment = Employment.query.get(
+            self.worker_employment_id
+        )
+        employment.detachment_request = {
+            "requested_at": past_ts,
+            "last_sent_at": past_ts,
+        }
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        result = response["data"]["employments"]["requestDetachment"]
+        self.assertEqual(
+            past_ts,
+            result["detachmentRequest"]["requestedAt"],
+        )
+        self.assertGreater(
+            result["detachmentRequest"]["lastSentAt"],
+            result["detachmentRequest"]["requestedAt"],
+        )
+
+    def test_nonexistent_employment_returns_error(self):
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=999999,
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+    def test_terminated_employment_cannot_request_detachment(self):
+        employment = Employment.query.get(
+            self.worker_employment_id
+        )
+        employment.end_date = date.today() - timedelta(days=1)
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_id,
+            query=ApiRequests.request_detachment,
+            variables=dict(
+                employment_id=self.worker_employment_id,
+            ),
+        )
+        self.assertEqual(
+            InvalidParamsError.code,
+            response["errors"][0]["extensions"]["code"],
+        )

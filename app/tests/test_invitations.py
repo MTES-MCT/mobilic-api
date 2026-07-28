@@ -161,6 +161,26 @@ class TestInvitations(BaseTest):
 
         self.check_is_working_for(new_employee, self.company)
 
+    def test_employment_email_synced_when_account_email_differs(self):
+        invited_email = "pro@company.com"
+        account_email = "perso@gmail.com"
+
+        invite_response = invite_user_by_email(
+            self.admin, invited_email, self.company
+        )
+        invite_token = get_invite_token(invite_response)
+
+        new_employee = create_account_get_user(
+            email=account_email,
+            password="greatpassword1@",
+            first_name="Albert",
+            last_name="Einstein",
+            invite_token=invite_token,
+        )
+
+        employment = self.get_employment(new_employee, self.company)
+        self.assertEqual(employment.email, account_email)
+
     def test_invite_future_employee_with_email(self):
         future_employee_email = "Future_Employee@titi.com"
 
