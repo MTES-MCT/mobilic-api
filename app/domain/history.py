@@ -27,6 +27,11 @@ class LogActionType(int, Enum):
     DISPUTE = 4
 
 
+DISPUTED_ACTION_MODIFICATION = "la modification"
+DISPUTED_ACTION_SUPPRESSION = "la suppression"
+DISPUTED_ACTION_AJOUT = "l'ajout"
+
+
 class Picto(str, Enum):
     ACTIVITY_DRIVE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAALRQTFRFa+Zw////kOyUtfO3femC3/rg5fvmqvGtwvXE9P306Pvpbudz1vjYdOh5p/CqxfXG7vzu8f3xieuNsPKyced2le2Zg+qHoe+kvPS+mO6cnu+hhuuKv/TBj+yT4fripfCp6vvr0/jV2vnbrfGweOh8hOqI0ffS5vvncud3x/bJvvTA9v32duh7+f75/f/9ufO8k+2X7/zwjuySl+2azfbO3fnei+uPgOmEu/S9eeh+nO6g0vfUM2wlSwAAA3RJREFUeJy9mul6ojAUhk+UXVxQa9VatYu1+77NzP3f1xAJLco5IUDI9w8SeJ+EkLMFmKKicOHOhla3A9DpWsOZuwgj1WdBpVPgzS1AZM29QA/EHk0wQKrJyK4L8acnMkKik6lfA+L0igmJek5FiHOsiuA6lmBIiO+WQXC55KRREK9blgHQ9UpBgqPyCK4jfEWjkH6nGiP+T/uqEOU1hamnBBmc1mEAnA6KITa6gZSRldsCDiHhuC4DYBzKIWf1EVxnMkiohwEQ0hBbw1wlGtsUZFD7m//KGhCQmmt3X6c4pNY/mFcPg/T1MgD6eUhQeb+i1AlykIr7rkxHhxBPPwPA24f4FWxUsbr+HqS0rVWTm4U4zTAAnAyklF9SRse/kMYGIoYCDfzrWfVSiJ9vs1oyff5Rp/gCMj1suEd9jqwulCFTAcn51IUMxpStwkkCsXMN62LISnko9g4yyt0vZrC2MmS0g+RjHK2QCYcE+ftaIRDEEGT/1QvxYsi8acg8hiCLUQlyff6xdIJBdPfwuO63JBCLQYTcVoK09q5llAgwp7EChN3TkBAWmiAPNGQBmE2sAmHnJMSFmS4Ie6IgMxhqg5D72RCw7bQihL3hEAswX6gq5BGbltgzAsw7rQphS9Rk4g5wZQj7h0+YXkjelJNjqQF5QRE6PzwX8rqu1iVMQCydPyMFGWrcVkjITN8GSUNcbVu9BLIoMlqRjXt6Wcjg/EUKCQvML5/Mt3wCKwtZ85D2QgaJ5I5EYrmfZZC7JB8zoiEW7hLdige24vpMAklzDHfJ5Uf+bXPcuZuJHE/ahKRiVynkr+izzI59Tx7upgLwUGf7Y7Zv4o9zGAjB+KLdbv+662vmt9vuBnlXgDvcieI3JM9cOuyK6PORxptvjN3iXSZE6JDoM55h7k1NrmjfbSUc1ud4Bb7iXUZEECQUz9LDd+s7jvreqS78Uyyf5u/x17ghethEOCd0vZQsfqHNVnShJlSEc4Q141rtlpk0Ct3c8tJWQKYb0sAUCbF/dPn6dS1j7PoMv+jGNMQ2kiwwk/YwksAxk4oyklQzkx40kug0k7I1k3w2kkY3UxAwU9owU6QxUm4yUzgzUwI0U8w0U5Y1U2BmRkrlzEzR38zxBWbkIAYzc6SEGTkcs8M0f8yHy8CBpZ2aP3qVqPlDZEJ1jsP9B1flMA4vhQm1AAAAAElFTkSuQmCC"
     ACTIVITY_WORK = "data:image/png;base64,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"
@@ -217,7 +222,7 @@ class UserChange(HistoryItem):
                 if self.holiday_mission_name != ""
                 else format_activity_type(self.resource.type)
             )
-            action = self.disputed_action or "la modification"
+            action = self.disputed_action or DISPUTED_ACTION_MODIFICATION
             detail = ""
             if self.version and self.version.previous_version:
                 prev = self.version.previous_version
@@ -508,16 +513,16 @@ def actions_history(
                         and first_version.context.get("splitFrom")
                     )
                     if resource.dismissed_at:
-                        disputed_action = "la suppression"
+                        disputed_action = DISPUTED_ACTION_SUPPRESSION
                         last_revision = None
                     elif revisions:
-                        disputed_action = "la modification"
+                        disputed_action = DISPUTED_ACTION_MODIFICATION
                         last_revision = revisions[-1]
                     elif is_split:
-                        disputed_action = "la modification"
+                        disputed_action = DISPUTED_ACTION_MODIFICATION
                         last_revision = None
                     else:
-                        disputed_action = "l'ajout"
+                        disputed_action = DISPUTED_ACTION_AJOUT
                         last_revision = None
                     user_changes.append(
                         UserChange(
