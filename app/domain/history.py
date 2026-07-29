@@ -107,6 +107,8 @@ class HistoryItem:
             return None
         if self.version:
             ctx = getattr(self.version, "context", None)
+            if ctx and ctx.get("splitFrom"):
+                return None
             if ctx and ctx.get("userComment"):
                 return ctx["userComment"]
         if self.type == LogActionType.DELETE:
@@ -279,6 +281,15 @@ class UserChange(HistoryItem):
         )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
+                is_split = (
+                    self.version
+                    and getattr(self.version, "context", None)
+                    and self.version.context.get("splitFrom")
+                )
+                if is_split and self.version.end_time:
+                    return [
+                        f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                    ]
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
@@ -400,6 +411,11 @@ def actions_history(
     user_changes = []
     for resource in relevant_resources:
         if resource is not None:
+            first_version = (
+                resource.version_at(resource.reception_time)
+                if type(resource) is Activity
+                else None
+            )
             user_changes.append(
                 UserChange(
                     time=resource.reception_time,
@@ -417,11 +433,7 @@ def actions_history(
                         if user_validation
                         else False
                     ),
-                    version=(
-                        resource.version_at(resource.reception_time)
-                        if type(resource) is Activity
-                        else None
-                    ),
+                    version=first_version,
                     holiday_mission_name=holiday_mission_name,
                     tz=user.timezone,
                 )
@@ -490,12 +502,20 @@ def actions_history(
                         if resource.dispute.get("submitter_id")
                         else user
                     )
+                    is_split = (
+                        first_version
+                        and getattr(first_version, "context", None)
+                        and first_version.context.get("splitFrom")
+                    )
                     if resource.dismissed_at:
                         disputed_action = "la suppression"
                         last_revision = None
                     elif revisions:
                         disputed_action = "la modification"
                         last_revision = revisions[-1]
+                    elif is_split:
+                        disputed_action = "la modification"
+                        last_revision = None
                     else:
                         disputed_action = "l'ajout"
                         last_revision = None
