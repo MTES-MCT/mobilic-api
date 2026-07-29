@@ -6,9 +6,10 @@ Create Date: 2026-07-29 13:23:04.798404
 
 """
 
+from app import db
 from alembic import op
 import sqlalchemy as sa
-
+from app.models.business import TransportType, BusinessType
 
 # revision identifiers, used by Alembic.
 revision = "e5d78113a5ac"
@@ -18,6 +19,10 @@ depends_on = None
 
 
 def upgrade():
+    db.session.remove()
+    op.execute(
+        "ALTER TABLE business DROP CONSTRAINT IF EXISTS business_business_type_key"
+    )
     op.execute("ALTER TABLE business DROP CONSTRAINT IF EXISTS transporttype")
     op.alter_column(
         "business",
@@ -33,9 +38,6 @@ def upgrade():
     )
 
     # Replace unique constraint on business_type alone with (transport_type, business_type)
-    # op.execute(
-    #     "ALTER TABLE business DROP CONSTRAINT IF EXISTS business_business_type_key"
-    # )
     op.create_unique_constraint(
         "business_transport_type_business_type_key",
         "business",
@@ -67,14 +69,14 @@ def downgrade():
     connection = op.get_bind()
     connection.execute(sa.text("DELETE FROM business WHERE id IN (10, 11)"))
 
-    # op.execute(
-    #     "ALTER TABLE business DROP CONSTRAINT IF EXISTS business_transport_type_business_type_key"
-    # )
-    # op.create_unique_constraint(
-    #     "business_business_type_key",
-    #     "business",
-    #     ["business_type"],
-    # )
+    op.execute(
+        "ALTER TABLE business DROP CONSTRAINT IF EXISTS business_transport_type_business_type_key"
+    )
+    op.create_unique_constraint(
+        "business_business_type_key",
+        "business",
+        ["business_type"],
+    )
 
     op.execute("ALTER TABLE business DROP CONSTRAINT IF EXISTS transporttype")
     op.alter_column(
