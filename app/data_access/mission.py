@@ -102,6 +102,10 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         graphene.String,
         description="Nom de la personne ayant supprimé la mission",
     )
+    ended_user_ids = graphene.List(
+        graphene.Int,
+        description="IDs des salariés ayant terminé la mission (MissionEnd)",
+    )
 
     def resolve_activities(self, info, include_dismissed_activities=False):
         max_reception_time = retrieve_max_reception_time(info)
@@ -242,6 +246,18 @@ class MissionOutput(BaseSQLAlchemyObjectType):
             return None
 
         return g.dataloaders["vehicles"].load(self.vehicle_id)
+
+    def resolve_ended_user_ids(self, info):
+
+        if not self.ends:
+            return []
+
+        ids = []
+        for e in self.ends:
+            if e.user_id is not None:
+                ids.append(e.user_id)
+
+        return sorted(set(ids))
 
 
 class MissionConnection(graphene.Connection):
