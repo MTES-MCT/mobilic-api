@@ -2,6 +2,8 @@
 
 Dépôt de code du back de la startup d'état **Mobilic** incubée à la Fabrique Numérique du Ministère de la Transition Écologique.
 
+> Review apps (déploiement d'une PR sur Scalingo) : voir [`docs/review-apps.md`](docs/review-apps.md).
+
 Ce `README` contient essentiellement des informations pour installer un environnement de développement local du back Mobilic.
 
 C'est plutôt [ici](https://github.com/MTES-MCT/mobilic) pour des informations concernant  :

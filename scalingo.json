@@ -1,0 +1,52 @@
+{
+  "name": "mobilic-api",
+  "description": "Review app for the Mobilic API (ephemeral, per PR).",
+  "repository": "https://github.com/MTES-MCT/mobilic-api",
+  "env": {
+    "MOBILIC_ENV": {
+      "value": "review"
+    },
+    "SENTRY_ENVIRONMENT": {
+      "generator": "template",
+      "template": "review-pr%PR_NUMBER%"
+    },
+    "FRONTEND_URL": {
+      "description": "Overwritten by .scripts/review-app.sh (front-end repo) once both review apps are up. Fallback to the staging front-end until then.",
+      "value": "https://mobilic-staging.osc-fr1.scalingo.io"
+    },
+    "JWT_SECRET_KEY": {
+      "generator": "secret"
+    },
+    "HMAC_SIGNING_KEY": {
+      "generator": "secret"
+    },
+    "TOTP_ENCRYPTION_KEY": {
+      "generator": "secret"
+    },
+    "DISABLE_EMAIL": {
+      "value": "1"
+    },
+    "BREVO_API_KEY": {
+      "value": ""
+    },
+    "MAILJET_API_KEY": {
+      "value": ""
+    }
+  },
+  "addons": [
+    {
+      "plan": "postgresql:postgresql-sandbox"
+    },
+    {
+      "plan": "redis:redis-sandbox"
+    }
+  ],
+  "formation": {
+    "web": { "amount": 1, "size": "S" },
+    "worker": { "amount": 1, "size": "S" }
+  },
+  "scripts": {
+    "first-deploy": "flask db upgrade && flask seed"
+  },
+  "stack": "scalingo-24"
+}
