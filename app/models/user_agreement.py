@@ -27,9 +27,7 @@ CGU_DELETE_ACCOUNT_DELAY_IN_DAYS = 10
 class UserAgreement(BaseModel):
     backref_base_name = "user_agreements"
 
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
-    )
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     user = db.relationship(
         "User", backref=backref("user_agreements", lazy=True)
     )
@@ -61,9 +59,11 @@ class UserAgreement(BaseModel):
         new_user_agreement = UserAgreement(
             user_id=user_id,
             cgu_version=cgu_version,
-            status=initial_status
-            if initial_status
-            else UserAgreementStatus.PENDING,
+            status=(
+                initial_status
+                if initial_status
+                else UserAgreementStatus.PENDING
+            ),
             creation_time=datetime.datetime.now(),
             is_blacklisted=False,
         )
