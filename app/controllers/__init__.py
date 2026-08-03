@@ -87,6 +87,10 @@ from app.controllers.impersonation import (
     StartImpersonation,
     StopImpersonation,
 )
+from app.controllers.push_subscription import (
+    SavePushSubscription,
+    DeletePushSubscription,
+)
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
@@ -192,6 +196,8 @@ class Account(graphene.ObjectType):
     verify_totp = VerifyTOTP.Field()
     start_impersonation = StartImpersonation.Field()
     stop_impersonation = StopImpersonation.Field()
+    save_push_subscription = SavePushSubscription.Field()
+    delete_push_subscription = DeletePushSubscription.Field()
 
 
 class Employments(graphene.ObjectType):

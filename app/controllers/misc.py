@@ -41,6 +41,14 @@ def refresh_webinars_cache():
     )
 
 
+@app.route("/vapid-public-key", methods=["GET"])
+def get_vapid_public_key():
+    public_key = app.config.get("VAPID_PUBLIC_KEY")
+    if not public_key:
+        return jsonify({"error": "VAPID not configured"}), 503
+    return jsonify({"publicKey": public_key}), 200
+
+
 @app.route("/next-webinars", methods=["GET"])
 def get_webinars_list():
     if not app.config["LIVESTORM_API_TOKEN"]:
