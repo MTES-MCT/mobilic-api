@@ -95,6 +95,12 @@ def _generate_part_one(control):
         controller_signature = "-"
     else:
         controller = control.controller_user
+        controller_service = ""
+        if controller.organizational_unit:
+            controller_service = controller.organizational_unit
+        email = ""
+        postal = ""
+        phone = ""
         if controller._is_ctt() or controller._is_mi():
             controller_signature = controller.greco_id or "-"
         else:
@@ -160,7 +166,11 @@ def _generate_part_one(control):
         observations=control.control_bulletin.get("observation"),
         business_types=business_types,
         controller_signature=controller_signature,
+        controller_service=controller_service,
         vehicle_weight=printed_vehicle_weight_value,
+        email=email,
+        postal=postal,
+        phone=phone,
     )
 
 
@@ -169,6 +179,12 @@ def _generate_part_two(control):
     infractions_by_date = {}
     custom_infractions_by_date = {}
     custom_infractions_metadata = {}
+
+    controller_service = ""
+    if control.controller_user:
+        controller = control.controller_user
+        if controller.organizational_unit:
+            controller_service = controller.organizational_unit
 
     for idx_r, r in enumerate(control.reported_infractions):
         check_type = r.get("check_type")
@@ -210,4 +226,5 @@ def _generate_part_two(control):
         natinf_metadata=NATINF_METADATA,
         custom_infractions_by_date=custom_infractions_by_date,
         custom_infractions_metadata=custom_infractions_metadata,
+        controller_service=controller_service,
     )
