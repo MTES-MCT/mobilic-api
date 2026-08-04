@@ -23,6 +23,10 @@ def admin_only(user):
     return user.admin
 
 
+def admin_or_bizdev(user):
+    return user.admin or user.bizdev
+
+
 def controller_only(controller_user):
     return isinstance(controller_user, ControllerUser)
 

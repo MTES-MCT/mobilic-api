@@ -100,6 +100,7 @@ from app.controllers.user import (
     ChangeGender,
     ConfirmFranceConnectEmail,
     DisableWarning,
+    ResetPushOptInBanner,
     FranceConnectLogin,
     ResetPasswordConnected,
     SetupTOTP,
@@ -189,6 +190,7 @@ class Account(graphene.ObjectType):
     request_reset_password = RequestPasswordReset.Field()
     resend_activation_email = ResendActivationEmail.Field()
     disable_warning = DisableWarning.Field()
+    reset_push_opt_in_banner = ResetPushOptInBanner.Field()
     accept_cgu = AcceptCgu.Field()
     reject_cgu = RejectCgu.Field()
     mark_notifications_as_read = MarkNotificationsAsRead.Field()
