@@ -248,16 +248,7 @@ class MissionOutput(BaseSQLAlchemyObjectType):
         return g.dataloaders["vehicles"].load(self.vehicle_id)
 
     def resolve_ended_user_ids(self, info):
-
-        if not self.ends:
-            return []
-
-        ids = []
-        for e in self.ends:
-            if e.user_id is not None:
-                ids.append(e.user_id)
-
-        return sorted(set(ids))
+        return sorted({e.user_id for e in self.ends if e.user_id is not None})
 
 
 class MissionConnection(graphene.Connection):
