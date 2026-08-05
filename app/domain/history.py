@@ -44,6 +44,11 @@ class Picto(str, Enum):
     VALIDATION = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHhQTFRFLn0y////9/n6mL+ck7uWL30zSI1LqMmq0uPT2ujbg7KF7/XvM4A33uvfO4U/xdvHh7SJpMamYZ1kj7mRjbeQeqx95/DnUJJUbqVwN4M7WZhcdqp5aaJsrMyuVJVY6/LroMSiwdnCn8OiibWNg7KHWZhdw9nGXZpg6BhrdAAAAqBJREFUeJy92td2qzAQBdABQq827j3l3vz/H2YoXjFBCGmE5ryGaC8wSKMCjmLu5ao6nIIi8/2sCE6HalXeVf8XVC7Kw3MAggTnMF8Gieq9CHhmX0emSPq4yYQut0dqgMSJP0808ZOYiMRbNaHLVsJMImmlQzSpJh/aFBIWugZAEWoh+UWfaHIRv9FC5JrRDIDsqookVKJJooTs1iYGwHo3j0TCDkQnwagL+IuUR1MD4FjKkXfFT1we/12GlIsYqJTTSLTAs+pyjKaQnfFv/ptgN4EYvrvDrMWI0Tc4TiJCrssaANcxkpP7q6lk+Qgh9ruyXP4i4fIGQDhEUsIYNZ8iHSDaY61aqlcktmMAxC+IVl2ik+0vYu1G+lsBC9/6a5Inki7UwYvipz3ysGcAPHpEoaam59YhkU0DIGqR2rgd71Pyx7pFpHMcJcN1Jcq+QfIFDKmSI2La/7aG635PXhAicl7EeJu+4oyIWYkyb0DgwN22AUiU1g0kVtYNJAzGREUDiYN1A4mTdQMJ6husbiBBrIU0DCRo1amOgQRp6NUykJhBvkTfkZ6BhPxxfbnuWNE0kJD+8J9NYx+GBhKyV/hf19xQ0TaQkH6Mm7GibyAh71ZGCsFAYqaD7BXPwEBirqsfKCQDidlB60WhGUjMD7+bZ9NEAwmFQqLuGv9PNAK1kqi/F5rRlkQqxd3GwGiLO6Uy9Y1utGWqWsHtkY29xtTBIxr91EFxEuTRjH4SpDqdo6253TgnpixTbJbFAp5lD5YFHJ6lKJZFNZ7lQZaFTp4lW57FZ5ZldJ4NAZ6tDZ5NGpbtJp6NM54tQJ7NTJ5tWZ4NZodlq9zh2fTnOb7gsBzEcHiOlDgsh2Naxv4xnyYMB5ba2D961cX+IbI+JsfhfgBlqCGe+vgzUwAAAABJRU5ErkJggg=="
 
 
+def _is_split(version):
+    ctx = getattr(version, "context", None) if version else None
+    return bool(ctx and ctx.get("splitFrom"))
+
+
 class HistoryItem:
     @property
     def is_support(self):
@@ -111,9 +116,9 @@ class HistoryItem:
         if self.type == LogActionType.DISPUTE:
             return None
         if self.version:
-            ctx = getattr(self.version, "context", None)
-            if ctx and ctx.get("splitFrom"):
+            if _is_split(self.version):
                 return None
+            ctx = getattr(self.version, "context", None)
             if ctx and ctx.get("userComment"):
                 return ctx["userComment"]
         if self.type == LogActionType.DELETE:
@@ -286,12 +291,7 @@ class UserChange(HistoryItem):
         )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
-                is_split = (
-                    self.version
-                    and getattr(self.version, "context", None)
-                    and self.version.context.get("splitFrom")
-                )
-                if is_split and self.version.end_time:
+                if _is_split(self.version) and self.version.end_time:
                     return [
                         f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
                     ]
@@ -507,11 +507,7 @@ def actions_history(
                         if resource.dispute.get("submitter_id")
                         else user
                     )
-                    is_split = (
-                        first_version
-                        and getattr(first_version, "context", None)
-                        and first_version.context.get("splitFrom")
-                    )
+                    is_split = _is_split(first_version)
                     if resource.dismissed_at:
                         disputed_action = DISPUTED_ACTION_SUPPRESSION
                         last_revision = None
