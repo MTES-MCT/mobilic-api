@@ -15,7 +15,7 @@ class CompanyKnownAddress(BaseModel, Dismissable):
     address = db.relationship("Address")
 
     company_id = db.Column(
-        db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
+        db.Integer, db.ForeignKey("company.id"), nullable=False
     )
     company = db.relationship("Company", backref=backref("known_addresses"))
 
