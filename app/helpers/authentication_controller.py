@@ -58,8 +58,16 @@ def set_controller_auth_cookies(
 
 def create_access_tokens_for_controller(
     controller_user,
+    refresh_token_string=None,
 ):
     from app.models import ControllerRefreshToken
+
+    if refresh_token_string is None:
+        refresh_token_string = (
+            ControllerRefreshToken.create_controller_refresh_token(
+                controller_user
+            )
+        )
 
     tokens = {
         "access_token": create_access_token(
@@ -69,9 +77,7 @@ def create_access_tokens_for_controller(
         "refresh_token": create_refresh_token(
             {
                 "controllerUserId": controller_user.id,
-                "token": ControllerRefreshToken.create_controller_refresh_token(
-                    controller_user
-                ),
+                "token": refresh_token_string,
                 "controller": True,
             },
             expires_delta=None,
@@ -81,37 +87,72 @@ def create_access_tokens_for_controller(
     return tokens
 
 
+def _issue_controller_tokens_and_set_cookies(
+    controller_user, refresh_token_string
+):
+    tokens = create_access_tokens_for_controller(
+        controller_user, refresh_token_string=refresh_token_string
+    )
+
+    @after_this_request
+    def set_cookies(response):
+        set_controller_auth_cookies(
+            response, controller_user_id=controller_user.id, **tokens
+        )
+        return response
+
+    return tokens
+
+
 @wrap_jwt_errors
 @jwt_required(refresh=True)
 def refresh_controller_token():
     from app.models import ControllerRefreshToken
-    from app.helpers.authentication import unset_auth_cookies
+    from app.helpers.authentication import (
+        get_replayable_consumed_token,
+        unset_auth_cookies,
+    )
 
     try:
         identity = get_jwt_identity()
-        matching_token = ControllerRefreshToken.get_token(
-            token=identity.get("token"),
-            controller_user_id=identity.get("controllerUserId"),
+        controller_user_id = identity.get("controllerUserId")
+        token_string = identity.get("token")
+
+        consumed_token = ControllerRefreshToken.consume(
+            token_string, controller_user_id
         )
-        if not matching_token:
-            app.logger.error(
-                f"Invalid refresh token for controller {identity.get('controllerUserId')}. Token not found in database."
+
+        if consumed_token is None:
+            successor = get_replayable_consumed_token(
+                ControllerRefreshToken,
+                token_string,
+                controller_user_id,
+                "controller",
             )
-            raise AuthenticationError("Refresh token is invalid")
-
-        tokens = create_access_tokens_for_controller(current_actor)
-
-        db.session.delete(matching_token)
-        db.session.commit()
-
-        @after_this_request
-        def set_cookies(response):
-            set_controller_auth_cookies(
-                response, controller_user_id=current_actor.id, **tokens
+            return _issue_controller_tokens_and_set_cookies(
+                current_actor, successor.token
             )
-            return response
 
-        return tokens
+        if (
+            consumed_token.creation_time
+            < datetime.now(tz=timezone.utc).replace(tzinfo=None)
+            - app.config["REFRESH_TOKEN_EXPIRATION"]
+        ):
+            app.logger.info(
+                f"Expired refresh token for controller {controller_user_id}"
+            )
+            raise AuthenticationError("Refresh token has expired")
+
+        successor_token_string = (
+            ControllerRefreshToken.create_controller_refresh_token(
+                current_actor
+            )
+        )
+        consumed_token.replaced_by_token = successor_token_string
+
+        return _issue_controller_tokens_and_set_cookies(
+            current_actor, successor_token_string
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -142,16 +183,9 @@ def delete_controller_refresh_token():
             f"Matching controller refresh token {identity.get('token')} deleted for controller {controller_user_id}"
         )
     else:
-        refresh_tokens = ControllerRefreshToken.query.filter_by(
-            controller_user_id=controller_user_id
-        ).all()
-
-        app.logger.warning(
-            f"No matching refresh token found. Deleting all {len(refresh_tokens)} tokens for controller {controller_user_id}"
+        app.logger.info(
+            f"No matching refresh token found for controller {controller_user_id} at logout"
         )
-
-        for token in refresh_tokens:
-            db.session.delete(token)
 
     app.logger.info(
         f"Completed token cleanup for controller {controller_user_id}"
