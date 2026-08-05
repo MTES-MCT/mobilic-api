@@ -177,14 +177,9 @@ class BrevoSyncOrchestrator:
             existing_deals = self.brevo.get_existing_deals_by_pipeline(
                 pipeline_id
             )
-            deals_by_identifier = {}
-            for deal in existing_deals:
-                if deal.get("siret"):
-                    deals_by_identifier[f"siret_{deal['siret']}"] = deal
-                if deal.get("siren"):
-                    deals_by_identifier[f"siren_{deal['siren']}"] = deal
-                if not deal.get("siret") and not deal.get("siren"):
-                    deals_by_identifier[f"name_{deal['name']}"] = deal
+            deals_by_identifier = self._build_deals_by_identifier(
+                existing_deals
+            )
 
             batch_size = self.MAX_REQUESTS_PER_BATCH
             for i in range(0, len(companies_data), batch_size):
@@ -243,6 +238,23 @@ class BrevoSyncOrchestrator:
                 result.errors.append(error_msg)
 
         return result
+
+    def _build_deals_by_identifier(
+        self, existing_deals: List[Dict[str, Any]]
+    ) -> Dict[str, Dict[str, Any]]:
+        # Same sanitize on both sides (build + lookup) so name-keyed deals
+        # match even if the raw Brevo-stored name predates the current
+        # sanitize rules.
+        deals_by_identifier: Dict[str, Dict[str, Any]] = {}
+        for deal in existing_deals:
+            if deal.get("siret"):
+                deals_by_identifier[f"siret_{deal['siret']}"] = deal
+            if deal.get("siren"):
+                deals_by_identifier[f"siren_{deal['siren']}"] = deal
+            if not deal.get("siret") and not deal.get("siren"):
+                sanitized = self.brevo.sanitize_company_name(deal["name"])
+                deals_by_identifier[f"name_{sanitized}"] = deal
+        return deals_by_identifier
 
     def _find_existing_deal(
         self,
