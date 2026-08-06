@@ -96,6 +96,7 @@ class UserAnonymizer(AnonymizationExecutor):
         # Authorize only uppercase with underscore to ensure comptability with const WAY_HEARD_OF_MOBILIC_CHOICES in web/common/WayHeardOfMobilic.js
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
+        IdMappingService.prefetch_mappings("user", {u.id for u in users})
         for user in users:
             IdMappingService.get_user_negative_id(user.id)
 
