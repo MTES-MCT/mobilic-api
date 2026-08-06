@@ -2,7 +2,15 @@ from app import db, app
 from datetime import datetime, timedelta
 from sqlalchemy import text
 
-from app.models import User, Company, Employment, Mission, Activity, Vehicle
+from app.models import (
+    User,
+    Company,
+    Employment,
+    Mission,
+    Activity,
+    Vehicle,
+    MissionAutoValidation,
+)
 from app.models.user import UserAccountStatus
 from app.models.anonymized import AnonActivity, AnonEmployment, IdMapping
 from app.services.anonymization.user_related.user_anonymizer import (
@@ -444,4 +452,29 @@ class TestAnonymizationReferences(BaseTest):
         )
         self.assertIn(
             vehicle3.id, targets, "Vehicle 3 should be marked for deletion"
+        )
+
+    def test_mission_deletion_includes_auto_validations(self):
+        """Deleting a mission must delete its auto validations first (FK)."""
+        auto_validation = MissionAutoValidation(
+            mission=self.mission,
+            user=self.user,
+            is_admin=False,
+            reception_time=datetime.now(),
+        )
+        db.session.add(auto_validation)
+        db.session.commit()
+        mission_id = self.mission.id
+
+        executor = AnonymizationExecutor(db.session, dry_run=False)
+        executor.anonymize_mission_and_dependencies({mission_id})
+        db.session.commit()
+
+        self.assertEqual(Mission.query.filter_by(id=mission_id).count(), 0)
+        self.assertEqual(
+            MissionAutoValidation.query.filter_by(
+                mission_id=mission_id
+            ).count(),
+            0,
+            "Auto validations should be deleted with the mission",
         )
