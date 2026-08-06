@@ -424,6 +424,24 @@ def anonymize_standalone_data_command(
     )
 
 
+@app.cli.command("apply_activity_k_anonymity", with_appcontext=True)
+@click.option(
+    "--k",
+    type=int,
+    default=2,
+    show_default=True,
+    help="Minimum number of users that must share an activity-count value; "
+    "users below this threshold are removed from anon_activity.",
+)
+def apply_activity_k_anonymity_command(k):
+    from app.services.anonymization.utilities.k_anonymity import (
+        apply_activity_k_anonymity,
+    )
+
+    deleted = apply_activity_k_anonymity(k=k)
+    click.echo(f"Removed {deleted} anon_activity rows at k={k}")
+
+
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
 def update_ceased_activity_status():
     job_update_ceased_activity_status()

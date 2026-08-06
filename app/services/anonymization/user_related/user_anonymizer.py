@@ -103,9 +103,9 @@ class UserAnonymizer(AnonymizationExecutor):
             if self.dry_run:
                 continue
 
-            date_only = user.creation_time.date()
+            month_start = user.creation_time.date().replace(day=1)
             user.creation_time = datetime.combine(
-                date_only, time(0, 0, 0)
+                month_start, time(0, 0, 0)
             ).replace(tzinfo=timezone.utc)
             user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
