@@ -173,7 +173,11 @@ class AnonymizationExecutor:
                        date_trunc('month', a.start_time),
                        CASE WHEN a.end_time IS NOT NULL THEN
                            date_trunc('month', a.start_time)
-                           + (a.end_time - a.start_time)
+                           + make_interval(secs =>
+                               GREATEST(1, round(
+                                   extract(epoch FROM (a.end_time - a.start_time)) / 1800.0
+                               )::int) * 1800
+                           )
                        END,
                        date_trunc('month', a.last_update_time)
                 FROM activity a
@@ -230,7 +234,11 @@ class AnonymizationExecutor:
                        date_trunc('month', av.start_time),
                        CASE WHEN av.end_time IS NOT NULL THEN
                            date_trunc('month', av.start_time)
-                           + (av.end_time - av.start_time)
+                           + make_interval(secs =>
+                               GREATEST(1, round(
+                                   extract(epoch FROM (av.end_time - av.start_time)) / 1800.0
+                               )::int) * 1800
+                           )
                        END,
                        av.version_number, ms.anonymized_id
                 FROM activity_version av
@@ -311,12 +319,10 @@ class AnonymizationExecutor:
             text(
                 """
                 INSERT INTO anon_mission_validation
-                    (id, creation_time, mission_id, submitter_id, user_id,
-                     is_admin)
+                    (id, creation_time, mission_id, submitter_id, user_id)
                 SELECT mmv.anonymized_id,
                        date_trunc('month', v.creation_time),
-                       mm.anonymized_id, ms.anonymized_id, mu.anonymized_id,
-                       v.is_admin
+                       mm.anonymized_id, ms.anonymized_id, mu.anonymized_id
                 FROM mission_validation v
                 JOIN temp_id_mapping mmv
                     ON mmv.entity_type = 'mission_validation'
