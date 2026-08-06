@@ -114,7 +114,11 @@ class UserAnonymizationManager(AnonymizationManager):
 
             self.process_user_data(cutoff_date)
 
-            self.handle_final_cleanup()
+            # mappings must survive this step: the standalone copy/delete
+            # phases run after it in the nightly cron and an interrupted
+            # night leaves resume state (committed copies) behind. Only a
+            # completed delete-only run cleans the table.
+            self.handle_final_cleanup(should_preserve_mappings=True)
 
             logger.info("User anonymization completed successfully")
 
