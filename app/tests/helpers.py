@@ -970,11 +970,11 @@ class ApiRequests:
     """
 
     admined_companies_employments = """
-      query adminCompaniesList($id: Int!) {
+      query adminCompaniesList($id: Int!, $userIds: [Int], $latestPerUser: Boolean) {
         user(id: $id) {
           adminedCompanies {
             id
-            employments {
+            employments(userIds: $userIds, latestPerUser: $latestPerUser) {
               id
               email
               user {
@@ -1080,7 +1080,6 @@ class ApiRequests:
             }
         }
     """
-
 
     request_detachment = """
         mutation ($employmentId: Int!) {
