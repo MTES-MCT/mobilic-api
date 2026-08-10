@@ -147,8 +147,8 @@ def send_campaign_task(self, campaign_id):
             )
 
         except Exception as e:
-            logger.error(
-                f"Campaign {campaign_id} failed: {e}"
+            logger.exception(
+                f"Campaign {campaign_id} failed"
             )
             db.session.rollback()
             campaign = NotificationCampaign.query.get(

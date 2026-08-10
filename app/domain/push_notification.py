@@ -56,6 +56,6 @@ def send_push_notification(user_id, title, body, data=None):
                 db.session.delete(subscription)
                 db.session.commit()
             else:
-                logger.error(f"Push failed for user {user_id}: {e}")
+                logger.exception(f"Push failed for user {user_id}")
 
     return success
