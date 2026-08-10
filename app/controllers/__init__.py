@@ -91,6 +91,12 @@ from app.controllers.push_subscription import (
     SavePushSubscription,
     DeletePushSubscription,
 )
+from app.controllers.notification_campaign import (
+    CreateNotificationCampaign,
+    CancelNotificationCampaign,
+    UpdatePushBannerText,
+    Query as NotificationCampaignQuery,
+)
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
@@ -200,6 +206,12 @@ class Account(graphene.ObjectType):
     stop_impersonation = StopImpersonation.Field()
     save_push_subscription = SavePushSubscription.Field()
     delete_push_subscription = DeletePushSubscription.Field()
+
+
+class NotificationCampaigns(graphene.ObjectType):
+    create_notification_campaign = CreateNotificationCampaign.Field()
+    cancel_notification_campaign = CancelNotificationCampaign.Field()
+    update_push_banner_text = UpdatePushBannerText.Field()
 
 
 class Employments(graphene.ObjectType):
@@ -318,6 +330,11 @@ class PrivateMutations(graphene.ObjectType):
     create_survey_action = CreateSurveyAction.Field()
     send_control_bulletin_email = SendControlBulletinEmail.Field()
 
+    notification_campaigns = graphene.Field(
+        NotificationCampaigns,
+        resolver=lambda root, info: NotificationCampaigns(),
+    )
+
 
 class Queries(
     UserQuery,
@@ -350,6 +367,7 @@ class PrivateQueries(
     ControllerUserQuery,
     ThirdPartyEmploymentPrivateQuery,
     ControlLocationQuery,
+    NotificationCampaignQuery,
     graphene.ObjectType,
 ):
     pass

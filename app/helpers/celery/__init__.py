@@ -12,7 +12,10 @@ from app.models.export import ExportStatus, ExportType
 celery = Celery(
     app.name,
     broker=app.config["CELERY_BROKER_URL"],
-    include=["app.jobs.break_alert"],
+    include=[
+        "app.jobs.break_alert",
+        "app.jobs.notification_campaign",
+    ],
 )
 
 DEFAULT_FILE_NAME = "rapport_activités"
