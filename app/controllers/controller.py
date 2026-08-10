@@ -74,7 +74,7 @@ def redirect_to_ac_authorize():
         "state": uuid4().hex,
         "nonce": uuid4().hex,
         "response_type": "code",
-        "scope": "openid uid email given_name usual_name organizational_unit idp_id, email, phone",
+        "scope": "openid uid email given_name usual_name organizational_unit idp_id email phone",
         "client_id": app.config["AC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
