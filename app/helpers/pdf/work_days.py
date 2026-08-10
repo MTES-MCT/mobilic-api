@@ -260,6 +260,7 @@ def get_accumulator_base():
         "worked_days": 0,
         "off_days": 0,
         "total_work": 0,
+        "break": 0,
         "night_hours": 0,
         "bank_holidays_or_sundays_hours": 0,
     }
@@ -327,6 +328,11 @@ def _generate_work_days_pdf(
                 accumulator["off_days"] += 1
 
             accumulator["total_work"] += wd.total_work_duration
+            accumulator["break"] += (
+                wd.service_duration
+                - wd.total_work_duration
+                - wd.activity_durations[ActivityType.TRANSFER]
+            )
             if "night_hours" in accumulator:
                 accumulator[
                     "night_hours"
@@ -366,13 +372,22 @@ def _generate_work_days_pdf(
         week["days"].append(
             {
                 "date": wd.day,
-                "start_time": "-"
-                if wd.is_first_mission_overlapping_with_previous_day
-                else format_time(wd.start_time, False, user_timezone),
-                "end_time": "-"
-                if wd.is_last_mission_overlapping_with_next_day
-                else format_time(wd.end_time or wd.end_of_day, False, user_timezone),
+                "start_time": (
+                    "-"
+                    if wd.is_first_mission_overlapping_with_previous_day
+                    else format_time(wd.start_time, False, user_timezone)
+                ),
+                "end_time": (
+                    "-"
+                    if wd.is_last_mission_overlapping_with_next_day
+                    else format_time(
+                        wd.end_time or wd.end_of_day, False, user_timezone
+                    )
+                ),
                 "service": wd.service_duration,
+                "break": wd.service_duration
+                - wd.total_work_duration
+                - wd.activity_durations[ActivityType.TRANSFER],
                 "total_work": wd.total_work_duration,
                 **{
                     type_.value: wd.activity_durations[type_]

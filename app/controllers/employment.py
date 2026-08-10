@@ -589,6 +589,11 @@ def _terminate_single_employment(employment_id, end_date=None):
     employment.end_date = employment_end_date
     db.session.add(employment)
 
+    try:
+        mailer.send_employment_terminated_email(employment)
+    except Exception as e:
+        app.logger.exception(e)
+
     return employment, None
 
 
@@ -1084,6 +1089,7 @@ class ReattachEmployment(AuthenticatedMutation):
             # Case 1: Same-day termination → Cancel the termination (error correction)
             if terminated_employment.end_date == date.today():
                 terminated_employment.end_date = None
+                terminated_employment.detachment_request = None
                 db.session.flush()
 
                 email_sent = True
@@ -1128,3 +1134,76 @@ class ReattachEmployment(AuthenticatedMutation):
         return ReattachEmployment(
             employment=new_employment, email_sent=email_sent
         )
+
+
+DETACHMENT_COOLDOWN_HOURS = 48
+
+
+class EmploymentRequestDetachmentInput:
+    employment_id = graphene.Argument(
+        graphene.Int,
+        required=True,
+        description="Identifiant du rattachement pour lequel demander le détachement.",
+    )
+
+
+class RequestDetachment(AuthenticatedMutation):
+    """
+    Demande de détachement par un salarié.
+
+    Envoie un e-mail au(x) gestionnaire(s) de l'entreprise.
+    """
+
+    Arguments = EmploymentRequestDetachmentInput
+
+    Output = EmploymentOutput
+
+    @classmethod
+    @with_authorization_policy(active)
+    def mutate(cls, _, info, employment_id):
+        with atomic_transaction(commit_at_end=True):
+            employment = Employment.query.get(employment_id)
+            if not employment:
+                raise InvalidParamsError("Employment not found")
+            if current_user.id != employment.user_id:
+                raise AuthorizationError(
+                    "Only the employee can request detachment"
+                )
+            if not employment.is_active:
+                raise InvalidParamsError(
+                    "Employment is not active"
+                )
+            existing = employment.detachment_request
+            if existing and existing.get("last_sent_at"):
+                elapsed = (
+                    datetime.now()
+                    - datetime.fromtimestamp(existing["last_sent_at"])
+                )
+                if elapsed.total_seconds() < DETACHMENT_COOLDOWN_HOURS * 3600:
+                    raise InvalidParamsError(
+                        "A request was already sent recently, please wait 48 hours"
+                    )
+
+            is_relance = existing and existing.get("requested_at")
+            now_ts = int(datetime.now().timestamp())
+
+            if is_relance:
+                employment.detachment_request = {
+                    **existing,
+                    "last_sent_at": now_ts,
+                }
+                request_date = datetime.fromtimestamp(
+                    existing["requested_at"]
+                ).strftime("%d/%m/%Y")
+                mailer.send_detachment_relance_email(
+                    employment, request_date
+                )
+            else:
+                employment.detachment_request = {
+                    "requested_at": now_ts,
+                    "last_sent_at": now_ts,
+                }
+                mailer.send_detachment_request_email(employment)
+
+            db.session.add(employment)
+            return employment

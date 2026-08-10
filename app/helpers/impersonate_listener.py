@@ -42,6 +42,20 @@ def _get_impersonation_context():
     return impersonate_by, impersonated_user_id
 
 
+def sanitize_support_context(context):
+    """Remove any forged is_support key, then set it if impersonating."""
+    if context and "is_support" in context:
+        context = {k: v for k, v in context.items() if k != "is_support"}
+    try:
+        impersonate_by = getattr(g, "impersonate_by", None)
+    except RuntimeError:
+        impersonate_by = None
+    if impersonate_by:
+        context = context or {}
+        context["is_support"] = True
+    return context
+
+
 def _coerce_value(val):
     if val is None:
         return None

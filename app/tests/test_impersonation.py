@@ -10,14 +10,18 @@ from app.helpers.authentication import create_access_tokens_for
 from app.helpers.errors import AuthorizationError
 from app.helpers.mail_type import EmailType
 from app.models.activity import Activity, ActivityType
+from app.models.address import Address
 from app.models.company import Company
 from app.models.email import Email
 from app.models.employment import Employment
+from app.models.location_entry import LocationEntry, LocationEntryType
 from app.models.mission import Mission
+from app.models.mission_auto_validation import MissionAutoValidation
 from app.models.support_action_log import SupportActionLog
 from app.models.team import Team
 from app.models.totp_credential import TotpCredential
 from app.models.user import User
+from app.models.vehicle import Vehicle
 from app.seed.factories import (
     CompanyFactory,
     EmploymentFactory,
@@ -64,7 +68,19 @@ TEST_SCOPE_GUARD_ALLOWED_TABLES = frozenset(
         "employment",
         "company",
         "activity",
+        "activity_version",
+        "address",
+        "comment",
+        "expenditure",
+        "location_entry",
         "mission",
+        "mission_auto_validation",
+        "mission_end",
+        "mission_validation",
+        "notification",
+        "regulatory_alert",
+        "regulation_check",
+        "vehicle",
         "email",
         "team",
         "team_affiliation",
@@ -1368,3 +1384,256 @@ class TestPurgeSupportActionLogs(BaseTest):
         deleted = purge_expired_support_action_logs()
         self.assertEqual(deleted, 0)
         self.assertEqual(SupportActionLog.query.count(), 2)
+
+
+class TestSanitizeSupportContext(BaseTest):
+    LISTENER_G = "app.helpers.impersonate_listener.g"
+
+    def test_no_effect_without_impersonation(self):
+        from app.helpers.impersonate_listener import sanitize_support_context
+
+        self.assertIsNone(sanitize_support_context(None))
+        self.assertEqual(
+            sanitize_support_context({"userComment": "test"}),
+            {"userComment": "test"},
+        )
+
+    def test_forged_is_support_removed(self):
+        from app.helpers.impersonate_listener import sanitize_support_context
+
+        result = sanitize_support_context(
+            {"userComment": "test", "is_support": True}
+        )
+        self.assertNotIn("is_support", result)
+        self.assertEqual(result["userComment"], "test")
+
+    def test_is_support_injected_during_impersonation(self):
+        from app.helpers.impersonate_listener import sanitize_support_context
+
+        admin = UserFactory.create(admin=True)
+        db.session.commit()
+        g = SimpleNamespace(
+            impersonate_by=admin.id,
+            impersonated_user_id=999,
+        )
+        with patch(self.LISTENER_G, g):
+            self.assertTrue(
+                sanitize_support_context(None)["is_support"]
+            )
+
+    def test_forged_value_replaced_during_impersonation(self):
+        from app.helpers.impersonate_listener import sanitize_support_context
+
+        admin = UserFactory.create(admin=True)
+        db.session.commit()
+        g = SimpleNamespace(
+            impersonate_by=admin.id,
+            impersonated_user_id=999,
+        )
+        with patch(self.LISTENER_G, g):
+            result = sanitize_support_context(
+                {"userComment": "motif", "is_support": False}
+            )
+            self.assertTrue(result["is_support"])
+            self.assertEqual(result["userComment"], "motif")
+
+
+class TestSupportTracing(BaseTest):
+    LISTENER_G = "app.helpers.impersonate_listener.g"
+
+    def setUp(self):
+        super().setUp()
+        self.admin = UserFactory.create(admin=True)
+        self.company = CompanyFactory.create()
+        self.worker = UserFactory.create()
+        EmploymentFactory.create(
+            user=self.worker, company=self.company
+        )
+        db.session.commit()
+        self._orig_guard = app.config.get("IMPERSONATION_ALLOWED_TABLES")
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = (
+            TEST_SCOPE_GUARD_ALLOWED_TABLES
+        )
+
+    def tearDown(self):
+        app.config["IMPERSONATION_ALLOWED_TABLES"] = self._orig_guard
+        super().tearDown()
+
+    def _impersonation_g(self):
+        return SimpleNamespace(
+            impersonate_by=self.admin.id,
+            impersonated_user_id=self.worker.id,
+        )
+
+    def test_activity_creation_traced(self):
+        from app.domain.log_activities import log_activity
+        from app.seed import AuthenticatedUserContext
+
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            with AuthenticatedUserContext(user=self.worker):
+                activity = log_activity(
+                    submitter=self.worker,
+                    user=self.worker,
+                    mission=mission,
+                    type=ActivityType.DRIVE,
+                    switch_mode=False,
+                    reception_time=now,
+                    start_time=now - timedelta(hours=1),
+                    end_time=now,
+                )
+                db.session.commit()
+
+        version = activity.versions[0]
+        self.assertTrue(version.context.get("is_support"))
+
+    def test_activity_dismiss_traced(self):
+        from app.seed import AuthenticatedUserContext
+
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        start = now - timedelta(hours=2)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+        activity = Activity(
+            mission_id=mission.id,
+            user_id=self.worker.id,
+            submitter_id=self.worker.id,
+            reception_time=now,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+            type=ActivityType.DRIVE,
+            last_update_time=now,
+        )
+        db.session.add(activity)
+        db.session.commit()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            with AuthenticatedUserContext(user=self.worker):
+                activity.dismiss(now)
+                db.session.commit()
+
+        fetched = Activity.query.get(activity.id)
+        self.assertTrue(fetched.dismiss_context.get("is_support"))
+
+    def test_validation_traced(self):
+        from app.domain.validation import _get_or_create_validation
+
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            validation = _get_or_create_validation(
+                mission=mission,
+                submitter=self.worker,
+                user=self.worker,
+                is_admin=False,
+                validation_time=now,
+            )
+            db.session.commit()
+
+        self.assertTrue(validation.context.get("is_support"))
+
+    def test_no_tracing_without_impersonation(self):
+        from app.domain.log_activities import log_activity
+        from app.seed import AuthenticatedUserContext
+
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+
+        with AuthenticatedUserContext(user=self.worker):
+            activity = log_activity(
+                submitter=self.worker,
+                user=self.worker,
+                mission=mission,
+                type=ActivityType.DRIVE,
+                switch_mode=False,
+                reception_time=now,
+                start_time=now - timedelta(hours=1),
+                end_time=now,
+            )
+            db.session.commit()
+
+        version = activity.versions[0]
+        self.assertIsNone(version.context)
+
+    def test_vehicle_creation_allowed(self):
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            vehicle = Vehicle(
+                company_id=self.company.id,
+                registration_number="AB-123-CD",
+            )
+            db.session.add(vehicle)
+            db.session.commit()
+        self.assertIsNotNone(Vehicle.query.get(vehicle.id))
+
+    def test_location_entry_creation_allowed(self):
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        address = Address(name="1 rue de la Paix", manual=True)
+        db.session.add(address)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            entry = LocationEntry(
+                mission_id=mission.id,
+                address_id=address.id,
+                type=LocationEntryType.MISSION_START_LOCATION,
+                reception_time=now,
+                submitter_id=self.worker.id,
+            )
+            db.session.add(entry)
+            db.session.commit()
+        self.assertIsNotNone(LocationEntry.query.get(entry.id))
+
+    def test_mission_auto_validation_creation_allowed(self):
+        now = datetime.now(tz=timezone.utc).replace(second=0, microsecond=0)
+        mission = Mission(
+            company_id=self.company.id,
+            reception_time=now,
+            submitter_id=self.worker.id,
+        )
+        db.session.add(mission)
+        db.session.flush()
+
+        with patch(self.LISTENER_G, self._impersonation_g()):
+            auto_val = MissionAutoValidation(
+                mission_id=mission.id,
+                user_id=self.worker.id,
+                is_admin=False,
+                reception_time=now,
+            )
+            db.session.add(auto_val)
+            db.session.commit()
+        self.assertIsNotNone(
+            MissionAutoValidation.query.get(auto_val.id)
+        )
