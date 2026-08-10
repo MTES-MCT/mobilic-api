@@ -381,13 +381,17 @@ COLUMN_EVENT_ACTIVITIES = ExcelColumn(
     15,
     light_blue_hex,
 )
+def get_event_justification(event):
+    if event.type == LogActionType.DISPUTE and event.resource.dispute:
+        return event.resource.dispute.get("text")
+    if event.version and event.version.context:
+        return event.version.context.get("userComment")
+    return None
+
+
 COLUMN_EVENT_OBSERVATIONS = ExcelColumn(
-    "Observations",
-    lambda event: (
-        event.version.context.get("userComment")
-        if event.version and event.version.context
-        else None
-    ),
+    "Justification",
+    get_event_justification,
     lambda _: "wrap",
     60,
     light_red_hex,

@@ -1059,6 +1059,43 @@ class ApiRequests:
         }
     """
 
+    dispute_activity = """
+        mutation ($activityId: Int!, $text: String!) {
+            activities {
+                disputeActivity(activityId: $activityId, text: $text) {
+                    id
+                    dispute
+                }
+            }
+        }
+    """
+
+    cancel_dispute = """
+        mutation ($activityId: Int!) {
+            activities {
+                cancelDispute(activityId: $activityId) {
+                    id
+                    dispute
+                }
+            }
+        }
+    """
+
+
+    request_detachment = """
+        mutation ($employmentId: Int!) {
+            employments {
+                requestDetachment(employmentId: $employmentId) {
+                    id
+                    detachmentRequest {
+                        requestedAt
+                        lastSentAt
+                    }
+                }
+            }
+        }
+    """
+
 
 def _compute_db_model_table_diff(model, old_table_entries, new_table_entries):
     actual_db_updates = []

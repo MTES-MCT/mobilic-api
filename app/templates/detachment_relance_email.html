@@ -1,0 +1,23 @@
+{% extends "transactional_base.html" %}
+
+{% block subject %}
+Relance : détachement de {{ employee_name }} du compte Mobilic de votre entreprise
+{% endblock %}
+
+{% block body %}
+    <p>Bonjour,</p>
+    <p>Une demande émanant de {{ employee_name }} vous a été envoyée le {{ request_date }} afin de <strong>détacher son compte Mobilic de celui de votre entreprise.</strong></p>
+    <p>Si ce salarié ne travaille plus pour vous, <strong>vous devez le détacher de votre entreprise. La procédure est la suivante :</strong></p>
+    <ul>
+        <li>Rendez-vous dans l'<strong><a href="{{ employees_link }}">onglet "Salariés"</a> de votre interface</strong> ;</li>
+        <li>Tout à droite de la ligne correspondant à {{ employee_name }}, cliquez sur "Détacher" ;</li>
+        <li>Le rattachement prendra fin le jour même à minuit.</li>
+    </ul>
+    <p>Détacher les salariés qui ne font plus partie de l'entreprise permet :</p>
+    <ul>
+        <li>de <strong>ne pas fausser le calcul de votre certificat</strong></li>
+        <li>d'<strong>éviter les lourdeurs administratives en cas de contrôle</strong></li>
+    </ul>
+    <p>S'il s'agit d'une erreur, nous vous invitons à vous adresser à votre salarié.</p>
+    <p>Cordialement,</p>
+{% endblock %}

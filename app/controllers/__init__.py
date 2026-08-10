@@ -8,7 +8,13 @@ from app.controllers.certificate import (
 from app.controllers.holiday import LogHoliday
 from app.controllers.user_survey_actions import CreateSurveyAction
 from app.controllers.activity import BulkActivity as BulkActivityQuery
-from app.controllers.activity import CancelActivity, EditActivity, LogActivity
+from app.controllers.activity import (
+    CancelActivity,
+    EditActivity,
+    LogActivity,
+    DisputeActivity,
+    CancelDispute,
+)
 from app.controllers.authentication import (
     LoginMutation,
     RefreshMutation,
@@ -65,6 +71,7 @@ from app.controllers.employment import (
     ChangeEmployeeBusinessType,
     SnoozeNbWorkerInfo,
     SendInvitationsReminders,
+    RequestDetachment,
 )
 from app.controllers.expenditure import CancelExpenditure, LogExpenditure
 from app.controllers.location_entry import (
@@ -160,6 +167,8 @@ class Activities(graphene.ObjectType):
     cancel_mission = CancelMission.Field()
     register_kilometer_at_location = RegisterKilometerAtLocation.Field()
     log_holiday = LogHoliday.Field()
+    dispute_activity = DisputeActivity.Field()
+    cancel_dispute = CancelDispute.Field()
 
 
 class SignUp(graphene.ObjectType):
@@ -232,6 +241,7 @@ class Employments(graphene.ObjectType):
     change_employee_business_type = ChangeEmployeeBusinessType.Field()
     change_employee_team = ChangeEmployeeTeam.Field()
     update_hide_email = UpdateHideEmail.Field()
+    request_detachment = RequestDetachment.Field()
 
 
 class Vehicles(graphene.ObjectType):

@@ -593,6 +593,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             to_date=to_date,
         )
 
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'adminRegulationComputationsByUserAndByDay' of company object. Actor must be company admin.",
+    )
     def resolve_admin_regulation_computations_by_user_and_by_day(
         self, info, from_date=None, to_date=None, user_ids=None
     ):

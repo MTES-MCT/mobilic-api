@@ -2,14 +2,15 @@
 Test suite for IDOR (Insecure Direct Object Reference) vulnerabilities
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from flask.ctx import AppContext
 
 from app import app, db
 from app.domain.log_activities import log_activity
 from app.helpers.errors import AuthorizationError
-from app.models import Mission
+from app.helpers.submitter_type import SubmitterType
+from app.models import Mission, RegulationComputation
 from app.models.activity import ActivityType, Activity
 from app.seed import UserFactory, CompanyFactory
 from app.tests import BaseTest, AuthenticatedUserContext, test_post_graphql
@@ -216,6 +217,54 @@ class TestIDORVulnerabilities(BaseTest):
             AuthorizationError.code,
             response["errors"][0]["extensions"]["code"],
         )
+
+    def test_admin_regulation_computations_requires_company_admin(self):
+        db.session.add(
+            RegulationComputation(
+                day=date(2025, 5, 10),
+                submitter_type=SubmitterType.ADMIN,
+                user_id=self.worker_a.id,
+            )
+        )
+        db.session.commit()
+
+        query = """
+            query ($id: Int!) {
+                company(id: $id) {
+                    adminRegulationComputationsByUserAndByDay {
+                        day
+                        userId
+                    }
+                }
+            }
+        """
+
+        worker_response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_a.id,
+            query=query,
+            variables=dict(id=self.company_a.id),
+        )
+        self.assertIn("errors", worker_response)
+        self.assertEqual(
+            AuthorizationError.code,
+            worker_response["errors"][0]["extensions"]["code"],
+        )
+
+        admin_response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_a.id,
+            query=query,
+            variables=dict(id=self.company_a.id),
+        )
+        self.assertNotIn("errors", admin_response)
+        returned_user_ids = [
+            row["userId"]
+            for row in admin_response["data"]["company"][
+                "adminRegulationComputationsByUserAndByDay"
+            ]
+        ]
+        self.assertIn(self.worker_a.id, returned_user_ids)
 
     def test_idor_query_mission_cross_company_blocked(self):
         query = """

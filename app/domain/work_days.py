@@ -147,7 +147,9 @@ class WorkDay:
 
         # To be commented locally on init regulation alerts only!
         mission.history = actions_history(
-            mission, self.user, max_reception_time=self.max_reception_time
+            mission, self.user,
+            include_dispute_motif=False,
+            max_reception_time=self.max_reception_time,
         )
 
         self.missions.append(mission)
