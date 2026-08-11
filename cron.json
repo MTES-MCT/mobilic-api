@@ -33,6 +33,9 @@
     },
     {
       "command": "0 5 * * * flask purge_support_action_logs"
+    },
+    {
+      "command": "30 3 * * * flask compute_software_compliance_snapshot"
     }
   ]
 }

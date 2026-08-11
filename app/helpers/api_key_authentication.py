@@ -30,6 +30,8 @@ def require_api_key_decorator(func):
 
 def check_api_key():
     from app.helpers.oauth.models import ThirdPartyApiKey
+    from app.helpers.errors import ClientSuspendedError
+    from app import db
 
     api_key_parameter = request.headers.get(API_KEY_HTTP_HEADER_NAME)
     client_id = request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
@@ -49,7 +51,17 @@ def check_api_key():
         for db_api_key in db_api_keys:
             try:
                 if ph.verify(db_api_key.api_key, api_key):
+                    row = db.session.execute(
+                        "SELECT name, suspended_at FROM oauth2_client WHERE id = :id",
+                        {"id": int(client_id)},
+                    ).fetchone()
+                    if row and row.suspended_at is not None:
+                        raise ClientSuspendedError(
+                            f"Client {row.name} is suspended"
+                        )
                     return True
+            except ClientSuspendedError:
+                raise
             except Exception:
                 continue
     return False

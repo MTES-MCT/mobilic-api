@@ -339,6 +339,70 @@ def load_company_stats():
     app.logger.info("Process load_company_stats done")
 
 
+@app.cli.command("compute_software_compliance_snapshot", with_appcontext=True)
+@click.argument("for_date", required=False)
+def compute_software_compliance_snapshot(for_date=None):
+    """
+    Compute daily software compliance snapshot for all third-party clients.
+    Sends alerts (email + Tchap) if thresholds are exceeded for 7 consecutive active days.
+
+    for_date is an optional date with format YYYY-MM-DD (defaults to yesterday).
+    Example: flask compute_software_compliance_snapshot 2026-07-29
+    """
+    import datetime as dt
+    from app.jobs.software_compliance_report import (
+        job_compute_software_compliance_snapshot,
+    )
+
+    parsed_date = (
+        dt.datetime.strptime(for_date, "%Y-%m-%d").date()
+        if for_date is not None
+        else None
+    )
+    job_compute_software_compliance_snapshot(for_date=parsed_date)
+
+
+@app.cli.command("suspend_oauth_client", with_appcontext=True)
+@click.argument("client_id", required=True, type=int)
+def suspend_oauth_client(client_id):
+    """Suspend a third-party OAuth client, blocking all API access."""
+    from datetime import datetime
+    from app.helpers.oauth.models import OAuth2Client
+
+    client = OAuth2Client.query.get(client_id)
+    if not client:
+        click.echo(f"Client {client_id} not found.")
+        return
+    if client.is_suspended:
+        click.echo(
+            f"Client '{client.name}' ({client_id}) is already suspended."
+        )
+        return
+    client.suspended_at = datetime.now()
+    db.session.commit()
+    click.echo(
+        f"Client '{client.name}' ({client_id}) suspended at {client.suspended_at}."
+    )
+
+
+@app.cli.command("unsuspend_oauth_client", with_appcontext=True)
+@click.argument("client_id", required=True, type=int)
+def unsuspend_oauth_client(client_id):
+    """Restore API access for a previously suspended OAuth client."""
+    from app.helpers.oauth.models import OAuth2Client
+
+    client = OAuth2Client.query.get(client_id)
+    if not client:
+        click.echo(f"Client {client_id} not found.")
+        return
+    if not client.is_suspended:
+        click.echo(f"Client '{client.name}' ({client_id}) is not suspended.")
+        return
+    client.suspended_at = None
+    db.session.commit()
+    click.echo(f"Client '{client.name}' ({client_id}) is now unsuspended.")
+
+
 @app.cli.command("temp_generate_xml", with_appcontext=True)
 @click.argument("id", required=True)
 def temp_command_generate_xm_control(id):
