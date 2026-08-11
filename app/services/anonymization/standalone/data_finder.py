@@ -1,5 +1,5 @@
 from app import app, db
-from sqlalchemy import or_, text
+from sqlalchemy import and_, or_, text
 from typing import Iterator, Set, Tuple, Dict, List
 from datetime import datetime
 from app.services.anonymization.standalone.anonymization_executor import (
@@ -250,8 +250,11 @@ class DataFinder(AnonymizationExecutor):
         self, cutoff_date: datetime
     ) -> Tuple[Set[int], Set[int], Set[int]]:
         """Find inactive companies and their related data based on:
-        - All employments have end_date OR
+        - No live employment (all terminated or dismissed) AND
         - No missions since cutoff_date
+
+        The intersection keeps companies with still-attached employees out
+        of the anonymization scope, even without recent missions.
 
         Returns:
             Tuple containing:
@@ -266,7 +269,7 @@ class DataFinder(AnonymizationExecutor):
             self.find_inactive_companies_by_missions(cutoff_date)
         )
 
-        inactive_companies = companies_terminated_employment.union(
+        inactive_companies = companies_terminated_employment.intersection(
             companies_no_recent_missions
         )
 
@@ -306,10 +309,13 @@ class DataFinder(AnonymizationExecutor):
     def find_inactive_companies_by_employment(
         self, cutoff_date: datetime
     ) -> Set[int]:
+        # A live employment is neither terminated nor dismissed: with or_
+        # any terminated-but-not-dismissed employment (the normal case) kept
+        # its company "active" forever, making this criterion unreachable.
         active_companies = (
             db.session.query(Employment.company_id)
             .filter(
-                or_(
+                and_(
                     Employment.end_date.is_(None),
                     Employment.dismissed_at.is_(None),
                 )

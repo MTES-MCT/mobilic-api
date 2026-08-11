@@ -26,8 +26,10 @@ class UserClassifier:
             )
         )
 
+        # Intersection: a company with still-attached employees or recent
+        # missions is not inactive, so its admins stay out of scope.
         return tuple(
-            companies_without_active_employments.union(
+            companies_without_active_employments.intersection(
                 companies_no_recent_missions
             )
         )
