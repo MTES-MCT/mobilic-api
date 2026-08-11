@@ -478,3 +478,35 @@ class TestAnonymizationReferences(BaseTest):
             0,
             "Auto validations should be deleted with the mission",
         )
+
+    def test_user_anonymization_detaches_active_employments(self):
+        """Anonymized users must no longer appear as active employees."""
+        old_employment = EmploymentFactory.create(
+            user=self.user2,
+            company=self.company,
+            start_date=(datetime.now() - timedelta(days=365)).date(),
+            has_admin_rights=False,
+            submitter=self.user2,
+            validation_status="approved",
+            reception_time=datetime.now(),
+        )
+        self.assertTrue(old_employment.is_active)
+
+        anonymizer = UserAnonymizer(db.session, dry_run=False)
+        anonymizer.anonymize_users_in_place({self.user2.id})
+        db.session.commit()
+        db.session.expire_all()
+
+        employment = Employment.query.get(old_employment.id)
+        self.assertIsNotNone(employment.end_date)
+        self.assertFalse(employment.is_active)
+        self.assertTrue(employment.is_terminated)
+
+    def test_user_anonymization_dry_run_keeps_employments(self):
+        """Dry run must not modify employments."""
+        anonymizer = UserAnonymizer(db.session, dry_run=True)
+        anonymizer.anonymize_users_in_place({self.user.id})
+        db.session.commit()
+
+        employment = Employment.query.get(self.employment.id)
+        self.assertIsNone(employment.end_date)
