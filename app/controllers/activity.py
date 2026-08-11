@@ -1,6 +1,10 @@
+import logging
 from datetime import datetime, timezone
 
+
 import graphene
+
+logger = logging.getLogger(__name__)
 from graphene.types.generic import GenericScalar
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +13,7 @@ from app.controllers.utils import atomic_transaction, Void
 from app.data_access.activity import ActivityOutput
 from app.domain.log_activities import log_activity
 from app.domain.mission_auto_validation import create_mission_auto_validation
+from app.jobs.break_alert import schedule_break_alert_if_needed
 from app.domain.permissions import (
     check_actor_can_write_on_mission_over_period,
     check_actor_can_edit_activity,
@@ -109,6 +114,11 @@ def log_activity_(input):
         context=input.get("context"),
         creation_time=input.get("creation_time"),
     )
+
+    try:
+        schedule_break_alert_if_needed(user.id, activity, reception_time)
+    except Exception:
+        logger.warning("Failed to schedule break alert")
 
     return activity
 
