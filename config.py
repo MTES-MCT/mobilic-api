@@ -216,6 +216,10 @@ class StagingConfig(Config):
     }
 
 
+class ReviewConfig(StagingConfig):
+    DISABLE_EMAIL = True
+
+
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
