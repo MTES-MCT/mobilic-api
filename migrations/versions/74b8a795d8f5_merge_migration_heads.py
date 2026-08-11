@@ -17,8 +17,10 @@ depends_on = None
 
 
 def upgrade():
+    # merge only, no schema changes
     pass
 
 
 def downgrade():
+    # merge only, no schema changes
     pass

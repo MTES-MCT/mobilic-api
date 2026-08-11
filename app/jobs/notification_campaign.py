@@ -146,7 +146,7 @@ def send_campaign_task(self, campaign_id):
                 f"{sent} sent, {failed} failed"
             )
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Campaign {campaign_id} failed"
             )
