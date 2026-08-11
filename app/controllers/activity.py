@@ -74,7 +74,18 @@ class ActivityLogInput:
     )
 
 
+def check_activity_context(context):
+    # context is stored as JSONB and read back with .get() (e.g. userComment
+    # in exports and history): reject non-object payloads before they
+    # corrupt activity versions (seen with third-party integrations).
+    if context is not None and not isinstance(context, dict):
+        raise InvalidParamsError(
+            'context must be a JSON object, e.g. {"userComment": "..."}'
+        )
+
+
 def log_activity_(input):
+    check_activity_context(input.get("context"))
     switch_mode = input.get("switch", True)
     if switch_mode and input.get("end_time"):
         raise InvalidParamsError(
@@ -132,9 +143,11 @@ class LogActivity(AuthenticatedMutation):
             "mission": Mission.query.options(
                 selectinload(Mission.activities)
             ).get(kwargs["mission_id"]),
-            "user": User.query.get(kwargs["user_id"])
-            if "user_id" in kwargs
-            else None,
+            "user": (
+                User.query.get(kwargs["user_id"])
+                if "user_id" in kwargs
+                else None
+            ),
         },
         error_message="Actor is not authorized to log in the mission",
     )
@@ -206,6 +219,7 @@ def edit_activity(
     creation_time=None,
     context=None,
 ):
+    check_activity_context(context)
     reception_time = datetime.now()
     activity_to_update = Activity.query.get(activity_id)
 
@@ -444,7 +458,10 @@ class DisputeActivity(AuthenticatedMutation):
                 raise AuthorizationError(
                     "Only the employee concerned by the activity can dispute it"
                 )
-            if activity.dispute and activity.dispute.get("status") == "created":
+            if (
+                activity.dispute
+                and activity.dispute.get("status") == "created"
+            ):
                 raise InvalidParamsError("Activity is already disputed")
             latest_admin_validation = max(
                 (
@@ -501,7 +518,10 @@ class CancelDispute(AuthenticatedMutation):
             activity = Activity.query.get(cancel_input["activity_id"])
             if not activity:
                 raise InvalidParamsError("Activity not found")
-            if not activity.dispute or activity.dispute.get("status") != "created":
+            if (
+                not activity.dispute
+                or activity.dispute.get("status") != "created"
+            ):
                 raise InvalidParamsError("No active dispute on this activity")
             if current_user.id != activity.dispute.get("submitter_id"):
                 raise AuthorizationError(
