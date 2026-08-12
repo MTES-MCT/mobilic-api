@@ -38,7 +38,7 @@ jobs:
         run: |
           curl -sO https://cli-dl.scalingo.com/install
           bash install
-          rm install
+          rm -f install
 
       - name: Login to Scalingo
         env:
