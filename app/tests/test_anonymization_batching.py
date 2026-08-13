@@ -2,12 +2,30 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from app import app, db
-from app.models import Activity, Mission, MissionAutoValidation
+from app.helpers.notification_type import NotificationType
+from app.models import (
+    Activity,
+    CompanyCertification,
+    Mission,
+    MissionAutoValidation,
+)
+from app.models.export import Export, ExportType, ExportStatus
+from app.models.notification import Notification
+from app.models.scenario_testing import Action, Scenario, ScenarioTesting
+from app.models.totp_credential import TotpCredential
 from app.models.user import UserAccountStatus
-from app.models.anonymized import AnonActivity, AnonMission, IdMapping
+from app.models.anonymized import (
+    AnonActivity,
+    AnonCompanyCertification,
+    AnonMission,
+    IdMapping,
+)
 from app.services.anonymization import anonymize_expired_data
 from app.services.anonymization.user_related import anonymize_users
 from app.services.anonymization.id_mapping_service import IdMappingService
+from app.services.anonymization.standalone.anonymization_executor import (
+    AnonymizationExecutor,
+)
 from app.services.anonymization.standalone.data_finder import DataFinder
 from app.seed.factories import CompanyFactory, EmploymentFactory, UserFactory
 from app.seed.helpers import AuthenticatedUserContext
@@ -185,6 +203,94 @@ class TestAnonymizationBatching(BaseTest):
             IdMapping.query.filter_by(entity_type="mission").count(),
             self.MISSION_COUNT,
         )
+
+    def test_user_dependencies_added_since_pipeline_creation_are_deleted(
+        self,
+    ):
+        pending = UserFactory.create(email="pending_anon@example.com")
+        pending.status = UserAccountStatus.ANONYMIZED
+        pending.creation_time = datetime(2022, 1, 1)
+
+        db.session.add(
+            Notification(
+                user=pending,
+                type=NotificationType.MISSION_AUTO_VALIDATION,
+                data=None,
+            )
+        )
+        db.session.add(
+            Export(
+                user=pending,
+                export_type=ExportType.EXCEL,
+                status=ExportStatus.READY,
+            )
+        )
+        db.session.add(
+            ScenarioTesting(
+                user=pending,
+                scenario=Scenario.SCENARIO_A,
+                action=Action.LOAD,
+            )
+        )
+        db.session.add(
+            TotpCredential(
+                owner_type="user",
+                owner_id=pending.id,
+                secret="dummy-secret",
+                enabled=True,
+            )
+        )
+        db.session.commit()
+        pending_id = pending.id
+
+        anonymize_users(dry_run=False)
+        AnonymizationExecutor(
+            db.session, dry_run=False
+        ).delete_user_dependencies({pending_id})
+        db.session.commit()
+
+        db.session.expire_all()
+        self.assertEqual(
+            Notification.query.filter_by(user_id=pending_id).count(), 0
+        )
+        self.assertEqual(Export.query.filter_by(user_id=pending_id).count(), 0)
+        self.assertEqual(
+            ScenarioTesting.query.filter_by(user_id=pending_id).count(), 0
+        )
+        self.assertEqual(
+            TotpCredential.query.filter_by(
+                owner_type="user", owner_id=pending_id
+            ).count(),
+            0,
+        )
+
+    def test_company_certification_is_copied_with_source_columns(self):
+        old_company = CompanyFactory.create(
+            usual_name="Certified Old Co", siren="999888777"
+        )
+        old_company.creation_time = datetime(2021, 1, 1)
+
+        cert = CompanyCertification(
+            company=old_company,
+            attribution_date=datetime(2021, 2, 1).date(),
+            expiration_date=datetime(2021, 4, 1).date(),
+            log_in_real_time=0.72,
+            admin_changes=0.18,
+            compliancy=3,
+        )
+        db.session.add(cert)
+        db.session.commit()
+
+        anonymize_expired_data(dry_run=True)
+
+        anon_certs = AnonCompanyCertification.query.all()
+        self.assertEqual(len(anon_certs), 1)
+        anon = anon_certs[0]
+        self.assertAlmostEqual(anon.log_in_real_time, 0.72, places=4)
+        self.assertAlmostEqual(anon.admin_changes, 0.18, places=4)
+        self.assertEqual(anon.compliancy, 3)
+        # certification_level_int is populated by the before_insert event
+        self.assertIsNotNone(anon.certification_level_int)
 
     def test_test_mode_leaves_no_trace(self):
         DataFinder(db.session, dry_run=True).anonymize_standalone_data(

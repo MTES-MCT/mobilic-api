@@ -31,6 +31,10 @@ from app.helpers.oauth.models import (
     ThirdPartyClientEmployment,
     ThirdPartyClientCompany,
 )
+from app.models.notification import Notification
+from app.models.export import Export
+from app.models.scenario_testing import ScenarioTesting
+from app.models.totp_credential import TotpCredential
 from app.models.user import UserAccountStatus
 from app.models.team_association_tables import (
     team_vehicle_association_table,
@@ -847,6 +851,10 @@ class AnonymizationExecutor:
         self.delete_user_refresh_tokens(user_ids)
         self.delete_user_read_tokens(user_ids)
         self.delete_user_survey_actions(user_ids)
+        self.delete_user_notifications(user_ids)
+        self.delete_user_exports(user_ids)
+        self.delete_user_scenario_testings(user_ids)
+        self.delete_user_totp_credentials(user_ids)
         self.delete_team_admin_users(user_ids=user_ids)
         self.delete_controller_controls(user_ids=user_ids)
         self.delete_emails(user_ids=user_ids)
@@ -929,6 +937,49 @@ class AnonymizationExecutor:
         ).delete(synchronize_session=False)
 
         self.log_deletion(deleted, "user survey actions")
+
+    def delete_user_notifications(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = Notification.query.filter(
+            Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "notification")
+
+    def delete_user_exports(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = Export.query.filter(Export.user_id.in_(user_ids)).delete(
+            synchronize_session=False
+        )
+
+        self.log_deletion(deleted, "export")
+
+    def delete_user_scenario_testings(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = ScenarioTesting.query.filter(
+            ScenarioTesting.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "scenario testing")
+
+    def delete_user_totp_credentials(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        # totp_credential is polymorphic (owner_type + owner_id, no FK);
+        # only user-owned rows are relevant to user anonymization.
+        deleted = TotpCredential.query.filter(
+            TotpCredential.owner_type == "user",
+            TotpCredential.owner_id.in_(user_ids),
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "totp credential")
 
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
         if not user_ids:
