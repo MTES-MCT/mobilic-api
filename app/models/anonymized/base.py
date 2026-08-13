@@ -7,6 +7,27 @@ logger = logging.getLogger(__name__)
 class AnonymizedModel(db.Model):
     __abstract__ = True
 
+    # None = not primed, check_existing_record falls back to per-row
+    # SELECTs; a set is authoritative for the current loop
+    _primed_existing_ids = None
+
+    @classmethod
+    def prime_existing_records(cls, anonymized_ids) -> None:
+        ids = [i for i in anonymized_ids if i]
+        cls._primed_existing_ids = (
+            {
+                row[0]
+                for row in db.session.query(cls.id).filter(cls.id.in_(ids))
+            }
+            if ids
+            else set()
+        )
+
+    @classmethod
+    def clear_primed_records(cls) -> None:
+        for subclass in cls.__subclasses__():
+            subclass._primed_existing_ids = None
+
     @classmethod
     def get_new_id(cls, entity_type: str, old_id: int):
         """
@@ -47,6 +68,12 @@ class AnonymizedModel(db.Model):
             The existing record if found, None otherwise
         """
         if not entity_id:
+            return None
+
+        if (
+            cls._primed_existing_ids is not None
+            and entity_id not in cls._primed_existing_ids
+        ):
             return None
 
         existing = db.session.query(cls).get(entity_id)

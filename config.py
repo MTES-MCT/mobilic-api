@@ -159,6 +159,9 @@ class Config:
     ANONYMIZATION_THRESHOLD_MONTH = int(
         os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
     )
+    ANONYMIZATION_MAX_MISSIONS_PER_RUN = int(
+        os.environ.get("ANONYMIZATION_MAX_MISSIONS_PER_RUN", 100000)
+    )
     EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
         os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
     )
