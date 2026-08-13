@@ -85,6 +85,21 @@ class AnonymizedModel(db.Model):
 
         return None
 
+    ACTIVITY_DURATION_BUCKET_SECONDS = 30 * 60
+
+    @classmethod
+    def bucket_end_time(cls, start_time, end_time):
+        if start_time is None or end_time is None:
+            return None
+        delta_seconds = (end_time - start_time).total_seconds()
+        bucket = cls.ACTIVITY_DURATION_BUCKET_SECONDS
+        rounded = int(round(delta_seconds / bucket)) * bucket
+        if delta_seconds > 0 and rounded == 0:
+            rounded = bucket
+        from datetime import timedelta
+
+        return start_time + timedelta(seconds=rounded)
+
     @staticmethod
     def truncate_to_month(date):
         """
