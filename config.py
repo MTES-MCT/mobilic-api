@@ -213,6 +213,14 @@ class StagingConfig(Config):
     }
 
 
+class ReviewConfig(StagingConfig):
+    # Scalingo's `"generator": "secret"` produces a hex string, which is not a
+    # valid Fernet key (Fernet expects 32 random bytes urlsafe-b64 encoded).
+    # Generate one per process instead: TOTP credentials created on a review
+    # app are ephemeral by design, so a key rotation on redeploy is acceptable.
+    TOTP_ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
+
+
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
