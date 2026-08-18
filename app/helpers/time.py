@@ -9,6 +9,14 @@ FR_TIMEZONE = ZoneInfo("Europe/Paris")
 LOCAL_TIMEZONE = (
     datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
 )
+DROM_COM_TIMEZONES = {
+    "971": ZoneInfo("America/Guadeloupe"),
+    "972": ZoneInfo("America/Martinique"),
+    "973": ZoneInfo("America/Cayenne"),
+    "974": ZoneInfo("Indian/Reunion"),
+    "975": ZoneInfo("America/Miquelon"),
+    "976": ZoneInfo("Indian/Mayotte"),
+}
 VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
 VERY_FAR_AHEAD = datetime.datetime(2100, 1, 1)
 SUNDAY_WEEKDAY = 6
@@ -44,6 +52,10 @@ def from_tz(date_time, tz):
 
 def to_fr_tz(date_time):
     return to_tz(date_time, FR_TIMEZONE)
+
+
+def get_timezone_from_department_code(department_code):
+    return DROM_COM_TIMEZONES.get(department_code, FR_TIMEZONE)
 
 
 def get_date_or_today(date=None):

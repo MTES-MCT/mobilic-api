@@ -1,3 +1,6 @@
+import json
+import re
+
 from app.helpers.errors import InvalidParamsError
 from app.models.business import Business, BusinessType
 
@@ -68,3 +71,56 @@ def save_control_bulletin(
     existing_bulletin["real_vehicle_weight"] = real_vehicle_weight
 
     control.control_bulletin = existing_bulletin
+
+
+def get_location_info_from_bulletin(bulletin):
+    """Returns (department_code, department_label, postal_code)."""
+    if not bulletin:
+        return "", "", ""
+
+    location_department = bulletin.get("location_department", "")
+    location_commune = bulletin.get("location_commune", "")
+    location_lieu = bulletin.get("location_lieu", "")
+
+    # Extract postal code from commune or lieu
+    postal_code = ""
+    if (
+        location_commune
+        and "(" in location_commune
+        and ")" in location_commune
+    ):
+        potential_postal = (
+            location_commune.split("(")[-1].split(")")[0].strip()
+        )
+        if potential_postal.isdigit() and len(potential_postal) == 5:
+            postal_code = potential_postal
+
+    if not postal_code and location_lieu:
+        postal_match = re.search(r"\b(\d{5})\b", location_lieu)
+        if postal_match:
+            postal_code = postal_match.group(1)
+
+    # Parse department info
+    department_code = ""
+    department_label = ""
+
+    if location_department:
+        try:
+            dept_obj = json.loads(location_department)
+            if isinstance(dept_obj, dict) and "code" in dept_obj:
+                department_code = dept_obj["code"]
+                department_label = dept_obj.get("label", "")
+            else:
+                department_label = location_department
+        except (json.JSONDecodeError, TypeError):
+            department_label = location_department
+
+    # Fallback to postal code if needed. DROM-COM postal codes (971xx-976xx)
+    # need the 3-digit department code to be distinguishable from one
+    # another, everywhere else uses the 2-digit code.
+    if not department_code and postal_code:
+        department_code = (
+            postal_code[:3] if postal_code[:2] == "97" else postal_code[:2]
+        )
+
+    return department_code, department_label, postal_code

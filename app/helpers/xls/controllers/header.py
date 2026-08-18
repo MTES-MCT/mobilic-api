@@ -1,8 +1,9 @@
 from app.domain.business import get_businesses_display_name
+from app.domain.control_bulletin import get_location_info_from_bulletin
 from app.domain.regulations import get_default_business
 from app.models.controller_control import ControlType
 from app.templates.filters import MONTHS
-from app.helpers.time import to_tz
+from app.helpers.time import to_tz, get_timezone_from_department_code
 
 
 def write_header(wb, sheet, control):
@@ -14,7 +15,15 @@ def write_header(wb, sheet, control):
         if control.qr_code_generation_time
         else control.creation_time
     )
-    control_date_time = to_tz(control_date_time, tz=control.user.timezone)
+
+    if control.user:
+        control_timezone = control.user.timezone
+    else:
+        department_code, _, _ = get_location_info_from_bulletin(
+            control.control_bulletin
+        )
+        control_timezone = get_timezone_from_department_code(department_code)
+    control_date_time = to_tz(control_date_time, tz=control_timezone)
 
     month_id = control_date_time.month
     items = [
