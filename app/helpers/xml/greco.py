@@ -2,11 +2,10 @@ import xml.etree.cElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-import json
-import re
 
 from flask import send_file
 
+from app.domain.control_bulletin import get_location_info_from_bulletin
 from app.domain.regulations import get_default_business
 from app.helpers.errors import InvalidParamsError
 from app.domain.regulations_helper import resolve_variables
@@ -58,51 +57,12 @@ def add_date_element(element, field_name, dt, no_hours_and_minutes=False):
 
 
 def process_control(control, bdc, doc, infractions):
-    location_department = bdc.get("location_department", "")
-    location_commune = bdc.get("location_commune", "")
     location_lieu = bdc.get("location_lieu", "")
+    location_commune = bdc.get("location_commune", "")
 
-    # Extract postal code from commune or lieu
-    postal_code = ""
-    if (
-        location_commune
-        and "(" in location_commune
-        and ")" in location_commune
-    ):
-        potential_postal = (
-            location_commune.split("(")[-1].split(")")[0].strip()
-        )
-        if potential_postal.isdigit() and len(potential_postal) == 5:
-            postal_code = potential_postal
-
-    if not postal_code and location_lieu:
-        postal_match = re.search(r"\b(\d{5})\b", location_lieu)
-        if postal_match:
-            postal_code = postal_match.group(1)
-
-    # Parse department info
-    departement_code = ""
-    department_label = ""
-
-    if location_department:
-        try:
-            dept_obj = json.loads(location_department)
-            if isinstance(dept_obj, dict) and "code" in dept_obj:
-                departement_code = dept_obj["code"]
-                department_label = dept_obj.get("label", "")
-            else:
-                department_label = location_department
-        except (json.JSONDecodeError, TypeError):
-            department_label = location_department
-
-    # Fallback to postal code if needed
-    if not departement_code and postal_code:
-        dept_from_postal = postal_code[:2]
-        if dept_from_postal == "20":
-            departement_code = "20"
-        else:
-            departement_code = dept_from_postal
-
+    departement_code, department_label, postal_code = (
+        get_location_info_from_bulletin(bdc)
+    )
     if not departement_code:
         departement_code = "00"
 
