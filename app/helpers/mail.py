@@ -547,7 +547,9 @@ class Mailer:
         )
 
     def send_detachment_request_email(self, employment):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -568,7 +570,9 @@ class Mailer:
             )
 
     def send_detachment_relance_email(self, employment, request_date):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -862,19 +866,6 @@ class Mailer:
                 work_duration=timers["total_work"],
                 show_dates=start_time.date() != end_time.date(),
                 user_timezone=user_timezone,
-            ),
-            _disable_commit=True,
-        )
-
-    def send_worker_onboarding_first_email(self, user):
-        self._send_single(
-            self._create_message_from_mailjet_template(
-                2690636,
-                type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
-                user=user,
-                first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login",
-                _disable_commit=True,
             ),
             _disable_commit=True,
         )
