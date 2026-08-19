@@ -80,3 +80,23 @@ class ControllerUserOutput(BaseSQLAlchemyObjectType):
             controls_type=controls_type,
             limit=limit,
         ).all()
+
+    organizational_address = graphene.Field(
+        graphene.String,
+        required=False,
+        description="Adresse de l'organisation à laquelle est rattaché le contrôleur",
+    )
+
+    organizational_phone = graphene.Field(
+        graphene.String,
+        required=False,
+        description="Numéro de téléphone de l'organisation à laquelle est rattaché le contrôleur",
+    )
+
+    def resolve_organizational_address(self, info):
+        contact = self.organizational_unit_contact
+        return contact.address if contact else None
+
+    def resolve_organizational_phone(self, info):
+        contact = self.organizational_unit_contact
+        return contact.phone_number if contact else None

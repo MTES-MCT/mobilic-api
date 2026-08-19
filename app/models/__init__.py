@@ -1,6 +1,7 @@
 from .totp_credential import TotpCredential
 from .user import User
 from .controller_user import ControllerUser
+from .organizational_unit_contact import OrganizationalUnitContact
 from .business import Business
 from .company import Company
 from .address import Address

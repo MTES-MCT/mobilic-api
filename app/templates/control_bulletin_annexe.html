@@ -172,8 +172,13 @@
 
     <!-- Footer -->
     <div class="small-text center" style="margin-top: 8pt">
+        {% if is_it %}
+        Les infractions mentionnées au PV pourront être différentes de celles relevées au sein du présent bulletin de
+        contrôle ou pourront être des sanctions administratives.
+        {% else %}
         Les infractions mentionnées au PV pourront être différentes de celles relevées au sein du présent bulletin de
         contrôle.
+        {% endif %}
     </div>
 
 </body>

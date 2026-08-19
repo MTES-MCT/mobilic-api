@@ -56,3 +56,17 @@ class ControllerUser(BaseModel, RandomNineIntId):
     @property
     def is_ctt(self):
         return bool(self._is_ctt())
+
+    @property
+    def organizational_unit_contact(self):
+        from app.models.organizational_unit_contact import (
+            OrganizationalUnitContact,
+        )
+
+        if not hasattr(self, "_organizational_unit_contact"):
+            self._organizational_unit_contact = (
+                OrganizationalUnitContact.query.filter_by(
+                    organizational_unit=self.organizational_unit
+                ).one_or_none()
+            )
+        return self._organizational_unit_contact

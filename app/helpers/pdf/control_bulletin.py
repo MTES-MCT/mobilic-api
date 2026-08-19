@@ -91,16 +91,26 @@ def _generate_part_one(control):
     # CTT=greco id
     # MI=greco id (anonymisation)
     # IT=nom de l'agent
+    controller_service = ""
+    controller_email = ""
+    controller_address = ""
+    controller_phone = ""
+
     if not control.controller_user:
         controller_signature = "-"
     else:
         controller = control.controller_user
-        controller_service = ""
+
         if controller.organizational_unit:
             controller_service = controller.organizational_unit
-        email = ""
-        postal = ""
-        phone = ""
+
+        if controller.email:
+            controller_email = controller.email
+
+        contact = controller.organizational_unit_contact
+        controller_address = contact.address if contact else None
+        controller_phone = contact.phone_number if contact else None
+
         if controller._is_ctt() or controller._is_mi():
             controller_signature = controller.greco_id or "-"
         else:
@@ -168,9 +178,9 @@ def _generate_part_one(control):
         controller_signature=controller_signature,
         controller_service=controller_service,
         vehicle_weight=printed_vehicle_weight_value,
-        email=email,
-        postal=postal,
-        phone=phone,
+        controller_email=controller_email,
+        controller_address=controller_address,
+        controller_phone=controller_phone,
     )
 
 
@@ -181,10 +191,12 @@ def _generate_part_two(control):
     custom_infractions_metadata = {}
 
     controller_service = ""
+    is_it = False
     if control.controller_user:
         controller = control.controller_user
         if controller.organizational_unit:
             controller_service = controller.organizational_unit
+        is_it = bool(controller._is_it())
 
     for idx_r, r in enumerate(control.reported_infractions):
         check_type = r.get("check_type")
@@ -227,4 +239,5 @@ def _generate_part_two(control):
         custom_infractions_by_date=custom_infractions_by_date,
         custom_infractions_metadata=custom_infractions_metadata,
         controller_service=controller_service,
+        is_it=is_it,
     )
