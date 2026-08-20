@@ -205,6 +205,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             default_value=False,
             description="Si true, retourne uniquement le dernier rattachement par salarié",
         ),
+        user_ids=graphene.List(
+            graphene.Int,
+            required=False,
+            description="Si renseigné, restreint le résultat aux rattachements de ces salariés",
+        ),
         description="Liste des rattachements validés ou en cours de validation de l'entreprise. Inclut également les rattachements qui ne sont plus actifs",
     )
     known_addresses = graphene.List(
@@ -324,13 +329,15 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'employments' of company object. Actor must be company admin.",
     )
-    def resolve_employments(self, info, latest_per_user=False):
+    def resolve_employments(self, info, latest_per_user=False, user_ids=None):
         base_filters = [
             Employment.company_id == self.id,
             ~Employment.is_dismissed,
             Employment.validation_status
             != EmploymentRequestValidationStatus.REJECTED,
         ]
+        if user_ids:
+            base_filters.append(Employment.user_id.in_(user_ids))
 
         if not latest_per_user:
             return (
