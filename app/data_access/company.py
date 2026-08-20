@@ -401,12 +401,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .order_by(Mission.creation_time.desc())
         )
         if first is not None:
-            deleted_missions_query = deleted_missions_query.limit(first)
+            deleted_missions_query = deleted_missions_query.limit(first + 1)
         deleted_missions = deleted_missions_query.all()
 
-        edges = [{"node": mission} for mission in deleted_missions]
-
-        return MissionConnection(edges=edges)
+        return to_connection(
+            deleted_missions,
+            connection_cls=MissionConnection,
+            has_next_page=False,
+            get_cursor=lambda m: str(m.id),
+            first=first,
+        )
 
     @with_authorization_policy(
         company_admin,
