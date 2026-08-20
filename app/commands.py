@@ -934,3 +934,35 @@ def delete_old_notifications():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting notifications: {e}")
+
+
+@app.cli.command("delete_expired_refresh_tokens", with_appcontext=True)
+def delete_expired_refresh_tokens():
+    """Delete idle-expired refresh tokens and consumed tokens past the reuse grace period."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.refresh_token import RefreshToken
+    from app.models.controller_refresh_token import ControllerRefreshToken
+    from app import db
+
+    now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    expiration_threshold = now - app.config["REFRESH_TOKEN_EXPIRATION"]
+    consumed_threshold = now - timedelta(days=1)
+
+    try:
+        deleted_expired = 0
+        deleted_consumed = 0
+        for token_model in (RefreshToken, ControllerRefreshToken):
+            deleted_expired += token_model.query.filter(
+                token_model.consumed_at.is_(None),
+                token_model.creation_time < expiration_threshold,
+            ).delete(synchronize_session=False)
+            deleted_consumed += token_model.query.filter(
+                token_model.consumed_at < consumed_threshold
+            ).delete(synchronize_session=False)
+        db.session.commit()
+        print(
+            f"Deleted {deleted_expired} expired and {deleted_consumed} consumed refresh tokens."
+        )
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while deleting refresh tokens: {e}")
