@@ -547,7 +547,9 @@ class Mailer:
         )
 
     def send_detachment_request_email(self, employment):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -568,7 +570,9 @@ class Mailer:
             )
 
     def send_detachment_relance_email(self, employment, request_date):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -1174,6 +1178,7 @@ class Mailer:
         control_data,
         bulletin_content=None,
         bulletin_filename=None,
+        for_admin=True,
     ):
         """
         Send control bulletin by email to company admins.
@@ -1218,6 +1223,7 @@ class Mailer:
                 controller_info=control_data["controller_info"],
                 nb_infractions=control_data["nb_infractions"],
                 is_mi=control_data.get("is_mi", False),
+                for_admin=for_admin,
             )
 
             # Add attachment to message if available

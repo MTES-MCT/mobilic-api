@@ -54,6 +54,29 @@ class TestControlBulletinOperations(ControlsTest):
 
         return control
 
+    def _create_control_without_linked_user(
+        self, company_name=None, siren=None
+    ):
+        """Create a LIC papier control with no linked User (e.g. NoLic/LIC
+        papier controls), mirroring ControllerControl.create_lic_papier_control.
+        """
+        if not company_name:
+            company_name = self.company1.usual_name
+
+        if not siren:
+            siren = self.company1.siren
+
+        control = ControllerControl(
+            control_type=ControlType.lic_papier,
+            controller_id=self.controller_user_1.id,
+            company_name=company_name,
+            control_bulletin={"siren": siren} if siren else {},
+        )
+        db.session.add(control)
+        db.session.commit()
+
+        return control
+
     def test_send_email_with_custom_emails_updates_sent_to_admin(self):
         """Test that sending email with custom emails updates sent_to_admin flag"""
         control = self._create_test_control()
@@ -69,7 +92,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": str(control.id),
-                "adminEmails": custom_emails,
+                "emails": custom_emails,
             },
             request_by_controller_user=True,
             unexposed_query=True,
@@ -97,7 +120,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": str(control.id),
-                "adminEmails": [],  # Should find company admin automatically
+                "emails": [],  # Should find company admin automatically
             },
             request_by_controller_user=True,
             unexposed_query=True,
@@ -120,7 +143,7 @@ class TestControlBulletinOperations(ControlsTest):
             time=get_time(how_many_days_ago=0, hour=11),
             submitter_id=self.controller_user_1.id,
             query=self.send_email_query,
-            variables={"controlId": str(control.id), "adminEmails": []},
+            variables={"controlId": str(control.id), "emails": []},
             request_by_controller_user=True,
             unexposed_query=True,
         )
@@ -140,7 +163,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": str(control.id),
-                "adminEmails": ["test@example.com"],
+                "emails": ["test@example.com"],
             },
             request_by_controller_user=False,
             unexposed_query=True,
@@ -157,7 +180,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": "99999",
-                "adminEmails": ["test@example.com"],
+                "emails": ["test@example.com"],
             },
             request_by_controller_user=True,
             unexposed_query=True,
@@ -172,7 +195,7 @@ class TestControlBulletinOperations(ControlsTest):
             time=get_time(how_many_days_ago=0, hour=14),
             submitter_id=self.controller_user_1.id,
             query=self.send_email_query,
-            variables={"adminEmails": ["test@example.com"]},
+            variables={"emails": ["test@example.com"]},
             request_by_controller_user=True,
             unexposed_query=True,
             request_should_fail_with={"status": 400},
@@ -197,7 +220,7 @@ class TestControlBulletinOperations(ControlsTest):
             time=get_time(how_many_days_ago=0, hour=10),
             submitter_id=self.controller_user_1.id,
             query=self.send_email_query,
-            variables={"controlId": str(control.id), "adminEmails": []},
+            variables={"controlId": str(control.id), "emails": []},
             request_by_controller_user=True,
             unexposed_query=True,
             request_should_fail_with={"status": 200},
@@ -218,7 +241,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": str(control.id),
-                "adminEmails": ["test@example.com"],
+                "emails": ["test@example.com"],
             },
             request_by_controller_user=True,
             unexposed_query=True,
@@ -275,7 +298,7 @@ class TestControlBulletinOperations(ControlsTest):
             query=self.send_email_query,
             variables={
                 "controlId": str(control.id),
-                "adminEmails": ["test@example.com"],
+                "emails": ["test@example.com"],
             },
             request_by_controller_user=True,
             unexposed_query=True,
@@ -336,6 +359,269 @@ class TestControlBulletinOperations(ControlsTest):
         )
 
         self.assertIsNotNone(response.get("errors"))
+
+    def test_send_email_to_driver_updates_sent_to_driver_only(self):
+        """Test that sending with forAdmin=False notifies the driver, not the admin"""
+        control = self._create_test_control()
+
+        self.assertFalse(control.sent_to_admin)
+        self.assertFalse(control.sent_to_driver)
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": False},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+
+        self.assertIsNone(response.get("errors"))
+        result = response["data"]["sendControlBulletinEmail"]
+        self.assertTrue(result["success"])
+        self.assertEqual(result["nbEmailsSent"], 1)
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_driver)
+        self.assertFalse(updated_control.sent_to_admin)
+
+    def test_send_email_for_admin_true_is_the_default(self):
+        """Test that omitting forAdmin keeps the historical admin-sending behavior"""
+        control = self._create_test_control()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id)},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+
+        self.assertIsNone(response.get("errors"))
+        result = response["data"]["sendControlBulletinEmail"]
+        self.assertTrue(result["success"])
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_admin)
+        self.assertFalse(updated_control.sent_to_driver)
+
+    def test_send_email_to_admin_then_driver_sets_both_flags_independently(
+        self,
+    ):
+        """Test that a control can be sent to the admin and later to the driver"""
+        control = self._create_test_control()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": True},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+        self.assertIsNone(response.get("errors"))
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=11),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": False},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+        self.assertIsNone(response.get("errors"))
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_admin)
+        self.assertTrue(updated_control.sent_to_driver)
+
+    def test_send_email_to_driver_without_email_fails(self):
+        """Test that sending to the driver fails when the control has no
+        linked User (LIC papier control), and no explicit email was given"""
+        control = self._create_control_without_linked_user()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": False},
+            request_by_controller_user=True,
+            unexposed_query=True,
+            request_should_fail_with={"status": 200},
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertFalse(updated_control.sent_to_driver)
+
+    def test_send_email_to_driver_with_explicit_email_for_lic_papier(self):
+        """Test that an explicit email is used for the driver on a LIC papier
+        control (no linked User), instead of being ignored/overridden"""
+        control = self._create_control_without_linked_user()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={
+                "controlId": str(control.id),
+                "emails": ["driver@example.com"],
+                "forAdmin": False,
+            },
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+
+        self.assertIsNone(response.get("errors"))
+        result = response["data"]["sendControlBulletinEmail"]
+        self.assertTrue(result["success"])
+        self.assertEqual(result["nbEmailsSent"], 1)
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_driver)
+        self.assertFalse(updated_control.sent_to_admin)
+
+    def test_send_email_explicit_emails_not_overridden_when_for_admin_true(
+        self,
+    ):
+        """Test that explicit emails are still honored for the admin branch
+        on a control with no linked User (regression test)"""
+        control = self._create_control_without_linked_user()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={
+                "controlId": str(control.id),
+                "emails": ["admin@example.com"],
+                "forAdmin": True,
+            },
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+
+        self.assertIsNone(response.get("errors"))
+        result = response["data"]["sendControlBulletinEmail"]
+        self.assertTrue(result["success"])
+        self.assertEqual(result["nbEmailsSent"], 1)
+
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_admin)
+
+    def test_edit_control_bulletin_blocked_after_sent_to_admin(self):
+        """Test that editing the bulletin is blocked once sent to the admin"""
+        control = self._create_test_control()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": True},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+        self.assertIsNone(response.get("errors"))
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=11),
+            submitter_id=self.controller_user_1.id,
+            query=ApiRequests.controller_save_control_bulletin,
+            variables={
+                "controlId": control.id,
+                "observation": "edited after send",
+            },
+            request_by_controller_user=True,
+            unexposed_query=True,
+            request_should_fail_with={"status": 200},
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+
+        # sent_to_admin must remain True: the old soft-reset behavior is gone
+        updated_control = ControllerControl.query.get(control.id)
+        self.assertTrue(updated_control.sent_to_admin)
+
+    def test_edit_control_bulletin_blocked_after_sent_to_driver(self):
+        """Test that editing the bulletin is blocked once sent to the driver"""
+        control = self._create_test_control()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": False},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+        self.assertIsNone(response.get("errors"))
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=11),
+            submitter_id=self.controller_user_1.id,
+            query=ApiRequests.controller_save_control_bulletin,
+            variables={
+                "controlId": control.id,
+                "observation": "edited after send",
+            },
+            request_by_controller_user=True,
+            unexposed_query=True,
+            request_should_fail_with={"status": 200},
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+
+    def test_edit_reported_infractions_blocked_after_sent_to_driver(self):
+        """Test that editing reported infractions is blocked once the
+        bulletin has been sent to the driver, even though sent_to_admin is
+        untouched (regression test for the sent_to_admin-only reset gap)"""
+        control = self._create_test_control()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=self.send_email_query,
+            variables={"controlId": str(control.id), "forAdmin": False},
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+        self.assertIsNone(response.get("errors"))
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=11),
+            submitter_id=self.controller_user_1.id,
+            query=ApiRequests.controller_save_reported_infractions,
+            variables={"controlId": control.id, "reportedInfractions": []},
+            request_by_controller_user=True,
+            unexposed_query=True,
+            request_should_fail_with={"status": 200},
+        )
+
+        self.assertIsNotNone(response.get("errors"))
+
+    def test_edit_control_bulletin_allowed_before_any_send(self):
+        """Test that editing the bulletin is still allowed as long as it
+        hasn't been sent to anyone yet"""
+        control = self._create_test_control()
+        # Force an update_time so we hit the "else" (edit) branch
+        control.control_bulletin_creation_time = datetime.now()
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=get_time(how_many_days_ago=0, hour=10),
+            submitter_id=self.controller_user_1.id,
+            query=ApiRequests.controller_save_control_bulletin,
+            variables={
+                "controlId": control.id,
+                "observation": "edited before any send",
+            },
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )
+
+        self.assertIsNone(response.get("errors"))
 
 
 if __name__ == "__main__":
