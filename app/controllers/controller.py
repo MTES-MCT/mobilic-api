@@ -220,17 +220,16 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
             ).one()
+            if control.sent_to_admin or control.sent_to_driver:
+                raise InvalidParamsError(
+                    "Impossible de modifier le bulletin de contrôle : il a déjà été envoyé"
+                )
             now = datetime.now()
             if not control.control_bulletin_creation_time:
                 control.control_bulletin_creation_time = now
                 control.control_bulletin_update_time = now
             else:
                 control.control_bulletin_update_time = now
-                if (
-                    control.sent_to_admin is None
-                    or control.sent_to_admin is True
-                ):
-                    control.sent_to_admin = False
         elif type == ControlType.sans_lic.name:
             control = ControllerControl.create_no_lic_control(
                 current_user.id, business_id
@@ -306,10 +305,12 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
     def mutate(cls, _, info, control_id=None, reported_infractions=[]):
         now = datetime.now()
         control = ControllerControl.query.get(control_id)
+        if control.sent_to_admin or control.sent_to_driver:
+            raise InvalidParamsError(
+                "Impossible de modifier les infractions : le bulletin de contrôle a déjà été envoyé"
+            )
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
-        if control.sent_to_admin:
-            control.sent_to_admin = False
 
         # Compute sets of custom infractions before and after to detect changes
         existing_custom_keys = {
