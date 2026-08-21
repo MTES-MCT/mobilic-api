@@ -291,10 +291,17 @@ class UserChange(HistoryItem):
         )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
-                if _is_split(self.version) and self.version.end_time:
-                    return [
-                        f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
-                    ]
+                if _is_split(self.version):
+                    original_start_ts = self.version.context.get("originalStartTime") if self.version.context else None
+                    if original_start_ts:
+                        original_start = datetime.utcfromtimestamp(original_start_ts)
+                        return [
+                            f"a décalé le début de l'activité {activity_name} du {format_time(original_start, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
+                        ]
+                    elif self.version.end_time:
+                        return [
+                            f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                        ]
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
