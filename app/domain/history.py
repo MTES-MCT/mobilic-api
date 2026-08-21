@@ -294,7 +294,7 @@ class UserChange(HistoryItem):
                 if _is_split(self.version):
                     original_start_ts = self.version.context.get("originalStartTime") if self.version.context else None
                     if original_start_ts:
-                        original_start = datetime.utcfromtimestamp(original_start_ts)
+                        original_start = datetime.fromtimestamp(original_start_ts, tz=timezone.utc).replace(tzinfo=None)
                         return [
                             f"a décalé le début de l'activité {activity_name} du {format_time(original_start, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
                         ]
