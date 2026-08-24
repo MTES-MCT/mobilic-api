@@ -284,4 +284,5 @@ def generate_mission_details_pdf(
             else ""
         ),
         user_timezone=user_timezone,
+        allow_other_task=mission.company.allow_other_task or False,
     )
