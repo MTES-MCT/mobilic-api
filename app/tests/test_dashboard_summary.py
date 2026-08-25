@@ -8,6 +8,7 @@ from app.domain.dashboard_summary import (
     _pending_validations_cache_key,
     invalidate_pending_validations_cache,
 )
+from app.domain.mission import end_mission_for_user
 from app.models import MissionEnd, MissionValidation
 from app.models.activity import ActivityType
 from app.models.employment import EmploymentRequestValidationStatus
@@ -415,3 +416,16 @@ class TestPendingValidationsCache(BaseTest):
         self.assertEqual(
             deleted, [_pending_validations_cache_key(self.company.id)]
         )
+
+    @patch("app.domain.mission.invalidate_pending_validations_cache")
+    def test_end_mission_invalidates_cache(self, mock_invalidate):
+        user = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=False
+        )
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=user.id,
+            reception_time=datetime.now(),
+        )
+        end_mission_for_user(user=user, mission=mission)
+        mock_invalidate.assert_called_once_with(self.company.id)
