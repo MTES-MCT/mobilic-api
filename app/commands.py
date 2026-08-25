@@ -75,6 +75,23 @@ def seed():
     seed_seed()
 
 
+@app.cli.command("seed_review_app", with_appcontext=True)
+def seed_review_app():
+    """Lightweight seed for a Scalingo review app: a single busy-admin
+    scenario. Guarded to review environments to avoid seeding staging/prod
+    if the command is triggered by accident."""
+    from config import MOBILIC_ENV
+
+    if MOBILIC_ENV != "review":
+        raise RuntimeError(
+            f"seed_review_app is only allowed when MOBILIC_ENV=review "
+            f"(got {MOBILIC_ENV!r})"
+        )
+    from app.seed.scenarios import run_scenario_busy_admin
+
+    run_scenario_busy_admin()
+
+
 @app.cli.command("load_missions", with_appcontext=True)
 @click.argument("company_id", required=True)
 @click.argument("nb_employees", type=click.INT, required=True)
