@@ -1,5 +1,6 @@
 from app import db
 from datetime import datetime
+from sqlalchemy import event
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from app.models.anonymized import AnonymizedModel, IdMapping
@@ -362,3 +363,143 @@ class TestIdMappingService(BaseTest):
 
         IdMapping.query.delete()
         db.session.commit()
+
+    def test_mark_all_for_deletion_bulk(self):
+        IdMapping.query.delete()
+        db.session.commit()
+
+        mission_ids = {3001, 3002, 3003}
+        user_ids = {4001, 4002}
+
+        IdMappingService.mark_all_for_deletion("mission", mission_ids)
+        IdMappingService.mark_all_for_deletion("user", user_ids)
+        db.session.commit()
+
+        self.assertEqual(
+            IdMappingService.get_deletion_target_ids("mission"), mission_ids
+        )
+        self.assertEqual(
+            IdMappingService.get_deletion_target_ids("user"), user_ids
+        )
+
+        for mapping in IdMapping.query.filter_by(entity_type="mission"):
+            self.assertGreater(mapping.anonymized_id, 0)
+        for mapping in IdMapping.query.filter_by(entity_type="user"):
+            self.assertLess(mapping.anonymized_id, 0)
+
+        IdMapping.query.delete()
+        db.session.commit()
+
+    def test_mark_all_for_deletion_upgrades_and_is_idempotent(self):
+        IdMapping.query.delete()
+        db.session.commit()
+
+        existing = IdMapping(
+            entity_type="mission",
+            original_id=5001,
+            anonymized_id=999901,
+        )
+        db.session.add(existing)
+        db.session.commit()
+        self.assertFalse(existing.deletion_target)
+
+        IdMappingService.mark_all_for_deletion("mission", {5001, 5002})
+        db.session.commit()
+        db.session.refresh(existing)
+
+        self.assertTrue(existing.deletion_target)
+        self.assertEqual(existing.anonymized_id, 999901)
+
+        mappings_before = {
+            (m.original_id, m.anonymized_id)
+            for m in IdMapping.query.filter_by(entity_type="mission")
+        }
+
+        IdMappingService.mark_all_for_deletion("mission", {5001, 5002})
+        db.session.commit()
+
+        mappings_after = {
+            (m.original_id, m.anonymized_id)
+            for m in IdMapping.query.filter_by(entity_type="mission")
+        }
+        self.assertEqual(mappings_before, mappings_after)
+        self.assertEqual(
+            IdMapping.query.filter_by(entity_type="mission").count(), 2
+        )
+
+        IdMapping.query.delete()
+        db.session.commit()
+
+    def test_prefetch_mappings_reuses_and_creates(self):
+        IdMapping.query.delete()
+        db.session.commit()
+
+        existing_id = IdMappingService.get_entity_positive_id("mission", 7001)
+        db.session.commit()
+        IdMappingService.clear_cache()
+
+        mappings = IdMappingService.prefetch_mappings(
+            "mission", {7001, 7002, 7003}
+        )
+
+        self.assertEqual(mappings[7001], existing_id)
+        self.assertEqual(set(mappings), {7001, 7002, 7003})
+        self.assertEqual(
+            IdMapping.query.filter_by(entity_type="mission").count(), 3
+        )
+
+        user_mappings = IdMappingService.prefetch_mappings(
+            "user", {8001, 8002}
+        )
+        self.assertTrue(all(v < 0 for v in user_mappings.values()))
+
+        IdMapping.query.delete()
+        db.session.commit()
+        IdMappingService.clear_cache()
+
+    def test_prefetched_lookups_cost_no_sql(self):
+        IdMapping.query.delete()
+        db.session.commit()
+
+        user_ids = set(range(9001, 9051))
+        mappings = IdMappingService.prefetch_mappings("user", user_ids)
+        db.session.commit()
+
+        statements = {"count": 0}
+
+        def count_statement(*args, **kwargs):
+            statements["count"] += 1
+
+        event.listen(db.engine, "before_cursor_execute", count_statement)
+        try:
+            for user_id in user_ids:
+                self.assertEqual(
+                    IdMappingService.get_user_negative_id(user_id),
+                    mappings[user_id],
+                )
+        finally:
+            event.remove(db.engine, "before_cursor_execute", count_statement)
+
+        self.assertEqual(statements["count"], 0)
+
+        IdMapping.query.delete()
+        db.session.commit()
+        IdMappingService.clear_cache()
+
+    def test_clean_mappings_invalidates_cache(self):
+        IdMapping.query.delete()
+        db.session.commit()
+
+        IdMappingService.prefetch_mappings("user", {9500})
+        db.session.commit()
+        IdMappingService.clean_mappings()
+
+        new_id = IdMappingService.get_user_negative_id(9500)
+        mapping = IdMapping.query.filter_by(
+            entity_type="user", original_id=9500
+        ).one()
+        self.assertEqual(mapping.anonymized_id, new_id)
+
+        IdMapping.query.delete()
+        db.session.commit()
+        IdMappingService.clear_cache()
