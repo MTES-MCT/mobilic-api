@@ -366,6 +366,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             Employment.query.options(joinedload(Employment.user))
             .filter(*base_filters, Employment.user_id.is_(None))
             .all()
+            if not user_ids
+            else []
         )
         return per_user + unattached
 
