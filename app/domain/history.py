@@ -140,7 +140,7 @@ class UserChange(HistoryItem):
     holiday_mission_name: str = ""
     tz: any = None
     disputed_action: str | None = None
-    allow_other_task: bool = False
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -385,7 +385,7 @@ class LogAction(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
-    allow_other_task: bool = False
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -429,8 +429,10 @@ def actions_history(
     if mission.is_holiday():
         holiday_mission_name = mission.name
 
-    allow_other_task = bool(
-        mission.company and mission.company.allow_other_task
+    allow_other_task = (
+        mission.company.allow_other_task
+        if mission.company and mission.company.allow_other_task is not None
+        else True
     )
 
     user_changes = []
