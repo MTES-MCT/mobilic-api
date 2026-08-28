@@ -79,6 +79,7 @@ class ControllerControl(BaseModel, RandomNineIntId):
     )
     delivered_by_hand = db.Column(db.Boolean, nullable=True)
     sent_to_admin = db.Column(db.Boolean, nullable=True)
+    sent_to_driver = db.Column(db.Boolean, nullable=True)
     control_time = db.Column(DateTimeStoredAsUTC, nullable=False)
 
     @property
