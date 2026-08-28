@@ -1016,11 +1016,8 @@ class ResetPushOptInBanner(AuthenticatedMutation):
     Output = Void
 
     @classmethod
+    @with_authorization_policy(admin_or_bizdev)
     def mutate(cls, _, info):
-        if not current_user.bizdev:
-            raise AuthorizationError(
-                "Seuls les bizdev peuvent réinitialiser le bandeau"
-            )
         with atomic_transaction(commit_at_end=True):
             warning = WarningToDisableType.PUSH_OPT_IN_DISMISSED.value
             User.query.filter(

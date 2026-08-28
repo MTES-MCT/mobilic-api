@@ -9,9 +9,14 @@ from app.models.push_subscription import PushSubscription
 logger = logging.getLogger(__name__)
 
 
-def send_push_notification(user_id, title, body, data=None):
+def send_push_notification(
+    user_id, title, body, data=None, subscriptions=None
+):
     """Returns True if at least one push was sent successfully."""
-    subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
+    if subscriptions is None:
+        subscriptions = PushSubscription.query.filter_by(
+            user_id=user_id
+        ).all()
 
     if not subscriptions:
         logger.info(f"No push subscription for user {user_id}")
@@ -28,6 +33,7 @@ def send_push_notification(user_id, title, body, data=None):
 
     payload = json.dumps({"title": title, "body": body, "data": data or {}})
     success = False
+    expired = []
 
     for subscription in subscriptions:
         subscription_info = {
@@ -53,9 +59,13 @@ def send_push_notification(user_id, title, body, data=None):
                     "%s, removing",
                     user_id,
                 )
-                db.session.delete(subscription)
-                db.session.commit()
+                expired.append(subscription)
             else:
                 logger.exception(f"Push failed for user {user_id}")
+
+    if expired:
+        for sub in expired:
+            db.session.delete(sub)
+        db.session.commit()
 
     return success

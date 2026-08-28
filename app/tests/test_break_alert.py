@@ -90,7 +90,7 @@ class TestBreakAlert(BaseTest):
     @patch("app.jobs.break_alert.send_push_notification")
     @patch("app.jobs.break_alert._get_redis")
     def test_sends_if_activity_ongoing(self, mock_redis, mock_push):
-        mock_redis.return_value = MagicMock(get=lambda k: None)
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
         a = self._add_activity(ActivityType.DRIVE, self.t0)
         db.session.commit()
         send_break_alert_task(self.worker.id, a.id, int(self.t0.timestamp()))
@@ -99,7 +99,7 @@ class TestBreakAlert(BaseTest):
     @patch("app.jobs.break_alert.send_push_notification")
     @patch("app.jobs.break_alert._get_redis")
     def test_skips_if_activity_ended(self, mock_redis, mock_push):
-        mock_redis.return_value = MagicMock(get=lambda k: None)
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
         a = self._add_activity(
             ActivityType.DRIVE,
             self.t0,
@@ -112,7 +112,7 @@ class TestBreakAlert(BaseTest):
     @patch("app.jobs.break_alert.send_push_notification")
     @patch("app.jobs.break_alert._get_redis")
     def test_skips_if_already_sent(self, mock_redis, mock_push):
-        mock_redis.return_value = MagicMock(get=lambda k: b"1")
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: False)
         a = self._add_activity(ActivityType.DRIVE, self.t0)
         db.session.commit()
         send_break_alert_task(self.worker.id, a.id, int(self.t0.timestamp()))

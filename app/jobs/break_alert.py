@@ -61,14 +61,13 @@ def send_break_alert_task(user_id, activity_id, work_start_ts):
         try:
             redis = _get_redis()
             key = _sent_key(user_id, work_start_ts)
-            already_sent = redis.get(key)
-            if already_sent:
+            was_set = redis.set(key, "1", nx=True, ex=REDIS_KEY_TTL)
+            if not was_set:
                 logger.info(
                     f"Break alert already sent for user {user_id} "
                     f"(work_start_ts={work_start_ts}), skipping"
                 )
                 return
-            redis.setex(key, REDIS_KEY_TTL, "1")
         except Exception:
             logger.warning("Redis unavailable, skipping alert")
             return
@@ -128,7 +127,7 @@ def schedule_break_alert_if_needed(user_id, activity, reception_time=None):
     )
     work_start_ts = int(work_start.timestamp())
     if work_start == activity.start_time:
-        alert_time = now + ALERT_DELAY
+        alert_time = activity.start_time + ALERT_DELAY
     else:
         elapsed = now - work_start
         remaining = ALERT_DELAY - elapsed

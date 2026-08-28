@@ -256,6 +256,18 @@ def edit_activity(
             **updates,
         )
 
+        if start_time and not activity_to_update.end_time:
+            try:
+                schedule_break_alert_if_needed(
+                    activity_to_update.user_id,
+                    activity_to_update,
+                    reception_time,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to reschedule break alert"
+                )
+
     return activity_to_update
 
 

@@ -92,7 +92,10 @@ def send_campaign_task(self, campaign_id):
             logger.error(f"Campaign {campaign_id} not found")
             return
 
-        if campaign.status != CampaignStatus.DRAFT:
+        if campaign.status not in (
+            CampaignStatus.DRAFT,
+            CampaignStatus.SENDING,
+        ):
             logger.info(
                 f"Campaign {campaign_id} status is "
                 f"{campaign.status}, skipping"
@@ -111,11 +114,21 @@ def send_campaign_task(self, campaign_id):
             campaign.total_recipients = len(user_ids)
             db.session.commit()
 
-            click_token = generate_click_token(campaign_id)
-            sent = 0
-            failed = 0
+            all_subs = PushSubscription.query.filter(
+                PushSubscription.user_id.in_(user_ids)
+            ).all()
+            subs_by_user = {}
+            for sub in all_subs:
+                subs_by_user.setdefault(sub.user_id, []).append(
+                    sub
+                )
 
-            for i, user_id in enumerate(user_ids):
+            click_token = generate_click_token(campaign_id)
+            offset = campaign.sent_count + campaign.failed_count
+            sent = campaign.sent_count
+            failed = campaign.failed_count
+
+            for i, user_id in enumerate(user_ids[offset:]):
                 ok = send_push_notification(
                     user_id=user_id,
                     title=campaign.title,
@@ -124,6 +137,9 @@ def send_campaign_task(self, campaign_id):
                         "campaignId": campaign_id,
                         "clickToken": click_token,
                     },
+                    subscriptions=subs_by_user.get(
+                        user_id, []
+                    ),
                 )
                 if ok:
                     sent += 1
