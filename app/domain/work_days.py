@@ -147,7 +147,8 @@ class WorkDay:
 
         # To be commented locally on init regulation alerts only!
         mission.history = actions_history(
-            mission, self.user,
+            mission,
+            self.user,
             include_dispute_motif=False,
             max_reception_time=self.max_reception_time,
         )
@@ -306,7 +307,7 @@ class WorkDay:
             ar.context
             for a in self._all_activities
             for ar in a.versions
-            if ar.context is not None
+            if isinstance(ar.context, dict)
         ]
         all_comments = [
             context.get("comment")

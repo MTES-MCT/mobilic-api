@@ -1,10 +1,17 @@
 from datetime import datetime
 
+from app import db
 from app.models.activity import ActivityType
+from app.models.activity_version import ActivityVersion
 from app.seed import UserFactory, CompanyFactory
 from app.seed.helpers import get_time
 from app.tests import BaseTest
-from app.tests.helpers import make_authenticated_request, ApiRequests
+from app.tests.helpers import (
+    make_authenticated_request,
+    ApiRequests,
+    init_regulation_checks_data,
+    init_businesses_data,
+)
 
 
 class TestActivityContextValidation(BaseTest):
@@ -16,6 +23,8 @@ class TestActivityContextValidation(BaseTest):
 
     def setUp(self):
         super().setUp()
+        init_regulation_checks_data()
+        init_businesses_data()
         self.company = CompanyFactory.create()
         self.worker = UserFactory.create(post__company=self.company)
         create_mission_response = make_authenticated_request(
@@ -56,6 +65,33 @@ class TestActivityContextValidation(BaseTest):
         self.assertNotIn("errors", response)
         self.assertIsNotNone(
             response["data"]["activities"]["logActivity"]["id"]
+        )
+
+    def test_validate_mission_survives_legacy_string_context(self):
+        # Simulate an activity stored before the boundary check, whose
+        # context is a bare string: validateMission used to crash with
+        # "'str' object has no attribute 'get'" (issue #779).
+        activity_id = self._log_activity(context={"userComment": "ok"})[
+            "data"
+        ]["activities"]["logActivity"]["id"]
+        version = ActivityVersion.query.filter(
+            ActivityVersion.activity_id == activity_id
+        ).one()
+        version.context = "a plain string"
+        db.session.commit()
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker.id,
+            query=ApiRequests.validate_mission,
+            variables=dict(
+                mission_id=self.mission_id, users_ids=[self.worker.id]
+            ),
+        )
+
+        self.assertNotIn("errors", response)
+        self.assertIsNotNone(
+            response["data"]["activities"]["validateMission"]["id"]
         )
 
     def test_edit_activity_rejects_string_context(self):
