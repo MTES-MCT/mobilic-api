@@ -984,3 +984,24 @@ def delete_expired_refresh_tokens():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting refresh tokens: {e}")
+
+
+@app.cli.command("fix_string_activity_contexts", with_appcontext=True)
+def fix_string_activity_contexts():
+    """One-off: convert legacy string activity_version.context to objects.
+
+    Third-party clients sent `context` as a bare string, stored as a JSON
+    string in the JSONB column and later read with `.get()`, breaking
+    mission validation. Rewrite each string `s` to `{"userComment": s}` to
+    preserve the comment. Idempotent: only rows where context is a JSON
+    string are touched.
+    """
+    result = db.session.execute(
+        text(
+            "UPDATE activity_version "
+            "SET context = jsonb_build_object('userComment', context #>> '{}') "
+            "WHERE jsonb_typeof(context) = 'string'"
+        )
+    )
+    db.session.commit()
+    print(f"Fixed {result.rowcount} string activity_version.context rows.")
