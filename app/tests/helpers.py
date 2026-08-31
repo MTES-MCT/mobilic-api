@@ -780,9 +780,9 @@ class ApiRequests:
     """
 
     query_company_deleted_missions = """
-      query CompanyMissionsDeleted($id: Int!) {
+      query CompanyMissionsDeleted($id: Int!, $first: Int) {
         company(id: $id) {
-          missionsDeleted {
+          missionsDeleted(first: $first) {
             edges {
               node {
                 id
@@ -793,6 +793,10 @@ class ApiRequests:
                   dismissedAt
                 }
               }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
             }
           }
         }
@@ -1080,7 +1084,6 @@ class ApiRequests:
             }
         }
     """
-
 
     request_detachment = """
         mutation ($employmentId: Int!) {

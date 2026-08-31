@@ -480,7 +480,7 @@ class BrevoApiClient:
 
         clean_name = name.strip()
 
-        problematic_chars = ['"', "'", "\n", "\r", "\t"]
+        problematic_chars = ['"', "'", "’", "\n", "\r", "\t"]
         for char in problematic_chars:
             clean_name = clean_name.replace(char, " ")
 

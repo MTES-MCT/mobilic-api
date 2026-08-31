@@ -75,6 +75,23 @@ def seed():
     seed_seed()
 
 
+@app.cli.command("seed_review_app", with_appcontext=True)
+def seed_review_app():
+    """Lightweight seed for a Scalingo review app: a single busy-admin
+    scenario. Guarded to review environments to avoid seeding staging/prod
+    if the command is triggered by accident."""
+    from config import MOBILIC_ENV
+
+    if MOBILIC_ENV != "review":
+        raise RuntimeError(
+            f"seed_review_app is only allowed when MOBILIC_ENV=review "
+            f"(got {MOBILIC_ENV!r})"
+        )
+    from app.seed.scenarios import run_scenario_busy_admin
+
+    run_scenario_busy_admin()
+
+
 @app.cli.command("load_missions", with_appcontext=True)
 @click.argument("company_id", required=True)
 @click.argument("nb_employees", type=click.INT, required=True)
@@ -405,6 +422,24 @@ def anonymize_standalone_data_command(
         test_mode=test,
         force_clean=force_clean,
     )
+
+
+@app.cli.command("apply_activity_k_anonymity", with_appcontext=True)
+@click.option(
+    "--k",
+    type=int,
+    default=2,
+    show_default=True,
+    help="Minimum number of users that must share an activity-count value; "
+    "users below this threshold are removed from anon_activity.",
+)
+def apply_activity_k_anonymity_command(k):
+    from app.services.anonymization.utilities.k_anonymity import (
+        apply_activity_k_anonymity,
+    )
+
+    deleted = apply_activity_k_anonymity(k=k)
+    click.echo(f"Removed {deleted} anon_activity rows at k={k}")
 
 
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
@@ -917,3 +952,35 @@ def delete_old_notifications():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting notifications: {e}")
+
+
+@app.cli.command("delete_expired_refresh_tokens", with_appcontext=True)
+def delete_expired_refresh_tokens():
+    """Delete idle-expired refresh tokens and consumed tokens past the reuse grace period."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.refresh_token import RefreshToken
+    from app.models.controller_refresh_token import ControllerRefreshToken
+    from app import db
+
+    now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    expiration_threshold = now - app.config["REFRESH_TOKEN_EXPIRATION"]
+    consumed_threshold = now - timedelta(days=1)
+
+    try:
+        deleted_expired = 0
+        deleted_consumed = 0
+        for token_model in (RefreshToken, ControllerRefreshToken):
+            deleted_expired += token_model.query.filter(
+                token_model.consumed_at.is_(None),
+                token_model.creation_time < expiration_threshold,
+            ).delete(synchronize_session=False)
+            deleted_consumed += token_model.query.filter(
+                token_model.consumed_at < consumed_threshold
+            ).delete(synchronize_session=False)
+        db.session.commit()
+        print(
+            f"Deleted {deleted_expired} expired and {deleted_consumed} consumed refresh tokens."
+        )
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while deleting refresh tokens: {e}")

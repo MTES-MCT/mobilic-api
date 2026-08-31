@@ -7,6 +7,27 @@ logger = logging.getLogger(__name__)
 class AnonymizedModel(db.Model):
     __abstract__ = True
 
+    # None = not primed, check_existing_record falls back to per-row
+    # SELECTs; a set is authoritative for the current loop
+    _primed_existing_ids = None
+
+    @classmethod
+    def prime_existing_records(cls, anonymized_ids) -> None:
+        ids = [i for i in anonymized_ids if i]
+        cls._primed_existing_ids = (
+            {
+                row[0]
+                for row in db.session.query(cls.id).filter(cls.id.in_(ids))
+            }
+            if ids
+            else set()
+        )
+
+    @classmethod
+    def clear_primed_records(cls) -> None:
+        for subclass in cls.__subclasses__():
+            subclass._primed_existing_ids = None
+
     @classmethod
     def get_new_id(cls, entity_type: str, old_id: int):
         """
@@ -49,6 +70,12 @@ class AnonymizedModel(db.Model):
         if not entity_id:
             return None
 
+        if (
+            cls._primed_existing_ids is not None
+            and entity_id not in cls._primed_existing_ids
+        ):
+            return None
+
         existing = db.session.query(cls).get(entity_id)
         if existing:
             logger.debug(
@@ -57,6 +84,21 @@ class AnonymizedModel(db.Model):
             return existing
 
         return None
+
+    ACTIVITY_DURATION_BUCKET_SECONDS = 30 * 60
+
+    @classmethod
+    def bucket_end_time(cls, start_time, end_time):
+        if start_time is None or end_time is None:
+            return None
+        delta_seconds = (end_time - start_time).total_seconds()
+        bucket = cls.ACTIVITY_DURATION_BUCKET_SECONDS
+        rounded = int(round(delta_seconds / bucket)) * bucket
+        if delta_seconds > 0 and rounded == 0:
+            rounded = bucket
+        from datetime import timedelta
+
+        return start_time + timedelta(seconds=rounded)
 
     @staticmethod
     def truncate_to_month(date):

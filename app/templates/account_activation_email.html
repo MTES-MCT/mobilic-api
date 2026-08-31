@@ -6,10 +6,10 @@
 {% endblock %}
 
 {% block body %}
-    <p>Bonjour{% if first_name %} {{first_name | capitalize }}{% endif %},</p>
+    <p>Bonjour,</p>
     {% if create_account %}
-<p>Vous venez de créer un compte {% if company_name %}rattaché à l'entreprise <strong>{{company_name | upper}}</strong> {% endif %}sur <span style="font-weight: bold;">Mobilic</span>, la plateforme gouvernementale qui permet de simplifier <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement 🎉 !</p>
-        <p>Pour finaliser votre inscription, veuillez cliquer sur le bouton d'activation suivant :</p>
+        <p>Vous venez de créer un compte {% if company_name %}rattaché à l'entreprise <strong>{{company_name | upper}}</strong> {% endif %}sur <span style="font-weight: bold;">Mobilic</span>, la plateforme gouvernementale qui permet <strong>l'enregistrement et le suivi du temps de travail</strong> des travailleurs mobiles du transport routier léger et du déménagement.</p>
+        <p>Activez votre compte en cliquant sur le bouton ci-dessous et accédez à la saisie de votre temps de travail :</p>
 
         {{button.button('Activer mon compte', activation_link)}}
 
@@ -29,17 +29,29 @@
                     <li>gérer les invitations des nouveaux salariés</li>
                     <li>gérer la flotte de véhicules</li>
                 </ul>
-            {% else %}
-                <p>
-                    Une fois le compte activé vous pourrez commencer à enregistrer votre temps de travail pour l’entreprise <strong>{{company_name | upper}}</strong>.
-                </p>
-                <p>
-                    Vous pourrez également <strong>ne pas autoriser votre gestionnaire à avoir accès à votre adresse e-mail</strong>. Pour cela, il vous faudra cocher la case prévue à cet effet en vous rendant dans l’onglet “Mes informations” puis “Mon entreprise”.
-                </p>
             {% endif %}
         {% endif %}
+        <p>
+            <strong>
+                Comment télécharger l’application Mobilic sur votre téléphone ?
+            </strong>
+        </p>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td width="50%" style="padding-right: 8px; text-align: center; vertical-align: top;">
+                    <p>Vous avez un téléphone<strong> android ?</strong></p>
+                    <img src="https://cdn.githubraw.com/MTES-MCT/mobilic-api/217dc5bb/app/static/images/create_account_tuto_android.gif" alt="Tutoriel installation Android"
+                        style="max-width: 100%;">
+                </td>
+                <td width="50%" style="padding-left: 8px; text-align: center; vertical-align: top;">
+                    <p>Vous avez un <strong>iPhone ?</strong></p>
+                    <img src="https://cdn.githubraw.com/MTES-MCT/mobilic-api/217dc5bb/app/static/images/create_account_tuto_ios.gif" alt="Tutoriel installation iPhone"
+                        style="max-width: 100%;">
+                </td>
+            </tr>
+        </table>
     {% else %}
         <p>Pour confirmer votre changement d'adresse email veuillez cliquer sur le <a href={{activation_link}} target="_blank" rel="noopener noreferrer">lien suivant</a></p>
     {% endif %}
-    <p>Bien à vous,</p>
+    <p>Cordialement,</p>
 {% endblock %}

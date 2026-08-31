@@ -21,6 +21,12 @@ class RegulationComputation(BaseModel):
             "submitter_type",
             name="only_one_entry_per_user_day_and_submitter_type",
         ),
+        db.Index(
+            "ix_regulation_computation_user_submitter_day",
+            "user_id",
+            "submitter_type",
+            "day",
+        ),
     )
 
     def __repr__(self):
