@@ -58,9 +58,35 @@ def upgrade():
         ["client_id"],
         unique=False,
     )
+    op.create_table(
+        "software_compliance_alert_state",
+        sa.Column("creation_time", sa.DateTime(), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("client_id", sa.Integer(), nullable=False),
+        sa.Column("metric", sa.String(), nullable=False),
+        sa.Column("last_alerted_on", sa.Date(), nullable=False),
+        sa.ForeignKeyConstraint(["client_id"], ["oauth2_client.id"]),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "client_id",
+            "metric",
+            name="uq_software_compliance_alert_state_client_metric",
+        ),
+    )
+    op.create_index(
+        op.f("ix_software_compliance_alert_state_client_id"),
+        "software_compliance_alert_state",
+        ["client_id"],
+        unique=False,
+    )
 
 
 def downgrade():
+    op.drop_index(
+        op.f("ix_software_compliance_alert_state_client_id"),
+        table_name="software_compliance_alert_state",
+    )
+    op.drop_table("software_compliance_alert_state")
     op.drop_index(
         op.f("ix_software_compliance_snapshot_client_id"),
         table_name="software_compliance_snapshot",

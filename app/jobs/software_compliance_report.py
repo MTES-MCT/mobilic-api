@@ -7,6 +7,9 @@ from app.helpers.mail import MailjetMessage
 from app.helpers.mail_type import EmailType
 from app.helpers.tchap import send_tchap_message
 from app.jobs import log_execution
+from app.models.software_compliance_alert_state import (
+    SoftwareComplianceAlertState,
+)
 from app.models.software_compliance_snapshot import SoftwareComplianceSnapshot
 
 # Minimum missions per day to consider the day as "active" (avoids weekend noise)
@@ -23,15 +26,20 @@ THRESHOLDS = {
 
 _METRICS_SQL = """
 WITH client_missions AS (
-  SELECT
+  -- missions attribuées via les salariés rattachés au logiciel, pas toute l'entreprise
+  SELECT DISTINCT
     oc.id        AS client_id,
     oc.name      AS client_name,
     m.id         AS mission_id,
     m.vehicle_id AS vehicle_id
   FROM oauth2_client oc
-  JOIN third_party_client_company tpcc
-    ON oc.id = tpcc.client_id AND tpcc.dismissed_at IS NULL
-  JOIN mission m ON tpcc.company_id = m.company_id
+  JOIN third_party_client_employment tpce
+    ON oc.id = tpce.client_id AND tpce.dismissed_at IS NULL
+  JOIN employment e
+    ON e.id = tpce.employment_id AND e.dismissed_at IS NULL
+  JOIN activity a
+    ON a.user_id = e.user_id AND a.dismissed_at IS NULL
+  JOIN mission m ON m.id = a.mission_id
   WHERE m.reception_time >= :day_start
     AND m.reception_time < :day_end
 ),
@@ -84,11 +92,9 @@ controls_per_client AS (
     cc.qr_code_generation_time
   FROM controller_control cc
   JOIN employment e
-    ON e.user_id = cc.user_id
-    AND e.user_id IS NOT NULL
-    AND e.dismissed_at IS NULL
-  JOIN third_party_client_company tpcc
-    ON tpcc.company_id = e.company_id AND tpcc.dismissed_at IS NULL
+    ON e.user_id = cc.user_id AND e.dismissed_at IS NULL
+  JOIN third_party_client_employment tpce
+    ON tpce.employment_id = e.id AND tpce.dismissed_at IS NULL
   WHERE cc.creation_time >= :day_start AND cc.creation_time < :day_end
 ),
 controls_stats AS (
@@ -203,34 +209,42 @@ def _count_consecutive_active_days_above_threshold(
 
 
 def _get_violations(client_id, today):
-    # Alert on the 7th, 14th, 21st... consecutive active day above threshold (J+7 then weekly).
+    # returns (violation_strings, triggered_fields) — triggered_fields used to persist alert state
     violations = []
+    triggered_fields = []
     for field, (threshold, label) in THRESHOLDS.items():
         consecutive = _count_consecutive_active_days_above_threshold(
             client_id, field, threshold, today
         )
-        if consecutive >= 7 and consecutive % 7 == 0:
-            # Fetch recent active days to compute average for the alert message
-            window_start = today - timedelta(days=7)
-            recent_days = SoftwareComplianceSnapshot.query.filter(
-                SoftwareComplianceSnapshot.client_id == client_id,
-                SoftwareComplianceSnapshot.snapshot_date >= window_start,
-                SoftwareComplianceSnapshot.snapshot_date < today,
-                SoftwareComplianceSnapshot.nb_missions
-                >= MIN_MISSIONS_FOR_ACTIVE_DAY,
-            ).all()
-            values = [
-                getattr(d, field)
-                for d in recent_days
-                if getattr(d, field) is not None
-            ]
-            avg_value = sum(values) / len(values) if values else 0
-            week_number = consecutive // 7
-            violations.append(
-                f"- {label} : {avg_value:.1f}% "
-                f"(seuil : {threshold}%, semaine {week_number} consécutive)"
-            )
-    return violations
+        if consecutive < 7:
+            continue
+        # alert on first week then re-alert every 7 days, robust to streak jumps and missed cron runs
+        state = SoftwareComplianceAlertState.query.filter_by(
+            client_id=client_id, metric=field
+        ).one_or_none()
+        if state and state.last_alerted_on > today - timedelta(days=7):
+            continue
+        window_start = today - timedelta(days=7)
+        recent_days = SoftwareComplianceSnapshot.query.filter(
+            SoftwareComplianceSnapshot.client_id == client_id,
+            SoftwareComplianceSnapshot.snapshot_date >= window_start,
+            SoftwareComplianceSnapshot.snapshot_date < today,
+            SoftwareComplianceSnapshot.nb_missions
+            >= MIN_MISSIONS_FOR_ACTIVE_DAY,
+        ).all()
+        values = [
+            getattr(d, field)
+            for d in recent_days
+            if getattr(d, field) is not None
+        ]
+        avg_value = sum(values) / len(values) if values else 0
+        week_number = consecutive // 7
+        violations.append(
+            f"- {label} : {avg_value:.1f}% "
+            f"(seuil : {threshold}%, semaine {week_number} consécutive)"
+        )
+        triggered_fields.append(field)
+    return violations, triggered_fields
 
 
 def _send_consolidated_alert(alerts_by_client, today):
@@ -251,6 +265,7 @@ def _send_consolidated_alert(alerts_by_client, today):
     <h2>Résumé alertes conformité workflow — {today.strftime('%d/%m/%Y')}</h2>
     <p>{nb} logiciel(s) dépassent leurs seuils depuis 7 jours actifs consécutifs.</p>
     {sections_html}
+    <p><em>Ces taux sont des estimations basées sur les salariés rattachés au logiciel, pas une attribution exacte par mission.</em></p>
     <p>Consultez le dashboard Metabase pour investiguer.</p>
     """
 
@@ -269,6 +284,9 @@ def _send_consolidated_alert(alerts_by_client, today):
         )
 
     lines = [f"📋 Résumé conformité workflow — {today.strftime('%d/%m/%Y')}"]
+    lines.append(
+        "⚠️ Estimation basée sur les salariés rattachés au logiciel, pas une attribution exacte par mission."
+    )
     for client_name, client_id, violations in alerts_by_client:
         lines.append(f"\n🚨 {client_name} (client_id={client_id})")
         for v in violations:
@@ -286,14 +304,35 @@ def job_compute_software_compliance_snapshot(for_date=None):
     snapshots = _compute_and_store_snapshots(yesterday)
 
     alerts_by_client = []
+    triggered_by_client = []
     for snapshot in snapshots:
-        violations = _get_violations(snapshot.client_id, today)
+        violations, triggered_fields = _get_violations(
+            snapshot.client_id, today
+        )
         if violations:
             alerts_by_client.append(
                 (snapshot.client_name, snapshot.client_id, violations)
             )
+            triggered_by_client.append((snapshot.client_id, triggered_fields))
 
     _send_consolidated_alert(alerts_by_client, today)
+
+    for client_id, fields in triggered_by_client:
+        for field in fields:
+            state = SoftwareComplianceAlertState.query.filter_by(
+                client_id=client_id, metric=field
+            ).one_or_none()
+            if state is None:
+                db.session.add(
+                    SoftwareComplianceAlertState(
+                        client_id=client_id,
+                        metric=field,
+                        last_alerted_on=today,
+                    )
+                )
+            else:
+                state.last_alerted_on = today
+    db.session.commit()
 
     app.logger.info(
         f"Software compliance snapshot done: "
