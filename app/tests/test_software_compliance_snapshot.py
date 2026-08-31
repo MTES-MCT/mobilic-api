@@ -8,6 +8,9 @@ from app.jobs.software_compliance_report import (
     _get_violations,
 )
 from app.models.activity import ActivityType
+from app.models.software_compliance_alert_state import (
+    SoftwareComplianceAlertState,
+)
 from app.models.software_compliance_snapshot import SoftwareComplianceSnapshot
 from app.seed.factories import (
     CompanyFactory,
@@ -15,6 +18,7 @@ from app.seed.factories import (
     MissionFactory,
     ActivityFactory,
     ThirdPartyClientCompanyFactory,
+    ThirdPartyClientEmploymentFactory,
     UserFactory,
 )
 from app.tests import BaseTest
@@ -37,10 +41,13 @@ class TestSoftwareComplianceSnapshot(BaseTest):
             client=self.oauth_client, company=self.company
         )
         self.user = UserFactory.create()
-        EmploymentFactory.create(
+        self.employment = EmploymentFactory.create(
             company=self.company,
             user=self.user,
             has_admin_rights=False,
+        )
+        ThirdPartyClientEmploymentFactory.create(
+            client=self.oauth_client, employment=self.employment
         )
 
     def _make_mission(self, reception_time):
@@ -154,23 +161,37 @@ class TestSoftwareComplianceSnapshot(BaseTest):
 
     def test_no_alert_before_7_consecutive_active_days(self):
         self._make_snapshots(6, pct_retroactive_gt4h=99.0)
-        self.assertEqual(
-            _get_violations(self.oauth_client.id, date.today()), []
-        )
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertEqual(violations, [])
 
     def test_alert_triggered_on_day_7(self):
         self._make_snapshots(7, pct_retroactive_gt4h=99.0)
-        violations = _get_violations(self.oauth_client.id, date.today())
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
         self.assertTrue(any("Rétro-saisie" in v for v in violations))
 
     def test_no_alert_on_day_8_between_reminders(self):
-        # Day 8 of streak: 8 % 7 != 0 → no alert until day 14
+        # day 7 already alerted → no re-alert until 7 more active days
         self._make_snapshots(8, pct_retroactive_gt4h=99.0)
-        self.assertEqual(
-            _get_violations(self.oauth_client.id, date.today()), []
+        db.session.add(
+            SoftwareComplianceAlertState(
+                client_id=self.oauth_client.id,
+                metric="pct_retroactive_gt4h",
+                last_alerted_on=date.today() - timedelta(days=1),
+            )
         )
+        db.session.commit()
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertEqual(violations, [])
 
     def test_weekly_reminder_sent_on_day_14(self):
         self._make_snapshots(14, pct_retroactive_gt4h=99.0)
-        violations = _get_violations(self.oauth_client.id, date.today())
+        db.session.add(
+            SoftwareComplianceAlertState(
+                client_id=self.oauth_client.id,
+                metric="pct_retroactive_gt4h",
+                last_alerted_on=date.today() - timedelta(days=7),
+            )
+        )
+        db.session.commit()
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
         self.assertTrue(any("semaine 2" in v for v in violations))

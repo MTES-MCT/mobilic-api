@@ -87,7 +87,7 @@ val_stats AS (
 ),
 controls_per_client AS (
   SELECT DISTINCT
-    tpcc.client_id,
+    tpce.client_id,
     cc.id                        AS control_id,
     cc.qr_code_generation_time
   FROM controller_control cc

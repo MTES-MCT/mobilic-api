@@ -28,43 +28,49 @@ def require_api_key_decorator(func):
     return inner
 
 
+def _match_and_check_suspension(db, client_id, api_key, db_api_keys):
+    from app.helpers.errors import ClientSuspendedError
+
+    ph = PasswordHasher()
+    for db_api_key in db_api_keys:
+        try:
+            if not ph.verify(db_api_key.api_key, api_key):
+                continue
+            row = db.session.execute(
+                "SELECT name, suspended_at FROM oauth2_client WHERE id = :id",
+                {"id": int(client_id)},
+            ).fetchone()
+            if row and row.suspended_at is not None:
+                raise ClientSuspendedError(f"Client {row.name} is suspended")
+            return True
+        except ClientSuspendedError:
+            raise
+        except Exception:
+            continue
+    return False
+
+
 def check_api_key():
     from app.helpers.oauth.models import ThirdPartyApiKey
-    from app.helpers.errors import ClientSuspendedError
     from app import db
 
     api_key_parameter = request.headers.get(API_KEY_HTTP_HEADER_NAME)
     client_id = request.headers.get(CLIENT_ID_HTTP_HEADER_NAME)
     if not api_key_parameter or not client_id:
         return False
-    api_key_prefix = api_key_parameter[0 : len(app.config["API_KEY_PREFIX"])]
-    api_key = api_key_parameter[len(app.config["API_KEY_PREFIX"]) :]
-    if (
-        api_key_prefix == app.config["API_KEY_PREFIX"]
-        and api_key
-        and client_id
-    ):
-        ph = PasswordHasher()
-        db_api_keys = ThirdPartyApiKey.query.filter(
-            ThirdPartyApiKey.client_id == client_id
-        ).all()
-        for db_api_key in db_api_keys:
-            try:
-                if ph.verify(db_api_key.api_key, api_key):
-                    row = db.session.execute(
-                        "SELECT name, suspended_at FROM oauth2_client WHERE id = :id",
-                        {"id": int(client_id)},
-                    ).fetchone()
-                    if row and row.suspended_at is not None:
-                        raise ClientSuspendedError(
-                            f"Client {row.name} is suspended"
-                        )
-                    return True
-            except ClientSuspendedError:
-                raise
-            except Exception:
-                continue
-    return False
+
+    prefix = app.config["API_KEY_PREFIX"]
+    if not api_key_parameter.startswith(prefix):
+        return False
+
+    api_key = api_key_parameter[len(prefix) :]
+    if not api_key:
+        return False
+
+    db_api_keys = ThirdPartyApiKey.query.filter(
+        ThirdPartyApiKey.client_id == client_id
+    ).all()
+    return _match_and_check_suspension(db, client_id, api_key, db_api_keys)
 
 
 def check_protected_client_id(client_id):
