@@ -41,7 +41,7 @@ STATIC_FALLBACK_WEBINARS = [
     LiveStormWebinar(
         title="Webinaire Mobilic à destination des gestionnaires",
         link="https://app.livestorm.co/mte/webinaire-comment-utiliser-mobilic-session-60",
-        time=1787043600,  # Aug 18, 2026 11:00 CEST
+        time=1796119200,  # Dec 1, 2026 11:00 CEST
     ),
 ]
 

@@ -149,9 +149,7 @@ class StandaloneDataAnonymizationManager(AnonymizationManager):
                 "Use 'flask anonymize_users --help' for more information."
             )
 
-            self.handle_final_cleanup(
-                should_preserve_mappings=self.delete_only and self.test_mode
-            )
+            self.handle_final_cleanup()
 
             logger.info(
                 f"Standalone data {operation_name} completed successfully"
@@ -164,9 +162,7 @@ class StandaloneDataAnonymizationManager(AnonymizationManager):
                 )
 
         except Exception as e:
-            self.handle_exception(
-                e, preserve_mappings=self.delete_only and self.test_mode
-            )
+            self.handle_exception(e)
             raise
 
 

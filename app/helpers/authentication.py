@@ -216,8 +216,12 @@ def get_user_from_token_identity(jwt_header, jwt_payload):
 def create_access_tokens_for(
     user,
     client_id=None,
+    refresh_token_string=None,
 ):
     from app.models.refresh_token import RefreshToken
+
+    if refresh_token_string is None:
+        refresh_token_string = RefreshToken.create_refresh_token(user)
 
     tokens = {
         "access_token": create_access_token(
@@ -230,10 +234,10 @@ def create_access_tokens_for(
         "refresh_token": create_refresh_token(
             {
                 "id": user.id,
-                "token": RefreshToken.create_refresh_token(user),
+                "token": refresh_token_string,
                 "client_id": client_id,
             },
-            expires_delta=None,
+            expires_delta=app.config["REFRESH_TOKEN_EXPIRATION"],
         ),
     }
     db.session.commit()
@@ -264,7 +268,7 @@ def set_auth_cookies_helper(
     # Cookie expiration times
     now = datetime.now(timezone.utc)
     access_token_expires = now + app.config["ACCESS_TOKEN_EXPIRATION"]
-    session_expires = now + app.config["SESSION_COOKIE_LIFETIME"]
+    session_expires = now + app.config["REFRESH_TOKEN_EXPIRATION"]
 
     # Cookies common parameters
     common_cookie_params = {
@@ -443,6 +447,86 @@ class CheckQuery(graphene.ObjectType):
         return CheckOutput(success=True, user_id=current_user.id)
 
 
+def _issue_tokens_and_set_cookies(user, client_id, refresh_token_string):
+    tokens = create_access_tokens_for(
+        user,
+        client_id=client_id,
+        refresh_token_string=refresh_token_string,
+    )
+
+    @after_this_request
+    def set_cookies(response):
+        set_auth_cookies(response, user_id=user.id, **tokens)
+        return response
+
+    return tokens
+
+
+def find_live_successor(token_model, consumed_token, owner_id, max_hops=5):
+    current = consumed_token
+    for _ in range(max_hops):
+        if not current.replaced_by_token:
+            return None
+        successor = token_model.get_token(current.replaced_by_token, owner_id)
+        if successor is None:
+            return None
+        if successor.consumed_at is None:
+            return successor
+        current = successor
+    return None
+
+
+def revoke_token_chain(token_model, consumed_token, owner_id, max_hops=50):
+    revoked_count = 0
+    current = consumed_token
+    for _ in range(max_hops):
+        next_token = (
+            token_model.get_token(current.replaced_by_token, owner_id)
+            if current.replaced_by_token
+            else None
+        )
+        db.session.delete(current)
+        revoked_count += 1
+        if next_token is None:
+            break
+        current = next_token
+    return revoked_count
+
+
+def get_replayable_consumed_token(token_model, token_string, owner_id, actor):
+    """Handle a refresh token that failed atomic consumption.
+
+    Returns the live successor to reissue when the replay happens within
+    the reuse grace period, raises otherwise.
+    """
+    consumed_token = token_model.get_token(token_string, owner_id)
+
+    if consumed_token is None or consumed_token.consumed_at is None:
+        app.logger.error(
+            f"Invalid refresh token for {actor} {owner_id}. Token not found in database."
+        )
+        raise AuthenticationError("Refresh token is invalid")
+
+    grace_period = app.config["REFRESH_TOKEN_REUSE_GRACE_PERIOD"]
+    now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    if consumed_token.consumed_at >= now - grace_period:
+        successor = find_live_successor(token_model, consumed_token, owner_id)
+        if successor is not None:
+            app.logger.info(
+                f"Refresh token replayed within grace period for {actor} {owner_id}, reissuing current tokens"
+            )
+            return successor
+
+    # Replay beyond the grace period : possible token theft (RFC 9700
+    # section 4.14), revoke every token derived from the replayed one.
+    revoked_count = revoke_token_chain(token_model, consumed_token, owner_id)
+    db.session.commit()
+    app.logger.error(
+        f"Refresh token reuse detected for {actor} {owner_id}. Revoked {revoked_count} descendant tokens."
+    )
+    raise AuthenticationError("Refresh token is invalid")
+
+
 @wrap_jwt_errors
 @jwt_required(refresh=True)
 def refresh_token():
@@ -450,28 +534,36 @@ def refresh_token():
 
     try:
         identity = get_jwt_identity()
-        matching_token = RefreshToken.get_token(
-            token=identity.get("token"), user_id=identity.get("id")
-        )
-        if not matching_token:
-            app.logger.error(
-                f"Invalid refresh token for user {identity.get('id')}. Token not found in database."
+        user_id = identity.get("id")
+        token_string = identity.get("token")
+        client_id = g.get("client_id")
+
+        consumed_token = RefreshToken.consume(token_string, user_id)
+
+        if consumed_token is None:
+            successor = get_replayable_consumed_token(
+                RefreshToken, token_string, user_id, "user"
             )
-            raise AuthenticationError("Refresh token is invalid")
+            return _issue_tokens_and_set_cookies(
+                current_actor, client_id, successor.token
+            )
 
-        tokens = create_access_tokens_for(
-            current_actor, client_id=g.get("client_id")
+        if (
+            consumed_token.creation_time
+            < datetime.now(tz=timezone.utc).replace(tzinfo=None)
+            - app.config["REFRESH_TOKEN_EXPIRATION"]
+        ):
+            app.logger.info(f"Expired refresh token for user {user_id}")
+            raise AuthenticationError("Refresh token has expired")
+
+        successor_token_string = RefreshToken.create_refresh_token(
+            current_actor
         )
+        consumed_token.replaced_by_token = successor_token_string
 
-        db.session.delete(matching_token)
-        db.session.commit()
-
-        @after_this_request
-        def set_cookies(response):
-            set_auth_cookies(response, user_id=current_actor.id, **tokens)
-            return response
-
-        return tokens
+        return _issue_tokens_and_set_cookies(
+            current_actor, client_id, successor_token_string
+        )
 
     except Exception as e:
         db.session.rollback()
@@ -520,20 +612,22 @@ def delete_refresh_token():
         )
 
         if matching_refresh_token:
+            if matching_refresh_token.consumed_at is not None:
+                live_successor = find_live_successor(
+                    RefreshToken, matching_refresh_token, user_id
+                )
+                if live_successor is not None:
+                    db.session.delete(live_successor)
+                    app.logger.info(
+                        f"Live successor {live_successor.token} deleted for user {user_id} at logout"
+                    )
             db.session.delete(matching_refresh_token)
             app.logger.info(
                 f"Matching refresh token {identity.get('token')} deleted for user {user_id}"
             )
         else:
-            refresh_tokens = RefreshToken.query.filter_by(
-                user_id=user_id
-            ).all()
-
-            app.logger.warning(
-                f"No matching refresh token found. Deleting all {len(refresh_tokens)} tokens for user {user_id}"
+            app.logger.info(
+                f"No matching refresh token found for user {user_id} at logout"
             )
-
-            for token in refresh_tokens:
-                db.session.delete(token)
 
         app.logger.info(f"Completed token cleanup for user {user_id}")

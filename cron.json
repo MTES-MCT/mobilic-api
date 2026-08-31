@@ -36,6 +36,9 @@
     },
     {
       "command": "30 3 * * * flask compute_software_compliance_snapshot"
+    },
+    {
+      "command": "45 4 * * * flask delete_expired_refresh_tokens"
     }
   ]
 }
