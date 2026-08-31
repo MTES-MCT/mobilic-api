@@ -56,7 +56,7 @@ from app.helpers.tachograph import (
 )
 from app.models import Company, Employment, Business, UserAgreement
 from app.models.export import ExportStatus, Export, ExportType
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
@@ -167,6 +167,10 @@ class CompanySignUp(AuthenticatedMutation):
             required=False,
             description="Type d'activité de transport effectué par l'entreprise",
         )
+        transport_type = graphene.String(
+            required=False,
+            description="Catégorie de transport de l'entreprise",
+        )
         nb_workers = graphene.Int(
             required=False,
             description="Nombre de chauffeurs et/ou travailleurs mobiles",
@@ -182,6 +186,7 @@ class CompanySignUp(AuthenticatedMutation):
         usual_name,
         siren,
         business_type="",
+        transport_type="",
         phone_number="",
         nb_workers=None,
     ):
@@ -190,7 +195,12 @@ class CompanySignUp(AuthenticatedMutation):
         )
 
         return sign_up_company(
-            usual_name, siren, business_type, phone_number, nb_workers
+            usual_name,
+            siren,
+            business_type,
+            transport_type,
+            phone_number,
+            nb_workers,
         )
 
 
@@ -204,6 +214,10 @@ class CompanySiret(graphene.InputObjectType):
     business_type = graphene.String(
         required=False,
         description="Type d'activité de transport de l'entreprise",
+    )
+    transport_type = graphene.String(
+        required=False,
+        description="Catégorie de transport de l'entreprise",
     )
     nb_workers = graphene.Int(
         required=False,
@@ -258,6 +272,7 @@ def sign_up_companies(siren, companies):
                 siren=siren,
                 phone_number=company.get("phone_number", ""),
                 business_type=company.get("business_type", ""),
+                transport_type=company.get("transport_type", ""),
                 nb_workers=company.get("nb_workers", None),
                 sirets=[company.get("siret")],
                 send_email=len(companies) == 1,
@@ -289,13 +304,19 @@ def sign_up_company(
     usual_name,
     siren,
     business_type="",
+    transport_type="",
     phone_number="",
     nb_workers=None,
     sirets=[],
     send_email=True,
 ):
     business = None
-    if business_type:
+    if business_type and transport_type:
+        business = Business.query.filter(
+            Business.business_type == BusinessType[business_type].value,
+            Business.transport_type == TransportType[transport_type].value,
+        ).one_or_none()
+    elif business_type:
         business = Business.query.filter(
             Business.business_type == BusinessType[business_type].value
         ).one_or_none()
@@ -573,6 +594,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau type d'activité de transport de l'entreprise.",
         )
+        new_transport_type = graphene.String(
+            required=False,
+            description="Nouvelle catégorie de transport de l'entreprise.",
+        )
         new_nb_workers = graphene.Int(
             required=False,
             description="Nouveau nombre d'employés de l'entreprise.",
@@ -600,6 +625,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         new_name="",
         new_phone_number="",
         new_business_type="",
+        new_transport_type="",
         new_nb_workers=None,
         apply_business_type_to_employees=False,
     ):
@@ -634,10 +660,13 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 app.logger.info(
                     f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"
                 )
+
             if new_business_type != "":
                 new_business = Business.query.filter(
                     Business.business_type
-                    == BusinessType[new_business_type].value
+                    == BusinessType[new_business_type].value,
+                    Business.transport_type
+                    == TransportType[new_transport_type].value,
                 ).one_or_none()
                 if new_business is None:
                     raise InvalidParamsError(
