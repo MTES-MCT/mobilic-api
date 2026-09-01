@@ -890,19 +890,6 @@ class Mailer:
             _disable_commit=True,
         )
 
-    def send_worker_onboarding_first_email(self, user):
-        self._send_single(
-            self._create_message_from_mailjet_template(
-                2690636,
-                type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
-                user=user,
-                first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login",
-                _disable_commit=True,
-            ),
-            _disable_commit=True,
-        )
-
     def send_worker_onboarding_second_email(self, user):
         self._send_single(
             self._create_message_from_mailjet_template(
