@@ -115,13 +115,13 @@ def get_location_info_from_bulletin(bulletin):
         except (json.JSONDecodeError, TypeError):
             department_label = location_department
 
-    # Fallback to postal code if needed. DROM-COM postal codes (971xx-976xx)
-    # need the 3-digit department code to be distinguishable from one
-    # another, everywhere else uses the 2-digit code.
+    # Fallback to postal code if needed. Overseas postal codes (97xxx-98xxx)
+    # need the 3-digit department/territory code to be distinguishable from
+    # one another, everywhere else uses the 2-digit code.
     if not department_code and postal_code:
         department_code = (
             postal_code[:3]
-            if postal_code.startswith("97")
+            if postal_code.startswith("97") or postal_code.startswith("98")
             else postal_code[:2]
         )
 

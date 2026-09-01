@@ -16,6 +16,9 @@ DROM_COM_TIMEZONES = {
     "974": ZoneInfo("Indian/Reunion"),
     "975": ZoneInfo("America/Miquelon"),
     "976": ZoneInfo("Indian/Mayotte"),
+    "986": ZoneInfo("Pacific/Wallis"),
+    "987": ZoneInfo("Pacific/Tahiti"),
+    "988": ZoneInfo("Pacific/Noumea"),
 }
 VERY_LONG_AGO = datetime.datetime(2000, 1, 1)
 VERY_FAR_AHEAD = datetime.datetime(2100, 1, 1)
