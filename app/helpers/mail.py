@@ -74,6 +74,23 @@ class SubscriptionRequestError(MailjetError):
     code = "SUBSCRIPTION_REQUEST_ERROR"
 
 
+# Mailjet re-evaluates Variables values, so a user-controlled "{{7*7}}" is an
+# SSTI. No escape exists for values, so we strip every delimiter before sending:
+# {{ }} expressions, {% %} statements, and [[ ]] data/var references.
+_MAILJET_TEMPLATE_DELIMITERS = ("{{", "}}", "{%", "%}", "[[", "]]")
+
+
+def _strip_template_delimiters(value):
+    if not isinstance(value, str):
+        return value
+    # Loop until stable: removing a delimiter can glue characters back into a
+    # new one (e.g. "{}}{" -> "{{"), so a single pass is not enough.
+    while any(d in value for d in _MAILJET_TEMPLATE_DELIMITERS):
+        for delimiter in _MAILJET_TEMPLATE_DELIMITERS:
+            value = value.replace(delimiter, "")
+    return value
+
+
 class MailjetMessage:
     def __init__(
         self,
@@ -116,7 +133,10 @@ class MailjetMessage:
             payload = {
                 "TemplateID": self.template_id,
                 "TemplateLanguage": True,
-                "Variables": self.template_vars or {},
+                "Variables": {
+                    key: _strip_template_delimiters(value)
+                    for key, value in (self.template_vars or {}).items()
+                },
             }
 
         payload["To"] = [{"Email": self.actual_recipient}]
@@ -547,7 +567,9 @@ class Mailer:
         )
 
     def send_detachment_request_email(self, employment):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -568,7 +590,9 @@ class Mailer:
             )
 
     def send_detachment_relance_email(self, employment, request_date):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
