@@ -120,7 +120,9 @@ def get_location_info_from_bulletin(bulletin):
     # another, everywhere else uses the 2-digit code.
     if not department_code and postal_code:
         department_code = (
-            postal_code[:3] if postal_code[:2] == "97" else postal_code[:2]
+            postal_code[:3]
+            if postal_code.startswith("97")
+            else postal_code[:2]
         )
 
     return department_code, department_label, postal_code
