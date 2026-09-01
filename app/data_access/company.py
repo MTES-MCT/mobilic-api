@@ -18,6 +18,8 @@ from app.data_access.regulatory_alerts_summary import (
 )
 from app.data_access.team import TeamOutput
 from app.data_access.user import UserOutput
+from app.domain.regulations_helper import resolve_variables
+from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.data_access.work_day import WorkDayConnection
 from app.domain.company import (
     check_company_has_no_activities,
@@ -92,6 +94,12 @@ class CompanySettings(graphene.ObjectType):
     )
 
 
+class WeeklyThresholdsOutput(graphene.ObjectType):
+    max_work_in_hours = graphene.Int()
+    min_rest_in_hours = graphene.Int()
+    max_worked_days = graphene.Int()
+
+
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
@@ -125,6 +133,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.Int,
         required=False,
         description="Nombre de salariés déclarés par l'entreprise",
+    )
+    weekly_thresholds = graphene.Field(
+        WeeklyThresholdsOutput,
+        description="Seuils réglementaires hebdomadaires résolus selon le type d'activité de l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     legal_name = graphene.Field(
@@ -283,6 +295,29 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_nb_workers(self, info):
         return self.number_workers
+
+    def resolve_weekly_thresholds(self, info):
+        defaults = WeeklyThresholdsOutput(
+            max_work_in_hours=48, min_rest_in_hours=34, max_worked_days=6
+        )
+        business = self.business
+        if not business:
+            return defaults
+        work_check = RegulationCheck.query.filter_by(
+            type=RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK
+        ).first()
+        rest_check = RegulationCheck.query.filter_by(
+            type=RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+        ).first()
+        if not work_check or not rest_check:
+            return defaults
+        work_vars = resolve_variables(work_check.variables, business)
+        rest_vars = resolve_variables(rest_check.variables, business)
+        return WeeklyThresholdsOutput(
+            max_work_in_hours=work_vars.get("MAXIMUM_WEEKLY_WORK_IN_HOURS", 48),
+            min_rest_in_hours=rest_vars.get("MINIMUM_WEEKLY_BREAK_IN_HOURS", 34),
+            max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
+        )
 
     def resolve_teams(self, info):
         return self.teams
