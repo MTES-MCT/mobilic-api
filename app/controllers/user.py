@@ -368,14 +368,12 @@ class ActivateEmail(graphene.Mutation):
             user.has_activated_email = True
 
             try:
-                if not is_user_related_to_onboarding_excluded_company(user):
-                    if (
-                        len(user.current_company_ids_with_admin_rights or [])
-                        > 0
-                    ):
-                        mailer.send_manager_onboarding_first_email(user)
-                    else:
-                        mailer.send_worker_onboarding_first_email(user)
+                if (
+                    not is_user_related_to_onboarding_excluded_company(user)
+                    and len(user.current_company_ids_with_admin_rights or [])
+                    > 0
+                ):
+                    mailer.send_manager_onboarding_first_email(user)
             except Exception as e:
                 app.logger.exception(e)
 

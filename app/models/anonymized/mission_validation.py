@@ -10,7 +10,6 @@ class AnonMissionValidation(AnonymizedModel):
     mission_id = db.Column(db.Integer, nullable=False)
     submitter_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=True)
-    is_admin = db.Column(db.Boolean, nullable=False)
 
     @classmethod
     def anonymize(cls, validation):
@@ -29,7 +28,6 @@ class AnonMissionValidation(AnonymizedModel):
             "user", validation.submitter_id
         )
         anonymized.user_id = cls.get_new_id("user", validation.user_id)
-        anonymized.is_admin = validation.is_admin
         anonymized.creation_time = cls.truncate_to_month(
             validation.creation_time
         )
