@@ -60,11 +60,11 @@ def process_control(control, bdc, doc, infractions):
     location_lieu = bdc.get("location_lieu", "")
     location_commune = bdc.get("location_commune", "")
 
-    departement_code, department_label, postal_code = (
+    department_code, department_label, postal_code = (
         get_location_info_from_bulletin(bdc)
     )
-    if not departement_code:
-        departement_code = "00"
+    if not department_code:
+        department_code = "00"
 
     controller = ControllerUser.query.filter(
         ControllerUser.id == control.controller_id
@@ -94,7 +94,7 @@ def process_control(control, bdc, doc, infractions):
     add_content_element(
         element_control,
         "lieuDepartement_Code",
-        departement_code,
+        department_code,
     )
 
     add_content_element(element_control, "lieuVoie", "")
@@ -219,7 +219,7 @@ def process_control(control, bdc, doc, infractions):
         initials = "".join(
             [part[0].capitalize() for part in controller_name.split()]
         )
-    return f"R{departement_code}{initials}{control.creation_time.strftime('%Y%m%d%H%M')}{control.vehicle_registration_number}.xml"
+    return f"R{department_code}{initials}{control.creation_time.strftime('%Y%m%d%H%M')}{control.vehicle_registration_number}.xml"
 
 
 def process_company(control, bdc, doc):
