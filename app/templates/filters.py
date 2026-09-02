@@ -59,13 +59,15 @@ def full_format_day(day):
     return day.strftime("%d/%m/%Y")
 
 
-def format_activity_type(activity_or_break_type):
+def format_activity_type(
+    activity_or_break_type, allow_other_task=False
+):
     from app.models.activity import ActivityType
 
     if activity_or_break_type == ActivityType.WORK:
         return "Autre tâche"
     if activity_or_break_type == ActivityType.DRIVE:
-        return "Déplacement"
+        return "Conduite" if allow_other_task else "Travail"
     if activity_or_break_type == ActivityType.SUPPORT:
         return "Accompagnement"
     if activity_or_break_type == ActivityType.TRANSFER:
