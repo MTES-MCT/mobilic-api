@@ -23,6 +23,12 @@ class Config:
     ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
+    # Idle expiration : a refresh token unused for this long is invalid.
+    # Each refresh creates a fresh token, so an active session never expires.
+    REFRESH_TOKEN_EXPIRATION = timedelta(days=90)
+    # A consumed token replayed within this window returns the successor
+    # tokens instead of failing (lost response, concurrent tabs).
+    REFRESH_TOKEN_REUSE_GRACE_PERIOD = timedelta(seconds=60)
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
@@ -158,6 +164,9 @@ class Config:
     )
     ANONYMIZATION_THRESHOLD_MONTH = int(
         os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
+    )
+    ANONYMIZATION_MAX_MISSIONS_PER_RUN = int(
+        os.environ.get("ANONYMIZATION_MAX_MISSIONS_PER_RUN", 100000)
     )
     EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
         os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
