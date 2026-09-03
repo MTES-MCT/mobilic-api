@@ -58,6 +58,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "has_activated_email",
             "disabled_warnings",
             "admin",
+            "bizdev",
         )
 
     id = graphene.Field(
