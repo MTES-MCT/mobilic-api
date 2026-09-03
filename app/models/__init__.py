@@ -37,3 +37,5 @@ from .mission_auto_validation import MissionAutoValidation
 from .anonymized import *
 from .export import Export
 from .support_action_log import SupportActionLog
+from .software_compliance_snapshot import SoftwareComplianceSnapshot
+from .software_compliance_alert_state import SoftwareComplianceAlertState

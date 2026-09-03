@@ -61,6 +61,13 @@ def verify_oauth_token_in_request():
         app.logger.info(f"Invalid oauth token")
         raise AuthenticationError("Invalid token")
 
+    from app.helpers.oauth.models import OAuth2Client
+    from app.helpers.errors import ClientSuspendedError
+
+    client = OAuth2Client.query.filter_by(id=matching_token.client_id).first()
+    if client and client.is_suspended:
+        raise ClientSuspendedError(f"Client {client.name} is suspended")
+
     g.user = matching_token.user
 
 
