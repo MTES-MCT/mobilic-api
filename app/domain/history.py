@@ -140,6 +140,7 @@ class UserChange(HistoryItem):
     holiday_mission_name: str = ""
     tz: any = None
     disputed_action: str | None = None
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -212,7 +213,10 @@ class UserChange(HistoryItem):
                         activity_name = (
                             self.holiday_mission_name
                             if self.holiday_mission_name
-                            else format_activity_type(activity.type)
+                            else format_activity_type(
+                                activity.type,
+                                self.allow_other_task,
+                            )
                         )
                         auto_end_texts_set.add(
                             f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True, self.tz)}"
@@ -225,7 +229,9 @@ class UserChange(HistoryItem):
             activity_name = (
                 self.holiday_mission_name
                 if self.holiday_mission_name != ""
-                else format_activity_type(self.resource.type)
+                else format_activity_type(
+                    self.resource.type, self.allow_other_task
+                )
             )
             action = self.disputed_action or DISPUTED_ACTION_MODIFICATION
             detail = ""
@@ -287,14 +293,23 @@ class UserChange(HistoryItem):
         activity_name = (
             self.holiday_mission_name
             if self.holiday_mission_name != ""
-            else format_activity_type(self.resource.type)
+            else format_activity_type(
+                self.resource.type, self.allow_other_task
+            )
         )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
-                if _is_split(self.version) and self.version.end_time:
-                    return [
-                        f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
-                    ]
+                if _is_split(self.version):
+                    original_start_ts = self.version.context.get("originalStartTime") if self.version.context else None
+                    if original_start_ts:
+                        original_start = datetime.fromtimestamp(original_start_ts, tz=timezone.utc).replace(tzinfo=None)
+                        return [
+                            f"a décalé le début de l'activité {activity_name} du {format_time(original_start, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
+                        ]
+                    elif self.version.end_time:
+                        return [
+                            f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                        ]
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
@@ -370,6 +385,7 @@ class LogAction(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -413,6 +429,12 @@ def actions_history(
     if mission.is_holiday():
         holiday_mission_name = mission.name
 
+    allow_other_task = (
+        mission.company.allow_other_task
+        if mission.company and mission.company.allow_other_task is not None
+        else True
+    )
+
     user_changes = []
     for resource in relevant_resources:
         if resource is not None:
@@ -441,6 +463,7 @@ def actions_history(
                     version=first_version,
                     holiday_mission_name=holiday_mission_name,
                     tz=user.timezone,
+                    allow_other_task=allow_other_task,
                 )
             )
 
@@ -462,6 +485,7 @@ def actions_history(
                         ),
                         holiday_mission_name=holiday_mission_name,
                         tz=user.timezone,
+                        allow_other_task=allow_other_task,
                     )
                 )
 
@@ -492,6 +516,7 @@ def actions_history(
                             version=revision,
                             holiday_mission_name=holiday_mission_name,
                             tz=user.timezone,
+                            allow_other_task=allow_other_task,
                         )
                     )
 
@@ -532,6 +557,7 @@ def actions_history(
                             tz=user.timezone,
                             version=last_revision,
                             disputed_action=disputed_action,
+                            allow_other_task=allow_other_task,
                         )
                     )
 
@@ -556,6 +582,7 @@ def actions_history(
                     picto=user_change.picto(),
                     holiday_mission_name=holiday_mission_name,
                     tz=user_change.tz,
+                    allow_other_task=allow_other_task,
                 )
             )
     return sorted(actions, key=lambda a: (a.time, a.type))
