@@ -34,6 +34,10 @@ class Config:
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     TCHAP_ACCESS_TOKEN = os.environ.get("TCHAP_ACCESS_TOKEN")
     TCHAP_ROOM_ID = os.environ.get("TCHAP_ROOM_ID")
+    TCHAP_HOMESERVER = os.environ.get(
+        "TCHAP_HOMESERVER",
+        "https://matrix.agent.dev-durable.tchap.gouv.fr",
+    )
     COMPLIANCE_ALERT_EMAIL = os.environ.get("COMPLIANCE_ALERT_EMAIL")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)

@@ -4,12 +4,13 @@ import requests
 
 from app import app
 
-TCHAP_HOMESERVER = "https://matrix.agent.dev-durable.tchap.gouv.fr"
+DEFAULT_TCHAP_HOMESERVER = "https://matrix.agent.dev-durable.tchap.gouv.fr"
 
 
 def send_tchap_message(text, html=None):
     access_token = app.config.get("TCHAP_ACCESS_TOKEN")
     room_id = app.config.get("TCHAP_ROOM_ID")
+    homeserver = app.config.get("TCHAP_HOMESERVER", DEFAULT_TCHAP_HOMESERVER)
 
     if not access_token or not room_id:
         app.logger.warning(
@@ -25,7 +26,7 @@ def send_tchap_message(text, html=None):
 
     try:
         response = requests.put(
-            f"{TCHAP_HOMESERVER}/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn_id}",
+            f"{homeserver}/_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn_id}",
             headers={"Authorization": f"Bearer {access_token}"},
             json=content,
             timeout=10,
