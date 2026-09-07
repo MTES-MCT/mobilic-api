@@ -47,36 +47,8 @@ jobs:
       - store_test_results:
           path: test-results
 
-  deploy:
-    docker:
-      - image: cimg/python:3.13
-    steps:
-      - checkout:
-          method: full
-      - run:
-          name: Add Scalingo to known_hosts
-          command: ssh-keyscan -H ssh.osc-fr1.scalingo.com >> ~/.ssh/known_hosts
-      - run:
-          name: Deploy to Scalingo
-          command:
-            if [ $CIRCLE_BRANCH = "prod" ];
-            then
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_PROD_APP_NAME.git ${CIRCLE_BRANCH}:master;
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_SANDBOX_APP_NAME.git ${CIRCLE_BRANCH}:master;
-            else
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_STAGING_APP_NAME.git ${CIRCLE_BRANCH}:master;
-            fi;
-
 workflows:
   version: 2
   build_and_deploy:
     jobs:
       - build
-      - deploy:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - master
-                - prod
