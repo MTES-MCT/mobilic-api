@@ -1,6 +1,7 @@
 version: 2.1
 jobs:
   build:
+    parallelism: 4
     docker:
       - image: cimg/python:3.13
       - image: cimg/postgres:14.18
@@ -33,11 +34,18 @@ jobs:
       - run:
           name: Run tests
           command: |
-            pipenv run flask test
+            FILES=$(find app/tests -name "test_*.py" | circleci tests split --split-by=timings --timings-type=filename)
+            test -n "$FILES" || { echo "No tests assigned to this container"; exit 0; }
+            MODULES=$(echo "$FILES" | tr '/' '.' | sed 's/\.py$//')
+            echo "$MODULES"
+            pipenv run flask test $MODULES
           environment:
             FLASK_APP: "app:app"
             FLASK_DEBUG: "1"
             DATABASE_URL: "postgresql://localhost:5432/mobilic-test"
+            JUNIT_XML: "test-results/junit.xml"
+      - store_test_results:
+          path: test-results
 
   deploy:
     docker:
