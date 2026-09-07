@@ -212,8 +212,9 @@ def _get_pending_invitations(company_id):
 
 
 def _count_inactive_employees(company_id, user_timezone):
-    """Approved non-admin employees with last_active_at in the last 30 days
-    and no Activity today.
+    """Approved non-admin employees who never had any activity
+    (last_active_at is None), or had activity in the last 30 days, and have
+    no Activity today.
 
     Uses a correlated NOT EXISTS on Activity (instead of NOT IN subquery)
     which is both safer against NULLs and more amenable to indexed plans.
@@ -243,8 +244,10 @@ def _count_inactive_employees(company_id, user_timezone):
             ~Employment.is_dismissed,
             Employment.has_admin_rights.is_(False),
             Employment.user_id.isnot(None),
-            Employment.last_active_at.isnot(None),
-            Employment.last_active_at >= threshold_30_days,
+            or_(
+                Employment.last_active_at.is_(None),
+                Employment.last_active_at >= threshold_30_days,
+            ),
             ~has_activity_today,
             or_(
                 Employment.end_date.is_(None),
