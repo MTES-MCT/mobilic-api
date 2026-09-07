@@ -284,6 +284,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_nb_workers(self, info):
         return self.number_workers
 
+    @with_authorization_policy(
+        is_employed_by_company_over_period,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'teams' of company object.",
+    )
     def resolve_teams(self, info):
         return self.teams
 

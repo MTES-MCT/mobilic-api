@@ -439,10 +439,14 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
     def resolve_admined_companies(self, info, company_ids=None):
+        admined_company_ids = self.current_company_ids_with_admin_rights
         if company_ids is not None:
-            company_ids_to_compute = company_ids
+            requested = set(company_ids)
+            company_ids_to_compute = [
+                cid for cid in admined_company_ids if cid in requested
+            ]
         else:
-            company_ids_to_compute = self.current_company_ids_with_admin_rights
+            company_ids_to_compute = admined_company_ids
 
         return Company.query.filter(
             Company.id.in_(company_ids_to_compute)
