@@ -108,16 +108,14 @@ def get_uninterrupted_work_start(user, mission, current_start_time):
     return work_start
 
 
-MAX_DELAY_FOR_REAL_TIME = timedelta(minutes=5)
-
-
 def schedule_break_alert_if_needed(user_id, activity, reception_time=None):
     if activity.type not in WORK_ACTIVITY_TYPES:
         return
 
-    now = reception_time or datetime.now()
-    if (now - activity.start_time) > MAX_DELAY_FOR_REAL_TIME:
+    if activity.end_time:
         return
+
+    now = reception_time or datetime.now()
 
     mission = activity.mission
     user = activity.user
