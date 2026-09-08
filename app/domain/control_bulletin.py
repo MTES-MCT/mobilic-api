@@ -1,3 +1,6 @@
+import json
+import re
+
 from app.helpers.errors import InvalidParamsError
 from app.models.business import Business, BusinessType
 
@@ -68,3 +71,66 @@ def save_control_bulletin(
     existing_bulletin["real_vehicle_weight"] = real_vehicle_weight
 
     control.control_bulletin = existing_bulletin
+
+
+def _extract_postal_code(location_commune, location_lieu):
+    if (
+        location_commune
+        and "(" in location_commune
+        and ")" in location_commune
+    ):
+        potential_postal = (
+            location_commune.split("(")[-1].split(")")[0].strip()
+        )
+        if potential_postal.isdigit() and len(potential_postal) == 5:
+            return potential_postal
+
+    if location_lieu:
+        postal_match = re.search(r"\b(\d{5})\b", location_lieu)
+        if postal_match:
+            return postal_match.group(1)
+
+    return ""
+
+
+def _parse_department_info(location_department):
+    if not location_department:
+        return "", ""
+
+    try:
+        dept_obj = json.loads(location_department)
+    except (json.JSONDecodeError, TypeError):
+        return "", location_department
+
+    if isinstance(dept_obj, dict) and "code" in dept_obj:
+        return dept_obj["code"], dept_obj.get("label", "")
+
+    return "", location_department
+
+
+def _department_code_from_postal_code(postal_code):
+    # Overseas postal codes (97xxx-98xxx) need the 3-digit
+    # department/territory code to be distinguishable from one another,
+    # everywhere else uses the 2-digit code.
+    if postal_code.startswith("97") or postal_code.startswith("98"):
+        return postal_code[:3]
+    return postal_code[:2]
+
+
+def get_location_info_from_bulletin(bulletin):
+    """Returns (department_code, department_label, postal_code)."""
+    if not bulletin:
+        return "", "", ""
+
+    postal_code = _extract_postal_code(
+        bulletin.get("location_commune", ""),
+        bulletin.get("location_lieu", ""),
+    )
+    department_code, department_label = _parse_department_info(
+        bulletin.get("location_department", "")
+    )
+
+    if not department_code and postal_code:
+        department_code = _department_code_from_postal_code(postal_code)
+
+    return department_code, department_label, postal_code
