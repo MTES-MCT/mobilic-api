@@ -75,9 +75,18 @@ class TestBreakAlert(BaseTest):
         mock_task.apply_async.assert_not_called()
 
     @patch("app.jobs.break_alert.send_break_alert_task")
-    def test_retroactive_entry_no_alert(self, mock_task):
+    def test_retroactive_ongoing_entry_schedules(self, mock_task):
         past = self.t0 - timedelta(minutes=10)
         a = self._add_activity(ActivityType.DRIVE, past)
+        schedule_break_alert_if_needed(self.worker.id, a, self.t0)
+        mock_task.apply_async.assert_called_once()
+
+    @patch("app.jobs.break_alert.send_break_alert_task")
+    def test_ended_entry_no_alert(self, mock_task):
+        past = self.t0 - timedelta(minutes=10)
+        a = self._add_activity(
+            ActivityType.DRIVE, past, self.t0
+        )
         schedule_break_alert_if_needed(self.worker.id, a, self.t0)
         mock_task.apply_async.assert_not_called()
 
