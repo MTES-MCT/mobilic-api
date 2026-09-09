@@ -679,6 +679,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 )
 
             if new_business_type != "":
+                if new_transport_type == "":
+                    raise InvalidParamsError(
+                        "transport_type is required when business_type is provided"
+                    )
                 new_business = Business.query.filter(
                     Business.business_type
                     == BusinessType[new_business_type].value,
