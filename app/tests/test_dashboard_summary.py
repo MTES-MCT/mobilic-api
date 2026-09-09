@@ -123,8 +123,8 @@ class TestDashboardSummary(BaseTest):
         self.assertEqual(data["activeMissionsCount"], 0)
         self.assertEqual(data["pendingValidationsCount"], 0)
         self.assertEqual(data["pendingInvitationsCount"], 0)
-        # employee never active → not counted as recently inactive
-        self.assertEqual(data["inactiveEmployeesCount"], 0)
+        # employee never active and no activity today → counted as inactive
+        self.assertEqual(data["inactiveEmployeesCount"], 1)
         self.assertEqual(data["autoValidatedMissionsCount"], 0)
         self.assertFalse(data["hasAnyMissionThisWeek"])
 
@@ -172,6 +172,13 @@ class TestDashboardSummary(BaseTest):
         )
         employment.last_active_at = self.now - timedelta(days=days_ago)
         db.session.commit()
+
+    def test_inactive_employee_never_active_counted(self):
+        """last_active_at is None (never used Mobilic) and no Activity
+        today → counted as inactive."""
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["inactiveEmployeesCount"], 1)
 
     def test_inactive_employee_active_recently(self):
         """Active in last 30 days but not today → counted as inactive."""

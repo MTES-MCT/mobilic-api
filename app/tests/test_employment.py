@@ -461,11 +461,23 @@ class TestEmploymentStatusProperties(BaseTest):
         self.employment = self.user_worker.employments[0]
 
     def test_active_employment_status(self):
-        """An approved employment with no end_date should be ACTIVE."""
+        """An approved employment with no end_date and recent activity should be ACTIVE."""
+        self.employment.last_active_at = datetime.now()
+        db.session.commit()
+
         self.assertTrue(self.employment.is_active)
         self.assertFalse(self.employment.is_terminated)
         self.assertFalse(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_never_active_is_inactive(self):
+        """An employment that never had any activity (last_active_at is
+        None) should be considered INACTIVE, not ACTIVE."""
+        self.assertIsNone(self.employment.last_active_at)
+
+        self.assertTrue(self.employment.is_active)
+        self.assertTrue(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "INACTIVE")
 
     def test_terminated_employment_status(self):
         """An employment with end_date in the past should be TERMINATED."""
@@ -541,6 +553,7 @@ class TestEmploymentStatusProperties(BaseTest):
         from datetime import date
 
         self.employment.end_date = date.today()
+        self.employment.last_active_at = datetime.now()
         db.session.commit()
 
         self.assertTrue(self.employment.is_active)
@@ -556,9 +569,7 @@ class TestRequestDetachment(BaseTest):
             post__company=self.company, post__has_admin_rights=True
         )
         worker = UserFactory.create(post__company=self.company)
-        another_worker = UserFactory.create(
-            post__company=self.company
-        )
+        another_worker = UserFactory.create(post__company=self.company)
         self.admin_id = admin.id
         self.worker_id = worker.id
         self.another_worker_id = another_worker.id
@@ -575,16 +586,12 @@ class TestRequestDetachment(BaseTest):
         )
         result = response["data"]["employments"]["requestDetachment"]
         self.assertIsNotNone(result["detachmentRequest"])
-        self.assertIn(
-            "requestedAt", result["detachmentRequest"]
-        )
+        self.assertIn("requestedAt", result["detachmentRequest"])
         self.assertEqual(
             result["detachmentRequest"]["requestedAt"],
             result["detachmentRequest"]["lastSentAt"],
         )
-        db_employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        db_employment = Employment.query.get(self.worker_employment_id)
         self.assertIsNotNone(db_employment.detachment_request)
 
     def test_another_worker_cannot_request_detachment(self):
@@ -638,12 +645,8 @@ class TestRequestDetachment(BaseTest):
         )
 
     def test_relance_after_cooldown(self):
-        past_ts = int(
-            (datetime.now() - timedelta(hours=49)).timestamp()
-        )
-        employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        past_ts = int((datetime.now() - timedelta(hours=49)).timestamp())
+        employment = Employment.query.get(self.worker_employment_id)
         employment.detachment_request = {
             "requested_at": past_ts,
             "last_sent_at": past_ts,
@@ -683,9 +686,7 @@ class TestRequestDetachment(BaseTest):
         )
 
     def test_terminated_employment_cannot_request_detachment(self):
-        employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        employment = Employment.query.get(self.worker_employment_id)
         employment.end_date = date.today() - timedelta(days=1)
         db.session.commit()
 
