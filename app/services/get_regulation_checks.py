@@ -42,6 +42,10 @@ REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
                 str(BusinessType.SHORT_DISTANCE.name): 52,
                 str(BusinessType.SHIPPING.name): 48,
             },
+            str(TransportType.DEM.name): {
+                str(BusinessType.LONG_DISTANCE.name): 56,
+                str(BusinessType.SHORT_DISTANCE.name): 52,
+            },
             str(TransportType.TRV.name): 48,
         },
         DESCRIPTION={
@@ -55,6 +59,14 @@ REGULATION_CHECK_MAXIMUM_WORK_IN_CALENDAR_WEEK = RegulationCheckData(
                 str(
                     BusinessType.SHIPPING.name
                 ): "La durée de travail hebdomadaire sur une semaine isolée est limitée à 48 heures (article R.3312-50 du Code des transports).",
+            },
+            str(TransportType.DEM.name): {
+                str(
+                    BusinessType.LONG_DISTANCE.name
+                ): "La durée de travail hebdomadaire sur une semaine isolée est limitée à 56 heures (article R.3312-50 du Code des transports).",
+                str(
+                    BusinessType.SHORT_DISTANCE.name
+                ): "La durée de travail hebdomadaire sur une semaine isolée est limitée à 52 heures (article R.3312-50 du Code des transports).",
             },
             str(
                 TransportType.TRV.name
@@ -104,11 +116,13 @@ def get_regulation_checks():
                 MAXIMUM_DURATION_OF_NIGHT_WORK_IN_HOURS=10,
                 MAXIMUM_DURATION_OF_DAY_WORK_IN_HOURS={
                     str(TransportType.TRM.name): 12,
+                    str(TransportType.DEM.name): 12,
                     str(TransportType.TRV.name): 10,
                 },
                 LONG_BREAK_DURATION_IN_HOURS=10,
                 AMPLITUDE_TRIGGER_IN_HOURS={
                     str(TransportType.TRM.name): None,
+                    str(TransportType.DEM.name): None,
                     str(TransportType.TRV.name): {
                         BusinessType.FREQUENT.name: 13,
                         BusinessType.INFREQUENT.name: None,
@@ -120,6 +134,9 @@ def get_regulation_checks():
                     str(
                         TransportType.TRM.name
                     ): "La durée du travail quotidien est limitée à 12h (article R. 3312-a51 du Code des transports).",
+                    str(
+                        TransportType.DEM.name
+                    ): "La durée du travail quotidien est limitée à 12h (article R. 3312-a51 du Code des transports).",
                     str(TransportType.TRV.name): {
                         BusinessType.FREQUENT.name: DESCRIPTION_MAX_WORK_TRV_FREQUENT,
                         BusinessType.INFREQUENT.name: DESCRIPTION_MAX_WORK_TRV_INFREQUENT,
@@ -129,6 +146,9 @@ def get_regulation_checks():
                 NIGHT_WORK_DESCRIPTION={
                     str(
                         TransportType.TRM.name
+                    ): "Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures (L. 3312-1 du Code des transports).",
+                    str(
+                        TransportType.DEM.name
                     ): "Si une partie du travail de la journée s'effectue entre minuit et 5 heures, la durée maximale du travail est réduite à 10 heures (L. 3312-1 du Code des transports).",
                     str(
                         TransportType.TRV.name
@@ -185,6 +205,9 @@ def get_regulation_checks():
                 DESCRIPTION={
                     str(
                         TransportType.TRM.name
+                    ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998).",
+                    str(
+                        TransportType.DEM.name
                     ): "Défaut de documents nécessaires au décompte de la durée du travail (L. 3121-67 du Code du travail et R. 3312-58 du Code des transports + arrêté du 20 juillet 1998).",
                     str(
                         TransportType.TRV.name
