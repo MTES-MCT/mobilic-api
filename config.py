@@ -32,6 +32,13 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
     DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
+    TCHAP_ACCESS_TOKEN = os.environ.get("TCHAP_ACCESS_TOKEN")
+    TCHAP_ROOM_ID = os.environ.get("TCHAP_ROOM_ID")
+    TCHAP_HOMESERVER = os.environ.get(
+        "TCHAP_HOMESERVER",
+        "https://matrix.agent.dev-durable.tchap.gouv.fr",
+    )
+    COMPLIANCE_ALERT_EMAIL = os.environ.get("COMPLIANCE_ALERT_EMAIL")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
@@ -44,6 +51,9 @@ class Config:
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+    VAPID_CLAIM_EMAIL = os.environ.get("VAPID_CLAIM_EMAIL")
     IMPERSONATION_ALLOWED_TABLES = frozenset(
         t.strip()
         for t in os.environ.get("IMPERSONATION_ALLOWED_TABLES", "").split(",")
@@ -223,6 +233,7 @@ class StagingConfig(Config):
 
 
 class ReviewConfig(StagingConfig):
+    DISABLE_EMAIL = True
     # Scalingo's `"generator": "secret"` produces a hex string, which is not a
     # valid Fernet key (Fernet expects 32 random bytes urlsafe-b64 encoded).
     # Generate one per process instead: TOTP credentials created on a review

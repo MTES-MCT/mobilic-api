@@ -1,9 +1,11 @@
+import hmac
 import json
 import logging
 
-from flask import jsonify
+import redis as redis_module
+from flask import jsonify, request
 
-from app import app
+from app import app, db
 from app.helpers.livestorm import livestorm, NoLivestormCredentialsError
 from app.helpers.redis import get_redis_client
 
@@ -28,6 +30,21 @@ def refresh_webinars_cache():
     )
 
 
+@app.route("/vapid-public-key", methods=["GET"])
+def get_vapid_public_key():
+    public_key = app.config.get("VAPID_PUBLIC_KEY")
+    if not public_key:
+        return jsonify({"error": "VAPID not configured"}), 503
+
+    from app.models.push_banner_config import PushBannerConfig
+
+    config = PushBannerConfig.get_current()
+    result = {"publicKey": public_key}
+    if config:
+        result["bannerText"] = config.banner_text
+    return jsonify(result), 200
+
+
 @app.route("/next-webinars", methods=["GET"])
 def get_webinars_list():
     if not app.config["LIVESTORM_API_TOKEN"]:
@@ -41,3 +58,43 @@ def get_webinars_list():
         logger.warning("Redis unavailable, skipping cache read for webinars")
 
     return jsonify([]), 200
+
+
+@app.route("/campaign-click", methods=["GET"])
+@app.route("/api/campaign-click", methods=["GET"])
+def campaign_click():
+    campaign_id = request.args.get("c")
+    token = request.args.get("t")
+    if not campaign_id or not token:
+        return "", 400
+
+    try:
+        campaign_id = int(campaign_id)
+    except (ValueError, TypeError):
+        return "", 400
+
+    from app.jobs.notification_campaign import (
+        generate_click_token,
+    )
+
+    expected = generate_click_token(campaign_id)
+    if not hmac.compare_digest(token, expected):
+        return "", 403
+
+    from app.models.notification_campaign import (
+        NotificationCampaign,
+    )
+
+    db.session.query(NotificationCampaign).filter(
+        NotificationCampaign.id == campaign_id
+    ).update(
+        {
+            NotificationCampaign.clicked_count: (
+                NotificationCampaign.clicked_count + 1
+            )
+        },
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    return "", 204

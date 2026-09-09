@@ -17,6 +17,11 @@ class OAuth2Client(BaseModel, RandomNineIntId, ClientMixin):
     secret = db.Column(db.String(120), nullable=False)
     redirect_uris = db.Column(db.ARRAY(db.String))
     whitelist_ips = db.Column(db.ARRAY(db.String))
+    suspended_at = db.Column(DateTimeStoredAsUTC, nullable=True)
+
+    @property
+    def is_suspended(self):
+        return self.suspended_at is not None
 
     def get_client_id(self):
         return self.id
