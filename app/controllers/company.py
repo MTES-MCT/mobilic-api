@@ -300,46 +300,20 @@ def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     return created_company
 
 
-def sign_up_company(
-    usual_name,
-    siren,
-    business_type="",
-    transport_type="",
-    phone_number="",
-    nb_workers=None,
-    sirets=[],
-    send_email=True,
-):
-    business = None
+def _find_business_for_company(business_type, transport_type):
     if business_type and transport_type:
-        business = Business.query.filter(
+        return Business.query.filter(
             Business.business_type == BusinessType[business_type].value,
             Business.transport_type == TransportType[transport_type].value,
         ).one_or_none()
     elif business_type:
-        business = Business.query.filter(
+        return Business.query.filter(
             Business.business_type == BusinessType[business_type].value
         ).one_or_none()
+    return None
 
-    with atomic_transaction(commit_at_end=True):
-        company = store_company(
-            siren, sirets, usual_name, business, phone_number, nb_workers
-        )
 
-        now = datetime.now()
-        admin_employment = Employment(
-            user_id=current_user.id,
-            company=company,
-            start_date=now.date(),
-            validation_time=now,
-            validation_status=EmploymentRequestValidationStatus.APPROVED,
-            has_admin_rights=True,
-            reception_time=now,
-            submitter_id=current_user.id,
-            business=business,
-        )
-        db.session.add(admin_employment)
-
+def _sync_company_with_crm(company):
     try:
         contact_data = CreateContactData(
             email=current_user.email,
@@ -360,41 +334,84 @@ def sign_up_company(
             app.logger.warning(
                 "Brevo API key not configured, skipping CRM sync"
             )
-        else:
-            company_id = brevo.create_company(
-                CreateCompanyData(
-                    company_name=company.usual_name,
-                    siren=int(company.siren),
-                    phone_number=(
-                        company.phone_number if company.phone_number else None
-                    ),
+            return
+
+        company_id = brevo.create_company(
+            CreateCompanyData(
+                company_name=company.usual_name,
+                siren=int(company.siren),
+                phone_number=(
+                    company.phone_number if company.phone_number else None
+                ),
+            )
+        )
+
+        if company_id is not None:
+            brevo.link_company_and_contact(
+                LinkCompanyContactData(
+                    company_id=company_id,
+                    contact_id=contact_id,
                 )
             )
-
-            if company_id is not None:
-                brevo.link_company_and_contact(
-                    LinkCompanyContactData(
-                        company_id=company_id,
-                        contact_id=contact_id,
-                    )
-                )
     except Exception as e:
         sentry_sdk.capture_exception(e)
 
+
+def _send_company_creation_email(company):
+    try:
+        mailer.send_company_creation_email(company, current_user)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def _update_admin_mailing_lists():
+    try:
+        current_user.unsubscribe_from_contact_list(
+            MailingContactList.EMPLOYEES, remove=True
+        )
+        current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def sign_up_company(
+    usual_name,
+    siren,
+    business_type="",
+    transport_type="",
+    phone_number="",
+    nb_workers=None,
+    sirets=[],
+    send_email=True,
+):
+    business = _find_business_for_company(business_type, transport_type)
+
+    with atomic_transaction(commit_at_end=True):
+        company = store_company(
+            siren, sirets, usual_name, business, phone_number, nb_workers
+        )
+
+        now = datetime.now()
+        admin_employment = Employment(
+            user_id=current_user.id,
+            company=company,
+            start_date=now.date(),
+            validation_time=now,
+            validation_status=EmploymentRequestValidationStatus.APPROVED,
+            has_admin_rights=True,
+            reception_time=now,
+            submitter_id=current_user.id,
+            business=business,
+        )
+        db.session.add(admin_employment)
+
+    _sync_company_with_crm(company)
+
     if send_email:
-        try:
-            mailer.send_company_creation_email(company, current_user)
-        except Exception as e:
-            app.logger.exception(e)
+        _send_company_creation_email(company)
 
     if current_user.subscribed_mailing_lists:
-        try:
-            current_user.unsubscribe_from_contact_list(
-                MailingContactList.EMPLOYEES, remove=True
-            )
-            current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
-        except Exception as e:
-            app.logger.exception(e)
+        _update_admin_mailing_lists()
 
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
