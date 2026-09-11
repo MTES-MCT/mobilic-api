@@ -74,8 +74,10 @@ class TestBreakAlert(BaseTest):
         schedule_break_alert_if_needed(self.worker.id, a, self.t0)
         mock_task.apply_async.assert_not_called()
 
+    @patch("app.jobs.break_alert._get_redis")
     @patch("app.jobs.break_alert.send_break_alert_task")
-    def test_retroactive_ongoing_entry_schedules(self, mock_task):
+    def test_retroactive_ongoing_entry_schedules(self, mock_task, mock_redis):
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
         past = self.t0 - timedelta(minutes=10)
         a = self._add_activity(ActivityType.DRIVE, past)
         schedule_break_alert_if_needed(self.worker.id, a, self.t0)
@@ -84,17 +86,42 @@ class TestBreakAlert(BaseTest):
     @patch("app.jobs.break_alert.send_break_alert_task")
     def test_ended_entry_no_alert(self, mock_task):
         past = self.t0 - timedelta(minutes=10)
-        a = self._add_activity(
-            ActivityType.DRIVE, past, self.t0
-        )
+        a = self._add_activity(ActivityType.DRIVE, past, self.t0)
         schedule_break_alert_if_needed(self.worker.id, a, self.t0)
         mock_task.apply_async.assert_not_called()
 
+    @patch("app.jobs.break_alert._get_redis")
     @patch("app.jobs.break_alert.send_break_alert_task")
-    def test_real_time_entry_schedules(self, mock_task):
+    def test_real_time_entry_schedules(self, mock_task, mock_redis):
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
         a = self._add_activity(ActivityType.DRIVE, self.t0)
         schedule_break_alert_if_needed(self.worker.id, a, self.t0)
         mock_task.apply_async.assert_called_once()
+
+    @patch("app.jobs.break_alert._get_redis")
+    @patch("app.jobs.break_alert.send_break_alert_task")
+    def test_schedule_deduplicated_per_work_session(
+        self, mock_task, mock_redis
+    ):
+        mock_redis.return_value.set.side_effect = [True, False]
+        a = self._add_activity(ActivityType.DRIVE, self.t0)
+        schedule_break_alert_if_needed(self.worker.id, a, self.t0)
+        schedule_break_alert_if_needed(self.worker.id, a, self.t0)
+        mock_task.apply_async.assert_called_once()
+        first_set_call = mock_redis.return_value.set.call_args_list[0]
+        self.assertIn(str(int(self.t0.timestamp())), first_set_call.args[0])
+        self.assertTrue(first_set_call.kwargs["nx"])
+        self.assertGreater(first_set_call.kwargs["ex"], 0)
+
+    @patch("app.jobs.break_alert._get_redis")
+    @patch("app.jobs.break_alert.send_break_alert_task")
+    def test_schedule_skipped_when_redis_unavailable(
+        self, mock_task, mock_redis
+    ):
+        mock_redis.side_effect = Exception("connection refused")
+        a = self._add_activity(ActivityType.DRIVE, self.t0)
+        schedule_break_alert_if_needed(self.worker.id, a, self.t0)
+        mock_task.apply_async.assert_not_called()
 
     @patch("app.jobs.break_alert.send_push_notification")
     @patch("app.jobs.break_alert._get_redis")
@@ -114,6 +141,33 @@ class TestBreakAlert(BaseTest):
             self.t0,
             self.t0 + timedelta(hours=1),
         )
+        db.session.commit()
+        send_break_alert_task(self.worker.id, a.id, int(self.t0.timestamp()))
+        mock_push.assert_not_called()
+
+    @patch("app.jobs.break_alert.send_push_notification")
+    @patch("app.jobs.break_alert._get_redis")
+    def test_sends_if_session_continues_after_activity_switch(
+        self, mock_redis, mock_push
+    ):
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
+        t1 = self.t0 + timedelta(hours=1)
+        a = self._add_activity(ActivityType.DRIVE, self.t0, t1)
+        self._add_activity(ActivityType.WORK, t1)
+        db.session.commit()
+        send_break_alert_task(self.worker.id, a.id, int(self.t0.timestamp()))
+        mock_push.assert_called_once()
+
+    @patch("app.jobs.break_alert.send_push_notification")
+    @patch("app.jobs.break_alert._get_redis")
+    def test_skips_if_new_session_started_after_break(
+        self, mock_redis, mock_push
+    ):
+        mock_redis.return_value = MagicMock(set=lambda *a, **kw: True)
+        t1 = self.t0 + timedelta(hours=1)
+        t2 = t1 + timedelta(minutes=30)
+        a = self._add_activity(ActivityType.DRIVE, self.t0, t1)
+        self._add_activity(ActivityType.WORK, t2)
         db.session.commit()
         send_break_alert_task(self.worker.id, a.id, int(self.t0.timestamp()))
         mock_push.assert_not_called()
