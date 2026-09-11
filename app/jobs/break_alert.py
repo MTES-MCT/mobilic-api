@@ -42,6 +42,10 @@ def _sent_key(user_id, work_start_ts):
     return f"{REDIS_KEY_PREFIX}:{user_id}:{work_start_ts}"
 
 
+def _scheduled_key(user_id, work_start_ts):
+    return f"{REDIS_KEY_PREFIX}:scheduled:{user_id}:{work_start_ts}"
+
+
 @celery.task()
 def send_break_alert_task(user_id, activity_id, work_start_ts):
     with app.app_context():
@@ -49,13 +53,35 @@ def send_break_alert_task(user_id, activity_id, work_start_ts):
         if not activity:
             return
 
-        if activity.is_dismissed or activity.end_time:
-            logger.info(
-                f"Activity {activity_id} ended or dismissed, skipping alert"
+        current = activity
+        if current.is_dismissed or current.end_time:
+            current = next(
+                (
+                    a
+                    for a in activity.mission.activities_for(activity.user)
+                    if a.type in WORK_ACTIVITY_TYPES
+                    and not a.is_dismissed
+                    and not a.end_time
+                ),
+                None,
             )
-            return
+            if current is None:
+                logger.info(
+                    f"Activity {activity_id} ended or dismissed, "
+                    f"skipping alert"
+                )
+                return
+            work_start = get_uninterrupted_work_start(
+                activity.user, activity.mission, current.start_time
+            )
+            if int(work_start.timestamp()) != work_start_ts:
+                logger.info(
+                    f"Work session {work_start_ts} over for user {user_id}, "
+                    f"skipping alert"
+                )
+                return
 
-        if activity.type not in WORK_ACTIVITY_TYPES:
+        if current.type not in WORK_ACTIVITY_TYPES:
             return
 
         try:
@@ -130,6 +156,16 @@ def schedule_break_alert_if_needed(user_id, activity, reception_time=None):
         elapsed = now - work_start
         remaining = ALERT_DELAY - elapsed
         alert_time = now + remaining if remaining.total_seconds() > 0 else now
+
+    try:
+        redis = _get_redis()
+        key = _scheduled_key(user_id, work_start_ts)
+        was_set = redis.set(key, "1", nx=True, ex=REDIS_KEY_TTL)
+        if not was_set:
+            return
+    except Exception:
+        logger.warning("Redis unavailable, skipping break alert scheduling")
+        return
 
     send_break_alert_task.apply_async(
         args=[user_id, activity.id, work_start_ts],
