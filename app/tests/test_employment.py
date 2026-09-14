@@ -461,11 +461,23 @@ class TestEmploymentStatusProperties(BaseTest):
         self.employment = self.user_worker.employments[0]
 
     def test_active_employment_status(self):
-        """An approved employment with no end_date should be ACTIVE."""
+        """An approved employment with no end_date and recent activity should be ACTIVE."""
+        self.employment.last_active_at = datetime.now()
+        db.session.commit()
+
         self.assertTrue(self.employment.is_active)
         self.assertFalse(self.employment.is_terminated)
         self.assertFalse(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_never_active_is_inactive(self):
+        """An employment that never had any activity (last_active_at is
+        None) should be considered INACTIVE, not ACTIVE."""
+        self.assertIsNone(self.employment.last_active_at)
+
+        self.assertTrue(self.employment.is_active)
+        self.assertTrue(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "INACTIVE")
 
     def test_terminated_employment_status(self):
         """An employment with end_date in the past should be TERMINATED."""
@@ -541,6 +553,7 @@ class TestEmploymentStatusProperties(BaseTest):
         from datetime import date
 
         self.employment.end_date = date.today()
+        self.employment.last_active_at = datetime.now()
         db.session.commit()
 
         self.assertTrue(self.employment.is_active)
