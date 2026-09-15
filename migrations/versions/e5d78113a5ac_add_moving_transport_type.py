@@ -1,7 +1,7 @@
 """add moving transport type
 
 Revision ID: e5d78113a5ac
-Revises: b9c8a1d2e3f4
+Revises: e94bdf997f02
 Create Date: 2026-07-29 13:23:04.798404
 
 """
@@ -13,7 +13,7 @@ from app.models.business import TransportType, BusinessType
 
 # revision identifiers, used by Alembic.
 revision = "e5d78113a5ac"
-down_revision = "b9c8a1d2e3f4"
+down_revision = "e94bdf997f02"
 branch_labels = None
 depends_on = None
 
