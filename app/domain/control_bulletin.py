@@ -121,7 +121,7 @@ def _department_code_from_postal_code(postal_code):
     # Overseas postal codes (97xxx-98xxx) need the 3-digit
     # department/territory code to be distinguishable from one another,
     # everywhere else uses the 2-digit code.
-    if postal_code.startswith("97") or postal_code.startswith("98"):
+    if postal_code.startswith(("97", "98")):
         return postal_code[:3]
     return postal_code[:2]
 
