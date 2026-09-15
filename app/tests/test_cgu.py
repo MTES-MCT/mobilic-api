@@ -1,4 +1,5 @@
 import datetime
+from unittest import expectedFailure
 
 from flask.ctx import AppContext
 
@@ -13,7 +14,7 @@ from app.jobs.emails.cgu.send_expiry_warning_email import (
 from app.models import UserAgreement
 from app.models.user_agreement import UserAgreementStatus
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
-from app.tests import BaseTest
+from app.tests import BaseTest, test_post_rest
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
 PASSWORD = "password"
@@ -174,3 +175,20 @@ class TestCGU(BaseTest):
         )
         self.assertEqual(len(users), 1)
         self.assertTrue(UserAgreement.is_user_blacklisted(self.user.id))
+
+
+class TestOW3DownloadFullDataReportAuth(BaseTest):
+    @expectedFailure
+    def test_unauthenticated_request_is_rejected(self):
+        """OW3 [Elevee] Route download_full_data_report lacks @require_auth."""
+        response = test_post_rest(
+            "/users/download_full_data_when_CGU_refused",
+            json={"user_id": 999999999},
+            headers=None,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            401,
+            "Unauthenticated data export request must be rejected with 401",
+        )

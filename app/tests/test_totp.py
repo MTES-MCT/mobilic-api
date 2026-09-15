@@ -1,5 +1,6 @@
 import pyotp
 from cryptography.fernet import Fernet
+from flask.ctx import AppContext
 
 from app import app, db
 from app.domain.totp import (
@@ -465,3 +466,35 @@ class TestLoginWithTOTP(BaseTest):
             headers=[("Authorization", f"Bearer {temp_token2}")],
         )
         self.assertIsNotNone(response.json.get("errors"))
+
+
+class TestOW9TotpSecretEncryptionAtRest(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    def test_totp_secret_is_encrypted_at_rest(self):
+        """OW9 [Moyenne] Reported plaintext TOTP secret: false positive.
+
+        The secret is Fernet-encrypted before persistence
+        (app/controllers/user.py:1109-1112), so this asserts the safe
+        behaviour and is expected to pass.
+        """
+        user = UserFactory.create()
+        cred = get_or_create_totp_credential(user)
+        plaintext_secret = generate_totp_secret()
+        cred.secret = encrypt_secret(plaintext_secret)
+        db.session.commit()
+
+        raw_value = db.session.execute(
+            "SELECT secret FROM totp_credential WHERE id = :id",
+            {"id": cred.id},
+        ).scalar()
+
+        self.assertNotIn(plaintext_secret, raw_value)
+        self.assertEqual(plaintext_secret, decrypt_secret(raw_value))

@@ -1,13 +1,17 @@
 from datetime import datetime, timedelta
+from unittest import expectedFailure
 
 from flask.ctx import AppContext
 
 
 from app import app, db
 from app.domain.log_activities import log_activity
-from app.helpers.errors import MissionNotAlreadyValidatedByUserError
+from app.helpers.errors import (
+    AuthorizationError,
+    MissionNotAlreadyValidatedByUserError,
+)
 from app.models import Mission
-from app.models.activity import ActivityType
+from app.models.activity import Activity, ActivityType
 from app.seed import UserFactory, CompanyFactory
 from app.tests import (
     BaseTest,
@@ -380,3 +384,79 @@ class TestPermissionMissions(BaseTest):
 
         if "errors" in response:
             self.fail(f"Validate mission returned an error: {response}")
+
+
+class TestOW2EndMissionForCollaborator(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        self.worker_a = UserFactory.create(post__company=self.company)
+        self.worker_b = UserFactory.create(post__company=self.company)
+
+        self.company.allow_team_mode = False
+        db.session.commit()
+
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+        now = datetime.now()
+        with AuthenticatedUserContext(user=self.admin):
+            self.mission = Mission.create(
+                submitter=self.admin,
+                company=self.company,
+                reception_time=now,
+            )
+            log_activity(
+                submitter=self.admin,
+                user=self.worker_a,
+                mission=self.mission,
+                type=ActivityType.WORK,
+                switch_mode=True,
+                reception_time=now,
+                start_time=now - timedelta(hours=2),
+                end_time=None,
+            )
+            self.activity_b = log_activity(
+                submitter=self.admin,
+                user=self.worker_b,
+                mission=self.mission,
+                type=ActivityType.WORK,
+                switch_mode=True,
+                reception_time=now,
+                start_time=now - timedelta(hours=2),
+                end_time=None,
+            )
+        db.session.commit()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    @expectedFailure
+    def test_employee_cannot_force_end_colleague_activity(self):
+        """OW2 [Elevee] end_mission_for_user passes submitter=user (target)."""
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.worker_a.id,
+            query=ApiRequests.end_mission,
+            variables=dict(
+                missionId=self.mission.id,
+                endTime=datetime.now(),
+                userId=self.worker_b.id,
+            ),
+        )
+
+        self.assertIn("errors", response)
+        self.assertEqual(
+            AuthorizationError.code,
+            response["errors"][0]["extensions"]["code"],
+        )
+
+        activity_b = Activity.query.get(self.activity_b.id)
+        self.assertIsNone(
+            activity_b.end_time,
+            "A plain employee force-closed a colleague's open activity",
+        )
