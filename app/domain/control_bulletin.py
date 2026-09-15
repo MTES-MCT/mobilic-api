@@ -73,24 +73,33 @@ def save_control_bulletin(
     control.control_bulletin = existing_bulletin
 
 
-def _extract_postal_code(location_commune, location_lieu):
-    if (
+def _postal_code_from_commune(location_commune):
+    if not (
         location_commune
         and "(" in location_commune
         and ")" in location_commune
     ):
-        potential_postal = (
-            location_commune.split("(")[-1].split(")")[0].strip()
-        )
-        if potential_postal.isdigit() and len(potential_postal) == 5:
-            return potential_postal
+        return ""
 
-    if location_lieu:
-        postal_match = re.search(r"\b(\d{5})\b", location_lieu)
-        if postal_match:
-            return postal_match.group(1)
+    potential_postal = location_commune.split("(")[-1].split(")")[0].strip()
+    if potential_postal.isdigit() and len(potential_postal) == 5:
+        return potential_postal
 
     return ""
+
+
+def _postal_code_from_lieu(location_lieu):
+    if not location_lieu:
+        return ""
+
+    postal_match = re.search(r"\b(\d{5})\b", location_lieu)
+    return postal_match.group(1) if postal_match else ""
+
+
+def _extract_postal_code(location_commune, location_lieu):
+    return _postal_code_from_commune(
+        location_commune
+    ) or _postal_code_from_lieu(location_lieu)
 
 
 def _parse_department_info(location_department):
