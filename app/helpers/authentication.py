@@ -1,3 +1,4 @@
+import hmac
 from calendar import timegm
 from datetime import datetime, timezone
 from functools import wraps
@@ -380,6 +381,24 @@ def unset_fc_auth_cookies(response):
 def unset_ac_auth_cookies(response):
     response.delete_cookie("act", path="/api/ac/logout")
     response.delete_cookie("hasAc", path="/")
+
+
+def bind_sso_state(response, cookie_name, state):
+    response.set_cookie(
+        cookie_name,
+        state,
+        max_age=600,
+        httponly=True,
+        secure=app.config["JWT_COOKIE_SECURE"],
+        samesite="Strict",
+        path="/",
+    )
+
+
+def verify_sso_state(cookie_name, state):
+    expected = request.cookies.get(cookie_name)
+    if not expected or not state or not hmac.compare_digest(expected, state):
+        raise AuthenticationError("Invalid state parameter")
 
 
 class UserTokens(graphene.ObjectType):

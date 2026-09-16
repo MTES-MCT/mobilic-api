@@ -30,8 +30,10 @@ from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.agent_connect import get_agent_connect_user_info
 from app.helpers.authentication import (
     UserTokensWithAC,
+    bind_sso_state,
     current_user,
     unset_ac_auth_cookies,
+    verify_sso_state,
 )
 from app.helpers.authentication_controller import (
     create_access_tokens_for_controller,
@@ -70,18 +72,21 @@ from app.services.natinf_search import search_natinf
 
 @app.route("/ac/authorize")
 def redirect_to_ac_authorize():
+    state = uuid4().hex
     query_params = {
-        "state": uuid4().hex,
+        "state": state,
         "nonce": uuid4().hex,
         "response_type": "code",
         "scope": "openid uid email given_name usual_name organizational_unit idp_id",
         "client_id": app.config["AC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
-    return redirect(
+    response = redirect(
         f"{app.config['AC_AUTHORIZE_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
+    bind_sso_state(response, "acState", state)
+    return response
 
 
 @app.route("/ac/logout")
@@ -458,6 +463,7 @@ class AgentConnectLogin(graphene.Mutation):
         original_redirect_uri,
         state,
     ):
+        verify_sso_state("acState", state)
         with atomic_transaction(commit_at_end=True):
             ac_user_info, ac_token = get_agent_connect_user_info(
                 authorization_code, original_redirect_uri
@@ -480,6 +486,7 @@ class AgentConnectLogin(graphene.Mutation):
                 **tokens,
                 ac_token=ac_token,
             )
+            response.delete_cookie("acState", path="/")
             return response
 
         return UserTokensWithAC(**tokens, ac_token=ac_token)

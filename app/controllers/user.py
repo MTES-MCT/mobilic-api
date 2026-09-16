@@ -41,10 +41,12 @@ from app.helpers.authentication import (
     UserTokens,
     UserTokensWithFC,
     AuthenticationError,
+    bind_sso_state,
     unset_fc_auth_cookies,
     set_auth_cookies,
     require_auth,
     AuthenticatedMutation,
+    verify_sso_state,
 )
 from app.helpers.authorization import (
     AuthorizationError,
@@ -601,7 +603,9 @@ def redirect_to_fc_authorize():
         app.logger.error("Invalid FranceConnect authorize URL")
         return redirect("/", code=302)
 
-    return redirect(authorize_url, code=302)
+    response = redirect(authorize_url, code=302)
+    bind_sso_state(response, "fcState", state_data["csrf"])
+    return response
 
 
 def _validate_redirect_url(url: str) -> bool:
@@ -752,26 +756,18 @@ class FranceConnectLogin(graphene.Mutation):
         invite_token=None,
         create=False,
     ):
-        invite_token_from_state = invite_token
-        create_from_state = create
-
         try:
             state_data = jwt.decode(
                 state, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
             )
-            invite_token_from_state = (
-                state_data.get("invite_token") or invite_token
-            )
-            create_from_state = state_data.get("create", False) or create
         except jwt.ExpiredSignatureError:
             raise InvalidTokenError("Authentication session expired")
-        except (jwt.InvalidTokenError, jwt.DecodeError):
-            app.logger.warning(
-                "Unable to decode state parameter - V2 JWT required"
-            )
+        except jwt.InvalidTokenError:
+            raise InvalidTokenError("Invalid state parameter")
+        verify_sso_state("fcState", state_data.get("csrf"))
 
-        invite_token = invite_token_from_state
-        create = create_from_state
+        invite_token = state_data.get("invite_token") or invite_token
+        create = state_data.get("create", False) or create
 
         with atomic_transaction(commit_at_end=True):
             fc_user_info, fc_token = get_fc_user_info(
@@ -811,6 +807,7 @@ class FranceConnectLogin(graphene.Mutation):
             set_auth_cookies(
                 response, user_id=user.id, **tokens, fc_token=fc_token
             )
+            response.delete_cookie("fcState", path="/")
             return response
 
         return UserTokensWithFC(**tokens, fc_token=fc_token)
@@ -1018,9 +1015,7 @@ class ResetPushOptInBanner(AuthenticatedMutation):
     def mutate(cls, _, info):
         with atomic_transaction(commit_at_end=True):
             warning = WarningToDisableType.PUSH_OPT_IN_DISMISSED.value
-            User.query.filter(
-                User.disabled_warnings.any(warning)
-            ).update(
+            User.query.filter(User.disabled_warnings.any(warning)).update(
                 {
                     User.disabled_warnings: db.func.array_remove(
                         User.disabled_warnings, warning
