@@ -45,9 +45,6 @@ class TechnicalIncidentOutput(BaseSQLAlchemyObjectType):
     )
     effective_end_time = TimeStamp(
         required=True,
-        description="Fin effective : date de fin réelle, ou fin forcée à "
-        "start + 24h pour un incident en cours",
-    )
-    has_forced_end = graphene.Boolean(
-        description="Incident en cours dont la fin a été forcée après 24h"
+        description="Fin effective : date de fin réelle, ou l'instant présent "
+        "pour un incident encore en cours",
     )

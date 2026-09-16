@@ -99,26 +99,24 @@ class TestTechnicalIncidentModel(BaseTest):
             self.assertEqual(incident.category, category)
             self.assertEqual(incident.nature, nature)
 
-    def test_ongoing_end_is_capped_after_max_duration(self):
+    def test_ongoing_incident_stays_visible_without_end(self):
         recent = TechnicalIncident(
             technical_type=TechnicalIncidentType.SERVER_DOWN,
             start_time=datetime.utcnow() - timedelta(hours=2),
         )
         self.assertTrue(recent.is_ongoing)
-        self.assertFalse(recent.has_forced_end)
-        # Within the window, effective end tracks "now".
-        self.assertGreater(recent.effective_end_time, recent.start_time)
+        # Ongoing incident's effective end tracks "now" (uncapped).
+        self.assertGreaterEqual(recent.effective_end_time, recent.start_time)
 
-        stale = TechnicalIncident(
+        old = TechnicalIncident(
             technical_type=TechnicalIncidentType.SERVER_DOWN,
-            start_time=datetime.utcnow() - timedelta(hours=25),
+            start_time=datetime.utcnow() - timedelta(hours=60),
         )
-        self.assertTrue(stale.is_ongoing)
-        self.assertTrue(stale.has_forced_end)
-        # End is forced to start + 24h, kept in the registry.
-        self.assertEqual(
-            stale.effective_end_time,
-            stale.start_time + timedelta(hours=24),
+        self.assertTrue(old.is_ongoing)
+        # Still visible up to now even after 48h, until the job closes it.
+        self.assertGreater(
+            old.effective_end_time,
+            old.start_time + timedelta(hours=48),
         )
 
     def test_overlaps_date_range(self):
@@ -136,16 +134,16 @@ class TestTechnicalIncidentModel(BaseTest):
             )
         )
 
-        # Ongoing incident stays attached to its capped window (start..+24h),
-        # but not to days after the forced end.
-        stale = TechnicalIncident(
+        # Ongoing incident (no end date) stays attached from its start up to
+        # today, so it remains visible until manually or automatically closed.
+        ongoing = TechnicalIncident(
             technical_type=TechnicalIncidentType.SERVER_DOWN,
-            start_time=datetime.utcnow() - timedelta(hours=25),
+            start_time=datetime.utcnow() - timedelta(hours=60),
         )
-        start_day = stale.start_time.date()
-        self.assertTrue(stale.overlaps_date_range(start_day, start_day))
-        future = (datetime.utcnow() + timedelta(days=2)).date()
-        self.assertFalse(stale.overlaps_date_range(future, future))
+        start_day = ongoing.start_time.date()
+        today = datetime.utcnow().date()
+        self.assertTrue(ongoing.overlaps_date_range(start_day, start_day))
+        self.assertTrue(ongoing.overlaps_date_range(today, today))
 
 
 class TestTechnicalIncidentApi(BaseTest):
@@ -307,3 +305,37 @@ class TestControlDataTechnicalIncidents(BaseTest):
 
     def test_no_period_returns_empty(self):
         self.assertEqual(self._resolve(None, None), [])
+
+
+class TestCloseStaleIncidents(BaseTest):
+    def setUp(self):
+        super().setUp()
+        TechnicalIncident.query.delete()
+        db.session.commit()
+
+    def test_only_incidents_older_than_delay_are_closed(self):
+        recent = TechnicalIncident(
+            technical_type=TechnicalIncidentType.SERVER_DOWN,
+            start_time=datetime.utcnow() - timedelta(hours=2),
+        )
+        stale = TechnicalIncident(
+            technical_type=TechnicalIncidentType.DNS_SWITCH,
+            start_time=datetime.utcnow() - timedelta(hours=60),
+        )
+        already_closed = TechnicalIncident(
+            technical_type=TechnicalIncidentType.AUTH_OUTAGE,
+            start_time=datetime.utcnow() - timedelta(hours=72),
+            end_time=datetime.utcnow() - timedelta(hours=70),
+        )
+        db.session.add_all([recent, stale, already_closed])
+        db.session.commit()
+
+        closed = TechnicalIncident.close_stale_ongoing()
+        db.session.commit()
+
+        self.assertEqual(closed, 1)
+        self.assertIsNone(recent.end_time)
+        self.assertEqual(
+            stale.end_time, stale.start_time + timedelta(hours=48)
+        )
+        self.assertFalse(stale.is_ongoing)
