@@ -13,6 +13,7 @@ from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
     get_regulation_check_by_type,
 )
+from app.data_access.technical_incident import TechnicalIncidentOutput
 from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
 from app.domain.regulations import get_default_business
@@ -31,6 +32,7 @@ from app.models.controller_control import (
     CUSTOM_CHECK_TYPE,
 )
 from app.models.regulation_check import RegulationCheckType
+from app.models.technical_incident import TechnicalIncident
 
 # TODO refactor sanction code in regulations_per_day and here for consistency
 check_type_by_sanction = {
@@ -239,6 +241,12 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     control_bulletin = graphene.Field(ControlBulletinFields, required=False)
 
+    technical_incidents = graphene.List(
+        TechnicalIncidentOutput,
+        description="Dysfonctionnements techniques connus ayant affecté la "
+        "période contrôlée.",
+    )
+
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
@@ -286,6 +294,20 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     def resolve_control_bulletin(self, info):
         return self.control_bulletin
+
+    def resolve_technical_incidents(self, info):
+        if not self.history_start_date or not self.history_end_date:
+            return []
+        incidents = TechnicalIncident.query.order_by(
+            TechnicalIncident.start_time.desc()
+        ).all()
+        return [
+            incident
+            for incident in incidents
+            if incident.overlaps_date_range(
+                self.history_start_date, self.history_end_date
+            )
+        ]
 
     def resolve_employments(
         self,
