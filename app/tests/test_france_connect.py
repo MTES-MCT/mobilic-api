@@ -264,7 +264,6 @@ class TestFranceConnectStateBinding(BaseTest):
 
     @patch("app.controllers.user.get_user_from_fc_info")
     @patch("app.controllers.user.get_fc_user_info")
-    @expectedFailure
     def test_replayed_state_without_originating_context_is_rejected(
         self, mock_fc_user_info, mock_get_user
     ):
@@ -307,7 +306,6 @@ class TestFranceConnectLoginStateValidation(BaseTest):
         )
 
     @patch("app.controllers.user.get_fc_user_info")
-    @expectedFailure
     def test_invalid_state_signature_rejects_login(self, mock_fc_user_info):
         """AF3 [High]: a state with an invalid signature must abort the FranceConnect login flow."""
         mock_fc_user_info.return_value = ({"sub": "fc-sub-af3"}, "fc-token")

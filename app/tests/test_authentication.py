@@ -394,7 +394,6 @@ AGENT_CONNECT_LOGIN_MUTATION = """
 
 
 class TestJwtSecretKeyFallback(TestCase):
-    @expectedFailure
     def test_app_refuses_weak_default_jwt_secret(self):
         """AB1 [Critical] config.py:32 falls back to a public hardcoded JWT secret."""
         env = {
@@ -427,7 +426,6 @@ class TestAgentConnectStateVerification(BaseTest):
     @patch("app.controllers.controller.get_controller_from_ac_info")
     @patch("app.controllers.controller.check_idp_allowed")
     @patch("app.controllers.controller.get_agent_connect_user_info")
-    @expectedFailure
     def test_forged_state_is_rejected(
         self, mock_ac_user_info, mock_check_idp, mock_get_controller
     ):
@@ -531,7 +529,6 @@ class TestDisablePasswordCheckParsing(TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         return result.stdout.strip()
 
-    @expectedFailure
     def test_falsy_string_values_do_not_disable_password_check(self):
         """AF1 [Critical]: DISABLE_PASSWORD_CHECK=false or 0 must parse as falsy, not bypass password checks."""
         for env_value in ["false", "0", "False", "no"]:
