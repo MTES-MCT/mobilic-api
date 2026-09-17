@@ -15,6 +15,7 @@ from app.models.user import UserAccountStatus
 from app.models.controller_control import ControllerControl, ControlType
 from app.models.anonymized import (
     AnonActivity,
+    AnonCompany,
     AnonControllerControl,
     AnonEmployment,
     IdMapping,
@@ -541,3 +542,14 @@ class TestAnonymizationReferences(BaseTest):
 
         anon = AnonControllerControl.query.one()
         self.assertIsNone(anon.user_id)
+
+    def test_anon_company_business_id_is_remapped(self):
+        anon = AnonCompany.anonymize(self.company)
+        db.session.commit()
+        if self.company.business_id is not None:
+            mapping = IdMapping.query.filter_by(
+                entity_type="business", original_id=self.company.business_id
+            ).one()
+            self.assertEqual(anon.business_id, mapping.anonymized_id)
+        else:
+            self.assertIsNone(anon.business_id)
