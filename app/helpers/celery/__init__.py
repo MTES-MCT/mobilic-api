@@ -9,8 +9,15 @@ from app.helpers.xls import generate_admin_export_file_from_chunks
 from app.models import User, Export, Company
 from app.models.export import ExportStatus, ExportType
 
-celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
-celery.conf.update(app.config)
+celery = Celery(
+    app.name,
+    broker=app.config["CELERY_BROKER_URL"],
+    include=[
+        "app.jobs.break_alert",
+        "app.jobs.notification_campaign",
+    ],
+)
+celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
 
 DEFAULT_FILE_NAME = "rapport_activités"
 

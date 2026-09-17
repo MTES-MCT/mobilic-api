@@ -319,6 +319,12 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
         )
 
+
+    @with_authorization_policy(
+        is_employed_by_company_over_period,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'teams' of company object.",
+    )
     def resolve_teams(self, info):
         return self.teams
 

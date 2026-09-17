@@ -39,6 +39,10 @@ class User(BaseModel, RandomNineIntId, WithEmploymentHistory):
     last_name = db.Column(db.String(255), nullable=False)
     gender = enum_column(Gender, nullable=True)
     admin = db.Column(db.Boolean, default=False, nullable=False)
+    bizdev = db.Column(
+        db.Boolean, default=False, nullable=False,
+        server_default="false"
+    )
     ssn = db.Column(db.String(13), nullable=True)
 
     totp_credential = db.relationship(
