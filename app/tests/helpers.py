@@ -373,10 +373,30 @@ class ApiRequests:
     """
 
     send_control_bulletin_email = """
-    mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
-        sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
+    mutation SendControlBulletinEmail($controlId: String!, $emails: [Email!], $forAdmin: Boolean) {
+        sendControlBulletinEmail(controlId: $controlId, emails: $emails, forAdmin: $forAdmin) {
             success
             nbEmailsSent
+        }
+    }
+    """
+
+    controller_save_control_bulletin = """
+    mutation ControllerSaveControlBulletin($controlId: Int, $observation: String) {
+        controllerSaveControlBulletin(controlId: $controlId, observation: $observation) {
+            id
+            sentToAdmin
+            sentToDriver
+        }
+    }
+    """
+
+    controller_save_reported_infractions = """
+    mutation ControllerSaveReportedInfractions($controlId: Int, $reportedInfractions: [ReportedInfractionInput]) {
+        controllerSaveReportedInfractions(controlId: $controlId, reportedInfractions: $reportedInfractions) {
+            id
+            sentToAdmin
+            sentToDriver
         }
     }
     """
