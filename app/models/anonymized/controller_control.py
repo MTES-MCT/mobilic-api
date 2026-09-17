@@ -26,7 +26,7 @@ class AnonControllerControl(AnonymizedModel):
     id = db.Column(db.Integer, primary_key=True)
     controller_id = db.Column(db.Integer, nullable=False)
     control_type = db.Column(db.String(50), nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, nullable=True)
     qr_code_generation_time = db.Column(db.DateTime, nullable=True)
     creation_time = db.Column(db.DateTime, nullable=False)
     control_bulletin_creation_time = db.Column(db.DateTime, nullable=True)
