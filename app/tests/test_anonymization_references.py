@@ -12,7 +12,13 @@ from app.models import (
     MissionAutoValidation,
 )
 from app.models.user import UserAccountStatus
-from app.models.anonymized import AnonActivity, AnonEmployment, IdMapping
+from app.models.controller_control import ControllerControl, ControlType
+from app.models.anonymized import (
+    AnonActivity,
+    AnonControllerControl,
+    AnonEmployment,
+    IdMapping,
+)
 from app.services.anonymization.user_related.user_anonymizer import (
     UserAnonymizer,
 )
@@ -20,7 +26,12 @@ from app.services.anonymization.standalone.anonymization_executor import (
     AnonymizationExecutor,
 )
 from app.services.anonymization.id_mapping_service import IdMappingService
-from app.seed.factories import CompanyFactory, UserFactory, EmploymentFactory
+from app.seed.factories import (
+    CompanyFactory,
+    UserFactory,
+    EmploymentFactory,
+    ControllerUserFactory,
+)
 from app.seed.helpers import AuthenticatedUserContext
 from app.tests import BaseTest
 
@@ -510,3 +521,23 @@ class TestAnonymizationReferences(BaseTest):
 
         employment = Employment.query.get(self.employment.id)
         self.assertIsNone(employment.end_date)
+
+    def test_controller_control_without_user_is_anonymized(self):
+        """A sans_lic/lic_papier control has no worker (user_id NULL): it must
+        anonymize without violating the anon_controller_control constraint."""
+        controller = ControllerUserFactory.create()
+        control = ControllerControl(
+            qr_code_generation_time=datetime.now(),
+            control_type=ControlType.sans_lic,
+            controller_id=controller.id,
+            nb_controlled_days=7,
+        )
+        db.session.add(control)
+        db.session.commit()
+
+        executor = AnonymizationExecutor(db.session, dry_run=True)
+        executor.anonymize_controller_and_dependencies({controller.id})
+        db.session.commit()
+
+        anon = AnonControllerControl.query.one()
+        self.assertIsNone(anon.user_id)
