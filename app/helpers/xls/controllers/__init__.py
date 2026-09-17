@@ -38,6 +38,7 @@ def send_control_as_one_excel_file(control):
             until_date=max_date,
             include_dismissed_or_empty_days=True,
             max_reception_time=control.qr_code_generation_time,
+            compute_history=True,
         )[0]
 
         wdays_with_activities = list(
