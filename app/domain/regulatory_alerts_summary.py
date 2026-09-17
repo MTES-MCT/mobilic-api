@@ -47,42 +47,6 @@ def _query_alerts_in_window(start_date, end_date, user_ids):
     )
 
 
-def _count_alerts_in_window(start_date, end_date, user_ids):
-    """Count alerts in [start_date, end_date), counting "double" alerts
-    (NOT_ENOUGH_BREAK + TOO_MUCH_UNINTERRUPTED_WORK_TIME on the same row)
-    twice — preserves the historical semantic."""
-    base_query = RegulatoryAlert.query.filter(
-        RegulatoryAlert.user_id.in_(user_ids),
-        RegulatoryAlert.day >= start_date,
-        RegulatoryAlert.day < end_date,
-        RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
-    )
-    base_count = base_query.count()
-    double_alerts_count = base_query.filter(
-        RegulatoryAlert.extra[EXTRA_NOT_ENOUGH_BREAK].as_boolean() == True,
-        RegulatoryAlert.extra[
-            EXTRA_TOO_MUCH_UNINTERRUPTED_WORK_TIME
-        ].as_boolean()
-        == True,
-    ).count()
-    return base_count + double_alerts_count
-
-
-def query_alerts_for_month(month, user_ids):
-    """Legacy entry point: load alerts for `month` and count alerts for
-    the previous month. Kept for backward compatibility."""
-    start_date = month
-    end_date = month + relativedelta(months=1)
-    current_month_alerts = _query_alerts_in_window(
-        start_date, end_date, user_ids
-    )
-    previous_start = month + relativedelta(months=-1)
-    previous_month_alerts_count = _count_alerts_in_window(
-        previous_start, start_date, user_ids
-    )
-    return current_month_alerts, previous_month_alerts_count
-
-
 def _has_regulation_computation_in_window(start_date, end_date, user_ids):
     query = db.session.query(RegulationComputation).filter(
         RegulationComputation.user_id.in_(user_ids),
@@ -321,17 +285,8 @@ def _mark_other_company_days(alerts_group, relations):
         )
 
 
-# Regulatory alerts are computed per user across every company they work for
-# (compute_regulations / query_missions_with_limit are not restricted to a
-# single company_id) and RegulatoryAlert itself has no company_id. Without
-# this filter, a company would see alerts entirely caused by a user's
-# activity at a *different* employer, with no matching WorkDay on their
-# side to drill into.
-# Daily alerts are matched on their exact day (see _alert_matches_company).
-# This lookahead only applies to weekly alerts, whose day is the week's
-# start and is rarely a worked day itself — the whole week is considered
-# instead. It also sizes how far _build_company_activity_days widens its
-# query window.
+# Weekly alert lookahead, see _alert_matches_company's docstring — also
+# sizes how far _build_company_activity_days widens its query window.
 _ALERT_DAY_LOOKAHEAD = 7
 
 
@@ -339,13 +294,22 @@ def _build_company_activity_days(
     window_start, window_end, user_ids, company_id
 ):
     """Return the set of (user_id, day) pairs for which the user has at
-    least one non-dismissed activity in `company_id`."""
+    least one non-dismissed activity in `company_id`.
+
+    An activity is counted on every local calendar day it spans, not
+    just the day it starts on, mirroring how the WorkDay/alert
+    computations (which rely on generate_series over start/end) treat
+    activities that cross midnight. Otherwise a company could have an
+    activity end on a day whose alert never matches back to it.
+    """
     if not user_ids or company_id is None:
         return set()
 
     padding = timedelta(days=_ALERT_DAY_LOOKAHEAD)
     rows = (
-        db.session.query(Activity.user_id, Activity.start_time, User)
+        db.session.query(
+            Activity.user_id, Activity.start_time, Activity.end_time, User
+        )
         .join(Mission, Mission.id == Activity.mission_id)
         .join(User, User.id == Activity.user_id)
         .filter(
@@ -363,29 +327,31 @@ def _build_company_activity_days(
         )
         .all()
     )
-    return {
-        (user_id, to_tz(start_time, user.timezone).date())
-        for user_id, start_time, user in rows
-    }
+
+    company_days = set()
+    for user_id, start_time, end_time, user in rows:
+        day = to_tz(start_time, user.timezone).date()
+        end_date = to_tz(
+            end_time or datetime.now(timezone.utc), user.timezone
+        ).date()
+        while day <= end_date:
+            company_days.add((user_id, day))
+            day += timedelta(days=1)
+    return company_days
 
 
 def _alert_matches_company(alert, weekly_check_ids, company_days):
     """True if `alert` is backed by at least one activity the user logged
     for the company the summary is being built for.
 
-    Daily checks are matched on their exact day only: a company should
-    only see an overage it has an actual WorkDay for, even when the
-    underlying computation looked at neighboring days for context (e.g.
-    MINIMUM_DAILY_REST considers the next day too) — otherwise a company
-    would see an alert genuinely caused by a different employer's
-    schedule. Weekly checks store the week's start as their day, which is
-    rarely a worked day itself, so the whole week is considered instead.
+    Daily: exact day. Weekly: any day of the week starting alert.day.
     """
-    day_range = (
-        range(_ALERT_DAY_LOOKAHEAD)
+    days = (
+        _ALERT_DAY_LOOKAHEAD
         if alert.regulation_check_id in weekly_check_ids
-        else range(1)
+        else 1
     )
+    day_range = range(days)
     return any(
         (alert.user_id, alert.day + timedelta(days=i)) in company_days
         for i in day_range
