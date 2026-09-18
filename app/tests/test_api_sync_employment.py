@@ -1,8 +1,12 @@
 from datetime import date, datetime
+from unittest.mock import patch
+
 from argon2 import PasswordHasher
 
+from app import app, mailer
 from app.helpers.oauth.models import OAuth2Client
 from app.models.company import Company
+from app.models.employment import Employment
 from app.seed.factories import (
     EmploymentFactory,
     ThirdPartyApiKeyFactory,
@@ -140,6 +144,55 @@ class TestApiSyncEmployment(BaseTest):
             "syncEmployment"
         ]
         self.assertEqual(len(employment_ids), 2)
+
+    def test_sync_employments_does_not_send_mail_in_request(self):
+        with patch.object(mailer, "send_batch") as mock_send_batch:
+            make_protected_request(
+                query=ApiRequests.sync_employment,
+                variables=dict(
+                    company_id=self.company_id,
+                    employees=[employee1],
+                ),
+                headers={
+                    "X-CLIENT-ID": self.client_id,
+                    "X-API-KEY": "mobilic_live_" + self.api_key,
+                },
+            )
+
+        mock_send_batch.assert_not_called()
+        employments = Employment.query.filter_by(
+            company_id=self.company_id
+        ).all()
+        self.assertEqual(len(employments), 1)
+
+    def test_sync_employments_enqueues_email_task_with_entries(self):
+        app.config["DISABLE_EMAIL"] = False
+        try:
+            with patch(
+                "app.controllers.employment.send_third_party_sync_emails"
+            ) as mock_task:
+                make_protected_request(
+                    query=ApiRequests.sync_employment,
+                    variables=dict(
+                        company_id=self.company_id,
+                        employees=[employee1],
+                    ),
+                    headers={
+                        "X-CLIENT-ID": self.client_id,
+                        "X-API-KEY": "mobilic_live_" + self.api_key,
+                    },
+                )
+        finally:
+            app.config["DISABLE_EMAIL"] = True
+
+        employment = Employment.query.filter_by(
+            company_id=self.company_id
+        ).one()
+        mock_task.delay.assert_called_once()
+        self.assertEqual(
+            mock_task.delay.call_args[0][1],
+            [{"employment_id": employment.id, "kind": "account_creation"}],
+        )
 
     def test_sync_employments_already_exists(self):
         company = Company.query.get(self.company_id)
