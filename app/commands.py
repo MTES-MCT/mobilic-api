@@ -23,6 +23,7 @@ from app.helpers.xml.greco import temp_write_greco_xml
 from app.jobs.auto_validations import job_process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
+from app.models.technical_incident import TechnicalIncident
 from app.models.user import User
 from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
@@ -514,6 +515,13 @@ def update_ceased_activity_status():
 @app.cli.command("process_auto_validations", with_appcontext=True)
 def process_auto_validations():
     job_process_auto_validations()
+
+
+@app.cli.command("close_stale_technical_incidents", with_appcontext=True)
+def close_stale_technical_incidents():
+    count = TechnicalIncident.close_stale_ongoing()
+    db.session.commit()
+    print(f"Closed {count} stale technical incident(s)")
 
 
 @app.cli.command("refresh_webinars_cache", with_appcontext=True)

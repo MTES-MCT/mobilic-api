@@ -42,3 +42,4 @@ from .notification_campaign import NotificationCampaign
 from .push_banner_config import PushBannerConfig
 from .software_compliance_snapshot import SoftwareComplianceSnapshot
 from .software_compliance_alert_state import SoftwareComplianceAlertState
+from .technical_incident import TechnicalIncident
