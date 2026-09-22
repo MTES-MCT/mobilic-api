@@ -1,8 +1,11 @@
 import graphene
 
-from app import db
 from app.controllers.utils import atomic_transaction
 from app.data_access.technical_incident import TechnicalIncidentOutput
+from app.domain.technical_incident import (
+    create_incident,
+    update_incident,
+)
 from app.helpers.authentication import AuthenticatedMutation
 from app.helpers.authorization import (
     admin_or_bizdev,
@@ -19,28 +22,9 @@ from app.models.technical_incident import (
     TechnicalIncidentType,
 )
 
-MAX_DESCRIPTION_LENGTH = 2000
-
 
 def controller_or_admin_or_bizdev(user):
     return controller_only(user) or admin_or_bizdev(user)
-
-
-def _validate_period(start_time, end_time):
-    if end_time is not None and end_time < start_time:
-        raise InvalidParamsError(
-            "La date de fin doit être postérieure à la date de début"
-        )
-
-
-def _clean_description(description):
-    description = (description or "").strip()
-    if len(description) > MAX_DESCRIPTION_LENGTH:
-        raise InvalidParamsError(
-            f"La description ne doit pas dépasser {MAX_DESCRIPTION_LENGTH} "
-            "caractères"
-        )
-    return description or None
 
 
 class CreateTechnicalIncident(AuthenticatedMutation):
@@ -67,16 +51,13 @@ class CreateTechnicalIncident(AuthenticatedMutation):
         end_time=None,
         description=None,
     ):
-        _validate_period(start_time, end_time)
-
         with atomic_transaction(commit_at_end=True):
-            incident = TechnicalIncident(
+            incident = create_incident(
                 technical_type=technical_type,
                 start_time=start_time,
                 end_time=end_time,
-                description=_clean_description(description),
+                description=description,
             )
-            db.session.add(incident)
 
         return incident
 
@@ -92,6 +73,11 @@ class UpdateTechnicalIncident(AuthenticatedMutation):
         start_time = TimeStamp(required=False)
         end_time = TimeStamp(required=False)
         description = graphene.String(required=False)
+        reopen = graphene.Boolean(
+            required=False,
+            description="Rouvre un dysfonctionnement clôturé en supprimant "
+            "sa date de fin. Incompatible avec end_time.",
+        )
 
     Output = TechnicalIncidentOutput
 
@@ -106,49 +92,32 @@ class UpdateTechnicalIncident(AuthenticatedMutation):
         start_time=None,
         end_time=None,
         description=None,
+        reopen=False,
     ):
         incident = TechnicalIncident.query.get(incident_id)
         if not incident:
             raise InvalidParamsError("Dysfonctionnement introuvable")
 
-        new_start = (
-            start_time if start_time is not None else incident.start_time
-        )
-        new_end = end_time if end_time is not None else incident.end_time
-        _validate_period(new_start, new_end)
+        if reopen and end_time is not None:
+            raise InvalidParamsError(
+                "Impossible de fournir une date de fin et de rouvrir "
+                "le dysfonctionnement en même temps."
+            )
+
+        changes = {}
+        if technical_type is not None:
+            changes["technical_type"] = technical_type
+        if start_time is not None:
+            changes["start_time"] = start_time
+        if reopen:
+            changes["end_time"] = None
+        elif end_time is not None:
+            changes["end_time"] = end_time
+        if description is not None:
+            changes["description"] = description
 
         with atomic_transaction(commit_at_end=True):
-            if technical_type is not None:
-                incident.technical_type = technical_type
-            if start_time is not None:
-                incident.start_time = start_time
-            if end_time is not None:
-                incident.end_time = end_time
-            if description is not None:
-                incident.description = _clean_description(description)
-
-        return incident
-
-
-class ResolveTechnicalIncident(AuthenticatedMutation):
-    """Clôture un dysfonctionnement technique en fixant sa date de fin."""
-
-    class Arguments:
-        incident_id = graphene.Int(required=True)
-        end_time = TimeStamp(required=True)
-
-    Output = TechnicalIncidentOutput
-
-    @classmethod
-    @with_authorization_policy(admin_or_bizdev)
-    def mutate(cls, _, info, incident_id, end_time):
-        incident = TechnicalIncident.query.get(incident_id)
-        if not incident:
-            raise InvalidParamsError("Dysfonctionnement introuvable")
-        _validate_period(incident.start_time, end_time)
-
-        with atomic_transaction(commit_at_end=True):
-            incident.end_time = end_time
+            update_incident(incident, **changes)
 
         return incident
 
@@ -156,7 +125,6 @@ class ResolveTechnicalIncident(AuthenticatedMutation):
 class TechnicalIncidents(graphene.ObjectType):
     create_technical_incident = CreateTechnicalIncident.Field()
     update_technical_incident = UpdateTechnicalIncident.Field()
-    resolve_technical_incident = ResolveTechnicalIncident.Field()
 
 
 class Query(graphene.ObjectType):

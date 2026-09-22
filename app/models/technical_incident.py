@@ -6,9 +6,9 @@ from app.helpers.db import DateTimeStoredAsUTC
 from app.models.base import BaseModel
 from app.models.utils import enum_column
 
-# An ongoing incident (no manual end date) is auto-closed after this delay by
-# the close_stale_technical_incidents job, which writes a real end_time.
-ONGOING_INCIDENT_AUTO_CLOSE_DELAY = timedelta(hours=48)
+# Past this window, an incident left open is shown as ended (end capped) without
+# ever persisting a fabricated end_time.
+ONGOING_INCIDENT_MAX_VISIBLE_DURATION = timedelta(hours=48)
 
 
 class TechnicalIncidentType(str, Enum):
@@ -134,32 +134,14 @@ class TechnicalIncident(BaseModel):
 
     @property
     def is_ongoing(self):
-        return self.end_time is None
+        return (
+            self.end_time is None
+            and datetime.utcnow() < self.effective_end_time
+        )
 
     @property
     def effective_end_time(self):
-        # Real end if set. Otherwise the incident is still ongoing and stays
-        # visible up to now; the auto-close job later writes a real end_time.
+        # Real end if set, otherwise the start capped by the visible window.
         if self.end_time is not None:
             return self.end_time
-        return datetime.utcnow()
-
-    def overlaps_date_range(self, start_date, end_date):
-        return (
-            self.start_time.date() <= end_date
-            and self.effective_end_time.date() >= start_date
-        )
-
-    @classmethod
-    def close_stale_ongoing(cls):
-        # Auto-close incidents left open beyond the max delay by writing a real
-        # end_time (start + delay). Returns the number of closed incidents.
-        threshold = datetime.utcnow() - ONGOING_INCIDENT_AUTO_CLOSE_DELAY
-        stale = cls.query.filter(
-            cls.end_time.is_(None), cls.start_time <= threshold
-        ).all()
-        for incident in stale:
-            incident.end_time = (
-                incident.start_time + ONGOING_INCIDENT_AUTO_CLOSE_DELAY
-            )
-        return len(stale)
+        return self.start_time + ONGOING_INCIDENT_MAX_VISIBLE_DURATION

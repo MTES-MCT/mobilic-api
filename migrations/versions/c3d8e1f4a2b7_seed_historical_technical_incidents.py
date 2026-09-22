@@ -62,12 +62,12 @@ INCIDENTS = [
     {
         "technical_type": "auth_outage",
         "start_time": "2025-06-13T17:06:00",
-        "end_time": None,
+        "end_time": "2025-06-13T21:00:00",
         "description": (
             "Fournisseurs d'identités RIE indisponibles suite à un incident "
             "hébergeur : connexion via ProConnect impossible à partir du "
-            "13/06/2025 17h06. Date de fin non renseignée dans le registre "
-            "GitBook."
+            "13/06/2025 17h06. Rétablissement dans la soirée après résolution "
+            "de l'incident hébergeur."
         ),
     },
     {

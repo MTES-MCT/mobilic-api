@@ -17,13 +17,19 @@ from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.company import job_update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
+from app.domain.technical_incident import create_incident, update_incident
 from app.domain.vehicle import find_vehicle
+from app.helpers.errors import MobilicError
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.time import FR_TIMEZONE, from_tz, to_fr_tz
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.jobs.auto_validations import job_process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
-from app.models.technical_incident import TechnicalIncident
+from app.models.technical_incident import (
+    TechnicalIncident,
+    TechnicalIncidentType,
+)
 from app.models.user import User
 from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
@@ -517,11 +523,140 @@ def process_auto_validations():
     job_process_auto_validations()
 
 
-@app.cli.command("close_stale_technical_incidents", with_appcontext=True)
-def close_stale_technical_incidents():
-    count = TechnicalIncident.close_stale_ongoing()
-    db.session.commit()
-    print(f"Closed {count} stale technical incident(s)")
+_INCIDENT_DATE_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
+
+
+def _parse_fr_datetime(value):
+    # Parse an operator-supplied Europe/Paris datetime into naive UTC.
+    for fmt in _INCIDENT_DATE_FORMATS:
+        try:
+            local = datetime.datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+        return from_tz(local, FR_TIMEZONE)
+    raise click.BadParameter(
+        f"Date invalide '{value}'. Formats acceptés (heure de Paris) : "
+        "AAAA-MM-JJTHH:MM, AAAA-MM-JJTHH:MM:SS ou AAAA-MM-JJ"
+    )
+
+
+def _format_incident(incident):
+    start = to_fr_tz(incident.start_time).strftime("%Y-%m-%d %H:%M")
+    if incident.end_time is None:
+        period = f"{start} -> en cours"
+    else:
+        end = to_fr_tz(incident.end_time).strftime("%Y-%m-%d %H:%M")
+        period = f"{start} -> {end}"
+    return (
+        f"#{incident.id} [{TechnicalIncidentType(incident.technical_type).value}] {period}"
+        + (f" | {incident.description}" if incident.description else "")
+    )
+
+
+@app.cli.command("list_technical_incidents", with_appcontext=True)
+def list_technical_incidents():
+    """Liste les dysfonctionnements techniques (heure de Paris)."""
+    incidents = TechnicalIncident.query.order_by(
+        TechnicalIncident.start_time.desc()
+    ).all()
+    if not incidents:
+        click.echo("Aucun dysfonctionnement enregistré.")
+        return
+    for incident in incidents:
+        click.echo(_format_incident(incident))
+
+
+@app.cli.command("create_technical_incident", with_appcontext=True)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    required=True,
+    help="Type de dysfonctionnement.",
+)
+@click.option(
+    "--start",
+    "start",
+    required=True,
+    help="Début (heure de Paris) : AAAA-MM-JJTHH:MM.",
+)
+@click.option(
+    "--end",
+    "end",
+    default=None,
+    help="Fin (heure de Paris). Absent => incident en cours.",
+)
+@click.option("--description", default=None, help="Description libre.")
+def create_technical_incident(technical_type, start, end, description):
+    """Crée un dysfonctionnement technique."""
+    start_time = _parse_fr_datetime(start)
+    end_time = _parse_fr_datetime(end) if end else None
+    try:
+        with atomic_transaction(commit_at_end=True):
+            incident = create_incident(
+                technical_type=TechnicalIncidentType(technical_type),
+                start_time=start_time,
+                end_time=end_time,
+                description=description,
+            )
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Créé : " + _format_incident(incident))
+
+
+@app.cli.command("update_technical_incident", with_appcontext=True)
+@click.argument("incident_id", type=click.INT)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    default=None,
+    help="Nouveau type.",
+)
+@click.option("--start", "start", default=None, help="Nouveau début (Paris).")
+@click.option(
+    "--end", "end", default=None, help="Nouvelle fin (Paris) => clôture."
+)
+@click.option("--description", default=None, help="Nouvelle description.")
+@click.option(
+    "--reopen",
+    is_flag=True,
+    help="Ré-ouvre l'incident (remet la date de fin à vide).",
+)
+def update_technical_incident(
+    incident_id, technical_type, start, end, description, reopen
+):
+    """Modifie un dysfonctionnement technique existant."""
+    if reopen and end:
+        raise click.UsageError("--reopen et --end sont incompatibles.")
+
+    incident = TechnicalIncident.query.get(incident_id)
+    if not incident:
+        raise click.ClickException(
+            f"Dysfonctionnement #{incident_id} introuvable."
+        )
+
+    changes = {}
+    if technical_type is not None:
+        changes["technical_type"] = TechnicalIncidentType(technical_type)
+    if start is not None:
+        changes["start_time"] = _parse_fr_datetime(start)
+    if reopen:
+        changes["end_time"] = None
+    elif end is not None:
+        changes["end_time"] = _parse_fr_datetime(end)
+    if description is not None:
+        changes["description"] = description
+
+    if not changes:
+        raise click.UsageError("Aucune modification fournie.")
+
+    try:
+        with atomic_transaction(commit_at_end=True):
+            update_incident(incident, **changes)
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Modifié : " + _format_incident(incident))
 
 
 @app.cli.command("refresh_webinars_cache", with_appcontext=True)

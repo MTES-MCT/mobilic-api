@@ -24,16 +24,7 @@ CREATE_INCIDENT = """
             createTechnicalIncident(
                 technicalType: $technicalType, startTime: $startTime,
                 endTime: $endTime, description: $description
-            ) { id technicalType category nature isOngoing }
-        }
-    }
-"""
-
-RESOLVE_INCIDENT = """
-    mutation ($incidentId: Int!, $endTime: TimeStamp!) {
-        technicalIncidents {
-            resolveTechnicalIncident(incidentId: $incidentId, endTime: $endTime)
-            { id isOngoing }
+            ) { id technicalType nature isOngoing }
         }
     }
 """
@@ -41,19 +32,25 @@ RESOLVE_INCIDENT = """
 UPDATE_INCIDENT = """
     mutation ($incidentId: Int!,
               $technicalType: TechnicalIncidentTypeEnum,
-              $description: String) {
+              $description: String, $endTime: TimeStamp, $reopen: Boolean) {
         technicalIncidents {
             updateTechnicalIncident(
                 incidentId: $incidentId, technicalType: $technicalType,
-                description: $description
-            ) { id technicalType category nature description }
+                description: $description, endTime: $endTime, reopen: $reopen
+            ) { id technicalType nature description endTime isOngoing }
         }
     }
 """
 
 READ_INCIDENTS = """
     query {
-        technicalIncidents { id technicalType category nature isOngoing }
+        technicalIncidents { id technicalType nature isOngoing }
+    }
+"""
+
+READ_INCIDENTS_WITH_DESCRIPTION = """
+    query {
+        technicalIncidents { id nature description }
     }
 """
 
@@ -105,45 +102,24 @@ class TestTechnicalIncidentModel(BaseTest):
             start_time=datetime.utcnow() - timedelta(hours=2),
         )
         self.assertTrue(recent.is_ongoing)
-        # Ongoing incident's effective end tracks "now" (uncapped).
-        self.assertGreaterEqual(recent.effective_end_time, recent.start_time)
+        # Effective end is capped at start + visible window, never persisted.
+        self.assertEqual(
+            recent.effective_end_time,
+            recent.start_time + timedelta(hours=48),
+        )
 
         old = TechnicalIncident(
             technical_type=TechnicalIncidentType.SERVER_DOWN,
             start_time=datetime.utcnow() - timedelta(hours=60),
         )
-        self.assertTrue(old.is_ongoing)
-        # Still visible up to now even after 48h, until the job closes it.
-        self.assertGreater(
+        # Past the visible window it is no longer shown as ongoing, without
+        # writing any fabricated end_time in the database.
+        self.assertFalse(old.is_ongoing)
+        self.assertIsNone(old.end_time)
+        self.assertEqual(
             old.effective_end_time,
             old.start_time + timedelta(hours=48),
         )
-
-    def test_overlaps_date_range(self):
-        day = datetime(2026, 1, 27, 8, 40)
-        bounded = TechnicalIncident(
-            technical_type=TechnicalIncidentType.SERVER_DOWN,
-            start_time=day,
-            end_time=day + timedelta(hours=1),
-        )
-        self.assertTrue(bounded.overlaps_date_range(day.date(), day.date()))
-        self.assertFalse(
-            bounded.overlaps_date_range(
-                (day + timedelta(days=3)).date(),
-                (day + timedelta(days=3)).date(),
-            )
-        )
-
-        # Ongoing incident (no end date) stays attached from its start up to
-        # today, so it remains visible until manually or automatically closed.
-        ongoing = TechnicalIncident(
-            technical_type=TechnicalIncidentType.SERVER_DOWN,
-            start_time=datetime.utcnow() - timedelta(hours=60),
-        )
-        start_day = ongoing.start_time.date()
-        today = datetime.utcnow().date()
-        self.assertTrue(ongoing.overlaps_date_range(start_day, start_day))
-        self.assertTrue(ongoing.overlaps_date_range(today, today))
 
 
 class TestTechnicalIncidentApi(BaseTest):
@@ -174,7 +150,6 @@ class TestTechnicalIncidentApi(BaseTest):
         created = resp.json["data"]["technicalIncidents"][
             "createTechnicalIncident"
         ]
-        self.assertEqual(created["category"], "infrastructure")
         self.assertEqual(created["nature"], "login_impossible")
 
         read = test_post_graphql_unexposed(
@@ -217,8 +192,7 @@ class TestTechnicalIncidentApi(BaseTest):
         updated = resp.json["data"]["technicalIncidents"][
             "updateTechnicalIncident"
         ]
-        self.assertEqual(updated["technicalType"], "AUTH_OUTAGE")
-        self.assertEqual(updated["category"], "access_external")
+        self.assertEqual(updated["technicalType"], "auth_outage")
         self.assertEqual(updated["description"], "Panne SSO")
 
     def test_controller_can_read(self):
@@ -237,6 +211,33 @@ class TestTechnicalIncidentApi(BaseTest):
         self.assertIsNone(read.json.get("errors"))
         self.assertEqual(len(read.json["data"]["technicalIncidents"]), 1)
 
+    def test_description_hidden_from_controller(self):
+        test_post_graphql_unexposed(
+            CREATE_INCIDENT,
+            mock_authentication_with_user=self.bizdev,
+            variables=self._create_variables(),
+        )
+        controller = ControllerUserFactory.create()
+        db.session.commit()
+
+        as_bizdev = test_post_graphql_unexposed(
+            READ_INCIDENTS_WITH_DESCRIPTION,
+            mock_authentication_with_user=self.bizdev,
+        )
+        self.assertEqual(
+            as_bizdev.json["data"]["technicalIncidents"][0]["description"],
+            "Certificat expiré",
+        )
+
+        as_controller = test_post_graphql_unexposed(
+            READ_INCIDENTS_WITH_DESCRIPTION,
+            mock_authentication_with_user=controller,
+        )
+        self.assertIsNone(as_controller.json.get("errors"))
+        self.assertIsNone(
+            as_controller.json["data"]["technicalIncidents"][0]["description"]
+        )
+
     def test_too_long_description_rejected(self):
         variables = self._create_variables()
         variables["description"] = "x" * 2001
@@ -248,7 +249,7 @@ class TestTechnicalIncidentApi(BaseTest):
         self.assertIsNotNone(resp.json.get("errors"))
         self.assertEqual(TechnicalIncident.query.count(), 0)
 
-    def test_resolve_sets_end_time(self):
+    def test_update_can_close_and_reopen_incident(self):
         create = test_post_graphql_unexposed(
             CREATE_INCIDENT,
             mock_authentication_with_user=self.bizdev,
@@ -258,20 +259,54 @@ class TestTechnicalIncidentApi(BaseTest):
             "createTechnicalIncident"
         ]["id"]
 
-        resolve = test_post_graphql_unexposed(
-            RESOLVE_INCIDENT,
+        close = test_post_graphql_unexposed(
+            UPDATE_INCIDENT,
             mock_authentication_with_user=self.bizdev,
             variables={
-                "incidentId": incident_id,
+                "incidentId": int(incident_id),
                 "endTime": int(datetime(2026, 1, 27, 10, 0).timestamp()),
             },
         )
-        self.assertIsNone(resolve.json.get("errors"))
-        self.assertFalse(
-            resolve.json["data"]["technicalIncidents"][
-                "resolveTechnicalIncident"
-            ]["isOngoing"]
+        self.assertIsNone(close.json.get("errors"))
+        closed = close.json["data"]["technicalIncidents"][
+            "updateTechnicalIncident"
+        ]
+        self.assertIsNotNone(closed["endTime"])
+        self.assertFalse(closed["isOngoing"])
+
+        reopen = test_post_graphql_unexposed(
+            UPDATE_INCIDENT,
+            mock_authentication_with_user=self.bizdev,
+            variables={"incidentId": int(incident_id), "reopen": True},
         )
+        self.assertIsNone(reopen.json.get("errors"))
+        reopened = reopen.json["data"]["technicalIncidents"][
+            "updateTechnicalIncident"
+        ]
+        self.assertIsNone(reopened["endTime"])
+        incident = TechnicalIncident.query.get(int(incident_id))
+        self.assertIsNone(incident.end_time)
+
+    def test_update_cannot_reopen_and_close_at_once(self):
+        create = test_post_graphql_unexposed(
+            CREATE_INCIDENT,
+            mock_authentication_with_user=self.bizdev,
+            variables=self._create_variables(),
+        )
+        incident_id = create.json["data"]["technicalIncidents"][
+            "createTechnicalIncident"
+        ]["id"]
+
+        resp = test_post_graphql_unexposed(
+            UPDATE_INCIDENT,
+            mock_authentication_with_user=self.bizdev,
+            variables={
+                "incidentId": int(incident_id),
+                "endTime": int(datetime(2026, 1, 27, 10, 0).timestamp()),
+                "reopen": True,
+            },
+        )
+        self.assertIsNotNone(resp.json.get("errors"))
 
 
 class TestControlDataTechnicalIncidents(BaseTest):
@@ -306,36 +341,17 @@ class TestControlDataTechnicalIncidents(BaseTest):
     def test_no_period_returns_empty(self):
         self.assertEqual(self._resolve(None, None), [])
 
-
-class TestCloseStaleIncidents(BaseTest):
-    def setUp(self):
-        super().setUp()
-        TechnicalIncident.query.delete()
-        db.session.commit()
-
-    def test_only_incidents_older_than_delay_are_closed(self):
-        recent = TechnicalIncident(
-            technical_type=TechnicalIncidentType.SERVER_DOWN,
-            start_time=datetime.utcnow() - timedelta(hours=2),
-        )
-        stale = TechnicalIncident(
-            technical_type=TechnicalIncidentType.DNS_SWITCH,
-            start_time=datetime.utcnow() - timedelta(hours=60),
-        )
-        already_closed = TechnicalIncident(
+    def test_open_incident_visible_only_within_capped_window(self):
+        open_incident = TechnicalIncident(
             technical_type=TechnicalIncidentType.AUTH_OUTAGE,
-            start_time=datetime.utcnow() - timedelta(hours=72),
-            end_time=datetime.utcnow() - timedelta(hours=70),
+            start_time=datetime(2026, 2, 1, 8, 0),
         )
-        db.session.add_all([recent, stale, already_closed])
+        db.session.add(open_incident)
         db.session.commit()
-
-        closed = TechnicalIncident.close_stale_ongoing()
-        db.session.commit()
-
-        self.assertEqual(closed, 1)
-        self.assertIsNone(recent.end_time)
-        self.assertEqual(
-            stale.end_time, stale.start_time + timedelta(hours=48)
-        )
-        self.assertFalse(stale.is_ongoing)
+        # Within the 48h cap: visible.
+        within = self._resolve(date(2026, 2, 2), date(2026, 2, 2))
+        self.assertIn(open_incident.id, [i.id for i in within])
+        # Beyond the 48h cap: no longer returned, without any persisted end.
+        beyond = self._resolve(date(2026, 2, 5), date(2026, 2, 5))
+        self.assertNotIn(open_incident.id, [i.id for i in beyond])
+        self.assertIsNone(open_incident.end_time)

@@ -1,14 +1,16 @@
 import graphene
 
+from app.helpers.authentication import current_user
 from app.helpers.graphene_types import (
     BaseSQLAlchemyObjectType,
     TimeStamp,
     graphene_enum_type,
 )
+from app.models.controller_user import ControllerUser
 from app.models.technical_incident import (
     TechnicalIncident,
-    TechnicalIncidentCategory,
     TechnicalIncidentNature,
+    TechnicalIncidentType,
 )
 
 
@@ -24,6 +26,10 @@ class TechnicalIncidentOutput(BaseSQLAlchemyObjectType):
             "description",
         )
 
+    technical_type = graphene.Field(
+        graphene_enum_type(TechnicalIncidentType),
+        description="Type de dysfonctionnement",
+    )
     start_time = TimeStamp(
         required=True,
         description="Date et heure de début du dysfonctionnement",
@@ -31,10 +37,6 @@ class TechnicalIncidentOutput(BaseSQLAlchemyObjectType):
     end_time = TimeStamp(
         required=False,
         description="Date et heure de fin (absente si l'incident est en cours)",
-    )
-    category = graphene.Field(
-        graphene_enum_type(TechnicalIncidentCategory),
-        description="Catégorie technique, dérivée du type",
     )
     nature = graphene.Field(
         graphene_enum_type(TechnicalIncidentNature),
@@ -45,6 +47,19 @@ class TechnicalIncidentOutput(BaseSQLAlchemyObjectType):
     )
     effective_end_time = TimeStamp(
         required=True,
-        description="Fin effective : date de fin réelle, ou l'instant présent "
-        "pour un incident encore en cours",
+        description="Fin effective : date de fin réelle, ou la fin plafonnée "
+        "de la fenêtre de visibilité pour un incident encore en cours",
     )
+
+    def resolve_description(self, info):
+        # Champ interne réservé à l'admin/bizdev, jamais exposé aux contrôleurs.
+        user = current_user
+        if (
+            user
+            and not isinstance(user, ControllerUser)
+            and (
+                getattr(user, "admin", False) or getattr(user, "bizdev", False)
+            )
+        ):
+            return self.description
+        return None

@@ -4,6 +4,7 @@ from datetime import timedelta
 import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
+from sqlalchemy import Interval, func, literal
 
 from app.data_access.business import BusinessOutput
 from app.data_access.control_bulletin import ControlBulletinFields
@@ -32,7 +33,10 @@ from app.models.controller_control import (
     CUSTOM_CHECK_TYPE,
 )
 from app.models.regulation_check import RegulationCheckType
-from app.models.technical_incident import TechnicalIncident
+from app.models.technical_incident import (
+    TechnicalIncident,
+    ONGOING_INCIDENT_MAX_VISIBLE_DURATION,
+)
 
 # TODO refactor sanction code in regulations_per_day and here for consistency
 check_type_by_sanction = {
@@ -298,16 +302,21 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
     def resolve_technical_incidents(self, info):
         if not self.history_start_date or not self.history_end_date:
             return []
-        incidents = TechnicalIncident.query.order_by(
-            TechnicalIncident.start_time.desc()
-        ).all()
-        return [
-            incident
-            for incident in incidents
-            if incident.overlaps_date_range(
-                self.history_start_date, self.history_end_date
+        # Cap open incidents at start + visible window; filter overlap in SQL.
+        effective_end = func.coalesce(
+            TechnicalIncident.end_time,
+            TechnicalIncident.start_time
+            + literal(ONGOING_INCIDENT_MAX_VISIBLE_DURATION, Interval),
+        )
+        return (
+            TechnicalIncident.query.filter(
+                func.date(TechnicalIncident.start_time)
+                <= self.history_end_date,
+                func.date(effective_end) >= self.history_start_date,
             )
-        ]
+            .order_by(TechnicalIncident.start_time.desc())
+            .all()
+        )
 
     def resolve_employments(
         self,
