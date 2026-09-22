@@ -1,0 +1,10 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures generate fake credentials at runtime, not real secrets"
+paths = [
+    '''app/tests/''',
+]
