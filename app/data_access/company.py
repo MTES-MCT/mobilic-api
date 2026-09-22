@@ -95,9 +95,48 @@ class CompanySettings(graphene.ObjectType):
 
 
 class WeeklyThresholdsOutput(graphene.ObjectType):
-    max_work_in_hours = graphene.Int()
-    min_rest_in_hours = graphene.Int()
-    max_worked_days = graphene.Int()
+    max_work_in_hours = graphene.Int(
+        description="Durée maximale de travail hebdomadaire en heures"
+    )
+    min_rest_in_hours = graphene.Int(
+        description="Durée minimale de repos hebdomadaire en heures"
+    )
+    max_worked_days = graphene.Int(
+        description="Nombre maximal de jours travaillés par semaine"
+    )
+
+
+def compute_weekly_thresholds(business):
+    from app.data_access.regulation_computation import (
+        get_regulation_check_by_type,
+    )
+
+    defaults = WeeklyThresholdsOutput(
+        max_work_in_hours=48, min_rest_in_hours=34, max_worked_days=6
+    )
+    if not business:
+        return defaults
+    work_check = get_regulation_check_by_type(
+        RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK
+    )
+    rest_check = get_regulation_check_by_type(
+        RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+    )
+    if not work_check or not rest_check:
+        return defaults
+    work_vars = resolve_variables(work_check.variables, business)
+    rest_vars = resolve_variables(rest_check.variables, business)
+    return WeeklyThresholdsOutput(
+        max_work_in_hours=work_vars.get(
+            "MAXIMUM_WEEKLY_WORK_IN_HOURS", 48
+        ),
+        min_rest_in_hours=rest_vars.get(
+            "MINIMUM_WEEKLY_BREAK_IN_HOURS", 34
+        ),
+        max_worked_days=rest_vars.get(
+            "MAXIMUM_DAY_WORKED_BY_WEEK", 6
+        ),
+    )
 
 
 class CompanyOutput(BaseSQLAlchemyObjectType):
@@ -297,27 +336,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         return self.number_workers
 
     def resolve_weekly_thresholds(self, info):
-        defaults = WeeklyThresholdsOutput(
-            max_work_in_hours=48, min_rest_in_hours=34, max_worked_days=6
-        )
-        business = self.business
-        if not business:
-            return defaults
-        work_check = RegulationCheck.query.filter_by(
-            type=RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK
-        ).first()
-        rest_check = RegulationCheck.query.filter_by(
-            type=RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
-        ).first()
-        if not work_check or not rest_check:
-            return defaults
-        work_vars = resolve_variables(work_check.variables, business)
-        rest_vars = resolve_variables(rest_check.variables, business)
-        return WeeklyThresholdsOutput(
-            max_work_in_hours=work_vars.get("MAXIMUM_WEEKLY_WORK_IN_HOURS", 48),
-            min_rest_in_hours=rest_vars.get("MINIMUM_WEEKLY_BREAK_IN_HOURS", 34),
-            max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
-        )
+        return compute_weekly_thresholds(self.business)
 
 
     @with_authorization_policy(
