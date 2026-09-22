@@ -48,9 +48,7 @@ class TechnicalIncidentNature(str, Enum):
 
 
 # Single source of truth: each type declares its category and the nature shown
-# to controllers. Add a new type here (one line) and it is fully wired. A
-# missing entry fails fast at import time (guard below) rather than raising a
-# KeyError during a control.
+# to controllers (completeness covered by test_every_type_derives_category_and_nature).
 TYPE_INCIDENT = {
     TechnicalIncidentType.SERVER_DOWN: (
         TechnicalIncidentCategory.INFRASTRUCTURE,
@@ -105,13 +103,6 @@ TYPE_INCIDENT = {
         TechnicalIncidentNature.PLANNED_MAINTENANCE,
     ),
 }
-
-_UNMAPPED_TYPES = [t for t in TechnicalIncidentType if t not in TYPE_INCIDENT]
-if _UNMAPPED_TYPES:
-    raise RuntimeError(
-        "Missing category/nature taxonomy for technical incident type(s): "
-        + ", ".join(t.value for t in _UNMAPPED_TYPES)
-    )
 
 
 class TechnicalIncident(BaseModel):
