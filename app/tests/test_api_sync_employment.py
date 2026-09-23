@@ -239,3 +239,57 @@ class TestApiSyncEmployment(BaseTest):
         ]
         self.assertEqual(len(employment_ids), 1)
         self.assertEqual(employment_ids[0]["email"], existing_employee.email)
+
+
+SYNC_EMPLOYMENT_WITH_USER_EMAIL = """
+    mutation ($companyId: Int!, $employees: [ThirdPartyEmployee]!) {
+        company {
+            syncEmployment(companyId: $companyId, employees: $employees) {
+                id
+                user {
+                    email
+                }
+            }
+        }
+    }
+"""
+
+
+class TestApiSyncEmploymentUserEmail(TestApiSyncEmployment):
+    def _sync(self, employees):
+        return make_protected_request(
+            query=SYNC_EMPLOYMENT_WITH_USER_EMAIL,
+            variables=dict(company_id=self.company_id, employees=employees),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+    def test_user_email_of_acknowledged_employee_is_visible(self):
+        company = Company.query.get(self.company_id)
+        existing_employee = UserFactory.create(
+            first_name="Existing", last_name="Employee", post__company=company
+        )
+        response = self._sync(
+            [
+                {
+                    "firstName": existing_employee.first_name,
+                    "lastName": existing_employee.last_name,
+                    "email": existing_employee.email,
+                }
+            ]
+        )
+        self.assertNotIn("errors", response)
+        self.assertEqual(
+            response["data"]["company"]["syncEmployment"][0]["user"]["email"],
+            existing_employee.email,
+        )
+
+    def test_user_email_of_pending_employee_is_visible(self):
+        response = self._sync([employee1])
+        self.assertNotIn("errors", response)
+        self.assertEqual(
+            response["data"]["company"]["syncEmployment"][0]["user"]["email"],
+            employee1["email"],
+        )

@@ -158,6 +158,13 @@ def self_or_have_common_acknowledged_company(actor, user_obj_or_id):
         user = User.query.get(user_obj_or_id)
     if not user:
         return False
+    if not actor:
+        company_ids = g.get("api_key_company_ids") or set()
+        return any(
+            e.company_id in company_ids
+            for e in user.employments
+            if e.is_not_rejected and not e.is_dismissed
+        )
     if controller_only(actor):
         return _controller_has_control_over_user(actor, user)
     if actor.id == user.id:
