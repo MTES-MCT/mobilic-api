@@ -5,7 +5,7 @@ from flask.ctx import AppContext
 from app import db, app
 from app.models import Vehicle, Business
 from app.models.activity import ActivityType
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.seed import ControllerUserFactory, UserFactory, CompanyFactory
 from app.seed.factories import ControllerControlFactory
 from app.tests import BaseTest
@@ -107,14 +107,16 @@ class ControlsTest(ControlsTestSimple):
 
     def _convert_employee_to_trm_short_distance(self):
         trm_short_distance_business = Business.query.filter(
-            Business.business_type == BusinessType.SHORT_DISTANCE.value
+            Business.transport_type == TransportType.TRM.value,
+            Business.business_type == BusinessType.SHORT_DISTANCE.value,
         ).one_or_none()
         self.employee_1.employments[0].business = trm_short_distance_business
         db.session.commit()
 
     def _convert_employee_to_trm_long_distance(self):
         trm_long_distance_business = Business.query.filter(
-            Business.business_type == BusinessType.LONG_DISTANCE.value
+            Business.transport_type == TransportType.TRM.value,
+            Business.business_type == BusinessType.LONG_DISTANCE.value,
         ).one_or_none()
         self.employee_1.employments[0].business = trm_long_distance_business
         db.session.commit()

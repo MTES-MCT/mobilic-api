@@ -372,6 +372,34 @@ class ApiRequests:
     }
     """
 
+    save_control_bulletin = """
+    mutation ControllerSaveControlBulletin($controlId: Int, $type: String, $businessType: String, $transportType: String) {
+        controllerSaveControlBulletin(controlId: $controlId, type: $type, businessType: $businessType, transportType: $transportType) {
+            id
+        }
+    }
+    """
+
+    sign_up_company = """
+    mutation CompanySignUp($usualName: String!, $siren: String!, $businessType: String, $transportType: String) {
+        signUp {
+            company(usualName: $usualName, siren: $siren, businessType: $businessType, transportType: $transportType) {
+                company { id }
+            }
+        }
+    }
+    """
+
+    sign_up_companies = """
+    mutation CompaniesSignUp($siren: String!, $companies: [CompanySiret]!) {
+        signUp {
+            companies(siren: $siren, companies: $companies) {
+                company { id }
+            }
+        }
+    }
+    """
+
     send_control_bulletin_email = """
     mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
         sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
@@ -1321,40 +1349,6 @@ def init_businesses_data():
             insert_businesses(b)
         business = Business.query.first()
     return business
-
-
-def insert_businesses(business_data):
-    db.session.execute(
-        """
-            INSERT INTO business(
-              creation_time,
-              transport_type,
-              business_type,
-              id
-            )
-            VALUES
-            (
-              NOW(),
-              :transport_type,
-              :business_type,
-              :id
-            )
-            """,
-        dict(
-            transport_type=business_data.transport_type,
-            business_type=business_data.business_type,
-            id=business_data.id,
-        ),
-    )
-
-
-def init_businesses_data():
-    business = Business.query.first()
-    if not business:
-        businesses = get_businesses()
-        for b in businesses:
-            insert_businesses(b)
-        business = Business.query.first()
 
 
 def insert_businesses(business_data):

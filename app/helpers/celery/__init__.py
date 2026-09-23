@@ -18,6 +18,7 @@ celery = Celery(
     ],
 )
 celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
+celery.conf.worker_eta_task_limit = 10000
 
 DEFAULT_FILE_NAME = "rapport_activités"
 

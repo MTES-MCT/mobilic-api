@@ -1,10 +1,9 @@
 import logging
 from datetime import datetime, timedelta
 
-import redis as redis_module
-
 from app import app
 from app.helpers.celery import celery
+from app.helpers.redis import get_redis_client as _get_redis
 from app.models.activity import Activity, ActivityType
 from app.domain.push_notification import send_push_notification
 
@@ -23,19 +22,6 @@ ALERT_DELAY = MAX_UNINTERRUPTED_WORK - ALERT_BEFORE_LIMIT
 
 REDIS_KEY_PREFIX = "break_alert_sent"
 REDIS_KEY_TTL = int(MAX_UNINTERRUPTED_WORK.total_seconds()) + 3600
-
-_redis_client = None
-
-
-def _get_redis():
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = redis_module.Redis.from_url(
-            app.config["CELERY_BROKER_URL"],
-            socket_connect_timeout=3,
-            socket_timeout=3,
-        )
-    return _redis_client
 
 
 def _sent_key(user_id, work_start_ts):

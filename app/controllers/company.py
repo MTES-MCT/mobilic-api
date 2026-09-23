@@ -257,6 +257,10 @@ class CompaniesSignUp(AuthenticatedMutation):
                     siret=company.get("siret"),
                     nb_workers=company.get("nb_workers"),
                 )
+                find_business(
+                    company.get("business_type", ""),
+                    company.get("transport_type", ""),
+                )
             except InvalidParamsError as e:
                 raise InvalidParamsError(f"Company {idx + 1}: {str(e)}")
 
@@ -300,17 +304,25 @@ def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     return created_company
 
 
-def _find_business_for_company(business_type, transport_type):
-    if business_type and transport_type:
-        return Business.query.filter(
-            Business.business_type == BusinessType[business_type].value,
-            Business.transport_type == TransportType[transport_type].value,
-        ).one_or_none()
-    elif business_type:
-        return Business.query.filter(
+def find_business(business_type, transport_type):
+    if not business_type:
+        return None
+    try:
+        query = Business.query.filter(
             Business.business_type == BusinessType[business_type].value
-        ).one_or_none()
-    return None
+        )
+        if transport_type:
+            return query.filter(
+                Business.transport_type == TransportType[transport_type].value
+            ).one_or_none()
+    except KeyError as e:
+        raise InvalidParamsError(f"Unknown business or transport type: {e}")
+    businesses = query.all()
+    if len(businesses) > 1:
+        raise InvalidParamsError(
+            f"Transport type is required for business type {business_type}"
+        )
+    return businesses[0] if businesses else None
 
 
 def _sync_company_with_crm(company):
@@ -384,7 +396,7 @@ def sign_up_company(
     sirets=[],
     send_email=True,
 ):
-    business = _find_business_for_company(business_type, transport_type)
+    business = find_business(business_type, transport_type)
 
     with atomic_transaction(commit_at_end=True):
         company = store_company(
