@@ -372,6 +372,34 @@ class ApiRequests:
     }
     """
 
+    save_control_bulletin = """
+    mutation ControllerSaveControlBulletin($controlId: Int, $type: String, $businessType: String, $transportType: String) {
+        controllerSaveControlBulletin(controlId: $controlId, type: $type, businessType: $businessType, transportType: $transportType) {
+            id
+        }
+    }
+    """
+
+    sign_up_company = """
+    mutation CompanySignUp($usualName: String!, $siren: String!, $businessType: String, $transportType: String) {
+        signUp {
+            company(usualName: $usualName, siren: $siren, businessType: $businessType, transportType: $transportType) {
+                company { id }
+            }
+        }
+    }
+    """
+
+    sign_up_companies = """
+    mutation CompaniesSignUp($siren: String!, $companies: [CompanySiret]!) {
+        signUp {
+            companies(siren: $siren, companies: $companies) {
+                company { id }
+            }
+        }
+    }
+    """
+
     send_control_bulletin_email = """
     mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
         sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
