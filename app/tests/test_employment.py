@@ -9,7 +9,8 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
-from app.seed import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory, EmploymentFactory
+from app.models.employment import EmploymentRequestValidationStatus
 
 
 class TestEmployment(BaseTest):
@@ -182,6 +183,61 @@ class TestEmployment(BaseTest):
         ][0]
 
         self.assertEqual(worker_employment["user"]["email"], HIDDEN_EMAIL)
+
+    def create_pending_invite_to_existing_user(
+        self, invite_email, account_email
+    ):
+        invitee = UserFactory.create(email=account_email)
+        employment = EmploymentFactory.create(
+            company=self.company,
+            user=invitee,
+            submitter=self.user_primary_admin,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+            email=invite_email,
+            has_admin_rights=False,
+        )
+        return invitee, employment
+
+    def test_pending_invite_to_existing_user_does_not_break_admin_query(self):
+        _, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.user_primary_admin.id,
+            query=ApiRequests.admined_companies_employments,
+            unexposed_query=False,
+            variables={"id": self.user_primary_admin.id},
+        )
+
+        self.assertIsNone(response.get("errors"))
+        pending = [
+            e
+            for e in response["data"]["user"]["adminedCompanies"][0][
+                "employments"
+            ]
+            if e["id"] == employment_id
+        ][0]
+        self.assertIsNone(pending["user"]["email"])
+
+    def test_employment_email_does_not_leak_account_email_of_pending_invite(
+        self,
+    ):
+        invitee, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+        account_email = invitee.email
+
+        employments = self.get_admined_employments(self.user_primary_admin.id)
+        pending = [e for e in employments if e["id"] == employment_id][0]
+
+        self.assertEqual(pending["email"], "pending.invite@example.test")
+        self.assertNotEqual(pending["email"], account_email)
 
 
 class TestReattachEmployment(BaseTest):
