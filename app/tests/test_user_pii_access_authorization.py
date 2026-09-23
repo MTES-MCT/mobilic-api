@@ -1,5 +1,17 @@
+from argon2 import PasswordHasher
+
+from app import app
 from app.domain.gender import Gender
+from app.helpers.api_key_authentication import check_api_key
+from app.helpers.oauth.models import OAuth2Client
 from app.seed import CompanyFactory, UserFactory
+from app.seed.factories import (
+    ThirdPartyApiKeyFactory,
+    ThirdPartyClientCompanyFactory,
+)
+from app.domain.permissions import (
+    self_or_have_common_acknowledged_company,
+)
 from app.tests import BaseTest
 from app.tests.helpers import make_authenticated_request
 
@@ -31,6 +43,16 @@ CANCEL = """
     employments {
       cancelEmployment(employmentId: $employmentId) {
         success
+      }
+    }
+  }
+"""
+
+REJECT = """
+  mutation reject($employmentId: Int!) {
+    employments {
+      rejectEmployment(employmentId: $employmentId) {
+        id
       }
     }
   }
@@ -133,3 +155,63 @@ class TestUserPiiAccessAuthorization(BaseTest):
         self.assertIsNone(user["gender"])
         self.assertIsNone(user["birthDate"])
         self.assertIsNone(user["email"])
+
+    def test_policy_denies_without_actor(self):
+        self.assertFalse(
+            self_or_have_common_acknowledged_company(None, self.employee_a.id)
+        )
+
+    def test_api_key_client_reads_only_its_linked_companies(self):
+        client = OAuth2Client.create_client(
+            name="editor", redirect_uris="http://localhost:3000"
+        )
+        ThirdPartyClientCompanyFactory.create(
+            client_id=client.id, company_id=self.company_a.id
+        )
+        api_key = "0" * 60
+        ThirdPartyApiKeyFactory.create(
+            client=client, api_key=PasswordHasher().hash(api_key)
+        )
+        outsider = UserFactory.create()
+        employment = self._invite(
+            self.admin_a, self.company_a, user_id=self.stranger.id
+        )
+        make_authenticated_request(
+            time=None,
+            submitter_id=self.admin_a.id,
+            query=CANCEL,
+            variables={"employment_id": employment["id"]},
+        )
+        rejecter = UserFactory.create()
+        rejected = self._invite(
+            self.admin_a, self.company_a, user_id=rejecter.id
+        )
+        make_authenticated_request(
+            time=None,
+            submitter_id=rejecter.id,
+            query=REJECT,
+            variables={"employment_id": rejected["id"]},
+        )
+        with app.test_request_context(
+            headers={
+                "X-CLIENT-ID": str(client.id),
+                "X-API-KEY": "mobilic_live_" + api_key,
+            }
+        ):
+            self.assertTrue(check_api_key())
+            self.assertTrue(
+                self_or_have_common_acknowledged_company(
+                    None, self.employee_a.id
+                )
+            )
+            self.assertFalse(
+                self_or_have_common_acknowledged_company(None, outsider.id)
+            )
+            self.assertFalse(
+                self_or_have_common_acknowledged_company(
+                    None, self.stranger.id
+                )
+            )
+            self.assertFalse(
+                self_or_have_common_acknowledged_company(None, rejecter.id)
+            )
