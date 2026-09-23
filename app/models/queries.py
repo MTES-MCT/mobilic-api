@@ -9,6 +9,7 @@ from sqlalchemy import (
     Interval,
     literal_column,
     column,
+    text,
     TEXT,
 )
 from sqlalchemy.dialects.postgresql import array
@@ -285,6 +286,8 @@ def query_work_day_stats(
     user_ids=None,
 ):
     # The following is a bit complex because we want to compute day-centric statistics from data that are not day-centric (an activity period can for instance span over several days)
+
+    db.session.execute(text("SET LOCAL work_mem = '32MB'"))
 
     tz = ZoneInfo(tzname)
 
