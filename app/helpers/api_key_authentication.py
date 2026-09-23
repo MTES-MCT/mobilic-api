@@ -1,7 +1,7 @@
 from functools import wraps
 
 from argon2 import PasswordHasher
-from flask import request
+from flask import g, request
 
 from app import app
 from app.helpers.authentication import CLIENT_ID_HTTP_HEADER_NAME
@@ -70,7 +70,16 @@ def check_api_key():
     db_api_keys = ThirdPartyApiKey.query.filter(
         ThirdPartyApiKey.client_id == client_id
     ).all()
-    return _match_and_check_suspension(db, client_id, api_key, db_api_keys)
+    if not _match_and_check_suspension(db, client_id, api_key, db_api_keys):
+        return False
+    g.api_key_company_ids = {
+        link.company_id
+        for link in ThirdPartyClientCompany.query.filter(
+            ThirdPartyClientCompany.client_id == client_id,
+            ~ThirdPartyClientCompany.is_dismissed,
+        )
+    }
+    return True
 
 
 def check_protected_client_id(client_id):
