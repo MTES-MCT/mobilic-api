@@ -1,8 +1,10 @@
 from datetime import datetime
 
+from app.domain.gender import Gender
 from app.domain.regulations import get_default_business
 from app.helpers.submitter_type import SubmitterType
 from app.models.regulation_check import RegulationCheckType, RegulationCheck
+from app.seed import UserFactory
 from app.seed.factories import (
     RegulationComputationFactory,
     RegulatoryAlertFactory,
@@ -13,6 +15,24 @@ from app.tests.helpers import (
     ApiRequests,
     make_authenticated_request,
 )
+
+CONTROL_DATA_USER_PII = """
+  query readControlData($controlId: Int!) {
+    controlData(controlId: $controlId) {
+      id
+      user {
+        id
+        email
+        birthDate
+        phoneNumber
+        gender
+      }
+    }
+  }
+"""
+
+BIRTH_DATE = "1985-05-05"
+PHONE = "+33611111111"
 
 
 class TestReadControlData(ControlsTestSimple):
@@ -115,3 +135,39 @@ class TestReadControlData(ControlsTestSimple):
         ][0]
         self.assertIsNotNone(minimumDailyRestCheck["alert"])
         self.assertIsNone(enoughBreakCheck["alert"])
+
+    def _read_control_user(self, control_id):
+        return make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.controller_user_1.id,
+            query=CONTROL_DATA_USER_PII,
+            variables=dict(control_id=control_id),
+            request_by_controller_user=True,
+            unexposed_query=True,
+        )["data"]["controlData"]["user"]
+
+    def test_controller_reads_controlled_user_birth_date_and_email(self):
+        controlled = UserFactory.create(
+            france_connect_info={"birthdate": BIRTH_DATE},
+        )
+        control_id = self._create_control(
+            controller_user=self.controller_user_1,
+            controlled_user=controlled,
+        )
+
+        user = self._read_control_user(control_id)
+
+        self.assertEqual(user["email"], controlled.email)
+        self.assertEqual(user["birthDate"], BIRTH_DATE)
+
+    def test_controller_cannot_read_controlled_user_phone_or_gender(self):
+        controlled = UserFactory.create(phone_number=PHONE, gender=Gender.MALE)
+        control_id = self._create_control(
+            controller_user=self.controller_user_1,
+            controlled_user=controlled,
+        )
+
+        user = self._read_control_user(control_id)
+
+        self.assertIsNone(user["phoneNumber"])
+        self.assertIsNone(user["gender"])

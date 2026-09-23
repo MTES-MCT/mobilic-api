@@ -56,7 +56,7 @@ from app.helpers.tachograph import (
 )
 from app.models import Company, Employment, Business, UserAgreement
 from app.models.export import ExportStatus, Export, ExportType
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
@@ -167,6 +167,10 @@ class CompanySignUp(AuthenticatedMutation):
             required=False,
             description="Type d'activité de transport effectué par l'entreprise",
         )
+        transport_type = graphene.String(
+            required=False,
+            description="Catégorie de transport de l'entreprise",
+        )
         nb_workers = graphene.Int(
             required=False,
             description="Nombre de chauffeurs et/ou travailleurs mobiles",
@@ -182,6 +186,7 @@ class CompanySignUp(AuthenticatedMutation):
         usual_name,
         siren,
         business_type="",
+        transport_type="",
         phone_number="",
         nb_workers=None,
     ):
@@ -190,7 +195,12 @@ class CompanySignUp(AuthenticatedMutation):
         )
 
         return sign_up_company(
-            usual_name, siren, business_type, phone_number, nb_workers
+            usual_name,
+            siren,
+            business_type,
+            transport_type,
+            phone_number,
+            nb_workers,
         )
 
 
@@ -204,6 +214,10 @@ class CompanySiret(graphene.InputObjectType):
     business_type = graphene.String(
         required=False,
         description="Type d'activité de transport de l'entreprise",
+    )
+    transport_type = graphene.String(
+        required=False,
+        description="Catégorie de transport de l'entreprise",
     )
     nb_workers = graphene.Int(
         required=False,
@@ -258,6 +272,7 @@ def sign_up_companies(siren, companies):
                 siren=siren,
                 phone_number=company.get("phone_number", ""),
                 business_type=company.get("business_type", ""),
+                transport_type=company.get("transport_type", ""),
                 nb_workers=company.get("nb_workers", None),
                 sirets=[company.get("siret")],
                 send_email=len(companies) == 1,
@@ -285,40 +300,20 @@ def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     return created_company
 
 
-def sign_up_company(
-    usual_name,
-    siren,
-    business_type="",
-    phone_number="",
-    nb_workers=None,
-    sirets=[],
-    send_email=True,
-):
-    business = None
-    if business_type:
-        business = Business.query.filter(
+def _find_business_for_company(business_type, transport_type):
+    if business_type and transport_type:
+        return Business.query.filter(
+            Business.business_type == BusinessType[business_type].value,
+            Business.transport_type == TransportType[transport_type].value,
+        ).one_or_none()
+    elif business_type:
+        return Business.query.filter(
             Business.business_type == BusinessType[business_type].value
         ).one_or_none()
+    return None
 
-    with atomic_transaction(commit_at_end=True):
-        company = store_company(
-            siren, sirets, usual_name, business, phone_number, nb_workers
-        )
 
-        now = datetime.now()
-        admin_employment = Employment(
-            user_id=current_user.id,
-            company=company,
-            start_date=now.date(),
-            validation_time=now,
-            validation_status=EmploymentRequestValidationStatus.APPROVED,
-            has_admin_rights=True,
-            reception_time=now,
-            submitter_id=current_user.id,
-            business=business,
-        )
-        db.session.add(admin_employment)
-
+def _sync_company_with_crm(company):
     try:
         contact_data = CreateContactData(
             email=current_user.email,
@@ -339,41 +334,84 @@ def sign_up_company(
             app.logger.warning(
                 "Brevo API key not configured, skipping CRM sync"
             )
-        else:
-            company_id = brevo.create_company(
-                CreateCompanyData(
-                    company_name=company.usual_name,
-                    siren=int(company.siren),
-                    phone_number=(
-                        company.phone_number if company.phone_number else None
-                    ),
+            return
+
+        company_id = brevo.create_company(
+            CreateCompanyData(
+                company_name=company.usual_name,
+                siren=int(company.siren),
+                phone_number=(
+                    company.phone_number if company.phone_number else None
+                ),
+            )
+        )
+
+        if company_id is not None:
+            brevo.link_company_and_contact(
+                LinkCompanyContactData(
+                    company_id=company_id,
+                    contact_id=contact_id,
                 )
             )
-
-            if company_id is not None:
-                brevo.link_company_and_contact(
-                    LinkCompanyContactData(
-                        company_id=company_id,
-                        contact_id=contact_id,
-                    )
-                )
     except Exception as e:
         sentry_sdk.capture_exception(e)
 
+
+def _send_company_creation_email(company):
+    try:
+        mailer.send_company_creation_email(company, current_user)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def _update_admin_mailing_lists():
+    try:
+        current_user.unsubscribe_from_contact_list(
+            MailingContactList.EMPLOYEES, remove=True
+        )
+        current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def sign_up_company(
+    usual_name,
+    siren,
+    business_type="",
+    transport_type="",
+    phone_number="",
+    nb_workers=None,
+    sirets=[],
+    send_email=True,
+):
+    business = _find_business_for_company(business_type, transport_type)
+
+    with atomic_transaction(commit_at_end=True):
+        company = store_company(
+            siren, sirets, usual_name, business, phone_number, nb_workers
+        )
+
+        now = datetime.now()
+        admin_employment = Employment(
+            user_id=current_user.id,
+            company=company,
+            start_date=now.date(),
+            validation_time=now,
+            validation_status=EmploymentRequestValidationStatus.APPROVED,
+            has_admin_rights=True,
+            reception_time=now,
+            submitter_id=current_user.id,
+            business=business,
+        )
+        db.session.add(admin_employment)
+
+    _sync_company_with_crm(company)
+
     if send_email:
-        try:
-            mailer.send_company_creation_email(company, current_user)
-        except Exception as e:
-            app.logger.exception(e)
+        _send_company_creation_email(company)
 
     if current_user.subscribed_mailing_lists:
-        try:
-            current_user.unsubscribe_from_contact_list(
-                MailingContactList.EMPLOYEES, remove=True
-            )
-            current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
-        except Exception as e:
-            app.logger.exception(e)
+        _update_admin_mailing_lists()
 
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
@@ -573,6 +611,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau type d'activité de transport de l'entreprise.",
         )
+        new_transport_type = graphene.String(
+            required=False,
+            description="Nouvelle catégorie de transport de l'entreprise.",
+        )
         new_nb_workers = graphene.Int(
             required=False,
             description="Nouveau nombre d'employés de l'entreprise.",
@@ -600,6 +642,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         new_name="",
         new_phone_number="",
         new_business_type="",
+        new_transport_type="",
         new_nb_workers=None,
         apply_business_type_to_employees=False,
     ):
@@ -634,10 +677,17 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 app.logger.info(
                     f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"
                 )
+
             if new_business_type != "":
+                if new_transport_type == "":
+                    raise InvalidParamsError(
+                        "transport_type is required when business_type is provided"
+                    )
                 new_business = Business.query.filter(
                     Business.business_type
-                    == BusinessType[new_business_type].value
+                    == BusinessType[new_business_type].value,
+                    Business.transport_type
+                    == TransportType[new_transport_type].value,
                 ).one_or_none()
                 if new_business is None:
                     raise InvalidParamsError(
