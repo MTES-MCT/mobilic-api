@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import secrets
 from datetime import timedelta, datetime
 
 from dotenv import load_dotenv
@@ -9,6 +10,10 @@ if os.environ.get("DOTENV_FILE", False):
     load_dotenv(os.environ.get("DOTENV_FILE"))
 
 MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY and MOBILIC_ENV not in ("dev", "test"):
+    raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 
 CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
 CGU_INITIAL_VERSION = "v1.0"
@@ -29,8 +34,14 @@ class Config:
     # A consumed token replayed within this window returns the successor
     # tokens instead of failing (lost response, concurrent tabs).
     REFRESH_TOKEN_REUSE_GRACE_PERIOD = timedelta(seconds=60)
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
-    DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
+    JWT_SECRET_KEY = JWT_SECRET_KEY or secrets.token_hex(32)
+    DISABLE_PASSWORD_CHECK = os.environ.get(
+        "DISABLE_PASSWORD_CHECK", ""
+    ).strip().lower() in ("1", "true", "yes")
+    if DISABLE_PASSWORD_CHECK and MOBILIC_ENV not in ("dev", "test"):
+        raise RuntimeError(
+            "DISABLE_PASSWORD_CHECK cannot be enabled outside dev/test"
+        )
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     TCHAP_ACCESS_TOKEN = os.environ.get("TCHAP_ACCESS_TOKEN")
     TCHAP_ROOM_ID = os.environ.get("TCHAP_ROOM_ID")
