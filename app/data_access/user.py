@@ -19,6 +19,7 @@ from app.domain.permissions import (
 )
 from app.domain.regulation_computations import get_regulation_computations
 from app.domain.work_days import group_user_events_by_day_with_limit
+from app.helpers.authentication import current_user
 from app.helpers.authorization import (
     with_authorization_policy,
 )
@@ -239,12 +240,9 @@ class UserOutput(BaseSQLAlchemyObjectType):
     def resolve_gender(self, info):
         return self.gender.value if self.gender else None
 
-    @with_authorization_policy(
-        self_or_have_common_acknowledged_company,
-        get_target_from_args=lambda self, info, *args, **kwargs: self.id,
-        error_message="Forbidden access to field 'email' of user object.",
-    )
     def resolve_email(self, info):
+        if not self_or_have_common_acknowledged_company(current_user, self.id):
+            return None
         return self.email
 
     @with_authorization_policy(
