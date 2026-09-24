@@ -18,6 +18,7 @@ def load_work_days_cache(all_users, chunks, scope, parse_date_fn):
             from_date=global_min_date,
             until_date=global_max_date,
             include_dismissed_or_empty_days=True,
+            compute_history=True,
         )
         cache[user.id] = work_days
     return cache
@@ -43,6 +44,7 @@ def get_work_days_for_users(
                     from_date=min_date,
                     until_date=max_date,
                     include_dismissed_or_empty_days=True,
+                    compute_history=True,
                 )[0]
             user_wdays_batches.append((user, wdays))
     else:
@@ -62,6 +64,7 @@ def get_work_days_for_users(
                     from_date=min_date,
                     until_date=max_date,
                     include_dismissed_or_empty_days=True,
+                    compute_history=True,
                 )[0]
             all_work_days += wdays
         user_wdays_batches = [(None, all_work_days)]
