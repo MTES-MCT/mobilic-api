@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta
 from flask_jwt_extended import decode_token
 from freezegun import freeze_time
+from unittest import expectedFailure
 
 from app import app, db
 from app.models.controller_refresh_token import ControllerRefreshToken
 from app.models.refresh_token import RefreshToken
 from app.seed import ControllerUserFactory, UserFactory
 from app.tests import BaseTest, test_post_graphql
-from app.tests.helpers import ApiRequests
+from app.tests.helpers import ApiRequests, make_authenticated_request
 
 REFRESH_QUERY = """
     mutation {
@@ -163,3 +164,57 @@ class TestRefreshTokenRotation(BaseTest):
         self.assertIsNotNone(first)
         second = ControllerRefreshToken.consume(token_string, controller.id)
         self.assertIsNone(second)
+
+
+class TestResetPasswordConnectedRevokesTokens(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.user = UserFactory.create(password="0rigPass!word")
+
+    @expectedFailure
+    def test_password_change_revokes_existing_refresh_tokens(self):
+        """a stolen refresh token must not survive a connected password change."""
+        base_time = datetime.now()
+        with freeze_time(base_time):
+            login_response = test_post_graphql(
+                ApiRequests.login_query,
+                variables=dict(
+                    email=self.user.email, password="0rigPass!word"
+                ),
+            )
+            self.assertEqual(200, login_response.status_code)
+            old_refresh_token = login_response.json["data"]["auth"]["login"][
+                "refreshToken"
+            ]
+
+        make_authenticated_request(
+            time=base_time + timedelta(minutes=1),
+            submitter_id=self.user.id,
+            query="""
+                mutation ($password: Password!, $userId: Int!) {
+                    account {
+                        resetPasswordConnected(password: $password, userId: $userId) {
+                            success
+                        }
+                    }
+                }
+            """,
+            variables=dict(password="N3wPass!word", user_id=self.user.id),
+            unexposed_query=True,
+        )
+
+        with freeze_time(base_time + timedelta(minutes=2)):
+            refresh_response = test_post_graphql(
+                """
+                mutation {
+                    auth {
+                        refresh {
+                            accessToken
+                            refreshToken
+                        }
+                    }
+                }
+                """,
+                headers=[("Authorization", f"Bearer {old_refresh_token}")],
+            )
+        self.assertIsNotNone(refresh_response.json.get("errors"))

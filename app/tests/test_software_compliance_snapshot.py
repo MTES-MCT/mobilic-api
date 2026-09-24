@@ -1,6 +1,8 @@
 from datetime import date, datetime, timedelta
+from unittest import TestCase, expectedFailure
+from unittest.mock import MagicMock, patch
 
-from app import db
+from app import app, db
 from app.helpers.oauth.models import OAuth2Client
 from app.jobs.software_compliance_report import (
     MIN_MISSIONS_FOR_ACTIVE_DAY,
@@ -195,3 +197,37 @@ class TestSoftwareComplianceSnapshot(BaseTest):
         db.session.commit()
         violations, _ = _get_violations(self.oauth_client.id, date.today())
         self.assertTrue(any("semaine 2" in v for v in violations))
+
+
+class TestOW13ComplianceAlertHtmlEscaping(TestCase):
+    @expectedFailure
+    def test_oauth_client_name_is_escaped_in_alert_email(self):
+        """_send_consolidated_alert builds unescaped HTML."""
+        import app.jobs.software_compliance_report as module
+
+        captured = {}
+
+        def fake_message(*args, **kwargs):
+            captured["html"] = kwargs.get("html")
+            return MagicMock()
+
+        with patch.dict(
+            app.config, {"COMPLIANCE_ALERT_EMAIL": "alert@example.com"}
+        ), patch.object(
+            module, "MailjetMessage", side_effect=fake_message
+        ), patch.object(
+            module, "mailer"
+        ), patch.object(
+            module, "send_tchap_message"
+        ):
+            module._send_consolidated_alert(
+                [("<script>alert(1)</script>", 42, ["- some violation"])],
+                datetime.now().date(),
+            )
+
+        self.assertIn("html", captured)
+        self.assertNotIn(
+            "<script>alert(1)</script>",
+            captured["html"],
+            "OAuth client name is injected unescaped into the alert email",
+        )
