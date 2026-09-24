@@ -1,6 +1,9 @@
+import unittest
 from datetime import date, timedelta
 from unittest.mock import patch
 
+from app.helpers.celery import celery, async_export_excel
+from app.jobs.break_alert import send_break_alert_task
 from app.models import User, Company, Employment, Export
 from app.models.export import ExportStatus, ExportType
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
@@ -14,6 +17,24 @@ def test_post_rest_authenticated(url, json, user):
         mock_authentication_with_user=user
     ) as c, app.app_context():
         return c.post(url, json=json)
+
+
+class TestExportCeleryRouting(unittest.TestCase):
+    def test_export_task_routed_to_dedicated_queue(self) -> None:
+        """The heavy Excel export must not share the default queue with the
+        break_alert ETA storm: it is routed to its own `exports` queue, drained
+        by the dedicated `workerexports` process. break_alert must stay on the
+        default queue. This asserts the routing the broker actually resolves at
+        dispatch (what .delay() computes), not just the config dict."""
+        export_queue = celery.amqp.router.route({}, async_export_excel.name)[
+            "queue"
+        ].name
+        alert_queue = celery.amqp.router.route({}, send_break_alert_task.name)[
+            "queue"
+        ].name
+        self.assertEqual(export_queue, "exports")
+        self.assertEqual(alert_queue, celery.conf.task_default_queue)
+        self.assertNotEqual(export_queue, alert_queue)
 
 
 class TestValidateExportParams(BaseTest):
