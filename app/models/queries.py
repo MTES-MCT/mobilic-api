@@ -294,6 +294,11 @@ def query_work_day_stats(
         max_date = max_time.date()
         end_date = min(max_date, end_date) if end_date else max_date
 
+        # The cursor may have walked back past the start of the requested window (e.g. an activity spanning many days pushes it further back on each page).
+        # There is nothing left to fetch in that case : bail out early instead of issuing a query with an inverted range.
+        if start_date and end_date < start_date:
+            return [], False
+
     # First query returns all the activities that will be used to compute statistics, split by days
     query = (
         Activity.query.join(Mission)
