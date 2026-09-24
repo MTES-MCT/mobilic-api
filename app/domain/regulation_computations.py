@@ -7,6 +7,14 @@ from app.helpers.submitter_type import SubmitterType
 from app.models import RegulationComputation, RegulatoryAlert, RegulationCheck
 from app.models.regulation_check import UnitType, RegulationCheckType
 
+USER_IDS_CHUNK_SIZE = 50
+
+
+def _chunk_user_ids(user_ids):
+    user_ids = list(user_ids)
+    for i in range(0, len(user_ids), USER_IDS_CHUNK_SIZE):
+        yield user_ids[i : i + USER_IDS_CHUNK_SIZE]
+
 
 def get_regulation_computations(
     user_id,
@@ -63,19 +71,18 @@ def get_regulatory_computations(user_id, start_date=None, end_date=None):
 def get_admin_regulatory_computations_for_users(
     user_ids, from_date=None, to_date=None
 ):
-    regulation_computations_query = RegulationComputation.query.filter(
-        RegulationComputation.user_id.in_(user_ids),
-        RegulationComputation.submitter_type == SubmitterType.ADMIN,
-    )
-    if from_date:
-        regulation_computations_query = regulation_computations_query.filter(
-            RegulationComputation.day >= from_date
+    results = []
+    for chunk in _chunk_user_ids(user_ids):
+        query = RegulationComputation.query.filter(
+            RegulationComputation.user_id.in_(chunk),
+            RegulationComputation.submitter_type == SubmitterType.ADMIN,
         )
-    if to_date:
-        regulation_computations_query = regulation_computations_query.filter(
-            RegulationComputation.day <= to_date
-        )
-    return regulation_computations_query.all()
+        if from_date:
+            query = query.filter(RegulationComputation.day >= from_date)
+        if to_date:
+            query = query.filter(RegulationComputation.day <= to_date)
+        results.extend(query.all())
+    return results
 
 
 def get_company_admin_regulation_computations(
@@ -86,19 +93,19 @@ def get_company_admin_regulation_computations(
     )
 
     def _get_alerts_dict(unit):
-        query = RegulatoryAlert.query.join(RegulationCheck).filter(
-            RegulatoryAlert.user_id.in_(user_ids),
-            RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
-            RegulationCheck.unit == unit,
-        )
-        if from_date:
-            query = query.filter(RegulatoryAlert.day >= from_date)
-        if to_date:
-            query = query.filter(RegulatoryAlert.day <= to_date)
-        alerts = query.all()
         alerts_dict = {}
-        for a in alerts:
-            alerts_dict.setdefault((a.user_id, a.day), []).append(a)
+        for chunk in _chunk_user_ids(user_ids):
+            query = RegulatoryAlert.query.join(RegulationCheck).filter(
+                RegulatoryAlert.user_id.in_(chunk),
+                RegulatoryAlert.submitter_type == SubmitterType.ADMIN,
+                RegulationCheck.unit == unit,
+            )
+            if from_date:
+                query = query.filter(RegulatoryAlert.day >= from_date)
+            if to_date:
+                query = query.filter(RegulatoryAlert.day <= to_date)
+            for a in query.all():
+                alerts_dict.setdefault((a.user_id, a.day), []).append(a)
         return alerts_dict
 
     daily_alerts = _get_alerts_dict(UnitType.DAY)
