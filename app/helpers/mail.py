@@ -997,7 +997,7 @@ class Mailer:
             f"https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
         )
         appointment_link = Markup(
-            f"https://calendly.com/kelly-heau-mobilic/30min?mtm_campaign=Rdv%20calendly%20depuis%20mail%20relance%20gestionnaires%20pour%20qu%E2%80%99il%20incite%20son%20salari%C3%A9"
+            f"https://meet.brevo.com/raouf-hamitou/rendez-vous-mobilic"
         )
         self._send_single(
             self._create_message_from_flask_template(
