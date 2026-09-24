@@ -19,6 +19,9 @@ celery = Celery(
 )
 celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
 celery.conf.worker_eta_task_limit = 10000
+celery.conf.task_routes = {
+    "app.helpers.celery.async_export_excel": {"queue": "exports"},
+}
 
 DEFAULT_FILE_NAME = "rapport_activités"
 
