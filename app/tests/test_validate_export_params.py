@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 from app.models import User, Company, Employment, Export
-from app.models.export import ExportStatus
+from app.models.export import ExportStatus, ExportType
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
 from app import app
@@ -311,6 +311,55 @@ class TestValidateExportParams(BaseTest):
         self.assertEqual(
             mock_celery_delay.call_args[1]["export_id"], exports[0].id
         )
+
+    @patch("app.helpers.celery.S3Client.upload_export")
+    @patch("app.helpers.celery.generate_admin_export_file_from_chunks")
+    def test_task_completes_existing_wip_row_idempotently(
+        self, mock_generate, mock_upload
+    ):
+        """The task must finish the WIP row created at request time instead of
+        creating a second one, and stay idempotent if it is redelivered (the
+        export task runs with acks_late, so a worker killed mid-task replays
+        it)."""
+        from app import db
+        from app.helpers.celery import async_export_excel
+
+        mock_generate.return_value = (
+            b"xlsx",
+            "application/vnd.ms-excel",
+            "r.xlsx",
+            4,
+        )
+
+        export = Export(user_id=self.admin.id, export_type=ExportType.EXCEL)
+        db.session.add(export)
+        db.session.commit()
+        export_id = export.id
+
+        chunks = [
+            {
+                "user_ids": [self.admin.id],
+                "min_date": "2025-01-01",
+                "max_date": "2025-01-15",
+                "file_suffix": "",
+                "strategy": "single_or_consolidated",
+            }
+        ]
+        call = dict(
+            exporter_id=self.admin.id,
+            company_ids=[self.company.id],
+            chunks=chunks,
+            export_id=export_id,
+        )
+
+        async_export_excel(**call)
+        self.assertEqual(Export.query.count(), 1)
+        self.assertEqual(
+            Export.query.get(export_id).status, ExportStatus.READY
+        )
+
+        async_export_excel(**call)
+        self.assertEqual(Export.query.count(), 1)
 
     @patch("app.services.exports.async_export_excel.delay")
     def test_validation_matches_export_single_or_consolidated(

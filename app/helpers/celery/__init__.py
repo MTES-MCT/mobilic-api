@@ -23,7 +23,7 @@ celery.conf.worker_eta_task_limit = 10000
 DEFAULT_FILE_NAME = "rapport_activités"
 
 
-@celery.task()
+@celery.task(acks_late=True, soft_time_limit=1200, time_limit=1320)
 def async_export_excel(
     exporter_id,
     company_ids,
