@@ -30,6 +30,7 @@ def async_export_excel(
     chunks,
     file_name=DEFAULT_FILE_NAME,
     export_type=ExportType.EXCEL,
+    export_id=None,
 ):
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
@@ -40,18 +41,20 @@ def async_export_excel(
 
         exporter = User.query.get(exporter_id)
 
-        export = Export(
-            user=exporter,
-            export_type=export_type,
-            context={
-                "exporter_id": exporter_id,
-                "company_ids": company_ids,
-                "chunks": chunks,
-                "strategy": strategy,
-            },
-        )
-        db.session.add(export)
-        db.session.commit()
+        export = Export.query.get(export_id) if export_id else None
+        if export is None:
+            export = Export(
+                user=exporter,
+                export_type=export_type,
+                context={
+                    "exporter_id": exporter_id,
+                    "company_ids": company_ids,
+                    "chunks": chunks,
+                    "strategy": strategy,
+                },
+            )
+            db.session.add(export)
+            db.session.commit()
 
         try:
             start_time = time.perf_counter()
