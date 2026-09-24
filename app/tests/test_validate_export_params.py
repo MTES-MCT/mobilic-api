@@ -20,7 +20,7 @@ def test_post_rest_authenticated(url, json, user):
 
 
 class TestExportCeleryRouting(unittest.TestCase):
-    def test_export_task_routed_to_dedicated_queue(self):
+    def test_export_task_routed_to_dedicated_queue(self) -> None:
         """The heavy Excel export must not share the default queue with the
         break_alert ETA storm: it is routed to its own `exports` queue, drained
         by the dedicated `workerexports` process. break_alert must stay on the
