@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from app.models import User, Company, Employment
+from app.models import User, Company, Employment, Export
+from app.models.export import ExportStatus
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
 from app import app
@@ -279,6 +280,37 @@ class TestValidateExportParams(BaseTest):
         self.assertEqual(response.status_code, 422)
 
     ## tests validation + export
+
+    @patch("app.services.exports.async_export_excel.delay")
+    def test_export_creates_wip_row_before_task_runs(self, mock_celery_delay):
+        """The Export row must exist as WIP as soon as the request returns, not
+        only once the worker starts the task. The front's polling gives up when
+        checkout reports no WIP export, so a busy worker that hasn't created the
+        row yet leaves the user with nothing."""
+        self.assertEqual(Export.query.count(), 0)
+
+        params = {
+            "company_ids": [self.company.id],
+            "min_date": "2025-01-01",
+            "max_date": "2025-01-15",
+            "one_file_by_employee": True,
+        }
+        response = test_post_rest_authenticated(
+            "/companies/download_activity_report",
+            json=params,
+            user=self.admin,
+        )
+        self.assertEqual(response.status_code, 202)
+
+        exports = Export.query.all()
+        self.assertEqual(len(exports), 1)
+        self.assertEqual(exports[0].status, ExportStatus.WIP)
+        self.assertEqual(exports[0].user_id, self.admin.id)
+
+        mock_celery_delay.assert_called_once()
+        self.assertEqual(
+            mock_celery_delay.call_args[1]["export_id"], exports[0].id
+        )
 
     @patch("app.services.exports.async_export_excel.delay")
     def test_validation_matches_export_single_or_consolidated(
