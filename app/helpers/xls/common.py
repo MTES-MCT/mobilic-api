@@ -205,3 +205,48 @@ def format_infraction(infraction):
         if custom_label:
             return f"{sanction}: {custom_label}"
     return sanction
+
+
+def get_filtered_alerts_by_day(user_id, min_date, max_date):
+    from collections import defaultdict
+
+    from app.domain.regulation_computations import (
+        get_regulatory_alerts,
+        get_regulatory_computations,
+    )
+    from app.helpers.submitter_type import SubmitterType
+
+    alerts = get_regulatory_alerts(
+        user_id=user_id,
+        start_date=min_date,
+        end_date=max_date,
+    )
+    computations = get_regulatory_computations(
+        user_id=user_id,
+        start_date=min_date,
+        end_date=max_date,
+    )
+    computations_by_day = defaultdict(list)
+    for rc in computations:
+        computations_by_day[rc.day].append(rc)
+
+    alerts_by_day = defaultdict(list)
+    for alert in alerts:
+        extra = alert.extra
+        if not extra or "sanction_code" not in extra:
+            continue
+        day_computations = computations_by_day.get(alert.day, [])
+        nb_rc = len(day_computations)
+        if nb_rc == 0:
+            continue
+        if nb_rc == 2 and alert.submitter_type != SubmitterType.ADMIN:
+            continue
+        if (
+            nb_rc == 1
+            and day_computations[0].submitter_type
+            != alert.submitter_type
+        ):
+            continue
+        alerts_by_day[alert.day].append(alert)
+
+    return alerts_by_day

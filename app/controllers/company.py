@@ -818,6 +818,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
         "min_date": fields.Date(required=False),
         "max_date": fields.Date(required=False),
         "one_file_by_employee": fields.Boolean(required=False),
+        "control_format": fields.Boolean(required=False),
     },
     apply=True,
 )
@@ -827,6 +828,7 @@ def download_activity_report(
     min_date=None,
     max_date=None,
     one_file_by_employee=False,
+    control_format=False,
 ):
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
@@ -839,6 +841,7 @@ def download_activity_report(
         min_date=min_date,
         max_date=max_date,
         one_file_by_employee=one_file_by_employee,
+        control_format=control_format,
     )
 
     return jsonify({"result": "ok"}), 202
