@@ -13,10 +13,12 @@ from app.models.location_entry import LocationEntry, LocationEntryType
 from app.models.anonymized import (
     AnonActivity,
     AnonActivityVersion,
+    AnonEmployment,
     AnonLocationEntry,
     AnonMission,
     AnonMissionEnd,
     AnonMissionValidation,
+    AnonRegulatoryAlert,
     IdMapping,
 )
 from app.services.anonymization.standalone.anonymization_executor import (
@@ -261,3 +263,46 @@ class TestSetBasedCopies(BaseTest):
             IdMapping.query.count(),
         )
         self.assertEqual(counts_before, counts_after)
+
+    def test_activity_end_time_is_bucketed_by_set_based_copy(self):
+        base = datetime(2022, 4, 10, 8, 0, 0)
+        worker = UserFactory.create(email="bucketing_worker@example.com")
+        with AuthenticatedUserContext(user=worker):
+            mission = Mission(
+                company=self.company,
+                creation_time=base,
+                reception_time=base,
+                submitter=worker,
+            )
+            db.session.add(mission)
+            db.session.flush()
+            db.session.add(
+                Activity(
+                    user=worker,
+                    mission=mission,
+                    submitter=worker,
+                    start_time=base,
+                    end_time=base + timedelta(minutes=17),
+                    type="drive",
+                    reception_time=base,
+                    last_update_time=base + timedelta(minutes=17),
+                )
+            )
+            db.session.commit()
+            mission_id = mission.id
+
+        executor = AnonymizationExecutor(db.session, dry_run=True)
+        executor.anonymize_mission_and_dependencies({mission_id})
+        db.session.commit()
+
+        anon = AnonActivity.query.one()
+        self.assertEqual(
+            anon.end_time - anon.start_time, timedelta(minutes=30)
+        )
+
+    def test_dropped_columns_are_gone(self):
+        self.assertNotIn("is_admin", AnonMissionValidation.__table__.columns)
+        self.assertNotIn("has_admin_rights", AnonEmployment.__table__.columns)
+        self.assertNotIn(
+            "regulation_check_id", AnonRegulatoryAlert.__table__.columns
+        )

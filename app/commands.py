@@ -20,6 +20,7 @@ from app.domain.regulations import compute_regulation_for_user
 from app.domain.technical_incident import create_incident, update_incident
 from app.domain.vehicle import find_vehicle
 from app.helpers.errors import MobilicError
+from app.helpers.junit_report import JUnitResult, write_junit_xml
 from app.helpers.oauth.models import ThirdPartyApiKey
 from app.helpers.time import FR_TIMEZONE, from_tz, to_fr_tz
 from app.helpers.xml.greco import temp_write_greco_xml
@@ -64,7 +65,13 @@ def test(test_names):
             pattern="test_*.py",
             top_level_dir=root_project_path,
         )
-    result = unittest.TextTestRunner(verbosity=3).run(test_suite)
+    junit_path = os.environ.get("JUNIT_XML")
+    result = unittest.TextTestRunner(
+        verbosity=3,
+        resultclass=JUnitResult if junit_path else unittest.TextTestResult,
+    ).run(test_suite)
+    if junit_path:
+        write_junit_xml(result, junit_path)
     if result.wasSuccessful():
         sys.exit(0)
     sys.exit(1)

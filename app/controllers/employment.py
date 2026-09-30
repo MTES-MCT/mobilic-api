@@ -53,7 +53,7 @@ from app.helpers.mail import MailjetError
 from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
 from app.models import Company, User, Team, Business
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
@@ -842,6 +842,11 @@ class ChangeEmployeeBusinessType(AuthenticatedMutation):
             required=True,
             description="Nouveau type d'activité de transport effectué par l'employé pour l'entreprise",
         )
+        transport_type = graphene.Argument(
+            graphene.String,
+            required=True,
+            description="Nouveau type de transport effectué par l'employé pour l'entreprise",
+        )
 
     Output = CompanyOutput
 
@@ -853,10 +858,11 @@ class ChangeEmployeeBusinessType(AuthenticatedMutation):
         ).company_id,
         error_message="Actor is not authorized to change employee business type",
     )
-    def mutate(cls, _, info, employment_id, business_type):
+    def mutate(cls, _, info, employment_id, business_type, transport_type):
         employment = Employment.query.get(employment_id)
         business = Business.query.filter(
-            Business.business_type == BusinessType[business_type].value
+            Business.business_type == BusinessType[business_type].value,
+            Business.transport_type == TransportType[transport_type].value,
         ).one_or_none()
 
         if not business:
@@ -1170,14 +1176,11 @@ class RequestDetachment(AuthenticatedMutation):
                     "Only the employee can request detachment"
                 )
             if not employment.is_active:
-                raise InvalidParamsError(
-                    "Employment is not active"
-                )
+                raise InvalidParamsError("Employment is not active")
             existing = employment.detachment_request
             if existing and existing.get("last_sent_at"):
-                elapsed = (
-                    datetime.now()
-                    - datetime.fromtimestamp(existing["last_sent_at"])
+                elapsed = datetime.now() - datetime.fromtimestamp(
+                    existing["last_sent_at"]
                 )
                 if elapsed.total_seconds() < DETACHMENT_COOLDOWN_HOURS * 3600:
                     raise InvalidParamsError(
@@ -1195,9 +1198,7 @@ class RequestDetachment(AuthenticatedMutation):
                 request_date = datetime.fromtimestamp(
                     existing["requested_at"]
                 ).strftime("%d/%m/%Y")
-                mailer.send_detachment_relance_email(
-                    employment, request_date
-                )
+                mailer.send_detachment_relance_email(employment, request_date)
             else:
                 employment.detachment_request = {
                     "requested_at": now_ts,
