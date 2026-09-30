@@ -275,6 +275,28 @@ def query_company_missions(
     )
 
 
+def _paginate_work_day_stats(
+    results, after, max_date, user_id, first, has_next_page
+):
+    if after:
+        results = [
+            r
+            for r in results
+            if r.day.date() < max_date
+            or (r.day.date() == max_date and r.user_id < user_id)
+        ]
+
+    if first:
+        if has_next_page:
+            # The last work day may be incomplete because we didn't fetch all the activities => remove it
+            results = results[:-1]
+        if len(results) > first:
+            results = results[:first]
+            has_next_page = True
+
+    return results, has_next_page
+
+
 def query_work_day_stats(
     company_id,
     start_date=None,
@@ -534,23 +556,14 @@ def query_work_day_stats(
     )
 
     results = query.all()
-    if after:
-        results = [
-            r
-            for r in results
-            if r.day.date() < max_date
-            or (r.day.date() == max_date and r.user_id < user_id_)
-        ]
-
-    if first:
-        if has_next_page:
-            # The last work day may be incomplete because we didn't fetch all the activities => remove it
-            results = results[:-1]
-        if len(results) > first:
-            results = results[:first]
-            has_next_page = True
-
-    return results, has_next_page
+    return _paginate_work_day_stats(
+        results,
+        after,
+        max_date if after else None,
+        user_id_ if after else None,
+        first,
+        has_next_page,
+    )
 
 
 def query_controls(
