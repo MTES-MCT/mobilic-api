@@ -1,7 +1,7 @@
 """add technical_incident table
 
 Revision ID: b1e7c9a2f4d3
-Revises: e5d78113a5ac
+Revises: 68f7e34e43f8
 Create Date: 2026-09-12 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "b1e7c9a2f4d3"
-down_revision = "e5d78113a5ac"
+down_revision = "68f7e34e43f8"
 branch_labels = None
 depends_on = None
 
