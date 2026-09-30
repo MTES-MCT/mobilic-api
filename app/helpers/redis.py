@@ -1,4 +1,6 @@
 import redis as redis_module
+from redis.backoff import NoBackoff
+from redis.retry import Retry
 
 from app import app
 
@@ -14,5 +16,6 @@ def get_redis_client():
             app.config["CELERY_BROKER_URL"],
             socket_connect_timeout=3,
             socket_timeout=3,
+            retry=Retry(NoBackoff(), 0),
         )
     return _redis_client

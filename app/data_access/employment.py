@@ -153,6 +153,10 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         DetachmentRequestOutput,
         description="Données de demande de détachement par le salarié.",
     )
+    weekly_thresholds = graphene.Field(
+        lambda: _get_weekly_thresholds_type(),
+        description="Seuils réglementaires hebdomadaires résolus selon le type d'activité du rattachement, ou celui de l'entreprise par défaut",
+    )
 
     def resolve_detachment_request(self, info):
         if not self.detachment_request:
@@ -161,6 +165,12 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             requested_at=self.detachment_request.get("requested_at"),
             last_sent_at=self.detachment_request.get("last_sent_at"),
         )
+
+    def resolve_weekly_thresholds(self, info):
+        from app.data_access.company import compute_weekly_thresholds
+
+        business = self.business or self.company.business
+        return compute_weekly_thresholds(business)
 
     @with_authorization_policy(
         only_self_employment,
@@ -179,7 +189,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
         force_show_email = getattr(info.context, "force_show_email", False)
         if self.hide_email and self.is_acknowledged and not force_show_email:
             return HIDDEN_EMAIL
-        if self.user:
+        if self.is_acknowledged and self.user:
             return self.user.email
         return self.email
 
@@ -210,3 +220,9 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
 
 
 from app.data_access.team import TeamOutput
+
+
+def _get_weekly_thresholds_type():
+    from app.data_access.company import WeeklyThresholdsOutput
+
+    return WeeklyThresholdsOutput
