@@ -127,15 +127,9 @@ def compute_weekly_thresholds(business):
     work_vars = resolve_variables(work_check.variables, business)
     rest_vars = resolve_variables(rest_check.variables, business)
     return WeeklyThresholdsOutput(
-        max_work_in_hours=work_vars.get(
-            "MAXIMUM_WEEKLY_WORK_IN_HOURS", 48
-        ),
-        min_rest_in_hours=rest_vars.get(
-            "MINIMUM_WEEKLY_BREAK_IN_HOURS", 34
-        ),
-        max_worked_days=rest_vars.get(
-            "MAXIMUM_DAY_WORKED_BY_WEEK", 6
-        ),
+        max_work_in_hours=work_vars.get("MAXIMUM_WEEKLY_WORK_IN_HOURS", 48),
+        min_rest_in_hours=rest_vars.get("MINIMUM_WEEKLY_BREAK_IN_HOURS", 34),
+        max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
     )
 
 
@@ -246,6 +240,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
+        from_time=TimeStamp(
+            required=False,
+            description="Ne retourne que les missions dont l'activité chevauche cet horodatage de début.",
+        ),
+        until_time=TimeStamp(
+            required=False,
+            description="Ne retourne que les missions dont l'activité chevauche cet horodatage de fin.",
+        ),
         description="Liste des missions supprimées de l'entreprise",
     )
     vehicles = graphene.List(
@@ -342,7 +344,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_weekly_thresholds(self, info):
         return compute_weekly_thresholds(self.business)
-
 
     @with_authorization_policy(
         is_employed_by_company_over_period,
@@ -461,7 +462,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
-    def resolve_missions_deleted(self, info, first=None):
+    def resolve_missions_deleted(
+        self, info, first=None, from_time=None, until_time=None
+    ):
         deleted_missions_query = (
             Mission.query.filter(
                 Mission.company_id == self.id,
@@ -469,7 +472,19 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .join(Activity, Activity.mission_id == Mission.id)
             .group_by(Mission.id)
             .having(func.every(Activity.dismissed_at.isnot(None)))
-            .order_by(Mission.creation_time.desc())
+        )
+        # Keep only missions whose activity span overlaps the requested window.
+        if from_time is not None:
+            deleted_missions_query = deleted_missions_query.having(
+                func.max(func.coalesce(Activity.end_time, Activity.start_time))
+                >= from_time
+            )
+        if until_time is not None:
+            deleted_missions_query = deleted_missions_query.having(
+                func.min(Activity.start_time) <= until_time
+            )
+        deleted_missions_query = deleted_missions_query.order_by(
+            Mission.creation_time.desc()
         )
         if first is not None:
             deleted_missions_query = deleted_missions_query.limit(first + 1)
