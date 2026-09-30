@@ -369,7 +369,10 @@ def get_executed_activities(event):
         return (
             event.holiday_mission_name
             if event.holiday_mission_name != ""
-            else format_activity_type(event.resource.type)
+            else format_activity_type(
+                event.resource.type,
+                event.allow_other_task,
+            )
         )
     return None
 

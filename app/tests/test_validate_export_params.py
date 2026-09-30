@@ -1,7 +1,11 @@
+import unittest
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from app.models import User, Company, Employment
+from app.helpers.celery import celery, async_export_excel
+from app.jobs.break_alert import send_break_alert_task
+from app.models import User, Company, Employment, Export
+from app.models.export import ExportStatus, ExportType
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
 from app import app
@@ -13,6 +17,24 @@ def test_post_rest_authenticated(url, json, user):
         mock_authentication_with_user=user
     ) as c, app.app_context():
         return c.post(url, json=json)
+
+
+class TestExportCeleryRouting(unittest.TestCase):
+    def test_export_task_routed_to_dedicated_queue(self) -> None:
+        """The heavy Excel export must not share the default queue with the
+        break_alert ETA storm: it is routed to its own `exports` queue, drained
+        by the dedicated `workerexports` process. break_alert must stay on the
+        default queue. This asserts the routing the broker actually resolves at
+        dispatch (what .delay() computes), not just the config dict."""
+        export_queue = celery.amqp.router.route({}, async_export_excel.name)[
+            "queue"
+        ].name
+        alert_queue = celery.amqp.router.route({}, send_break_alert_task.name)[
+            "queue"
+        ].name
+        self.assertEqual(export_queue, "exports")
+        self.assertEqual(alert_queue, celery.conf.task_default_queue)
+        self.assertNotEqual(export_queue, alert_queue)
 
 
 class TestValidateExportParams(BaseTest):
@@ -279,6 +301,86 @@ class TestValidateExportParams(BaseTest):
         self.assertEqual(response.status_code, 422)
 
     ## tests validation + export
+
+    @patch("app.services.exports.async_export_excel.delay")
+    def test_export_creates_wip_row_before_task_runs(self, mock_celery_delay):
+        """The Export row must exist as WIP as soon as the request returns, not
+        only once the worker starts the task. The front's polling gives up when
+        checkout reports no WIP export, so a busy worker that hasn't created the
+        row yet leaves the user with nothing."""
+        self.assertEqual(Export.query.count(), 0)
+
+        params = {
+            "company_ids": [self.company.id],
+            "min_date": "2025-01-01",
+            "max_date": "2025-01-15",
+            "one_file_by_employee": True,
+        }
+        response = test_post_rest_authenticated(
+            "/companies/download_activity_report",
+            json=params,
+            user=self.admin,
+        )
+        self.assertEqual(response.status_code, 202)
+
+        exports = Export.query.all()
+        self.assertEqual(len(exports), 1)
+        self.assertEqual(exports[0].status, ExportStatus.WIP)
+        self.assertEqual(exports[0].user_id, self.admin.id)
+
+        mock_celery_delay.assert_called_once()
+        self.assertEqual(
+            mock_celery_delay.call_args[1]["export_id"], exports[0].id
+        )
+
+    @patch("app.helpers.celery.S3Client.upload_export")
+    @patch("app.helpers.celery.generate_admin_export_file_from_chunks")
+    def test_task_completes_existing_wip_row_idempotently(
+        self, mock_generate, mock_upload
+    ):
+        """The task must finish the WIP row created at request time instead of
+        creating a second one, and stay idempotent if it is redelivered (the
+        export task runs with acks_late, so a worker killed mid-task replays
+        it)."""
+        from app import db
+        from app.helpers.celery import async_export_excel
+
+        mock_generate.return_value = (
+            b"xlsx",
+            "application/vnd.ms-excel",
+            "r.xlsx",
+            4,
+        )
+
+        export = Export(user_id=self.admin.id, export_type=ExportType.EXCEL)
+        db.session.add(export)
+        db.session.commit()
+        export_id = export.id
+
+        chunks = [
+            {
+                "user_ids": [self.admin.id],
+                "min_date": "2025-01-01",
+                "max_date": "2025-01-15",
+                "file_suffix": "",
+                "strategy": "single_or_consolidated",
+            }
+        ]
+        call = dict(
+            exporter_id=self.admin.id,
+            company_ids=[self.company.id],
+            chunks=chunks,
+            export_id=export_id,
+        )
+
+        async_export_excel(**call)
+        self.assertEqual(Export.query.count(), 1)
+        self.assertEqual(
+            Export.query.get(export_id).status, ExportStatus.READY
+        )
+
+        async_export_excel(**call)
+        self.assertEqual(Export.query.count(), 1)
 
     @patch("app.services.exports.async_export_excel.delay")
     def test_validation_matches_export_single_or_consolidated(

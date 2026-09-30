@@ -10,11 +10,10 @@ class AnonCompanyCertification(AnonymizedModel):
     creation_time = db.Column(db.DateTime, nullable=False)
     attribution_date = db.Column(db.Date, nullable=False)
     expiration_date = db.Column(db.Date, nullable=False)
-    be_active = db.Column(db.Boolean, nullable=False)
-    be_compliant = db.Column(db.Boolean, nullable=False)
-    not_too_many_changes = db.Column(db.Boolean, nullable=False)
-    validate_regularly = db.Column(db.Boolean, nullable=False)
-    log_in_real_time = db.Column(db.Boolean, nullable=False)
+    log_in_real_time = db.Column(db.Float, nullable=False)
+    admin_changes = db.Column(db.Float, nullable=False)
+    compliancy = db.Column(db.Integer, nullable=False)
+    certification_level_int = db.Column(db.Integer, nullable=False)
 
     @classmethod
     def anonymize(cls, cert):
@@ -34,9 +33,8 @@ class AnonCompanyCertification(AnonymizedModel):
         anonymized.expiration_date = cls.truncate_to_month(
             cert.expiration_date
         )
-        anonymized.be_active = cert.be_active
-        anonymized.be_compliant = cert.be_compliant
-        anonymized.not_too_many_changes = cert.not_too_many_changes
-        anonymized.validate_regularly = cert.validate_regularly
         anonymized.log_in_real_time = cert.log_in_real_time
+        anonymized.admin_changes = cert.admin_changes
+        anonymized.compliancy = cert.compliancy
+        anonymized.certification_level_int = cert.certification_level_int
         return anonymized

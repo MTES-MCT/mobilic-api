@@ -49,6 +49,7 @@ from app.helpers.authentication import (
 from app.helpers.authorization import (
     AuthorizationError,
     admin_only,
+    admin_or_bizdev,
     with_authorization_policy,
 )
 from app.helpers.errors import (
@@ -368,14 +369,12 @@ class ActivateEmail(graphene.Mutation):
             user.has_activated_email = True
 
             try:
-                if not is_user_related_to_onboarding_excluded_company(user):
-                    if (
-                        len(user.current_company_ids_with_admin_rights or [])
-                        > 0
-                    ):
-                        mailer.send_manager_onboarding_first_email(user)
-                    else:
-                        mailer.send_worker_onboarding_first_email(user)
+                if (
+                    not is_user_related_to_onboarding_excluded_company(user)
+                    and len(user.current_company_ids_with_admin_rights or [])
+                    > 0
+                ):
+                    mailer.send_manager_onboarding_first_email(user)
             except Exception as e:
                 app.logger.exception(e)
 
@@ -976,12 +975,14 @@ class WarningToDisableType(str, Enum):
     ADMIN_MISSION_MODIFICATION = "admin-mission-modification"
     EMPLOYEE_GEOLOCATION_INFORMATION = "employee-geolocation-information"
     EMPLOYEE_OFF_CREATION = "employee-off-creation"
+    PUSH_OPT_IN_DISMISSED = "push-opt-in-dismissed"
     __description__ = """
 Enumération des valeurs suivantes.
 - "employee-validation" : alerte relative au caractère bloquant de la validation par le salarié
-- "admin-mission-modification" : alerte relative à la visibilité des modifications de la mission par un gestionnaire 
-- "employee-geolocation-information" : Modale d'information sur la géolocalisation 
+- "admin-mission-modification" : alerte relative à la visibilité des modifications de la mission par un gestionnaire
+- "employee-geolocation-information" : Modale d'information sur la géolocalisation
 - "employee-off-creation" : alerte relative au caractère bloquant de la création d'une absence par le salarié
+- "push-opt-in-dismissed" : l'utilisateur a fermé le bandeau de souscription aux notifications
 """
 
 
@@ -1003,6 +1004,30 @@ class DisableWarning(AuthenticatedMutation):
                     *current_user.disabled_warnings,
                     warning_name,
                 ]
+
+        return Void(success=True)
+
+
+class ResetPushOptInBanner(AuthenticatedMutation):
+    """Réaffiche le bandeau de souscription aux notifications pour tous les utilisateurs."""
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(admin_or_bizdev)
+    def mutate(cls, _, info):
+        with atomic_transaction(commit_at_end=True):
+            warning = WarningToDisableType.PUSH_OPT_IN_DISMISSED.value
+            User.query.filter(
+                User.disabled_warnings.any(warning)
+            ).update(
+                {
+                    User.disabled_warnings: db.func.array_remove(
+                        User.disabled_warnings, warning
+                    )
+                },
+                synchronize_session=False,
+            )
 
         return Void(success=True)
 
@@ -1078,7 +1103,7 @@ class SetupTOTP(AuthenticatedMutation):
     Output = SetupTOTPOutput
 
     @classmethod
-    @with_authorization_policy(admin_only)
+    @with_authorization_policy(admin_or_bizdev)
     def mutate(cls, _, info):
         secret = generate_totp_secret()
         encrypted = encrypt_secret(secret)
@@ -1097,7 +1122,7 @@ class VerifyTOTP(AuthenticatedMutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(admin_only)
+    @with_authorization_policy(admin_or_bizdev)
     def mutate(cls, _, info, code):
         cred = current_user.totp_credential
         if not cred or not cred.secret:

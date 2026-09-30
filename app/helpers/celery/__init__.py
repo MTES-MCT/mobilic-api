@@ -9,19 +9,31 @@ from app.helpers.xls import generate_admin_export_file_from_chunks
 from app.models import User, Export, Company
 from app.models.export import ExportStatus, ExportType
 
-celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
-celery.conf.update(app.config)
+celery = Celery(
+    app.name,
+    broker=app.config["CELERY_BROKER_URL"],
+    include=[
+        "app.jobs.break_alert",
+        "app.jobs.notification_campaign",
+    ],
+)
+celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
+celery.conf.worker_eta_task_limit = 10000
+celery.conf.task_routes = {
+    "app.helpers.celery.async_export_excel": {"queue": "exports"},
+}
 
 DEFAULT_FILE_NAME = "rapport_activités"
 
 
-@celery.task()
+@celery.task(acks_late=True, soft_time_limit=1200, time_limit=1320)
 def async_export_excel(
     exporter_id,
     company_ids,
     chunks,
     file_name=DEFAULT_FILE_NAME,
     export_type=ExportType.EXCEL,
+    export_id=None,
 ):
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
@@ -32,18 +44,20 @@ def async_export_excel(
 
         exporter = User.query.get(exporter_id)
 
-        export = Export(
-            user=exporter,
-            export_type=export_type,
-            context={
-                "exporter_id": exporter_id,
-                "company_ids": company_ids,
-                "chunks": chunks,
-                "strategy": strategy,
-            },
-        )
-        db.session.add(export)
-        db.session.commit()
+        export = Export.query.get(export_id) if export_id else None
+        if export is None:
+            export = Export(
+                user=exporter,
+                export_type=export_type,
+                context={
+                    "exporter_id": exporter_id,
+                    "company_ids": company_ids,
+                    "chunks": chunks,
+                    "strategy": strategy,
+                },
+            )
+            db.session.add(export)
+            db.session.commit()
 
         try:
             start_time = time.perf_counter()

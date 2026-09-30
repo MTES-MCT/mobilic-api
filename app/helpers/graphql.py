@@ -3,11 +3,16 @@ from functools import partial
 
 from flask import request, g, Response
 from flask_graphql import GraphQLView
-from graphql import validate, execute
+from graphql import validate, execute, GraphQLError
 from graphql.backend.core import GraphQLCoreBackend, GraphQLDocument
 from graphql.execution import ExecutionResult
 from graphql.language import ast as gql_ast
-from graphql.language.ast import Field
+from graphql.language.ast import (
+    Field,
+    FragmentDefinition,
+    FragmentSpread,
+    InlineFragment,
+)
 from graphql.language.parser import parse
 from graphql.language.printer import print_ast
 from graphql.validation.rules import specified_rules
@@ -19,6 +24,9 @@ from sentry_sdk import configure_scope
 from app import app
 
 GRAPHQL_MAX_BATCH_SIZE = 10
+
+GRAPHQL_MAX_FIELDS = 2000
+GRAPHQL_MAX_DEPTH = 15
 
 # Above this threshold, skip the O(n²) OverlappingFieldsCanBeMerged
 # rule during validation. Other rules (O(n)) still catch invalid
@@ -41,10 +49,77 @@ def _count_fields(node):
     return count
 
 
+def _selection_set_depth(selection_set, fragments, seen):
+    depth = 0
+    for sel in selection_set.selections:
+        if isinstance(sel, Field):
+            child = (
+                _selection_set_depth(sel.selection_set, fragments, seen)
+                if sel.selection_set
+                else 0
+            )
+            depth = max(depth, 1 + child)
+        elif isinstance(sel, InlineFragment):
+            depth = max(
+                depth,
+                _selection_set_depth(sel.selection_set, fragments, seen),
+            )
+        elif isinstance(sel, FragmentSpread):
+            name = sel.name.value
+            if name in seen or name not in fragments:
+                continue
+            depth = max(
+                depth,
+                _selection_set_depth(
+                    fragments[name].selection_set, fragments, seen | {name}
+                ),
+            )
+    return depth
+
+
+def _query_depth(document_ast):
+    fragments = {
+        d.name.value: d
+        for d in document_ast.definitions
+        if isinstance(d, FragmentDefinition)
+    }
+    depth = 0
+    for defn in document_ast.definitions:
+        if not isinstance(defn, FragmentDefinition) and getattr(
+            defn, "selection_set", None
+        ):
+            depth = max(
+                depth,
+                _selection_set_depth(defn.selection_set, fragments, set()),
+            )
+    return depth
+
+
 def _safe_execute_and_validate(schema, document_ast, *args, **kwargs):
     do_validation = kwargs.pop("validate", True)
     if do_validation:
-        if _count_fields(document_ast) > _OVERLAP_CHECK_FIELD_THRESHOLD:
+        field_count = _count_fields(document_ast)
+        if field_count > GRAPHQL_MAX_FIELDS:
+            return ExecutionResult(
+                errors=[
+                    GraphQLError(
+                        "Query is too large: it contains more than"
+                        f" {GRAPHQL_MAX_FIELDS} fields."
+                    )
+                ],
+                invalid=True,
+            )
+        if _query_depth(document_ast) > GRAPHQL_MAX_DEPTH:
+            return ExecutionResult(
+                errors=[
+                    GraphQLError(
+                        "Query is too deep: it exceeds the maximum depth"
+                        f" of {GRAPHQL_MAX_DEPTH}."
+                    )
+                ],
+                invalid=True,
+            )
+        if field_count > _OVERLAP_CHECK_FIELD_THRESHOLD:
             rules = _SAFE_RULES
         else:
             rules = specified_rules

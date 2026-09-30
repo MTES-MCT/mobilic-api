@@ -1,16 +1,26 @@
-from app import db
+from app import app, db
 from sqlalchemy import or_, text
-from typing import Set, Tuple, Dict, List
+from typing import Iterator, Set, Tuple, Dict, List
 from datetime import datetime
 from app.services.anonymization.standalone.anonymization_executor import (
     AnonymizationExecutor,
 )
 from app.models import Mission, Employment, Company, User
 from app.models.user import UserAccountStatus
+from app.models.anonymized import IdMapping
 from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
 
 logger = logging.getLogger(__name__)
+
+MISSION_BATCH_SIZE = 5000
+USER_BATCH_SIZE = 1000
+
+
+def chunked(ids: Set[int], size: int) -> Iterator[Set[int]]:
+    ids_list = sorted(ids)
+    for i in range(0, len(ids_list), size):
+        yield set(ids_list[i : i + size])
 
 
 class DataFinder(AnonymizationExecutor):
@@ -20,94 +30,120 @@ class DataFinder(AnonymizationExecutor):
         """
         Find and anonymize standalone data that has been inactive since cutoff date.
 
-        This method identifies inactive data (companies, missions, employment and anonymized users) and calls
-        the executor methods to perform the actual anonymization.
+        Work is committed batch by batch: a killed run only loses the
+        current batch, keeps every previous one (mappings + anon copies)
+        and resumes where it stopped thanks to idempotent upserts. The
+        per-run mission cap bounds each run so the backlog is absorbed
+        over several nights.
 
         Args:
             cutoff_date: Date before which data should be anonymized
             test_mode: If True, changes will be rolled back at the end
         """
-        transaction = db.session.begin_nested()
-        try:
-            (
-                company_ids,
-                company_employment_ids,
-                company_mission_ids,
-            ) = self.find_inactive_companies_and_dependencies(cutoff_date)
+        (
+            company_ids,
+            company_employment_ids,
+            company_mission_ids,
+        ) = self.find_inactive_companies_and_dependencies(cutoff_date)
 
-            standalone_employment_ids = (
-                self.find_terminated_employments_before_cutoff(
-                    cutoff_date, company_ids
-                )
+        standalone_employment_ids = (
+            self.find_terminated_employments_before_cutoff(
+                cutoff_date, company_ids
             )
-            standalone_mission_ids = self.find_missions_before_cutoff(
-                cutoff_date
-            )
+        )
+        standalone_mission_ids = self.find_missions_before_cutoff(cutoff_date)
 
+        # The cap only slices standalone missions (independent from each
+        # other). Missions of an inactive company always travel with their
+        # company, otherwise deleting the company would violate the
+        # mission.company_id FK on deferred missions.
+        standalone_mission_ids, cap_reached = self.apply_mission_cap(
+            standalone_mission_ids
+        )
+
+        if cap_reached:
+            # A user is only safe to switch to a negative id once ALL its
+            # missions are deleted; while a backlog is being absorbed some
+            # of them are deferred, so the user phase waits.
+            logger.info("Mission cap reached: skipping user phase this run")
+            anonymized_user_ids = set()
+        else:
             anonymized_user_ids = self.find_anonymized_users(cutoff_date)
 
-            if self.dry_run:
-                all_mission_ids = set(company_mission_ids).union(
-                    standalone_mission_ids
-                )
-                all_employment_ids = set(company_employment_ids).union(
-                    standalone_employment_ids
-                )
-            if not self.dry_run:
-                if company_mission_ids:
-                    self.anonymize_mission_and_dependencies(
-                        company_mission_ids
-                    )
-                if company_employment_ids:
-                    self.anonymize_employment_and_dependencies(
-                        company_employment_ids
-                    )
+        all_mission_ids = set(company_mission_ids).union(
+            standalone_mission_ids
+        )
+        all_employment_ids = set(company_employment_ids).union(
+            standalone_employment_ids
+        )
 
-                all_mission_ids = set(standalone_mission_ids)
-                all_employment_ids = set(standalone_employment_ids)
+        if not any(
+            [
+                company_ids,
+                all_employment_ids,
+                all_mission_ids,
+                anonymized_user_ids,
+            ]
+        ):
+            logger.info("No standalone data to anonymize")
+            return
 
+        transaction = db.session.begin_nested() if test_mode else None
+        try:
             if anonymized_user_ids:
                 self.anonymize_user_dependencies(anonymized_user_ids)
-                db.session.flush()
+                self.end_batch(test_mode)
 
-            if all_mission_ids:
-                self.anonymize_mission_and_dependencies(all_mission_ids)
-                db.session.flush()
+            for mission_batch in chunked(all_mission_ids, MISSION_BATCH_SIZE):
+                self.anonymize_mission_and_dependencies(mission_batch)
+                self.end_batch(test_mode)
 
-            if all_employment_ids:
-                self.anonymize_employment_and_dependencies(all_employment_ids)
-                db.session.flush()
+            for employment_batch in chunked(
+                all_employment_ids, MISSION_BATCH_SIZE
+            ):
+                self.anonymize_employment_and_dependencies(employment_batch)
+                self.end_batch(test_mode)
 
             if company_ids:
-                self.anonymize_company_and_dependencies(company_ids)
-                db.session.flush()
-
-            if not any(
-                [
-                    company_ids,
-                    all_employment_ids,
-                    all_mission_ids,
-                    anonymized_user_ids,
-                ]
-            ):
-                logger.info("No standalone data to anonymize")
-                transaction.rollback()
-                return
+                self.anonymize_company_and_dependencies(set(company_ids))
+                self.end_batch(test_mode)
 
             if test_mode:
                 logger.info("Test mode: rolling back changes")
                 transaction.rollback()
                 db.session.rollback()
-            if not test_mode:
-                logger.info("Committing standalone data changes...")
-                transaction.commit()
-                db.session.commit()
+                IdMappingService.clear_cache()
 
         except Exception as e:
             logger.error(f"Error processing standalone data: {e}")
-            transaction.rollback()
+            if transaction is not None:
+                transaction.rollback()
             db.session.rollback()
+            IdMappingService.clear_cache()
             raise
+
+    def end_batch(self, test_mode: bool) -> None:
+        """Commit durable progress after each batch (releases the xmin
+        horizon so autovacuum can work); in test mode only flush so the
+        final rollback discards everything."""
+        if test_mode:
+            db.session.flush()
+        else:
+            db.session.commit()
+
+    def apply_mission_cap(
+        self, mission_ids: Set[int]
+    ) -> Tuple[Set[int], bool]:
+        cap = app.config["ANONYMIZATION_MAX_MISSIONS_PER_RUN"]
+        if len(mission_ids) <= cap:
+            return mission_ids, False
+
+        deferred = len(mission_ids) - cap
+        logger.info(
+            f"Applying per-run cap of {cap} missions: "
+            f"{deferred} missions deferred to a later run"
+        )
+        return set(sorted(mission_ids)[:cap]), True
 
     def delete_anonymized_data(
         self, cutoff_date: datetime, test_mode: bool = False
@@ -129,64 +165,66 @@ class DataFinder(AnonymizationExecutor):
         if test_mode:
             logger.info("Test mode - changes will be rolled back at the end")
 
-        transaction = db.session.begin_nested()
-        try:
-            mapped_missions = IdMappingService.get_deletion_target_ids(
-                "mission"
-            )
-            mapped_employments = IdMappingService.get_deletion_target_ids(
-                "employment"
-            )
-            mapped_companies = IdMappingService.get_deletion_target_ids(
-                "company"
-            )
-            mapped_users = IdMappingService.get_deletion_target_ids("user")
+        mapped_missions = IdMappingService.get_deletion_target_ids("mission")
+        mapped_employments = IdMappingService.get_deletion_target_ids(
+            "employment"
+        )
+        mapped_companies = IdMappingService.get_deletion_target_ids("company")
+        mapped_users = IdMappingService.get_deletion_target_ids("user")
 
-            self.log_mapped_data(
+        self.log_mapped_data(
+            mapped_missions,
+            mapped_employments,
+            mapped_companies,
+            mapped_users,
+            cutoff_date,
+        )
+
+        if not any(
+            [
                 mapped_missions,
                 mapped_employments,
                 mapped_companies,
                 mapped_users,
-                cutoff_date,
-            )
+            ]
+        ):
+            logger.info("No standalone data to delete")
+            return
 
-            if mapped_missions:
-                self.delete_mission_and_dependencies(mapped_missions)
+        transaction = db.session.begin_nested() if test_mode else None
+        try:
+            # missions -> employments -> companies -> users: user
+            # activities must be purged before the negative-id UPDATE
+            for mission_batch in chunked(mapped_missions, MISSION_BATCH_SIZE):
+                self.delete_mission_and_dependencies(mission_batch)
+                self.end_batch(test_mode)
 
-            if mapped_employments:
-                self.delete_employment_and_dependencies(mapped_employments)
+            for employment_batch in chunked(
+                mapped_employments, MISSION_BATCH_SIZE
+            ):
+                self.delete_employment_and_dependencies(employment_batch)
+                self.end_batch(test_mode)
 
             if mapped_companies:
                 self.delete_company_and_dependencies(mapped_companies)
+                self.end_batch(test_mode)
 
-            if mapped_users:
-                self.delete_user_dependencies(mapped_users)
-
-            if not any(
-                [
-                    mapped_missions,
-                    mapped_employments,
-                    mapped_companies,
-                    mapped_users,
-                ]
-            ):
-                logger.info("No standalone data to delete")
-                transaction.rollback()
-                return
+            for user_batch in chunked(mapped_users, USER_BATCH_SIZE):
+                self.delete_user_dependencies(user_batch)
+                self.end_batch(test_mode)
 
             if test_mode:
                 logger.info("Test mode: rolling back changes")
                 transaction.rollback()
                 db.session.rollback()
-            if not test_mode:
-                logger.info("Committing standalone data deletions...")
-                transaction.commit()
-                db.session.commit()
+                IdMappingService.clear_cache()
 
         except Exception as e:
             logger.error(f"Error deleting standalone data: {e}")
-            transaction.rollback()
+            if transaction is not None:
+                transaction.rollback()
             db.session.rollback()
+            IdMappingService.clear_cache()
             raise
 
     def log_mapped_data(
@@ -356,14 +394,25 @@ class DataFinder(AnonymizationExecutor):
         """
         Find missions that were created before the cutoff date.
 
+        Missions already marked as deletion targets are excluded: their
+        copies are committed (batch invariant), so a resumed run only
+        scans the remaining work and the per-run cap counts real work.
+
         Args:
             cutoff_date: Date before which missions should be considered
 
         Returns:
             Set of mission IDs that are expired and should be anonymized
         """
+        already_marked = db.session.query(IdMapping.original_id).filter(
+            IdMapping.entity_type == "mission",
+            IdMapping.deletion_target.is_(True),
+        )
         missions = (
-            Mission.query.filter(Mission.creation_time < cutoff_date)
+            Mission.query.filter(
+                Mission.creation_time < cutoff_date,
+                ~Mission.id.in_(already_marked),
+            )
             .with_entities(Mission.id)
             .all()
         )

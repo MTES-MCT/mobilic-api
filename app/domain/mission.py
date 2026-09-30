@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import desc
 
 from app import db
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.regulations_per_day import EXTRA_NOT_ENOUGH_BREAK
 from app.helpers.errors import (
     MissionAlreadyEndedError,
@@ -198,3 +199,5 @@ def end_mission_for_user(
             creation_time=creation_time,
         )
     )
+
+    invalidate_pending_validations_cache(mission.company_id)

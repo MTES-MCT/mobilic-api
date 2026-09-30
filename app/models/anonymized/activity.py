@@ -35,11 +35,8 @@ class AnonActivity(AnonymizedModel):
         anonymized.last_update_time = cls.truncate_to_month(
             activity.last_update_time
         )
-        # keep the difference for stats
-        if activity.end_time and activity.start_time:
-            time_diff = activity.end_time - activity.start_time
-            anonymized.end_time = anonymized.start_time + time_diff
-        else:
-            anonymized.end_time = None
+        anonymized.end_time = cls.bucket_end_time(
+            anonymized.start_time, activity.end_time
+        )
 
         return anonymized

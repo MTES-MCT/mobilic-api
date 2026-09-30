@@ -1,6 +1,14 @@
 from datetime import datetime, date, time, timezone, timedelta
+from unittest.mock import patch, MagicMock
 
 from app import db
+from app.domain.dashboard_summary import (
+    PENDING_VALIDATIONS_CACHE_TTL,
+    _count_pending_validations,
+    _pending_validations_cache_key,
+    invalidate_pending_validations_cache,
+)
+from app.domain.mission import end_mission_for_user
 from app.models import MissionEnd, MissionValidation
 from app.models.activity import ActivityType
 from app.models.employment import EmploymentRequestValidationStatus
@@ -115,8 +123,8 @@ class TestDashboardSummary(BaseTest):
         self.assertEqual(data["activeMissionsCount"], 0)
         self.assertEqual(data["pendingValidationsCount"], 0)
         self.assertEqual(data["pendingInvitationsCount"], 0)
-        # employee never active → not counted as recently inactive
-        self.assertEqual(data["inactiveEmployeesCount"], 0)
+        # employee never active and no activity today → counted as inactive
+        self.assertEqual(data["inactiveEmployeesCount"], 1)
         self.assertEqual(data["autoValidatedMissionsCount"], 0)
         self.assertFalse(data["hasAnyMissionThisWeek"])
 
@@ -164,6 +172,13 @@ class TestDashboardSummary(BaseTest):
         )
         employment.last_active_at = self.now - timedelta(days=days_ago)
         db.session.commit()
+
+    def test_inactive_employee_never_active_counted(self):
+        """last_active_at is None (never used Mobilic) and no Activity
+        today → counted as inactive."""
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["inactiveEmployeesCount"], 1)
 
     def test_inactive_employee_active_recently(self):
         """Active in last 30 days but not today → counted as inactive."""
@@ -368,3 +383,56 @@ class TestDashboardSummary(BaseTest):
         response = self._query(user=other_user)
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.json.get("errors"))
+
+
+class TestPendingValidationsCache(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+
+    @patch("app.domain.dashboard_summary.get_redis_client")
+    def test_cache_hit_returns_cached_value(self, mock_redis_factory):
+        mock_redis_factory.return_value = MagicMock(get=lambda k: b"42")
+        self.assertEqual(_count_pending_validations(self.company.id), 42)
+
+    @patch("app.domain.dashboard_summary.get_redis_client")
+    def test_cache_miss_computes_and_stores(self, mock_redis_factory):
+        store = {}
+        mock_redis_factory.return_value = MagicMock(
+            get=lambda k: None,
+            setex=lambda k, t, v: store.__setitem__(k, (t, v)),
+        )
+        result = _count_pending_validations(self.company.id)
+        key = _pending_validations_cache_key(self.company.id)
+        self.assertIn(key, store)
+        self.assertEqual(store[key], (PENDING_VALIDATIONS_CACHE_TTL, result))
+
+    @patch("app.domain.dashboard_summary.get_redis_client")
+    def test_redis_down_falls_back_to_sql(self, mock_redis_factory):
+        mock_redis_factory.side_effect = Exception("Redis connection failed")
+        # empty company → 0, must not raise
+        self.assertEqual(_count_pending_validations(self.company.id), 0)
+
+    @patch("app.domain.dashboard_summary.get_redis_client")
+    def test_invalidation_deletes_cache_key(self, mock_redis_factory):
+        deleted = []
+        mock_redis_factory.return_value = MagicMock(
+            delete=lambda k: deleted.append(k),
+        )
+        invalidate_pending_validations_cache(self.company.id)
+        self.assertEqual(
+            deleted, [_pending_validations_cache_key(self.company.id)]
+        )
+
+    @patch("app.domain.mission.invalidate_pending_validations_cache")
+    def test_end_mission_invalidates_cache(self, mock_invalidate):
+        user = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=False
+        )
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=user.id,
+            reception_time=datetime.now(),
+        )
+        end_mission_for_user(user=user, mission=mission)
+        mock_invalidate.assert_called_once_with(self.company.id)

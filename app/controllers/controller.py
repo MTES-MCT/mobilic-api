@@ -12,6 +12,7 @@ from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
+from app.controllers.company import find_business
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
@@ -57,7 +58,6 @@ from app.helpers.tachograph import (
 from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
-from app.models.business import Business, BusinessType
 from app.models.controller_control import (
     ControllerControl,
     ControlType,
@@ -206,9 +206,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
     ):
         business_id = None
         if business_type is not None:
-            business = Business.query.filter(
-                Business.business_type == BusinessType[business_type].value
-            ).one_or_none()
+            business = find_business(business_type, transport_type)
             if not business:
                 raise InvalidParamsError(
                     f"Cannot save control: business type {business_type} not found"

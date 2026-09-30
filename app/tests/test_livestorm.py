@@ -68,7 +68,7 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    @patch("app.controllers.misc._get_redis_client")
+    @patch("app.controllers.misc.get_redis_client")
     def test_webinars_endpoint_reads_from_cache(
         self, mock_redis_factory, mock
     ):
@@ -83,7 +83,7 @@ class TestLiveStormWebinars(BaseTest):
         # the endpoint must never call Livestorm, it only reads the cache
         mock.assert_not_called()
 
-    @patch("app.controllers.misc._get_redis_client")
+    @patch("app.controllers.misc.get_redis_client")
     def test_webinars_endpoint_returns_empty_when_cache_cold(
         self, mock_redis_factory
     ):
@@ -98,7 +98,7 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    @patch("app.controllers.misc._get_redis_client")
+    @patch("app.controllers.misc.get_redis_client")
     def test_refresh_webinars_cache_writes_livestorm_data(
         self, mock_redis_factory, mock
     ):
@@ -121,7 +121,7 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    @patch("app.controllers.misc._get_redis_client")
+    @patch("app.controllers.misc.get_redis_client")
     def test_refresh_webinars_cache_writes_fallback_on_rate_limit(
         self, mock_redis_factory, mock
     ):
@@ -156,7 +156,7 @@ class TestLiveStormWebinars(BaseTest):
     @patch(
         "app.helpers.livestorm.LivestormAPIClient._request_page_and_get_results_and_page_count"
     )
-    @patch("app.controllers.misc._get_redis_client")
+    @patch("app.controllers.misc.get_redis_client")
     def test_webinars_endpoint_returns_empty_when_redis_unavailable(
         self, mock_redis_factory, mock
     ):

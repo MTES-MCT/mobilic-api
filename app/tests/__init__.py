@@ -44,6 +44,15 @@ class BaseTest(TestCase):
             for table in reversed(db.metadata.sorted_tables)
         ]
         db.engine.execute("TRUNCATE {} CASCADE;".format(", ".join(all_tables)))
+        # the anonymization caches reference mappings that the TRUNCATE
+        # above just deleted: reset them between tests
+        from app.models.anonymized import AnonymizedModel
+        from app.services.anonymization.id_mapping_service import (
+            IdMappingService,
+        )
+
+        IdMappingService.clear_cache()
+        AnonymizedModel.clear_primed_records()
 
 
 def test_post_graphql(

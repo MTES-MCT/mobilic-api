@@ -39,7 +39,8 @@ class NoSirenAPICredentialsError(MobilicError):
 
 
 SIREN_API_SIREN_INFO_ENDPOINT = "https://api.insee.fr/api-sirene/3.11/siret"
-SIREN_API_PAGE_SIZE = 100
+SIREN_API_PAGE_SIZE = 1000
+SIREN_API_MAX_PAGES = 30
 
 
 ADDRESS_STREET_TYPE_TO_LABEL = {
@@ -133,18 +134,24 @@ class SirenAPIClient:
             "No API key could be found for SIREN API"
         )
 
-    def _request_siren_info(self, siren):
+    def _request_siren_info_page(self, siren, cursor):
         # Documentation API SIRENE v3.11 :
         # - API Portal: https://api-apimanager.insee.fr/portal/environments/DEFAULT/apis/2ba0e549-5587-3ef1-9082-99cd865de66f/pages/6548510e-c3e1-3099-be96-6edf02870699/content
         # - Variables: https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm
         # - Features: https://www.sirene.fr/static-resources/documentation/sommaire_311.html
         siren_response = requests.get(
-            f"{SIREN_API_SIREN_INFO_ENDPOINT}?q=siren:{siren}&nombre={SIREN_API_PAGE_SIZE}&date={date.today()}",
+            SIREN_API_SIREN_INFO_ENDPOINT,
+            params={
+                "q": f"siren:{siren}",
+                "nombre": SIREN_API_PAGE_SIZE,
+                "date": date.today(),
+                "curseur": cursor,
+            },
             headers={"X-INSEE-Api-Key-Integration": self.api_key},
             timeout=10,
         )
         if siren_response.status_code == 200:
-            return siren_response
+            return siren_response.json()
         if siren_response.status_code == 404:
             raise InaccessibleSirenError(
                 f"SIREN {siren} was not found : {siren_response.json()}"
@@ -152,6 +159,24 @@ class SirenAPIClient:
         raise UnavailableSirenAPIError(
             f"Request to get info of SIREN {siren} failed : {siren_response.json()}"
         )
+
+    def _request_siren_info(self, siren):
+        # Cursor pagination (API Sirene v3.11) : some legal units have more
+        # facilities than the page size (e.g. SIREN 391029345, 115 facilities).
+        # Iterate until curseurSuivant equals the cursor we sent, which marks
+        # the last page. Documentation :
+        # https://www.sirene.fr/static-resources/documentation/multi_pagination_curseur_311.html
+        cursor = "*"
+        facilities = []
+        for _ in range(SIREN_API_MAX_PAGES):
+            page = self._request_siren_info_page(siren, cursor)
+            facilities.extend(page["etablissements"])
+            next_cursor = page["header"].get("curseurSuivant")
+            if not next_cursor or next_cursor == cursor:
+                break
+            cursor = next_cursor
+        page["etablissements"] = facilities
+        return page
 
     @staticmethod
     def _format_address_number_repetition(address_repetition_number):
@@ -308,8 +333,8 @@ class SirenAPIClient:
         return legal_unit, open_facilities
 
     def get_siren_info(self, siren):
-        siren_response = self._request_siren_info(siren)
-        return self._raw_siren_info_with_clean_addresses(siren_response.json())
+        siren_info = self._request_siren_info(siren)
+        return self._raw_siren_info_with_clean_addresses(siren_info)
 
     def has_company_ceased_activity(self, siren):
         from app import app

@@ -6,6 +6,7 @@ from app.models import (
     Mission,
     MissionEnd,
     MissionValidation,
+    MissionAutoValidation,
     LocationEntry,
     Expenditure,
     Comment,
@@ -30,6 +31,10 @@ from app.helpers.oauth.models import (
     ThirdPartyClientEmployment,
     ThirdPartyClientCompany,
 )
+from app.models.notification import Notification
+from app.models.export import Export
+from app.models.scenario_testing import ScenarioTesting
+from app.models.totp_credential import TotpCredential
 from app.models.user import UserAccountStatus
 from app.models.team_association_tables import (
     team_vehicle_association_table,
@@ -38,12 +43,6 @@ from app.models.team_association_tables import (
 )
 from app.helpers.oauth import OAuth2Token, OAuth2AuthorizationCode
 from app.models.anonymized import (
-    AnonActivity,
-    AnonActivityVersion,
-    AnonMission,
-    AnonMissionEnd,
-    AnonMissionValidation,
-    AnonLocationEntry,
     AnonEmployment,
     AnonEmail,
     AnonCompany,
@@ -65,6 +64,68 @@ import logging
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
+
+# Human-readable entity labels reused across the anonymize/log/delete calls
+LABEL_ACTIVITY_VERSION = "activity version"
+LABEL_MISSION_END = "mission end"
+LABEL_MISSION_VALIDATION = "mission validation"
+LABEL_LOCATION_ENTRY = "location entry"
+
+# Single source for the columns of the set-based INSERT...SELECT queries
+# below. Adding a column to an anon_* model requires updating the matching
+# tuple here AND the SELECT expressions (kept in the same order) of the
+# corresponding query. test_anonymization_set_based fails on any drift
+# between these tuples and the ORM models.
+ANON_TABLE_COLUMNS = {
+    "anon_activity": (
+        "id",
+        "type",
+        "user_id",
+        "submitter_id",
+        "mission_id",
+        "creation_time",
+        "start_time",
+        "end_time",
+        "last_update_time",
+    ),
+    "anon_activity_version": (
+        "id",
+        "creation_time",
+        "activity_id",
+        "start_time",
+        "end_time",
+        "version_number",
+        "submitter_id",
+    ),
+    "anon_mission_end": (
+        "id",
+        "creation_time",
+        "mission_id",
+        "user_id",
+        "submitter_id",
+    ),
+    "anon_mission_validation": (
+        "id",
+        "creation_time",
+        "mission_id",
+        "submitter_id",
+        "user_id",
+    ),
+    "anon_location_entry": (
+        "id",
+        "submitter_id",
+        "type",
+        "creation_time",
+        "mission_id",
+        "address_id",
+        "company_known_address_id",
+    ),
+    "anon_mission": ("id", "creation_time", "submitter_id", "company_id"),
+}
+
+
+def anon_insert_clause(table: str) -> str:
+    return f"INSERT INTO {table} ({', '.join(ANON_TABLE_COLUMNS[table])})"
 
 
 class AnonymizationExecutor:
@@ -119,6 +180,23 @@ class AnonymizationExecutor:
                 f"{action} {count} {entity_type}{'s' if count > 1 else ''}{' ' + context if context else ''}"
             )
 
+    def count_rows(self, count_sql: str, mission_ids: Set[int]) -> int:
+        return self.db.execute(
+            text(count_sql), {"mids": list(mission_ids)}
+        ).scalar()
+
+    def log_copy_reconciliation(
+        self, entity_type: str, source_count: int, inserted_count: int
+    ) -> None:
+        skipped = source_count - inserted_count
+        if skipped > 0:
+            logger.warning(
+                f"{skipped}/{source_count} {entity_type} source rows were "
+                "not copied to the anonymized table (missing id mapping, "
+                "NULL FK on a strict JOIN, or already copied by a "
+                "previous run)"
+            )
+
     def anonymize_mission_and_dependencies(self, mission_ids: Set[int]):
         """
         Anonymize missions and their dependencies.
@@ -131,8 +209,8 @@ class AnonymizationExecutor:
         if not mission_ids:
             return
 
-        for mission_id in mission_ids:
-            IdMappingService.mark_for_deletion("mission", mission_id)
+        IdMappingService.mark_all_for_deletion("mission", mission_ids)
+        IdMappingService.seed_mission_subtree_mappings(mission_ids)
 
         self.anonymize_activities(mission_ids)
         self.anonymize_mission_ends(mission_ids)
@@ -152,6 +230,7 @@ class AnonymizationExecutor:
         self.delete_activities(mission_ids)
         self.delete_mission_ends(mission_ids)
         self.delete_mission_validations(mission_ids)
+        self.delete_mission_auto_validations(mission_ids)
         self.delete_location_entries(mission_ids)
         self.delete_missions(mission_ids)
 
@@ -159,33 +238,61 @@ class AnonymizationExecutor:
         if not mission_ids:
             return
 
-        activities = Activity.query.filter(
-            Activity.mission_id.in_(mission_ids)
-        ).all()
+        self.anonymize_activity_versions(mission_ids)
 
-        if not activities:
-            return
-
-        activity_ids = {a.id for a in activities}
-        self.anonymize_activity_versions(activity_ids)
-
-        self.log_anonymization(len(activities), "activity")
-        for activity in activities:
-            anonymized = AnonActivity.anonymize(activity)
-            self.db.add(anonymized)
+        source_count = self.count_rows(
+            "SELECT count(*) FROM activity WHERE mission_id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_activity")}
+                SELECT ma.anonymized_id, a.type, mu.anonymized_id,
+                       ms.anonymized_id, mm.anonymized_id,
+                       date_trunc('month', a.creation_time),
+                       date_trunc('month', a.start_time),
+                       CASE WHEN a.end_time IS NOT NULL THEN
+                           date_trunc('month', a.start_time)
+                           + make_interval(secs =>
+                               GREATEST(1, round(
+                                   extract(epoch FROM (a.end_time - a.start_time)) / 1800.0
+                               )::int) * 1800
+                           )
+                       END,
+                       date_trunc('month', a.last_update_time)
+                FROM activity a
+                JOIN temp_id_mapping ma ON ma.entity_type = 'activity'
+                    AND ma.original_id = a.id
+                JOIN temp_id_mapping mm ON mm.entity_type = 'mission'
+                    AND mm.original_id = a.mission_id
+                JOIN temp_id_mapping mu ON mu.entity_type = 'user'
+                    AND mu.original_id = a.user_id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = a.submitter_id
+                WHERE a.mission_id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, "activity")
+        self.log_copy_reconciliation("activity", source_count, result.rowcount)
 
     def delete_activities(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
             return
 
-        activities = Activity.query.filter(
-            Activity.mission_id.in_(mission_ids)
-        ).all()
+        activity_ids = {
+            row[0]
+            for row in Activity.query.filter(
+                Activity.mission_id.in_(mission_ids)
+            ).with_entities(Activity.id)
+        }
 
-        if not activities:
+        if not activity_ids:
             return
 
-        activity_ids = {a.id for a in activities}
         self.delete_activity_versions(activity_ids)
 
         deleted = Activity.query.filter(Activity.id.in_(activity_ids)).delete(
@@ -193,21 +300,52 @@ class AnonymizationExecutor:
         )
         self.log_deletion(deleted, "activity")
 
-    def anonymize_activity_versions(self, activity_ids: Set[int]) -> None:
-        if not activity_ids:
+    def anonymize_activity_versions(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
             return
 
-        activity_versions = ActivityVersion.query.filter(
-            ActivityVersion.activity_id.in_(activity_ids)
-        ).all()
-
-        self.log_anonymization(len(activity_versions), "activity version")
-        if not activity_versions:
-            return
-
-        for version in activity_versions:
-            anonymized = AnonActivityVersion.anonymize(version)
-            self.db.add(anonymized)
+        source_count = self.count_rows(
+            "SELECT count(*) FROM activity_version av "
+            "JOIN activity a ON a.id = av.activity_id "
+            "WHERE a.mission_id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_activity_version")}
+                SELECT mav.anonymized_id,
+                       date_trunc('month', av.creation_time),
+                       ma.anonymized_id,
+                       date_trunc('month', av.start_time),
+                       CASE WHEN av.end_time IS NOT NULL THEN
+                           date_trunc('month', av.start_time)
+                           + make_interval(secs =>
+                               GREATEST(1, round(
+                                   extract(epoch FROM (av.end_time - av.start_time)) / 1800.0
+                               )::int) * 1800
+                           )
+                       END,
+                       av.version_number, ms.anonymized_id
+                FROM activity_version av
+                JOIN activity a ON a.id = av.activity_id
+                JOIN temp_id_mapping mav
+                    ON mav.entity_type = 'activity_version'
+                    AND mav.original_id = av.id
+                JOIN temp_id_mapping ma ON ma.entity_type = 'activity'
+                    AND ma.original_id = av.activity_id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = av.submitter_id
+                WHERE a.mission_id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, LABEL_ACTIVITY_VERSION)
+        self.log_copy_reconciliation(
+            LABEL_ACTIVITY_VERSION, source_count, result.rowcount
+        )
 
     def delete_activity_versions(self, activity_ids: Set[int]) -> None:
         if not activity_ids:
@@ -217,23 +355,44 @@ class AnonymizationExecutor:
             ActivityVersion.activity_id.in_(activity_ids)
         ).delete(synchronize_session=False)
 
-        self.log_deletion(deleted, "activity version")
+        self.log_deletion(deleted, LABEL_ACTIVITY_VERSION)
 
     def anonymize_mission_ends(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
             return
 
-        mission_ends = MissionEnd.query.filter(
-            MissionEnd.mission_id.in_(mission_ids)
-        ).all()
+        self.warn_skipped_null_submitters("mission_end", mission_ids)
 
-        self.log_anonymization(len(mission_ends), "mission end")
-        if not mission_ends:
-            return
-
-        for mission_end in mission_ends:
-            anonymized = AnonMissionEnd.anonymize(mission_end)
-            self.db.add(anonymized)
+        source_count = self.count_rows(
+            "SELECT count(*) FROM mission_end WHERE mission_id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_mission_end")}
+                SELECT mme.anonymized_id,
+                       date_trunc('month', me.creation_time),
+                       mm.anonymized_id, mu.anonymized_id, ms.anonymized_id
+                FROM mission_end me
+                JOIN temp_id_mapping mme ON mme.entity_type = 'mission_end'
+                    AND mme.original_id = me.id
+                JOIN temp_id_mapping mm ON mm.entity_type = 'mission'
+                    AND mm.original_id = me.mission_id
+                JOIN temp_id_mapping mu ON mu.entity_type = 'user'
+                    AND mu.original_id = me.user_id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = me.submitter_id
+                WHERE me.mission_id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, LABEL_MISSION_END)
+        self.log_copy_reconciliation(
+            LABEL_MISSION_END, source_count, result.rowcount
+        )
 
     def delete_mission_ends(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -243,23 +402,46 @@ class AnonymizationExecutor:
             MissionEnd.mission_id.in_(mission_ids)
         ).delete(synchronize_session=False)
 
-        self.log_deletion(deleted, "mission end")
+        self.log_deletion(deleted, LABEL_MISSION_END)
 
     def anonymize_mission_validations(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
             return
 
-        validations = MissionValidation.query.filter(
-            MissionValidation.mission_id.in_(mission_ids)
-        ).all()
+        self.warn_skipped_null_submitters("mission_validation", mission_ids)
 
-        self.log_anonymization(len(validations), "mission validation")
-        if not validations:
-            return
-
-        for validation in validations:
-            anonymized = AnonMissionValidation.anonymize(validation)
-            self.db.add(anonymized)
+        source_count = self.count_rows(
+            "SELECT count(*) FROM mission_validation "
+            "WHERE mission_id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_mission_validation")}
+                SELECT mmv.anonymized_id,
+                       date_trunc('month', v.creation_time),
+                       mm.anonymized_id, ms.anonymized_id, mu.anonymized_id
+                FROM mission_validation v
+                JOIN temp_id_mapping mmv
+                    ON mmv.entity_type = 'mission_validation'
+                    AND mmv.original_id = v.id
+                JOIN temp_id_mapping mm ON mm.entity_type = 'mission'
+                    AND mm.original_id = v.mission_id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = v.submitter_id
+                LEFT JOIN temp_id_mapping mu ON mu.entity_type = 'user'
+                    AND mu.original_id = v.user_id
+                WHERE v.mission_id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, LABEL_MISSION_VALIDATION)
+        self.log_copy_reconciliation(
+            LABEL_MISSION_VALIDATION, source_count, result.rowcount
+        )
 
     def delete_mission_validations(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -269,23 +451,58 @@ class AnonymizationExecutor:
             MissionValidation.mission_id.in_(mission_ids)
         ).delete(synchronize_session=False)
 
-        self.log_deletion(deleted, "mission validation")
+        self.log_deletion(deleted, LABEL_MISSION_VALIDATION)
+
+    def delete_mission_auto_validations(self, mission_ids: Set[int]) -> None:
+        if not mission_ids:
+            return
+
+        deleted = MissionAutoValidation.query.filter(
+            MissionAutoValidation.mission_id.in_(mission_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "mission auto validation")
 
     def anonymize_location_entries(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
             return
 
-        entries = LocationEntry.query.filter(
-            LocationEntry.mission_id.in_(mission_ids)
-        ).all()
-
-        self.log_anonymization(len(entries), "location entry")
-        if not entries:
-            return
-
-        for entry in entries:
-            anonymized = AnonLocationEntry.anonymize(entry)
-            self.db.add(anonymized)
+        source_count = self.count_rows(
+            "SELECT count(*) FROM location_entry "
+            "WHERE mission_id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_location_entry")}
+                SELECT mle.anonymized_id, ms.anonymized_id, le.type,
+                       date_trunc('month', le.creation_time),
+                       mm.anonymized_id, mad.anonymized_id,
+                       mcka.anonymized_id
+                FROM location_entry le
+                JOIN temp_id_mapping mle
+                    ON mle.entity_type = 'location_entry'
+                    AND mle.original_id = le.id
+                JOIN temp_id_mapping mm ON mm.entity_type = 'mission'
+                    AND mm.original_id = le.mission_id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = le.submitter_id
+                JOIN temp_id_mapping mad ON mad.entity_type = 'address'
+                    AND mad.original_id = le.address_id
+                LEFT JOIN temp_id_mapping mcka
+                    ON mcka.entity_type = 'company_known_address'
+                    AND mcka.original_id = le.company_known_address_id
+                WHERE le.mission_id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, LABEL_LOCATION_ENTRY)
+        self.log_copy_reconciliation(
+            LABEL_LOCATION_ENTRY, source_count, result.rowcount
+        )
 
     def delete_location_entries(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -295,7 +512,7 @@ class AnonymizationExecutor:
             LocationEntry.mission_id.in_(mission_ids)
         ).delete(synchronize_session=False)
 
-        self.log_deletion(deleted, "location entry")
+        self.log_deletion(deleted, LABEL_LOCATION_ENTRY)
 
     def delete_expenditures(
         self, mission_ids: Set[int] = None, user_ids: Set[int] = None
@@ -336,15 +553,54 @@ class AnonymizationExecutor:
         if not mission_ids:
             return
 
-        missions = Mission.query.filter(Mission.id.in_(mission_ids)).all()
+        source_count = self.count_rows(
+            "SELECT count(*) FROM mission WHERE id = ANY(:mids)",
+            mission_ids,
+        )
+        result = self.db.execute(
+            text(
+                f"""
+                {anon_insert_clause("anon_mission")}
+                SELECT mm.anonymized_id,
+                       date_trunc('month', m.creation_time),
+                       ms.anonymized_id, mc.anonymized_id
+                FROM mission m
+                JOIN temp_id_mapping mm ON mm.entity_type = 'mission'
+                    AND mm.original_id = m.id
+                JOIN temp_id_mapping ms ON ms.entity_type = 'user'
+                    AND ms.original_id = m.submitter_id
+                JOIN temp_id_mapping mc ON mc.entity_type = 'company'
+                    AND mc.original_id = m.company_id
+                WHERE m.id = ANY(:mids)
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {"mids": list(mission_ids)},
+        )
+        self.log_anonymization(result.rowcount, "mission")
+        self.log_copy_reconciliation("mission", source_count, result.rowcount)
 
-        self.log_anonymization(len(missions), "mission")
-        if not missions:
-            return
-
-        for mission in missions:
-            anonymized = AnonMission.anonymize(mission)
-            self.db.add(anonymized)
+    def warn_skipped_null_submitters(
+        self, table: str, mission_ids: Set[int]
+    ) -> None:
+        """Count source rows whose NULL submitter cannot fit the NOT NULL
+        anon column: the strict JOIN of the set-based copy skips them."""
+        if table not in ("mission_end", "mission_validation"):
+            raise ValueError(
+                f"Unexpected table for null-submitter check: {table}"
+            )
+        skipped = self.db.execute(
+            text(
+                f"SELECT count(*) FROM {table} "
+                "WHERE mission_id = ANY(:mids) AND submitter_id IS NULL"
+            ),
+            {"mids": list(mission_ids)},
+        ).scalar()
+        if skipped:
+            logger.warning(
+                f"{skipped} {table} rows have a NULL submitter and were "
+                "not copied to the anonymized table"
+            )
 
     def delete_missions(self, mission_ids: Set[int]) -> None:
         if not mission_ids:
@@ -370,8 +626,7 @@ class AnonymizationExecutor:
         if not employment_ids:
             return
 
-        for employment_id in employment_ids:
-            IdMappingService.mark_for_deletion("employment", employment_id)
+        IdMappingService.mark_all_for_deletion("employment", employment_ids)
 
         self.anonymize_emails(employment_ids=employment_ids)
         self.anonymize_employments(employment_ids)
@@ -427,6 +682,14 @@ class AnonymizationExecutor:
         if not emails:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "email", {e.id for e in emails}
+        )
+        IdMappingService.prefetch_mappings("user", {e.user_id for e in emails})
+        IdMappingService.prefetch_mappings(
+            "employment", {e.employment_id for e in emails}
+        )
+        AnonEmail.prime_existing_records(mappings.values())
         for email in emails:
             anonymized = AnonEmail.anonymize(email)
             self.db.add(anonymized)
@@ -464,6 +727,24 @@ class AnonymizationExecutor:
         if not employments:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "employment", {e.id for e in employments}
+        )
+        IdMappingService.prefetch_mappings(
+            "company", {e.company_id for e in employments}
+        )
+        IdMappingService.prefetch_mappings(
+            "user",
+            {e.user_id for e in employments}
+            | {e.submitter_id for e in employments},
+        )
+        IdMappingService.prefetch_mappings(
+            "team", {e.team_id for e in employments}
+        )
+        IdMappingService.prefetch_mappings(
+            "business", {e.business_id for e in employments}
+        )
+        AnonEmployment.prime_existing_records(mappings.values())
         for employment in employments:
             anonymized = AnonEmployment.anonymize(employment)
             self.db.add(anonymized)
@@ -492,8 +773,7 @@ class AnonymizationExecutor:
         if not company_ids:
             return
 
-        for company_id in company_ids:
-            IdMappingService.mark_for_deletion("company", company_id)
+        IdMappingService.mark_all_for_deletion("company", company_ids)
 
         self.anonymize_company_team_and_dependencies(company_ids)
         self.anonymize_company_certifications(company_ids)
@@ -659,8 +939,7 @@ class AnonymizationExecutor:
 
         logger.info(f"Anonymizing dependencies for {len(user_ids)} users")
 
-        for user_id in user_ids:
-            IdMappingService.mark_for_deletion("user", user_id)
+        IdMappingService.mark_all_for_deletion("user", user_ids)
 
         self.anonymize_user_employments(user_ids)
         self.anonymize_emails(user_ids=user_ids)
@@ -694,6 +973,10 @@ class AnonymizationExecutor:
         self.delete_user_refresh_tokens(user_ids)
         self.delete_user_read_tokens(user_ids)
         self.delete_user_survey_actions(user_ids)
+        self.delete_user_notifications(user_ids)
+        self.delete_user_exports(user_ids)
+        self.delete_user_scenario_testings(user_ids)
+        self.delete_user_totp_credentials(user_ids)
         self.delete_team_admin_users(user_ids=user_ids)
         self.delete_controller_controls(user_ids=user_ids)
         self.delete_emails(user_ids=user_ids)
@@ -777,6 +1060,49 @@ class AnonymizationExecutor:
 
         self.log_deletion(deleted, "user survey actions")
 
+    def delete_user_notifications(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = Notification.query.filter(
+            Notification.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "notification")
+
+    def delete_user_exports(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = Export.query.filter(Export.user_id.in_(user_ids)).delete(
+            synchronize_session=False
+        )
+
+        self.log_deletion(deleted, "export")
+
+    def delete_user_scenario_testings(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        deleted = ScenarioTesting.query.filter(
+            ScenarioTesting.user_id.in_(user_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "scenario testing")
+
+    def delete_user_totp_credentials(self, user_ids: Set[int]) -> None:
+        if not user_ids:
+            return
+
+        # totp_credential is polymorphic (owner_type + owner_id, no FK);
+        # only user-owned rows are relevant to user anonymization.
+        deleted = TotpCredential.query.filter(
+            TotpCredential.owner_type == "user",
+            TotpCredential.owner_id.in_(user_ids),
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "totp credential")
+
     def anonymize_regulatory_alerts(self, user_ids: Set[int]) -> None:
         if not user_ids:
             return
@@ -789,6 +1115,11 @@ class AnonymizationExecutor:
         if not alerts:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "regulatory_alert", {a.id for a in alerts}
+        )
+        IdMappingService.prefetch_mappings("user", {a.user_id for a in alerts})
+        AnonRegulatoryAlert.prime_existing_records(mappings.values())
         for alert in alerts:
             anonymized = AnonRegulatoryAlert.anonymize(alert)
             self.db.add(anonymized)
@@ -815,6 +1146,13 @@ class AnonymizationExecutor:
         if not computations:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "regulation_computation", {c.id for c in computations}
+        )
+        IdMappingService.prefetch_mappings(
+            "user", {c.user_id for c in computations}
+        )
+        AnonRegulationComputation.prime_existing_records(mappings.values())
         for computation in computations:
             anonymized = AnonRegulationComputation.anonymize(computation)
             self.db.add(anonymized)
@@ -841,6 +1179,13 @@ class AnonymizationExecutor:
         if not agreements:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "user_agreement", {a.id for a in agreements}
+        )
+        IdMappingService.prefetch_mappings(
+            "user", {a.user_id for a in agreements}
+        )
+        AnonUserAgreement.prime_existing_records(mappings.values())
         for agreement in agreements:
             anonymized = AnonUserAgreement.anonymize(agreement)
             self.db.add(anonymized)
@@ -925,6 +1270,7 @@ class AnonymizationExecutor:
         if not user_ids:
             return
 
+        IdMappingService.prefetch_mappings("user", user_ids)
         for user_id in user_ids:
             negative_id = IdMappingService.get_user_negative_id(user_id)
 
@@ -1126,8 +1472,7 @@ class AnonymizationExecutor:
         if not controller_ids:
             return
 
-        for controller_id in controller_ids:
-            IdMappingService.mark_for_deletion("controller", controller_id)
+        IdMappingService.mark_all_for_deletion("controller", controller_ids)
 
         self.anonymize_controller_controls(controller_ids=controller_ids)
         self.anonymize_controller_user(controller_ids)
@@ -1170,6 +1515,16 @@ class AnonymizationExecutor:
         if not controls:
             return
 
+        mappings = IdMappingService.prefetch_mappings(
+            "controller_control", {c.id for c in controls}
+        )
+        # controller_id is mapped through the "user" entity type
+        IdMappingService.prefetch_mappings(
+            "user",
+            {c.controller_id for c in controls}
+            | {c.user_id for c in controls},
+        )
+        AnonControllerControl.prime_existing_records(mappings.values())
         for control in controls:
             anonymized = AnonControllerControl.anonymize(control)
             self.db.add(anonymized)

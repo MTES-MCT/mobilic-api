@@ -30,12 +30,8 @@ class AnonActivityVersion(AnonymizedModel):
         anonymized.version_number = version.version_number
         anonymized.creation_time = cls.truncate_to_month(version.creation_time)
         anonymized.start_time = cls.truncate_to_month(version.start_time)
-        # keep the difference for stats
-        if version.end_time and version.start_time:
-            start_time_anon = cls.truncate_to_month(version.start_time)
-            time_diff = version.end_time - version.start_time
-            anonymized.end_time = start_time_anon + time_diff
-        else:
-            anonymized.end_time = None
+        anonymized.end_time = cls.bucket_end_time(
+            anonymized.start_time, version.end_time
+        )
 
         return anonymized

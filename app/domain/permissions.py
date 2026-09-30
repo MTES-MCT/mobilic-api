@@ -142,6 +142,55 @@ def self_or_have_common_company(actor, user_obj_or_id):
     )
 
 
+def _controller_has_control_over_user(actor, user):
+    return (
+        ControllerControl.query.filter(
+            ControllerControl.controller_id == actor.id,
+            ControllerControl.user_id == user.id,
+        ).first()
+        is not None
+    )
+
+
+def self_or_have_common_acknowledged_company(actor, user_obj_or_id):
+    user = user_obj_or_id
+    if type(user_obj_or_id) is int:
+        user = User.query.get(user_obj_or_id)
+    if not user:
+        return False
+    if not actor:
+        company_ids = g.get("api_key_company_ids") or set()
+        return any(
+            e.company_id in company_ids
+            for e in user.employments
+            if e.is_not_rejected and not e.is_dismissed
+        )
+    if controller_only(actor):
+        return _controller_has_control_over_user(actor, user)
+    if actor.id == user.id:
+        return True
+    current_actor_companies = [
+        e.company for e in actor.active_employments_at(date.today())
+    ]
+    user_acknowledged_companies = [
+        e.company for e in user.employments if e.is_acknowledged
+    ]
+    return bool(
+        set(current_actor_companies) & set(user_acknowledged_companies)
+    )
+
+
+def self_or_controller_with_control(actor, user_obj_or_id):
+    user = user_obj_or_id
+    if type(user_obj_or_id) is int:
+        user = User.query.get(user_obj_or_id)
+    if not user:
+        return False
+    if controller_only(actor):
+        return _controller_has_control_over_user(actor, user)
+    return actor.id == user.id
+
+
 def only_self(actor, user_obj_or_id):
     user = user_obj_or_id
     if type(user_obj_or_id) is int:

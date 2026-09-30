@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from flask_jwt_extended import decode_token
 from freezegun import freeze_time
 from time import sleep
 
@@ -145,6 +146,8 @@ class TestAuthentication(BaseTest):
             ]
             self.assertEqual(new_access_response_data["userId"], self.user.id)
 
+            # Replay within the reuse grace period : reissues the successor
+            # tokens instead of failing (lost response, concurrent tabs)
             reuse_refresh_token_response = test_post_graphql(
                 self.refresh_query,
                 headers=[
@@ -154,11 +157,52 @@ class TestAuthentication(BaseTest):
                     )
                 ],
             )
-            self.assertIsNotNone(
-                reuse_refresh_token_response.json.get("errors")
+            self.assertIsNone(reuse_refresh_token_response.json.get("errors"))
+            replayed_data = reuse_refresh_token_response.json["data"]["auth"][
+                "refresh"
+            ]
+            self.assertEqual(
+                decode_token(replayed_data["refreshToken"])["identity"][
+                    "token"
+                ],
+                decode_token(refresh_response_data["refreshToken"])[
+                    "identity"
+                ]["token"],
             )
+
+        # Replay beyond the grace period : reuse detection revokes the
+        # whole descendant chain
+        with freeze_time(
+            base_time
+            + timedelta(minutes=15)
+            + app.config["ACCESS_TOKEN_EXPIRATION"]
+        ):
+            late_reuse_response = test_post_graphql(
+                self.refresh_query,
+                headers=[
+                    (
+                        "Authorization",
+                        f"Bearer {login_response_data['refreshToken']}",
+                    )
+                ],
+            )
+            self.assertIsNotNone(late_reuse_response.json.get("errors"))
             self.assertIsNone(
-                reuse_refresh_token_response.json["data"]["auth"]["refresh"]
+                late_reuse_response.json["data"]["auth"]["refresh"]
+            )
+
+            revoked_successor_response = test_post_graphql(
+                self.refresh_query,
+                headers=[
+                    (
+                        "Authorization",
+                        f"Bearer {refresh_response_data['refreshToken']}",
+                    )
+                ],
+            )
+            self.assertIsNotNone(revoked_successor_response.json.get("errors"))
+            self.assertIsNone(
+                revoked_successor_response.json["data"]["auth"]["refresh"]
             )
 
     def test_access_fails_on_bad_token(self):

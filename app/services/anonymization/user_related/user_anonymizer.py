@@ -1,11 +1,13 @@
 from app import db
 from typing import Set
+from sqlalchemy import func, or_
 from app.services.anonymization.standalone import AnonymizationExecutor
 from app.services.anonymization.id_mapping_service import IdMappingService
 import logging
 from app.models import User
+from app.models.employment import Employment
 from app.models.user import UserAccountStatus
-from datetime import datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 import re
 
@@ -96,15 +98,16 @@ class UserAnonymizer(AnonymizationExecutor):
         # Authorize only uppercase with underscore to ensure comptability with const WAY_HEARD_OF_MOBILIC_CHOICES in web/common/WayHeardOfMobilic.js
         pattern = r"^[A-Z]+(_[A-Z]+)+$|^[A-Z]+_[A-Z]+$"
 
+        IdMappingService.prefetch_mappings("user", {u.id for u in users})
         for user in users:
             IdMappingService.get_user_negative_id(user.id)
 
             if self.dry_run:
                 continue
 
-            date_only = user.creation_time.date()
+            month_start = user.creation_time.date().replace(day=1)
             user.creation_time = datetime.combine(
-                date_only, time(0, 0, 0)
+                month_start, time(0, 0, 0)
             ).replace(tzinfo=timezone.utc)
             user.email = f"anon_{user.id}@anonymous.aa"
             user.first_name = "Anonymized"
@@ -125,3 +128,29 @@ class UserAnonymizer(AnonymizationExecutor):
             user.status = UserAccountStatus.ANONYMIZED
 
             db.session.add(user)
+
+        if not self.dry_run:
+            self.detach_active_employments(user_ids)
+
+    def detach_active_employments(self, user_ids: Set[int]) -> None:
+        """
+        End the active employments of anonymized users so they no longer
+        appear in their companies' employee lists.
+
+        end_date is set to yesterday (an employment is still active when
+        end_date >= today), clamped to start_date to keep dates coherent.
+        """
+        yesterday = date.today() - timedelta(days=1)
+        detached_count = Employment.query.filter(
+            Employment.user_id.in_(user_ids),
+            or_(
+                Employment.end_date.is_(None),
+                Employment.end_date > yesterday,
+            ),
+        ).update(
+            {"end_date": func.greatest(Employment.start_date, yesterday)},
+            synchronize_session=False,
+        )
+        logger.info(
+            f"Detached {detached_count} active employments of anonymized users"
+        )

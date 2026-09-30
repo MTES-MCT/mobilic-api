@@ -1,5 +1,23 @@
 from app import db
 from .base import AnonymizedModel
+from .regulatory_alert import _scrub_extra_datetimes
+
+
+def _scrub_observed_infractions(infractions):
+    if not isinstance(infractions, list):
+        return infractions
+    scrubbed = []
+    for infraction in infractions:
+        if not isinstance(infraction, dict):
+            scrubbed.append(infraction)
+            continue
+        cleaned = dict(infraction)
+        if isinstance(cleaned.get("date"), str) and len(cleaned["date"]) >= 7:
+            cleaned["date"] = f"{cleaned['date'][:7]}-01"
+        if "extra" in cleaned:
+            cleaned["extra"] = _scrub_extra_datetimes(cleaned["extra"])
+        scrubbed.append(cleaned)
+    return scrubbed
 
 
 class AnonControllerControl(AnonymizedModel):
@@ -8,7 +26,7 @@ class AnonControllerControl(AnonymizedModel):
     id = db.Column(db.Integer, primary_key=True)
     controller_id = db.Column(db.Integer, nullable=False)
     control_type = db.Column(db.String(50), nullable=False)
-    user_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, nullable=True)
     qr_code_generation_time = db.Column(db.DateTime, nullable=True)
     creation_time = db.Column(db.DateTime, nullable=False)
     control_bulletin_creation_time = db.Column(db.DateTime, nullable=True)
@@ -59,7 +77,9 @@ class AnonControllerControl(AnonymizedModel):
             )
         else:
             control.control_bulletin_first_download_time = None
-        anonymized.observed_infractions = control.observed_infractions
+        anonymized.observed_infractions = _scrub_observed_infractions(
+            control.observed_infractions
+        )
         if control.reported_infractions_last_update_time:
             anon_creation_time = cls.truncate_to_month(
                 control.control_bulletin_creation_time

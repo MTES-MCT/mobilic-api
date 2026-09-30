@@ -9,7 +9,8 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
-from app.seed import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory, EmploymentFactory
+from app.models.employment import EmploymentRequestValidationStatus
 
 
 class TestEmployment(BaseTest):
@@ -227,6 +228,60 @@ class TestEmployment(BaseTest):
                 self.worker_employment_id,
             ],
         )
+    def create_pending_invite_to_existing_user(
+        self, invite_email, account_email
+    ):
+        invitee = UserFactory.create(email=account_email)
+        employment = EmploymentFactory.create(
+            company=self.company,
+            user=invitee,
+            submitter=self.user_primary_admin,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+            email=invite_email,
+            has_admin_rights=False,
+        )
+        return invitee, employment
+
+    def test_pending_invite_to_existing_user_does_not_break_admin_query(self):
+        _, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.user_primary_admin.id,
+            query=ApiRequests.admined_companies_employments,
+            unexposed_query=False,
+            variables={"id": self.user_primary_admin.id},
+        )
+
+        self.assertIsNone(response.get("errors"))
+        pending = [
+            e
+            for e in response["data"]["user"]["adminedCompanies"][0][
+                "employments"
+            ]
+            if e["id"] == employment_id
+        ][0]
+        self.assertIsNone(pending["user"]["email"])
+
+    def test_employment_email_does_not_leak_account_email_of_pending_invite(
+        self,
+    ):
+        invitee, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+        account_email = invitee.email
+
+        employments = self.get_admined_employments(self.user_primary_admin.id)
+        pending = [e for e in employments if e["id"] == employment_id][0]
+
+        self.assertEqual(pending["email"], "pending.invite@example.test")
+        self.assertNotEqual(pending["email"], account_email)
 
 
 class TestReattachEmployment(BaseTest):
@@ -506,11 +561,23 @@ class TestEmploymentStatusProperties(BaseTest):
         self.employment = self.user_worker.employments[0]
 
     def test_active_employment_status(self):
-        """An approved employment with no end_date should be ACTIVE."""
+        """An approved employment with no end_date and recent activity should be ACTIVE."""
+        self.employment.last_active_at = datetime.now()
+        db.session.commit()
+
         self.assertTrue(self.employment.is_active)
         self.assertFalse(self.employment.is_terminated)
         self.assertFalse(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_never_active_is_inactive(self):
+        """An employment that never had any activity (last_active_at is
+        None) should be considered INACTIVE, not ACTIVE."""
+        self.assertIsNone(self.employment.last_active_at)
+
+        self.assertTrue(self.employment.is_active)
+        self.assertTrue(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "INACTIVE")
 
     def test_terminated_employment_status(self):
         """An employment with end_date in the past should be TERMINATED."""
@@ -586,6 +653,7 @@ class TestEmploymentStatusProperties(BaseTest):
         from datetime import date
 
         self.employment.end_date = date.today()
+        self.employment.last_active_at = datetime.now()
         db.session.commit()
 
         self.assertTrue(self.employment.is_active)

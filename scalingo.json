@@ -20,9 +20,6 @@
     "HMAC_SIGNING_KEY": {
       "generator": "secret"
     },
-    "TOTP_ENCRYPTION_KEY": {
-      "generator": "secret"
-    },
     "DISABLE_EMAIL": {
       "value": "1"
     },
@@ -46,7 +43,7 @@
     "worker": { "amount": 1, "size": "S" }
   },
   "scripts": {
-    "first-deploy": "flask db upgrade && flask seed"
+    "first-deploy": "flask db upgrade && flask seed_review_app"
   },
   "stack": "scalingo-24"
 }

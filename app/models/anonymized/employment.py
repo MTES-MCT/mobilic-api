@@ -12,7 +12,6 @@ class AnonEmployment(AnonymizedModel):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=True)
     company_id = db.Column(db.Integer, nullable=False)
-    has_admin_rights = db.Column(db.Boolean, nullable=True)
     user_id = db.Column(db.Integer, nullable=True)
     submitter_id = db.Column(db.Integer, nullable=False)
     team_id = db.Column(db.Integer, nullable=True)
@@ -48,6 +47,5 @@ class AnonEmployment(AnonymizedModel):
         anonymized.validation_status = employment.validation_status
         anonymized.start_date = cls.truncate_to_month(employment.start_date)
         anonymized.end_date = cls.truncate_to_month(employment.end_date)
-        anonymized.has_admin_rights = employment.has_admin_rights
 
         return anonymized

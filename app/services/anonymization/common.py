@@ -12,6 +12,7 @@ from typing import Set
 from abc import ABC, abstractmethod
 from app import app, db
 from app.models.anonymized import IdMapping
+from app.services.anonymization.id_mapping_service import IdMappingService
 
 logger = logging.getLogger(__name__)
 
@@ -119,11 +120,13 @@ class AnonymizationManager:
         )
 
         if should_clean_initial and not self.force_clean:
-            logger.error(
-                f"There are {mapping_count} existing mappings in IdMapping table. "
-                f"Use --force-clean to proceed and clean existing mappings."
+            # leftover mappings from an interrupted batched run: resuming
+            # with them is safe (idempotent upserts)
+            logger.info(
+                f"Found {mapping_count} existing mappings in IdMapping "
+                f"table: resuming with them. Use --force-clean to reset."
             )
-            return False
+            return True
 
         if should_clean_initial and self.force_clean:
             logger.info(
@@ -143,11 +146,19 @@ class AnonymizationManager:
         Args:
             should_preserve_mappings: Whether to preserve mappings for future operations
         """
-        if (
-            self.dry_run
-            and not should_preserve_mappings
-            and not self.test_mode
-        ):
+        # A test run rolls back its own writes: any mapping still in the
+        # table belongs to a previous real run (resume state). Deleting
+        # them would make the next run re-copy the same entities under
+        # new ids, duplicating rows in the anon tables.
+        if self.test_mode:
+            mapping_count = IdMapping.query.count()
+            logger.info(
+                f"Test mode complete: preserving {mapping_count} mappings "
+                f"in IdMapping table."
+            )
+            return
+
+        if self.dry_run and not should_preserve_mappings:
             mapping_count = IdMapping.query.count()
             logger.info(
                 f"Dry run complete: preserving {mapping_count} mappings in IdMapping table. "
@@ -155,60 +166,25 @@ class AnonymizationManager:
             )
             return
 
-        if should_preserve_mappings and self.test_mode:
-            mapping_count = IdMapping.query.count()
+        if not self.dry_run and not should_preserve_mappings:
             logger.info(
-                f"Test mode complete: preserving {mapping_count} mappings in IdMapping table "
-                f"for future test runs."
+                f"{self.operation_type.capitalize()} operation complete: "
+                f"cleaning IdMapping table"
             )
-            return
-
-        if self.test_mode or (
-            not self.dry_run and not should_preserve_mappings
-        ):
-            clean_reason = self.get_clean_reason()
-            logger.info(f"{clean_reason}: cleaning IdMapping table")
             self.clean_id_mapping()
 
-    def get_clean_reason(self) -> str:
-        """
-        Get the reason for cleaning the mapping table.
-
-        Returns:
-            str: The reason for cleaning
-        """
-        if self.test_mode:
-            return "Test mode"
-
-        if not self.dry_run:
-            return f"{self.operation_type.capitalize()} operation complete"
-
-        return "Cleanup"
-
-    def handle_exception(
-        self, exception: Exception, preserve_mappings: bool = False
-    ) -> None:
+    def handle_exception(self, exception: Exception) -> None:
         """
         Handle exceptions during the anonymization process.
 
+        Mappings are always preserved on error: they are the resume state
+        of the batched pipeline.
+
         Args:
             exception: The exception that occurred
-            preserve_mappings: Whether to preserve mappings on error
         """
-        if self.test_mode and not preserve_mappings:
-            logger.info(
-                "Error occurred during test mode: cleaning IdMapping table"
-            )
-            self.clean_id_mapping()
-
-        if self.test_mode and preserve_mappings:
-            logger.info(
-                "Error occurred during test mode: preserving IdMapping table for future test runs"
-            )
-
-        if not self.test_mode:
-            logger.warning("Error occurred but IdMapping table is preserved")
-
+        IdMappingService.clear_cache()
+        logger.warning("Error occurred but IdMapping table is preserved")
         logger.error(f"Error details: {str(exception)}")
 
     @staticmethod
@@ -216,6 +192,7 @@ class AnonymizationManager:
         """
         Clean the temporary ID mapping table by deleting all entries.
         """
+        IdMappingService.clear_cache()
         try:
             IdMapping.query.delete()
             db.session.commit()

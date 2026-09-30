@@ -90,6 +90,13 @@ class AuthorizationError(MobilicError):
     http_status_code = 403
 
 
+class ClientSuspendedError(MobilicError):
+    code = "CLIENT_SUSPENDED"
+    http_status_code = 403
+    default_should_alert_team = False
+    default_message = "Client account is suspended"
+
+
 class SiretAlreadySignedUpError(MobilicError):
     code = "SIRET_ALREADY_SIGNED_UP"
     default_should_alert_team = False
