@@ -2,17 +2,29 @@
 Test suite for IDOR (Insecure Direct Object Reference) vulnerabilities
 """
 
+import os
+import subprocess
+import sys
 from datetime import date, datetime, timedelta
+from unittest import TestCase, expectedFailure
 
 from flask.ctx import AppContext
 
+import config
 from app import app, db
 from app.domain.log_activities import log_activity
 from app.helpers.errors import AuthorizationError
 from app.helpers.submitter_type import SubmitterType
-from app.models import Mission, RegulationComputation
+from app.models import (
+    Employment,
+    Mission,
+    RegulationComputation,
+    ScenarioTesting,
+    Team,
+)
 from app.models.activity import ActivityType, Activity
-from app.seed import UserFactory, CompanyFactory
+from app.seed import ControllerUserFactory, UserFactory, CompanyFactory
+from app.seed.factories import ControllerControlFactory
 from app.tests import BaseTest, AuthenticatedUserContext, test_post_graphql
 from app.tests.helpers import make_authenticated_request, ApiRequests
 
@@ -512,4 +524,199 @@ class TestIDOREmployment(BaseTest):
         self.assertEqual(
             AuthorizationError.code,
             response["errors"][0]["extensions"]["code"],
+        )
+
+
+REPO_ROOT = os.path.dirname(config.__file__)
+
+ADD_SCENARIO_TESTING_RESULT = """
+    mutation ($userId: Int!, $scenario: ScenarioEnum!, $action: ActionEnum!) {
+        addScenarioTestingResult(userId: $userId, scenario: $scenario, action: $action) {
+            success
+        }
+    }
+"""
+
+
+class TestScenarioTestingIdor(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.attacker = UserFactory.create(post__company=self.company)
+        self.victim = UserFactory.create(post__company=self.company)
+
+    @expectedFailure
+    def test_cannot_add_scenario_testing_result_for_another_user(self):
+        """AE1 [High] IDOR addScenarioTestingResult: A must not write a result owned by B."""
+        make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.attacker.id,
+            query=ADD_SCENARIO_TESTING_RESULT,
+            variables={
+                "user_id": self.victim.id,
+                "scenario": "Certificate banner",
+                "action": "Load",
+            },
+            unexposed_query=True,
+        )
+        self.assertEqual(
+            ScenarioTesting.query.filter_by(user_id=self.victim.id).count(),
+            0,
+            "An authenticated user was able to create a ScenarioTesting "
+            "record attributed to another user (IDOR)",
+        )
+
+
+class TestOW4MissionControlExportIDOR(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.controller = ControllerUserFactory.create()
+        self.controlled_user = UserFactory.create()
+        self.control = ControllerControlFactory.create(
+            user_id=self.controlled_user.id,
+            controller_id=self.controller.id,
+        )
+
+        self.other_company = CompanyFactory.create()
+        self.other_worker = UserFactory.create(
+            post__company=self.other_company
+        )
+
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+        now = datetime.now()
+        with AuthenticatedUserContext(user=self.other_worker):
+            self.foreign_mission = Mission.create(
+                submitter=self.other_worker,
+                company=self.other_company,
+                reception_time=now,
+            )
+            log_activity(
+                submitter=self.other_worker,
+                user=self.other_worker,
+                mission=self.foreign_mission,
+                type=ActivityType.WORK,
+                switch_mode=False,
+                reception_time=now,
+                start_time=now - timedelta(hours=2),
+                end_time=now - timedelta(hours=1),
+            )
+        db.session.commit()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    @expectedFailure
+    def test_mission_must_belong_to_control(self):
+        """mission_id never checked against control_id."""
+        with app.test_client(
+            mock_authentication_with_user=self.controller
+        ) as client, app.app_context():
+            response = client.post(
+                "/users/generate_mission_control_export",
+                json={
+                    "mission_id": self.foreign_mission.id,
+                    "control_id": self.control.id,
+                },
+            )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+            "A controller obtained a PDF for a mission outside their control",
+        )
+
+
+class TestOW7BindEmploymentToTeamCrossTenant(BaseTest):
+    change_employee_team_by_employment = """
+        mutation changeEmployeeTeam(
+            $companyId: Int!
+            $employmentId: Int
+            $teamId: Int
+        ) {
+            employments {
+                changeEmployeeTeam(
+                    companyId: $companyId
+                    employmentId: $employmentId
+                    teamId: $teamId
+                ) {
+                    id
+                }
+            }
+        }
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.company_a = CompanyFactory.create()
+        self.admin_a = UserFactory.create(
+            post__company=self.company_a, post__has_admin_rights=True
+        )
+
+        self.company_b = CompanyFactory.create()
+        self.worker_b = UserFactory.create(post__company=self.company_b)
+        self.employment_b = self.worker_b.employments[0]
+        self.original_team_id = self.employment_b.team_id
+
+        self._app_context = AppContext(app)
+        self._app_context.__enter__()
+
+        self.team_a = Team(name="Team A", company_id=self.company_a.id)
+        db.session.add(self.team_a)
+        db.session.commit()
+
+    def tearDown(self):
+        self._app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    @expectedFailure
+    def test_admin_cannot_bind_foreign_employment(self):
+        """_bind_employment_to_team ignores company_id."""
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_a.id,
+            query=self.change_employee_team_by_employment,
+            variables=dict(
+                companyId=self.company_a.id,
+                employmentId=self.employment_b.id,
+                teamId=self.team_a.id,
+            ),
+        )
+
+        employment_b = Employment.query.get(self.employment_b.id)
+        self.assertEqual(
+            employment_b.team_id,
+            self.original_team_id,
+            "An admin reassigned an employment belonging to another company",
+        )
+        self.assertIn("errors", response)
+
+
+class TestOW11HashIdSecretDefault(TestCase):
+    @expectedFailure
+    def test_no_weak_hash_id_secret_fallback(self):
+        """HASH_ID_SECRET defaults to 'secret' (config.py:111)."""
+        env = dict(os.environ)
+        env.pop("HASH_ID_SECRET", None)
+        env.pop("DOTENV_FILE", None)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import config; print(repr(config.Config.HASH_ID_SECRET))",
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn(
+            "'secret'",
+            result.stdout,
+            "HASH_ID_SECRET falls back to the guessable value 'secret'",
         )

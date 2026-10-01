@@ -1,9 +1,11 @@
+from unittest import expectedFailure
 from unittest.mock import patch
 import jwt
 import re
 from urllib.parse import unquote, quote
-from app.tests import BaseTest
-from app import app
+from app.seed import UserFactory
+from app.tests import BaseTest, test_post_graphql_unexposed
+from app import app, graphql_private_api_path
 from config import (
     DevConfig,
     StagingConfig,
@@ -225,3 +227,123 @@ class TestFranceConnect(BaseTest):
 
         self.assertGreater(exp_time, current_time)
         self.assertLessEqual(exp_time - current_time, 600)
+
+
+FRANCE_CONNECT_LOGIN_MUTATION = """
+    mutation ($code: String!, $state: String!, $uri: String!) {
+        auth {
+            franceConnectLogin(
+                authorizationCode: $code
+                state: $state
+                originalRedirectUri: $uri
+            ) {
+                accessToken
+                refreshToken
+            }
+        }
+    }
+"""
+
+
+class TestFranceConnectStateBinding(BaseTest):
+    def _mint_state_from_public_authorize_endpoint(self):
+        with patch(
+            "app.controllers.user.get_fc_config", return_value=FC_V2_CONFIG
+        ), patch(
+            "app.controllers.user._validate_fc_authorize_url",
+            return_value=True,
+        ):
+            with app.test_client() as attacker_client:
+                response = attacker_client.get(
+                    "/fc/authorize?redirect_uri=https://mobilic.beta.gouv.fr/fc-callback"
+                )
+        location = response.headers["Location"]
+        state_match = re.search(r"state=([^&]+)", location)
+        self.assertIsNotNone(state_match)
+        return unquote(state_match.group(1))
+
+    @patch("app.controllers.user.get_user_from_fc_info")
+    @patch("app.controllers.user.get_fc_user_info")
+    def test_replayed_state_without_originating_context_is_rejected(
+        self, mock_fc_user_info, mock_get_user
+    ):
+        """FranceConnect state csrf field is never bound to the emitting request."""
+        state = self._mint_state_from_public_authorize_endpoint()
+
+        attacker_account = UserFactory.create(password="password123!")
+        mock_fc_user_info.return_value = (
+            {"sub": "attacker-fc-sub"},
+            "fake-fc-id-token",
+        )
+        mock_get_user.return_value = attacker_account
+
+        response = test_post_graphql_unexposed(
+            FRANCE_CONNECT_LOGIN_MUTATION,
+            variables=dict(
+                code="attacker-authorization-code",
+                state=state,
+                uri="https://mobilic.beta.gouv.fr/fc-callback",
+            ),
+        )
+
+        self.assertIsNotNone(
+            response.json.get("errors"),
+            "A state minted by a third party and replayed in a browser "
+            "that never initiated /fc/authorize must be rejected "
+            "(login CSRF protection)",
+        )
+        self.assertIsNone(response.json["data"]["auth"]["franceConnectLogin"])
+        set_cookies = ";".join(response.headers.getlist("Set-Cookie"))
+        self.assertNotIn("at=", set_cookies)
+        self.assertNotIn("userId=", set_cookies)
+
+
+class TestFranceConnectLoginStateValidation(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.user = UserFactory.create(
+            password="0rigPass!word", france_connect_id="fc-sub-af3"
+        )
+
+    @patch("app.controllers.user.get_fc_user_info")
+    def test_invalid_state_signature_rejects_login(self, mock_fc_user_info):
+        """a state with an invalid signature must abort the FranceConnect login flow."""
+        mock_fc_user_info.return_value = ({"sub": "fc-sub-af3"}, "fc-token")
+        forged_state = jwt.encode(
+            {"csrf": "attacker", "create": False},
+            "attacker-secret",
+            algorithm="HS256",
+        )
+        query = """
+            mutation ($authorizationCode: String!, $state: String!, $originalRedirectUri: String!) {
+                auth {
+                    franceConnectLogin(
+                        authorizationCode: $authorizationCode
+                        state: $state
+                        originalRedirectUri: $originalRedirectUri
+                    ) {
+                        accessToken
+                        refreshToken
+                    }
+                }
+            }
+        """
+
+        with app.test_client() as client:
+            client.set_cookie(
+                domain="localhost", key="fcState", value="attacker"
+            )
+            response = client.post(
+                graphql_private_api_path,
+                json=dict(
+                    query=query,
+                    variables=dict(
+                        authorizationCode="fake-code",
+                        state=forged_state,
+                        originalRedirectUri="https://localhost/fc-callback",
+                    ),
+                ),
+            )
+
+        self.assertIsNotNone(response.json.get("errors"))
+        mock_fc_user_info.assert_not_called()
