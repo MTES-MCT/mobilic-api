@@ -20,10 +20,14 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         control_id = graphene.String(
             required=True, description="Identifiant du contrôle"
         )
-        admin_emails = graphene.List(
+        emails = graphene.List(
             Email,
             required=False,
             description="Adresses email personnalisées pour les contrôles NoLic",
+        )
+        for_admin = graphene.Boolean(
+            required=False,
+            description="Indique si le bulletin doit être envoyé aux gestionnaires de l'entreprise plutôt qu'au salarié contrôlé",
         )
 
     success = graphene.Boolean()
@@ -34,7 +38,7 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         can_access_control_bulletin,
         get_target_from_args=lambda *args, **kwargs: kwargs["control_id"],
     )
-    def mutate(cls, _, info, control_id, admin_emails=None):
+    def mutate(cls, _, info, control_id, emails=None, for_admin=True):
         if not isinstance(current_user, ControllerUser):
             raise InvalidParamsError(
                 "Seuls les contrôleurs peuvent envoyer des bulletins de contrôle"
@@ -47,13 +51,14 @@ class SendControlBulletinEmail(AuthenticatedMutation):
         except Exception:
             raise InvalidParamsError(f"Control {control_id} not found")
 
-        if admin_emails:
-            admin_emails_list = admin_emails
-        else:
-            admin_emails_list = []
-            target_company = None
+        target_company = None
 
-        if not admin_emails and control.user:
+        if emails:
+            emails_list = emails
+        else:
+            emails_list = []
+
+        if not emails and control.user:
             employments = control.user.active_employments_at(
                 date_=control.history_end_date
             )
@@ -103,18 +108,31 @@ class SendControlBulletinEmail(AuthenticatedMutation):
                 if not target_company and len(employments) == 1:
                     target_company = employments[0].company
 
-        if not admin_emails and target_company:
-            admins = target_company.get_admins(
-                start=control.history_end_date, end=control.history_end_date
-            )
-            for admin in admins:
-                if admin.email:
-                    admin_emails_list.append(admin.email)
+        if for_admin:
+            if not emails and target_company:
+                admins = target_company.get_admins(
+                    start=control.history_end_date,
+                    end=control.history_end_date,
+                )
+                for admin in admins:
+                    if admin.email:
+                        emails_list.append(admin.email)
 
-        if not admin_emails_list or len(admin_emails_list) == 0:
-            raise InvalidParamsError(
-                f"Aucune adresse email de gestionnaire trouvée pour l'entreprise concernée par ce contrôle (SIREN: {control.control_bulletin.get('siren') if control.control_bulletin else 'N/A'})"
-            )
+            if not emails_list or len(emails_list) == 0:
+                raise InvalidParamsError(
+                    f"Aucune adresse email de gestionnaire trouvée pour l'entreprise concernée par ce contrôle (SIREN: {control.control_bulletin.get('siren') if control.control_bulletin else 'N/A'})"
+                )
+        else:
+            if not emails:
+                emails_list = (
+                    [control.user.email]
+                    if control.user and control.user.email
+                    else []
+                )
+            if not emails_list or len(emails_list) == 0:
+                raise InvalidParamsError(
+                    f"Aucune adresse email pour le salarié contrôlé"
+                )
 
         control_location = ""
         if control.control_bulletin:
@@ -183,17 +201,23 @@ class SendControlBulletinEmail(AuthenticatedMutation):
                 )
 
             nb_emails_sent = mailer.send_control_bulletin_email(
-                admin_emails_list,
+                emails_list,
                 control_data,
                 bulletin_content=pdf_content,
                 bulletin_filename=pdf_filename,
+                for_admin=for_admin,
             )
 
-            app.logger.info(
-                f"Control bulletin {control_id} sent to {nb_emails_sent} admin(s) of company {company_name or 'Unknown'}"
-            )
-
-            control.sent_to_admin = True
+            if for_admin:
+                app.logger.info(
+                    f"Control bulletin {control_id} sent to {nb_emails_sent} admin(s) of company {company_name or 'Unknown'}"
+                )
+                control.sent_to_admin = True
+            else:
+                app.logger.info(
+                    f"Control bulletin {control_id} sent to {nb_emails_sent} employee of company {company_name or 'Unknown'}"
+                )
+                control.sent_to_driver = True
             db.session.commit()
 
             return SendControlBulletinEmail(
