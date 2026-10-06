@@ -15,7 +15,7 @@ from app.helpers.errors import (
 
 ADMIN_THRESHOLD_DAYS = 2
 EMPLOYEE_THRESHOLD_DAYS = 1
-AUTO_VALIDATION_BATCH_SIZE = 400
+AUTO_VALIDATION_BATCH_SIZE = 2000
 
 
 def _get_threshold_time(now, days_to_remove):
