@@ -47,8 +47,9 @@ from app.helpers.graphene_types import (
     TimeStamp,
     ShortMonth,
 )
-from app.helpers.pagination import to_connection
+from app.helpers.pagination import to_connection, _opacify_cursor_string
 from app.helpers.time import to_datetime
+from graphene import PageInfo
 from app.models import (
     Company,
     User,
@@ -127,15 +128,9 @@ def compute_weekly_thresholds(business):
     work_vars = resolve_variables(work_check.variables, business)
     rest_vars = resolve_variables(rest_check.variables, business)
     return WeeklyThresholdsOutput(
-        max_work_in_hours=work_vars.get(
-            "MAXIMUM_WEEKLY_WORK_IN_HOURS", 48
-        ),
-        min_rest_in_hours=rest_vars.get(
-            "MINIMUM_WEEKLY_BREAK_IN_HOURS", 34
-        ),
-        max_worked_days=rest_vars.get(
-            "MAXIMUM_DAY_WORKED_BY_WEEK", 6
-        ),
+        max_work_in_hours=work_vars.get("MAXIMUM_WEEKLY_WORK_IN_HOURS", 48),
+        min_rest_in_hours=rest_vars.get("MINIMUM_WEEKLY_BREAK_IN_HOURS", 34),
+        max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
     )
 
 
@@ -342,7 +337,6 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
 
     def resolve_weekly_thresholds(self, info):
         return compute_weekly_thresholds(self.business)
-
 
     @with_authorization_policy(
         is_employed_by_company_over_period,
@@ -562,12 +556,41 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             if row.service_duration > 0
         ]
 
-        return to_connection(
-            wds,
-            connection_cls=WorkDayConnection,
-            has_next_page=has_next_page,
-            get_cursor=lambda wd: f"{str(to_datetime(wd.day))},{wd.user.id}",
-            first=first,
+        # work_day_stats rows with service_duration == 0 (e.g. a day made up
+        # only of dismissed/zero-length activities) are filtered out above,
+        # but they were still consumed from the paginated query. The end
+        # cursor must be derived from the last *examined* row rather than
+        # the last *returned* one : otherwise a page made entirely of
+        # zero-duration days yields an empty connection with
+        # has_next_page=True and no end_cursor, which gets the frontend
+        # stuck re-fetching the same page forever (or crashing if it
+        # assumes a non-empty page whenever has_next_page is True).
+        last_examined_row = work_day_stats[-1] if work_day_stats else None
+        end_cursor = (
+            _opacify_cursor_string(
+                f"{str(to_datetime(last_examined_row.day))},{last_examined_row.user_id}"
+            )
+            if last_examined_row
+            else None
+        )
+
+        edges = [
+            WorkDayConnection.Edge(
+                node=wd,
+                cursor=_opacify_cursor_string(
+                    f"{str(to_datetime(wd.day))},{wd.user.id}"
+                ),
+            )
+            for wd in wds
+        ]
+        return WorkDayConnection(
+            edges=edges,
+            page_info=PageInfo(
+                has_previous_page=False,
+                has_next_page=has_next_page,
+                start_cursor=edges[0].cursor if edges else None,
+                end_cursor=end_cursor,
+            ),
         )
 
     @with_authorization_policy(
