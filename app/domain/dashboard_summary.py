@@ -1,7 +1,7 @@
 import logging
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 
 from app import db
 from app.data_access.dashboard_summary import DashboardSummary
@@ -15,6 +15,9 @@ from app.models import (
     MissionValidation,
 )
 from app.models.employment import EmploymentRequestValidationStatus
+from app.models.team_association_tables import (
+    team_admin_user_association_table,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +29,45 @@ ACTIVE_MISSIONS_WINDOW_DAYS = 30
 
 PENDING_VALIDATIONS_WINDOW_DAYS = 31
 
-PENDING_VALIDATIONS_CACHE_KEY = "dashboard:pending_validations:{company_id}"
+# Mirrors DEFAULT_LAST_ACTIVITY_TOO_LONG in front/common/utils/mission.js.
+STALE_RUNNING_ACTIVITY_THRESHOLD = timedelta(hours=24)
+
+PENDING_VALIDATIONS_CACHE_KEY = (
+    "dashboard:pending_validations:{company_id}:{actor_user_id}:{version}"
+)
+PENDING_VALIDATIONS_VERSION_KEY = (
+    "dashboard:pending_validations:version:{company_id}"
+)
 PENDING_VALIDATIONS_CACHE_TTL = 5 * 60
 
 
-def _pending_validations_cache_key(company_id):
-    return PENDING_VALIDATIONS_CACHE_KEY.format(company_id=company_id)
+def _pending_validations_cache_version(company_id):
+    try:
+        version = get_redis_client().get(
+            PENDING_VALIDATIONS_VERSION_KEY.format(company_id=company_id)
+        )
+        return int(version) if version is not None else 0
+    except Exception:
+        logger.warning(
+            "Redis unavailable, skipping cache version read for "
+            "pending validations (company_id=%s)",
+            company_id,
+        )
+        return 0
+
+
+def _pending_validations_cache_key(company_id, actor_user_id):
+    version = _pending_validations_cache_version(company_id)
+    return PENDING_VALIDATIONS_CACHE_KEY.format(
+        company_id=company_id, actor_user_id=actor_user_id, version=version
+    )
 
 
 def invalidate_pending_validations_cache(company_id):
     try:
-        get_redis_client().delete(_pending_validations_cache_key(company_id))
+        get_redis_client().incr(
+            PENDING_VALIDATIONS_VERSION_KEY.format(company_id=company_id)
+        )
     except Exception:
         logger.warning(
             "Redis unavailable, skipping cache invalidation for "
@@ -97,8 +128,8 @@ def _count_active_missions(company_id):
     ) or 0
 
 
-def _count_pending_validations(company_id):
-    cache_key = _pending_validations_cache_key(company_id)
+def _count_pending_validations(company_id, actor_user_id):
+    cache_key = _pending_validations_cache_key(company_id, actor_user_id)
     try:
         cached = get_redis_client().get(cache_key)
         if cached is not None:
@@ -106,11 +137,12 @@ def _count_pending_validations(company_id):
     except Exception:
         logger.warning(
             "Redis unavailable, skipping cache read for pending "
-            "validations (company_id=%s)",
+            "validations (company_id=%s, actor_user_id=%s)",
             company_id,
+            actor_user_id,
         )
 
-    count = _count_pending_validations_uncached(company_id)
+    count = _count_pending_validations_uncached(company_id, actor_user_id)
 
     try:
         get_redis_client().setex(
@@ -122,7 +154,24 @@ def _count_pending_validations(company_id):
     return count
 
 
-def _count_pending_validations_uncached(company_id):
+def _visible_employment_conditions(today, admin_team_ids):
+    """Employment conditions for a participant visible to the actor: active
+    today, approved, and teamless or in a team the actor administers.
+    Caller must join Employment on (user_id, company_id)."""
+    return (
+        Employment.validation_status
+        == EmploymentRequestValidationStatus.APPROVED,
+        ~Employment.is_dismissed,
+        Employment.start_date <= today,
+        or_(Employment.end_date.is_(None), Employment.end_date >= today),
+        or_(
+            Employment.team_id.is_(None),
+            Employment.team_id.in_(admin_team_ids),
+        ),
+    )
+
+
+def _count_pending_validations_uncached(company_id, actor_user_id):
     """Missions started in the last PENDING_VALIDATIONS_WINDOW_DAYS days
     that are ended for every user, validated by at least one worker, and
     not yet validated by an admin.
@@ -165,15 +214,6 @@ def _count_pending_validations_uncached(company_id):
         .exists()
     )
 
-    has_worker_validation = (
-        db.session.query(MissionValidation.id)
-        .filter(
-            MissionValidation.mission_id == Mission.id,
-            MissionValidation.is_admin.is_(False),
-        )
-        .exists()
-    )
-
     has_admin_validation = (
         db.session.query(MissionValidation.id)
         .filter(
@@ -183,13 +223,83 @@ def _count_pending_validations_uncached(company_id):
         .exists()
     )
 
+    today = date.today()
+    admin_team_ids = db.session.query(
+        team_admin_user_association_table.c.team_id
+    ).filter(team_admin_user_association_table.c.user_id == actor_user_id)
+
+    # A validation from a participant the actor can't see must not count
+    # (mirrors getWorkerValidationForUser in common/utils/mission.js).
+    has_worker_validation = (
+        db.session.query(MissionValidation.id)
+        .join(
+            Employment,
+            and_(
+                Employment.user_id == MissionValidation.user_id,
+                Employment.company_id == Mission.company_id,
+            ),
+        )
+        .filter(
+            MissionValidation.mission_id == Mission.id,
+            MissionValidation.is_admin.is_(False),
+            *_visible_employment_conditions(today, admin_team_ids),
+        )
+        .exists()
+    )
+
+    mission_has_visible_user = (
+        db.session.query(Activity.id)
+        .join(
+            Employment,
+            and_(
+                Employment.user_id == Activity.user_id,
+                Employment.company_id == Mission.company_id,
+            ),
+        )
+        .filter(
+            Activity.mission_id == Mission.id,
+            ~Activity.is_dismissed,
+            *_visible_employment_conditions(today, admin_team_ids),
+        )
+        .exists()
+    )
+
+    # Bypasses the "ended + worker-validated" checks below, mirroring the
+    # front's missionNotUpdatedForTooLong (common/utils/mission.js).
+    stale_cutoff = (
+        datetime.now(tz=timezone.utc).replace(tzinfo=None)
+        - STALE_RUNNING_ACTIVITY_THRESHOLD
+    )
+
+    mission_has_stale_visible_activity = (
+        db.session.query(Activity.id)
+        .join(
+            Employment,
+            and_(
+                Employment.user_id == Activity.user_id,
+                Employment.company_id == Mission.company_id,
+            ),
+        )
+        .filter(
+            Activity.mission_id == Mission.id,
+            ~Activity.is_dismissed,
+            Activity.end_time.is_(None),
+            Activity.start_time < stale_cutoff,
+            *_visible_employment_conditions(today, admin_team_ids),
+        )
+        .exists()
+    )
+
     return (
         db.session.query(func.count(Mission.id))
         .join(recent_missions, Mission.id == recent_missions.c.mission_id)
         .filter(
-            ~activity_without_mission_end,
-            has_worker_validation,
             ~has_admin_validation,
+            mission_has_visible_user,
+            or_(
+                and_(~activity_without_mission_end, has_worker_validation),
+                mission_has_stale_visible_activity,
+            ),
         )
         .scalar()
     ) or 0
@@ -295,11 +405,13 @@ def _count_auto_validated_missions(company_id, user_timezone):
     ) or 0
 
 
-def get_dashboard_summary(company_id, user_timezone):
+def get_dashboard_summary(company_id, user_timezone, actor_user_id):
     pending_ids = _get_pending_invitations(company_id)
     return DashboardSummary(
         active_missions_count=_count_active_missions(company_id),
-        pending_validations_count=_count_pending_validations(company_id),
+        pending_validations_count=_count_pending_validations(
+            company_id, actor_user_id
+        ),
         pending_invitations_count=len(pending_ids),
         pending_invitation_employment_ids=pending_ids,
         inactive_employees_count=_count_inactive_employees(

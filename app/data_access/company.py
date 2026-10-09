@@ -646,7 +646,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     )
     def resolve_dashboard_summary(self, info):
         return get_dashboard_summary(
-            self.id, user_timezone=current_user.timezone
+            self.id,
+            user_timezone=current_user.timezone,
+            actor_user_id=current_user.id,
         )
 
     @with_authorization_policy(
