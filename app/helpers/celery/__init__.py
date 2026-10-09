@@ -34,6 +34,7 @@ def async_export_excel(
     file_name=DEFAULT_FILE_NAME,
     export_type=ExportType.EXCEL,
     export_id=None,
+    control_format=False,
 ):
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
@@ -78,6 +79,7 @@ def async_export_excel(
                     users=users,
                     companies=companies,
                     file_name=file_name,
+                    control_format=control_format,
                 )
             )
             end_time = time.perf_counter()

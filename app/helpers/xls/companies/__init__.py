@@ -6,6 +6,7 @@ from xlsxwriter import Workbook
 
 from app.helpers.xls.common import clean_string, is_export_empty
 from app.helpers.xls.companies.tab_activities import write_work_days_sheet
+from app.helpers.xls.companies.tab_control import write_control_sheet
 from app.helpers.xls.companies.tab_details import write_day_details_sheet
 from app.helpers.xls.signature import HMAC_PROP_NAME, add_signature
 
@@ -37,7 +38,7 @@ def get_archive_excel_file(batches, companies, min_date, max_date):
 
 
 def get_one_excel_file(
-    wdays_data, companies, min_date, max_date, all_users=None
+    wdays_data, companies, min_date, max_date, all_users=None, control_format=False
 ):
     complete_work_days = [wd for wd in wdays_data if wd.is_complete]
     wdays_by_user = defaultdict(list)
@@ -69,6 +70,7 @@ def get_one_excel_file(
         min_date=min_date,
         max_date=max_date,
         all_users=all_users,
+        control_format=control_format,
     )
     write_day_details_sheet(
         wb,
@@ -87,6 +89,14 @@ def get_one_excel_file(
         max_date=max_date,
         deleted_missions=True,
     )
+    if control_format:
+        write_control_sheet(
+            wb,
+            wdays_by_user,
+            companies=companies,
+            min_date=min_date,
+            max_date=max_date,
+        )
     wb.close()
 
     output.seek(0)
