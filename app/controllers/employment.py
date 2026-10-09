@@ -11,6 +11,7 @@ from app.controllers.user import TIMEZONE_DESC
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.employment import create_employment_by_third_party_if_needed
 from app.domain.permissions import (
     company_admin,
@@ -932,6 +933,7 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
                         employment_id=employment_id, team_id=team_id
                     )
 
+        invalidate_pending_validations_cache(company_id)
         return Company.query.get(company_id)
 
 
