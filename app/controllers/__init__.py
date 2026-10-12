@@ -104,6 +104,10 @@ from app.controllers.notification_campaign import (
     UpdatePushBannerText,
     Query as NotificationCampaignQuery,
 )
+from app.controllers.technical_incident import (
+    TechnicalIncidents,
+    Query as TechnicalIncidentQuery,
+)
 from app.controllers.user import (
     ActivateEmail,
     ChangeEmail,
@@ -345,6 +349,11 @@ class PrivateMutations(graphene.ObjectType):
         resolver=lambda root, info: NotificationCampaigns(),
     )
 
+    technical_incidents = graphene.Field(
+        TechnicalIncidents,
+        resolver=lambda root, info: TechnicalIncidents(),
+    )
+
 
 class Queries(
     UserQuery,
@@ -378,6 +387,7 @@ class PrivateQueries(
     ThirdPartyEmploymentPrivateQuery,
     ControlLocationQuery,
     NotificationCampaignQuery,
+    TechnicalIncidentQuery,
     graphene.ObjectType,
 ):
     pass
