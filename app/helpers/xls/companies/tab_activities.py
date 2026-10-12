@@ -7,6 +7,7 @@ from app.helpers.xls.common import (
     write_cells,
     write_user_recap,
     light_brown_hex,
+    get_filtered_alerts_by_day,
 )
 from app.helpers.xls.companies.headers import write_sheet_header
 from app.helpers.xls.companies.legend import write_sheet_legend
@@ -23,6 +24,7 @@ def write_work_days_sheet(
     min_date,
     max_date,
     all_users=None,
+    control_format=False,
 ):
     sheet = wb.add_worksheet("Activités")
     sheet.protect()
@@ -37,9 +39,13 @@ def write_work_days_sheet(
         require_mission_name,
         allow_transfers,
         require_kilometer_data,
+        control_format=control_format,
     )
     has_one_bank_holiday = False
     has_one_day_off = False
+
+    if control_format:
+        _populate_infraction_data(wdays_by_user, min_date, max_date)
 
     for user, work_days in sorted(
         wdays_by_user.items(), key=lambda u: u[0].display_name
@@ -130,6 +136,7 @@ def get_columns_in_main_sheet(
     require_mission_name,
     allow_transfers,
     require_kilometer_data,
+    control_format=False,
 ):
     columns_in_main_sheet = [
         COLUMN_EMPLOYEE,
@@ -204,4 +211,40 @@ def get_columns_in_main_sheet(
         ]
     )
 
+    if control_format:
+        columns_in_main_sheet.extend(
+            [
+                COLUMN_DAILY_INFRACTIONS,
+                COLUMN_WEEKLY_INFRACTIONS,
+                COLUMN_INFRACTION_TYPES,
+            ]
+        )
+
     return columns_in_main_sheet
+
+
+def _populate_infraction_data(wdays_by_user, min_date, max_date):
+    from app.models.regulation_check import UnitType
+
+    for user, work_days in wdays_by_user.items():
+        alerts_by_day = get_filtered_alerts_by_day(
+            user.id, min_date, max_date
+        )
+        for wday in work_days:
+            day_alerts = alerts_by_day.get(wday.day, [])
+            daily = [
+                a
+                for a in day_alerts
+                if a.regulation_check.unit == UnitType.DAY
+            ]
+            weekly = [
+                a
+                for a in day_alerts
+                if a.regulation_check.unit == UnitType.WEEK
+            ]
+            wday.nb_daily_infractions = len(daily)
+            wday.nb_weekly_infractions = len(weekly)
+            labels = [a.regulation_check.label for a in daily] + [
+                a.regulation_check.label for a in weekly
+            ]
+            wday.infraction_labels = "\n".join(labels) if labels else ""
