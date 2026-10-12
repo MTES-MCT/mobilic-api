@@ -13,6 +13,7 @@ from app.controllers.expenditure import (
 )
 from app.controllers.utils import atomic_transaction
 from app.data_access.mission import MissionOutput
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.mission import (
     get_start_end_time_at_employee_validation,
     get_mission_start_and_end_from_activities,
@@ -539,6 +540,7 @@ class CancelMission(AuthenticatedMutation):
                     print("Caught exception:", e)
                     raise e
 
+        invalidate_pending_validations_cache(mission.company_id)
         return mission
 
 

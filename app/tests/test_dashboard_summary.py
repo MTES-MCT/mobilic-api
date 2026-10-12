@@ -9,13 +9,37 @@ from app.domain.dashboard_summary import (
     invalidate_pending_validations_cache,
 )
 from app.domain.mission import end_mission_for_user
-from app.models import MissionEnd, MissionValidation
 from app.models.activity import ActivityType
-from app.models.employment import EmploymentRequestValidationStatus
+from app.models import MissionEnd, MissionValidation
+from app.models.employment import (
+    Employment,
+    EmploymentRequestValidationStatus,
+)
 from app.seed import CompanyFactory, UserFactory, EmploymentFactory
-from app.seed.factories import ActivityFactory, MissionFactory
+from app.seed.factories import ActivityFactory, MissionFactory, TeamFactory
 from app.tests import BaseTest, test_post_graphql
+from app.tests.helpers import init_regulation_checks_data, init_businesses_data
 
+
+EDIT_ACTIVITY_MUTATION = """
+    mutation ($activityId: Int!, $startTime: TimeStamp) {
+        activities {
+            editActivity (activityId: $activityId, startTime: $startTime) {
+                id
+            }
+        }
+    }
+"""
+
+CANCEL_MISSION_MUTATION = """
+    mutation ($missionId: Int!, $userId: Int!) {
+        activities {
+            cancelMission (missionId: $missionId, userId: $userId) {
+                id
+            }
+        }
+    }
+"""
 
 DASHBOARD_SUMMARY_QUERY = """
     query ($id: Int!) {
@@ -114,6 +138,27 @@ class TestDashboardSummary(BaseTest):
             )
         )
         db.session.commit()
+
+    def _create_pending_mission_for_users(self, users):
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=users[0].id,
+            reception_time=self.now,
+        )
+        for user in users:
+            ActivityFactory.create(
+                mission=mission,
+                user=user,
+                submitter=user,
+                type=ActivityType.DRIVE,
+                reception_time=self.now,
+                start_time=self.now,
+                end_time=self.now + timedelta(minutes=1),
+                last_update_time=self.now + timedelta(minutes=2),
+            )
+            self._end_mission(mission, user)
+        self._worker_validate_mission(mission, users[0])
+        return mission
 
     def test_empty_dashboard(self):
         response = self._query()
@@ -281,6 +326,127 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["pendingValidationsCount"], 1)
 
+    def test_pending_team_mission_visible_if_actor_administers_one_team(self):
+        """An administered-team participant makes the whole mission visible,
+        even when another participant belongs to a team the actor does not
+        administer."""
+        administered_team = TeamFactory.create(company=self.company)
+        other_team = TeamFactory.create(company=self.company)
+        administered_team.admin_users.append(self.admin)
+        db.session.query(Employment).filter_by(
+            company_id=self.company.id,
+            user_id=self.employee.id,
+        ).one().team = administered_team
+        other_employee = UserFactory.create(
+            post__company=self.company,
+            post__team=other_team,
+        )
+        db.session.commit()
+
+        self._create_pending_mission_for_users([self.employee, other_employee])
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 1)
+
+    def test_pending_team_mission_hidden_if_actor_administers_no_team(self):
+        """A mission with only participants in non-administered teams stays
+        outside the actor's dashboard scope."""
+        other_team = TeamFactory.create(company=self.company)
+        other_employee = UserFactory.create(
+            post__company=self.company,
+            post__team=other_team,
+        )
+        self._create_pending_mission_for_users([other_employee])
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
+    def test_pending_team_mission_visible_if_teamless_participant(self):
+        """A teamless participant makes the whole mission visible, even when
+        another participant belongs to a team the actor does not
+        administer and the actor administers no team at all."""
+        other_team = TeamFactory.create(company=self.company)
+        other_employee = UserFactory.create(
+            post__company=self.company,
+            post__team=other_team,
+        )
+        # self.employee has no team (set up in setUp)
+        self._create_pending_mission_for_users([self.employee, other_employee])
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 1)
+
+    def test_pending_team_mission_hidden_if_only_invisible_participant_validated(
+        self,
+    ):
+        """A visible (teamless) participant makes the mission visible, but it
+        must not count until that visible participant - not just some other,
+        invisible participant - has actually validated it."""
+        other_team = TeamFactory.create(company=self.company)
+        other_employee = UserFactory.create(
+            post__company=self.company,
+            post__team=other_team,
+        )
+        # Only other_employee (invisible to the actor) validates; self.employee
+        # (teamless, visible) does not.
+        self._create_pending_mission_for_users([other_employee, self.employee])
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
+    def test_pending_counts_stale_running_mission_of_visible_participant(self):
+        """A mission still running (no MissionEnd, no worker validation) must
+        still count once a visible participant's activity has been running
+        for more than 24h - mirrors the front's missionNotUpdatedForTooLong
+        bypass (common/utils/mission.js)."""
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=self.now,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=self.now - timedelta(hours=25),
+            start_time=self.now - timedelta(hours=25),
+            end_time=None,
+            last_update_time=self.now - timedelta(hours=25),
+        )
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 1)
+
+    def test_pending_ignores_running_mission_under_24h(self):
+        """A mission still running for less than 24h must not count, since
+        it is neither ended/worker-validated nor stale enough for the
+        bypass."""
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=self.now,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=self.now - timedelta(hours=1),
+            start_time=self.now - timedelta(hours=1),
+            end_time=None,
+            last_update_time=self.now - timedelta(hours=1),
+        )
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
     def test_pending_validations_count_ignores_old_missions(self):
         """Missions older than the loaded window are not counted, even if
         technically waiting for an admin validation."""
@@ -389,11 +555,15 @@ class TestPendingValidationsCache(BaseTest):
     def setUp(self):
         super().setUp()
         self.company = CompanyFactory.create()
+        self.actor_user_id = 1
 
     @patch("app.domain.dashboard_summary.get_redis_client")
     def test_cache_hit_returns_cached_value(self, mock_redis_factory):
         mock_redis_factory.return_value = MagicMock(get=lambda k: b"42")
-        self.assertEqual(_count_pending_validations(self.company.id), 42)
+        self.assertEqual(
+            _count_pending_validations(self.company.id, self.actor_user_id),
+            42,
+        )
 
     @patch("app.domain.dashboard_summary.get_redis_client")
     def test_cache_miss_computes_and_stores(self, mock_redis_factory):
@@ -402,8 +572,12 @@ class TestPendingValidationsCache(BaseTest):
             get=lambda k: None,
             setex=lambda k, t, v: store.__setitem__(k, (t, v)),
         )
-        result = _count_pending_validations(self.company.id)
-        key = _pending_validations_cache_key(self.company.id)
+        result = _count_pending_validations(
+            self.company.id, self.actor_user_id
+        )
+        key = _pending_validations_cache_key(
+            self.company.id, self.actor_user_id
+        )
         self.assertIn(key, store)
         self.assertEqual(store[key], (PENDING_VALIDATIONS_CACHE_TTL, result))
 
@@ -411,17 +585,21 @@ class TestPendingValidationsCache(BaseTest):
     def test_redis_down_falls_back_to_sql(self, mock_redis_factory):
         mock_redis_factory.side_effect = Exception("Redis connection failed")
         # empty company → 0, must not raise
-        self.assertEqual(_count_pending_validations(self.company.id), 0)
+        self.assertEqual(
+            _count_pending_validations(self.company.id, self.actor_user_id),
+            0,
+        )
 
     @patch("app.domain.dashboard_summary.get_redis_client")
-    def test_invalidation_deletes_cache_key(self, mock_redis_factory):
-        deleted = []
+    def test_invalidation_bumps_cache_version(self, mock_redis_factory):
+        incremented = []
         mock_redis_factory.return_value = MagicMock(
-            delete=lambda k: deleted.append(k),
+            incr=lambda k: incremented.append(k),
         )
         invalidate_pending_validations_cache(self.company.id)
         self.assertEqual(
-            deleted, [_pending_validations_cache_key(self.company.id)]
+            incremented,
+            [f"dashboard:pending_validations:version:{self.company.id}"],
         )
 
     @patch("app.domain.mission.invalidate_pending_validations_cache")
@@ -435,4 +613,67 @@ class TestPendingValidationsCache(BaseTest):
             reception_time=datetime.now(),
         )
         end_mission_for_user(user=user, mission=mission)
+        mock_invalidate.assert_called_once_with(self.company.id)
+
+    @patch("app.controllers.activity.invalidate_pending_validations_cache")
+    def test_edit_activity_invalidates_cache(self, mock_invalidate):
+        user = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        now = datetime.now()
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=user.id,
+            reception_time=now,
+        )
+        activity = ActivityFactory.create(
+            mission=mission,
+            user=user,
+            submitter=user,
+            type=ActivityType.DRIVE,
+            reception_time=now,
+            start_time=now,
+            end_time=None,
+            last_update_time=now,
+        )
+        response = test_post_graphql(
+            EDIT_ACTIVITY_MUTATION,
+            mock_authentication_with_user=user,
+            variables=dict(
+                activityId=activity.id,
+                startTime=int((now - timedelta(hours=1)).timestamp()),
+            ),
+        )
+        self.assertIsNone(response.json.get("errors"))
+        mock_invalidate.assert_called_once_with(self.company.id)
+
+    @patch("app.controllers.mission.invalidate_pending_validations_cache")
+    def test_cancel_mission_invalidates_cache(self, mock_invalidate):
+        init_regulation_checks_data()
+        init_businesses_data()
+        user = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        now = datetime.now()
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=user.id,
+            reception_time=now,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=user,
+            submitter=user,
+            type=ActivityType.DRIVE,
+            reception_time=now,
+            start_time=now,
+            end_time=None,
+            last_update_time=now,
+        )
+        response = test_post_graphql(
+            CANCEL_MISSION_MUTATION,
+            mock_authentication_with_user=user,
+            variables=dict(missionId=mission.id, userId=user.id),
+        )
+        self.assertIsNone(response.json.get("errors"))
         mock_invalidate.assert_called_once_with(self.company.id)
