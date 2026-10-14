@@ -588,7 +588,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         )
 
         rows = [edge["node"] for edge in edges_raw]
-        page_user_ids = set(row.user_id for row in rows)
+        page_user_ids = {row.user_id for row in rows}
         users = User.query.filter(User.id.in_(page_user_ids))
         users = {user.id: user for user in users}
 
