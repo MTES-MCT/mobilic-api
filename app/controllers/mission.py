@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import graphene
 from graphene.types.generic import GenericScalar
@@ -159,6 +159,20 @@ class CreateMission(AuthenticatedMutation):
         return mission
 
 
+# Same 60-minute window as compute_log_in_real_time.
+_REAL_TIME_LOG_TOLERANCE = timedelta(minutes=60)
+
+
+def _logged_within_real_time(mission, user):
+    for activity in mission.activities_for(user):
+        if (
+            activity.reception_time - activity.start_time
+            < _REAL_TIME_LOG_TOLERANCE
+        ):
+            return True
+    return False
+
+
 class EndMission(AuthenticatedMutation):
     """
     Fin de la mission, qui mettra un terme à l'activité la plus récente enregistrée pour la mission.
@@ -235,9 +249,11 @@ class EndMission(AuthenticatedMutation):
                 submitter=current_user,
             )
 
-            mission.past_registration_justification = args.get(
-                "past_registration_justification", ""
-            )
+            justification = (
+                args.get("past_registration_justification") or ""
+            ).strip()
+            if justification and not _logged_within_real_time(mission, user):
+                mission.past_registration_justification = justification
 
         return mission
 
