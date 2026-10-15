@@ -43,7 +43,7 @@ INCIDENTS = [
         ),
     },
     {
-        "technical_type": "dns_switch",
+        "technical_type": "server_down",
         "start_time": "2025-10-23T19:00:00",
         "end_time": "2025-10-24T11:00:00",
         "description": (
@@ -87,7 +87,7 @@ INCIDENTS = [
         ),
     },
     {
-        "technical_type": "third_party_outage",
+        "technical_type": "backend_api_unavailable",
         "start_time": "2025-01-20T09:00:00",
         "end_time": "2025-02-10T18:00:00",
         "description": (
