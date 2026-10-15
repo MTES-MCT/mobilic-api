@@ -44,13 +44,30 @@ def get_first_employee_invitation_date(company_id):
 
 
 def get_first_mission_validation_by_admin_date(company_id):
+    # Returns the date of the earliest mission validation made by an admin
+    # for another user, whether manual or auto-validated by the system.
+    validated_user_is_company_admin = (
+        db.session.query(Employment)
+        .filter(
+            Employment.user_id == MissionValidation.user_id,
+            Employment.company_id == company_id,
+            Employment.has_admin_rights,
+        )
+        .exists()
+    )
     return (
         db.session.query(db.func.min(MissionValidation.creation_time))
         .join(Mission)
         .filter(
             Mission.company_id == company_id,
             MissionValidation.is_admin,
-            MissionValidation.user_id != MissionValidation.submitter_id,
+            db.or_(
+                db.and_(
+                    MissionValidation.is_auto,
+                    ~validated_user_is_company_admin,
+                ),
+                MissionValidation.user_id != MissionValidation.submitter_id,
+            ),
         )
         .first()
     )[0]
