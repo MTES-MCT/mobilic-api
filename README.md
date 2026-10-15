@@ -201,6 +201,76 @@ flask clean
 Utilisateurs créés:
 * busy.admin@test.com [password]: Gérant de 10 entreprises employant chacune 10 employés
 
+## Comment créer un incident (registre à tenir à jour)
+
+Mobilic tient un **registre des dysfonctionnements techniques** affiché aux contrôleurs et aux salariés lors d'un contrôle. Un incident peut être créé/modifié depuis l'interface d'administration (support), mais aussi via des commandes flask. Ces commandes sont utiles lorsqu'un dev doit intervenir alors que la plateforme (ou le login admin) est indisponible — typiquement à cause de l'incident lui-même.
+
+Les commandes s'exécutent côté back :
+
+* en local : `docker exec mobilic-flask flask <commande>`
+* en prod : `scalingo --app <app-back> run flask <commande>`
+
+Les dates sont saisies en **heure de Paris** (converties en UTC pour le stockage) au format `AAAA-MM-JJTHH:MM` (ou `AAAA-MM-JJTHH:MM:SS`, ou `AAAA-MM-JJ`).
+
+> **À noter :** un incident sans date de fin est affiché « en cours » dans le registre (contrôleurs/salariés) pendant **48 h** seulement ; passé ce délai il est présenté comme terminé, **sans qu'aucune date de fin ne soit inscrite en base**. Pensez donc à clôturer (`--end`) ou ré-ouvrir (`--reopen`) explicitement. La commande `list_technical_incidents`, elle, affiche « en cours » tant que la date de fin n'est pas renseignée, indépendamment de ce délai.
+
+### Lister les incidents
+
+```sh
+flask list_technical_incidents
+```
+
+Affiche chaque incident avec son `id`, son type, sa période (heure de Paris) et son statut (`en cours` si la date de fin n'est pas renseignée). L'`id` sert à cibler une modification.
+
+### Créer un incident
+
+```sh
+flask create_technical_incident --type <type> --start <début> [--end <fin>] [--description "<texte>"]
+```
+
+* `--type` (obligatoire) : type de dysfonctionnement (voir la liste ci-dessous).
+* `--start` (obligatoire) : date/heure de début.
+* `--end` (facultatif) : date/heure de fin. **Sans `--end`, l'incident est marqué « en cours » (affiché comme tel pendant 48 h dans le registre, voir la note ci-dessus).**
+* `--description` (facultatif) : description libre.
+
+Exemple (incident en cours) :
+
+```sh
+flask create_technical_incident --type time_entry_bug --start 2026-09-17T09:00 --description "Saisie des temps impossible en production"
+```
+
+### Modifier un incident
+
+```sh
+flask update_technical_incident <id> [--type <type>] [--start <début>] [--end <fin>] [--description "<texte>"] [--reopen]
+```
+
+Seuls les champs fournis sont modifiés.
+
+* **Clôturer** un incident en cours : renseigner `--end`.
+* **Ré-ouvrir** un incident clôturé : `--reopen` (remet la date de fin à vide). `--reopen` et `--end` sont incompatibles.
+
+Exemples :
+
+```sh
+# Clôturer l'incident #7
+flask update_technical_incident 7 --end 2026-09-17T12:00
+
+# Ré-ouvrir l'incident #7
+flask update_technical_incident 7 --reopen
+```
+
+### Valeurs possibles pour `--type`
+
+| Catégorie | Valeurs |
+| --- | --- |
+| Infrastructure | `server_down`, `dns_switch`, `ssl_expired`, `database_down`, `backend_api_unavailable` |
+| Applicatif | `slowdown_timeout`, `deploy_regression`, `time_entry_bug`, `offline_sync_bug` |
+| Accès / dépendances externes | `auth_outage`, `email_unavailable`, `third_party_outage` |
+| Cas particulier | `planned_maintenance` |
+
+La catégorie et la « nature » affichées aux contrôleurs sont dérivées automatiquement du type (voir [`app/models/technical_incident.py`](./app/models/technical_incident.py)).
+
 ## Tâches asynchrones
 
 On utilise `celery` pour effectuer certaines tâches de manière asynchrones pour ne pas surcharger l'application.
