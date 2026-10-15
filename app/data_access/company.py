@@ -1,9 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 
 import graphene
 from flask import g
-from sqlalchemy import case, func
+from sqlalchemy import and_, case, desc, func, or_
 from sqlalchemy.orm import selectinload, joinedload
+
+from app import db
 
 from app.data_access.business import BusinessOutput
 from app.data_access.company_certification import CompanyCertificationType
@@ -47,9 +49,8 @@ from app.helpers.graphene_types import (
     TimeStamp,
     ShortMonth,
 )
-from app.helpers.pagination import to_connection, _opacify_cursor_string
+from app.helpers.pagination import to_connection, paginate_query
 from app.helpers.time import to_datetime
-from graphene import PageInfo
 from app.models import (
     Company,
     User,
@@ -541,79 +542,82 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         #     )
         #     return work_days[-limit:] if limit else work_days
 
-        # Efficient approach
-        work_day_stats, has_next_page = query_work_day_stats(
+        # Efficient approach. query_work_day_stats returns an unexecuted,
+        # already-aggregated subquery (one row per user/day). The business
+        # filter (drop empty days) is applied here, in SQL, BEFORE pagination
+        # - so has_next_page and the returned edges are always derived from
+        # the exact same final row set and can never diverge
+        work_days_query = query_work_day_stats(
             self.id,
             start_date=from_date,
             end_date=until_date,
-            first=first,
             after=after,
             user_ids=user_ids,
         )
-        user_ids = set([row.user_id for row in work_day_stats])
-
-        users = User.query.filter(User.id.in_(user_ids))
-        users = {user.id: user for user in users}
-        wds = [
-            WorkDayStatsOnly(
-                day=row.day,
-                user=users[row.user_id],
-                start_time=row.start_time,
-                last_activity_start_time=row.last_activity_start_time,
-                end_time=row.end_time,
-                is_running=row.is_running,
-                service_duration=row.service_duration,
-                total_work_duration=row.total_work_duration,
-                activity_timers={
-                    a_type: getattr(row, f"{a_type.value}_duration")
-                    for a_type in ActivityType
-                },
-                expenditures={
-                    e_type: getattr(row, f"n_{e_type.value}_expenditures")
-                    for e_type in ExpenditureType
-                },
-                mission_names={mn[0]: mn[1] for mn in row.mission_names},
-            )
-            for index, row in enumerate(work_day_stats)
-            if row.service_duration > 0
-        ]
-
-        # work_day_stats rows with service_duration == 0 (e.g. a day made up
-        # only of dismissed/zero-length activities) are filtered out above,
-        # but they were still consumed from the paginated query. The end
-        # cursor must be derived from the last *examined* row rather than
-        # the last *returned* one : otherwise a page made entirely of
-        # zero-duration days yields an empty connection with
-        # has_next_page=True and no end_cursor, which gets the frontend
-        # stuck re-fetching the same page forever (or crashing if it
-        # assumes a non-empty page whenever has_next_page is True).
-        last_examined_row = work_day_stats[-1] if work_day_stats else None
-        end_cursor = (
-            _opacify_cursor_string(
-                f"{str(to_datetime(last_examined_row.day))},{last_examined_row.user_id}"
-            )
-            if last_examined_row
-            else None
+        query = db.session.query(work_days_query).filter(
+            work_days_query.c.service_duration > 0
         )
+
+        def cursor_to_filter(cursor_string):
+            day_str, user_id_str = cursor_string.split(",")
+            cursor_day = datetime.fromisoformat(day_str).date()
+            cursor_user_id = int(user_id_str)
+            return or_(
+                work_days_query.c.day < cursor_day,
+                and_(
+                    work_days_query.c.day == cursor_day,
+                    work_days_query.c.user_id < cursor_user_id,
+                ),
+            )
+
+        # Cap an explicit `first` at 200; leave it unset (meaning
+        # "everything") if the caller didn't ask for pagination.
+        if first is not None:
+            first = min(first, 200)
+
+        edges_raw, page_info = paginate_query(
+            query,
+            item_to_cursor=lambda row: f"{to_datetime(row.day)},{row.user_id}",
+            cursor_to_filter=cursor_to_filter,
+            orders=(
+                desc(work_days_query.c.day),
+                desc(work_days_query.c.user_id),
+            ),
+            after=after,
+            first=first,
+        )
+
+        rows = [edge["node"] for edge in edges_raw]
+        page_user_ids = {row.user_id for row in rows}
+        users = User.query.filter(User.id.in_(page_user_ids))
+        users = {user.id: user for user in users}
 
         edges = [
             WorkDayConnection.Edge(
-                node=wd,
-                cursor=_opacify_cursor_string(
-                    f"{str(to_datetime(wd.day))},{wd.user.id}"
+                node=WorkDayStatsOnly(
+                    day=row.day,
+                    user=users[row.user_id],
+                    start_time=row.start_time,
+                    last_activity_start_time=row.last_activity_start_time,
+                    end_time=row.end_time,
+                    is_running=row.is_running,
+                    service_duration=row.service_duration,
+                    total_work_duration=row.total_work_duration,
+                    activity_timers={
+                        a_type: getattr(row, f"{a_type.value}_duration")
+                        for a_type in ActivityType
+                    },
+                    expenditures={
+                        e_type: getattr(row, f"n_{e_type.value}_expenditures")
+                        for e_type in ExpenditureType
+                    },
+                    mission_names={mn[0]: mn[1] for mn in row.mission_names},
                 ),
+                cursor=edge["cursor"],
             )
-            for wd in wds
+            for row, edge in zip(rows, edges_raw)
         ]
-        return WorkDayConnection(
-            edges=edges,
-            page_info=PageInfo(
-                has_previous_page=False,
-                has_next_page=has_next_page,
-                start_cursor=edges[0].cursor if edges else None,
-                end_cursor=end_cursor,
-            ),
-        )
+        return WorkDayConnection(edges=edges, page_info=page_info)
 
     @with_authorization_policy(
         has_any_employment_with_company_or_controller,
