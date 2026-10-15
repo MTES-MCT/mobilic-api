@@ -1,5 +1,5 @@
 import pyotp
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from app import app, db
 from app.domain.totp import (
@@ -169,6 +169,16 @@ class TestTOTPDomain(BaseTest):
         self.assertNotEqual(encrypted, secret)
         decrypted = decrypt_secret(encrypted)
         self.assertEqual(decrypted, secret)
+
+    def test_decrypt_rejects_tampered_ciphertext(self):
+        secret = generate_totp_secret()
+        encrypted = encrypt_secret(secret)
+        index = len(encrypted) // 2
+        replacement = "A" if encrypted[index] != "A" else "B"
+        tampered = encrypted[:index] + replacement + encrypted[index + 1 :]
+        self.assertNotEqual(tampered, encrypted)
+        with self.assertRaises(InvalidToken):
+            decrypt_secret(tampered)
 
     def test_verify_valid_code(self):
         secret = generate_totp_secret()
