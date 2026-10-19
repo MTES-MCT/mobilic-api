@@ -178,7 +178,10 @@ class ThirdPartyClientEmployment(BaseModel, Dismissable):
     invitation_token_creation_time = db.Column(
         DateTimeStoredAsUTC, nullable=False, default=datetime.now
     )
-    employment = db.relationship("Employment", backref="client_ids")
+    employment = db.relationship(
+        "Employment",
+        backref=db.backref("client_ids", cascade="all, delete-orphan"),
+    )
     client = db.relationship("OAuth2Client", backref="accessible_employments")
 
     @property
