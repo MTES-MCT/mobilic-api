@@ -1,7 +1,14 @@
 from datetime import datetime
+from io import BytesIO
 
 import graphene
-from flask import send_file, jsonify, make_response
+from flask import (
+    send_file,
+    jsonify,
+    make_response,
+    abort,
+    url_for,
+)
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy import update
@@ -960,21 +967,31 @@ def checkout_exports():
         Export.user_id == current_user.id, Export.status == ExportStatus.READY
     ).all()
 
-    from app import S3Client
+    backend = app.config["EXPORT_STORAGE_BACKEND"]
+    if backend == "s3":
+        from app import S3Client
 
-    ready_exports_links = S3Client.generate_presigned_urls_exports(
-        exports_ready
-    )
+        ready_exports_links = S3Client.generate_presigned_urls_exports(
+            exports_ready
+        )
+    else:
+        ready_exports_links = {
+            export.id: url_for(
+                "download_export", export_id=export.id, _external=True
+            )
+            for export in exports_ready
+            if export.file_content is not None
+        }
 
     cgu_user_ids = []
     with atomic_transaction(commit_at_end=True):
         for ready in exports_ready:
-            if ready.id in ready_exports_links:
+            if ready.id not in ready_exports_links:
+                ready.status = ExportStatus.FAILED
+            elif backend == "s3":
                 ready.status = ExportStatus.DOWNLOADED
                 if ready.export_type == ExportType.REFUSED_CGU:
                     cgu_user_ids.append(ready.user_id)
-            else:
-                ready.status = ExportStatus.FAILED
 
     for user_id in cgu_user_ids:
         UserAgreement.set_transferred_data_date(user_id)
@@ -987,6 +1004,36 @@ def checkout_exports():
             }
         ),
         200,
+    )
+
+
+@app.route("/exports/download/<int:export_id>", methods=["GET"])
+@doc(description="Télécharge un export stocké en base")
+@require_auth
+def download_export(export_id):
+    export = Export.query.get(export_id)
+    if (
+        export is None
+        or export.user_id != current_user.id
+        or export.file_content is None
+    ):
+        abort(404)
+
+    company_ids = (export.context or {}).get("company_ids")
+    app.logger.info(
+        f"Export {export.id} downloaded by user {current_user.id} "
+        f"(companies {company_ids})"
+    )
+    export.status = ExportStatus.DOWNLOADED
+    db.session.commit()
+    if export.export_type == ExportType.REFUSED_CGU:
+        UserAgreement.set_transferred_data_date(export.user_id)
+
+    return send_file(
+        BytesIO(export.file_content),
+        mimetype=export.file_type,
+        as_attachment=True,
+        download_name=export.file_name,
     )
 
 
