@@ -1,11 +1,14 @@
 from datetime import date, datetime, timedelta
 
-from app import db
+from app import app, db
 from app.helpers.oauth.models import OAuth2Client
 from app.jobs.software_compliance_report import (
     MIN_MISSIONS_FOR_ACTIVE_DAY,
+    RECENT_ACTIVITY_DAYS,
     _compute_and_store_snapshots,
+    _get_recently_active_clients,
     _get_violations,
+    _send_consolidated_alert,
 )
 from app.models.activity import ActivityType
 from app.models.software_compliance_alert_state import (
@@ -195,3 +198,70 @@ class TestSoftwareComplianceSnapshot(BaseTest):
         db.session.commit()
         violations, _ = _get_violations(self.oauth_client.id, date.today())
         self.assertTrue(any("semaine 2" in v for v in violations))
+
+    def test_recently_active_client_is_evaluated_even_without_missions_yesterday(
+        self,
+    ):
+        # last active day a few days ago (not "yesterday") → still evaluated
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today() - timedelta(days=3),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertIn((self.oauth_client.id, self.oauth_client.name), clients)
+
+    def test_client_inactive_beyond_window_not_evaluated(self):
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today()
+                - timedelta(days=RECENT_ACTIVITY_DAYS + 1),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertNotIn(self.oauth_client.id, [c[0] for c in clients])
+
+    def test_low_volume_day_not_considered_active(self):
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today() - timedelta(days=1),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY - 1,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertNotIn(self.oauth_client.id, [c[0] for c in clients])
+
+    def test_alert_delivery_failure_raises(self):
+        from unittest.mock import patch
+
+        alerts = [(self.oauth_client.name, self.oauth_client.id, ["- test"])]
+        with patch.dict(app.config, {"COMPLIANCE_ALERT_EMAIL": None}), patch(
+            "app.jobs.software_compliance_report.send_tchap_message",
+            return_value=False,
+        ):
+            with self.assertRaises(RuntimeError):
+                _send_consolidated_alert(alerts, date.today())
+
+    def test_alert_delivery_succeeds_when_one_channel_works(self):
+        from unittest.mock import patch
+
+        alerts = [(self.oauth_client.name, self.oauth_client.id, ["- test"])]
+        with patch.dict(app.config, {"COMPLIANCE_ALERT_EMAIL": None}), patch(
+            "app.jobs.software_compliance_report.send_tchap_message",
+            return_value=True,
+        ):
+            _send_consolidated_alert(alerts, date.today())
