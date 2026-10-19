@@ -27,6 +27,16 @@ PII_QUERY = """
   }
 """
 
+PROFILE_QUERY = """
+  query profile($id: Int!) {
+    user(id: $id) {
+      id
+      firstName
+      lastName
+    }
+  }
+"""
+
 INVITE = """
   mutation invite($userId: Int, $companyId: Int!, $mail: Email) {
     employments {
@@ -95,6 +105,22 @@ class TestUserPiiAccessAuthorization(BaseTest):
             variables={"id": target.id},
         )["data"]["user"]
 
+    def _read_profile_response(self, actor, target):
+        return make_authenticated_request(
+            time=None,
+            submitter_id=actor.id,
+            query=PROFILE_QUERY,
+            variables={"id": target.id},
+        )
+
+    def _assert_profile_forbidden(self, actor, target):
+        response = self._read_profile_response(actor, target)
+        self.assertIsNone(response["data"]["user"])
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"],
+            "AUTHORIZATION_ERROR",
+        )
+
     def _invite(self, admin, company, user_id=None, mail=None):
         variables = {"company_id": company.id}
         if user_id is not None:
@@ -132,15 +158,15 @@ class TestUserPiiAccessAuthorization(BaseTest):
         )
         self.assertEqual(employment["email"], invited_email)
 
-    def test_pending_invite_does_not_expose_sensitive_fields(self):
+    def test_pending_invite_grants_no_profile_access(self):
         self._invite(self.admin_a, self.company_a, user_id=self.stranger.id)
-        user = self._read_pii(self.admin_a, self.stranger)
-        self.assertIsNone(user["phoneNumber"])
-        self.assertIsNone(user["gender"])
-        self.assertIsNone(user["birthDate"])
-        self.assertIsNone(user["email"])
+        self._assert_profile_forbidden(self.admin_a, self.stranger)
+        user = self._read_profile_response(self.admin_a, self.stranger)[
+            "data"
+        ]["user"]
+        self.assertIsNone(user)
 
-    def test_cancelled_invite_does_not_expose_sensitive_fields(self):
+    def test_cancelled_invite_grants_no_profile_access(self):
         employment = self._invite(
             self.admin_a, self.company_a, user_id=self.stranger.id
         )
@@ -150,11 +176,15 @@ class TestUserPiiAccessAuthorization(BaseTest):
             query=CANCEL,
             variables={"employment_id": employment["id"]},
         )
-        user = self._read_pii(self.admin_a, self.stranger)
-        self.assertIsNone(user["phoneNumber"])
-        self.assertIsNone(user["gender"])
-        self.assertIsNone(user["birthDate"])
-        self.assertIsNone(user["email"])
+        self._assert_profile_forbidden(self.admin_a, self.stranger)
+
+    def test_accepted_employee_profile_stays_readable(self):
+        response = self._read_profile_response(self.admin_a, self.employee_a)
+        self.assertIsNone(response.get("errors"))
+        self.assertEqual(
+            response["data"]["user"]["firstName"],
+            self.employee_a.first_name,
+        )
 
     def test_policy_denies_without_actor(self):
         self.assertFalse(
