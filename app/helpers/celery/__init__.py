@@ -94,11 +94,20 @@ def async_export_excel(
                 )
                 return
 
+            if not file_content:
+                raise ValueError(f"Export {export.id} produced empty content")
+
             if app.config["EXPORT_STORAGE_BACKEND"] == "s3":
                 path = f"exports/{exporter_id}/{export.id}"
                 S3Client.upload_export(file_content, path, content_type)
                 export.file_s3_path = path
             else:
+                max_bytes = app.config["EXPORT_DB_MAX_SIZE_MB"] * 1024 * 1024
+                if len(file_content) > max_bytes:
+                    raise ValueError(
+                        f"Export {export.id} too large for db storage: "
+                        f"{len(file_content)} > {max_bytes} bytes"
+                    )
                 export.file_content = file_content
 
             export.status = ExportStatus.READY

@@ -1221,3 +1221,22 @@ def purge_downloaded_exports(max_age_hours):
     except Exception as e:
         db.session.rollback()
         print(f"Error while purging exports: {e}")
+        raise
+
+
+@app.cli.command("alert_stuck_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=1)
+def alert_stuck_exports(max_age_hours):
+    """Alerte si des exports restent bloqués en WIP (worker en panne)."""
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    stuck = Export.query.filter(
+        Export.status == ExportStatus.WIP,
+        Export.creation_time < cutoff,
+    ).count()
+    if stuck:
+        app.logger.error(
+            f"{stuck} exports stuck in WIP for more than {max_age_hours}h"
+        )
+    print(f"{stuck} stuck exports.")
