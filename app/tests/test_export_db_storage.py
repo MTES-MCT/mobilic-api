@@ -286,7 +286,7 @@ class TestExportDbStorage(BaseTest):
     def test_worker_marks_failed_on_empty_content(self, mock_gen):
         mock_gen.return_value = (b"", FAKE_TYPE, FAKE_NAME, 0)
         export_id = self._wip_export().id
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(ValueError, "empty content"):
             self._run_worker(export_id)
         db.session.expire_all()
         export = Export.query.get(export_id)
@@ -300,7 +300,7 @@ class TestExportDbStorage(BaseTest):
         big = b"x" * (2 * 1024 * 1024)
         mock_gen.return_value = (big, FAKE_TYPE, FAKE_NAME, len(big))
         export_id = self._wip_export().id
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(ValueError, "too large for db storage"):
             self._run_worker(export_id)
         db.session.expire_all()
         export = Export.query.get(export_id)
