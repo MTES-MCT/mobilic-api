@@ -265,3 +265,58 @@ class TestExportDbStorage(BaseTest):
         db.session.expire_all()
         export = Export.query.get(export_id)
         self.assertEqual(export.status, ExportStatus.FAILED)
+
+    def _wip_export(self):
+        return Export.create(
+            user=self.admin,
+            export_type=ExportType.EXCEL,
+            status=ExportStatus.WIP,
+            context={},
+        )
+
+    def _run_worker(self, export_id):
+        async_export_excel(
+            self.admin.id,
+            [self.company.id],
+            [{"user_ids": [self.admin.id], "strategy": "single"}],
+            export_id=export_id,
+        )
+
+    @patch("app.helpers.celery.generate_admin_export_file_from_chunks")
+    def test_worker_marks_failed_on_empty_content(self, mock_gen):
+        mock_gen.return_value = (b"", FAKE_TYPE, FAKE_NAME, 0)
+        export_id = self._wip_export().id
+        with self.assertRaises(Exception):
+            self._run_worker(export_id)
+        db.session.expire_all()
+        export = Export.query.get(export_id)
+        self.assertEqual(export.status, ExportStatus.FAILED)
+        self.assertIsNone(export.file_content)
+
+    @patch("app.helpers.celery.generate_admin_export_file_from_chunks")
+    def test_worker_marks_failed_on_oversize_content(self, mock_gen):
+        self.addCleanup(app.config.pop, "EXPORT_DB_MAX_SIZE_MB", None)
+        app.config["EXPORT_DB_MAX_SIZE_MB"] = 1
+        big = b"x" * (2 * 1024 * 1024)
+        mock_gen.return_value = (big, FAKE_TYPE, FAKE_NAME, len(big))
+        export_id = self._wip_export().id
+        with self.assertRaises(Exception):
+            self._run_worker(export_id)
+        db.session.expire_all()
+        export = Export.query.get(export_id)
+        self.assertEqual(export.status, ExportStatus.FAILED)
+        self.assertIsNone(export.file_content)
+
+    def test_alert_stuck_exports(self):
+        export_id = self._wip_export().id
+        with patch.object(app.logger, "error") as mock_err:
+            app.test_cli_runner().invoke(args=["alert_stuck_exports"])
+        self.assertFalse(mock_err.called)
+
+        db.session.query(Export).filter(Export.id == export_id).update(
+            {Export.creation_time: datetime(2020, 1, 1)}
+        )
+        db.session.commit()
+        with patch.object(app.logger, "error") as mock_err:
+            app.test_cli_runner().invoke(args=["alert_stuck_exports"])
+        self.assertTrue(mock_err.called)

@@ -155,6 +155,7 @@ class Config:
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
     EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
+    EXPORT_DB_MAX_SIZE_MB = int(os.environ.get("EXPORT_DB_MAX_SIZE_MB", 50))
     CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
     CGU_RELEASE_DATE = (
         datetime.strptime(
