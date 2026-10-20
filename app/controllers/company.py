@@ -7,7 +7,6 @@ from flask import (
     jsonify,
     make_response,
     abort,
-    url_for,
 )
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
@@ -976,9 +975,7 @@ def checkout_exports():
         )
     else:
         ready_exports_links = {
-            export.id: url_for(
-                "download_export", export_id=export.id, _external=True
-            )
+            export.id: f"/api/exports/download/{export.id}"
             for export in exports_ready
             if export.file_content is not None
         }
