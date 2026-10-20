@@ -94,11 +94,14 @@ def async_export_excel(
                 )
                 return
 
-            path = f"exports/{exporter_id}/{export.id}"
-            S3Client.upload_export(file_content, path, content_type)
+            if app.config["EXPORT_STORAGE_BACKEND"] == "s3":
+                path = f"exports/{exporter_id}/{export.id}"
+                S3Client.upload_export(file_content, path, content_type)
+                export.file_s3_path = path
+            else:
+                export.file_content = file_content
 
             export.status = ExportStatus.READY
-            export.file_s3_path = path
             export.file_type = content_type
             export.file_name = file_name
             db.session.commit()

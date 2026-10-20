@@ -1198,3 +1198,26 @@ def delete_expired_refresh_tokens():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting refresh tokens: {e}")
+
+
+@app.cli.command("purge_downloaded_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=24)
+def purge_downloaded_exports(max_age_hours):
+    """Purge le contenu binaire des exports téléchargés ou trop anciens."""
+    from sqlalchemy import or_
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    try:
+        purged = Export.query.filter(
+            Export.file_content.isnot(None),
+            or_(
+                Export.status == ExportStatus.DOWNLOADED,
+                Export.creation_time < cutoff,
+            ),
+        ).update({Export.file_content: None}, synchronize_session=False)
+        db.session.commit()
+        print(f"Purged file_content of {purged} exports.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while purging exports: {e}")
