@@ -74,6 +74,7 @@ def write_work_days_sheet(
                 row_idx,
                 columns_in_main_sheet,
                 wday,
+                additional_format={"valign": "vcenter"},
                 with_border=True,
                 bg_color=bg_color,
             )
@@ -227,9 +228,7 @@ def _populate_infraction_data(wdays_by_user, min_date, max_date):
     from app.models.regulation_check import UnitType
 
     for user, work_days in wdays_by_user.items():
-        alerts_by_day = get_filtered_alerts_by_day(
-            user.id, min_date, max_date
-        )
+        alerts_by_day = get_filtered_alerts_by_day(user.id, min_date, max_date)
         for wday in work_days:
             day_alerts = alerts_by_day.get(wday.day, [])
             daily = [
