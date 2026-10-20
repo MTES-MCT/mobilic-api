@@ -15,6 +15,11 @@ from app.models.software_compliance_snapshot import SoftwareComplianceSnapshot
 # Minimum missions per day to consider the day as "active" (avoids weekend noise)
 MIN_MISSIONS_FOR_ACTIVE_DAY = 5
 
+# A client is only re-evaluated for alerts if it had at least one active day
+# within this window — so re-alerts no longer depend on having missions "yesterday",
+# while software that stopped being used eventually goes silent.
+RECENT_ACTIVITY_DAYS = 14
+
 # Alert thresholds (values are percentages: 0–100)
 THRESHOLDS = {
     "pct_retroactive_gt4h": (50.0, "Rétro-saisie >4h"),
@@ -247,6 +252,29 @@ def _get_violations(client_id, today):
     return violations, triggered_fields
 
 
+def _get_recently_active_clients(today):
+    # Every client with an active day in the recent window, so re-alerts don't
+    # depend on the client having missions on the single day being processed.
+    window_start = today - timedelta(days=RECENT_ACTIVITY_DAYS)
+    rows = (
+        db.session.query(
+            SoftwareComplianceSnapshot.client_id,
+            SoftwareComplianceSnapshot.client_name,
+        )
+        .filter(
+            SoftwareComplianceSnapshot.snapshot_date >= window_start,
+            SoftwareComplianceSnapshot.snapshot_date < today,
+            SoftwareComplianceSnapshot.nb_missions
+            >= MIN_MISSIONS_FOR_ACTIVE_DAY,
+        )
+        .order_by(SoftwareComplianceSnapshot.snapshot_date.asc())
+        .all()
+    )
+    # dict keeps the most recent client_name per client (rows ordered oldest→newest)
+    names_by_client = {client_id: name for client_id, name in rows}
+    return list(names_by_client.items())
+
+
 def _send_consolidated_alert(alerts_by_client, today):
     if not alerts_by_client:
         return
@@ -269,6 +297,7 @@ def _send_consolidated_alert(alerts_by_client, today):
     <p>Consultez le dashboard Metabase pour investiguer.</p>
     """
 
+    email_sent = False
     if alert_email:
         msg = MailjetMessage(
             EmailType.SOFTWARE_COMPLIANCE_ALERT,
@@ -277,9 +306,10 @@ def _send_consolidated_alert(alerts_by_client, today):
             html=html_body,
         )
         mailer.send_batch([msg])
+        email_sent = True
         app.logger.info(f"Compliance alert email sent for {nb} client(s)")
     else:
-        app.logger.warning(
+        app.logger.error(
             "COMPLIANCE_ALERT_EMAIL not configured, skipping email alert"
         )
 
@@ -291,7 +321,13 @@ def _send_consolidated_alert(alerts_by_client, today):
         lines.append(f"\n🚨 {client_name} (client_id={client_id})")
         for v in violations:
             lines.append(f"  {v}")
-    send_tchap_message("\n".join(lines))
+    tchap_sent = send_tchap_message("\n".join(lines))
+
+    if not email_sent and not tchap_sent:
+        raise RuntimeError(
+            f"Compliance alerts could not be delivered for {nb} client(s): "
+            "both email and Tchap channels failed"
+        )
 
 
 @log_execution
@@ -301,19 +337,17 @@ def job_compute_software_compliance_snapshot(for_date=None):
 
     app.logger.info(f"Computing software compliance snapshot for {yesterday}")
 
-    snapshots = _compute_and_store_snapshots(yesterday)
+    _compute_and_store_snapshots(yesterday)
+
+    clients_to_evaluate = _get_recently_active_clients(today)
 
     alerts_by_client = []
     triggered_by_client = []
-    for snapshot in snapshots:
-        violations, triggered_fields = _get_violations(
-            snapshot.client_id, today
-        )
+    for client_id, client_name in clients_to_evaluate:
+        violations, triggered_fields = _get_violations(client_id, today)
         if violations:
-            alerts_by_client.append(
-                (snapshot.client_name, snapshot.client_id, violations)
-            )
-            triggered_by_client.append((snapshot.client_id, triggered_fields))
+            alerts_by_client.append((client_name, client_id, violations))
+            triggered_by_client.append((client_id, triggered_fields))
 
     _send_consolidated_alert(alerts_by_client, today)
 
@@ -336,5 +370,6 @@ def job_compute_software_compliance_snapshot(for_date=None):
 
     app.logger.info(
         f"Software compliance snapshot done: "
-        f"{len(snapshots)} clients computed, {len(alerts_by_client)} alerts sent"
+        f"{len(clients_to_evaluate)} clients evaluated, "
+        f"{len(alerts_by_client)} alerts sent"
     )

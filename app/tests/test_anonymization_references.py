@@ -543,6 +543,75 @@ class TestAnonymizationReferences(BaseTest):
         anon = AnonControllerControl.query.one()
         self.assertIsNone(anon.user_id)
 
+    def test_controller_control_without_bulletin_creation_time_is_anonymized(
+        self,
+    ):
+        """A control with control_bulletin_creation_time NULL but reported
+        infraction timestamps set must anonymize without a TypeError."""
+        controller = ControllerUserFactory.create()
+        control = ControllerControl(
+            qr_code_generation_time=datetime.now(),
+            control_type=ControlType.sans_lic,
+            controller_id=controller.id,
+            nb_controlled_days=7,
+            control_bulletin_creation_time=None,
+            reported_infractions_last_update_time=datetime(2024, 3, 15, 9, 22),
+            reported_infractions_first_update_time=datetime(2024, 3, 14, 5, 0),
+        )
+        db.session.add(control)
+        db.session.commit()
+
+        anon = AnonControllerControl.anonymize(control)
+
+        self.assertIsNone(anon.control_bulletin_creation_time)
+        self.assertEqual(
+            anon.reported_infractions_last_update_time, datetime(2024, 3, 1)
+        )
+        self.assertEqual(
+            anon.reported_infractions_first_update_time, datetime(2024, 3, 1)
+        )
+
+    def test_controller_control_offset_times_preserve_delta(self):
+        """With a bulletin creation time set, offset timestamps keep their
+        delta relative to the month-truncated bulletin creation time."""
+        controller = ControllerUserFactory.create()
+        base = datetime(2024, 3, 10, 8, 0)
+        download = base + timedelta(days=5, hours=2)
+        control = ControllerControl(
+            qr_code_generation_time=datetime.now(),
+            control_type=ControlType.sans_lic,
+            controller_id=controller.id,
+            nb_controlled_days=7,
+            control_bulletin_creation_time=base,
+            control_bulletin_first_download_time=download,
+            reported_infractions_last_update_time=base + timedelta(days=2),
+            reported_infractions_first_update_time=base + timedelta(hours=1),
+            control_bulletin_update_time=download,
+        )
+        db.session.add(control)
+        db.session.commit()
+
+        anon = AnonControllerControl.anonymize(control)
+
+        anon_base = datetime(2024, 3, 1)
+        self.assertEqual(anon.control_bulletin_creation_time, anon_base)
+        self.assertEqual(
+            anon.control_bulletin_first_download_time,
+            anon_base + timedelta(days=5, hours=2),
+        )
+        self.assertEqual(
+            anon.reported_infractions_last_update_time,
+            anon_base + timedelta(days=2),
+        )
+        self.assertEqual(
+            anon.reported_infractions_first_update_time,
+            anon_base + timedelta(hours=1),
+        )
+        self.assertEqual(
+            anon.control_bulletin_update_time,
+            anon_base + timedelta(days=5, hours=2),
+        )
+
     def test_anon_company_business_id_is_remapped(self):
         anon = AnonCompany.anonymize(self.company)
         db.session.commit()

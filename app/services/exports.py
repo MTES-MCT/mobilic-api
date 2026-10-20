@@ -33,6 +33,7 @@ def export_activity_report(
     one_file_by_employee,
     file_name=None,
     export_type=None,
+    control_format=False,
 ):
     chunking_result = prepare_export_chunks(
         users, min_date, max_date, one_file_by_employee
@@ -69,4 +70,5 @@ def export_activity_report(
         chunks=chunks_data,
         file_name=file_name if file_name is not None else DEFAULT_FILE_NAME,
         export_type=export_type,
+        control_format=control_format,
     )

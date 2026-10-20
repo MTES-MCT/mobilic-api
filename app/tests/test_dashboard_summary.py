@@ -5,6 +5,7 @@ from app import db
 from app.domain.dashboard_summary import (
     PENDING_VALIDATIONS_CACHE_TTL,
     _count_pending_validations,
+    _count_pending_validations_uncached,
     _pending_validations_cache_key,
     invalidate_pending_validations_cache,
 )
@@ -15,6 +16,12 @@ from app.models.employment import EmploymentRequestValidationStatus
 from app.seed import CompanyFactory, UserFactory, EmploymentFactory
 from app.seed.factories import ActivityFactory, MissionFactory
 from app.tests import BaseTest, test_post_graphql
+from app.tests.helpers import (
+    ApiRequests,
+    WorkPeriod,
+    _log_activities_in_mission,
+    make_authenticated_request,
+)
 
 
 DASHBOARD_SUMMARY_QUERY = """
@@ -313,6 +320,25 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["pendingValidationsCount"], 0)
 
+    def test_deleted_mission_not_pending(self):
+        """A pending mission whose activities are all dismissed (deleted) must
+        no longer be counted."""
+        mission = self._create_mission_with_activity()
+        self._end_mission(mission)
+        self._worker_validate_mission(mission)
+        self.assertEqual(
+            _count_pending_validations_uncached(self.company.id), 1
+        )
+
+        for activity in mission.activities:
+            activity.dismissed_at = self.now
+            activity.dismiss_author = self.admin
+        db.session.commit()
+
+        self.assertEqual(
+            _count_pending_validations_uncached(self.company.id), 0
+        )
+
     def test_validated_mission_not_pending(self):
         mission = self._create_mission_with_activity()
         self._end_mission(mission)
@@ -435,4 +461,25 @@ class TestPendingValidationsCache(BaseTest):
             reception_time=datetime.now(),
         )
         end_mission_for_user(user=user, mission=mission)
+        mock_invalidate.assert_called_once_with(self.company.id)
+
+    @patch("app.controllers.mission.invalidate_pending_validations_cache")
+    def test_cancel_mission_invalidates_cache(self, mock_invalidate):
+        user = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=False
+        )
+        time = datetime(2020, 2, 7, 6)
+        mission_id = _log_activities_in_mission(
+            submitter=user,
+            company=self.company,
+            user=user,
+            work_periods=[WorkPeriod(start_time=time)],
+            submission_time=time,
+        )
+        make_authenticated_request(
+            time=datetime(2020, 2, 7, 8),
+            submitter_id=user.id,
+            query=ApiRequests.cancel_mission,
+            variables=dict(mission_id=mission_id, user_id=user.id),
+        )
         mock_invalidate.assert_called_once_with(self.company.id)

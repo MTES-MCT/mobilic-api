@@ -34,6 +34,7 @@ def async_export_excel(
     file_name=DEFAULT_FILE_NAME,
     export_type=ExportType.EXCEL,
     export_id=None,
+    control_format=False,
 ):
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
@@ -78,6 +79,7 @@ def async_export_excel(
                     users=users,
                     companies=companies,
                     file_name=file_name,
+                    control_format=control_format,
                 )
             )
             end_time = time.perf_counter()
@@ -92,11 +94,23 @@ def async_export_excel(
                 )
                 return
 
-            path = f"exports/{exporter_id}/{export.id}"
-            S3Client.upload_export(file_content, path, content_type)
+            if not file_content:
+                raise ValueError(f"Export {export.id} produced empty content")
+
+            if app.config["EXPORT_STORAGE_BACKEND"] == "s3":
+                path = f"exports/{exporter_id}/{export.id}"
+                S3Client.upload_export(file_content, path, content_type)
+                export.file_s3_path = path
+            else:
+                max_bytes = app.config["EXPORT_DB_MAX_SIZE_MB"] * 1024 * 1024
+                if len(file_content) > max_bytes:
+                    raise ValueError(
+                        f"Export {export.id} too large for db storage: "
+                        f"{len(file_content)} > {max_bytes} bytes"
+                    )
+                export.file_content = file_content
 
             export.status = ExportStatus.READY
-            export.file_s3_path = path
             export.file_type = content_type
             export.file_name = file_name
             db.session.commit()
