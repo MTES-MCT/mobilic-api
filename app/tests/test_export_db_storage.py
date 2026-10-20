@@ -247,7 +247,7 @@ class TestExportDbStorage(BaseTest):
         self.assertEqual(resp.status_code, 200)
         links = resp.json["ready_exports_links"]
         self.assertTrue(
-            any(f"/exports/download/{export_id}" in url for url in links)
+            any(f"/api/exports/download/{export_id}" in url for url in links)
         )
         db.session.expire_all()
         export = Export.query.get(export_id)
