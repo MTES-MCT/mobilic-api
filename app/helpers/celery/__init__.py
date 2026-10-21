@@ -15,6 +15,7 @@ celery = Celery(
     include=[
         "app.jobs.break_alert",
         "app.jobs.notification_campaign",
+        "app.jobs.emails.third_party_sync",
     ],
 )
 celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
