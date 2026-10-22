@@ -1,8 +1,14 @@
+import re
+
 from sqlalchemy import func
 
 from app import db
 from app.helpers.authentication import current_user
 from app.models import Vehicle
+
+
+def canonicalize_registration_number(registration_number):
+    return re.sub(r"[\s-]", "", registration_number or "").upper()
 
 
 def find_or_create_vehicle(
@@ -18,7 +24,9 @@ def find_or_create_vehicle(
             company_id=company_id,
         )
         vehicle = vehicles[0] if vehicles else None
-        vehicle_registration_number = vehicle_registration_number.upper()
+        vehicle_registration_number = canonicalize_registration_number(
+            vehicle_registration_number
+        )
 
         if not vehicle:
             vehicle = Vehicle(
@@ -52,10 +60,12 @@ def find_or_create_vehicle(
 
 
 def find_vehicle(registration_number, company_id):
-    vehicle_registration_number = registration_number.upper()
+    vehicle_registration_number = canonicalize_registration_number(
+        registration_number
+    )
     return Vehicle.query.filter(
         func.translate(Vehicle.registration_number, "- ", "").ilike(
-            func.translate(vehicle_registration_number, "- ", "")
+            vehicle_registration_number
         ),
         Vehicle.company_id == company_id,
     ).all()
