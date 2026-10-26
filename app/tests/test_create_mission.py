@@ -14,9 +14,10 @@ from app.tests.helpers import (
 def _get_vehicle(company_id, registration_number):
     return db.session.execute(
         """
-        SELECT v.id FROM vehicle v 
+        SELECT v.id FROM vehicle v
         WHERE v.company_id = :company_id
-        AND v.registration_number = :registration_number
+        AND upper(translate(v.registration_number, '- ', ''))
+            = upper(translate(:registration_number, '- ', ''))
         """,
         dict(
             company_id=company_id,
@@ -41,7 +42,8 @@ def _add_vehicle_to_team(company_id, registration_number, team_id):
         INSERT INTO team_vehicle (team_id, vehicle_id)
         SELECT :team_id, v.id FROM vehicle v
         WHERE v.company_id = :company_id
-        AND v.registration_number = :registration_number
+        AND upper(translate(v.registration_number, '- ', ''))
+            = upper(translate(:registration_number, '- ', ''))
         """,
         dict(
             team_id=team_id,
