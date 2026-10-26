@@ -19,6 +19,7 @@ from app.domain.company import job_update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
 from app.domain.technical_incident import create_incident, update_incident
 from app.domain.vehicle import find_vehicle
+from app.helpers.cron_monitoring import cron_monitor
 from app.helpers.errors import MobilicError
 from app.helpers.junit_report import JUnitResult, write_junit_xml
 from app.helpers.oauth.models import ThirdPartyApiKey
@@ -294,6 +295,7 @@ def create_api_key(client_id):
 @app.cli.command("run_certificate", with_appcontext=True)
 @click.argument("as_of_date", required=False)
 @click.argument("computation_only", type=click.BOOL, required=False)
+@cron_monitor("run_certificate")
 def run_certificate(as_of_date=None, computation_only=False):
     """
     Run certificate as of today
@@ -321,6 +323,7 @@ def run_certificate(as_of_date=None, computation_only=False):
 
 
 @app.cli.command("send_daily_emails", with_appcontext=True)
+@cron_monitor("send_daily_emails")
 def send_daily_emails():
     from datetime import date
 
@@ -362,6 +365,7 @@ def send_daily_emails():
 
 
 @app.cli.command("load_company_stats", with_appcontext=True)
+@cron_monitor("load_company_stats")
 def load_company_stats():
     from app.services.load_company_stats import load_company_stats
 
@@ -372,6 +376,7 @@ def load_company_stats():
 
 @app.cli.command("compute_software_compliance_snapshot", with_appcontext=True)
 @click.argument("for_date", required=False)
+@cron_monitor("compute_software_compliance_snapshot")
 def compute_software_compliance_snapshot(for_date=None):
     """
     Compute daily software compliance snapshot for all third-party clients.
@@ -467,6 +472,7 @@ def temp_command_generate_xm_control(id):
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
+@cron_monitor("migrate_anonymize_data")
 def anonymize_standalone_data_command(
     verbose, no_dry_run, delete_only, test, force_clean
 ):
@@ -521,11 +527,13 @@ def apply_activity_k_anonymity_command(k):
 
 
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
+@cron_monitor("update_ceased_activity_status")
 def update_ceased_activity_status():
     job_update_ceased_activity_status()
 
 
 @app.cli.command("process_auto_validations", with_appcontext=True)
+@cron_monitor("process_auto_validations")
 def process_auto_validations():
     job_process_auto_validations()
 
@@ -667,6 +675,7 @@ def update_technical_incident(
 
 
 @app.cli.command("refresh_webinars_cache", with_appcontext=True)
+@cron_monitor("refresh_webinars_cache")
 def refresh_webinars_cache():
     refresh_webinars_cache_job()
 
@@ -692,6 +701,7 @@ def refresh_webinars_cache():
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
+@cron_monitor("anonymize_users")
 def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     """
     Anonymize users older than threshold.
@@ -757,6 +767,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     is_flag=True,
     help="Sync only activation funnel data",
 )
+@cron_monitor("sync_brevo_funnel")
 def sync_brevo_funnel_command(
     acquisition_pipeline,
     activation_pipeline,
@@ -1021,6 +1032,7 @@ def send_anonymization_warnings_or_preview_command(preview):
     is_flag=True,
     help="Show what would be linked without making changes",
 )
+@cron_monitor("link_brevo_deals")
 def link_brevo_deals_command(
     acquisition_pipeline, activation_pipeline, dry_run
 ):
@@ -1135,6 +1147,7 @@ def link_brevo_deals_command(
 
 @app.cli.command("purge_support_action_logs", with_appcontext=True)
 @click.option("--dry-run", is_flag=True)
+@cron_monitor("purge_support_action_logs")
 def purge_support_action_logs_command(dry_run):
     """Purge support_action_log entries older than retention
     threshold."""
@@ -1150,6 +1163,7 @@ def purge_support_action_logs_command(dry_run):
 
 
 @app.cli.command("delete_old_notifications", with_appcontext=True)
+@cron_monitor("delete_old_notifications")
 def delete_old_notifications():
     """Delete notifications older than 1 month."""
     from datetime import timedelta
@@ -1169,6 +1183,7 @@ def delete_old_notifications():
 
 
 @app.cli.command("delete_expired_refresh_tokens", with_appcontext=True)
+@cron_monitor("delete_expired_refresh_tokens")
 def delete_expired_refresh_tokens():
     """Delete idle-expired refresh tokens and consumed tokens past the reuse grace period."""
     from datetime import datetime, timedelta, timezone
@@ -1202,6 +1217,7 @@ def delete_expired_refresh_tokens():
 
 @app.cli.command("purge_downloaded_exports", with_appcontext=True)
 @click.option("--max-age-hours", type=click.INT, default=24)
+@cron_monitor("purge_downloaded_exports")
 def purge_downloaded_exports(max_age_hours):
     """Purge le contenu binaire des exports téléchargés ou trop anciens."""
     from sqlalchemy import or_
@@ -1226,6 +1242,7 @@ def purge_downloaded_exports(max_age_hours):
 
 @app.cli.command("alert_stuck_exports", with_appcontext=True)
 @click.option("--max-age-hours", type=click.INT, default=1)
+@cron_monitor("alert_stuck_exports")
 def alert_stuck_exports(max_age_hours):
     """Alerte si des exports restent bloqués en WIP (worker en panne)."""
     from app.models.export import Export, ExportStatus
