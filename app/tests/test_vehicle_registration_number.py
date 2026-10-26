@@ -4,6 +4,7 @@ from app.domain.vehicle import (
     find_or_create_vehicle,
     find_vehicle,
 )
+from app.helpers.errors import InvalidParamsError
 from app.models import Vehicle
 from app.seed import CompanyFactory
 from app.tests import BaseTest
@@ -48,6 +49,20 @@ class TestVehicleRegistrationNumber(BaseTest):
                 Vehicle.company_id == self.company.id
             ).count(),
             1,
+        )
+
+    def test_registration_number_with_only_separators_is_rejected(self):
+        for value in ["", "   ", "---", " - - "]:
+            with self.assertRaises(InvalidParamsError):
+                find_or_create_vehicle(
+                    company_id=self.company.id,
+                    vehicle_registration_number=value,
+                )
+        self.assertEqual(
+            Vehicle.query.filter(
+                Vehicle.company_id == self.company.id
+            ).count(),
+            0,
         )
 
     def test_like_wildcards_do_not_match_other_vehicles(self):
