@@ -4,6 +4,7 @@ from sqlalchemy import func
 
 from app import db
 from app.helpers.authentication import current_user
+from app.helpers.errors import InvalidParamsError
 from app.models import Vehicle
 
 
@@ -19,14 +20,18 @@ def find_or_create_vehicle(
     employment=None,
 ):
     if not vehicle_id:
+        vehicle_registration_number = canonicalize_registration_number(
+            vehicle_registration_number
+        )
+        if not vehicle_registration_number:
+            raise InvalidParamsError(
+                "Vehicle registration number cannot be empty"
+            )
         vehicles = find_vehicle(
             registration_number=vehicle_registration_number,
             company_id=company_id,
         )
         vehicle = vehicles[0] if vehicles else None
-        vehicle_registration_number = canonicalize_registration_number(
-            vehicle_registration_number
-        )
 
         if not vehicle:
             vehicle = Vehicle(
