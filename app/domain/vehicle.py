@@ -64,8 +64,7 @@ def find_vehicle(registration_number, company_id):
         registration_number
     )
     return Vehicle.query.filter(
-        func.translate(Vehicle.registration_number, "- ", "").ilike(
-            vehicle_registration_number
-        ),
+        func.upper(func.translate(Vehicle.registration_number, "- ", ""))
+        == vehicle_registration_number,
         Vehicle.company_id == company_id,
     ).all()

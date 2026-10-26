@@ -2,6 +2,7 @@ from app import db
 from app.domain.vehicle import (
     canonicalize_registration_number,
     find_or_create_vehicle,
+    find_vehicle,
 )
 from app.models import Vehicle
 from app.seed import CompanyFactory
@@ -46,5 +47,24 @@ class TestVehicleRegistrationNumber(BaseTest):
             Vehicle.query.filter(
                 Vehicle.company_id == self.company.id
             ).count(),
+            1,
+        )
+
+    def test_like_wildcards_do_not_match_other_vehicles(self):
+        find_or_create_vehicle(
+            company_id=self.company.id,
+            vehicle_registration_number="AB-123-CD",
+        )
+        db.session.flush()
+        self.assertEqual(
+            find_vehicle("A%23CD", self.company.id),
+            [],
+        )
+        self.assertEqual(
+            find_vehicle("A_123CD", self.company.id),
+            [],
+        )
+        self.assertEqual(
+            len(find_vehicle("ab 123 cd", self.company.id)),
             1,
         )
