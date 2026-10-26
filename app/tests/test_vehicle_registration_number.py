@@ -7,6 +7,7 @@ from app.domain.vehicle import (
 from app.helpers.errors import InvalidParamsError
 from app.models import Vehicle
 from app.seed import CompanyFactory
+from app.seed.factories import VehicleFactory
 from app.tests import BaseTest
 
 
@@ -30,6 +31,22 @@ class TestVehicleRegistrationNumber(BaseTest):
         )
         db.session.flush()
         self.assertEqual(vehicle.registration_number, "AB123CD")
+
+    def test_military_plate_is_stored_without_space(self):
+        vehicle = find_or_create_vehicle(
+            company_id=self.company.id,
+            vehicle_registration_number="6184 0001",
+        )
+        db.session.flush()
+        self.assertEqual(vehicle.registration_number, "61840001")
+
+    def test_matches_legacy_vehicle_stored_with_separators(self):
+        legacy = VehicleFactory.create(
+            company_id=self.company.id,
+            registration_number="AB-123-CD",
+        )
+        found = find_vehicle("ab 123 cd", self.company.id)
+        self.assertEqual([v.id for v in found], [legacy.id])
 
     def test_same_plate_different_format_is_not_duplicated(self):
         first = find_or_create_vehicle(
