@@ -6,6 +6,7 @@ a long break (> 10 hours) to prevent incorrect regulatory alerts.
 """
 
 from datetime import datetime
+from freezegun import freeze_time
 from app.domain.regulations_per_day import NATINF_32083
 from app.helpers.submitter_type import SubmitterType
 from app.models import RegulatoryAlert, User, RegulationCheck
@@ -29,6 +30,7 @@ def _get_alert_for_date(target_date, submitter_type=SubmitterType.EMPLOYEE):
 class TestLongBreakDetection(RegulationsTest):
     DAYS_BEFORE_TODAY_FOR_TEST = 2
 
+    @freeze_time("2026-01-15")
     def test_long_break_should_reset_work_time_counters(self):
         """
         Scenario:
@@ -267,6 +269,7 @@ class TestLongBreakDetection(RegulationsTest):
             f"Alert: {alert.extra if alert else None}",
         )
 
+    @freeze_time("2026-01-15")
     def test_long_break_after_night_threshold_breach(self):
         """
         Night-work breach immediately followed by a long break and a

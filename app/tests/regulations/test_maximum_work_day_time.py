@@ -412,6 +412,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         )
         self.assertIsNone(regulatory_alert)
 
+    @freeze_time("2026-01-15")
     def test_night_hours_start(self):
         how_many_days_ago = 2
 
@@ -746,6 +747,7 @@ class TestMaximumWorkDayTime(RegulationsTest):
         regulatory_alert = _get_alert(days_ago=how_many_days_ago)
         self.assertIsNotNone(regulatory_alert)
 
+    @freeze_time("2026-01-15")
     def test_night_work_on_two_days(self):
         how_many_days_ago = 2
         self._log_and_validate_mission(
