@@ -29,7 +29,9 @@ def _get_threshold_time(now, days_to_remove):
     return threshold_time
 
 
-def _get_auto_validations(threshold_time, is_admin):
+def _get_auto_validations(
+    threshold_time, is_admin, limit=AUTO_VALIDATION_BATCH_SIZE
+):
     return (
         MissionAutoValidation.query.options(
             selectinload(MissionAutoValidation.user),
@@ -40,11 +42,12 @@ def _get_auto_validations(threshold_time, is_admin):
             MissionAutoValidation.is_admin == is_admin,
         )
         .order_by(MissionAutoValidation.reception_time)
+        .limit(limit)
         .all()
     )
 
 
-def get_employee_auto_validations(now):
+def get_employee_auto_validations(now, limit=AUTO_VALIDATION_BATCH_SIZE):
     threshold_time = _get_threshold_time(
         now=now, days_to_remove=EMPLOYEE_THRESHOLD_DAYS
     )
@@ -52,12 +55,12 @@ def get_employee_auto_validations(now):
         f"Employee auto-validation threshold: {threshold_time} (current time: {now})"
     )
     auto_validations = _get_auto_validations(
-        threshold_time=threshold_time, is_admin=False
+        threshold_time=threshold_time, is_admin=False, limit=limit
     )
     return auto_validations
 
 
-def get_admin_auto_validations(now):
+def get_admin_auto_validations(now, limit=AUTO_VALIDATION_BATCH_SIZE):
     threshold_time = _get_threshold_time(
         now=now, days_to_remove=ADMIN_THRESHOLD_DAYS
     )
@@ -66,7 +69,7 @@ def get_admin_auto_validations(now):
     )
 
     auto_validations = _get_auto_validations(
-        threshold_time=threshold_time, is_admin=True
+        threshold_time=threshold_time, is_admin=True, limit=limit
     )
     return auto_validations
 
@@ -140,9 +143,7 @@ def job_process_auto_validations():
                 )
                 continue
 
-    employee_auto_validations = get_employee_auto_validations(now=now)[
-        :AUTO_VALIDATION_BATCH_SIZE
-    ]
+    employee_auto_validations = get_employee_auto_validations(now=now)
     app.logger.info(
         f"Found #{len(employee_auto_validations)} employee auto validations"
     )
@@ -151,9 +152,7 @@ def job_process_auto_validations():
         auto_validations=employee_auto_validations, is_admin=False
     )
 
-    admin_auto_validations = get_admin_auto_validations(now=now)[
-        :AUTO_VALIDATION_BATCH_SIZE
-    ]
+    admin_auto_validations = get_admin_auto_validations(now=now)
     app.logger.info(
         f"Found #{len(admin_auto_validations)} admin auto validations"
     )

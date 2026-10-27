@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import secrets
 from datetime import timedelta, datetime
 
 from dotenv import load_dotenv
@@ -9,6 +10,10 @@ if os.environ.get("DOTENV_FILE", False):
     load_dotenv(os.environ.get("DOTENV_FILE"))
 
 MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY and MOBILIC_ENV not in ("dev", "test"):
+    raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 
 CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
 CGU_INITIAL_VERSION = "v1.0"
@@ -23,9 +28,28 @@ class Config:
     ECHO_DB_QUERIES = False
     MINIMUM_ACTIVITY_DURATION = timedelta(seconds=0)
     ACCESS_TOKEN_EXPIRATION = timedelta(minutes=5)
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
-    DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
+    # Idle expiration : a refresh token unused for this long is invalid.
+    # Each refresh creates a fresh token, so an active session never expires.
+    REFRESH_TOKEN_EXPIRATION = timedelta(days=90)
+    # A consumed token replayed within this window returns the successor
+    # tokens instead of failing (lost response, concurrent tabs).
+    REFRESH_TOKEN_REUSE_GRACE_PERIOD = timedelta(seconds=60)
+    JWT_SECRET_KEY = JWT_SECRET_KEY or secrets.token_hex(32)
+    DISABLE_PASSWORD_CHECK = os.environ.get(
+        "DISABLE_PASSWORD_CHECK", ""
+    ).strip().lower() in ("1", "true", "yes")
+    if DISABLE_PASSWORD_CHECK and MOBILIC_ENV not in ("dev", "test"):
+        raise RuntimeError(
+            "DISABLE_PASSWORD_CHECK cannot be enabled outside dev/test"
+        )
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
+    TCHAP_ACCESS_TOKEN = os.environ.get("TCHAP_ACCESS_TOKEN")
+    TCHAP_ROOM_ID = os.environ.get("TCHAP_ROOM_ID")
+    TCHAP_HOMESERVER = os.environ.get(
+        "TCHAP_HOMESERVER",
+        "https://matrix.agent.dev-durable.tchap.gouv.fr",
+    )
+    COMPLIANCE_ALERT_EMAIL = os.environ.get("COMPLIANCE_ALERT_EMAIL")
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")
@@ -36,8 +60,12 @@ class Config:
     S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
     S3_REGION = os.environ.get("S3_REGION")
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
+    EXPORT_STORAGE_BACKEND = os.environ.get("EXPORT_STORAGE_BACKEND", "s3")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+    VAPID_CLAIM_EMAIL = os.environ.get("VAPID_CLAIM_EMAIL")
     IMPERSONATION_ALLOWED_TABLES = frozenset(
         t.strip()
         for t in os.environ.get("IMPERSONATION_ALLOWED_TABLES", "").split(",")
@@ -138,6 +166,7 @@ class Config:
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
     EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
+    EXPORT_DB_MAX_SIZE_MB = int(os.environ.get("EXPORT_DB_MAX_SIZE_MB", 50))
     CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
     CGU_RELEASE_DATE = (
         datetime.strptime(
@@ -158,6 +187,9 @@ class Config:
     )
     ANONYMIZATION_THRESHOLD_MONTH = int(
         os.environ.get("ANONYMIZATION_THRESHOLD_MONTH", 0)
+    )
+    ANONYMIZATION_MAX_MISSIONS_PER_RUN = int(
+        os.environ.get("ANONYMIZATION_MAX_MISSIONS_PER_RUN", 100000)
     )
     EMAIL_NO_INVITATIONS_DELAY_DAYS = int(
         os.environ.get("EMAIL_NO_INVITATIONS_DELAY_DAYS", 2)
@@ -211,6 +243,15 @@ class StagingConfig(Config):
         "mobilic.preprod.beta.gouv.fr",
         # Note: Add PR review app domains as needed for future PRs
     }
+
+
+class ReviewConfig(StagingConfig):
+    DISABLE_EMAIL = True
+    # Scalingo's `"generator": "secret"` produces a hex string, which is not a
+    # valid Fernet key (Fernet expects 32 random bytes urlsafe-b64 encoded).
+    # Generate one per process instead: TOTP credentials created on a review
+    # app are ephemeral by design, so a key rotation on redeploy is acceptable.
+    TOTP_ENCRYPTION_KEY = base64.urlsafe_b64encode(os.urandom(32)).decode()
 
 
 class TestConfig(Config):

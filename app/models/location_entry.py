@@ -29,7 +29,7 @@ class LocationEntry(EventBaseModel):
     backref_base_name = "location_entries"
 
     mission_id = db.Column(
-        db.Integer, db.ForeignKey("mission.id"), index=True, nullable=False
+        db.Integer, db.ForeignKey("mission.id"), nullable=False
     )
     mission = db.relationship("Mission", backref=backref("location_entries"))
 

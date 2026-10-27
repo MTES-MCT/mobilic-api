@@ -310,7 +310,7 @@ COLUMN_OFF_HOURS = ExcelColumn(
     "Heures congés ou absences",
     lambda wday: timedelta(seconds=wday.activity_durations[ActivityType.OFF]),
     lambda wday: get_duration_format(is_bold=True),
-    50,
+    30,
     blue_hex,
     True,
 )
@@ -369,7 +369,10 @@ def get_executed_activities(event):
         return (
             event.holiday_mission_name
             if event.holiday_mission_name != ""
-            else format_activity_type(event.resource.type)
+            else format_activity_type(
+                event.resource.type,
+                event.allow_other_task,
+            )
         )
     return None
 
@@ -409,6 +412,30 @@ COLUMN_INFRACTIONS_BUSINESS_TYPES = ExcelColumn(
     lambda _: "center",
     60,
     very_light_red_hex,
+)
+COLUMN_DAILY_INFRACTIONS = ExcelColumn(
+    "Infractions journalières",
+    lambda wday: getattr(wday, "nb_daily_infractions", 0) or "",
+    lambda _: "center",
+    30,
+    very_light_red_hex,
+    False,
+)
+COLUMN_WEEKLY_INFRACTIONS = ExcelColumn(
+    "Infractions hebdomadaires",
+    lambda wday: getattr(wday, "nb_weekly_infractions", 0) or "",
+    lambda _: "center",
+    30,
+    very_light_red_hex,
+    False,
+)
+COLUMN_INFRACTION_TYPES = ExcelColumn(
+    "Type d'infraction",
+    lambda wday: getattr(wday, "infraction_labels", ""),
+    lambda _: "wrap",
+    60,
+    very_light_red_hex,
+    False,
 )
 
 

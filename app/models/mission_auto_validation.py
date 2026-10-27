@@ -18,9 +18,7 @@ class MissionAutoValidation(BaseModel):
     )
     is_admin = db.Column(db.Boolean, nullable=False)
 
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
-    )
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     user = db.relationship(
         "User", backref=backref("auto_validations", lazy=True)
     )

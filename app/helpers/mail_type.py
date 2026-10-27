@@ -51,3 +51,4 @@ class EmailType(str, Enum):
     DETACHMENT_REQUEST = "detachment_request"
     DETACHMENT_RELANCE = "detachment_relance"
     EMPLOYMENT_TERMINATED = "employment_terminated"
+    SOFTWARE_COMPLIANCE_ALERT = "software_compliance_alert"

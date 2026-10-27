@@ -22,6 +22,8 @@ class AnonCompany(AnonymizedModel):
         anonymized.id = new_id
         anonymized.creation_time = cls.truncate_to_month(company.creation_time)
         anonymized.require_kilometer_data = company.require_kilometer_data
-        anonymized.business_id = company.business_id
+        anonymized.business_id = cls.get_new_id(
+            "business", company.business_id
+        )
 
         return anonymized

@@ -18,6 +18,7 @@ def load_work_days_cache(all_users, chunks, scope, parse_date_fn):
             from_date=global_min_date,
             until_date=global_max_date,
             include_dismissed_or_empty_days=True,
+            compute_history=True,
         )
         cache[user.id] = work_days
     return cache
@@ -43,6 +44,7 @@ def get_work_days_for_users(
                     from_date=min_date,
                     until_date=max_date,
                     include_dismissed_or_empty_days=True,
+                    compute_history=True,
                 )[0]
             user_wdays_batches.append((user, wdays))
     else:
@@ -62,6 +64,7 @@ def get_work_days_for_users(
                     from_date=min_date,
                     until_date=max_date,
                     include_dismissed_or_empty_days=True,
+                    compute_history=True,
                 )[0]
             all_work_days += wdays
         user_wdays_batches = [(None, all_work_days)]
@@ -77,6 +80,7 @@ def generate_excel_files_from_batch(
     file_name,
     chunk_suffix,
     all_users=None,
+    control_format=False,
 ):
     files_data = []
 
@@ -89,7 +93,7 @@ def generate_excel_files_from_batch(
             chunk_file_name = f"{chunk_file_name}_vide"
 
         excel_file = get_one_excel_file(
-            wdays, companies, min_date, max_date, all_users=all_users
+            wdays, companies, min_date, max_date, all_users=all_users, control_format=control_format
         )
         excel_file.seek(0)
         files_data.append(
@@ -103,7 +107,7 @@ def generate_excel_files_from_batch(
                 chunk_file_name = f"{chunk_file_name}_vide"
 
             excel_file = get_one_excel_file(
-                wdays, companies, min_date, max_date, all_users=[user]
+                wdays, companies, min_date, max_date, all_users=[user], control_format=control_format
             )
             excel_file.seek(0)
             files_data.append(

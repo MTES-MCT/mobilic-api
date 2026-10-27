@@ -9,7 +9,8 @@ from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
-from app.seed import UserFactory, CompanyFactory
+from app.seed import UserFactory, CompanyFactory, EmploymentFactory
+from app.models.employment import EmploymentRequestValidationStatus
 
 
 class TestEmployment(BaseTest):
@@ -42,15 +43,18 @@ class TestEmployment(BaseTest):
         )
         self.worker_employment_id = self.user_worker.employments[0].id
 
-    def get_admined_employments(self, admin_id):
+    def get_admined_employments(
+        self, admin_id, user_ids=None, latest_per_user=False
+    ):
+        variables = {"id": admin_id, "latest_per_user": latest_per_user}
+        if user_ids is not None:
+            variables["user_ids"] = user_ids
         return make_authenticated_request(
             time=datetime.now(),
             submitter_id=admin_id,
             query=ApiRequests.admined_companies_employments,
             unexposed_query=False,
-            variables={
-                "id": admin_id,
-            },
+            variables=variables,
         )["data"]["user"]["adminedCompanies"][0]["employments"]
 
     def test_change_role_to_admin(self, time=datetime(2020, 2, 7, 6)):
@@ -182,6 +186,102 @@ class TestEmployment(BaseTest):
         ][0]
 
         self.assertEqual(worker_employment["user"]["email"], HIDDEN_EMAIL)
+
+    def test_filter_employments_by_user_ids(self):
+        query_employments = self.get_admined_employments(
+            self.user_primary_admin.id,
+            user_ids=[self.user_worker.id],
+            latest_per_user=True,
+        )
+
+        self.assertEqual(len(query_employments), 1)
+        self.assertEqual(query_employments[0]["id"], self.worker_employment_id)
+
+    def test_filter_employments_by_several_user_ids(self):
+        query_employments = self.get_admined_employments(
+            self.user_primary_admin.id,
+            user_ids=[
+                self.user_primary_admin.id,
+                self.user_secondary_admin.id,
+            ],
+            latest_per_user=True,
+        )
+
+        self.assertCountEqual(
+            [e["id"] for e in query_employments],
+            [
+                self.primary_admin_employment_id,
+                self.secondary_admin_employment_id,
+            ],
+        )
+
+    def test_no_user_ids_filter_returns_all_employments(self):
+        query_employments = self.get_admined_employments(
+            self.user_primary_admin.id, latest_per_user=True
+        )
+
+        self.assertCountEqual(
+            [e["id"] for e in query_employments],
+            [
+                self.primary_admin_employment_id,
+                self.secondary_admin_employment_id,
+                self.worker_employment_id,
+            ],
+        )
+    def create_pending_invite_to_existing_user(
+        self, invite_email, account_email
+    ):
+        invitee = UserFactory.create(email=account_email)
+        employment = EmploymentFactory.create(
+            company=self.company,
+            user=invitee,
+            submitter=self.user_primary_admin,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+            email=invite_email,
+            has_admin_rights=False,
+        )
+        return invitee, employment
+
+    def test_pending_invite_to_existing_user_does_not_break_admin_query(self):
+        _, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+
+        response = make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.user_primary_admin.id,
+            query=ApiRequests.admined_companies_employments,
+            unexposed_query=False,
+            variables={"id": self.user_primary_admin.id},
+        )
+
+        self.assertIsNone(response.get("errors"))
+        pending = [
+            e
+            for e in response["data"]["user"]["adminedCompanies"][0][
+                "employments"
+            ]
+            if e["id"] == employment_id
+        ][0]
+        self.assertIsNone(pending["user"]["email"])
+
+    def test_employment_email_does_not_leak_account_email_of_pending_invite(
+        self,
+    ):
+        invitee, employment = self.create_pending_invite_to_existing_user(
+            invite_email="pending.invite@example.test",
+            account_email="real.account@example.test",
+        )
+        employment_id = employment.id
+        account_email = invitee.email
+
+        employments = self.get_admined_employments(self.user_primary_admin.id)
+        pending = [e for e in employments if e["id"] == employment_id][0]
+
+        self.assertEqual(pending["email"], "pending.invite@example.test")
+        self.assertNotEqual(pending["email"], account_email)
 
 
 class TestReattachEmployment(BaseTest):
@@ -461,11 +561,23 @@ class TestEmploymentStatusProperties(BaseTest):
         self.employment = self.user_worker.employments[0]
 
     def test_active_employment_status(self):
-        """An approved employment with no end_date should be ACTIVE."""
+        """An approved employment with no end_date and recent activity should be ACTIVE."""
+        self.employment.last_active_at = datetime.now()
+        db.session.commit()
+
         self.assertTrue(self.employment.is_active)
         self.assertFalse(self.employment.is_terminated)
         self.assertFalse(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_never_active_is_inactive(self):
+        """An employment that never had any activity (last_active_at is
+        None) should be considered INACTIVE, not ACTIVE."""
+        self.assertIsNone(self.employment.last_active_at)
+
+        self.assertTrue(self.employment.is_active)
+        self.assertTrue(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "INACTIVE")
 
     def test_terminated_employment_status(self):
         """An employment with end_date in the past should be TERMINATED."""
@@ -541,6 +653,7 @@ class TestEmploymentStatusProperties(BaseTest):
         from datetime import date
 
         self.employment.end_date = date.today()
+        self.employment.last_active_at = datetime.now()
         db.session.commit()
 
         self.assertTrue(self.employment.is_active)
@@ -556,9 +669,7 @@ class TestRequestDetachment(BaseTest):
             post__company=self.company, post__has_admin_rights=True
         )
         worker = UserFactory.create(post__company=self.company)
-        another_worker = UserFactory.create(
-            post__company=self.company
-        )
+        another_worker = UserFactory.create(post__company=self.company)
         self.admin_id = admin.id
         self.worker_id = worker.id
         self.another_worker_id = another_worker.id
@@ -575,16 +686,12 @@ class TestRequestDetachment(BaseTest):
         )
         result = response["data"]["employments"]["requestDetachment"]
         self.assertIsNotNone(result["detachmentRequest"])
-        self.assertIn(
-            "requestedAt", result["detachmentRequest"]
-        )
+        self.assertIn("requestedAt", result["detachmentRequest"])
         self.assertEqual(
             result["detachmentRequest"]["requestedAt"],
             result["detachmentRequest"]["lastSentAt"],
         )
-        db_employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        db_employment = Employment.query.get(self.worker_employment_id)
         self.assertIsNotNone(db_employment.detachment_request)
 
     def test_another_worker_cannot_request_detachment(self):
@@ -638,12 +745,8 @@ class TestRequestDetachment(BaseTest):
         )
 
     def test_relance_after_cooldown(self):
-        past_ts = int(
-            (datetime.now() - timedelta(hours=49)).timestamp()
-        )
-        employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        past_ts = int((datetime.now() - timedelta(hours=49)).timestamp())
+        employment = Employment.query.get(self.worker_employment_id)
         employment.detachment_request = {
             "requested_at": past_ts,
             "last_sent_at": past_ts,
@@ -683,9 +786,7 @@ class TestRequestDetachment(BaseTest):
         )
 
     def test_terminated_employment_cannot_request_detachment(self):
-        employment = Employment.query.get(
-            self.worker_employment_id
-        )
+        employment = Employment.query.get(self.worker_employment_id)
         employment.end_date = date.today() - timedelta(days=1)
         db.session.commit()
 

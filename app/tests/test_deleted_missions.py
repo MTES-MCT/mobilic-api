@@ -48,17 +48,21 @@ class TestDeletedMissions(BaseTest):
         self._app_context.__exit__(None, None, None)
         super().tearDown()
 
-    def _query_deleted_missions(self):
+    def _query_deleted_missions(self, first=None):
         response = make_authenticated_request(
             time=datetime.now(),
             submitter_id=self.admin.id,
             query=ApiRequests.query_company_deleted_missions,
             variables=dict(
                 id=self.company.id,
+                first=first,
             ),
         )
-        edges = response["data"]["company"]["missionsDeleted"]["edges"]
-        return [edge["node"] for edge in edges]
+        return response["data"]["company"]["missionsDeleted"]
+
+    def _query_deleted_mission_nodes(self):
+        connection = self._query_deleted_missions()
+        return [edge["node"] for edge in connection["edges"]]
 
     def test_missions_with_dismissed_activities_are_returned(self):
         response = make_authenticated_request(
@@ -73,7 +77,7 @@ class TestDeletedMissions(BaseTest):
             response["data"]["activities"]["cancelActivity"]["success"]
         )
 
-        missions = self._query_deleted_missions()
+        missions = self._query_deleted_mission_nodes()
         self.assertTrue(len(missions) > 0)
 
         first_mission = missions[0]
@@ -81,8 +85,10 @@ class TestDeletedMissions(BaseTest):
         self.assertTrue(first_mission["activities"][0]["dismissedAt"])
 
     def test_missions_without_dismissed_activities_are_not_returned(self):
-        missions = self._query_deleted_missions()
-        self.assertTrue(len(missions) == 0)
+        connection = self._query_deleted_missions()
+        self.assertEqual(connection["edges"], [])
+        self.assertFalse(connection["pageInfo"]["hasNextPage"])
+        self.assertIsNone(connection["pageInfo"]["endCursor"])
 
     def test_missions_without_all_activities_dismissed_are_not_returned(self):
         with AuthenticatedUserContext(user=self.worker):
@@ -110,5 +116,47 @@ class TestDeletedMissions(BaseTest):
             response["data"]["activities"]["cancelActivity"]["success"]
         )
 
-        missions = self._query_deleted_missions()
+        missions = self._query_deleted_mission_nodes()
         self.assertTrue(len(missions) == 0)
+
+    def test_page_info_reflects_pagination(self):
+        second_mission = Mission.create(
+            submitter=self.worker,
+            company=self.company,
+            reception_time=datetime.now(),
+        )
+        with AuthenticatedUserContext(self.worker):
+            second_activity = log_activity(
+                submitter=self.worker,
+                user=self.worker,
+                mission=second_mission,
+                type=ActivityType.WORK,
+                switch_mode=True,
+                reception_time=datetime.now(),
+                start_time=get_time(how_many_days_ago=1, hour=10),
+                end_time=get_time(how_many_days_ago=1, hour=14),
+            )
+            db.session.commit()
+
+        for activity_id in [
+            self.activity_1_by_worker.id,
+            second_activity.id,
+        ]:
+            response = make_authenticated_request(
+                time=datetime.now(),
+                submitter_id=self.worker.id,
+                query=ApiRequests.cancel_activity,
+                variables=dict(activity_id=activity_id),
+            )
+            self.assertTrue(
+                response["data"]["activities"]["cancelActivity"]["success"]
+            )
+
+        connection = self._query_deleted_missions(first=1)
+        self.assertEqual(len(connection["edges"]), 1)
+        self.assertTrue(connection["pageInfo"]["hasNextPage"])
+        self.assertIsNotNone(connection["pageInfo"]["endCursor"])
+
+        connection = self._query_deleted_missions(first=2)
+        self.assertEqual(len(connection["edges"]), 2)
+        self.assertFalse(connection["pageInfo"]["hasNextPage"])

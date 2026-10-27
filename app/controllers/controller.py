@@ -1,4 +1,5 @@
 import copy
+import secrets
 from datetime import datetime
 from urllib.parse import quote, unquote, urlencode
 from uuid import uuid4
@@ -12,6 +13,7 @@ from marshmallow import Schema
 from webargs import fields
 
 from app import app, db
+from app.controllers.company import find_business
 from app.controllers.utils import atomic_transaction
 from app.data_access.control_data import ControllerControlOutput
 from app.data_access.controller_user import ControllerUserOutput
@@ -30,8 +32,10 @@ from app.domain.work_days import group_user_events_by_day_with_limit
 from app.helpers.agent_connect import get_agent_connect_user_info
 from app.helpers.authentication import (
     UserTokensWithAC,
+    bind_sso_state,
     current_user,
     unset_ac_auth_cookies,
+    verify_sso_state,
 )
 from app.helpers.authentication_controller import (
     create_access_tokens_for_controller,
@@ -57,7 +61,6 @@ from app.helpers.tachograph import (
 from app.helpers.xls.controllers import send_control_as_one_excel_file
 from app.helpers.xml import send_control_as_greco_xml
 from app.models import Mission
-from app.models.business import Business, BusinessType
 from app.models.controller_control import (
     ControllerControl,
     ControlType,
@@ -70,18 +73,21 @@ from app.services.natinf_search import search_natinf
 
 @app.route("/ac/authorize")
 def redirect_to_ac_authorize():
+    state = secrets.token_hex(16)
     query_params = {
-        "state": uuid4().hex,
+        "state": state,
         "nonce": uuid4().hex,
         "response_type": "code",
         "scope": "openid uid email given_name usual_name organizational_unit idp_id",
         "client_id": app.config["AC_CLIENT_ID"],
         "acr_values": "eidas1",
     }
-    return redirect(
+    response = redirect(
         f"{app.config['AC_AUTHORIZE_URL']}?{request.query_string.decode('utf-8')}&{urlencode(query_params, quote_via=quote)}",
         code=302,
     )
+    bind_sso_state(response, "acState", state)
+    return response
 
 
 @app.route("/ac/logout")
@@ -206,9 +212,7 @@ class ControllerSaveControlBulletin(graphene.Mutation):
     ):
         business_id = None
         if business_type is not None:
-            business = Business.query.filter(
-                Business.business_type == BusinessType[business_type].value
-            ).one_or_none()
+            business = find_business(business_type, transport_type)
             if not business:
                 raise InvalidParamsError(
                     f"Cannot save control: business type {business_type} not found"
@@ -220,17 +224,16 @@ class ControllerSaveControlBulletin(graphene.Mutation):
             control = ControllerControl.query.filter(
                 ControllerControl.id == control_id
             ).one()
+            if control.sent_to_admin or control.sent_to_driver:
+                raise InvalidParamsError(
+                    "Impossible de modifier le bulletin de contrôle : il a déjà été envoyé"
+                )
             now = datetime.now()
             if not control.control_bulletin_creation_time:
                 control.control_bulletin_creation_time = now
                 control.control_bulletin_update_time = now
             else:
                 control.control_bulletin_update_time = now
-                if (
-                    control.sent_to_admin is None
-                    or control.sent_to_admin is True
-                ):
-                    control.sent_to_admin = False
         elif type == ControlType.sans_lic.name:
             control = ControllerControl.create_no_lic_control(
                 current_user.id, business_id
@@ -306,10 +309,12 @@ class ControllerSaveReportedInfractions(graphene.Mutation):
     def mutate(cls, _, info, control_id=None, reported_infractions=[]):
         now = datetime.now()
         control = ControllerControl.query.get(control_id)
+        if control.sent_to_admin or control.sent_to_driver:
+            raise InvalidParamsError(
+                "Impossible de modifier les infractions : le bulletin de contrôle a déjà été envoyé"
+            )
         if control.reported_infractions_first_update_time is None:
             control.reported_infractions_first_update_time = now
-        if control.sent_to_admin:
-            control.sent_to_admin = False
 
         # Compute sets of custom infractions before and after to detect changes
         existing_custom_keys = {
@@ -458,6 +463,7 @@ class AgentConnectLogin(graphene.Mutation):
         original_redirect_uri,
         state,
     ):
+        verify_sso_state("acState", state)
         with atomic_transaction(commit_at_end=True):
             ac_user_info, ac_token = get_agent_connect_user_info(
                 authorization_code, original_redirect_uri
@@ -480,6 +486,7 @@ class AgentConnectLogin(graphene.Mutation):
                 **tokens,
                 ac_token=ac_token,
             )
+            response.delete_cookie("acState", path="/")
             return response
 
         return UserTokensWithAC(**tokens, ac_token=ac_token)

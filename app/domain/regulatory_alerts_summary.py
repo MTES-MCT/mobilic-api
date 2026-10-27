@@ -321,6 +321,98 @@ def _mark_other_company_days(alerts_group, relations):
         )
 
 
+# Regulatory alerts are computed per user across every company they work for
+# (compute_regulations / query_missions_with_limit are not restricted to a
+# single company_id) and RegulatoryAlert itself has no company_id. Without
+# this filter, a company would see alerts entirely caused by a user's
+# activity at a *different* employer, with no matching WorkDay on their
+# side to drill into.
+# Daily alerts are matched on their exact day (see _alert_matches_company).
+# This lookahead only applies to weekly alerts, whose day is the week's
+# start and is rarely a worked day itself — the whole week is considered
+# instead. It also sizes how far _build_company_activity_days widens its
+# query window.
+_ALERT_DAY_LOOKAHEAD = 7
+
+
+def _build_company_activity_days(
+    window_start, window_end, user_ids, company_id
+):
+    """Return the set of (user_id, day) pairs for which the user has at
+    least one non-dismissed activity in `company_id`."""
+    if not user_ids or company_id is None:
+        return set()
+
+    padding = timedelta(days=_ALERT_DAY_LOOKAHEAD)
+    rows = (
+        db.session.query(Activity.user_id, Activity.start_time, User)
+        .join(Mission, Mission.id == Activity.mission_id)
+        .join(User, User.id == Activity.user_id)
+        .filter(
+            Mission.company_id == company_id,
+            Activity.user_id.in_(user_ids),
+            Activity.start_time
+            >= datetime.combine(
+                window_start - padding, time.min, tzinfo=timezone.utc
+            ),
+            Activity.start_time
+            < datetime.combine(
+                window_end + padding, time.min, tzinfo=timezone.utc
+            ),
+            ~Activity.is_dismissed,
+        )
+        .all()
+    )
+    return {
+        (user_id, to_tz(start_time, user.timezone).date())
+        for user_id, start_time, user in rows
+    }
+
+
+def _alert_matches_company(alert, weekly_check_ids, company_days):
+    """True if `alert` is backed by at least one activity the user logged
+    for the company the summary is being built for.
+
+    Daily checks are matched on their exact day only: a company should
+    only see an overage it has an actual WorkDay for, even when the
+    underlying computation looked at neighboring days for context (e.g.
+    MINIMUM_DAILY_REST considers the next day too) — otherwise a company
+    would see an alert genuinely caused by a different employer's
+    schedule. Weekly checks store the week's start as their day, which is
+    rarely a worked day itself, so the whole week is considered instead.
+    """
+    day_range = (
+        range(_ALERT_DAY_LOOKAHEAD)
+        if alert.regulation_check_id in weekly_check_ids
+        else range(1)
+    )
+    return any(
+        (alert.user_id, alert.day + timedelta(days=i)) in company_days
+        for i in day_range
+    )
+
+
+def _filter_alerts_for_company(
+    alerts, user_ids, company_id, window_start, window_end
+):
+    if company_id is None:
+        return alerts
+    company_days = _build_company_activity_days(
+        window_start, window_end, user_ids, company_id
+    )
+    weekly_check_ids = {
+        rc.id
+        for rc in get_regulation_checks_by_unit(
+            unit=UnitType.WEEK, date=window_start
+        )
+    }
+    return [
+        a
+        for a in alerts
+        if _alert_matches_company(a, weekly_check_ids, company_days)
+    ]
+
+
 def get_regulatory_alerts_summary(
     month, user_ids, company_id=None, from_date=None, to_date=None
 ):
@@ -360,11 +452,21 @@ def get_regulatory_alerts_summary(
     current_alerts = _query_alerts_in_window(
         window_start, window_end, user_ids
     )
+    current_alerts = _filter_alerts_for_company(
+        current_alerts, user_ids, company_id, window_start, window_end
+    )
 
     if compute_previous:
         previous_start = month + relativedelta(months=-1)
-        previous_count = _count_alerts_in_window(
-            previous_start, month, user_ids
+        previous_alerts = _filter_alerts_for_company(
+            _query_alerts_in_window(previous_start, month, user_ids),
+            user_ids,
+            company_id,
+            previous_start,
+            month,
+        )
+        previous_count = len(previous_alerts) + _count_double_alerts(
+            previous_alerts
         )
     else:
         previous_count = 0

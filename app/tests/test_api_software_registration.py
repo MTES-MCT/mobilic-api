@@ -1,3 +1,6 @@
+import inspect
+from unittest import TestCase, expectedFailure
+
 from argon2 import PasswordHasher
 
 from app.helpers.oauth.models import OAuth2Client
@@ -279,3 +282,31 @@ class TestApiSoftwareRegistration(BaseTest):
         )
 
         self.assertIn("errors", software_registration_response)
+
+
+class TestOAuthClientSecretComparison(TestCase):
+    @expectedFailure
+    def test_check_client_secret_uses_constant_time_comparison(self):
+        """AE4 [Medium] OAuth2Client.check_client_secret must use hmac.compare_digest, not ==."""
+        source = inspect.getsource(OAuth2Client.check_client_secret)
+        self.assertIn(
+            "compare_digest",
+            source,
+            "check_client_secret compares the client secret with == "
+            "instead of a constant-time comparison (timing attack)",
+        )
+
+
+class TestOW18OAuthRedirectWildcard(TestCase):
+    @expectedFailure
+    def test_wildcard_redirect_uri_is_not_accepted(self):
+        """check_redirect_uri accepts anything if '*' present."""
+        from app.helpers.oauth.models import OAuth2Client
+
+        client = OAuth2Client()
+        client.redirect_uris = ["*"]
+
+        self.assertFalse(
+            client.check_redirect_uri("https://evil.example"),
+            "A wildcard redirect_uris entry allows an open redirect",
+        )

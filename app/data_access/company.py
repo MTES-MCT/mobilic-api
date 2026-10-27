@@ -18,6 +18,8 @@ from app.data_access.regulatory_alerts_summary import (
 )
 from app.data_access.team import TeamOutput
 from app.data_access.user import UserOutput
+from app.domain.regulations_helper import resolve_variables
+from app.models.regulation_check import RegulationCheck, RegulationCheckType
 from app.data_access.work_day import WorkDayConnection
 from app.domain.company import (
     check_company_has_no_activities,
@@ -45,8 +47,9 @@ from app.helpers.graphene_types import (
     TimeStamp,
     ShortMonth,
 )
-from app.helpers.pagination import to_connection
+from app.helpers.pagination import to_connection, _opacify_cursor_string
 from app.helpers.time import to_datetime
+from graphene import PageInfo
 from app.models import (
     Company,
     User,
@@ -54,6 +57,7 @@ from app.models import (
     Activity,
 )
 from app.models.activity import ActivityType
+from app.models.user import UserAccountStatus
 from app.models.company_known_address import CompanyKnownAddressOutput
 from app.models.employment import (
     Employment,
@@ -91,6 +95,45 @@ class CompanySettings(graphene.ObjectType):
     )
 
 
+class WeeklyThresholdsOutput(graphene.ObjectType):
+    max_work_in_hours = graphene.Int(
+        description="Durée maximale de travail hebdomadaire en heures"
+    )
+    min_rest_in_hours = graphene.Int(
+        description="Durée minimale de repos hebdomadaire en heures"
+    )
+    max_worked_days = graphene.Int(
+        description="Nombre maximal de jours travaillés par semaine"
+    )
+
+
+def compute_weekly_thresholds(business):
+    from app.data_access.regulation_computation import (
+        get_regulation_check_by_type,
+    )
+
+    defaults = WeeklyThresholdsOutput(
+        max_work_in_hours=48, min_rest_in_hours=34, max_worked_days=6
+    )
+    if not business:
+        return defaults
+    work_check = get_regulation_check_by_type(
+        RegulationCheckType.MAXIMUM_WORK_IN_CALENDAR_WEEK
+    )
+    rest_check = get_regulation_check_by_type(
+        RegulationCheckType.MAXIMUM_WORKED_DAY_IN_WEEK
+    )
+    if not work_check or not rest_check:
+        return defaults
+    work_vars = resolve_variables(work_check.variables, business)
+    rest_vars = resolve_variables(rest_check.variables, business)
+    return WeeklyThresholdsOutput(
+        max_work_in_hours=work_vars.get("MAXIMUM_WEEKLY_WORK_IN_HOURS", 48),
+        min_rest_in_hours=rest_vars.get("MINIMUM_WEEKLY_BREAK_IN_HOURS", 34),
+        max_worked_days=rest_vars.get("MAXIMUM_DAY_WORKED_BY_WEEK", 6),
+    )
+
+
 class CompanyOutput(BaseSQLAlchemyObjectType):
     class Meta:
         model = Company
@@ -124,6 +167,10 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         graphene.Int,
         required=False,
         description="Nombre de salariés déclarés par l'entreprise",
+    )
+    weekly_thresholds = graphene.Field(
+        WeeklyThresholdsOutput,
+        description="Seuils réglementaires hebdomadaires résolus selon le type d'activité de l'entreprise",
     )
     name = graphene.Field(graphene.String, description="Nom de l'entreprise")
     legal_name = graphene.Field(
@@ -194,6 +241,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Nombre maximal de missions retournées, par ordre de récence.",
         ),
+        from_time=TimeStamp(
+            required=False,
+            description="Ne retourne que les missions dont l'activité chevauche cet horodatage de début.",
+        ),
+        until_time=TimeStamp(
+            required=False,
+            description="Ne retourne que les missions dont l'activité chevauche cet horodatage de fin.",
+        ),
         description="Liste des missions supprimées de l'entreprise",
     )
     vehicles = graphene.List(
@@ -204,6 +259,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         latest_per_user=graphene.Boolean(
             default_value=False,
             description="Si true, retourne uniquement le dernier rattachement par salarié",
+        ),
+        user_ids=graphene.List(
+            graphene.Int,
+            required=False,
+            description="Si renseigné, restreint le résultat aux rattachements de ces salariés",
         ),
         description="Liste des rattachements validés ou en cours de validation de l'entreprise. Inclut également les rattachements qui ne sont plus actifs",
     )
@@ -283,6 +343,14 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
     def resolve_nb_workers(self, info):
         return self.number_workers
 
+    def resolve_weekly_thresholds(self, info):
+        return compute_weekly_thresholds(self.business)
+
+    @with_authorization_policy(
+        is_employed_by_company_over_period,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'teams' of company object.",
+    )
     def resolve_teams(self, info):
         return self.teams
 
@@ -324,13 +392,16 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'employments' of company object. Actor must be company admin.",
     )
-    def resolve_employments(self, info, latest_per_user=False):
+    def resolve_employments(self, info, latest_per_user=False, user_ids=None):
         base_filters = [
             Employment.company_id == self.id,
             ~Employment.is_dismissed,
             Employment.validation_status
             != EmploymentRequestValidationStatus.REJECTED,
+            ~Employment.user.has(User.status == UserAccountStatus.ANONYMIZED),
         ]
+        if user_ids:
+            base_filters.append(Employment.user_id.in_(user_ids))
 
         if not latest_per_user:
             return (
@@ -359,6 +430,8 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             Employment.query.options(joinedload(Employment.user))
             .filter(*base_filters, Employment.user_id.is_(None))
             .all()
+            if not user_ids
+            else []
         )
         return per_user + unattached
 
@@ -390,7 +463,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         get_target_from_args=lambda self, info, **kwargs: self,
         error_message="Forbidden access to field 'missions' of company object. Actor must be a company admin.",
     )
-    def resolve_missions_deleted(self, info, first=None):
+    def resolve_missions_deleted(
+        self, info, first=None, from_time=None, until_time=None
+    ):
         deleted_missions_query = (
             Mission.query.filter(
                 Mission.company_id == self.id,
@@ -398,15 +473,31 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             .join(Activity, Activity.mission_id == Mission.id)
             .group_by(Mission.id)
             .having(func.every(Activity.dismissed_at.isnot(None)))
-            .order_by(Mission.creation_time.desc())
+        )
+        # Keep only missions whose activity span overlaps the requested window.
+        if from_time is not None:
+            deleted_missions_query = deleted_missions_query.having(
+                func.max(func.coalesce(Activity.end_time, Activity.start_time))
+                >= from_time
+            )
+        if until_time is not None:
+            deleted_missions_query = deleted_missions_query.having(
+                func.min(Activity.start_time) <= until_time
+            )
+        deleted_missions_query = deleted_missions_query.order_by(
+            Mission.creation_time.desc()
         )
         if first is not None:
-            deleted_missions_query = deleted_missions_query.limit(first)
+            deleted_missions_query = deleted_missions_query.limit(first + 1)
         deleted_missions = deleted_missions_query.all()
 
-        edges = [{"node": mission} for mission in deleted_missions]
-
-        return MissionConnection(edges=edges)
+        return to_connection(
+            deleted_missions,
+            connection_cls=MissionConnection,
+            has_next_page=False,
+            get_cursor=lambda mission: str(mission.id),
+            first=first,
+        )
 
     @with_authorization_policy(
         company_admin,
@@ -487,12 +578,41 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             if row.service_duration > 0
         ]
 
-        return to_connection(
-            wds,
-            connection_cls=WorkDayConnection,
-            has_next_page=has_next_page,
-            get_cursor=lambda wd: f"{str(to_datetime(wd.day))},{wd.user.id}",
-            first=first,
+        # work_day_stats rows with service_duration == 0 (e.g. a day made up
+        # only of dismissed/zero-length activities) are filtered out above,
+        # but they were still consumed from the paginated query. The end
+        # cursor must be derived from the last *examined* row rather than
+        # the last *returned* one : otherwise a page made entirely of
+        # zero-duration days yields an empty connection with
+        # has_next_page=True and no end_cursor, which gets the frontend
+        # stuck re-fetching the same page forever (or crashing if it
+        # assumes a non-empty page whenever has_next_page is True).
+        last_examined_row = work_day_stats[-1] if work_day_stats else None
+        end_cursor = (
+            _opacify_cursor_string(
+                f"{str(to_datetime(last_examined_row.day))},{last_examined_row.user_id}"
+            )
+            if last_examined_row
+            else None
+        )
+
+        edges = [
+            WorkDayConnection.Edge(
+                node=wd,
+                cursor=_opacify_cursor_string(
+                    f"{str(to_datetime(wd.day))},{wd.user.id}"
+                ),
+            )
+            for wd in wds
+        ]
+        return WorkDayConnection(
+            edges=edges,
+            page_info=PageInfo(
+                has_previous_page=False,
+                has_next_page=has_next_page,
+                start_cursor=edges[0].cursor if edges else None,
+                end_cursor=end_cursor,
+            ),
         )
 
     @with_authorization_policy(
@@ -593,6 +713,11 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             to_date=to_date,
         )
 
+    @with_authorization_policy(
+        company_admin,
+        get_target_from_args=lambda self, info, **kwargs: self,
+        error_message="Forbidden access to field 'adminRegulationComputationsByUserAndByDay' of company object. Actor must be company admin.",
+    )
     def resolve_admin_regulation_computations_by_user_and_by_day(
         self, info, from_date=None, to_date=None, user_ids=None
     ):

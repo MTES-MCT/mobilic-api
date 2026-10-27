@@ -162,14 +162,15 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         An employment is inactive if:
         - It is active (not terminated, not dismissed)
         - It is NOT an admin (admins are never considered inactive)
-        - last_active_at is more than 3 months ago
+        - It never had any activity (last_active_at is None), or
+          last_active_at is more than 3 months ago
         """
         if not self.is_active:
             return False
         if self.has_admin_rights:
             return False
         if self.last_active_at is None:
-            return False
+            return True
         threshold = datetime.now() - timedelta(days=INACTIVE_THRESHOLD_DAYS)
         return self.last_active_at < threshold
 

@@ -74,6 +74,23 @@ class SubscriptionRequestError(MailjetError):
     code = "SUBSCRIPTION_REQUEST_ERROR"
 
 
+# Mailjet re-evaluates Variables values, so a user-controlled "{{7*7}}" is an
+# SSTI. No escape exists for values, so we strip every delimiter before sending:
+# {{ }} expressions, {% %} statements, and [[ ]] data/var references.
+_MAILJET_TEMPLATE_DELIMITERS = ("{{", "}}", "{%", "%}", "[[", "]]")
+
+
+def _strip_template_delimiters(value):
+    if not isinstance(value, str):
+        return value
+    # Loop until stable: removing a delimiter can glue characters back into a
+    # new one (e.g. "{}}{" -> "{{"), so a single pass is not enough.
+    while any(d in value for d in _MAILJET_TEMPLATE_DELIMITERS):
+        for delimiter in _MAILJET_TEMPLATE_DELIMITERS:
+            value = value.replace(delimiter, "")
+    return value
+
+
 class MailjetMessage:
     def __init__(
         self,
@@ -116,7 +133,10 @@ class MailjetMessage:
             payload = {
                 "TemplateID": self.template_id,
                 "TemplateLanguage": True,
-                "Variables": self.template_vars or {},
+                "Variables": {
+                    key: _strip_template_delimiters(value)
+                    for key, value in (self.template_vars or {}).items()
+                },
             }
 
         payload["To"] = [{"Email": self.actual_recipient}]
@@ -547,7 +567,9 @@ class Mailer:
         )
 
     def send_detachment_request_email(self, employment):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -568,7 +590,9 @@ class Mailer:
             )
 
     def send_detachment_relance_email(self, employment, request_date):
-        employees_link = f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        employees_link = (
+            f"{app.config['FRONTEND_URL']}/admin/company?tab=employees"
+        )
         employee_name = employment.user.display_name
         admins = [
             e.user
@@ -866,19 +890,6 @@ class Mailer:
             _disable_commit=True,
         )
 
-    def send_worker_onboarding_first_email(self, user):
-        self._send_single(
-            self._create_message_from_mailjet_template(
-                2690636,
-                type_=EmailType.WORKER_ONBOARDING_FIRST_INFO,
-                user=user,
-                first_name=user.first_name,
-                cta=f"{app.config['FRONTEND_URL']}/login",
-                _disable_commit=True,
-            ),
-            _disable_commit=True,
-        )
-
     def send_worker_onboarding_second_email(self, user):
         self._send_single(
             self._create_message_from_mailjet_template(
@@ -986,7 +997,7 @@ class Mailer:
             f"https://www.youtube.com/watch?v=oVhRVnZ1dVk&ab_channel=Mobilic"
         )
         appointment_link = Markup(
-            f"https://calendly.com/kelly-heau-mobilic/30min?mtm_campaign=Rdv%20calendly%20depuis%20mail%20relance%20gestionnaires%20pour%20qu%E2%80%99il%20incite%20son%20salari%C3%A9"
+            f"https://meet.brevo.com/raouf-hamitou/rendez-vous-mobilic"
         )
         self._send_single(
             self._create_message_from_flask_template(
@@ -1174,6 +1185,7 @@ class Mailer:
         control_data,
         bulletin_content=None,
         bulletin_filename=None,
+        for_admin=True,
     ):
         """
         Send control bulletin by email to company admins.
@@ -1218,6 +1230,7 @@ class Mailer:
                 controller_info=control_data["controller_info"],
                 nb_infractions=control_data["nb_infractions"],
                 is_mi=control_data.get("is_mi", False),
+                for_admin=for_admin,
             )
 
             # Add attachment to message if available

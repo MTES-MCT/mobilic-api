@@ -22,6 +22,7 @@ from app.domain.third_party_employment import (
     create_third_party_employment_link_if_needed,
 )
 from app.domain.user import create_user_by_third_party_if_needed
+from app.jobs.emails.third_party_sync import send_third_party_sync_emails
 from app.helpers.api_key_authentication import (
     check_protected_client_id_company_id,
     request_client_id,
@@ -53,7 +54,7 @@ from app.helpers.mail import MailjetError
 from app.helpers.oauth import OAuth2Client
 from app.helpers.oauth.models import ThirdPartyClientEmployment
 from app.models import Company, User, Team, Business
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
@@ -113,9 +114,10 @@ class SyncThirdPartyEmployees(graphene.Mutation):
         error_message="You do not have access to the provided company id",
     )
     def mutate(cls, _, info, company_id, employees):
+        email_entries = []
         with atomic_transaction(commit_at_end=True):
             client = OAuth2Client.query.get(request_client_id())
-            mail_to_send = []
+            client_id = client.id
             for employee in employees:
                 (
                     user,
@@ -138,33 +140,28 @@ class SyncThirdPartyEmployees(graphene.Mutation):
                 )
 
                 (
-                    link,
+                    _,
                     newly_created_link,
                 ) = create_third_party_employment_link_if_needed(
-                    employment.id, client_id=client.id
+                    employment.id, client_id=client_id
                 )
 
                 if newly_created_user:
-                    mail_to_send.append(
-                        mailer.generate_third_party_software_account_creation_email(
-                            link, employment, client, user
-                        )
-                    )
+                    kind = "account_creation"
                 elif newly_created_employment:
-                    mail_to_send.append(
-                        mailer.generate_third_party_software_employment_creation_email(
-                            link, employment, client, user
-                        )
-                    )
+                    kind = "employment_creation"
                 elif newly_created_link:
-                    mail_to_send.append(
-                        mailer.generate_third_party_software_employment_access_email(
-                            link, employment, client, user
-                        )
+                    kind = "employment_access"
+                else:
+                    kind = None
+
+                if kind:
+                    email_entries.append(
+                        {"employment_id": employment.id, "kind": kind}
                     )
 
-            if len(mail_to_send) > 0:
-                mailer.send_batch(mail_to_send, _disable_commit=True)
+        if email_entries and not app.config["DISABLE_EMAIL"]:
+            send_third_party_sync_emails.delay(client_id, email_entries)
 
         info.context.force_show_email = True
 
@@ -842,6 +839,11 @@ class ChangeEmployeeBusinessType(AuthenticatedMutation):
             required=True,
             description="Nouveau type d'activité de transport effectué par l'employé pour l'entreprise",
         )
+        transport_type = graphene.Argument(
+            graphene.String,
+            required=True,
+            description="Nouveau type de transport effectué par l'employé pour l'entreprise",
+        )
 
     Output = CompanyOutput
 
@@ -853,10 +855,11 @@ class ChangeEmployeeBusinessType(AuthenticatedMutation):
         ).company_id,
         error_message="Actor is not authorized to change employee business type",
     )
-    def mutate(cls, _, info, employment_id, business_type):
+    def mutate(cls, _, info, employment_id, business_type, transport_type):
         employment = Employment.query.get(employment_id)
         business = Business.query.filter(
-            Business.business_type == BusinessType[business_type].value
+            Business.business_type == BusinessType[business_type].value,
+            Business.transport_type == TransportType[transport_type].value,
         ).one_or_none()
 
         if not business:
@@ -1170,14 +1173,11 @@ class RequestDetachment(AuthenticatedMutation):
                     "Only the employee can request detachment"
                 )
             if not employment.is_active:
-                raise InvalidParamsError(
-                    "Employment is not active"
-                )
+                raise InvalidParamsError("Employment is not active")
             existing = employment.detachment_request
             if existing and existing.get("last_sent_at"):
-                elapsed = (
-                    datetime.now()
-                    - datetime.fromtimestamp(existing["last_sent_at"])
+                elapsed = datetime.now() - datetime.fromtimestamp(
+                    existing["last_sent_at"]
                 )
                 if elapsed.total_seconds() < DETACHMENT_COOLDOWN_HOURS * 3600:
                     raise InvalidParamsError(
@@ -1195,9 +1195,7 @@ class RequestDetachment(AuthenticatedMutation):
                 request_date = datetime.fromtimestamp(
                     existing["requested_at"]
                 ).strftime("%d/%m/%Y")
-                mailer.send_detachment_relance_email(
-                    employment, request_date
-                )
+                mailer.send_detachment_relance_email(employment, request_date)
             else:
                 employment.detachment_request = {
                     "requested_at": now_ts,

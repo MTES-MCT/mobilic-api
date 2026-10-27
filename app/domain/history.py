@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -19,12 +20,19 @@ from app.templates.filters import (
     format_time,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class LogActionType(int, Enum):
     DELETE = 1
     UPDATE = 2
     CREATE = 3
     DISPUTE = 4
+
+
+DISPUTED_ACTION_MODIFICATION = "la modification"
+DISPUTED_ACTION_SUPPRESSION = "la suppression"
+DISPUTED_ACTION_AJOUT = "l'ajout"
 
 
 class Picto(str, Enum):
@@ -39,23 +47,40 @@ class Picto(str, Enum):
     VALIDATION = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABHPGVmAAAAAXNSR0IB2cksfwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHhQTFRFLn0y////9/n6mL+ck7uWL30zSI1LqMmq0uPT2ujbg7KF7/XvM4A33uvfO4U/xdvHh7SJpMamYZ1kj7mRjbeQeqx95/DnUJJUbqVwN4M7WZhcdqp5aaJsrMyuVJVY6/LroMSiwdnCn8OiibWNg7KHWZhdw9nGXZpg6BhrdAAAAqBJREFUeJy92td2qzAQBdABQq827j3l3vz/H2YoXjFBCGmE5ryGaC8wSKMCjmLu5ao6nIIi8/2sCE6HalXeVf8XVC7Kw3MAggTnMF8Gieq9CHhmX0emSPq4yYQut0dqgMSJP0808ZOYiMRbNaHLVsJMImmlQzSpJh/aFBIWugZAEWoh+UWfaHIRv9FC5JrRDIDsqookVKJJooTs1iYGwHo3j0TCDkQnwagL+IuUR1MD4FjKkXfFT1we/12GlIsYqJTTSLTAs+pyjKaQnfFv/ptgN4EYvrvDrMWI0Tc4TiJCrssaANcxkpP7q6lk+Qgh9ruyXP4i4fIGQDhEUsIYNZ8iHSDaY61aqlcktmMAxC+IVl2ik+0vYu1G+lsBC9/6a5Inki7UwYvipz3ysGcAPHpEoaam59YhkU0DIGqR2rgd71Pyx7pFpHMcJcN1Jcq+QfIFDKmSI2La/7aG635PXhAicl7EeJu+4oyIWYkyb0DgwN22AUiU1g0kVtYNJAzGREUDiYN1A4mTdQMJ6husbiBBrIU0DCRo1amOgQRp6NUykJhBvkTfkZ6BhPxxfbnuWNE0kJD+8J9NYx+GBhKyV/hf19xQ0TaQkH6Mm7GibyAh71ZGCsFAYqaD7BXPwEBirqsfKCQDidlB60WhGUjMD7+bZ9NEAwmFQqLuGv9PNAK1kqi/F5rRlkQqxd3GwGiLO6Uy9Y1utGWqWsHtkY29xtTBIxr91EFxEuTRjH4SpDqdo6253TgnpixTbJbFAp5lD5YFHJ6lKJZFNZ7lQZaFTp4lW57FZ5ZldJ4NAZ6tDZ5NGpbtJp6NM54tQJ7NTJ5tWZ4NZodlq9zh2fTnOb7gsBzEcHiOlDgsh2Naxv4xnyYMB5ba2D961cX+IbI+JsfhfgBlqCGe+vgzUwAAAABJRU5ErkJggg=="
 
 
+def _ctx_get(ctx, key):
+    if not ctx:
+        return None
+    if not isinstance(ctx, dict):
+        logger.warning(
+            f"Expected a dict for activity/version context but got "
+            f"{type(ctx).__name__!r} while looking up {key!r}"
+        )
+        return None
+    return ctx.get(key)
+
+
+def _is_split(version):
+    ctx = getattr(version, "context", None) if version else None
+    return bool(_ctx_get(ctx, "splitFrom"))
+
+
 class HistoryItem:
     @property
     def is_support(self):
         # creation/edition: check version context
         if self.version:
             ctx = getattr(self.version, "context", None)
-            if ctx and ctx.get("is_support"):
+            if _ctx_get(ctx, "is_support"):
                 return True
         # deletion: check dismiss_context
         if self.type == LogActionType.DELETE:
             ctx = getattr(self.resource, "dismiss_context", None)
-            if ctx and ctx.get("is_support"):
+            if _ctx_get(ctx, "is_support"):
                 return True
         # validation: check resource context
         if self.is_validation:
             ctx = getattr(self.resource, "context", None)
-            if ctx and ctx.get("is_support"):
+            if _ctx_get(ctx, "is_support"):
                 return True
         return False
 
@@ -106,13 +131,17 @@ class HistoryItem:
         if self.type == LogActionType.DISPUTE:
             return None
         if self.version:
+            if _is_split(self.version):
+                return None
             ctx = getattr(self.version, "context", None)
-            if ctx and ctx.get("userComment"):
-                return ctx["userComment"]
+            user_comment = _ctx_get(ctx, "userComment")
+            if user_comment:
+                return user_comment
         if self.type == LogActionType.DELETE:
             ctx = getattr(self.resource, "dismiss_context", None)
-            if ctx and ctx.get("userComment"):
-                return ctx["userComment"]
+            user_comment = _ctx_get(ctx, "userComment")
+            if user_comment:
+                return user_comment
         return None
 
 
@@ -128,6 +157,7 @@ class UserChange(HistoryItem):
     holiday_mission_name: str = ""
     tz: any = None
     disputed_action: str | None = None
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -200,7 +230,10 @@ class UserChange(HistoryItem):
                         activity_name = (
                             self.holiday_mission_name
                             if self.holiday_mission_name
-                            else format_activity_type(activity.type)
+                            else format_activity_type(
+                                activity.type,
+                                self.allow_other_task,
+                            )
                         )
                         auto_end_texts_set.add(
                             f"a mis fin à l'activité {activity_name} le {format_time(v.end_time, True, self.tz)}"
@@ -213,9 +246,11 @@ class UserChange(HistoryItem):
             activity_name = (
                 self.holiday_mission_name
                 if self.holiday_mission_name != ""
-                else format_activity_type(self.resource.type)
+                else format_activity_type(
+                    self.resource.type, self.allow_other_task
+                )
             )
-            action = self.disputed_action or "la modification"
+            action = self.disputed_action or DISPUTED_ACTION_MODIFICATION
             detail = ""
             if self.version and self.version.previous_version:
                 prev = self.version.previous_version
@@ -224,7 +259,11 @@ class UserChange(HistoryItem):
                     parts.append(
                         f"début décalé du {format_time(prev.start_time, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
                     )
-                if self.version.end_time != prev.end_time and prev.end_time and self.version.end_time:
+                if (
+                    self.version.end_time != prev.end_time
+                    and prev.end_time
+                    and self.version.end_time
+                ):
                     parts.append(
                         f"fin décalée du {format_time(prev.end_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
                     )
@@ -232,7 +271,11 @@ class UserChange(HistoryItem):
                     detail = f" ({', '.join(parts)})"
             motif_text = ""
             if include_dispute_motif:
-                motif = self.resource.dispute.get("text", "") if self.resource.dispute else ""
+                motif = (
+                    self.resource.dispute.get("text", "")
+                    if self.resource.dispute
+                    else ""
+                )
                 motif_text = f' (motif : "{motif}")' if motif else ""
             return [
                 f"a contesté {action} de l'activité {activity_name}{detail}{motif_text}"
@@ -275,10 +318,26 @@ class UserChange(HistoryItem):
         activity_name = (
             self.holiday_mission_name
             if self.holiday_mission_name != ""
-            else format_activity_type(self.resource.type)
+            else format_activity_type(
+                self.resource.type, self.allow_other_task
+            )
         )
         if type(self.resource) is Activity:
             if self.type == LogActionType.CREATE:
+                if _is_split(self.version):
+                    ctx = self.version.context
+                    original_start_ts = _ctx_get(ctx, "originalStartTime")
+                    if original_start_ts:
+                        original_start = datetime.fromtimestamp(
+                            original_start_ts, tz=timezone.utc
+                        ).replace(tzinfo=None)
+                        return [
+                            f"a décalé le début de l'activité {activity_name} du {format_time(original_start, True, self.tz)} au {format_time(self.version.start_time, True, self.tz)}"
+                        ]
+                    elif self.version.end_time:
+                        return [
+                            f"a scindé l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
+                        ]
                 if self.version.end_time:
                     return [
                         f"a ajouté l'activité {activity_name} du {format_time(self.version.start_time, True, self.tz)} au {format_time(self.version.end_time, True, self.tz)}"
@@ -354,6 +413,7 @@ class LogAction(HistoryItem):
     version: any = None
     holiday_mission_name: str = ""
     tz: any = None
+    allow_other_task: bool = True
 
     def __post_init__(self):
         if self.tz is None:
@@ -397,9 +457,20 @@ def actions_history(
     if mission.is_holiday():
         holiday_mission_name = mission.name
 
+    allow_other_task = (
+        mission.company.allow_other_task
+        if mission.company and mission.company.allow_other_task is not None
+        else True
+    )
+
     user_changes = []
     for resource in relevant_resources:
         if resource is not None:
+            first_version = (
+                resource.version_at(resource.reception_time)
+                if type(resource) is Activity
+                else None
+            )
             user_changes.append(
                 UserChange(
                     time=resource.reception_time,
@@ -417,13 +488,10 @@ def actions_history(
                         if user_validation
                         else False
                     ),
-                    version=(
-                        resource.version_at(resource.reception_time)
-                        if type(resource) is Activity
-                        else None
-                    ),
+                    version=first_version,
                     holiday_mission_name=holiday_mission_name,
                     tz=user.timezone,
+                    allow_other_task=allow_other_task,
                 )
             )
 
@@ -445,6 +513,7 @@ def actions_history(
                         ),
                         holiday_mission_name=holiday_mission_name,
                         tz=user.timezone,
+                        allow_other_task=allow_other_task,
                     )
                 )
 
@@ -475,6 +544,7 @@ def actions_history(
                             version=revision,
                             holiday_mission_name=holiday_mission_name,
                             tz=user.timezone,
+                            allow_other_task=allow_other_task,
                         )
                     )
 
@@ -490,14 +560,18 @@ def actions_history(
                         if resource.dispute.get("submitter_id")
                         else user
                     )
+                    is_split = _is_split(first_version)
                     if resource.dismissed_at:
-                        disputed_action = "la suppression"
+                        disputed_action = DISPUTED_ACTION_SUPPRESSION
                         last_revision = None
                     elif revisions:
-                        disputed_action = "la modification"
+                        disputed_action = DISPUTED_ACTION_MODIFICATION
                         last_revision = revisions[-1]
+                    elif is_split:
+                        disputed_action = DISPUTED_ACTION_MODIFICATION
+                        last_revision = None
                     else:
-                        disputed_action = "l'ajout"
+                        disputed_action = DISPUTED_ACTION_AJOUT
                         last_revision = None
                     user_changes.append(
                         UserChange(
@@ -511,6 +585,7 @@ def actions_history(
                             tz=user.timezone,
                             version=last_revision,
                             disputed_action=disputed_action,
+                            allow_other_task=allow_other_task,
                         )
                     )
 
@@ -521,7 +596,9 @@ def actions_history(
 
     actions = []
     for user_change in user_changes:
-        for text in user_change.texts(include_dispute_motif=include_dispute_motif):
+        for text in user_change.texts(
+            include_dispute_motif=include_dispute_motif
+        ):
             actions.append(
                 LogAction(
                     time=user_change.time,
@@ -535,6 +612,7 @@ def actions_history(
                     picto=user_change.picto(),
                     holiday_mission_name=holiday_mission_name,
                     tz=user_change.tz,
+                    allow_other_task=allow_other_task,
                 )
             )
     return sorted(actions, key=lambda a: (a.time, a.type))

@@ -9,19 +9,33 @@ from app.helpers.xls import generate_admin_export_file_from_chunks
 from app.models import User, Export, Company
 from app.models.export import ExportStatus, ExportType
 
-celery = Celery(app.name, broker=app.config["CELERY_BROKER_URL"])
-celery.conf.update(app.config)
+celery = Celery(
+    app.name,
+    broker=app.config["CELERY_BROKER_URL"],
+    include=[
+        "app.jobs.break_alert",
+        "app.jobs.notification_campaign",
+        "app.jobs.emails.third_party_sync",
+    ],
+)
+celery.conf.broker_transport_options = {"visibility_timeout": 7 * 3600}
+celery.conf.worker_eta_task_limit = 10000
+celery.conf.task_routes = {
+    "app.helpers.celery.async_export_excel": {"queue": "exports"},
+}
 
 DEFAULT_FILE_NAME = "rapport_activités"
 
 
-@celery.task()
+@celery.task(acks_late=True, soft_time_limit=1200, time_limit=1320)
 def async_export_excel(
     exporter_id,
     company_ids,
     chunks,
     file_name=DEFAULT_FILE_NAME,
     export_type=ExportType.EXCEL,
+    export_id=None,
+    control_format=False,
 ):
     with app.app_context():
         sentry_sdk.set_tag("feature", "excel_export")
@@ -32,18 +46,20 @@ def async_export_excel(
 
         exporter = User.query.get(exporter_id)
 
-        export = Export(
-            user=exporter,
-            export_type=export_type,
-            context={
-                "exporter_id": exporter_id,
-                "company_ids": company_ids,
-                "chunks": chunks,
-                "strategy": strategy,
-            },
-        )
-        db.session.add(export)
-        db.session.commit()
+        export = Export.query.get(export_id) if export_id else None
+        if export is None:
+            export = Export(
+                user=exporter,
+                export_type=export_type,
+                context={
+                    "exporter_id": exporter_id,
+                    "company_ids": company_ids,
+                    "chunks": chunks,
+                    "strategy": strategy,
+                },
+            )
+            db.session.add(export)
+            db.session.commit()
 
         try:
             start_time = time.perf_counter()
@@ -64,6 +80,7 @@ def async_export_excel(
                     users=users,
                     companies=companies,
                     file_name=file_name,
+                    control_format=control_format,
                 )
             )
             end_time = time.perf_counter()
@@ -78,11 +95,23 @@ def async_export_excel(
                 )
                 return
 
-            path = f"exports/{exporter_id}/{export.id}"
-            S3Client.upload_export(file_content, path, content_type)
+            if not file_content:
+                raise ValueError(f"Export {export.id} produced empty content")
+
+            if app.config["EXPORT_STORAGE_BACKEND"] == "s3":
+                path = f"exports/{exporter_id}/{export.id}"
+                S3Client.upload_export(file_content, path, content_type)
+                export.file_s3_path = path
+            else:
+                max_bytes = app.config["EXPORT_DB_MAX_SIZE_MB"] * 1024 * 1024
+                if len(file_content) > max_bytes:
+                    raise ValueError(
+                        f"Export {export.id} too large for db storage: "
+                        f"{len(file_content)} > {max_bytes} bytes"
+                    )
+                export.file_content = file_content
 
             export.status = ExportStatus.READY
-            export.file_s3_path = path
             export.file_type = content_type
             export.file_name = file_name
             db.session.commit()

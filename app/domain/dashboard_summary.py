@@ -1,9 +1,11 @@
+import logging
 from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import func, or_
 
 from app import db
 from app.data_access.dashboard_summary import DashboardSummary
+from app.helpers.redis import get_redis_client
 from app.helpers.time import from_tz
 from app.models import (
     Activity,
@@ -14,6 +16,7 @@ from app.models import (
 )
 from app.models.employment import EmploymentRequestValidationStatus
 
+logger = logging.getLogger(__name__)
 
 # Activities open for more than this many days are considered abnormal
 # (worker forgot to close their chronometer). Bounding the window lets
@@ -22,6 +25,24 @@ from app.models.employment import EmploymentRequestValidationStatus
 ACTIVE_MISSIONS_WINDOW_DAYS = 30
 
 PENDING_VALIDATIONS_WINDOW_DAYS = 31
+
+PENDING_VALIDATIONS_CACHE_KEY = "dashboard:pending_validations:{company_id}"
+PENDING_VALIDATIONS_CACHE_TTL = 5 * 60
+
+
+def _pending_validations_cache_key(company_id):
+    return PENDING_VALIDATIONS_CACHE_KEY.format(company_id=company_id)
+
+
+def invalidate_pending_validations_cache(company_id):
+    try:
+        get_redis_client().delete(_pending_validations_cache_key(company_id))
+    except Exception:
+        logger.warning(
+            "Redis unavailable, skipping cache invalidation for "
+            "pending validations (company_id=%s)",
+            company_id,
+        )
 
 
 def _today_window_for_user(user_timezone):
@@ -77,6 +98,31 @@ def _count_active_missions(company_id):
 
 
 def _count_pending_validations(company_id):
+    cache_key = _pending_validations_cache_key(company_id)
+    try:
+        cached = get_redis_client().get(cache_key)
+        if cached is not None:
+            return int(cached)
+    except Exception:
+        logger.warning(
+            "Redis unavailable, skipping cache read for pending "
+            "validations (company_id=%s)",
+            company_id,
+        )
+
+    count = _count_pending_validations_uncached(company_id)
+
+    try:
+        get_redis_client().setex(
+            cache_key, PENDING_VALIDATIONS_CACHE_TTL, count
+        )
+    except Exception:
+        pass
+
+    return count
+
+
+def _count_pending_validations_uncached(company_id):
     """Missions started in the last PENDING_VALIDATIONS_WINDOW_DAYS days
     that are ended for every user, validated by at least one worker, and
     not yet validated by an admin.
@@ -166,8 +212,9 @@ def _get_pending_invitations(company_id):
 
 
 def _count_inactive_employees(company_id, user_timezone):
-    """Approved non-admin employees with last_active_at in the last 30 days
-    and no Activity today.
+    """Approved non-admin employees who never had any activity
+    (last_active_at is None), or had activity in the last 30 days, and have
+    no Activity today.
 
     Uses a correlated NOT EXISTS on Activity (instead of NOT IN subquery)
     which is both safer against NULLs and more amenable to indexed plans.
@@ -197,8 +244,10 @@ def _count_inactive_employees(company_id, user_timezone):
             ~Employment.is_dismissed,
             Employment.has_admin_rights.is_(False),
             Employment.user_id.isnot(None),
-            Employment.last_active_at.isnot(None),
-            Employment.last_active_at >= threshold_30_days,
+            or_(
+                Employment.last_active_at.is_(None),
+                Employment.last_active_at >= threshold_30_days,
+            ),
             ~has_activity_today,
             or_(
                 Employment.end_date.is_(None),

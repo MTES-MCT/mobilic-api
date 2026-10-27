@@ -1,0 +1,303 @@
+from datetime import date, datetime, timedelta
+from unittest import TestCase, expectedFailure
+from unittest.mock import MagicMock, patch
+
+from app import app, db
+from app.helpers.oauth.models import OAuth2Client
+from app.jobs.software_compliance_report import (
+    MIN_MISSIONS_FOR_ACTIVE_DAY,
+    RECENT_ACTIVITY_DAYS,
+    _compute_and_store_snapshots,
+    _get_recently_active_clients,
+    _get_violations,
+    _send_consolidated_alert,
+)
+from app.models.activity import ActivityType
+from app.models.software_compliance_alert_state import (
+    SoftwareComplianceAlertState,
+)
+from app.models.software_compliance_snapshot import SoftwareComplianceSnapshot
+from app.seed.factories import (
+    CompanyFactory,
+    EmploymentFactory,
+    MissionFactory,
+    ActivityFactory,
+    ThirdPartyClientCompanyFactory,
+    ThirdPartyClientEmploymentFactory,
+    UserFactory,
+)
+from app.tests import BaseTest
+
+
+SNAPSHOT_DATE = date(2026, 8, 8)
+DAY_START = datetime(2026, 8, 8, 0, 0)
+DAY_END = datetime(2026, 8, 9, 0, 0)
+
+
+class TestSoftwareComplianceSnapshot(BaseTest):
+    def setUp(self):
+        super().setUp()
+
+        self.oauth_client = OAuth2Client.create_client(
+            name="test_client", redirect_uris="http://localhost:3000"
+        )
+        self.company = CompanyFactory.create()
+        ThirdPartyClientCompanyFactory.create(
+            client=self.oauth_client, company=self.company
+        )
+        self.user = UserFactory.create()
+        self.employment = EmploymentFactory.create(
+            company=self.company,
+            user=self.user,
+            has_admin_rights=False,
+        )
+        ThirdPartyClientEmploymentFactory.create(
+            client=self.oauth_client, employment=self.employment
+        )
+
+    def _make_mission(self, reception_time):
+        return MissionFactory.create(
+            company=self.company,
+            submitter=self.user,
+            reception_time=reception_time,
+        )
+
+    def _make_activity(self, mission, start_time, reception_time):
+        return ActivityFactory.create(
+            mission=mission,
+            user=self.user,
+            submitter=self.user,
+            type=ActivityType.DRIVE,
+            start_time=start_time,
+            reception_time=reception_time,
+            last_update_time=reception_time,
+        )
+
+    def _make_snapshots(self, count, **extra):
+        for i in range(count):
+            db.session.add(
+                SoftwareComplianceSnapshot(
+                    snapshot_date=date.today() - timedelta(days=i + 1),
+                    client_id=self.oauth_client.id,
+                    client_name=self.oauth_client.name,
+                    nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY,
+                    nb_activities=10,
+                    **extra,
+                )
+            )
+        db.session.commit()
+
+    def test_snapshot_created_for_client_with_missions(self):
+        mission = self._make_mission(DAY_START + timedelta(hours=9))
+        self._make_activity(
+            mission,
+            start_time=DAY_START + timedelta(hours=8, minutes=55),
+            reception_time=DAY_START + timedelta(hours=9),
+        )
+
+        _compute_and_store_snapshots(SNAPSHOT_DATE)
+
+        snapshot = SoftwareComplianceSnapshot.query.filter_by(
+            client_id=self.oauth_client.id, snapshot_date=SNAPSHOT_DATE
+        ).one_or_none()
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(snapshot.nb_missions, 1)
+        self.assertEqual(snapshot.nb_activities, 1)
+
+    def test_no_snapshot_when_no_missions_on_that_day(self):
+        _compute_and_store_snapshots(SNAPSHOT_DATE)
+
+        snapshot = SoftwareComplianceSnapshot.query.filter_by(
+            client_id=self.oauth_client.id, snapshot_date=SNAPSHOT_DATE
+        ).one_or_none()
+        self.assertIsNone(snapshot)
+
+    def test_retroactive_activity_detected(self):
+        mission = self._make_mission(DAY_START + timedelta(hours=20))
+        # 12h delay between start_time and reception_time → >4h retroactive
+        self._make_activity(
+            mission,
+            start_time=DAY_START + timedelta(hours=8),
+            reception_time=DAY_START + timedelta(hours=20),
+        )
+
+        _compute_and_store_snapshots(SNAPSHOT_DATE)
+
+        snapshot = SoftwareComplianceSnapshot.query.filter_by(
+            client_id=self.oauth_client.id, snapshot_date=SNAPSHOT_DATE
+        ).one_or_none()
+        self.assertIsNotNone(snapshot)
+        self.assertGreater(snapshot.pct_retroactive_gt4h, 0)
+        # 12h delay is >4h but not >24h
+        self.assertEqual(snapshot.pct_retroactive_gt24h, 0)
+
+    def test_real_time_activity_not_flagged_as_retroactive(self):
+        mission = self._make_mission(DAY_START + timedelta(hours=9))
+        # Only 5 minutes delay → not retroactive
+        self._make_activity(
+            mission,
+            start_time=DAY_START + timedelta(hours=8, minutes=55),
+            reception_time=DAY_START + timedelta(hours=9),
+        )
+
+        _compute_and_store_snapshots(SNAPSHOT_DATE)
+
+        snapshot = SoftwareComplianceSnapshot.query.filter_by(
+            client_id=self.oauth_client.id, snapshot_date=SNAPSHOT_DATE
+        ).one()
+        self.assertEqual(snapshot.pct_retroactive_gt4h, 0)
+        self.assertEqual(snapshot.pct_retroactive_gt24h, 0)
+
+    def test_mission_without_vehicle_flagged(self):
+        mission = self._make_mission(DAY_START + timedelta(hours=9))
+        self.assertIsNone(mission.vehicle_id)
+        self._make_activity(
+            mission,
+            start_time=DAY_START + timedelta(hours=8, minutes=55),
+            reception_time=DAY_START + timedelta(hours=9),
+        )
+
+        _compute_and_store_snapshots(SNAPSHOT_DATE)
+
+        snapshot = SoftwareComplianceSnapshot.query.filter_by(
+            client_id=self.oauth_client.id, snapshot_date=SNAPSHOT_DATE
+        ).one()
+        self.assertEqual(snapshot.pct_missing_vehicle, 100.0)
+
+    def test_no_alert_before_7_consecutive_active_days(self):
+        self._make_snapshots(6, pct_retroactive_gt4h=99.0)
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertEqual(violations, [])
+
+    def test_alert_triggered_on_day_7(self):
+        self._make_snapshots(7, pct_retroactive_gt4h=99.0)
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertTrue(any("Rétro-saisie" in v for v in violations))
+
+    def test_no_alert_on_day_8_between_reminders(self):
+        # day 7 already alerted → no re-alert until 7 more active days
+        self._make_snapshots(8, pct_retroactive_gt4h=99.0)
+        db.session.add(
+            SoftwareComplianceAlertState(
+                client_id=self.oauth_client.id,
+                metric="pct_retroactive_gt4h",
+                last_alerted_on=date.today() - timedelta(days=1),
+            )
+        )
+        db.session.commit()
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertEqual(violations, [])
+
+    def test_weekly_reminder_sent_on_day_14(self):
+        self._make_snapshots(14, pct_retroactive_gt4h=99.0)
+        db.session.add(
+            SoftwareComplianceAlertState(
+                client_id=self.oauth_client.id,
+                metric="pct_retroactive_gt4h",
+                last_alerted_on=date.today() - timedelta(days=7),
+            )
+        )
+        db.session.commit()
+        violations, _ = _get_violations(self.oauth_client.id, date.today())
+        self.assertTrue(any("semaine 2" in v for v in violations))
+
+    def test_recently_active_client_is_evaluated_even_without_missions_yesterday(
+        self,
+    ):
+        # last active day a few days ago (not "yesterday") → still evaluated
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today() - timedelta(days=3),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertIn((self.oauth_client.id, self.oauth_client.name), clients)
+
+    def test_client_inactive_beyond_window_not_evaluated(self):
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today()
+                - timedelta(days=RECENT_ACTIVITY_DAYS + 1),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertNotIn(self.oauth_client.id, [c[0] for c in clients])
+
+    def test_low_volume_day_not_considered_active(self):
+        db.session.add(
+            SoftwareComplianceSnapshot(
+                snapshot_date=date.today() - timedelta(days=1),
+                client_id=self.oauth_client.id,
+                client_name=self.oauth_client.name,
+                nb_missions=MIN_MISSIONS_FOR_ACTIVE_DAY - 1,
+                nb_activities=10,
+            )
+        )
+        db.session.commit()
+        clients = _get_recently_active_clients(date.today())
+        self.assertNotIn(self.oauth_client.id, [c[0] for c in clients])
+
+    def test_alert_delivery_failure_raises(self):
+        from unittest.mock import patch
+
+        alerts = [(self.oauth_client.name, self.oauth_client.id, ["- test"])]
+        with patch.dict(app.config, {"COMPLIANCE_ALERT_EMAIL": None}), patch(
+            "app.jobs.software_compliance_report.send_tchap_message",
+            return_value=False,
+        ):
+            with self.assertRaises(RuntimeError):
+                _send_consolidated_alert(alerts, date.today())
+
+    def test_alert_delivery_succeeds_when_one_channel_works(self):
+        from unittest.mock import patch
+
+        alerts = [(self.oauth_client.name, self.oauth_client.id, ["- test"])]
+        with patch.dict(app.config, {"COMPLIANCE_ALERT_EMAIL": None}), patch(
+            "app.jobs.software_compliance_report.send_tchap_message",
+            return_value=True,
+        ):
+            _send_consolidated_alert(alerts, date.today())
+
+
+class TestOW13ComplianceAlertHtmlEscaping(TestCase):
+    @expectedFailure
+    def test_oauth_client_name_is_escaped_in_alert_email(self):
+        """_send_consolidated_alert builds unescaped HTML."""
+        import app.jobs.software_compliance_report as module
+
+        captured = {}
+
+        def fake_message(*args, **kwargs):
+            captured["html"] = kwargs.get("html")
+            return MagicMock()
+
+        with patch.dict(
+            app.config, {"COMPLIANCE_ALERT_EMAIL": "alert@example.com"}
+        ), patch.object(
+            module, "MailjetMessage", side_effect=fake_message
+        ), patch.object(
+            module, "mailer"
+        ), patch.object(
+            module, "send_tchap_message"
+        ):
+            module._send_consolidated_alert(
+                [("<script>alert(1)</script>", 42, ["- some violation"])],
+                datetime.now().date(),
+            )
+
+        self.assertIn("html", captured)
+        self.assertNotIn(
+            "<script>alert(1)</script>",
+            captured["html"],
+            "OAuth client name is injected unescaped into the alert email",
+        )

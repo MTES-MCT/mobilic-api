@@ -129,10 +129,18 @@ class WorkDay:
     _all_activities: List[Activity]
     comments: List[Comment]
 
-    def __init__(self, user, day, tz=None, max_reception_time=None):
+    def __init__(
+        self,
+        user,
+        day,
+        tz=None,
+        max_reception_time=None,
+        compute_history=False,
+    ):
         self.day = day
         self.tz = tz if tz is not None else user.timezone
         self._are_activities_sorted = True
+        self.compute_history = compute_history
         self.user = user
         self.missions = []
         self.companies = set()
@@ -145,12 +153,13 @@ class WorkDay:
     def add_mission(self, mission):
         self._are_activities_sorted = False
 
-        # To be commented locally on init regulation alerts only!
-        mission.history = actions_history(
-            mission, self.user,
-            include_dispute_motif=False,
-            max_reception_time=self.max_reception_time,
-        )
+        if self.compute_history:
+            mission.history = actions_history(
+                mission,
+                self.user,
+                include_dispute_motif=False,
+                max_reception_time=self.max_reception_time,
+            )
 
         self.missions.append(mission)
         activities = mission.activities_for(
@@ -460,6 +469,7 @@ def group_user_events_by_day_with_limit(
     after=None,
     max_reception_time=None,
     employee_version=False,
+    compute_history=False,
 ):
     if tz is None:
         tz = user.timezone
@@ -516,6 +526,7 @@ def group_user_events_by_day_with_limit(
         include_dismissed_or_empty_days=include_dismissed_or_empty_days,
         max_reception_time=max_reception_time,
         employee_version=employee_version,
+        compute_history=compute_history,
     )
     if first and has_next:
         work_days = work_days[1:]
@@ -604,6 +615,7 @@ def group_user_missions_by_day(
     include_dismissed_or_empty_days=False,
     max_reception_time=None,
     employee_version=False,
+    compute_history=False,
 ):
     if tz is None:
         tz = user.timezone
@@ -665,6 +677,7 @@ def group_user_missions_by_day(
                         day=mission_running_day,
                         tz=tz,
                         max_reception_time=mission_max_reception_time,
+                        compute_history=compute_history,
                     )
                     work_days.append(current_work_day)
                 current_work_day.add_mission(mission)

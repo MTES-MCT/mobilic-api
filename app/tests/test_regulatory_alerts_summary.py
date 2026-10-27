@@ -134,9 +134,14 @@ class TestRegulatoryAlertsSummary(BaseTest):
         self.assertEqual(2, summary.total_nb_alerts)
 
     def _seed_alert_with_companies(
-        self, current_siren, other_siren, with_other_activity=True
+        self,
+        current_siren,
+        other_siren,
+        with_other_activity=True,
+        with_current_activity=True,
     ):
-        """Set up an alert on a fixed day and (optionally) seed activity
+        """Set up an alert on a fixed day, backed by activity in the
+        current company (unless disabled), and (optionally) seed activity
         for the same user in another company so the multi-employer flag
         can be exercised."""
         alert_day = date(2025, 5, 12)
@@ -171,21 +176,27 @@ class TestRegulatoryAlertsSummary(BaseTest):
             )
         )
 
-        if with_other_activity:
+        def _seed_activity(company_id, hour):
             mission = MissionFactory.create(
-                company_id=other_company.id,
+                company_id=company_id,
                 submitter_id=self.user.id,
-                reception_time=datetime(2025, 5, 12, 8, 0, 0),
+                reception_time=datetime(2025, 5, 12, hour, 0, 0),
             )
             ActivityFactory.create(
                 mission=mission,
                 user=self.user,
                 submitter=self.user,
                 type=ActivityType.DRIVE,
-                reception_time=datetime(2025, 5, 12, 8, 0, 0),
-                start_time=datetime(2025, 5, 12, 8, 0, 0),
-                last_update_time=datetime(2025, 5, 12, 11, 0, 0),
+                reception_time=datetime(2025, 5, 12, hour, 0, 0),
+                start_time=datetime(2025, 5, 12, hour, 0, 0),
+                end_time=datetime(2025, 5, 12, hour + 1, 0, 0),
+                last_update_time=datetime(2025, 5, 12, hour + 1, 0, 0),
             )
+
+        if with_current_activity:
+            _seed_activity(current_company.id, hour=6)
+        if with_other_activity:
+            _seed_activity(other_company.id, hour=14)
         db.session.commit()
 
         return current_company, alert_day
@@ -257,6 +268,201 @@ class TestRegulatoryAlertsSummary(BaseTest):
         )
         self.assertIsNotNone(detail)
         self.assertIsNone(detail.other_company_relation)
+
+    def test_alert_hidden_when_user_has_no_activity_in_current_company(self):
+        """A user can be employed by several companies; regulation alerts
+        are computed across all of them. A company must not see an alert
+        entirely caused by the user's activity at a different employer."""
+        current, alert_day = self._seed_alert_with_companies(
+            current_siren="666666666",
+            other_siren="777777777",
+            with_current_activity=False,
+            with_other_activity=True,
+        )
+        summary = get_regulatory_alerts_summary(
+            month=date(2025, 5, 1),
+            user_ids=[self.user.id],
+            company_id=current.id,
+        )
+        detail = self._get_day_detail(
+            summary,
+            RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+            alert_day,
+            self.user.id,
+        )
+        self.assertIsNone(detail)
+
+    def test_daily_alert_hidden_even_if_company_activity_later_same_week(self):
+        """A daily alert must only look for company activity on its own
+        exact day, not anywhere in the surrounding week — otherwise an
+        unrelated later activity in the current company would wrongly keep
+        a cross-company daily alert visible."""
+        alert_day = date(2025, 5, 12)
+
+        current_company = CompanyFactory.create(
+            usual_name="Current", siren="888888888"
+        )
+        other_company = CompanyFactory.create(
+            usual_name="Other", siren="999999999"
+        )
+        EmploymentFactory.create(
+            company=current_company, submitter=self.user, user=self.user
+        )
+
+        db.session.add(
+            RegulationComputation(
+                day=alert_day,
+                submitter_type=SubmitterType.ADMIN,
+                user_id=self.user.id,
+            )
+        )
+        check = RegulationCheck.query.filter(
+            RegulationCheck.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+        ).first()
+        db.session.add(
+            RegulatoryAlert(
+                day=alert_day,
+                user_id=self.user.id,
+                regulation_check=check,
+                submitter_type=SubmitterType.ADMIN,
+                business=self.business,
+            )
+        )
+
+        # Activity in the *other* company on the alert's own day.
+        other_mission = MissionFactory.create(
+            company_id=other_company.id,
+            submitter_id=self.user.id,
+            reception_time=datetime(2025, 5, 12, 8, 0, 0),
+        )
+        ActivityFactory.create(
+            mission=other_mission,
+            user=self.user,
+            submitter=self.user,
+            type=ActivityType.DRIVE,
+            reception_time=datetime(2025, 5, 12, 8, 0, 0),
+            start_time=datetime(2025, 5, 12, 8, 0, 0),
+            end_time=datetime(2025, 5, 12, 11, 0, 0),
+            last_update_time=datetime(2025, 5, 12, 11, 0, 0),
+        )
+
+        # Unrelated activity in the *current* company, later the same week.
+        current_mission = MissionFactory.create(
+            company_id=current_company.id,
+            submitter_id=self.user.id,
+            reception_time=datetime(2025, 5, 16, 8, 0, 0),
+        )
+        ActivityFactory.create(
+            mission=current_mission,
+            user=self.user,
+            submitter=self.user,
+            type=ActivityType.DRIVE,
+            reception_time=datetime(2025, 5, 16, 8, 0, 0),
+            start_time=datetime(2025, 5, 16, 8, 0, 0),
+            end_time=datetime(2025, 5, 16, 11, 0, 0),
+            last_update_time=datetime(2025, 5, 16, 11, 0, 0),
+        )
+        db.session.commit()
+
+        summary = get_regulatory_alerts_summary(
+            month=date(2025, 5, 1),
+            user_ids=[self.user.id],
+            company_id=current_company.id,
+        )
+        detail = self._get_day_detail(
+            summary,
+            RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+            alert_day,
+            self.user.id,
+        )
+        self.assertIsNone(detail)
+
+    def test_daily_alert_hidden_even_if_company_activity_next_day(self):
+        """MINIMUM_DAILY_REST-style checks look at the next day for
+        context, so a company could have real activity the day *after* an
+        alert entirely caused by another employer's schedule that day. A
+        daily alert must still only be shown for its own exact day."""
+        alert_day = date(2025, 5, 12)
+
+        current_company = CompanyFactory.create(
+            usual_name="Current", siren="101010101"
+        )
+        other_company = CompanyFactory.create(
+            usual_name="Other", siren="202020202"
+        )
+        EmploymentFactory.create(
+            company=current_company, submitter=self.user, user=self.user
+        )
+
+        db.session.add(
+            RegulationComputation(
+                day=alert_day,
+                submitter_type=SubmitterType.ADMIN,
+                user_id=self.user.id,
+            )
+        )
+        check = RegulationCheck.query.filter(
+            RegulationCheck.type == RegulationCheckType.MAXIMUM_WORK_DAY_TIME
+        ).first()
+        db.session.add(
+            RegulatoryAlert(
+                day=alert_day,
+                user_id=self.user.id,
+                regulation_check=check,
+                submitter_type=SubmitterType.ADMIN,
+                business=self.business,
+            )
+        )
+
+        # Activity in the *other* company on the alert's own day.
+        other_mission = MissionFactory.create(
+            company_id=other_company.id,
+            submitter_id=self.user.id,
+            reception_time=datetime(2025, 5, 12, 8, 0, 0),
+        )
+        ActivityFactory.create(
+            mission=other_mission,
+            user=self.user,
+            submitter=self.user,
+            type=ActivityType.DRIVE,
+            reception_time=datetime(2025, 5, 12, 8, 0, 0),
+            start_time=datetime(2025, 5, 12, 8, 0, 0),
+            end_time=datetime(2025, 5, 12, 23, 59, 0),
+            last_update_time=datetime(2025, 5, 12, 23, 59, 0),
+        )
+
+        # Activity in the *current* company, the very next day.
+        current_mission = MissionFactory.create(
+            company_id=current_company.id,
+            submitter_id=self.user.id,
+            reception_time=datetime(2025, 5, 13, 6, 0, 0),
+        )
+        ActivityFactory.create(
+            mission=current_mission,
+            user=self.user,
+            submitter=self.user,
+            type=ActivityType.DRIVE,
+            reception_time=datetime(2025, 5, 13, 6, 0, 0),
+            start_time=datetime(2025, 5, 13, 6, 0, 0),
+            end_time=datetime(2025, 5, 13, 9, 0, 0),
+            last_update_time=datetime(2025, 5, 13, 9, 0, 0),
+        )
+        db.session.commit()
+
+        summary = get_regulatory_alerts_summary(
+            month=date(2025, 5, 1),
+            user_ids=[self.user.id],
+            company_id=current_company.id,
+        )
+        # The alert dated 12/05 must not show for the current company: it
+        # has no activity that day, even though it has one the next day.
+        detail = self._get_day_detail(
+            summary,
+            RegulationCheckType.MAXIMUM_WORK_DAY_TIME,
+            alert_day,
+            self.user.id,
+        )
+        self.assertIsNone(detail)
 
     def test_window_mode_restricts_alerts_to_range(self):
         """When from_date/to_date are provided, only alerts within that

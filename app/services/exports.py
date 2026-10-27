@@ -1,6 +1,8 @@
 from datetime import date, timedelta
+from app import db
 from app.helpers.celery import async_export_excel, DEFAULT_FILE_NAME
 from app.helpers.export_chunking import get_export_chunks
+from app.models import Export
 
 
 def prepare_export_chunks(users, min_date, max_date, one_file_by_employee):
@@ -31,6 +33,7 @@ def export_activity_report(
     one_file_by_employee,
     file_name=None,
     export_type=None,
+    control_format=False,
 ):
     chunking_result = prepare_export_chunks(
         users, min_date, max_date, one_file_by_employee
@@ -47,10 +50,25 @@ def export_activity_report(
         for chunk in chunking_result.chunks
     ]
 
+    export = Export(
+        user_id=exporter.id,
+        export_type=export_type,
+        context={
+            "exporter_id": exporter.id,
+            "company_ids": company_ids,
+            "chunks": chunks_data,
+            "strategy": chunking_result.strategy.value,
+        },
+    )
+    db.session.add(export)
+    db.session.commit()
+
     async_export_excel.delay(
+        export_id=export.id,
         exporter_id=exporter.id,
         company_ids=company_ids,
         chunks=chunks_data,
         file_name=file_name if file_name is not None else DEFAULT_FILE_NAME,
         export_type=export_type,
+        control_format=control_format,
     )

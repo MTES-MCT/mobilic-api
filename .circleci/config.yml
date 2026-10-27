@@ -1,6 +1,7 @@
 version: 2.1
 jobs:
   build:
+    parallelism: 4
     docker:
       - image: cimg/python:3.13
       - image: cimg/postgres:14.18
@@ -33,42 +34,21 @@ jobs:
       - run:
           name: Run tests
           command: |
-            pipenv run flask test
+            FILES=$(find app/tests -name "test_*.py" | circleci tests split --split-by=timings --timings-type=filename)
+            test -n "$FILES" || { echo "No tests assigned to this container"; exit 0; }
+            MODULES=$(echo "$FILES" | tr '/' '.' | sed 's/\.py$//')
+            echo "$MODULES"
+            pipenv run flask test $MODULES
           environment:
             FLASK_APP: "app:app"
             FLASK_DEBUG: "1"
             DATABASE_URL: "postgresql://localhost:5432/mobilic-test"
-
-  deploy:
-    docker:
-      - image: cimg/python:3.13
-    steps:
-      - checkout:
-          method: full
-      - run:
-          name: Add Scalingo to known_hosts
-          command: ssh-keyscan -H ssh.osc-fr1.scalingo.com >> ~/.ssh/known_hosts
-      - run:
-          name: Deploy to Scalingo
-          command:
-            if [ $CIRCLE_BRANCH = "prod" ];
-            then
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_PROD_APP_NAME.git ${CIRCLE_BRANCH}:master;
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_SANDBOX_APP_NAME.git ${CIRCLE_BRANCH}:master;
-            else
-              git push -f git@ssh.osc-fr1.scalingo.com:$SCALINGO_STAGING_APP_NAME.git ${CIRCLE_BRANCH}:master;
-            fi;
+            JUNIT_XML: "test-results/junit.xml"
+      - store_test_results:
+          path: test-results
 
 workflows:
   version: 2
   build_and_deploy:
     jobs:
       - build
-      - deploy:
-          requires:
-            - build
-          filters:
-            branches:
-              only:
-                - master
-                - prod

@@ -372,11 +372,59 @@ class ApiRequests:
     }
     """
 
+    save_control_bulletin = """
+    mutation ControllerSaveControlBulletin($controlId: Int, $type: String, $businessType: String, $transportType: String) {
+        controllerSaveControlBulletin(controlId: $controlId, type: $type, businessType: $businessType, transportType: $transportType) {
+            id
+        }
+    }
+    """
+
+    sign_up_company = """
+    mutation CompanySignUp($usualName: String!, $siren: String!, $businessType: String, $transportType: String) {
+        signUp {
+            company(usualName: $usualName, siren: $siren, businessType: $businessType, transportType: $transportType) {
+                company { id }
+            }
+        }
+    }
+    """
+
+    sign_up_companies = """
+    mutation CompaniesSignUp($siren: String!, $companies: [CompanySiret]!) {
+        signUp {
+            companies(siren: $siren, companies: $companies) {
+                company { id }
+            }
+        }
+    }
+    """
+
     send_control_bulletin_email = """
-    mutation SendControlBulletinEmail($controlId: String!, $adminEmails: [Email!]) {
-        sendControlBulletinEmail(controlId: $controlId, adminEmails: $adminEmails) {
+    mutation SendControlBulletinEmail($controlId: String!, $emails: [Email!], $forAdmin: Boolean) {
+        sendControlBulletinEmail(controlId: $controlId, emails: $emails, forAdmin: $forAdmin) {
             success
             nbEmailsSent
+        }
+    }
+    """
+
+    controller_save_control_bulletin = """
+    mutation ControllerSaveControlBulletin($controlId: Int, $observation: String) {
+        controllerSaveControlBulletin(controlId: $controlId, observation: $observation) {
+            id
+            sentToAdmin
+            sentToDriver
+        }
+    }
+    """
+
+    controller_save_reported_infractions = """
+    mutation ControllerSaveReportedInfractions($controlId: Int, $reportedInfractions: [ReportedInfractionInput]) {
+        controllerSaveReportedInfractions(controlId: $controlId, reportedInfractions: $reportedInfractions) {
+            id
+            sentToAdmin
+            sentToDriver
         }
     }
     """
@@ -780,9 +828,9 @@ class ApiRequests:
     """
 
     query_company_deleted_missions = """
-      query CompanyMissionsDeleted($id: Int!) {
+      query CompanyMissionsDeleted($id: Int!, $first: Int) {
         company(id: $id) {
-          missionsDeleted {
+          missionsDeleted(first: $first) {
             edges {
               node {
                 id
@@ -793,6 +841,10 @@ class ApiRequests:
                   dismissedAt
                 }
               }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
             }
           }
         }
@@ -970,11 +1022,11 @@ class ApiRequests:
     """
 
     admined_companies_employments = """
-      query adminCompaniesList($id: Int!) {
+      query adminCompaniesList($id: Int!, $userIds: [Int], $latestPerUser: Boolean) {
         user(id: $id) {
           adminedCompanies {
             id
-            employments {
+            employments(userIds: $userIds, latestPerUser: $latestPerUser) {
               id
               email
               user {
@@ -1080,7 +1132,6 @@ class ApiRequests:
             }
         }
     """
-
 
     request_detachment = """
         mutation ($employmentId: Int!) {
@@ -1318,40 +1369,6 @@ def init_businesses_data():
             insert_businesses(b)
         business = Business.query.first()
     return business
-
-
-def insert_businesses(business_data):
-    db.session.execute(
-        """
-            INSERT INTO business(
-              creation_time,
-              transport_type,
-              business_type,
-              id
-            )
-            VALUES
-            (
-              NOW(),
-              :transport_type,
-              :business_type,
-              :id
-            )
-            """,
-        dict(
-            transport_type=business_data.transport_type,
-            business_type=business_data.business_type,
-            id=business_data.id,
-        ),
-    )
-
-
-def init_businesses_data():
-    business = Business.query.first()
-    if not business:
-        businesses = get_businesses()
-        for b in businesses:
-            insert_businesses(b)
-        business = Business.query.first()
 
 
 def insert_businesses(business_data):

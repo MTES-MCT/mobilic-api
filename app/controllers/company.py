@@ -1,7 +1,13 @@
 from datetime import datetime
+from io import BytesIO
 
 import graphene
-from flask import send_file, jsonify, make_response
+from flask import (
+    send_file,
+    jsonify,
+    make_response,
+    abort,
+)
 from flask_apispec import use_kwargs, doc
 from graphene.types.generic import GenericScalar
 from sqlalchemy import update
@@ -56,7 +62,7 @@ from app.helpers.tachograph import (
 )
 from app.models import Company, Employment, Business, UserAgreement
 from app.models.export import ExportStatus, Export, ExportType
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import (
     EmploymentRequestValidationStatus,
 )
@@ -167,6 +173,10 @@ class CompanySignUp(AuthenticatedMutation):
             required=False,
             description="Type d'activité de transport effectué par l'entreprise",
         )
+        transport_type = graphene.String(
+            required=False,
+            description="Catégorie de transport de l'entreprise",
+        )
         nb_workers = graphene.Int(
             required=False,
             description="Nombre de chauffeurs et/ou travailleurs mobiles",
@@ -182,6 +192,7 @@ class CompanySignUp(AuthenticatedMutation):
         usual_name,
         siren,
         business_type="",
+        transport_type="",
         phone_number="",
         nb_workers=None,
     ):
@@ -190,7 +201,12 @@ class CompanySignUp(AuthenticatedMutation):
         )
 
         return sign_up_company(
-            usual_name, siren, business_type, phone_number, nb_workers
+            usual_name,
+            siren,
+            business_type,
+            transport_type,
+            phone_number,
+            nb_workers,
         )
 
 
@@ -204,6 +220,10 @@ class CompanySiret(graphene.InputObjectType):
     business_type = graphene.String(
         required=False,
         description="Type d'activité de transport de l'entreprise",
+    )
+    transport_type = graphene.String(
+        required=False,
+        description="Catégorie de transport de l'entreprise",
     )
     nb_workers = graphene.Int(
         required=False,
@@ -243,6 +263,10 @@ class CompaniesSignUp(AuthenticatedMutation):
                     siret=company.get("siret"),
                     nb_workers=company.get("nb_workers"),
                 )
+                find_business(
+                    company.get("business_type", ""),
+                    company.get("transport_type", ""),
+                )
             except InvalidParamsError as e:
                 raise InvalidParamsError(f"Company {idx + 1}: {str(e)}")
 
@@ -258,6 +282,7 @@ def sign_up_companies(siren, companies):
                 siren=siren,
                 phone_number=company.get("phone_number", ""),
                 business_type=company.get("business_type", ""),
+                transport_type=company.get("transport_type", ""),
                 nb_workers=company.get("nb_workers", None),
                 sirets=[company.get("siret")],
                 send_email=len(companies) == 1,
@@ -285,40 +310,28 @@ def create_company_by_third_party(usual_name, siren, siret, nb_workers):
     return created_company
 
 
-def sign_up_company(
-    usual_name,
-    siren,
-    business_type="",
-    phone_number="",
-    nb_workers=None,
-    sirets=[],
-    send_email=True,
-):
-    business = None
-    if business_type:
-        business = Business.query.filter(
+def find_business(business_type, transport_type):
+    if not business_type:
+        return None
+    try:
+        query = Business.query.filter(
             Business.business_type == BusinessType[business_type].value
-        ).one_or_none()
-
-    with atomic_transaction(commit_at_end=True):
-        company = store_company(
-            siren, sirets, usual_name, business, phone_number, nb_workers
         )
-
-        now = datetime.now()
-        admin_employment = Employment(
-            user_id=current_user.id,
-            company=company,
-            start_date=now.date(),
-            validation_time=now,
-            validation_status=EmploymentRequestValidationStatus.APPROVED,
-            has_admin_rights=True,
-            reception_time=now,
-            submitter_id=current_user.id,
-            business=business,
+        if transport_type:
+            return query.filter(
+                Business.transport_type == TransportType[transport_type].value
+            ).one_or_none()
+    except KeyError as e:
+        raise InvalidParamsError(f"Unknown business or transport type: {e}")
+    businesses = query.all()
+    if len(businesses) > 1:
+        raise InvalidParamsError(
+            f"Transport type is required for business type {business_type}"
         )
-        db.session.add(admin_employment)
+    return businesses[0] if businesses else None
 
+
+def _sync_company_with_crm(company):
     try:
         contact_data = CreateContactData(
             email=current_user.email,
@@ -339,41 +352,84 @@ def sign_up_company(
             app.logger.warning(
                 "Brevo API key not configured, skipping CRM sync"
             )
-        else:
-            company_id = brevo.create_company(
-                CreateCompanyData(
-                    company_name=company.usual_name,
-                    siren=int(company.siren),
-                    phone_number=(
-                        company.phone_number if company.phone_number else None
-                    ),
+            return
+
+        company_id = brevo.create_company(
+            CreateCompanyData(
+                company_name=company.usual_name,
+                siren=int(company.siren),
+                phone_number=(
+                    company.phone_number if company.phone_number else None
+                ),
+            )
+        )
+
+        if company_id is not None:
+            brevo.link_company_and_contact(
+                LinkCompanyContactData(
+                    company_id=company_id,
+                    contact_id=contact_id,
                 )
             )
-
-            if company_id is not None:
-                brevo.link_company_and_contact(
-                    LinkCompanyContactData(
-                        company_id=company_id,
-                        contact_id=contact_id,
-                    )
-                )
     except Exception as e:
         sentry_sdk.capture_exception(e)
 
+
+def _send_company_creation_email(company):
+    try:
+        mailer.send_company_creation_email(company, current_user)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def _update_admin_mailing_lists():
+    try:
+        current_user.unsubscribe_from_contact_list(
+            MailingContactList.EMPLOYEES, remove=True
+        )
+        current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
+    except Exception as e:
+        app.logger.exception(e)
+
+
+def sign_up_company(
+    usual_name,
+    siren,
+    business_type="",
+    transport_type="",
+    phone_number="",
+    nb_workers=None,
+    sirets=[],
+    send_email=True,
+):
+    business = find_business(business_type, transport_type)
+
+    with atomic_transaction(commit_at_end=True):
+        company = store_company(
+            siren, sirets, usual_name, business, phone_number, nb_workers
+        )
+
+        now = datetime.now()
+        admin_employment = Employment(
+            user_id=current_user.id,
+            company=company,
+            start_date=now.date(),
+            validation_time=now,
+            validation_status=EmploymentRequestValidationStatus.APPROVED,
+            has_admin_rights=True,
+            reception_time=now,
+            submitter_id=current_user.id,
+            business=business,
+        )
+        db.session.add(admin_employment)
+
+    _sync_company_with_crm(company)
+
     if send_email:
-        try:
-            mailer.send_company_creation_email(company, current_user)
-        except Exception as e:
-            app.logger.exception(e)
+        _send_company_creation_email(company)
 
     if current_user.subscribed_mailing_lists:
-        try:
-            current_user.unsubscribe_from_contact_list(
-                MailingContactList.EMPLOYEES, remove=True
-            )
-            current_user.subscribe_to_contact_list(MailingContactList.ADMINS)
-        except Exception as e:
-            app.logger.exception(e)
+        _update_admin_mailing_lists()
 
     return CompanySignUpOutput(company=company, employment=admin_employment)
 
@@ -573,6 +629,10 @@ class UpdateCompanyDetails(AuthenticatedMutation):
             required=False,
             description="Nouveau type d'activité de transport de l'entreprise.",
         )
+        new_transport_type = graphene.String(
+            required=False,
+            description="Nouvelle catégorie de transport de l'entreprise.",
+        )
         new_nb_workers = graphene.Int(
             required=False,
             description="Nouveau nombre d'employés de l'entreprise.",
@@ -600,6 +660,7 @@ class UpdateCompanyDetails(AuthenticatedMutation):
         new_name="",
         new_phone_number="",
         new_business_type="",
+        new_transport_type="",
         new_nb_workers=None,
         apply_business_type_to_employees=False,
     ):
@@ -634,10 +695,17 @@ class UpdateCompanyDetails(AuthenticatedMutation):
                 app.logger.info(
                     f"Company number of workers changed from {current_nb_workers} to {new_nb_workers}"
                 )
+
             if new_business_type != "":
+                if new_transport_type == "":
+                    raise InvalidParamsError(
+                        "transport_type is required when business_type is provided"
+                    )
                 new_business = Business.query.filter(
                     Business.business_type
-                    == BusinessType[new_business_type].value
+                    == BusinessType[new_business_type].value,
+                    Business.transport_type
+                    == TransportType[new_transport_type].value,
                 ).one_or_none()
                 if new_business is None:
                     raise InvalidParamsError(
@@ -756,6 +824,7 @@ def check_auth_and_get_users_list(company_ids, user_ids, min_date, max_date):
         "min_date": fields.Date(required=False),
         "max_date": fields.Date(required=False),
         "one_file_by_employee": fields.Boolean(required=False),
+        "control_format": fields.Boolean(required=False),
     },
     apply=True,
 )
@@ -765,6 +834,7 @@ def download_activity_report(
     min_date=None,
     max_date=None,
     one_file_by_employee=False,
+    control_format=False,
 ):
     users = check_auth_and_get_users_list(
         company_ids, user_ids, min_date, max_date
@@ -777,6 +847,7 @@ def download_activity_report(
         min_date=min_date,
         max_date=max_date,
         one_file_by_employee=one_file_by_employee,
+        control_format=control_format,
     )
 
     return jsonify({"result": "ok"}), 202
@@ -895,21 +966,29 @@ def checkout_exports():
         Export.user_id == current_user.id, Export.status == ExportStatus.READY
     ).all()
 
-    from app import S3Client
+    backend = app.config["EXPORT_STORAGE_BACKEND"]
+    if backend == "s3":
+        from app import S3Client
 
-    ready_exports_links = S3Client.generate_presigned_urls_exports(
-        exports_ready
-    )
+        ready_exports_links = S3Client.generate_presigned_urls_exports(
+            exports_ready
+        )
+    else:
+        ready_exports_links = {
+            export.id: f"/api/exports/download/{export.id}"
+            for export in exports_ready
+            if export.file_content is not None
+        }
 
     cgu_user_ids = []
     with atomic_transaction(commit_at_end=True):
         for ready in exports_ready:
-            if ready.id in ready_exports_links:
+            if ready.id not in ready_exports_links:
+                ready.status = ExportStatus.FAILED
+            elif backend == "s3":
                 ready.status = ExportStatus.DOWNLOADED
                 if ready.export_type == ExportType.REFUSED_CGU:
                     cgu_user_ids.append(ready.user_id)
-            else:
-                ready.status = ExportStatus.FAILED
 
     for user_id in cgu_user_ids:
         UserAgreement.set_transferred_data_date(user_id)
@@ -922,6 +1001,36 @@ def checkout_exports():
             }
         ),
         200,
+    )
+
+
+@app.route("/exports/download/<int:export_id>", methods=["GET"])
+@doc(description="Télécharge un export stocké en base")
+@require_auth
+def download_export(export_id):
+    export = Export.query.get(export_id)
+    if (
+        export is None
+        or export.user_id != current_user.id
+        or export.file_content is None
+    ):
+        abort(404)
+
+    company_ids = (export.context or {}).get("company_ids")
+    app.logger.info(
+        f"Export {export.id} downloaded by user {current_user.id} "
+        f"(companies {company_ids})"
+    )
+    export.status = ExportStatus.DOWNLOADED
+    db.session.commit()
+    if export.export_type == ExportType.REFUSED_CGU:
+        UserAgreement.set_transferred_data_date(export.user_id)
+
+    return send_file(
+        BytesIO(export.file_content),
+        mimetype=export.file_type,
+        as_attachment=True,
+        download_name=export.file_name,
     )
 
 

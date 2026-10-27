@@ -1,13 +1,19 @@
 from datetime import date, datetime
+from unittest.mock import patch
+
 from argon2 import PasswordHasher
 
+from app import app, mailer
 from app.helpers.oauth.models import OAuth2Client
 from app.models.company import Company
+from app.models.employment import Employment
 from app.seed.factories import (
     EmploymentFactory,
     ThirdPartyApiKeyFactory,
+    ThirdPartyClientEmploymentFactory,
     UserFactory,
 )
+from app.jobs.emails.third_party_sync import send_third_party_sync_emails
 from app.tests import BaseTest
 from app.tests.helpers import (
     INVALID_API_KEY_MESSAGE,
@@ -141,6 +147,91 @@ class TestApiSyncEmployment(BaseTest):
         ]
         self.assertEqual(len(employment_ids), 2)
 
+    def test_sync_employments_does_not_send_mail_in_request(self):
+        with patch.object(mailer, "send_batch") as mock_send_batch:
+            make_protected_request(
+                query=ApiRequests.sync_employment,
+                variables=dict(
+                    company_id=self.company_id,
+                    employees=[employee1],
+                ),
+                headers={
+                    "X-CLIENT-ID": self.client_id,
+                    "X-API-KEY": "mobilic_live_" + self.api_key,
+                },
+            )
+
+        mock_send_batch.assert_not_called()
+        employments = Employment.query.filter_by(
+            company_id=self.company_id
+        ).all()
+        self.assertEqual(len(employments), 1)
+
+    def test_sync_employments_enqueues_email_task_with_entries(self):
+        app.config["DISABLE_EMAIL"] = False
+        try:
+            with patch(
+                "app.controllers.employment.send_third_party_sync_emails"
+            ) as mock_task:
+                make_protected_request(
+                    query=ApiRequests.sync_employment,
+                    variables=dict(
+                        company_id=self.company_id,
+                        employees=[employee1],
+                    ),
+                    headers={
+                        "X-CLIENT-ID": self.client_id,
+                        "X-API-KEY": "mobilic_live_" + self.api_key,
+                    },
+                )
+        finally:
+            app.config["DISABLE_EMAIL"] = True
+
+        employment = Employment.query.filter_by(
+            company_id=self.company_id
+        ).one()
+        mock_task.delay.assert_called_once()
+        self.assertEqual(
+            mock_task.delay.call_args[0][1],
+            [{"employment_id": employment.id, "kind": "account_creation"}],
+        )
+
+    def test_task_uses_active_link_not_dismissed(self):
+        """The email task must resolve the active link, not a dismissed one
+        left over for the same (employment_id, client_id)."""
+        company = Company.query.get(self.company_id)
+        user = UserFactory.create(post__company=company)
+        employment = Employment.query.filter_by(
+            user_id=user.id, company_id=self.company_id
+        ).one()
+
+        ThirdPartyClientEmploymentFactory.create(
+            employment_id=employment.id,
+            client_id=self.client_id,
+            dismissed_at=datetime.now(),
+            dismiss_author_id=user.id,
+        )
+        active_link = ThirdPartyClientEmploymentFactory.create(
+            employment_id=employment.id,
+            client_id=self.client_id,
+        )
+
+        with patch.object(
+            mailer, "generate_third_party_software_employment_access_email"
+        ) as mock_generate, patch.object(mailer, "send_batch"):
+            send_third_party_sync_emails(
+                self.client_id,
+                [
+                    {
+                        "employment_id": employment.id,
+                        "kind": "employment_access",
+                    }
+                ],
+            )
+
+        mock_generate.assert_called_once()
+        self.assertEqual(mock_generate.call_args[0][0].id, active_link.id)
+
     def test_sync_employments_already_exists(self):
         company = Company.query.get(self.company_id)
         existing_employee = UserFactory.create(
@@ -239,3 +330,57 @@ class TestApiSyncEmployment(BaseTest):
         ]
         self.assertEqual(len(employment_ids), 1)
         self.assertEqual(employment_ids[0]["email"], existing_employee.email)
+
+
+SYNC_EMPLOYMENT_WITH_USER_EMAIL = """
+    mutation ($companyId: Int!, $employees: [ThirdPartyEmployee]!) {
+        company {
+            syncEmployment(companyId: $companyId, employees: $employees) {
+                id
+                user {
+                    email
+                }
+            }
+        }
+    }
+"""
+
+
+class TestApiSyncEmploymentUserEmail(TestApiSyncEmployment):
+    def _sync(self, employees):
+        return make_protected_request(
+            query=SYNC_EMPLOYMENT_WITH_USER_EMAIL,
+            variables=dict(company_id=self.company_id, employees=employees),
+            headers={
+                "X-CLIENT-ID": self.client_id,
+                "X-API-KEY": "mobilic_live_" + self.api_key,
+            },
+        )
+
+    def test_user_email_of_acknowledged_employee_is_visible(self):
+        company = Company.query.get(self.company_id)
+        existing_employee = UserFactory.create(
+            first_name="Existing", last_name="Employee", post__company=company
+        )
+        response = self._sync(
+            [
+                {
+                    "firstName": existing_employee.first_name,
+                    "lastName": existing_employee.last_name,
+                    "email": existing_employee.email,
+                }
+            ]
+        )
+        self.assertNotIn("errors", response)
+        self.assertEqual(
+            response["data"]["company"]["syncEmployment"][0]["user"]["email"],
+            existing_employee.email,
+        )
+
+    def test_user_email_of_pending_employee_is_visible(self):
+        response = self._sync([employee1])
+        self.assertNotIn("errors", response)
+        self.assertEqual(
+            response["data"]["company"]["syncEmployment"][0]["user"]["email"],
+            employee1["email"],
+        )

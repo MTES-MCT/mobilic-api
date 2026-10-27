@@ -14,9 +14,12 @@ from app.domain.mission import had_user_enough_break_last_mission
 from app.domain.permissions import (
     user_resolver_with_consultation_scope,
     only_self,
+    self_or_have_common_acknowledged_company,
+    self_or_controller_with_control,
 )
 from app.domain.regulation_computations import get_regulation_computations
 from app.domain.work_days import group_user_events_by_day_with_limit
+from app.helpers.authentication import current_user
 from app.helpers.authorization import (
     with_authorization_policy,
 )
@@ -58,6 +61,7 @@ class UserOutput(BaseSQLAlchemyObjectType):
             "has_activated_email",
             "disabled_warnings",
             "admin",
+            "bizdev",
         )
 
     id = graphene.Field(
@@ -228,8 +232,26 @@ class UserOutput(BaseSQLAlchemyObjectType):
         description="Indique si le salarié a pris suffisamment de pause lors de sa dernière mission validée.",
     )
 
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'gender' of user object.",
+    )
     def resolve_gender(self, info):
         return self.gender.value if self.gender else None
+
+    def resolve_email(self, info):
+        if not self_or_have_common_acknowledged_company(current_user, self.id):
+            return None
+        return self.email
+
+    @with_authorization_policy(
+        only_self,
+        get_target_from_args=lambda self, info, *args, **kwargs: self,
+        error_message="Forbidden access to field 'phoneNumber' of user object.",
+    )
+    def resolve_phone_number(self, info):
+        return self.phone_number
 
     def resolve_totp_enabled(self, info):
         cred = self.totp_credential
@@ -439,15 +461,24 @@ class UserOutput(BaseSQLAlchemyObjectType):
         error_message="Forbidden access to field 'adminedCompanies' of user object. The field is only accessible to the user himself.",
     )
     def resolve_admined_companies(self, info, company_ids=None):
+        admined_company_ids = self.current_company_ids_with_admin_rights
         if company_ids is not None:
-            company_ids_to_compute = company_ids
+            requested = set(company_ids)
+            company_ids_to_compute = [
+                cid for cid in admined_company_ids if cid in requested
+            ]
         else:
-            company_ids_to_compute = self.current_company_ids_with_admin_rights
+            company_ids_to_compute = admined_company_ids
 
         return Company.query.filter(
             Company.id.in_(company_ids_to_compute)
         ).all()
 
+    @with_authorization_policy(
+        self_or_controller_with_control,
+        get_target_from_args=lambda self, info, *args, **kwargs: self.id,
+        error_message="Forbidden access to field 'birthDate' of user object.",
+    )
     def resolve_birth_date(self, info):
         return (
             self.france_connect_info.get("birthdate")

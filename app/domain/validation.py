@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from app import db
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.mission import (
     get_mission_start_and_end_from_activities,
     end_mission_for_user,
@@ -223,6 +224,7 @@ def _get_or_create_validation(
             context=sanitize_support_context(None),
         )
         db.session.add(validation)
+        invalidate_pending_validations_cache(mission.company_id)
         return validation
 
 

@@ -1,5 +1,6 @@
 import graphene
 import jwt
+import secrets
 from enum import Enum
 from flask import redirect, request, after_this_request, send_file, g, url_for
 from uuid import uuid4
@@ -41,14 +42,17 @@ from app.helpers.authentication import (
     UserTokens,
     UserTokensWithFC,
     AuthenticationError,
+    bind_sso_state,
     unset_fc_auth_cookies,
     set_auth_cookies,
     require_auth,
     AuthenticatedMutation,
+    verify_sso_state,
 )
 from app.helpers.authorization import (
     AuthorizationError,
     admin_only,
+    admin_or_bizdev,
     with_authorization_policy,
 )
 from app.helpers.errors import (
@@ -368,14 +372,12 @@ class ActivateEmail(graphene.Mutation):
             user.has_activated_email = True
 
             try:
-                if not is_user_related_to_onboarding_excluded_company(user):
-                    if (
-                        len(user.current_company_ids_with_admin_rights or [])
-                        > 0
-                    ):
-                        mailer.send_manager_onboarding_first_email(user)
-                    else:
-                        mailer.send_worker_onboarding_first_email(user)
+                if (
+                    not is_user_related_to_onboarding_excluded_company(user)
+                    and len(user.current_company_ids_with_admin_rights or [])
+                    > 0
+                ):
+                    mailer.send_manager_onboarding_first_email(user)
             except Exception as e:
                 app.logger.exception(e)
 
@@ -529,7 +531,7 @@ def _extract_uri_param(uri_params, key, default=None):
 def _build_jwt_state_data(uri_params):
     """Build JWT state data from URI parameters."""
     return {
-        "csrf": uuid4().hex,
+        "csrf": secrets.token_hex(16),
         "context": _extract_uri_param(uri_params, "context", "login"),
         "next": _extract_uri_param(uri_params, "next"),
         "invite_token": _extract_uri_param(uri_params, "invite_token"),
@@ -602,7 +604,9 @@ def redirect_to_fc_authorize():
         app.logger.error("Invalid FranceConnect authorize URL")
         return redirect("/", code=302)
 
-    return redirect(authorize_url, code=302)
+    response = redirect(authorize_url, code=302)
+    bind_sso_state(response, "fcState", state_data["csrf"])
+    return response
 
 
 def _validate_redirect_url(url: str) -> bool:
@@ -753,26 +757,18 @@ class FranceConnectLogin(graphene.Mutation):
         invite_token=None,
         create=False,
     ):
-        invite_token_from_state = invite_token
-        create_from_state = create
-
         try:
             state_data = jwt.decode(
                 state, app.config["JWT_SECRET_KEY"], algorithms=["HS256"]
             )
-            invite_token_from_state = (
-                state_data.get("invite_token") or invite_token
-            )
-            create_from_state = state_data.get("create", False) or create
         except jwt.ExpiredSignatureError:
             raise InvalidTokenError("Authentication session expired")
-        except (jwt.InvalidTokenError, jwt.DecodeError):
-            app.logger.warning(
-                "Unable to decode state parameter - V2 JWT required"
-            )
+        except jwt.InvalidTokenError:
+            raise InvalidTokenError("Invalid state parameter")
+        verify_sso_state("fcState", state_data.get("csrf"))
 
-        invite_token = invite_token_from_state
-        create = create_from_state
+        invite_token = state_data.get("invite_token") or invite_token
+        create = state_data.get("create", False) or create
 
         with atomic_transaction(commit_at_end=True):
             fc_user_info, fc_token = get_fc_user_info(
@@ -812,6 +808,7 @@ class FranceConnectLogin(graphene.Mutation):
             set_auth_cookies(
                 response, user_id=user.id, **tokens, fc_token=fc_token
             )
+            response.delete_cookie("fcState", path="/")
             return response
 
         return UserTokensWithFC(**tokens, fc_token=fc_token)
@@ -976,12 +973,14 @@ class WarningToDisableType(str, Enum):
     ADMIN_MISSION_MODIFICATION = "admin-mission-modification"
     EMPLOYEE_GEOLOCATION_INFORMATION = "employee-geolocation-information"
     EMPLOYEE_OFF_CREATION = "employee-off-creation"
+    PUSH_OPT_IN_DISMISSED = "push-opt-in-dismissed"
     __description__ = """
 Enumération des valeurs suivantes.
 - "employee-validation" : alerte relative au caractère bloquant de la validation par le salarié
-- "admin-mission-modification" : alerte relative à la visibilité des modifications de la mission par un gestionnaire 
-- "employee-geolocation-information" : Modale d'information sur la géolocalisation 
+- "admin-mission-modification" : alerte relative à la visibilité des modifications de la mission par un gestionnaire
+- "employee-geolocation-information" : Modale d'information sur la géolocalisation
 - "employee-off-creation" : alerte relative au caractère bloquant de la création d'une absence par le salarié
+- "push-opt-in-dismissed" : l'utilisateur a fermé le bandeau de souscription aux notifications
 """
 
 
@@ -1003,6 +1002,28 @@ class DisableWarning(AuthenticatedMutation):
                     *current_user.disabled_warnings,
                     warning_name,
                 ]
+
+        return Void(success=True)
+
+
+class ResetPushOptInBanner(AuthenticatedMutation):
+    """Réaffiche le bandeau de souscription aux notifications pour tous les utilisateurs."""
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(admin_or_bizdev)
+    def mutate(cls, _, info):
+        with atomic_transaction(commit_at_end=True):
+            warning = WarningToDisableType.PUSH_OPT_IN_DISMISSED.value
+            User.query.filter(User.disabled_warnings.any(warning)).update(
+                {
+                    User.disabled_warnings: db.func.array_remove(
+                        User.disabled_warnings, warning
+                    )
+                },
+                synchronize_session=False,
+            )
 
         return Void(success=True)
 
@@ -1078,7 +1099,7 @@ class SetupTOTP(AuthenticatedMutation):
     Output = SetupTOTPOutput
 
     @classmethod
-    @with_authorization_policy(admin_only)
+    @with_authorization_policy(admin_or_bizdev)
     def mutate(cls, _, info):
         secret = generate_totp_secret()
         encrypted = encrypt_secret(secret)
@@ -1097,7 +1118,7 @@ class VerifyTOTP(AuthenticatedMutation):
     Output = Void
 
     @classmethod
-    @with_authorization_policy(admin_only)
+    @with_authorization_policy(admin_or_bizdev)
     def mutate(cls, _, info, code):
         cred = current_user.totp_credential
         if not cred or not cred.secret:

@@ -17,12 +17,20 @@ from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.company import job_update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
+from app.domain.technical_incident import create_incident, update_incident
 from app.domain.vehicle import find_vehicle
+from app.helpers.errors import MobilicError
+from app.helpers.junit_report import JUnitResult, write_junit_xml
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.time import FR_TIMEZONE, from_tz, to_fr_tz
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.jobs.auto_validations import job_process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
+from app.models.technical_incident import (
+    TechnicalIncident,
+    TechnicalIncidentType,
+)
 from app.models.user import User
 from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
@@ -57,7 +65,13 @@ def test(test_names):
             pattern="test_*.py",
             top_level_dir=root_project_path,
         )
-    result = unittest.TextTestRunner(verbosity=3).run(test_suite)
+    junit_path = os.environ.get("JUNIT_XML")
+    result = unittest.TextTestRunner(
+        verbosity=3,
+        resultclass=JUnitResult if junit_path else unittest.TextTestResult,
+    ).run(test_suite)
+    if junit_path:
+        write_junit_xml(result, junit_path)
     if result.wasSuccessful():
         sys.exit(0)
     sys.exit(1)
@@ -73,6 +87,23 @@ def clean():
 def seed():
     """Inject tests data in database."""
     seed_seed()
+
+
+@app.cli.command("seed_review_app", with_appcontext=True)
+def seed_review_app():
+    """Lightweight seed for a Scalingo review app: a single busy-admin
+    scenario. Guarded to review environments to avoid seeding staging/prod
+    if the command is triggered by accident."""
+    from config import MOBILIC_ENV
+
+    if MOBILIC_ENV != "review":
+        raise RuntimeError(
+            f"seed_review_app is only allowed when MOBILIC_ENV=review "
+            f"(got {MOBILIC_ENV!r})"
+        )
+    from app.seed.scenarios import run_scenario_busy_admin
+
+    run_scenario_busy_admin()
 
 
 @app.cli.command("load_missions", with_appcontext=True)
@@ -339,6 +370,70 @@ def load_company_stats():
     app.logger.info("Process load_company_stats done")
 
 
+@app.cli.command("compute_software_compliance_snapshot", with_appcontext=True)
+@click.argument("for_date", required=False)
+def compute_software_compliance_snapshot(for_date=None):
+    """
+    Compute daily software compliance snapshot for all third-party clients.
+    Sends alerts (email + Tchap) if thresholds are exceeded for 7 consecutive active days.
+
+    for_date is an optional date with format YYYY-MM-DD (defaults to yesterday).
+    Example: flask compute_software_compliance_snapshot 2026-07-29
+    """
+    import datetime as dt
+    from app.jobs.software_compliance_report import (
+        job_compute_software_compliance_snapshot,
+    )
+
+    parsed_date = (
+        dt.datetime.strptime(for_date, "%Y-%m-%d").date()
+        if for_date is not None
+        else None
+    )
+    job_compute_software_compliance_snapshot(for_date=parsed_date)
+
+
+@app.cli.command("suspend_oauth_client", with_appcontext=True)
+@click.argument("client_id", required=True, type=int)
+def suspend_oauth_client(client_id):
+    """Suspend a third-party OAuth client, blocking all API access."""
+    from datetime import datetime
+    from app.helpers.oauth.models import OAuth2Client
+
+    client = OAuth2Client.query.get(client_id)
+    if not client:
+        click.echo(f"Client {client_id} not found.")
+        return
+    if client.is_suspended:
+        click.echo(
+            f"Client '{client.name}' ({client_id}) is already suspended."
+        )
+        return
+    client.suspended_at = datetime.now()
+    db.session.commit()
+    click.echo(
+        f"Client '{client.name}' ({client_id}) suspended at {client.suspended_at}."
+    )
+
+
+@app.cli.command("unsuspend_oauth_client", with_appcontext=True)
+@click.argument("client_id", required=True, type=int)
+def unsuspend_oauth_client(client_id):
+    """Restore API access for a previously suspended OAuth client."""
+    from app.helpers.oauth.models import OAuth2Client
+
+    client = OAuth2Client.query.get(client_id)
+    if not client:
+        click.echo(f"Client {client_id} not found.")
+        return
+    if not client.is_suspended:
+        click.echo(f"Client '{client.name}' ({client_id}) is not suspended.")
+        return
+    client.suspended_at = None
+    db.session.commit()
+    click.echo(f"Client '{client.name}' ({client_id}) is now unsuspended.")
+
+
 @app.cli.command("temp_generate_xml", with_appcontext=True)
 @click.argument("id", required=True)
 def temp_command_generate_xm_control(id):
@@ -407,6 +502,24 @@ def anonymize_standalone_data_command(
     )
 
 
+@app.cli.command("apply_activity_k_anonymity", with_appcontext=True)
+@click.option(
+    "--k",
+    type=int,
+    default=2,
+    show_default=True,
+    help="Minimum number of users that must share an activity-count value; "
+    "users below this threshold are removed from anon_activity.",
+)
+def apply_activity_k_anonymity_command(k):
+    from app.services.anonymization.utilities.k_anonymity import (
+        apply_activity_k_anonymity,
+    )
+
+    deleted = apply_activity_k_anonymity(k=k)
+    click.echo(f"Removed {deleted} anon_activity rows at k={k}")
+
+
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
 def update_ceased_activity_status():
     job_update_ceased_activity_status()
@@ -415,6 +528,142 @@ def update_ceased_activity_status():
 @app.cli.command("process_auto_validations", with_appcontext=True)
 def process_auto_validations():
     job_process_auto_validations()
+
+
+_INCIDENT_DATE_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
+
+
+def _parse_fr_datetime(value):
+    # Parse an operator-supplied Europe/Paris datetime into naive UTC.
+    for fmt in _INCIDENT_DATE_FORMATS:
+        try:
+            local = datetime.datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+        return from_tz(local, FR_TIMEZONE)
+    raise click.BadParameter(
+        f"Date invalide '{value}'. Formats acceptés (heure de Paris) : "
+        "AAAA-MM-JJTHH:MM, AAAA-MM-JJTHH:MM:SS ou AAAA-MM-JJ"
+    )
+
+
+def _format_incident(incident):
+    start = to_fr_tz(incident.start_time).strftime("%Y-%m-%d %H:%M")
+    if incident.end_time is None:
+        period = f"{start} -> en cours"
+    else:
+        end = to_fr_tz(incident.end_time).strftime("%Y-%m-%d %H:%M")
+        period = f"{start} -> {end}"
+    return (
+        f"#{incident.id} [{TechnicalIncidentType(incident.technical_type).value}] {period}"
+        + (f" | {incident.description}" if incident.description else "")
+    )
+
+
+@app.cli.command("list_technical_incidents", with_appcontext=True)
+def list_technical_incidents():
+    """Liste les dysfonctionnements techniques (heure de Paris)."""
+    incidents = TechnicalIncident.query.order_by(
+        TechnicalIncident.start_time.desc()
+    ).all()
+    if not incidents:
+        click.echo("Aucun dysfonctionnement enregistré.")
+        return
+    for incident in incidents:
+        click.echo(_format_incident(incident))
+
+
+@app.cli.command("create_technical_incident", with_appcontext=True)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    required=True,
+    help="Type de dysfonctionnement.",
+)
+@click.option(
+    "--start",
+    "start",
+    required=True,
+    help="Début (heure de Paris) : AAAA-MM-JJTHH:MM.",
+)
+@click.option(
+    "--end",
+    "end",
+    default=None,
+    help="Fin (heure de Paris). Absent => incident en cours.",
+)
+@click.option("--description", default=None, help="Description libre.")
+def create_technical_incident(technical_type, start, end, description):
+    """Crée un dysfonctionnement technique."""
+    start_time = _parse_fr_datetime(start)
+    end_time = _parse_fr_datetime(end) if end else None
+    try:
+        with atomic_transaction(commit_at_end=True):
+            incident = create_incident(
+                technical_type=TechnicalIncidentType(technical_type),
+                start_time=start_time,
+                end_time=end_time,
+                description=description,
+            )
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Créé : " + _format_incident(incident))
+
+
+@app.cli.command("update_technical_incident", with_appcontext=True)
+@click.argument("incident_id", type=click.INT)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    default=None,
+    help="Nouveau type.",
+)
+@click.option("--start", "start", default=None, help="Nouveau début (Paris).")
+@click.option(
+    "--end", "end", default=None, help="Nouvelle fin (Paris) => clôture."
+)
+@click.option("--description", default=None, help="Nouvelle description.")
+@click.option(
+    "--reopen",
+    is_flag=True,
+    help="Ré-ouvre l'incident (remet la date de fin à vide).",
+)
+def update_technical_incident(
+    incident_id, technical_type, start, end, description, reopen
+):
+    """Modifie un dysfonctionnement technique existant."""
+    if reopen and end:
+        raise click.UsageError("--reopen et --end sont incompatibles.")
+
+    incident = TechnicalIncident.query.get(incident_id)
+    if not incident:
+        raise click.ClickException(
+            f"Dysfonctionnement #{incident_id} introuvable."
+        )
+
+    changes = {}
+    if technical_type is not None:
+        changes["technical_type"] = TechnicalIncidentType(technical_type)
+    if start is not None:
+        changes["start_time"] = _parse_fr_datetime(start)
+    if reopen:
+        changes["end_time"] = None
+    elif end is not None:
+        changes["end_time"] = _parse_fr_datetime(end)
+    if description is not None:
+        changes["description"] = description
+
+    if not changes:
+        raise click.UsageError("Aucune modification fournie.")
+
+    try:
+        with atomic_transaction(commit_at_end=True):
+            update_incident(incident, **changes)
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Modifié : " + _format_incident(incident))
 
 
 @app.cli.command("refresh_webinars_cache", with_appcontext=True)
@@ -917,3 +1166,77 @@ def delete_old_notifications():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting notifications: {e}")
+
+
+@app.cli.command("delete_expired_refresh_tokens", with_appcontext=True)
+def delete_expired_refresh_tokens():
+    """Delete idle-expired refresh tokens and consumed tokens past the reuse grace period."""
+    from datetime import datetime, timedelta, timezone
+    from app.models.refresh_token import RefreshToken
+    from app.models.controller_refresh_token import ControllerRefreshToken
+    from app import db
+
+    now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
+    expiration_threshold = now - app.config["REFRESH_TOKEN_EXPIRATION"]
+    consumed_threshold = now - timedelta(days=1)
+
+    try:
+        deleted_expired = 0
+        deleted_consumed = 0
+        for token_model in (RefreshToken, ControllerRefreshToken):
+            deleted_expired += token_model.query.filter(
+                token_model.consumed_at.is_(None),
+                token_model.creation_time < expiration_threshold,
+            ).delete(synchronize_session=False)
+            deleted_consumed += token_model.query.filter(
+                token_model.consumed_at < consumed_threshold
+            ).delete(synchronize_session=False)
+        db.session.commit()
+        print(
+            f"Deleted {deleted_expired} expired and {deleted_consumed} consumed refresh tokens."
+        )
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while deleting refresh tokens: {e}")
+
+
+@app.cli.command("purge_downloaded_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=24)
+def purge_downloaded_exports(max_age_hours):
+    """Purge le contenu binaire des exports téléchargés ou trop anciens."""
+    from sqlalchemy import or_
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    try:
+        purged = Export.query.filter(
+            Export.file_content.isnot(None),
+            or_(
+                Export.status == ExportStatus.DOWNLOADED,
+                Export.creation_time < cutoff,
+            ),
+        ).update({Export.file_content: None}, synchronize_session=False)
+        db.session.commit()
+        print(f"Purged file_content of {purged} exports.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while purging exports: {e}")
+        raise
+
+
+@app.cli.command("alert_stuck_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=1)
+def alert_stuck_exports(max_age_hours):
+    """Alerte si des exports restent bloqués en WIP (worker en panne)."""
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    stuck = Export.query.filter(
+        Export.status == ExportStatus.WIP,
+        Export.creation_time < cutoff,
+    ).count()
+    if stuck:
+        app.logger.error(
+            f"{stuck} exports stuck in WIP for more than {max_age_hours}h"
+        )
+    print(f"{stuck} stuck exports.")
