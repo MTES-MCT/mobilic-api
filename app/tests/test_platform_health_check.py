@@ -11,6 +11,7 @@ from app.jobs.platform_health_check import (
 from app.models import Activity, Mission, RegulationComputation
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
+from app.tests.healthcheck_http import route_bot_http_to_test_client
 from app.tests.helpers import init_businesses_data, init_regulation_checks_data
 
 
@@ -38,36 +39,14 @@ class TestPlatformHealthCheck(BaseTest):
             user=self.employee,
             has_admin_rights=False,
         )
-        self.host_patch = patch.dict(
-            app.config, {"API_HOST": "http://api.test"}
-        )
-        self.host_patch.start()
-        self.requests_patch = patch.object(
-            platform_health_check.requests, "post", side_effect=self._post
-        )
-        self.requests_patch.start()
+        self.http_patches = route_bot_http_to_test_client()
+        self.http_patches.__enter__()
         self.sleep_patch = patch.object(platform_health_check.time, "sleep")
         self.sleep_patch.start()
 
-    @staticmethod
-    def _post(url, json, headers, timeout):
-        response = app.test_client().post(
-            url.replace("http://api.test", ""), json=json, headers=headers
-        )
-        return type(
-            "Resp",
-            (),
-            {
-                "status_code": response.status_code,
-                "text": response.get_data(as_text=True),
-                "json": lambda self: response.get_json(),
-            },
-        )()
-
     def tearDown(self):
-        self.requests_patch.stop()
-        self.host_patch.stop()
         self.sleep_patch.stop()
+        self.http_patches.__exit__(None, None, None)
         super().tearDown()
 
     @patch("app.jobs.platform_health_check.send_tchap_message")

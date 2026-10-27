@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-from app import app, db
-from app.jobs import platform_health_check
 from app.jobs.platform_health_check import job_run_platform_health_checks
 from app.models import (
     Activity,
@@ -18,6 +16,7 @@ from app.services.healthcheck_bot import (
     delete_healthcheck_bot,
 )
 from app.tests import BaseTest
+from app.tests.healthcheck_http import route_bot_http_to_test_client
 from app.tests.helpers import init_businesses_data, init_regulation_checks_data
 
 
@@ -46,25 +45,7 @@ class TestHealthcheckBot(BaseTest):
     ):
         create_healthcheck_bot(nb_employees=2)
 
-        def post(url, json, headers, timeout):
-            response = app.test_client().post(
-                url.replace("http://api.test", ""), json=json, headers=headers
-            )
-            return type(
-                "Resp",
-                (),
-                {
-                    "status_code": response.status_code,
-                    "text": response.get_data(as_text=True),
-                    "json": lambda self: response.get_json(),
-                },
-            )()
-
-        with patch.dict(
-            app.config, {"API_HOST": "http://api.test"}
-        ), patch.object(
-            platform_health_check.requests, "post", side_effect=post
-        ), patch(
+        with route_bot_http_to_test_client(), patch(
             "app.jobs.platform_health_check.send_tchap_message"
         ) as mock_tchap:
             job_run_platform_health_checks()
