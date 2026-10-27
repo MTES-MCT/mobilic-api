@@ -393,6 +393,59 @@ def compute_software_compliance_snapshot(for_date=None):
     job_compute_software_compliance_snapshot(for_date=parsed_date)
 
 
+@app.cli.command("run_platform_health_checks", with_appcontext=True)
+def run_platform_health_checks():
+    """
+    The healthcheck bot (a dedicated test user/company) checks activity logging,
+    employees listed for the manager and in exports. Alerts on Tchap on failure.
+    """
+    from app.jobs.platform_health_check import job_run_platform_health_checks
+
+    job_run_platform_health_checks()
+
+
+@app.cli.command("purge_healthcheck_bot_missions", with_appcontext=True)
+def purge_healthcheck_bot_missions():
+    """Deletes the test missions created by the platform healthcheck bot."""
+    from app.jobs.platform_health_check import (
+        job_purge_healthcheck_bot_missions,
+    )
+
+    job_purge_healthcheck_bot_missions()
+
+
+@app.cli.command("create_healthcheck_bot", with_appcontext=True)
+@click.option(
+    "--employees",
+    type=click.IntRange(1, 50),
+    default=2,
+    help="Number of employees besides the bot admin",
+)
+def create_healthcheck_bot(employees):
+    """Creates (idempotent) the healthcheck bot: test user, company and employees."""
+    from app.services.healthcheck_bot import create_healthcheck_bot as create
+
+    bot, company = create(nb_employees=employees)
+    click.echo(
+        f"Healthcheck bot {bot.email} ready (user {bot.id}, company {company.id}, {employees} employees)."
+    )
+
+
+@app.cli.command("delete_healthcheck_bot", with_appcontext=True)
+@click.confirmation_option(
+    prompt="Delete the healthcheck bot account, its company, employees and all their data?"
+)
+def delete_healthcheck_bot():
+    """Deletes the healthcheck bot user, company, employees and data created by create_healthcheck_bot."""
+    from app.services.healthcheck_bot import delete_healthcheck_bot as delete
+
+    click.echo(
+        "Healthcheck bot deleted."
+        if delete()
+        else "No healthcheck bot found, nothing to delete."
+    )
+
+
 @app.cli.command("suspend_oauth_client", with_appcontext=True)
 @click.argument("client_id", required=True, type=int)
 def suspend_oauth_client(client_id):

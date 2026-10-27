@@ -7,10 +7,11 @@ from app import app
 DEFAULT_TCHAP_HOMESERVER = "https://matrix.agent.dev-durable.tchap.gouv.fr"
 
 
-def send_tchap_message(text, html=None):
+def send_tchap_message(text, html=None, room_id=None):
     # Returns True if the message was actually delivered, False otherwise.
+    # room_id overrides the default TCHAP_ROOM_ID.
     access_token = app.config.get("TCHAP_ACCESS_TOKEN")
-    room_id = app.config.get("TCHAP_ROOM_ID")
+    room_id = room_id or app.config.get("TCHAP_ROOM_ID")
     homeserver = app.config.get("TCHAP_HOMESERVER", DEFAULT_TCHAP_HOMESERVER)
 
     if not access_token or not room_id:
