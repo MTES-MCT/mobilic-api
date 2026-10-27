@@ -5,6 +5,7 @@ from sqlalchemy import (
     and_,
     or_,
     desc,
+    false,
     Integer,
     Interval,
     literal_column,
@@ -276,36 +277,13 @@ def query_company_missions(
     )
 
 
-def _paginate_work_day_stats(
-    results, after, max_date, user_id, first, has_next_page
-):
-    if after:
-        results = [
-            r
-            for r in results
-            if r.day.date() < max_date
-            or (r.day.date() == max_date and r.user_id < user_id)
-        ]
-
-    if first:
-        if has_next_page:
-            # The last work day may be incomplete because we didn't fetch all the activities => remove it
-            results = results[:-1]
-        if len(results) > first:
-            results = results[:first]
-            has_next_page = True
-
-    return results, has_next_page
-
-
 def query_work_day_stats(
     company_id,
     start_date=None,
     end_date=None,
-    first=None,
-    after=None,
     tzname="Europe/Paris",
     user_ids=None,
+    after=None,
 ):
     # The following is a bit complex because we want to compute day-centric statistics from data that are not day-centric (an activity period can for instance span over several days)
 
@@ -313,16 +291,18 @@ def query_work_day_stats(
 
     tz = ZoneInfo(tzname)
 
-    # Cursor pagination : work days are sorted by descending date and user id
+    window_is_empty = False
     if after:
-        max_time, user_id_ = parse_datetime_plus_id_cursor(after)
+        max_time, _ = parse_datetime_plus_id_cursor(after)
         max_date = max_time.date()
         end_date = min(max_date, end_date) if end_date else max_date
 
         # The cursor may have walked back past the start of the requested window (e.g. an activity spanning many days pushes it further back on each page).
-        # There is nothing left to fetch in that case : bail out early instead of issuing a query with an inverted range.
+        # There is nothing left to fetch in that case. Building the time-range
+        # filter below with an inverted range would error out in Postgres, so we
+        # force an empty result instead.
         if start_date and end_date < start_date:
-            return [], False
+            window_is_empty = True
 
     # First query returns all the activities that will be used to compute statistics, split by days
     query = (
@@ -373,23 +353,17 @@ def query_work_day_stats(
         )
     )
 
-    query = _apply_time_range_filters_to_activity_query(
-        query,
-        to_datetime(start_date, tz_for_date=tz),
-        to_datetime(end_date, tz_for_date=tz, date_as_end_of_day=True),
-    )
+    if window_is_empty:
+        query = query.filter(false())
+    else:
+        query = _apply_time_range_filters_to_activity_query(
+            query,
+            to_datetime(start_date, tz_for_date=tz),
+            to_datetime(end_date, tz_for_date=tz, date_as_end_of_day=True),
+        )
 
     if user_ids:
         query = query.filter(Activity.user_id.in_(user_ids))
-
-    has_next_page = False
-    if first:
-        # Retrieve at least 200 activities to ensure that we have at least a full work day
-        activity_first = max(first * 5, 200)
-        query = query.order_by(desc("day"), desc(Activity.user_id)).limit(
-            activity_first + 1
-        )
-        has_next_page = query.count() > activity_first
 
     query = query.subquery()
 
@@ -558,15 +532,7 @@ def query_work_day_stats(
         ).label("total_work_duration"),
     )
 
-    results = query.all()
-    return _paginate_work_day_stats(
-        results,
-        after,
-        max_date if after else None,
-        user_id_ if after else None,
-        first,
-        has_next_page,
-    )
+    return query.subquery()
 
 
 def query_controls(
