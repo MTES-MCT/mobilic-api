@@ -31,6 +31,8 @@ def extract_siret(siren_api_info):
 
 def get_companies_base_data() -> List[Dict[str, Any]]:
     """Get base company data shared by both acquisition and activation finders."""
+    from app.services.healthcheck_bot import BOT_COMPANY_NAME
+
     companies = (
         db.session.query(
             Company.id,
@@ -40,7 +42,10 @@ def get_companies_base_data() -> List[Dict[str, Any]]:
             Company.number_workers,
             Company.creation_time,
         )
-        .filter(Company.has_ceased_activity == False)
+        .filter(
+            Company.has_ceased_activity == False,
+            Company.usual_name != BOT_COMPANY_NAME,
+        )
         .order_by(Company.creation_time.desc())
         .all()
     )
