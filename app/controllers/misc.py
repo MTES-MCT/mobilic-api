@@ -45,6 +45,25 @@ def get_vapid_public_key():
     return jsonify(result), 200
 
 
+@app.route("/global-banner", methods=["GET"])
+def get_global_banner():
+    from app.models.global_banner_config import GlobalBannerConfig
+
+    config = GlobalBannerConfig.get_current()
+    if not config or not config.enabled:
+        return jsonify({"enabled": False}), 200
+    return (
+        jsonify(
+            {
+                "enabled": True,
+                "message": config.message,
+                "level": config.level.value,
+            }
+        ),
+        200,
+    )
+
+
 @app.route("/next-webinars", methods=["GET"])
 def get_webinars_list():
     if not app.config["LIVESTORM_API_TOKEN"]:

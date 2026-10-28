@@ -47,9 +47,7 @@ class CreateNotificationCampaign(AuthenticatedMutation):
             graphene_enum_type(CampaignTargetType),
             required=True,
         )
-        target_user_ids = graphene.List(
-            graphene.Int, required=False
-        )
+        target_user_ids = graphene.List(graphene.Int, required=False)
         scheduled_at = TimeStamp(required=False)
 
     Output = NotificationCampaignOutput
@@ -96,9 +94,7 @@ class CreateNotificationCampaign(AuthenticatedMutation):
             )
 
         if scheduled_at:
-            scheduled_dt = scheduled_at.replace(
-                tzinfo=timezone.utc
-            )
+            scheduled_dt = scheduled_at.replace(tzinfo=timezone.utc)
             if scheduled_dt <= datetime.now(timezone.utc):
                 raise InvalidParamsError(
                     "La date d'envoi doit être dans le futur"
@@ -124,9 +120,7 @@ class CreateNotificationCampaign(AuthenticatedMutation):
                     args=[campaign.id], eta=scheduled_dt
                 )
             else:
-                result = send_campaign_task.apply_async(
-                    args=[campaign.id]
-                )
+                result = send_campaign_task.apply_async(args=[campaign.id])
             campaign.celery_task_id = result.id
             db.session.commit()
         except Exception:
@@ -155,8 +149,7 @@ class CancelNotificationCampaign(AuthenticatedMutation):
             raise InvalidParamsError("Campagne introuvable")
         if campaign.status != CampaignStatus.DRAFT:
             raise InvalidParamsError(
-                "Seules les campagnes en attente "
-                "peuvent être annulées"
+                "Seules les campagnes en attente " "peuvent être annulées"
             )
 
         if campaign.celery_task_id:
@@ -208,6 +201,62 @@ class UpdatePushBannerText(AuthenticatedMutation):
                     updated_at=datetime.now(timezone.utc),
                     updated_by_id=current_user.id,
                 )
+        return Void(success=True)
+
+
+MAX_GLOBAL_BANNER_MESSAGE_LENGTH = 500
+
+
+class UpdateGlobalBanner(AuthenticatedMutation):
+    """Active/désactive et édite le bandeau d'information global."""
+
+    class Arguments:
+        enabled = graphene.Boolean(required=True)
+        message = graphene.String(required=True)
+        level = graphene.String(required=True)
+
+    Output = Void
+
+    @classmethod
+    @with_authorization_policy(admin_or_bizdev)
+    def mutate(cls, _, info, enabled, message, level):
+        from app.models.global_banner_config import (
+            GlobalBannerConfig,
+            GlobalBannerLevel,
+        )
+
+        message = message.strip()
+        if enabled and not message:
+            raise InvalidParamsError(
+                "Le message est requis pour activer le bandeau"
+            )
+        if len(message) > MAX_GLOBAL_BANNER_MESSAGE_LENGTH:
+            raise InvalidParamsError(
+                f"Le message ne doit pas dépasser "
+                f"{MAX_GLOBAL_BANNER_MESSAGE_LENGTH} caractères"
+            )
+        try:
+            level = GlobalBannerLevel(level)
+        except ValueError:
+            raise InvalidParamsError("Niveau de bandeau invalide")
+
+        with atomic_transaction(commit_at_end=True):
+            config = GlobalBannerConfig.get_current()
+            if config:
+                config.enabled = enabled
+                config.message = message
+                config.level = level
+                config.updated_at = datetime.now(timezone.utc)
+                config.updated_by_id = current_user.id
+            else:
+                config = GlobalBannerConfig(
+                    id=GlobalBannerConfig.SINGLETON_ID,
+                    enabled=enabled,
+                    message=message,
+                    level=level,
+                    updated_at=datetime.now(timezone.utc),
+                    updated_by_id=current_user.id,
+                )
                 db.session.add(config)
 
         return Void(success=True)
@@ -248,9 +297,7 @@ class Query(graphene.ObjectType):
     )
 
     @with_authorization_policy(admin_or_bizdev)
-    def resolve_notification_campaigns(
-        self, info, offset=0, limit=20
-    ):
+    def resolve_notification_campaigns(self, info, offset=0, limit=20):
         limit = min(limit, 50)
         campaigns = (
             NotificationCampaign.query.order_by(
@@ -272,9 +319,7 @@ class Query(graphene.ObjectType):
         from datetime import date
 
         if len(search) < 3:
-            return CampaignSearchResultPage(
-                results=[], has_more=False
-            )
+            return CampaignSearchResultPage(results=[], has_more=False)
 
         escaped = (
             search.replace("\\", "\\\\")
@@ -313,11 +358,8 @@ class Query(graphene.ObjectType):
                     .filter(
                         *active_employment_filter,
                         or_(
-                            Employment.has_admin_rights.is_(
-                                None
-                            ),
-                            Employment.has_admin_rights
-                            == False,
+                            Employment.has_admin_rights.is_(None),
+                            Employment.has_admin_rights == False,
                         ),
                     )
                     .distinct()
@@ -338,11 +380,7 @@ class Query(graphene.ObjectType):
                 )
             )
 
-        users = (
-            query.offset(offset)
-            .limit(PAGE_SIZE + 1)
-            .all()
-        )
+        users = query.offset(offset).limit(PAGE_SIZE + 1).all()
         has_more = len(users) > PAGE_SIZE
         return CampaignSearchResultPage(
             results=[

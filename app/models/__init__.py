@@ -40,6 +40,7 @@ from .support_action_log import SupportActionLog
 from .push_subscription import PushSubscription
 from .notification_campaign import NotificationCampaign
 from .push_banner_config import PushBannerConfig
+from .global_banner_config import GlobalBannerConfig
 from .software_compliance_snapshot import SoftwareComplianceSnapshot
 from .software_compliance_alert_state import SoftwareComplianceAlertState
 from .technical_incident import TechnicalIncident
