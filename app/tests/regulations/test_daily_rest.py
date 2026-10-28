@@ -55,6 +55,7 @@ class TestDailyRest(RegulationsTest):
         ).one_or_none()
         self.assertIsNone(regulatory_alert)
 
+    @freeze_time("2026-01-15")
     def test_min_daily_rest_by_employee_success_exact_min_rest(self):
         how_many_days_ago = 3
 
