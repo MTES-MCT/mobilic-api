@@ -85,7 +85,7 @@ docker-compose up
 
 # A la suite d'un premier lancement (création de volume)
 # Pour lancer les migrations et les seeds
-docker exec -it mobilic-flask flask db upgrade && flask db seed
+docker-compose exec mobilic-api flask db upgrade && docker-compose exec mobilic-api flask seed
 ```
 
 L'API sera accessible sur http://localhost:5000
