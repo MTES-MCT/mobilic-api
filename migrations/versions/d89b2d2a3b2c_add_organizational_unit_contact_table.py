@@ -1,7 +1,7 @@
 """add_organizational_unit_contact_table
 
 Revision ID: d89b2d2a3b2c
-Revises: 0da0a33704b0
+Revises: e7a3c9d1b2f4
 Create Date: 2026-08-19 15:12:38.534524
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "d89b2d2a3b2c"
-down_revision = "0da0a33704b0"
+down_revision = "e7a3c9d1b2f4"
 branch_labels = None
 depends_on = None
 
