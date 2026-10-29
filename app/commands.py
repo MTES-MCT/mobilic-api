@@ -25,6 +25,9 @@ from app.helpers.oauth.models import ThirdPartyApiKey
 from app.helpers.time import FR_TIMEZONE, from_tz, to_fr_tz
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.jobs.auto_validations import job_process_auto_validations
+from app.jobs.organization_postal_address import (
+    job_check_organisation_postal_address,
+)
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
 from app.models.technical_incident import (
@@ -523,6 +526,11 @@ def apply_activity_k_anonymity_command(k):
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
 def update_ceased_activity_status():
     job_update_ceased_activity_status()
+
+
+@app.cli.command("check_organisation_postal_address", with_appcontext=True)
+def check_organisation_postal_address():
+    job_check_organisation_postal_address()
 
 
 @app.cli.command("process_auto_validations", with_appcontext=True)
