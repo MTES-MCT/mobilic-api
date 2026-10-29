@@ -73,6 +73,12 @@ Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce f
 
 ### Avec Docker
 
+Créer un fichier dans `.env/.env.local` avec :
+
+```text
+DATABASE_URL=postgresql://mobilic:mobilic@mobilic-db:5432/mobilic
+```
+
 ```sh
 # Si des volumes sont déja présents et  que l'on souhaite les reset
 docker compose down -v
