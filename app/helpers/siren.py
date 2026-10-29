@@ -1,4 +1,6 @@
 import requests
+import threading
+import time
 from typing import NamedTuple
 from datetime import date
 
@@ -41,6 +43,10 @@ class NoSirenAPICredentialsError(MobilicError):
 SIREN_API_SIREN_INFO_ENDPOINT = "https://api.insee.fr/api-sirene/3.11/siret"
 SIREN_API_PAGE_SIZE = 1000
 SIREN_API_MAX_PAGES = 30
+# INSEE Sirene API enforces 30 requests/minute ; stay just under that pace.
+SIREN_API_MIN_REQUEST_INTERVAL_SECONDS = 2.1
+SIREN_API_MAX_RETRIES_ON_RATE_LIMIT = 3
+SIREN_API_RATE_LIMIT_FALLBACK_WAIT_SECONDS = 60
 
 
 ADDRESS_STREET_TYPE_TO_LABEL = {
@@ -125,6 +131,8 @@ def has_ceased_activity_from_siren_info(siren_info):
 class SirenAPIClient:
     def __init__(self, api_key):
         self._api_key = api_key
+        self._last_request_at = 0.0
+        self._throttle_lock = threading.Lock()
 
     @property
     def api_key(self):
@@ -134,31 +142,68 @@ class SirenAPIClient:
             "No API key could be found for SIREN API"
         )
 
+    def _wait_for_rate_limit_slot(self):
+        # Proactively pace requests under the API's 30 req/min cap instead
+        # of relying solely on reacting to 429s.
+        with self._throttle_lock:
+            now = time.monotonic()
+            wait = SIREN_API_MIN_REQUEST_INTERVAL_SECONDS - (
+                now - self._last_request_at
+            )
+            if wait > 0:
+                time.sleep(wait)
+            self._last_request_at = time.monotonic()
+
     def _request_siren_info_page(self, siren, cursor):
         # Documentation API SIRENE v3.11 :
         # - API Portal: https://api-apimanager.insee.fr/portal/environments/DEFAULT/apis/2ba0e549-5587-3ef1-9082-99cd865de66f/pages/6548510e-c3e1-3099-be96-6edf02870699/content
         # - Variables: https://www.sirene.fr/static-resources/documentation/v_sommaire_311.htm
         # - Features: https://www.sirene.fr/static-resources/documentation/sommaire_311.html
-        siren_response = requests.get(
-            SIREN_API_SIREN_INFO_ENDPOINT,
-            params={
-                "q": f"siren:{siren}",
-                "nombre": SIREN_API_PAGE_SIZE,
-                "date": date.today(),
-                "curseur": cursor,
-            },
-            headers={"X-INSEE-Api-Key-Integration": self.api_key},
-            timeout=10,
-        )
-        if siren_response.status_code == 200:
-            return siren_response.json()
-        if siren_response.status_code == 404:
-            raise InaccessibleSirenError(
-                f"SIREN {siren} was not found : {siren_response.json()}"
+        for attempt in range(SIREN_API_MAX_RETRIES_ON_RATE_LIMIT + 1):
+            self._wait_for_rate_limit_slot()
+            siren_response = requests.get(
+                SIREN_API_SIREN_INFO_ENDPOINT,
+                params={
+                    "q": f"siren:{siren}",
+                    "nombre": SIREN_API_PAGE_SIZE,
+                    "date": date.today(),
+                    "curseur": cursor,
+                },
+                headers={"X-INSEE-Api-Key-Integration": self.api_key},
+                timeout=10,
             )
-        raise UnavailableSirenAPIError(
-            f"Request to get info of SIREN {siren} failed : {siren_response.json()}"
-        )
+            if siren_response.status_code == 200:
+                return siren_response.json()
+            if siren_response.status_code == 404:
+                raise InaccessibleSirenError(
+                    f"SIREN {siren} was not found : {siren_response.json()}"
+                )
+            if (
+                siren_response.status_code == 429
+                and attempt < SIREN_API_MAX_RETRIES_ON_RATE_LIMIT
+            ):
+                retry_after = siren_response.headers.get("Retry-After")
+                wait_seconds = (
+                    float(retry_after)
+                    if retry_after
+                    and retry_after.replace(".", "", 1).isdigit()
+                    else SIREN_API_RATE_LIMIT_FALLBACK_WAIT_SECONDS
+                )
+                from app import app
+
+                app.logger.warning(
+                    "SIREN API rate limit hit for SIREN %s, retrying in "
+                    "%.0fs (attempt %s/%s)",
+                    siren,
+                    wait_seconds,
+                    attempt + 1,
+                    SIREN_API_MAX_RETRIES_ON_RATE_LIMIT,
+                )
+                time.sleep(wait_seconds)
+                continue
+            raise UnavailableSirenAPIError(
+                f"Request to get info of SIREN {siren} failed : {siren_response.json()}"
+            )
 
     def _request_siren_info(self, siren):
         # Cursor pagination (API Sirene v3.11) : some legal units have more
@@ -192,19 +237,34 @@ class SirenAPIClient:
 
     @staticmethod
     def _format_address_street_type(address_street_type):
-        if (
-            not address_street_type
-            or address_street_type not in ADDRESS_STREET_TYPE_TO_LABEL
-        ):
+        if not address_street_type:
             return ""
-        return ADDRESS_STREET_TYPE_TO_LABEL[address_street_type]
+        return ADDRESS_STREET_TYPE_TO_LABEL.get(
+            address_street_type, address_street_type
+        )
 
     @staticmethod
-    def _parse_address_to_simpler_format(address_info, is_secondary=False):
+    def _parse_address_to_simpler_format(
+        address_info, is_secondary=False, with_complement_address=False
+    ):
         secondary_flag = "2" if is_secondary else ""
-        address = (
-            f"{address_info[f'numeroVoie{secondary_flag}Etablissement'] or ''}{SirenAPIClient._format_address_number_repetition(address_info[f'indiceRepetition{secondary_flag}Etablissement'])}"
-            f" {SirenAPIClient._format_address_street_type(address_info[f'typeVoie{secondary_flag}Etablissement'])} {address_info[f'libelleVoie{secondary_flag}Etablissement'] or ''}"
+        complement = (
+            address_info[f"complementAdresse{secondary_flag}Etablissement"]
+            if with_complement_address
+            else ""
+        )
+        street_number = (
+            f"{address_info[f'numeroVoie{secondary_flag}Etablissement'] or ''}"
+            f"{SirenAPIClient._format_address_number_repetition(address_info[f'indiceRepetition{secondary_flag}Etablissement'])}"
+        )
+        street_name = (
+            f"{SirenAPIClient._format_address_street_type(address_info[f'typeVoie{secondary_flag}Etablissement'])} "
+            f"{address_info[f'libelleVoie{secondary_flag}Etablissement'] or ''}"
+        )
+        address = " ".join(
+            part.strip()
+            for part in (complement, street_number, street_name)
+            if part and part.strip()
         )
 
         if address_info[f"codePostal{secondary_flag}Etablissement"]:
@@ -232,7 +292,9 @@ class SirenAPIClient:
         return name
 
     @staticmethod
-    def _raw_siren_info_with_clean_addresses(info):
+    def _raw_siren_info_with_clean_addresses(
+        info, get_complement_address=False
+    ):
         facilities = info["etablissements"]
         legal_unit_dict = {
             **facilities[0]["uniteLegale"],
@@ -258,10 +320,14 @@ class SirenAPIClient:
                     if not k.startswith("changement")
                 },
                 **SirenAPIClient._parse_address_to_simpler_format(
-                    f["adresseEtablissement"], is_secondary=False
+                    f["adresseEtablissement"],
+                    is_secondary=False,
+                    with_complement_address=get_complement_address,
                 ),
                 **SirenAPIClient._parse_address_to_simpler_format(
-                    f["adresse2Etablissement"], is_secondary=True
+                    f["adresse2Etablissement"],
+                    is_secondary=True,
+                    with_complement_address=get_complement_address,
                 ),
             )
             for f in facilities
@@ -332,9 +398,11 @@ class SirenAPIClient:
             )
         return legal_unit, open_facilities
 
-    def get_siren_info(self, siren):
+    def get_siren_info(self, siren, get_complement_address=False):
         siren_info = self._request_siren_info(siren)
-        return self._raw_siren_info_with_clean_addresses(siren_info)
+        return self._raw_siren_info_with_clean_addresses(
+            siren_info, get_complement_address
+        )
 
     def has_company_ceased_activity(self, siren):
         from app import app
