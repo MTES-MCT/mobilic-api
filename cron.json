@@ -25,6 +25,9 @@
       "command": "30 1 * * * flask update_ceased_activity_status"
     },
     {
+      "command": "0 3 2 1 * flask check_organisation_postal_address"
+    },
+    {
       "command": "0 * * * * flask process_auto_validations && flask refresh_webinars_cache"
     },
     {
