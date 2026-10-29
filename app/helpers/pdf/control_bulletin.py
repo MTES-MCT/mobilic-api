@@ -104,12 +104,14 @@ def _generate_part_one(control):
         if controller.organizational_unit:
             controller_service = controller.organizational_unit
 
-        if controller.email:
-            controller_email = controller.email
-
         contact = controller.organizational_unit_contact
-        controller_address = contact.address if contact else None
-        controller_phone = contact.phone_number if contact else None
+        controller_address = (
+            contact.address if contact and contact.address else ""
+        )
+        controller_phone = (
+            contact.phone_number if contact and contact.phone_number else ""
+        )
+        controller_email = contact.email if contact and contact.email else ""
 
         if controller._is_ctt() or controller._is_mi():
             controller_signature = controller.greco_id or "-"
