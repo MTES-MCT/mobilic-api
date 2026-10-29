@@ -1,0 +1,97 @@
+organizational_unit,address,email,phone_number,siren
+CRSA EST IDF,rue de Paris 77400 Pomponne,,
+CRSA NORD IDF,"46, rue Flammarion 95170 Deuil-la-Barre",,
+CRSA OUEST IDF,"La Vaucressonnière 01, place du Général Leclerc  CS 70005 – 92423 Vaucresson Cedex",,
+CRSA SUD IDF,"01, rue de Migneaux BP 117 – 91300 Massy",,
+DREETS-ARA,"1 boulevard Vivier Merle, Tour SwissLife, 69443 LYON Cedex 03",DREETS-ARA.Direction@dreets.gouv.fr,04.72.68.29.00,130029317
+DREETS-CVL,"12 place de l'etape, CS 85809 45058 ORLEANS CEDEX 1",dreets-cvl.direction@dreets.gouv.fr,06.62.86.00.24,130029242
+DREETS-GE,6 rue Gustave-Adolphe Hirn 67087 STRASBOURG Cedex,dreets-ge.direction@dreets.gouv.fr,03.88.75.86.86,130029192
+DREETS-HDF,Les Arcades de Flandre 70 rue Saint Sauveur BP 30502 59022 LILLE CEDEX,hdf.direction@dreets.gouv.fr,03.20.96.48.60,130029218
+DREETS-NORM,38 cours Clemenceau 76100 ROUEN,norm.direction@dreets.gouv.fr,02.31.47.73.00,130029267,
+DREETS-OC,"1 place Emile BLOUIN CS 90007, 31952 TOULOUSE Cedex 9",dreets-oc.direction@dreets.gouv.fr,09.88.88.80.80,130029309
+DREETS-PACA,"23/25 rue Borde, 13285 MARSEILLE",paca.direction@dreets.gouv.fr,04.86.67.32.00,130029176
+AIN/DDETS,34 avenue des Belges - 01012 Bourg-en-Bresse cedex,ddets-direction@ain.gouv.fr,04 74 45 91 39,130028970
+ALLIER/DDETSPP,"20, rue Aristide Briand CS 60042 - 03402 YZEURE",ddetspp@allier.gouv.fr,04 70 48 35 00,130028996
+CANTAL/DDETSPP,1 rue de l'olmet BP 739 - 15007 AURILLAC Cedex,ddetspp-direction@cantal.gouv.fr,04 63 27 32 00,130028806
+DROME/DDETS/,70 avenue de la Marne - BP2121 26021 Valence cedex,ddets@drome.gouv.fr,04 26 52 68 00,130028210
+HAUTE-LOIRE/DDETSPP,"3, Chemin du Fieu - BP 348 - 43012 LE PUY-EN-VELAY Cedex",ddetspp-directeur@hauteloire.gouv.fr,04 71 05 32 30,130028624
+HAUTE-SAVOIE/DDETS,48 avenue de la république BP 9001 74990 cran gevrier CEDEX 09,ddets-direction@hautesavoie.gouv.fr,04 50 88 28 00,130028822
+ISERE/DDETS,1 avenue Marie Reynoard 38029 Grenoble cedex 2,ddets-direction@isere.gouv.fr,04 56 58 38 38,130028574
+LOIRE/DDETS,"10, rue Claudius Buard - CS 50381 - 42050 SAINT ETIENNE cedex 2",ddets-direction@loire.gouv.fr,04 77 43 41 80,130028616
+PUY-DE-DOME/DDETS,Cité administrative 2 rue Pelissier - CS 40159 63034 CLERMONT-FERRAND cedex 1,ddets-direction@puy-dedome.gouv.fr,04 73 14 76 00,130028376
+RHONE/DDETS,8/10 rue du Nord – 69100 VILLEURBANNE,ddets-direction@rhone.gouv.fr,04 87 76 73 73,130028517
+SAVOIE/DDETSPP,"321, chemin des Moulins - BP 91113 - 73011 CHAMBERY",ddetspp-direction@savoie.gouv.fr,04 79 33 15 18,130028772
+COTE-DOR/DDETS,"Cité Dampierre, 6, rue chancelier de l'Hospital, CS 15 381 - 21053 DIJON Cedex",ddets-direction@cote-dor.gouv.fr,03 80 68 30 00,130028889
+DOUBS/DDETSPP,5 voie Gisèle Halimi - BP 91705 - 25043 Besançon cedex,ddetspp@doubs.gouv.fr,03 39 59 57 00,130028202
+HAUTE-SAONE/DDETSPP,"4, place René Hologne-BP 20359 70036 VESOUL cedex",ddetspp-direction@hautesaone.gouv.fr,03 84 96 17 18,130028731
+JURA/DDETSPP,"8, rue de la Préfecture, CS60648, 39030 Lons-le-Saunier cedex",ddetspp-direction@jura.gouv.fr,03 63 55 83 00,130028582
+NIEVRE/DDETSPP,"1, rue du Ravelin - BP 54 - 58020 Nevers cedex",ddetspp-direction@nievre.gouv.fr,03 58 07 20 30,130028285
+SAONE-ET-LOIRE/DDETS,"173 boulevard Henri Dunant, CS10331, 71031 Mâcon cedex",ddets-direction@saone-etloire.gouv.fr,03 85 32 72 00,130028749
+TERRITOIRE-DE-BELFORT/DDETSPP,2 Place de la Révolution Française CS 239  - 90004 BELFORT Cedex,ddetspp-direction@territoire-de-belfort.gouv.fr,03 84 21 98 50,130028673
+YONNE/DDETSPP,"3, rue Jehan Pinard - BP 19 - 89010 AUXERRE Cedex",ddetspp@yonne.gouv.fr,03 86 72 69 00,130028665
+COTES-DARMOR/DDETS,"1, place du général DE GAULLE - CS 32370 - 22023 Saint-Brieuc Cedex 1",ddets-direction@cotesdarmor.gouv.fr,02 21 27 30 22,130028905
+FINISTERE/DDETS,4 rue Anne-Robert Jacques Turgot  CS 21019 29196 Quimper cedex,ddets-directeur@finistere.gouv.fr,02 98 64 99 00,130028244
+ILLE-ET-VILAINE/DDETS,"15, av. de cucillé - CS 90 000 - 35919 RENNES CEDEX 9",ddets-direction@ille-etvilaine.gouv.fr,02 99 59 89 00,130028434
+MORBIHAN/DDETS,Parc Pompidou - rue de Rohan - BP N°70519 - 56017 VANNES Cedex,ddets-direction@morbihan.gouv.fr,02 97 26 26 26,130028558
+INDRE/DDETSPP,Cité administrative - Bâtiment A - Bd George Sand - CS 30613 - 36020 CHATEAUROUX Cedex,ddetspp-direction@indre.gouv.fr,02 54 53 20 36,130028475
+INDRE-ET-LOIRE/DDETS,BP 81656 37016 TOURS GRAND TOURS Cedex 1,ddets@indre-et-loire.gouv.fr,02 47 31 57 01,130028541
+LOIRET/DDETS,Cité Administratvie Coligny - 131 rue du Faubourg Bannier -  45042 ORLEANS Cédex,ddets-direction@loiret.gouv.fr,02 38 42 42 42,130028640
+LOIR-ET-CHER/DDETSPP,"Pôle administratif Pierre Charlot 31, mail Pierre Charlot BP 10103 - 41000 BLOIS",ddetspp@loir-et-cher.gouv.fr,02 54 90 97 00,130028608
+AUBE/DDETSPP,2 rue Fernand Giroux CS 70368 10025 TROYES Cedex,ddetspp-direction@aube.gouv.fr,03 25 71 83 00,130029069
+BAS-RHIN/DDETS,"Cité Administrative Gaujot, 14 rue du Maréchal Juin - 67084 STRASBOURG Cedex",ddets-directeur@bas-rhin.gouv.fr,03 88 76 76 16,130028459
+HAUTE-MARNE/DDETSPP,89 rue Victoire de la Marne CS 42011 52011 Chaumont Cedex,ddetspp@haute-marne.gouv.fr,03 52 09 56 00,130028483
+MEURTHE-ET-MOSELLE/DDETS,Cité administrative - 45 rue Sainte Catherine - CS 70708 - 54064 NANCY CEDEX,ddets-direction@meurthe-et-moselle.gouv.fr,03 57 29 13 13,130028525
+MOSELLE/DDETS,Cité Administrative - 1 rue du Chanoine Collin - CS 81049 57036 METZ Cedex 1,ddets-renseignement@moselle.gouv.fr,03 87 75 41 55,130028566
+AISNE/DDETS,Cité administrative rue Marcel Bleuet 02100 Laon France,ddets-directeur@aisne.gouv.fr,03 60 81 50 00,130028988
+NORD/DDETS/,Cité Administrative Marianne - 2 boulevard de Strasbourg  -CS 12488 - 59046 LILLE CEDEX,ddets-direction@nord.gouv.fr,03 20 18 33 33,130028293
+OISE/DDETS,"101, avenue Jean Mermoz - BP 10459 - 60004 BEAUVAIS Cedex",ddets-direction@oise.gouv.fr,03 65 43 40 00,130028301
+PAS-DE-CALAIS/DDETS,"Résidence Saint Pol, 14 voie Bossuet - BP 20960 - 62033 ARRAS cedex",ddets@pas-decalais.gouv.fr,03 21 23 87 87,130028350
+SOMME/DDETS,"3, boulevard Guyencourt - 80000 AMIENS",ddets@somme.gouv.fr,03 22 97 80 80,130028939
+VAL-DOISE/DDETS,"3, boulevard de l’Oise - CS 20305 95014 CERGY PONTOISE CEDEX",ddets-direction@val-doise.gouv.fr,01 34 35 49 49,130028699
+YVELINES/DDETS,"Immeuble La Diagonale 34, avenue du Centre 78 182 SAINT QUENTIN-ENYVELINES CEDEX",ddets-direction@yvelines.gouv.fr,01 39 49 78 00,130028897
+CALVADOS/DDETS,"3, place Saint Clair – BP 30004 – 14200 Hérouville-Saint-Clair Cedex",ddets-direction@calvados.gouv.fr,02 58 50 80 00,130028798
+EURE/DDETS,Cité administrative Boulevard Georges Chauvin - 27023 EVREUX Cedex,ddets-direction@eure.gouv.fr,02 32 31 84 50,130028228
+MANCHE/DDETS,1 bis rue de la libération BP  20524 50004 – SAINT-LO CEDEX,ddets-direction@manche.gouv.fr,02 50 71 50 00,130028442
+SEINE-MARITIME/DDETS,"Immeuble Le Hastings, 27 rue du 74ème régiment d'Infanterie - 76003 Rouen Cedex 1",ddets-direction@seinemaritime.gouv.fr,02 76 27 71 01,130028855
+CHARENTE/DDETSPP,Cité administrative – Bât A – 4 rue Raymond Poincaré – BP 71016 – 16001 ANGOULÊME cedex,ddetspp@charente.gouv.fr,05 16 16 62 00,130028814
+CHARENTE-MARITIME/DDETS,Cité administrative Duperré 5 Place des Cordeliers CS 80757-17026 LA ROCHELLE,ddets-directeur@charentemaritime.gouv.fr,05 17 83 47 31,130028830
+CREUSE/DDETSPP,1 place Varillas -CS 60309 - 23007 GUERET CEDEX,ddetspp@creuse.gouv.fr,05 55 51 59 00,130028913
+DEUX-SEVRES/DDETSPP,"30, rue de l'hôtel de Ville - BP 30560 79022 Niort Cedex",ddetspp@deux-sevres.gouv.fr,05 49 17 27 00,130028921
+DORDOGNE/DDETSPP,Services de l'Etat - Cité administrative 24024 PÉRIGUEUX Cedex,ddetsppdirection@dordogne.gouv.fr,05 53 03 65 00,130028194
+GIRONDE/DDETS,Tour Innova 26 rue des Maraichers CS 32060 33088 BORDEAUX,ddets-renseignements@gironde.gouv.fr,05 47 47 47 47,130028319
+HAUTE-VIENNE/DDETSPP,Immeuble le Pastel - CS 33918 - 22 rue des Pénitents Blancs 87039 LIMOGES Cedex 01,ddetspp-direction@hautevienne.gouv.fr,05 19 76 12 00,130028186
+LANDES/DDETSPP,"1, place Saint-Louis, BP 371, 40012 Mont-de-Marsan cedex",ddetspp@landes.gouv.fr,05 58 05 76 30,130028590
+LOT-ET-GARONNE/DDETSPP,"935, avenue Jean Bru - 47 916 AGEN Cedex 9",ddetspp-direction@lot-etgaronne.gouv.fr,05 53 98 66 66,130028368
+PYRENEES-ATLANTIQUES/DDETS,"Cité administrative, CS 57570 -   2 Rue Pierre Bonnard - 64075 PAU Cedex",ddets-direction@pyreneesatlantiques.gouv.fr,05 59 14 80 55,130028392
+VIENNE/DDETS,4 rue Micheline Ostermeyer - BP 10560 - 86021 POITIERS Cedex,ddets-direction@vienne.gouv.fr,05 17 84 50 00,130028178
+AUDE/DDETSPP,Cité administrative Place Gaston Jourdanne 11807 CARCASSONNE Cedex,ddetspp-direction@aude.gouv.fr,04 34 42 91 00,130029077
+AVEYRON/DDETSPP,"9, rue de Bruxelles - Bourran BP 3125 12031 RODEZ Cedex",ddetspp@aveyron.gouv.fr,05 65 73 52 00,130028764
+GARD/DDETS,Mas de l'Agriculture 1120 route de Saint-Gilles BP 39081 30972 NIMES Cédex 9,ddets-directeur@gard.gouv.fr,04 30 08 61 20,130028251
+GERS/DDETSPP,Cité administrative place de l'ancien Foirail 32020 AUCH cedex 9,ddetspp@gers.gouv.fr,05 81 67 22 03,130028277
+HAUTE-GARONNE/DDETS,Cité administrative de Toulouse 1 Place Émile Blouin 31500 TOULOUSE,ddets-direction@hautegaronne.gouv.fr,05 34 45 34 45,130028269
+HERAULT/DDETS,615 Boulevard d’Antigone CS 19002 34064 MONTPELLIER Cedex,ddets-direction@herault.gouv.fr,04 67 22 88 88,130028327
+LOT/DDETSPP,"Cité Sociale 304, Rue Victor Hugo C.S. 80228 46004 CAHORS cedex 9",ddetspp@lot.gouv.fr,05 65 20 56 00,130028335
+PYRENEES-ORIENTALES/DDETS,"76, boulevard Aristide Briand 66026 PERPIGNAN CEDEX",ddets-direction@pyreneesorientales.gouv.fr,04 11 64 39 00,130028426
+TARN/DDETSPP,Cité administrative 18 avenue Maréchal Joffre 81013 ALBI Cedex 09,ddetspp@tarn.gouv.fr,05 81 27 50 00,130028947
+TARN-ET-GARONNE/DDETSPP,"140, avenue Marcel Unal BP 730 82013 MONTAUBAN Cedex",ddetspp-direction@tarn-etgaronne.gouv.fr,05 63 21 18 00,130028954
+LOIRE-ATLANTIQUE/DDETS,Cité administrative de Nantes 12 bd Vincent Gâche - CS 44278 - 44203 NANTES Cedex 2,ddets-activite-partielle@loire-atlantique.gouv.fr,02 72 20 63 00,130028632
+MAYENNE/DDETSPP,Cité administrative - 60 rue Mac Donald - BP 93007 - 53063  LAVAL CEDEX 9,ddetsppdirection@mayenne.gouv.fr,02 43 67 60 60,130028491
+VENDEE/DDETS,"185, Bd Maréchal Leclerc - 85000 LA ROCHE-SUR-YON",ddets-direction@vendee.gouv.fr,02 51 45 21 00,130028160
+ALPES-MARITIMES/DDETS,"CADAM - Centre administratif départemental Bâtiment Mont des Merveilles 147, boulevard du Mercantour 06286 NICE CEDEX 3",ddets-direction@alpesmaritimes.gouv.fr,04 93 72 20 00,130029028
+BOUCHES-DU-RHONE/DDETS,66A rue Saint Sébastien 13281 Marseille Cedex 6,ddets-directeur@bouches-durhone.gouv.fr,04 91 57 96 00,130028780
+HAUTES-ALPES/DDETSPP,"5, rue des Silos – BP 16 002 – 05010 GAP Cedex",ddetspp@hautes-alpes.gouv.fr,04 92 22 22 30,130029010
+VAR/DDETS,Bld du 112ème RI - CS 31209 - 83070 TOULON cedex,ddets-direction@var.gouv.fr,04 94 09 64 00,130028145
+VAUCLUSE/DDETS,Service de l'Etat en Vaucluse - DDETS 84905 AVIGNON CEDEX 9,ddets-direction@vaucluse.gouv.fr,04 88 17 84 84,130028152
+DREAL Auvergne-Rhône-Alpes,"5 place Jules-Ferry, 69453, Lyon Cedex 06",dreal-auvergne-rhone-alpes@developpement-durable.gouv.fr,04 26 28 60 00,130006729
+DREAL Bourgogne-Franche-Comté,"5 voie Gisèle HALIMI BP 31269, 25005 Besançon Cedex",dreal-bourgogne-franche-comte@developpement-durable.gouv.fr,03 39 59 67 67,130009012
+DREAL Bretagne,"L'Armorique 10 rue Maurice Fabre CS 96515, 35065 RENNES CEDEX",dreal-bretagne@developpement-durable.gouv.fr,02 99 33 45 55,130010002
+DREAL Centre-Val de Loire,"5 avenue Buffon CS 96407, 45062 Orléans Cedex 02",dreal-centre@developpement-durable.gouv.fr,02 36 17 41 41,130009301
+DREAL Corse,"Centre administratif Paglia Orba, Lieu dit la croix d'Alexandre, Route d'Alata 20090 AJACCIO",DREAL-Corse@developpement-durable.gouv.fr,04 20 61 96 00,130006596
+DREAL Grand Est,"14 rue du Bataillon-de-Marche-n° 24, BP 10001, 67050 Strasbourg Cedex",dreal-grand-est@developpement-durable.gouv.fr,03 87 62 81 00,130010259
+DREAL Hauts-de-France,"44 rue de Tournai, CS 40259, 59019 Lille Cedex",dreal-hauts-de-france@developpement-durable.gouv.fr,03 20 13 48 48,130006570
+DREAL Normandie,"Cité administrative Saint-Sever, 2 rue Saint-Sever, BP 86002, 76032 Rouen Cedex",dreal-normandie@developpement-durable.gouv.fr,02 78 26 19 00,130006265
+DREAL Nouvelle-Aquitaine,"15 rue Arthur RANC CS 60539, 86020 POITIERS CEDEX",dreal-na@developpement-durable.gouv.fr,05 49 55 63 63,130010457
+DREAL Occitanie,"Cité administrative, 1 place Émile-Blouin, CS 10008, 31952 Toulouse Cedex 9",dreal-occitanie@developpement-durable.gouv.fr,05 67 63 23 00,130006091
+DREAL Pays Loire,"5 rue Françoise Giroud, CS 16326, 44263 Nantes Cedex 2",dreal-paysdelaLoire@developpement-durable.gouv.fr,02 72 74 77 23,130006109
+DREAL PACA,"36 Boulevard des Dames, 13002 Marseille",DREAL-Provence-Alpes-Cote-d-Azur@developpement durable.gouv.fr,04 88 22 61 00,130006380
+DRIEAT IF,"21-23 rue Miollis, 75732 Paris Cedex 15",drieat-if@developpement-durable.gouv.fr,01 87 36 45 00,130029325

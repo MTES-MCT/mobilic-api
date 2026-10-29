@@ -8,3 +8,5 @@ class OrganizationalUnitContact(BaseModel):
     )
     address = db.Column(db.String(255), nullable=True)
     phone_number = db.Column(db.String(30), nullable=True)
+    email = db.Column(db.String(255), nullable=True)
+    siren = db.Column(db.String(9), unique=False, nullable=True)
