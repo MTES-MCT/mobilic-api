@@ -424,6 +424,52 @@ class TestDashboardSummary(BaseTest):
         data = self._get_summary(response)
         self.assertEqual(data["pendingValidationsCount"], 1)
 
+    def test_pending_ignores_stale_running_mission_of_invisible_participant(
+        self,
+    ):
+        """A participant's activity running for more than 24h must not
+        trigger the stale bypass when that participant belongs to a team
+        the actor does not administer - only a visible participant's own
+        staleness should. The mission is kept visible by a separate,
+        teamless participant whose own activity is not stale, so the
+        bypass can only fire (incorrectly) through the invisible one."""
+        other_team = TeamFactory.create(company=self.company)
+        other_employee = UserFactory.create(
+            post__company=self.company,
+            post__team=other_team,
+        )
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.employee.id,
+            reception_time=self.now,
+        )
+        # self.employee: teamless, visible, but not stale.
+        ActivityFactory.create(
+            mission=mission,
+            user=self.employee,
+            submitter=self.employee,
+            type=ActivityType.DRIVE,
+            reception_time=self.now - timedelta(hours=1),
+            start_time=self.now - timedelta(hours=1),
+            end_time=None,
+            last_update_time=self.now - timedelta(hours=1),
+        )
+        # other_employee: stale (>24h running) but invisible to the actor.
+        ActivityFactory.create(
+            mission=mission,
+            user=other_employee,
+            submitter=other_employee,
+            type=ActivityType.DRIVE,
+            reception_time=self.now - timedelta(hours=25),
+            start_time=self.now - timedelta(hours=25),
+            end_time=None,
+            last_update_time=self.now - timedelta(hours=25),
+        )
+
+        response = self._query()
+        data = self._get_summary(response)
+        self.assertEqual(data["pendingValidationsCount"], 0)
+
     def test_pending_ignores_running_mission_under_24h(self):
         """A mission still running for less than 24h must not count, since
         it is neither ended/worker-validated nor stale enough for the
