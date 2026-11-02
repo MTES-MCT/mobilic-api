@@ -3,7 +3,10 @@ from datetime import date, datetime
 from sqlalchemy import text
 
 from app import app, db
-from app.jobs.platform_health_check import BOT_USER_EMAIL
+from app.jobs.platform_health_check import (
+    BOT_USER_EMAIL,
+    MISSION_CHILD_MODELS,
+)
 from app.models import Company, Employment, User
 from app.models.employment import EmploymentRequestValidationStatus
 
@@ -11,15 +14,8 @@ BOT_COMPANY_NAME = "[Bot] Entreprise de test healthcheck"
 MAX_BOT_EMPLOYEES = 50
 BOT_EMPLOYEE_EMAIL_PATTERN = "bot-healthcheck-salarie-{n}@mobilic.beta.gouv.fr"
 
-MISSION_CHILD_TABLES = (
-    "activity_version",
-    "activity",
-    "comment",
-    "expenditure",
-    "location_entry",
-    "mission_auto_validation",
-    "mission_end",
-    "mission_validation",
+MISSION_CHILD_TABLES = tuple(
+    model.__table__.name for model in MISSION_CHILD_MODELS
 )
 USER_TABLES = (
     "regulation_computation",
@@ -179,7 +175,7 @@ def delete_healthcheck_bot():
                 )
             ]
             _delete("activity_version", "activity_id", activity_ids)
-            for table in MISSION_CHILD_TABLES[1:]:
+            for table in MISSION_CHILD_TABLES:
                 _delete(table, "mission_id", mission_ids)
             _delete("mission", "id", mission_ids)
             _delete("team_admin_user", "user_id", user_ids)

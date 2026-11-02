@@ -27,6 +27,17 @@ RETRY_DELAY_SECONDS = 20
 BOT_MISSION_NAME = "[bot] health check"
 BOT_USER_EMAIL = "bot-healthcheck@mobilic.beta.gouv.fr"
 EXPECTED_EMPLOYEES = 2
+# Tables with a mission_id column, to be deleted before the mission itself.
+# ActivityVersion is handled apart: it hangs off Activity, not Mission.
+MISSION_CHILD_MODELS = (
+    Activity,
+    Comment,
+    Expenditure,
+    LocationEntry,
+    MissionAutoValidation,
+    MissionEnd,
+    MissionValidation,
+)
 
 
 class BotCheckError(Exception):
@@ -230,10 +241,20 @@ def job_run_platform_health_checks():
 def job_purge_healthcheck_bot_missions(max_age_hours=24):
     """Hard-deletes the missions created by the healthcheck bot and their data."""
     cutoff = datetime.now() - timedelta(hours=max_age_hours)
+    bot_user = User.query.filter(User.email == BOT_USER_EMAIL).one_or_none()
+    bot_company_ids = (
+        bot_user.current_company_ids_with_admin_rights if bot_user else []
+    )
+    if not bot_company_ids:
+        app.logger.info(
+            "Skipping bot missions purge: bot user missing or without company"
+        )
+        return 0
     mission_ids = (
         db.session.query(Mission.id)
         .filter(
             Mission.name == BOT_MISSION_NAME,
+            Mission.company_id.in_(bot_company_ids),
             Mission.reception_time < cutoff,
         )
         .subquery()
@@ -246,15 +267,7 @@ def job_purge_healthcheck_bot_missions(max_age_hours=24):
     ActivityVersion.query.filter(
         ActivityVersion.activity_id.in_(activity_ids)
     ).delete(synchronize_session=False)
-    for model in (
-        Activity,
-        Comment,
-        Expenditure,
-        LocationEntry,
-        MissionAutoValidation,
-        MissionEnd,
-        MissionValidation,
-    ):
+    for model in MISSION_CHILD_MODELS:
         model.query.filter(model.mission_id.in_(mission_ids)).delete(
             synchronize_session=False
         )
