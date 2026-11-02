@@ -11,7 +11,11 @@ their crontab time but once the predecessor finishes, so their
 and avoid a nightly false "missed check-in".
 """
 
+import functools
+
 from sentry_sdk.crons import monitor
+
+from app.helpers.tchap import send_tchap_message
 
 _EVERY_HOUR = "0 * * * *"
 _DAILY_AT_0330 = "30 3 * * *"
@@ -112,7 +116,18 @@ def cron_monitor(command_name):
     )
 
     def decorator(func):
-        wrapped = sentry_decorator(func)
+        monitored = sentry_decorator(func)
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            try:
+                return monitored(*args, **kwargs)
+            except Exception as e:
+                send_tchap_message(
+                    f"🚨 Cron en échec : {command_name}\n{type(e).__name__}: {e}"
+                )
+                raise
+
         wrapped.__cron_monitor_command__ = command_name
         return wrapped
 
