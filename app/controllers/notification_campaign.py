@@ -149,7 +149,7 @@ class CancelNotificationCampaign(AuthenticatedMutation):
             raise InvalidParamsError("Campagne introuvable")
         if campaign.status != CampaignStatus.DRAFT:
             raise InvalidParamsError(
-                "Seules les campagnes en attente " "peuvent être annulées"
+                "Seules les campagnes en attente peuvent être annulées"
             )
 
         if campaign.celery_task_id:
