@@ -201,6 +201,7 @@ class UpdatePushBannerText(AuthenticatedMutation):
                     updated_at=datetime.now(timezone.utc),
                     updated_by_id=current_user.id,
                 )
+                db.session.add(config)
         return Void(success=True)
 
 
