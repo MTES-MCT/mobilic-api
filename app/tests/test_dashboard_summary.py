@@ -9,6 +9,7 @@ from app.domain.dashboard_summary import (
     invalidate_pending_validations_cache,
 )
 from app.domain.mission import end_mission_for_user
+from app.helpers.time import FR_TIMEZONE
 from app.models.activity import ActivityType
 from app.models import MissionEnd, MissionValidation
 from app.models.employment import (
@@ -561,7 +562,9 @@ class TestPendingValidationsCache(BaseTest):
     def test_cache_hit_returns_cached_value(self, mock_redis_factory):
         mock_redis_factory.return_value = MagicMock(get=lambda k: b"42")
         self.assertEqual(
-            _count_pending_validations(self.company.id, self.actor_user_id),
+            _count_pending_validations(
+                self.company.id, self.actor_user_id, FR_TIMEZONE
+            ),
             42,
         )
 
@@ -573,7 +576,7 @@ class TestPendingValidationsCache(BaseTest):
             setex=lambda k, t, v: store.__setitem__(k, (t, v)),
         )
         result = _count_pending_validations(
-            self.company.id, self.actor_user_id
+            self.company.id, self.actor_user_id, FR_TIMEZONE
         )
         key = _pending_validations_cache_key(
             self.company.id, self.actor_user_id
@@ -586,7 +589,9 @@ class TestPendingValidationsCache(BaseTest):
         mock_redis_factory.side_effect = Exception("Redis connection failed")
         # empty company → 0, must not raise
         self.assertEqual(
-            _count_pending_validations(self.company.id, self.actor_user_id),
+            _count_pending_validations(
+                self.company.id, self.actor_user_id, FR_TIMEZONE
+            ),
             0,
         )
 

@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import and_, func, or_
 
@@ -128,7 +128,7 @@ def _count_active_missions(company_id):
     ) or 0
 
 
-def _count_pending_validations(company_id, actor_user_id):
+def _count_pending_validations(company_id, actor_user_id, user_timezone):
     cache_key = _pending_validations_cache_key(company_id, actor_user_id)
     try:
         cached = get_redis_client().get(cache_key)
@@ -142,7 +142,9 @@ def _count_pending_validations(company_id, actor_user_id):
             actor_user_id,
         )
 
-    count = _count_pending_validations_uncached(company_id, actor_user_id)
+    count = _count_pending_validations_uncached(
+        company_id, actor_user_id, user_timezone
+    )
 
     try:
         get_redis_client().setex(
@@ -171,7 +173,9 @@ def _visible_employment_conditions(today, admin_team_ids):
     )
 
 
-def _count_pending_validations_uncached(company_id, actor_user_id):
+def _count_pending_validations_uncached(
+    company_id, actor_user_id, user_timezone
+):
     """Missions started in the last PENDING_VALIDATIONS_WINDOW_DAYS days
     that are ended for every user, validated by at least one worker, and
     not yet validated by an admin.
@@ -223,7 +227,7 @@ def _count_pending_validations_uncached(company_id, actor_user_id):
         .exists()
     )
 
-    today = date.today()
+    today_local = datetime.now(tz=user_timezone).date()
     admin_team_ids = db.session.query(
         team_admin_user_association_table.c.team_id
     ).filter(team_admin_user_association_table.c.user_id == actor_user_id)
@@ -242,7 +246,7 @@ def _count_pending_validations_uncached(company_id, actor_user_id):
         .filter(
             MissionValidation.mission_id == Mission.id,
             MissionValidation.is_admin.is_(False),
-            *_visible_employment_conditions(today, admin_team_ids),
+            *_visible_employment_conditions(today_local, admin_team_ids),
         )
         .exists()
     )
@@ -259,7 +263,7 @@ def _count_pending_validations_uncached(company_id, actor_user_id):
         .filter(
             Activity.mission_id == Mission.id,
             ~Activity.is_dismissed,
-            *_visible_employment_conditions(today, admin_team_ids),
+            *_visible_employment_conditions(today_local, admin_team_ids),
         )
         .exists()
     )
@@ -285,7 +289,7 @@ def _count_pending_validations_uncached(company_id, actor_user_id):
             ~Activity.is_dismissed,
             Activity.end_time.is_(None),
             Activity.start_time < stale_cutoff,
-            *_visible_employment_conditions(today, admin_team_ids),
+            *_visible_employment_conditions(today_local, admin_team_ids),
         )
         .exists()
     )
@@ -410,7 +414,7 @@ def get_dashboard_summary(company_id, user_timezone, actor_user_id):
     return DashboardSummary(
         active_missions_count=_count_active_missions(company_id),
         pending_validations_count=_count_pending_validations(
-            company_id, actor_user_id
+            company_id, actor_user_id, user_timezone
         ),
         pending_invitations_count=len(pending_ids),
         pending_invitation_employment_ids=pending_ids,
