@@ -1,10 +1,11 @@
 import json
 import os
 import unittest
+from unittest import mock
 
 import app.commands  # noqa: F401  (import runs the @cron_monitor decorators)
 from app import app
-from app.helpers.cron_monitoring import CRON_MONITORS
+from app.helpers.cron_monitoring import CRON_MONITORS, cron_monitor
 
 CRON_JSON = os.path.join(os.path.dirname(__file__), "..", "..", "cron.json")
 
@@ -42,3 +43,27 @@ class TestCronMonitoring(unittest.TestCase):
             for command in app.cli.commands.values()
         }
         self.assertEqual(monitored - {None}, set(CRON_MONITORS))
+
+    def test_tchap_alert_sent_and_error_reraised_on_failure(self):
+        @cron_monitor("send_daily_emails")
+        def failing_cron():
+            raise ValueError("kaboom")
+
+        with mock.patch(
+            "app.helpers.cron_monitoring.send_tchap_message"
+        ) as send_tchap:
+            with self.assertRaises(ValueError):
+                failing_cron()
+        send_tchap.assert_called_once()
+        self.assertIn("send_daily_emails", send_tchap.call_args[0][0])
+
+    def test_no_tchap_alert_on_success(self):
+        @cron_monitor("send_daily_emails")
+        def ok_cron():
+            return 42
+
+        with mock.patch(
+            "app.helpers.cron_monitoring.send_tchap_message"
+        ) as send_tchap:
+            self.assertEqual(ok_cron(), 42)
+        send_tchap.assert_not_called()
