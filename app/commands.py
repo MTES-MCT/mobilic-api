@@ -17,13 +17,21 @@ from app.controllers.utils import atomic_transaction
 from app.domain.certificate_criteria import compute_company_certifications
 from app.domain.company import job_update_ceased_activity_status
 from app.domain.regulations import compute_regulation_for_user
+from app.domain.technical_incident import create_incident, update_incident
 from app.domain.vehicle import find_vehicle
+from app.helpers.cron_monitoring import cron_monitor
+from app.helpers.errors import MobilicError
 from app.helpers.junit_report import JUnitResult, write_junit_xml
 from app.helpers.oauth.models import ThirdPartyApiKey
+from app.helpers.time import FR_TIMEZONE, from_tz, to_fr_tz
 from app.helpers.xml.greco import temp_write_greco_xml
 from app.jobs.auto_validations import job_process_auto_validations
 from app.models.company import Company
 from app.models.controller_control import ControllerControl
+from app.models.technical_incident import (
+    TechnicalIncident,
+    TechnicalIncidentType,
+)
 from app.models.user import User
 from app.seed import clean as seed_clean, exit_if_prod
 from app.seed import seed as seed_seed
@@ -287,6 +295,7 @@ def create_api_key(client_id):
 @app.cli.command("run_certificate", with_appcontext=True)
 @click.argument("as_of_date", required=False)
 @click.argument("computation_only", type=click.BOOL, required=False)
+@cron_monitor("run_certificate")
 def run_certificate(as_of_date=None, computation_only=False):
     """
     Run certificate as of today
@@ -314,6 +323,7 @@ def run_certificate(as_of_date=None, computation_only=False):
 
 
 @app.cli.command("send_daily_emails", with_appcontext=True)
+@cron_monitor("send_daily_emails")
 def send_daily_emails():
     from datetime import date
 
@@ -355,6 +365,7 @@ def send_daily_emails():
 
 
 @app.cli.command("load_company_stats", with_appcontext=True)
+@cron_monitor("load_company_stats")
 def load_company_stats():
     from app.services.load_company_stats import load_company_stats
 
@@ -365,6 +376,7 @@ def load_company_stats():
 
 @app.cli.command("compute_software_compliance_snapshot", with_appcontext=True)
 @click.argument("for_date", required=False)
+@cron_monitor("compute_software_compliance_snapshot")
 def compute_software_compliance_snapshot(for_date=None):
     """
     Compute daily software compliance snapshot for all third-party clients.
@@ -460,6 +472,7 @@ def temp_command_generate_xm_control(id):
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
+@cron_monitor("migrate_anonymize_data")
 def anonymize_standalone_data_command(
     verbose, no_dry_run, delete_only, test, force_clean
 ):
@@ -514,16 +527,155 @@ def apply_activity_k_anonymity_command(k):
 
 
 @app.cli.command("update_ceased_activity_status", with_appcontext=True)
+@cron_monitor("update_ceased_activity_status")
 def update_ceased_activity_status():
     job_update_ceased_activity_status()
 
 
 @app.cli.command("process_auto_validations", with_appcontext=True)
+@cron_monitor("process_auto_validations")
 def process_auto_validations():
     job_process_auto_validations()
 
 
+_INCIDENT_DATE_FORMATS = ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d")
+
+
+def _parse_fr_datetime(value):
+    # Parse an operator-supplied Europe/Paris datetime into naive UTC.
+    for fmt in _INCIDENT_DATE_FORMATS:
+        try:
+            local = datetime.datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+        return from_tz(local, FR_TIMEZONE)
+    raise click.BadParameter(
+        f"Date invalide '{value}'. Formats acceptés (heure de Paris) : "
+        "AAAA-MM-JJTHH:MM, AAAA-MM-JJTHH:MM:SS ou AAAA-MM-JJ"
+    )
+
+
+def _format_incident(incident):
+    start = to_fr_tz(incident.start_time).strftime("%Y-%m-%d %H:%M")
+    if incident.end_time is None:
+        period = f"{start} -> en cours"
+    else:
+        end = to_fr_tz(incident.end_time).strftime("%Y-%m-%d %H:%M")
+        period = f"{start} -> {end}"
+    return (
+        f"#{incident.id} [{TechnicalIncidentType(incident.technical_type).value}] {period}"
+        + (f" | {incident.description}" if incident.description else "")
+    )
+
+
+@app.cli.command("list_technical_incidents", with_appcontext=True)
+def list_technical_incidents():
+    """Liste les dysfonctionnements techniques (heure de Paris)."""
+    incidents = TechnicalIncident.query.order_by(
+        TechnicalIncident.start_time.desc()
+    ).all()
+    if not incidents:
+        click.echo("Aucun dysfonctionnement enregistré.")
+        return
+    for incident in incidents:
+        click.echo(_format_incident(incident))
+
+
+@app.cli.command("create_technical_incident", with_appcontext=True)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    required=True,
+    help="Type de dysfonctionnement.",
+)
+@click.option(
+    "--start",
+    "start",
+    required=True,
+    help="Début (heure de Paris) : AAAA-MM-JJTHH:MM.",
+)
+@click.option(
+    "--end",
+    "end",
+    default=None,
+    help="Fin (heure de Paris). Absent => incident en cours.",
+)
+@click.option("--description", default=None, help="Description libre.")
+def create_technical_incident(technical_type, start, end, description):
+    """Crée un dysfonctionnement technique."""
+    start_time = _parse_fr_datetime(start)
+    end_time = _parse_fr_datetime(end) if end else None
+    try:
+        with atomic_transaction(commit_at_end=True):
+            incident = create_incident(
+                technical_type=TechnicalIncidentType(technical_type),
+                start_time=start_time,
+                end_time=end_time,
+                description=description,
+            )
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Créé : " + _format_incident(incident))
+
+
+@app.cli.command("update_technical_incident", with_appcontext=True)
+@click.argument("incident_id", type=click.INT)
+@click.option(
+    "--type",
+    "technical_type",
+    type=click.Choice([t.value for t in TechnicalIncidentType]),
+    default=None,
+    help="Nouveau type.",
+)
+@click.option("--start", "start", default=None, help="Nouveau début (Paris).")
+@click.option(
+    "--end", "end", default=None, help="Nouvelle fin (Paris) => clôture."
+)
+@click.option("--description", default=None, help="Nouvelle description.")
+@click.option(
+    "--reopen",
+    is_flag=True,
+    help="Ré-ouvre l'incident (remet la date de fin à vide).",
+)
+def update_technical_incident(
+    incident_id, technical_type, start, end, description, reopen
+):
+    """Modifie un dysfonctionnement technique existant."""
+    if reopen and end:
+        raise click.UsageError("--reopen et --end sont incompatibles.")
+
+    incident = TechnicalIncident.query.get(incident_id)
+    if not incident:
+        raise click.ClickException(
+            f"Dysfonctionnement #{incident_id} introuvable."
+        )
+
+    changes = {}
+    if technical_type is not None:
+        changes["technical_type"] = TechnicalIncidentType(technical_type)
+    if start is not None:
+        changes["start_time"] = _parse_fr_datetime(start)
+    if reopen:
+        changes["end_time"] = None
+    elif end is not None:
+        changes["end_time"] = _parse_fr_datetime(end)
+    if description is not None:
+        changes["description"] = description
+
+    if not changes:
+        raise click.UsageError("Aucune modification fournie.")
+
+    try:
+        with atomic_transaction(commit_at_end=True):
+            update_incident(incident, **changes)
+    except MobilicError as e:
+        raise click.ClickException(e.message)
+    click.echo("Modifié : " + _format_incident(incident))
+
+
 @app.cli.command("refresh_webinars_cache", with_appcontext=True)
+@cron_monitor("refresh_webinars_cache")
 def refresh_webinars_cache():
     refresh_webinars_cache_job()
 
@@ -549,6 +701,7 @@ def refresh_webinars_cache():
     is_flag=True,
     help="Delete the content of IdMapping table",
 )
+@cron_monitor("anonymize_users")
 def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     """
     Anonymize users older than threshold.
@@ -614,6 +767,7 @@ def anonymize_users_command(verbose, no_dry_run, test, force_clean):
     is_flag=True,
     help="Sync only activation funnel data",
 )
+@cron_monitor("sync_brevo_funnel")
 def sync_brevo_funnel_command(
     acquisition_pipeline,
     activation_pipeline,
@@ -878,6 +1032,7 @@ def send_anonymization_warnings_or_preview_command(preview):
     is_flag=True,
     help="Show what would be linked without making changes",
 )
+@cron_monitor("link_brevo_deals")
 def link_brevo_deals_command(
     acquisition_pipeline, activation_pipeline, dry_run
 ):
@@ -992,6 +1147,7 @@ def link_brevo_deals_command(
 
 @app.cli.command("purge_support_action_logs", with_appcontext=True)
 @click.option("--dry-run", is_flag=True)
+@cron_monitor("purge_support_action_logs")
 def purge_support_action_logs_command(dry_run):
     """Purge support_action_log entries older than retention
     threshold."""
@@ -1007,6 +1163,7 @@ def purge_support_action_logs_command(dry_run):
 
 
 @app.cli.command("delete_old_notifications", with_appcontext=True)
+@cron_monitor("delete_old_notifications")
 def delete_old_notifications():
     """Delete notifications older than 1 month."""
     from datetime import timedelta
@@ -1026,6 +1183,7 @@ def delete_old_notifications():
 
 
 @app.cli.command("delete_expired_refresh_tokens", with_appcontext=True)
+@cron_monitor("delete_expired_refresh_tokens")
 def delete_expired_refresh_tokens():
     """Delete idle-expired refresh tokens and consumed tokens past the reuse grace period."""
     from datetime import datetime, timedelta, timezone
@@ -1055,3 +1213,47 @@ def delete_expired_refresh_tokens():
     except Exception as e:
         db.session.rollback()
         print(f"Error while deleting refresh tokens: {e}")
+
+
+@app.cli.command("purge_downloaded_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=24)
+@cron_monitor("purge_downloaded_exports")
+def purge_downloaded_exports(max_age_hours):
+    """Purge le contenu binaire des exports téléchargés ou trop anciens."""
+    from sqlalchemy import or_
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    try:
+        purged = Export.query.filter(
+            Export.file_content.isnot(None),
+            or_(
+                Export.status == ExportStatus.DOWNLOADED,
+                Export.creation_time < cutoff,
+            ),
+        ).update({Export.file_content: None}, synchronize_session=False)
+        db.session.commit()
+        print(f"Purged file_content of {purged} exports.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error while purging exports: {e}")
+        raise
+
+
+@app.cli.command("alert_stuck_exports", with_appcontext=True)
+@click.option("--max-age-hours", type=click.INT, default=1)
+@cron_monitor("alert_stuck_exports")
+def alert_stuck_exports(max_age_hours):
+    """Alerte si des exports restent bloqués en WIP (worker en panne)."""
+    from app.models.export import Export, ExportStatus
+
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=max_age_hours)
+    stuck = Export.query.filter(
+        Export.status == ExportStatus.WIP,
+        Export.creation_time < cutoff,
+    ).count()
+    if stuck:
+        app.logger.error(
+            f"{stuck} exports stuck in WIP for more than {max_age_hours}h"
+        )
+    print(f"{stuck} stuck exports.")

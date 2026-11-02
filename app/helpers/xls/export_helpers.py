@@ -80,6 +80,7 @@ def generate_excel_files_from_batch(
     file_name,
     chunk_suffix,
     all_users=None,
+    control_format=False,
 ):
     files_data = []
 
@@ -92,7 +93,7 @@ def generate_excel_files_from_batch(
             chunk_file_name = f"{chunk_file_name}_vide"
 
         excel_file = get_one_excel_file(
-            wdays, companies, min_date, max_date, all_users=all_users
+            wdays, companies, min_date, max_date, all_users=all_users, control_format=control_format
         )
         excel_file.seek(0)
         files_data.append(
@@ -106,7 +107,7 @@ def generate_excel_files_from_batch(
                 chunk_file_name = f"{chunk_file_name}_vide"
 
             excel_file = get_one_excel_file(
-                wdays, companies, min_date, max_date, all_users=[user]
+                wdays, companies, min_date, max_date, all_users=[user], control_format=control_format
             )
             excel_file.seek(0)
             files_data.append(

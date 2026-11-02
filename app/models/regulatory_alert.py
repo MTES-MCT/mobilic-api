@@ -42,6 +42,12 @@ class RegulatoryAlert(BaseModel):
             "submitter_type",
             name="only_one_entry_per_user_day_check_and_submitter_type",
         ),
+        db.Index(
+            "ix_regulatory_alert_user_submitter_day",
+            "user_id",
+            "submitter_type",
+            "day",
+        ),
     )
 
     def __repr__(self):

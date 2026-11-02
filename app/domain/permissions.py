@@ -134,11 +134,11 @@ def self_or_have_common_company(actor, user_obj_or_id):
     current_actor_companies = [
         e.company for e in actor.active_employments_at(date.today())
     ]
-    all_lifetime_user_companies = [
-        e.company for e in user.employments if e.is_not_rejected
+    user_acknowledged_companies = [
+        e.company for e in user.employments if e.is_acknowledged
     ]
     return bool(
-        set(current_actor_companies) & set(all_lifetime_user_companies)
+        set(current_actor_companies) & set(user_acknowledged_companies)
     )
 
 

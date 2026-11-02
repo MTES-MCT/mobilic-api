@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from freezegun import freeze_time
+
 from app.domain.regulations_per_day import (
     NATINF_35187,
     EXTRA_NOT_ENOUGH_BREAK,
@@ -133,6 +135,7 @@ class TestUninterruptedWorkTime(RegulationsTest):
 
         self.assertIsNone(regulatory_alert)
 
+    @freeze_time("2026-01-15")
     def test_ko_uninterrupted_work_on_two_days(self):
         how_many_days_ago = 2
 

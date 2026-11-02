@@ -21,7 +21,7 @@ def _parse_date(date_value):
 
 
 def generate_admin_export_file_from_chunks(
-    chunks, users, companies, file_name
+    chunks, users, companies, file_name, control_format=False
 ):
     strategy = chunks[0].get("strategy") if chunks else None
     company_ids = [c.id for c in companies]
@@ -68,6 +68,7 @@ def generate_admin_export_file_from_chunks(
             file_name,
             chunk_suffix,
             all_users=users,
+            control_format=control_format,
         )
         files_data.extend(chunk_files)
 

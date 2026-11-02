@@ -4,6 +4,7 @@ from datetime import timedelta
 import graphene
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
+from sqlalchemy import Interval, func, literal
 
 from app.data_access.business import BusinessOutput
 from app.data_access.control_bulletin import ControlBulletinFields
@@ -13,6 +14,7 @@ from app.data_access.regulation_computation import (
     RegulationComputationByDayOutput,
     get_regulation_check_by_type,
 )
+from app.data_access.technical_incident import TechnicalIncidentOutput
 from app.domain.control_data import convert_extra_datetime_to_user_tz
 from app.domain.regulation_computations import get_regulation_computations
 from app.domain.regulations import get_default_business
@@ -31,6 +33,10 @@ from app.models.controller_control import (
     CUSTOM_CHECK_TYPE,
 )
 from app.models.regulation_check import RegulationCheckType
+from app.models.technical_incident import (
+    TechnicalIncident,
+    ONGOING_INCIDENT_MAX_VISIBLE_DURATION,
+)
 
 # TODO refactor sanction code in regulations_per_day and here for consistency
 check_type_by_sanction = {
@@ -239,6 +245,12 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     control_bulletin = graphene.Field(ControlBulletinFields, required=False)
 
+    technical_incidents = graphene.List(
+        TechnicalIncidentOutput,
+        description="Dysfonctionnements techniques connus ayant affecté la "
+        "période contrôlée.",
+    )
+
     siren = graphene.String()
     company_address = graphene.String()
     mission_address_begin = graphene.String()
@@ -286,6 +298,25 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
 
     def resolve_control_bulletin(self, info):
         return self.control_bulletin
+
+    def resolve_technical_incidents(self, info):
+        if not self.history_start_date or not self.history_end_date:
+            return []
+        # Cap open incidents at start + visible window; filter overlap in SQL.
+        effective_end = func.coalesce(
+            TechnicalIncident.end_time,
+            TechnicalIncident.start_time
+            + literal(ONGOING_INCIDENT_MAX_VISIBLE_DURATION, Interval),
+        )
+        return (
+            TechnicalIncident.query.filter(
+                func.date(TechnicalIncident.start_time)
+                <= self.history_end_date,
+                func.date(effective_end) >= self.history_start_date,
+            )
+            .order_by(TechnicalIncident.start_time.desc())
+            .all()
+        )
 
     def resolve_employments(
         self,

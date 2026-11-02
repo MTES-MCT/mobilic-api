@@ -43,6 +43,14 @@ class AnonControllerControl(AnonymizedModel):
     control_bulletin_update_time = db.Column(db.DateTime, nullable=True)
 
     @classmethod
+    def _anonymize_relative_time(cls, value, base):
+        if value is None:
+            return None
+        if base is None:
+            return cls.truncate_to_month(value)
+        return cls.truncate_to_month(base) + (value - base)
+
+    @classmethod
     def anonymize(cls, control):
         new_id = cls.get_new_id("controller_control", control.id)
 
@@ -64,62 +72,31 @@ class AnonControllerControl(AnonymizedModel):
         anonymized.control_bulletin_creation_time = cls.truncate_to_month(
             control.control_bulletin_creation_time
         )
-        if control.control_bulletin_first_download_time:
-            anon_creation_time = cls.truncate_to_month(
-                control.control_bulletin_creation_time
+        anonymized.control_bulletin_first_download_time = (
+            cls._anonymize_relative_time(
+                control.control_bulletin_first_download_time,
+                control.control_bulletin_creation_time,
             )
-            time_diff = (
-                control.control_bulletin_first_download_time
-                - control.control_bulletin_creation_time
-            )
-            anonymized.control_bulletin_first_download_time = (
-                anon_creation_time + time_diff
-            )
-        else:
-            control.control_bulletin_first_download_time = None
+        )
         anonymized.observed_infractions = _scrub_observed_infractions(
             control.observed_infractions
         )
-        if control.reported_infractions_last_update_time:
-            anon_creation_time = cls.truncate_to_month(
-                control.control_bulletin_creation_time
+        anonymized.reported_infractions_last_update_time = (
+            cls._anonymize_relative_time(
+                control.reported_infractions_last_update_time,
+                control.control_bulletin_creation_time,
             )
-            time_diff = (
-                control.reported_infractions_last_update_time
-                - control.control_bulletin_creation_time
+        )
+        anonymized.reported_infractions_first_update_time = (
+            cls._anonymize_relative_time(
+                control.reported_infractions_first_update_time,
+                control.control_bulletin_creation_time,
             )
-            anonymized.reported_infractions_last_update_time = (
-                anon_creation_time + time_diff
-            )
-        else:
-            anonymized.reported_infractions_last_update_time = None
-        if control.reported_infractions_first_update_time:
-            anon_creation_time = cls.truncate_to_month(
-                control.control_bulletin_creation_time
-            )
-            time_diff = (
-                control.reported_infractions_first_update_time
-                - control.control_bulletin_creation_time
-            )
-            anonymized.reported_infractions_first_update_time = (
-                anon_creation_time + time_diff
-            )
-        else:
-            anonymized.reported_infractions_first_update_time = None
+        )
 
-        # Anonymisation de control_bulletin_update_time
-        if control.control_bulletin_update_time:
-            anon_creation_time = cls.truncate_to_month(
-                control.control_bulletin_creation_time
-            )
-            time_diff = (
-                control.control_bulletin_update_time
-                - control.control_bulletin_creation_time
-            )
-            anonymized.control_bulletin_update_time = (
-                anon_creation_time + time_diff
-            )
-        else:
-            anonymized.control_bulletin_update_time = None
+        anonymized.control_bulletin_update_time = cls._anonymize_relative_time(
+            control.control_bulletin_update_time,
+            control.control_bulletin_creation_time,
+        )
 
         return anonymized

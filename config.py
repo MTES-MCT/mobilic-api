@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import secrets
 from datetime import timedelta, datetime
 
 from dotenv import load_dotenv
@@ -9,6 +10,10 @@ if os.environ.get("DOTENV_FILE", False):
     load_dotenv(os.environ.get("DOTENV_FILE"))
 
 MOBILIC_ENV = os.environ.get("MOBILIC_ENV", "dev")
+
+JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY and MOBILIC_ENV not in ("dev", "test"):
+    raise RuntimeError("JWT_SECRET_KEY environment variable is required")
 
 CGU_INITIAL_RELASE_DATE = datetime(2022, 1, 1)
 CGU_INITIAL_VERSION = "v1.0"
@@ -29,8 +34,14 @@ class Config:
     # A consumed token replayed within this window returns the successor
     # tokens instead of failing (lost response, concurrent tabs).
     REFRESH_TOKEN_REUSE_GRACE_PERIOD = timedelta(seconds=60)
-    JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "my-little-secret")
-    DISABLE_PASSWORD_CHECK = os.environ.get("DISABLE_PASSWORD_CHECK", False)
+    JWT_SECRET_KEY = JWT_SECRET_KEY or secrets.token_hex(32)
+    DISABLE_PASSWORD_CHECK = os.environ.get(
+        "DISABLE_PASSWORD_CHECK", ""
+    ).strip().lower() in ("1", "true", "yes")
+    if DISABLE_PASSWORD_CHECK and MOBILIC_ENV not in ("dev", "test"):
+        raise RuntimeError(
+            "DISABLE_PASSWORD_CHECK cannot be enabled outside dev/test"
+        )
     MATTERMOST_WEBHOOK = os.environ.get("MATTERMOST_WEBHOOK")
     TCHAP_ACCESS_TOKEN = os.environ.get("TCHAP_ACCESS_TOKEN")
     TCHAP_ROOM_ID = os.environ.get("TCHAP_ROOM_ID")
@@ -49,6 +60,7 @@ class Config:
     S3_SECRET_KEY = os.environ.get("S3_SECRET_KEY")
     S3_REGION = os.environ.get("S3_REGION")
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
+    EXPORT_STORAGE_BACKEND = os.environ.get("EXPORT_STORAGE_BACKEND", "s3")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
     VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
@@ -154,6 +166,7 @@ class Config:
         "CELERY_BROKER_URL", "redis://localhost:6379/0"
     )
     EXPORT_MAX = int(os.environ.get("EXPORT_MAX", 1000))
+    EXPORT_DB_MAX_SIZE_MB = int(os.environ.get("EXPORT_DB_MAX_SIZE_MB", 50))
     CGU_VERSION = os.environ.get("CGU_VERSION", "v1.0")
     CGU_RELEASE_DATE = (
         datetime.strptime(
