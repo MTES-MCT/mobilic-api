@@ -63,16 +63,14 @@ class LoginMutation(graphene.Mutation):
 
         user = User.query.filter(User.email == email).one_or_none()
 
-        is_blacklisted = UserAgreement.is_user_blacklisted(user_id=user.id)
-
-        if is_blacklisted:
+        if not user or (
+            not app.config["DISABLE_PASSWORD_CHECK"] and not user.password
+        ):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )
 
-        if not user or (
-            not app.config["DISABLE_PASSWORD_CHECK"] and not user.password
-        ):
+        if UserAgreement.is_user_blacklisted(user_id=user.id):
             raise AuthenticationError(
                 f"Wrong email/password combination for email {email}"
             )
