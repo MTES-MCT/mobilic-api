@@ -399,6 +399,7 @@ def compute_software_compliance_snapshot(for_date=None):
 
 
 @app.cli.command("run_platform_health_checks", with_appcontext=True)
+@cron_monitor("run_platform_health_checks")
 def run_platform_health_checks():
     """
     The healthcheck bot (a dedicated test user/company) checks activity logging,
@@ -410,6 +411,7 @@ def run_platform_health_checks():
 
 
 @app.cli.command("purge_healthcheck_bot_missions", with_appcontext=True)
+@cron_monitor("purge_healthcheck_bot_missions")
 def purge_healthcheck_bot_missions():
     """Deletes the test missions created by the platform healthcheck bot."""
     from app.jobs.platform_health_check import (

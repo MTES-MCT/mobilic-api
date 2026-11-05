@@ -104,6 +104,16 @@ CRON_MONITORS = {
         "max_runtime": 15,
         "checkin_margin": 20,
     },
+    "run_platform_health_checks": {
+        "schedule": {"type": "crontab", "value": "*/10 * * * *"},
+        "max_runtime": 8,
+        "checkin_margin": 5,
+    },
+    "purge_healthcheck_bot_missions": {
+        "schedule": {"type": "crontab", "value": "30 4 * * *"},
+        "max_runtime": 15,
+        "checkin_margin": 30,
+    },
 }
 
 _DEFAULT_TIMEZONE = "Etc/UTC"
