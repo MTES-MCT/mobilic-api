@@ -102,6 +102,7 @@ from app.controllers.notification_campaign import (
     CreateNotificationCampaign,
     CancelNotificationCampaign,
     UpdatePushBannerText,
+    UpdateGlobalBanner,
     Query as NotificationCampaignQuery,
 )
 from app.controllers.technical_incident import (
@@ -225,6 +226,7 @@ class NotificationCampaigns(graphene.ObjectType):
     create_notification_campaign = CreateNotificationCampaign.Field()
     cancel_notification_campaign = CancelNotificationCampaign.Field()
     update_push_banner_text = UpdatePushBannerText.Field()
+    update_global_banner = UpdateGlobalBanner.Field()
 
 
 class Employments(graphene.ObjectType):

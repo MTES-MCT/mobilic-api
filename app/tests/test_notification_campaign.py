@@ -7,6 +7,7 @@ from app.models.notification_campaign import (
     CampaignTargetType,
 )
 from app.models.push_banner_config import PushBannerConfig
+from app.models.global_banner_config import GlobalBannerConfig
 from app.seed.factories import CompanyFactory, UserFactory
 from app.tests import BaseTest, test_post_graphql_unexposed
 
@@ -42,6 +43,16 @@ UPDATE_BANNER = """
     }
 """
 
+UPDATE_GLOBAL_BANNER = """
+    mutation ($enabled: Boolean!, $message: String!, $level: String!) {
+        notificationCampaigns {
+            updateGlobalBanner(
+                enabled: $enabled, message: $message, level: $level
+            ) { success }
+        }
+    }
+"""
+
 
 def _create_campaign(bizdev, status=CampaignStatus.DRAFT):
     return NotificationCampaign(
@@ -58,19 +69,12 @@ class TestCampaignAccess(BaseTest):
         super().setUp()
         self.bizdev = UserFactory.create(bizdev=True)
         self.company = CompanyFactory.create()
-        self.worker = UserFactory.create(
-            post__company=self.company
-        )
+        self.worker = UserFactory.create(post__company=self.company)
         db.session.commit()
 
-    @patch(
-        "app.controllers.notification_campaign"
-        ".send_campaign_task"
-    )
+    @patch("app.controllers.notification_campaign" ".send_campaign_task")
     def test_bizdev_can_create(self, mock_task):
-        mock_task.apply_async.return_value = MagicMock(
-            id="tid"
-        )
+        mock_task.apply_async.return_value = MagicMock(id="tid")
         resp = test_post_graphql_unexposed(
             CREATE_CAMPAIGN,
             mock_authentication_with_user=self.bizdev,
@@ -82,10 +86,7 @@ class TestCampaignAccess(BaseTest):
         )
         self.assertIsNone(resp.json.get("errors"))
 
-    @patch(
-        "app.controllers.notification_campaign"
-        ".send_campaign_task"
-    )
+    @patch("app.controllers.notification_campaign" ".send_campaign_task")
     def test_worker_cannot_create(self, mock_task):
         resp = test_post_graphql_unexposed(
             CREATE_CAMPAIGN,
@@ -125,14 +126,9 @@ class TestCampaignValidation(BaseTest):
         self.bizdev = UserFactory.create(bizdev=True)
         db.session.commit()
 
-    @patch(
-        "app.controllers.notification_campaign"
-        ".send_campaign_task"
-    )
+    @patch("app.controllers.notification_campaign" ".send_campaign_task")
     def _create(self, variables, mock_task):
-        mock_task.apply_async.return_value = MagicMock(
-            id="tid"
-        )
+        mock_task.apply_async.return_value = MagicMock(id="tid")
         return test_post_graphql_unexposed(
             CREATE_CAMPAIGN,
             mock_authentication_with_user=self.bizdev,
@@ -140,44 +136,54 @@ class TestCampaignValidation(BaseTest):
         )
 
     def test_empty_title(self):
-        resp = self._create({
-            "title": "   ",
-            "body": "B",
-            "targetType": "all_users",
-        })
+        resp = self._create(
+            {
+                "title": "   ",
+                "body": "B",
+                "targetType": "all_users",
+            }
+        )
         self.assertIsNotNone(resp.json.get("errors"))
 
     def test_title_too_long(self):
-        resp = self._create({
-            "title": "x" * 101,
-            "body": "B",
-            "targetType": "all_users",
-        })
+        resp = self._create(
+            {
+                "title": "x" * 101,
+                "body": "B",
+                "targetType": "all_users",
+            }
+        )
         self.assertIsNotNone(resp.json.get("errors"))
 
     def test_body_too_long(self):
-        resp = self._create({
-            "title": "T",
-            "body": "x" * 501,
-            "targetType": "all_users",
-        })
+        resp = self._create(
+            {
+                "title": "T",
+                "body": "x" * 501,
+                "targetType": "all_users",
+            }
+        )
         self.assertIsNotNone(resp.json.get("errors"))
 
     def test_specific_without_ids(self):
-        resp = self._create({
-            "title": "T",
-            "body": "B",
-            "targetType": "specific_employees",
-        })
+        resp = self._create(
+            {
+                "title": "T",
+                "body": "B",
+                "targetType": "specific_employees",
+            }
+        )
         self.assertIsNotNone(resp.json.get("errors"))
 
     def test_global_with_ids(self):
-        resp = self._create({
-            "title": "T",
-            "body": "B",
-            "targetType": "all_users",
-            "targetUserIds": [1],
-        })
+        resp = self._create(
+            {
+                "title": "T",
+                "body": "B",
+                "targetType": "all_users",
+                "targetUserIds": [1],
+            }
+        )
         self.assertIsNotNone(resp.json.get("errors"))
 
 
@@ -199,9 +205,7 @@ class TestCancelCampaign(BaseTest):
         )
         self.assertIsNone(resp.json.get("errors"))
         updated = NotificationCampaign.query.get(campaign_id)
-        self.assertEqual(
-            updated.status, CampaignStatus.CANCELLED
-        )
+        self.assertEqual(updated.status, CampaignStatus.CANCELLED)
 
     def test_cannot_cancel_sent(self):
         c = _create_campaign(self.bizdev, CampaignStatus.SENT)
@@ -259,14 +263,77 @@ class TestBannerConfig(BaseTest):
         self.assertIsNotNone(resp.json.get("errors"))
 
 
+class TestGlobalBanner(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.bizdev = UserFactory.create(bizdev=True)
+        self.company = CompanyFactory.create()
+        self.worker = UserFactory.create(post__company=self.company)
+        db.session.commit()
+
+    def test_enable_and_update(self):
+        test_post_graphql_unexposed(
+            UPDATE_GLOBAL_BANNER,
+            mock_authentication_with_user=self.bizdev,
+            variables={
+                "enabled": True,
+                "message": "Incident en cours",
+                "level": "warning",
+            },
+        )
+        config = GlobalBannerConfig.get_current()
+        self.assertTrue(config.enabled)
+        self.assertEqual(config.message, "Incident en cours")
+        self.assertEqual(config.level.value, "warning")
+
+        test_post_graphql_unexposed(
+            UPDATE_GLOBAL_BANNER,
+            mock_authentication_with_user=self.bizdev,
+            variables={
+                "enabled": False,
+                "message": "Incident en cours",
+                "level": "warning",
+            },
+        )
+        self.assertFalse(GlobalBannerConfig.get_current().enabled)
+        self.assertEqual(GlobalBannerConfig.query.count(), 1)
+
+    def test_worker_cannot_update(self):
+        resp = test_post_graphql_unexposed(
+            UPDATE_GLOBAL_BANNER,
+            mock_authentication_with_user=self.worker,
+            variables={
+                "enabled": True,
+                "message": "Test",
+                "level": "info",
+            },
+        )
+        self.assertIsNotNone(resp.json.get("errors"))
+        self.assertIsNone(GlobalBannerConfig.get_current())
+
+    def test_enable_without_message_fails(self):
+        resp = test_post_graphql_unexposed(
+            UPDATE_GLOBAL_BANNER,
+            mock_authentication_with_user=self.bizdev,
+            variables={"enabled": True, "message": "   ", "level": "warning"},
+        )
+        self.assertIsNotNone(resp.json.get("errors"))
+
+    def test_invalid_level_fails(self):
+        resp = test_post_graphql_unexposed(
+            UPDATE_GLOBAL_BANNER,
+            mock_authentication_with_user=self.bizdev,
+            variables={"enabled": True, "message": "Test", "level": "nope"},
+        )
+        self.assertIsNotNone(resp.json.get("errors"))
+
+
 class TestCampaignClick(BaseTest):
     def setUp(self):
         super().setUp()
         self.bizdev = UserFactory.create(bizdev=True)
         db.session.commit()
-        self.campaign = _create_campaign(
-            self.bizdev, CampaignStatus.SENT
-        )
+        self.campaign = _create_campaign(self.bizdev, CampaignStatus.SENT)
         db.session.add(self.campaign)
         db.session.commit()
 
@@ -277,20 +344,14 @@ class TestCampaignClick(BaseTest):
 
         token = generate_click_token(self.campaign.id)
         with app.test_client() as c:
-            resp = c.get(
-                f"/campaign-click"
-                f"?c={self.campaign.id}&t={token}"
-            )
+            resp = c.get(f"/campaign-click" f"?c={self.campaign.id}&t={token}")
         self.assertEqual(resp.status_code, 204)
         db.session.refresh(self.campaign)
         self.assertEqual(self.campaign.clicked_count, 1)
 
     def test_invalid_token(self):
         with app.test_client() as c:
-            resp = c.get(
-                f"/campaign-click"
-                f"?c={self.campaign.id}&t=bad"
-            )
+            resp = c.get(f"/campaign-click" f"?c={self.campaign.id}&t=bad")
         self.assertEqual(resp.status_code, 403)
 
     def test_missing_params(self):
