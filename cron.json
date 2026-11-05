@@ -42,6 +42,12 @@
     },
     {
       "command": "0 * * * * flask purge_downloaded_exports && flask alert_stuck_exports"
+    },
+    {
+      "command": "*/10 * * * * flask run_platform_health_checks"
+    },
+    {
+      "command": "30 4 * * * flask purge_healthcheck_bot_missions"
     }
   ]
 }
