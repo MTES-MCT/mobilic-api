@@ -2,7 +2,7 @@ from faker import Faker
 
 from app import db
 from app.models import Business
-from app.models.business import BusinessType
+from app.models.business import BusinessType, TransportType
 from app.models.employment import Employment
 from app.models.vehicle import Vehicle
 from app.seed import (
@@ -24,10 +24,12 @@ EMPLOYEE_EMAIL = "employee@multibusiness.com"
 
 def run_scenario_multi_businesses():
     business_trm_long = Business.query.filter(
-        Business.business_type == BusinessType.LONG_DISTANCE
+        Business.business_type == BusinessType.LONG_DISTANCE,
+        Business.transport_type == TransportType.TRM,
     ).one_or_none()
     business_trm_short = Business.query.filter(
-        Business.business_type == BusinessType.SHORT_DISTANCE
+        Business.business_type == BusinessType.SHORT_DISTANCE,
+        Business.transport_type == TransportType.TRM,
     ).one_or_none()
     business_trv = Business.query.filter(
         Business.business_type == BusinessType.VTC
