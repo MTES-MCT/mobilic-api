@@ -5,7 +5,11 @@ from sqlalchemy.ext.hybrid import hybrid_property
 
 from app import db
 from app.helpers.db import DateTimeStoredAsUTC
-from app.helpers.errors import AuthorizationError, InvalidResourceError
+from app.helpers.errors import (
+    AuthorizationError,
+    InvalidParamsError,
+    InvalidResourceError,
+)
 from app.helpers.validation import validate_email_field_in_db
 from app.models.event import Dismissable, UserEventBaseModel
 from app.models.mixins.has_business import HasBusiness
@@ -35,6 +39,7 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
 
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=True)
+    is_temporary = db.Column(db.Boolean, nullable=False, default=False)
 
     company_id = db.Column(
         db.Integer, db.ForeignKey("company.id"), index=True, nullable=False
@@ -218,6 +223,11 @@ class Employment(UserEventBaseModel, Dismissable, HasBusiness):
         ):
             raise InvalidResourceError(
                 f"Employment is already {'validated' if self.is_acknowledged else 'dismissed' if self.is_dismissed else 'rejected'}"
+            )
+
+        if not reject and self.is_temporary and self.is_terminated:
+            raise InvalidParamsError(
+                "This invitation has expired: the end date has passed."
             )
 
         self.validation_status = (
