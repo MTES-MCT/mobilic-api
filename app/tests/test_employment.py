@@ -2,15 +2,22 @@ from datetime import date, datetime, timedelta
 
 from app import db
 from app.domain.user import HIDDEN_EMAIL
-from app.helpers.errors import AuthorizationError, InvalidParamsError
+from app.helpers.errors import (
+    AuthorizationError,
+    InvalidParamsError,
+    ActivityExistAfterEmploymentEndDate,
+    EmploymentAlreadyTerminated,
+)
 from app.models import Employment
-from app.tests import BaseTest
+from app.tests import BaseTest, test_post_graphql
 from app.tests.helpers import (
     make_authenticated_request,
     ApiRequests,
 )
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.models.employment import EmploymentRequestValidationStatus
+from app.models.activity import ActivityType
+from app.seed.factories import ActivityFactory, MissionFactory
 
 
 class TestEmployment(BaseTest):
@@ -228,6 +235,7 @@ class TestEmployment(BaseTest):
                 self.worker_employment_id,
             ],
         )
+
     def create_pending_invite_to_existing_user(
         self, invite_email, account_email
     ):
@@ -802,3 +810,316 @@ class TestRequestDetachment(BaseTest):
             InvalidParamsError.code,
             response["errors"][0]["extensions"]["code"],
         )
+
+
+class TestTemporaryEmployment(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create(allow_temporary_employees=True)
+        self.admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        self.worker = UserFactory.create(
+            post__company=self.company,
+            post__has_admin_rights=False,
+        )
+        emp = self.worker.employments[0]
+        emp.is_temporary = True
+        emp.end_date = date.today() + timedelta(days=30)
+        db.session.commit()
+        self.employment_id = emp.id
+
+    def _detach_worker(self, end_date):
+        emp = Employment.query.get(self.employment_id)
+        emp.is_temporary = False
+        emp.end_date = end_date
+        db.session.commit()
+
+    def _update_end_date(self, end_date, user=None, employment_id=None):
+        return test_post_graphql(
+            ApiRequests.update_temporary_end_date,
+            mock_authentication_with_user=user or self.admin,
+            variables=dict(
+                employmentId=employment_id or self.employment_id,
+                endDate=str(end_date),
+            ),
+        )
+
+    def _reattach(self, end_date):
+        return test_post_graphql(
+            ApiRequests.reattach_employment,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                userId=self.worker.id,
+                companyId=self.company.id,
+                isTemporary=True,
+                endDate=str(end_date),
+            ),
+        )
+
+    def _invite(self, **variables):
+        return test_post_graphql(
+            ApiRequests.invite,
+            mock_authentication_with_user=self.admin,
+            variables=dict(companyId=self.company.id, **variables),
+        )
+
+    def _assert_error(self, response, code, message=None):
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(errors[0]["extensions"]["code"], code)
+        if message:
+            self.assertIn(message, errors[0]["message"].lower())
+
+    def test_terminate_before_planned_date_accepted(self):
+        new_end = date.today() + timedelta(days=5)
+        response = test_post_graphql(
+            ApiRequests.terminate_employment,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                employmentId=self.employment_id, endDate=str(new_end)
+            ),
+        )
+        self.assertIsNone(response.json.get("errors"))
+        emp = Employment.query.get(self.employment_id)
+        self.assertEqual(emp.end_date, new_end)
+
+    def test_terminate_after_planned_date_refused(self):
+        new_end = date.today() + timedelta(days=60)
+        response = test_post_graphql(
+            ApiRequests.terminate_employment,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                employmentId=self.employment_id, endDate=str(new_end)
+            ),
+        )
+        self._assert_error(response, InvalidParamsError.code, "extend")
+
+    def test_extend_end_date(self):
+        new_end = date.today() + timedelta(days=60)
+        response = self._update_end_date(new_end)
+        self.assertIsNone(response.json.get("errors"))
+        emp = Employment.query.get(self.employment_id)
+        self.assertEqual(emp.end_date, new_end)
+
+    def test_shorten_without_activities(self):
+        new_end = date.today() + timedelta(days=5)
+        response = self._update_end_date(new_end)
+        self.assertIsNone(response.json.get("errors"))
+        emp = Employment.query.get(self.employment_id)
+        self.assertEqual(emp.end_date, new_end)
+
+    def test_shorten_with_activities_after_refused(self):
+        emp = Employment.query.get(self.employment_id)
+        activity_date = emp.end_date - timedelta(days=1)
+        activity_time = datetime.combine(activity_date, datetime.min.time())
+        mission = MissionFactory.create(
+            company_id=self.company.id,
+            submitter_id=self.admin.id,
+            reception_time=activity_time,
+        )
+        ActivityFactory.create(
+            mission=mission,
+            user=self.worker,
+            submitter=self.admin,
+            type=ActivityType.DRIVE,
+            reception_time=activity_time,
+            start_time=activity_time,
+            last_update_time=activity_time,
+        )
+        new_end = activity_date - timedelta(days=1)
+        self._assert_error(
+            self._update_end_date(new_end),
+            ActivityExistAfterEmploymentEndDate.code,
+        )
+
+    def test_update_access_refused_for_worker(self):
+        new_end = date.today() + timedelta(days=20)
+        self._assert_error(
+            self._update_end_date(new_end, user=self.worker),
+            AuthorizationError.code,
+        )
+
+    def test_update_access_refused_for_other_company_admin(self):
+        other_company = CompanyFactory.create()
+        other_admin = UserFactory.create(
+            post__company=other_company, post__has_admin_rights=True
+        )
+        new_end = date.today() + timedelta(days=20)
+        self._assert_error(
+            self._update_end_date(new_end, user=other_admin),
+            AuthorizationError.code,
+        )
+
+    def test_update_past_date_refused(self):
+        past = date.today() - timedelta(days=1)
+        self._assert_error(
+            self._update_end_date(past),
+            InvalidParamsError.code,
+            "today or later",
+        )
+
+    def test_update_non_temporary_refused(self):
+        permanent_emp = EmploymentFactory.create(
+            company=self.company,
+            has_admin_rights=False,
+        )
+        self._assert_error(
+            self._update_end_date(
+                date.today() + timedelta(days=10),
+                employment_id=permanent_emp.id,
+            ),
+            InvalidParamsError.code,
+            "only temporary",
+        )
+
+    def test_pending_invitation_can_be_updated(self):
+        pending_emp = EmploymentFactory.create(
+            company=self.company,
+            is_temporary=True,
+            end_date=date.today() + timedelta(days=30),
+            has_admin_rights=False,
+            email="pending@test.com",
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+            validation_time=None,
+        )
+        new_end = date.today() + timedelta(days=60)
+        response = self._update_end_date(new_end, employment_id=pending_emp.id)
+        self.assertIsNone(response.json.get("errors"))
+
+    def test_already_terminated_refused(self):
+        emp = Employment.query.get(self.employment_id)
+        emp.end_date = date.today() - timedelta(days=1)
+        db.session.commit()
+        self._assert_error(
+            self._update_end_date(date.today() + timedelta(days=10)),
+            EmploymentAlreadyTerminated.code,
+        )
+
+    def test_reattach_as_temporary(self):
+        self._detach_worker(date.today() - timedelta(days=1))
+        future = date.today() + timedelta(days=30)
+        response = self._reattach(future)
+        self.assertIsNone(response.json.get("errors"))
+        data = response.json["data"]["employments"]["reattachEmployment"]
+        self.assertTrue(data["employment"]["isTemporary"])
+        self.assertEqual(data["employment"]["endDate"], str(future))
+        self.assertFalse(data["employment"]["hasAdminRights"])
+
+    def test_reattach_same_day_as_temporary(self):
+        self._detach_worker(date.today())
+        future = date.today() + timedelta(days=30)
+        response = self._reattach(future)
+        self.assertIsNone(response.json.get("errors"))
+        data = response.json["data"]["employments"]["reattachEmployment"]
+        self.assertTrue(data["employment"]["isTemporary"])
+        self.assertFalse(data["employment"]["hasAdminRights"])
+
+    def test_reattach_dismissed_as_temporary(self):
+        emp = Employment.query.get(self.employment_id)
+        emp.is_temporary = False
+        emp.end_date = None
+        emp.dismissed_at = datetime.now()
+        emp.dismiss_author_id = self.admin.id
+        db.session.commit()
+        future = date.today() + timedelta(days=30)
+        response = self._reattach(future)
+        self.assertIsNone(response.json.get("errors"))
+        data = response.json["data"]["employments"]["reattachEmployment"]
+        self.assertTrue(data["employment"]["isTemporary"])
+        self.assertFalse(data["employment"]["hasAdminRights"])
+
+    def test_reattach_temporary_option_disabled_refused(self):
+        self._detach_worker(date.today() - timedelta(days=1))
+        self.company.allow_temporary_employees = False
+        db.session.commit()
+        self._assert_error(
+            self._reattach(date.today() + timedelta(days=30)),
+            InvalidParamsError.code,
+            "not enabled",
+        )
+
+    def test_reattach_temporary_past_date_refused(self):
+        self._detach_worker(date.today() - timedelta(days=1))
+        past = date.today() - timedelta(days=1)
+        self._assert_error(
+            self._reattach(past),
+            InvalidParamsError.code,
+            "today or later",
+        )
+
+    def test_change_role_to_admin_refused(self):
+        response = test_post_graphql(
+            ApiRequests.change_employee_role,
+            mock_authentication_with_user=self.admin,
+            variables=dict(
+                employmentId=self.employment_id, hasAdminRights=True
+            ),
+        )
+        self._assert_error(response, InvalidParamsError.code, "admin rights")
+
+    def test_permanent_with_end_date_accepted(self):
+        future = date.today() + timedelta(days=30)
+        response = self._invite(mail="perm@test.com", endDate=str(future))
+        self.assertIsNone(response.json.get("errors"))
+        data = response.json["data"]["employments"]["createEmployment"]
+        self.assertEqual(data["endDate"], str(future))
+        self.assertFalse(data["isTemporary"])
+
+    def test_temporary_missing_end_date_refused(self):
+        self._assert_error(
+            self._invite(mail="temp@test.com", isTemporary=True),
+            InvalidParamsError.code,
+            "requires an end date",
+        )
+
+    def test_temporary_option_disabled_refused(self):
+        self.company.allow_temporary_employees = False
+        db.session.commit()
+        self._assert_error(
+            self._invite(
+                mail="temp@test.com",
+                isTemporary=True,
+                endDate=str(date.today() + timedelta(days=30)),
+            ),
+            InvalidParamsError.code,
+            "not enabled",
+        )
+
+    def test_temporary_with_admin_rights_refused(self):
+        self._assert_error(
+            self._invite(
+                mail="temp@test.com",
+                isTemporary=True,
+                endDate=str(date.today() + timedelta(days=30)),
+                hasAdminRights=True,
+            ),
+            InvalidParamsError.code,
+            "admin rights",
+        )
+
+    def test_temporary_past_end_date_refused(self):
+        past_start = date.today() - timedelta(days=10)
+        past_end = date.today() - timedelta(days=1)
+        self._assert_error(
+            self._invite(
+                mail="temp@test.com",
+                isTemporary=True,
+                startDate=str(past_start),
+                endDate=str(past_end),
+            ),
+            InvalidParamsError.code,
+            "today or later",
+        )
+
+    def test_temporary_valid_invitation_succeeds(self):
+        future = date.today() + timedelta(days=30)
+        response = self._invite(
+            mail="temp@test.com",
+            isTemporary=True,
+            endDate=str(future),
+        )
+        self.assertIsNone(response.json.get("errors"))
+        data = response.json["data"]["employments"]["createEmployment"]
+        self.assertTrue(data["isTemporary"])
+        self.assertEqual(data["endDate"], str(future))

@@ -198,10 +198,12 @@ class ApiRequests:
     """
 
     invite = """
-        mutation ($userId: Int, $companyId: Int!, $mail: Email, $teamId: Int) {
+        mutation ($userId: Int, $companyId: Int!, $mail: Email, $teamId: Int, $isTemporary: Boolean, $endDate: Date, $hasAdminRights: Boolean, $startDate: Date) {
             employments {
-                createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId) {
+                createEmployment(userId: $userId, companyId: $companyId, mail: $mail, teamId: $teamId, isTemporary: $isTemporary, endDate: $endDate, hasAdminRights: $hasAdminRights, startDate: $startDate) {
                     id
+                    isTemporary
+                    endDate
                 }
             }
         }
@@ -265,13 +267,14 @@ class ApiRequests:
     """
 
     reattach_employment = """
-        mutation reattachEmployment($userId: Int!, $companyId: Int!) {
+        mutation reattachEmployment($userId: Int!, $companyId: Int!, $isTemporary: Boolean, $endDate: Date) {
             employments {
-              reattachEmployment(userId: $userId, companyId: $companyId) {
+              reattachEmployment(userId: $userId, companyId: $companyId, isTemporary: $isTemporary, endDate: $endDate) {
                 employment {
                   id
                   startDate
                   endDate
+                  isTemporary
                   validationStatus
                   hasAdminRights
                   teamId
@@ -717,6 +720,7 @@ class ApiRequests:
         $requireSupportActivity: Boolean
         $allowTransfers: Boolean
         $requireMissionName: Boolean
+        $allowTemporaryEmployees: Boolean
       ) {
         editCompanySettings(
           companyId: $companyId
@@ -726,9 +730,12 @@ class ApiRequests:
           requireSupportActivity: $requireSupportActivity
           allowTransfers: $allowTransfers
           requireMissionName: $requireMissionName
+          allowTemporaryEmployees: $allowTemporaryEmployees
         ) {
           id
-
+          settings {
+            allowTemporaryEmployees
+          }
         }
       }
     """
@@ -738,6 +745,30 @@ class ApiRequests:
         employments {
           sendInvitationsReminders(employmentIds: $employmentIds) {
             success
+            sentToEmploymentIds
+          }
+        }
+      }
+    """
+
+    update_temporary_end_date = """
+      mutation ($employmentId: Int!, $endDate: Date!) {
+        employments {
+          updateTemporaryEndDate(employmentId: $employmentId, endDate: $endDate) {
+            id
+            endDate
+            isTemporary
+          }
+        }
+      }
+    """
+
+    validate_employment = """
+      mutation validateEmployment($employmentId: Int!) {
+        employments {
+          validateEmployment(employmentId: $employmentId) {
+            id
+            validationStatus
           }
         }
       }

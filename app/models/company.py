@@ -48,6 +48,9 @@ class Company(BaseModel, WithEmploymentHistory, HasBusiness):
     other_task_label = db.Column(
         db.String(24), unique=False, nullable=True, default=""
     )
+    allow_temporary_employees = db.Column(
+        db.Boolean, nullable=False, default=False
+    )
 
     has_ceased_activity = db.Column(db.Boolean, nullable=False, default=False)
 
