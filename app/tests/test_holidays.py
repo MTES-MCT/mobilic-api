@@ -16,7 +16,12 @@ from app.tests import (
     BaseTest,
     AuthenticatedUserContext,
 )
-from app.tests.helpers import ApiRequests, make_authenticated_request
+from app.tests.helpers import (
+    ApiRequests,
+    make_authenticated_request,
+    init_regulation_checks_data,
+    init_businesses_data,
+)
 
 
 class TestHolidays(BaseTest):
@@ -153,6 +158,10 @@ class TestHolidays(BaseTest):
         )
 
     def test_log_holiday_as_work_activity_is_not_a_holiday(self):
+        # A work activity is not a holiday, so validate_mission computes
+        # regulations: the reference data must be seeded like regulation tests.
+        init_regulation_checks_data()
+        init_businesses_data()
         response = self._log_holiday_request(
             title="Activités tachygraphe", activity_type=ActivityType.WORK
         )
@@ -178,4 +187,6 @@ class TestHolidays(BaseTest):
         response = self._log_holiday_request(
             title="Activités tachygraphe", activity_type=ActivityType.DRIVE
         )
-        self.assertIn("errors", response)
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "INVALID_INPUTS"
+        )
