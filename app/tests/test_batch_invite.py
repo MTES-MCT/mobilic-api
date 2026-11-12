@@ -231,6 +231,23 @@ class TestBatchInvite(BaseTest):
         ).all()
         self.assertEqual(len(employments), 1)
 
+    def test_batch_invite_already_attached_employee_email_skipped(self):
+        """An email of an already-attached employee is not re-invited."""
+        attached = UserFactory.create(post__company=self.company)
+
+        response = batch_invite(
+            self.admin, self.company.id, mails=[attached.email]
+        )
+        result = self._get_result(response)
+        self.assertEqual(len(result), 0)
+
+        new_invites = Employment.query.filter_by(
+            company_id=self.company.id,
+            email=attached.email,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(new_invites), 0)
+
     def test_batch_invite_email_and_id_same_user_no_duplicate(self):
         """Email + user ID for same user should create only one employment."""
         user = self.employee_1

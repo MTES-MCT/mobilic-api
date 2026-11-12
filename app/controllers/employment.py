@@ -275,14 +275,26 @@ class CreateEmployment(AuthenticatedMutation):
                         team_id=team_id,
                         company_id=company.id,
                     )
-            elif user_email and get_already_invited_emails(
-                company.id, [user_email]
-            ):
-                raise OverlappingEmploymentsError(
-                    "An invitation has already been sent to this email address",
-                    overlap_type="company",
-                    should_alert_team=False,
-                )
+
+            if user_email:
+                blocking_status = get_already_invited_emails(
+                    company.id, [user_email]
+                ).get(user_email)
+                if (
+                    blocking_status
+                    == EmploymentRequestValidationStatus.APPROVED
+                ):
+                    raise OverlappingEmploymentsError(
+                        "The employee is already attached to the company",
+                        overlap_type="company",
+                        should_alert_team=False,
+                    )
+                if blocking_status is not None:
+                    raise OverlappingEmploymentsError(
+                        "An invitation has already been sent to this email address",
+                        overlap_type="pending_invite",
+                        should_alert_team=False,
+                    )
 
             start_date = employment_input.get("start_date", date.today())
 
