@@ -305,6 +305,52 @@ class TestInvitations(BaseTest):
             future_employee_email, self.company
         )
 
+    def test_pending_email_invite_uses_pending_invite_overlap_type(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(future_employee_email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["overlapType"], "pending_invite"
+        )
+
+    def test_cannot_invite_already_attached_employee_by_email(self):
+        attached = UserFactory.create(post__company=self.company)
+
+        response = invite_user_by_email(
+            self.admin, attached.email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"], "OVERLAPPING_EMPLOYMENTS"
+        )
+        self.assertEqual(errors[0]["extensions"]["overlapType"], "company")
+        new_invites = Employment.query.filter_by(
+            company_id=self.company.id,
+            email=attached.email,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(new_invites), 0)
+
+    def test_attached_takes_precedence_over_pending_invite(self):
+        attached = UserFactory.create(post__company=self.company)
+        self.create_pending_email_invite(attached.email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, attached.email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(errors[0]["extensions"]["overlapType"], "company")
+
     def test_can_reinvite_email_after_rejection(self):
         future_employee_email = "future_employee@toto.com"
         self.create_pending_email_invite(
