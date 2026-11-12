@@ -1,27 +1,34 @@
+from datetime import date, timedelta
+
+from app import db
 from app.seed import CompanyFactory, UserFactory
 from app.tests import BaseTest, test_post_graphql
 from app.models.employment import (
     Employment,
     EmploymentRequestValidationStatus,
 )
-from app.tests.helpers import ApiRequests
 
 
 BATCH_INVITE_MUTATION = """
     mutation (
         $companyId: Int!,
         $mails: [Email],
-        $userIds: [Int]
+        $userIds: [Int],
+        $entries: [EmploymentInviteInput]
     ) {
         employments {
             batchCreateWorkerEmployments(
                 companyId: $companyId,
                 mails: $mails,
-                userIds: $userIds
+                userIds: $userIds,
+                entries: $entries
             ) {
                 id
                 userId
                 email
+                isTemporary
+                endDate
+                hasAdminRights
                 hideEmail
             }
         }
@@ -29,12 +36,14 @@ BATCH_INVITE_MUTATION = """
 """
 
 
-def batch_invite(admin, company_id, mails=None, user_ids=None):
+def batch_invite(admin, company_id, mails=None, user_ids=None, entries=None):
     variables = {"companyId": company_id}
     if mails is not None:
         variables["mails"] = mails
     if user_ids is not None:
         variables["userIds"] = user_ids
+    if entries is not None:
+        variables["entries"] = entries
     return test_post_graphql(
         BATCH_INVITE_MUTATION,
         mock_authentication_with_user=admin,
@@ -45,12 +54,13 @@ def batch_invite(admin, company_id, mails=None, user_ids=None):
 class TestBatchInvite(BaseTest):
     def setUp(self):
         super().setUp()
-        self.company = CompanyFactory.create()
+        self.company = CompanyFactory.create(allow_temporary_employees=True)
         self.admin = UserFactory.create(
             post__company=self.company, post__has_admin_rights=True
         )
         self.employee_1 = UserFactory.create()
         self.employee_2 = UserFactory.create()
+        self.future = date.today() + timedelta(days=30)
 
     def _get_result(self, response):
         return (
@@ -204,3 +214,143 @@ class TestBatchInvite(BaseTest):
         result = self._get_result(response)
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 1)
+
+    def test_mixed_permanent_temporary_admin(self):
+        user = UserFactory.create()
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[
+                {"mail": "perm@test.com"},
+                {
+                    "mail": "temp@test.com",
+                    "isTemporary": True,
+                    "endDate": str(self.future),
+                },
+                {"userId": user.id, "hasAdminRights": True},
+            ],
+        )
+        result = self._get_result(response)
+        self.assertEqual(len(result), 3)
+        by_email = {r["email"]: r for r in result if r["email"]}
+        self.assertFalse(by_email["perm@test.com"]["isTemporary"])
+        self.assertTrue(by_email["temp@test.com"]["isTemporary"])
+        self.assertEqual(
+            by_email["temp@test.com"]["endDate"], str(self.future)
+        )
+
+    def test_temporary_disabled_nothing_created(self):
+        company_id = self.company.id
+        self.company.allow_temporary_employees = False
+        db.session.commit()
+        response = batch_invite(
+            self.admin,
+            company_id,
+            entries=[
+                {"mail": "perm@test.com"},
+                {
+                    "mail": "temp@test.com",
+                    "isTemporary": True,
+                    "endDate": str(self.future),
+                },
+            ],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn("not enabled", errors[0]["message"].lower())
+        pending = Employment.query.filter_by(
+            company_id=company_id,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).count()
+        self.assertEqual(pending, 0)
+
+    def test_temporary_without_end_date_error(self):
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[{"mail": "t@test.com", "isTemporary": True}],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn("end date", errors[0]["message"].lower())
+
+    def test_temporary_past_end_date_error(self):
+        past = date.today() - timedelta(days=1)
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[
+                {
+                    "mail": "t@test.com",
+                    "isTemporary": True,
+                    "endDate": str(past),
+                }
+            ],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn("today or later", errors[0]["message"].lower())
+
+    def test_temporary_with_admin_rights_error(self):
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[
+                {
+                    "mail": "t@test.com",
+                    "isTemporary": True,
+                    "endDate": str(self.future),
+                    "hasAdminRights": True,
+                }
+            ],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn("admin rights", errors[0]["message"].lower())
+
+    def test_permanent_with_end_date_error(self):
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[{"mail": "p@test.com", "endDate": str(self.future)}],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn(
+            "only allowed for temporary", errors[0]["message"].lower()
+        )
+
+    def test_conflicting_duplicate_error(self):
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[
+                {"mail": "dup@test.com"},
+                {
+                    "mail": "dup@test.com",
+                    "isTemporary": True,
+                    "endDate": str(self.future),
+                },
+            ],
+        )
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertIn("conflicting", errors[0]["message"].lower())
+
+    def test_identical_duplicate_merged(self):
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            entries=[{"mail": "dup@test.com"}, {"mail": "dup@test.com"}],
+        )
+        result = self._get_result(response)
+        self.assertEqual(len(result), 1)
+
+    def test_email_of_already_attached_user_no_crash(self):
+        existing = UserFactory.create(post__company=self.company)
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            mails=[existing.email],
+        )
+        self.assertIsNone(response.json.get("errors"))

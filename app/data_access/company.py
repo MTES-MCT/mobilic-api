@@ -94,6 +94,9 @@ class CompanySettings(graphene.ObjectType):
     other_task_label = graphene.String(
         description="Sous-titre de l'activité de type 'Autre tâche'"
     )
+    allow_temporary_employees = graphene.Boolean(
+        description="Indique si l'entreprise permet d'inviter des salariés temporaires avec une date de fin de rattachement"
+    )
 
 
 class WeeklyThresholdsOutput(graphene.ObjectType):

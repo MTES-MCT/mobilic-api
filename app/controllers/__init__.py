@@ -65,6 +65,7 @@ from app.controllers.employment import (
     RedeemInvitation,
     RejectEmployment,
     TerminateEmployment,
+    UpdateTemporaryEndDate,
     ValidateEmployment,
     SyncThirdPartyEmployees,
     UpdateHideEmail,
@@ -238,6 +239,7 @@ class Employments(graphene.ObjectType):
     validate_employment = ValidateEmployment.Field()
     reject_employment = RejectEmployment.Field()
     terminate_employment = TerminateEmployment.Field()
+    update_temporary_end_date = UpdateTemporaryEndDate.Field()
     batch_terminate_employments = BatchTerminateEmployments.Field()
     cancel_employment = CancelEmployment.Field()
     reattach_employment = ReattachEmployment.Field()
