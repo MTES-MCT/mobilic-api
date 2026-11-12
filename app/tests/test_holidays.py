@@ -16,7 +16,12 @@ from app.tests import (
     BaseTest,
     AuthenticatedUserContext,
 )
-from app.tests.helpers import ApiRequests, make_authenticated_request
+from app.tests.helpers import (
+    ApiRequests,
+    make_authenticated_request,
+    init_regulation_checks_data,
+    init_businesses_data,
+)
 
 
 class TestHolidays(BaseTest):
@@ -134,3 +139,54 @@ class TestHolidays(BaseTest):
             self.fail(
                 f"Cancel mission returned an error: {cancel_mission_response}"
             )
+
+    def _log_holiday_request(self, title, activity_type=None):
+        variables = dict(
+            company_id=self.company.id,
+            user_id=self.current_user.id,
+            start_time=get_time(2, 8, 0),
+            end_time=get_time(2, 16, 0),
+            title=title,
+        )
+        if activity_type is not None:
+            variables["activity_type"] = activity_type
+        return make_authenticated_request(
+            time=datetime.now(),
+            submitter_id=self.admin_user.id,
+            query=ApiRequests.log_holiday_with_type,
+            variables=variables,
+        )
+
+    def test_log_holiday_as_work_activity_is_not_a_holiday(self):
+        # A work activity is not a holiday, so validate_mission computes
+        # regulations: the reference data must be seeded like regulation tests.
+        init_regulation_checks_data()
+        init_businesses_data()
+        response = self._log_holiday_request(
+            title="Activités tachygraphe", activity_type=ActivityType.WORK
+        )
+        self.assertNotIn("errors", response)
+        mission_id = response["data"]["activities"]["logHoliday"][0]["id"]
+        mission = Mission.query.get(mission_id)
+        self.assertFalse(mission.is_holiday())
+        self.assertEqual(
+            [a.type for a in mission.activities], [ActivityType.WORK]
+        )
+
+    def test_log_holiday_defaults_to_off_activity(self):
+        response = self._log_holiday_request(title="Congé payé")
+        self.assertNotIn("errors", response)
+        mission_id = response["data"]["activities"]["logHoliday"][0]["id"]
+        mission = Mission.query.get(mission_id)
+        self.assertTrue(mission.is_holiday())
+        self.assertEqual(
+            [a.type for a in mission.activities], [ActivityType.OFF]
+        )
+
+    def test_log_holiday_rejects_unsupported_activity_type(self):
+        response = self._log_holiday_request(
+            title="Activités tachygraphe", activity_type=ActivityType.DRIVE
+        )
+        self.assertEqual(
+            response["errors"][0]["extensions"]["code"], "INVALID_INPUTS"
+        )

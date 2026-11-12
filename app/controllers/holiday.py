@@ -10,7 +10,8 @@ from app.domain.log_activities import log_activity
 from app.domain.validation import validate_mission
 from app.helpers.authentication import AuthenticatedMutation, current_user
 from app.helpers.authorization import check_company_against_scope_wrapper
-from app.helpers.graphene_types import TimeStamp
+from app.helpers.errors import InvalidParamsError
+from app.helpers.graphene_types import TimeStamp, graphene_enum_type
 from app.helpers.time import get_daily_periods
 from app.models import Company, Mission, Comment, User
 from app.models.activity import ActivityType
@@ -47,6 +48,11 @@ class HolidayLogInput:
         required=False,
         description="Précision éventuelle du motif de la période de congés.",
     )
+    activity_type = graphene.Argument(
+        graphene_enum_type(ActivityType),
+        required=False,
+        description="Type d'activité enregistré pour la période. Par défaut `off` (indisponibilité). `work` pour une période comptée comme temps de travail, par exemple les activités tachygraphe.",
+    )
 
 
 class LogHoliday(AuthenticatedMutation):
@@ -72,7 +78,13 @@ class LogHoliday(AuthenticatedMutation):
         title,
         user_id=None,
         comment=None,
+        activity_type=None,
     ):
+        activity_type = activity_type or ActivityType.OFF
+        if activity_type not in (ActivityType.OFF, ActivityType.WORK):
+            raise InvalidParamsError(
+                "activity_type must be ActivityType.OFF or ActivityType.WORK"
+            )
 
         now = datetime.datetime.now()
 
@@ -87,7 +99,7 @@ class LogHoliday(AuthenticatedMutation):
 
         with atomic_transaction(commit_at_end=True):
             missions = []
-            for (start, end) in periods:
+            for start, end in periods:
                 mission = Mission(
                     name=title,
                     company=company,
@@ -108,7 +120,7 @@ class LogHoliday(AuthenticatedMutation):
                 log_activity(
                     submitter=current_user,
                     user=user,
-                    type=ActivityType.OFF,
+                    type=activity_type,
                     mission=mission,
                     switch_mode=False,
                     reception_time=now,
@@ -122,11 +134,12 @@ class LogHoliday(AuthenticatedMutation):
                 )
                 missions.append(mission)
 
-        send_email_log_holiday(
-            admin=current_user,
-            user=user,
-            company=company,
-            title=title,
-            periods=periods,
-        )
+        if activity_type == ActivityType.OFF:
+            send_email_log_holiday(
+                admin=current_user,
+                user=user,
+                company=company,
+                title=title,
+                periods=periods,
+            )
         return missions

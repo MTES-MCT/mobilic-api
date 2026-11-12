@@ -1124,6 +1124,30 @@ class ApiRequests:
         }
     """
 
+    log_holiday_with_type = """
+        mutation logHoliday(
+            $companyId: Int!
+            $userId: Int
+            $startTime: TimeStamp!
+            $endTime: TimeStamp!
+            $title: String!
+            $activityType: ActivityTypeEnum
+        ) {
+            activities{
+                logHoliday(
+                    companyId: $companyId
+                    userId: $userId
+                    startTime: $startTime
+                    endTime: $endTime
+                    title: $title
+                    activityType: $activityType
+                ) {
+                    id
+                }
+            }
+        }
+    """
+
     regulation_computations_by_day = """
         query getUserRegulationComputations(
             $userId: Int!
