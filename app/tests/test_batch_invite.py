@@ -1,4 +1,7 @@
+from uuid import uuid4
+
 from app.seed import CompanyFactory, UserFactory
+from app.seed.factories import EmploymentFactory
 from app.tests import BaseTest, test_post_graphql
 from app.models.employment import (
     Employment,
@@ -190,6 +193,43 @@ class TestBatchInvite(BaseTest):
         result = self._get_result(response)
         self.assertIsNotNone(result)
         self.assertEqual(len(result), 1)
+
+    def test_batch_invite_duplicate_emails_deduplicated(self):
+        """The same email listed twice should create only one employment."""
+        response = batch_invite(
+            self.admin,
+            self.company.id,
+            mails=["dup@test.com", "DUP@test.com"],
+        )
+
+        result = self._get_result(response)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 1)
+
+    def test_batch_invite_already_invited_email_skipped(self):
+        """An email with an outstanding invitation is not invited again."""
+        mail = "already@test.com"
+        EmploymentFactory.create(
+            company=self.company,
+            submitter=self.admin,
+            user=None,
+            email=mail,
+            hide_email=False,
+            validation_time=None,
+            invite_token=uuid4().hex,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        )
+
+        response = batch_invite(self.admin, self.company.id, mails=[mail])
+        result = self._get_result(response)
+        self.assertEqual(len(result), 0)
+
+        employments = Employment.query.filter_by(
+            company_id=self.company.id,
+            email=mail,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(employments), 1)
 
     def test_batch_invite_email_and_id_same_user_no_duplicate(self):
         """Email + user ID for same user should create only one employment."""
