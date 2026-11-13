@@ -1,11 +1,14 @@
+import base64
+import hashlib
 import hmac
 import json
 import logging
 
 import redis as redis_module
-from flask import jsonify, request
+from flask import g, jsonify, request
 
 from app import app, db
+from app.helpers.brevo import brevo
 from app.helpers.livestorm import livestorm, NoLivestormCredentialsError
 from app.helpers.redis import get_redis_client
 
@@ -77,6 +80,91 @@ def get_webinars_list():
         logger.warning("Redis unavailable, skipping cache read for webinars")
 
     return jsonify([]), 200
+
+
+def _tally_field_text(field):
+    value = field.get("value")
+    if isinstance(value, list):
+        by_id = {
+            o.get("id"): o.get("text") for o in field.get("options") or []
+        }
+        return ", ".join(str(by_id.get(v, v)) for v in value)
+    return value
+
+
+def parse_tally_csat(payload):
+    """Map a Tally C-SAT webhook payload to (email, Brevo attributes).
+
+    Questions are matched by field type plus a keyword in the label, so the
+    mapping survives a label reword. The respondent email comes from an email
+    question or a hidden field filled by the Brevo link.
+    """
+    data = (payload or {}).get("data") or {}
+    email = None
+    attributes = {}
+    for field in data.get("fields") or []:
+        field_type = (field.get("type") or "").upper()
+        label = (field.get("label") or "").lower()
+        value = field.get("value")
+        if value in (None, "", []):
+            continue
+        if field_type == "INPUT_EMAIL" or "email" in label:
+            if isinstance(value, str):
+                email = value
+        elif field_type in ("RATING", "LINEAR_SCALE"):
+            if "satisf" in label:
+                attributes["CSAT_SUPPORT_SATISFACTION"] = value
+            elif "quali" in label or "accompagn" in label:
+                attributes["CSAT_SUPPORT_QUALITY"] = value
+        elif field_type in ("MULTIPLE_CHOICE", "DROPDOWN", "CHECKBOXES"):
+            if "résol" in label or "resol" in label:
+                attributes["CSAT_SUPPORT_RESOLVED"] = _tally_field_text(field)
+        elif field_type in ("TEXTAREA", "INPUT_TEXT"):
+            attributes["CSAT_SUPPORT_COMMENT"] = value
+
+    created_at = data.get("createdAt") or (payload or {}).get("createdAt")
+    if isinstance(created_at, str) and created_at:
+        attributes["CSAT_SUPPORT_DATE"] = created_at[:10]
+    return email, attributes
+
+
+@app.route("/webhooks/tally-csat", methods=["POST"])
+def tally_csat_webhook():
+    # RGPD: keep the respondent email and free-text comment out of access logs.
+    if hasattr(g, "log_info"):
+        g.log_info["vars"] = "[redacted: tally-csat]"
+
+    secret = app.config.get("TALLY_WEBHOOK_SECRET")
+    if not secret:
+        logger.error("TALLY_WEBHOOK_SECRET not configured")
+        return "", 503
+
+    expected = base64.b64encode(
+        hmac.new(secret.encode(), request.get_data(), hashlib.sha256).digest()
+    ).decode()
+    if not hmac.compare_digest(
+        request.headers.get("Tally-Signature", ""), expected
+    ):
+        return "", 403
+
+    payload = request.get_json(silent=True) or {}
+    email, attributes = parse_tally_csat(payload)
+    if not email or "CSAT_SUPPORT_SATISFACTION" not in attributes:
+        field_types = [
+            field.get("type")
+            for field in (payload.get("data") or {}).get("fields") or []
+        ]
+        logger.error(
+            "Tally C-SAT webhook: incomplete payload "
+            "(email_present=%s, score_present=%s, field_types=%s)",
+            bool(email),
+            "CSAT_SUPPORT_SATISFACTION" in attributes,
+            field_types,
+        )
+        return "", 422
+
+    brevo.upsert_contact_attributes(email, attributes)
+    return "", 204
 
 
 @app.route("/campaign-click", methods=["GET"])
