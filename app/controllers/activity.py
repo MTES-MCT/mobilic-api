@@ -12,7 +12,10 @@ from app import db
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.activity import ActivityOutput
 from app.domain.dashboard_summary import invalidate_pending_validations_cache
-from app.domain.log_activities import log_activity
+from app.domain.log_activities import (
+    log_activity,
+    check_past_registration_motif,
+)
 from app.domain.mission_auto_validation import create_mission_auto_validation
 from app.jobs.break_alert import schedule_break_alert_if_needed
 from app.domain.permissions import (
@@ -96,6 +99,15 @@ def log_activity_(input):
     user_id = input.get("user_id")
     if user_id:
         user = User.query.get(user_id)
+
+    check_past_registration_motif(
+        submitter=current_user,
+        user=user,
+        mission=mission,
+        reception_time=reception_time,
+        event_time=input["start_time"],
+        context=input.get("context"),
+    )
 
     user_has_activity = mission.has_activity_for_user(user=user)
     if not user_has_activity:
@@ -247,6 +259,14 @@ def edit_activity(
     if cancel:
         activity_to_update.dismiss(reception_time, context)
     else:
+        check_past_registration_motif(
+            submitter=current_user,
+            user=activity_to_update.user,
+            mission=mission,
+            reception_time=reception_time,
+            event_time=start_time or activity_to_update.start_time,
+            context=context,
+        )
         updates = {}
         if start_time:
             updates["start_time"] = start_time
