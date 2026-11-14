@@ -333,6 +333,22 @@ class MissingJustificationForAdminValidation(MobilicError):
     default_message = "A company admin tried to validate after auto validation without a justification."
 
 
+class MissingPastRegistrationMotifError(MobilicError):
+    code = "MISSING_PAST_REGISTRATION_MOTIF"
+    http_status_code = 400
+    default_should_alert_team = False
+    default_message = "A motif is required when logging time after the fact (between 5 minutes and 24 hours in the past)."
+
+
+class InvalidPastRegistrationMotifError(MobilicError):
+    code = "INVALID_PAST_REGISTRATION_MOTIF"
+    http_status_code = 400
+    default_should_alert_team = False
+    default_message = (
+        "The provided past registration motif is not part of the allowed list."
+    )
+
+
 class ExpenditureDateNotIncludedInMissionRangeError(MobilicError):
     code = "EXPENDITURE_DATE_NOT_INCLUDED_IN_MISSION_RANGE"
     default_message = "The spending date of the expenditure is not between the start date and the end date of the mission."

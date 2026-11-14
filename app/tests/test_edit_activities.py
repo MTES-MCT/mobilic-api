@@ -4,7 +4,10 @@ from random import randint
 from app.models import Mission
 from app.models.activity import (
     Activity,
+    ActivityType,
 )
+from app.seed import UserFactory, CompanyFactory
+from app.tests import BaseTest
 from app.tests.helpers import (
     DBEntryUpdate,
     make_authenticated_request,
@@ -92,16 +95,20 @@ class TestEditActivities(TestLogActivities):
                     make_authenticated_request(
                         time=edit_time,
                         submitter_id=self.team_leader.id,
-                        query=ApiRequests.edit_activity
-                        if (new_activity_time or new_activity_end_time)
-                        else ApiRequests.cancel_activity,
-                        variables=dict(
-                            activity_id=activity_to_edit.id,
-                            start_time=new_activity_time,
-                            end_time=new_activity_end_time,
-                        )
-                        if (new_activity_time or new_activity_end_time)
-                        else dict(activity_id=activity_to_edit.id),
+                        query=(
+                            ApiRequests.edit_activity
+                            if (new_activity_time or new_activity_end_time)
+                            else ApiRequests.cancel_activity
+                        ),
+                        variables=(
+                            dict(
+                                activity_id=activity_to_edit.id,
+                                start_time=new_activity_time,
+                                end_time=new_activity_end_time,
+                            )
+                            if (new_activity_time or new_activity_end_time)
+                            else dict(activity_id=activity_to_edit.id)
+                        ),
                     )
 
     def _cancel_or_edit_activity_as_simple_member(
@@ -173,16 +180,20 @@ class TestEditActivities(TestLogActivities):
             make_authenticated_request(
                 time=edit_time,
                 submitter_id=team_mate_id,
-                query=ApiRequests.edit_activity
-                if (new_activity_time or new_activity_end_time)
-                else ApiRequests.cancel_activity,
-                variables=dict(
-                    activity_id=activity_to_edit.id,
-                    start_time=new_activity_time,
-                    end_time=new_activity_end_time,
-                )
-                if (new_activity_time or new_activity_end_time)
-                else dict(activity_id=activity_to_edit.id),
+                query=(
+                    ApiRequests.edit_activity
+                    if (new_activity_time or new_activity_end_time)
+                    else ApiRequests.cancel_activity
+                ),
+                variables=(
+                    dict(
+                        activity_id=activity_to_edit.id,
+                        start_time=new_activity_time,
+                        end_time=new_activity_end_time,
+                    )
+                    if (new_activity_time or new_activity_end_time)
+                    else dict(activity_id=activity_to_edit.id)
+                ),
             )
 
     def test_cancel_activity_as_team_leader(self):
@@ -411,3 +422,77 @@ class TestEditActivities(TestLogActivities):
             datetime(2020, 2, 7, 17, 30),
             exclude_team_mate_ids=[team_mate_id],
         )
+
+
+class TestEditActivityPastRegistrationMotif(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.worker = UserFactory.create(post__company=self.company)
+
+    def _own_activity(self, now):
+        mission_response = make_authenticated_request(
+            time=now,
+            submitter_id=self.worker.id,
+            query=ApiRequests.create_mission,
+            variables={"company_id": self.company.id},
+        )
+        mission_id = mission_response["data"]["activities"]["createMission"][
+            "id"
+        ]
+        make_authenticated_request(
+            time=now,
+            submitter_id=self.worker.id,
+            query=ApiRequests.log_activity,
+            variables=dict(
+                start_time=now,
+                mission_id=mission_id,
+                type=ActivityType.WORK,
+                switch=True,
+                context={"comment": "oubli"},
+            ),
+        )
+        return Activity.query.filter(
+            Activity.user_id == self.worker.id
+        ).first()
+
+    def _edit(self, now, activity, new_start, context=None):
+        return make_authenticated_request(
+            time=now,
+            submitter_id=self.worker.id,
+            query=ApiRequests.edit_activity,
+            variables=dict(
+                activity_id=activity.id,
+                start_time=new_start,
+                context=context,
+            ),
+        )
+
+    def _assert_error_code(self, response, code):
+        errors = response.get("errors")
+        self.assertTrue(errors)
+        self.assertEqual(errors[0]["extensions"]["code"], code)
+
+    def test_motif_required_when_editing_into_past_window(self):
+        now = datetime(2020, 2, 7, 12)
+        activity = self._own_activity(now)
+        new_start = datetime(2020, 2, 7, 11)
+
+        rejected = self._edit(now, activity, new_start)
+        self._assert_error_code(rejected, "MISSING_PAST_REGISTRATION_MOTIF")
+
+        accepted = self._edit(
+            now, activity, new_start, context={"comment": "oubli"}
+        )
+        self.assertIsNone(accepted.get("errors"))
+
+    def test_motif_outside_enum_when_editing_is_rejected(self):
+        now = datetime(2020, 2, 7, 12)
+        activity = self._own_activity(now)
+        response = self._edit(
+            now,
+            activity,
+            datetime(2020, 2, 7, 11),
+            context={"comment": "not_a_motif"},
+        )
+        self._assert_error_code(response, "INVALID_PAST_REGISTRATION_MOTIF")
