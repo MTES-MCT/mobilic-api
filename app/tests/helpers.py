@@ -851,6 +851,69 @@ class ApiRequests:
       }
     """
 
+    query_company_work_days = """
+      query CompanyWorkDays(
+        $id: Int!
+        $fromDate: Date
+        $untilDate: Date
+        $first: Int
+        $after: String
+        $userIds: [Int]
+      ) {
+        company(id: $id) {
+          workDays(
+            fromDate: $fromDate
+            untilDate: $untilDate
+            first: $first
+            after: $after
+            userIds: $userIds
+          ) {
+            edges {
+              node {
+                day
+                userId
+                serviceDuration
+              }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
+        }
+      }
+    """
+
+    query_user_work_days = """
+      query UserWorkDays(
+        $id: Int!
+        $fromDate: Date
+        $untilDate: Date
+        $first: Int
+        $after: String
+      ) {
+        user(id: $id) {
+          workDays(
+            fromDate: $fromDate
+            untilDate: $untilDate
+            first: $first
+            after: $after
+          ) {
+            edges {
+              node {
+                day
+                serviceDuration
+              }
+            }
+            pageInfo {
+              endCursor
+              hasNextPage
+            }
+          }
+        }
+      }
+    """
+
     change_name = """
       mutation changeName(
         $userId: Int!
@@ -1054,6 +1117,30 @@ class ApiRequests:
                     startTime: $startTime
                     endTime: $endTime
                     title: $title
+                ) {
+                    id
+                }
+            }
+        }
+    """
+
+    log_holiday_with_type = """
+        mutation logHoliday(
+            $companyId: Int!
+            $userId: Int
+            $startTime: TimeStamp!
+            $endTime: TimeStamp!
+            $title: String!
+            $activityType: ActivityTypeEnum
+        ) {
+            activities{
+                logHoliday(
+                    companyId: $companyId
+                    userId: $userId
+                    startTime: $startTime
+                    endTime: $endTime
+                    title: $title
+                    activityType: $activityType
                 ) {
                     id
                 }

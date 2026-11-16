@@ -1,6 +1,10 @@
 import unittest
+from datetime import datetime, date, timezone
+
+from uuid import uuid4
 
 from app.seed import CompanyFactory, UserFactory
+from app.seed.factories import EmploymentFactory
 from app.tests import (
     BaseTest,
     test_post_graphql,
@@ -241,6 +245,177 @@ class TestInvitations(BaseTest):
         # new employee has a pending invite from both companies
         self.check_has_pending_invite(new_employee, self.company)
         self.check_has_pending_invite(new_employee, self.company2)
+
+    def create_pending_email_invite(
+        self, email, company, status=None, end_date=None, dismissed=False
+    ):
+        return EmploymentFactory.create(
+            company=company,
+            submitter=self.admin,
+            user=None,
+            email=email,
+            hide_email=False,
+            validation_time=None,
+            invite_token=uuid4().hex,
+            end_date=end_date,
+            dismissed_at=(datetime.now(timezone.utc) if dismissed else None),
+            dismiss_author=self.admin if dismissed else None,
+            validation_status=(
+                status or EmploymentRequestValidationStatus.PENDING
+            ),
+        )
+
+    def active_email_invites(self, email, company):
+        return Employment.query.filter(
+            Employment.email == email,
+            Employment.company_id == company.id,
+            Employment.validation_status
+            == EmploymentRequestValidationStatus.PENDING,
+            Employment.dismissed_at.is_(None),
+            Employment.end_date.is_(None),
+        ).all()
+
+    def test_cannot_invite_same_email_twice(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(future_employee_email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        self.assertIsNotNone(response.json.get("errors"))
+        error_codes = [
+            err["extensions"]["code"] for err in response.json.get("errors")
+        ]
+        self.assertIn("OVERLAPPING_EMPLOYMENTS", error_codes)
+        self.check_has_pending_invite_by_email(
+            future_employee_email, self.company
+        )
+
+    def test_cannot_invite_same_email_twice_case_insensitive(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(future_employee_email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email.upper(), self.company
+        )
+
+        self.assertIsNotNone(response.json.get("errors"))
+        self.check_has_pending_invite_by_email(
+            future_employee_email, self.company
+        )
+
+    def test_pending_email_invite_uses_pending_invite_overlap_type(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(future_employee_email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["overlapType"], "pending_invite"
+        )
+
+    def test_cannot_invite_already_attached_employee_by_email(self):
+        attached = UserFactory.create(post__company=self.company)
+
+        response = invite_user_by_email(
+            self.admin, attached.email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(
+            errors[0]["extensions"]["code"], "OVERLAPPING_EMPLOYMENTS"
+        )
+        self.assertEqual(errors[0]["extensions"]["overlapType"], "company")
+        new_invites = Employment.query.filter_by(
+            company_id=self.company.id,
+            email=attached.email,
+            validation_status=EmploymentRequestValidationStatus.PENDING,
+        ).all()
+        self.assertEqual(len(new_invites), 0)
+
+    def test_attached_takes_precedence_over_pending_invite(self):
+        attached = UserFactory.create(post__company=self.company)
+        self.create_pending_email_invite(attached.email, self.company)
+
+        response = invite_user_by_email(
+            self.admin, attached.email, self.company
+        )
+
+        errors = response.json.get("errors")
+        self.assertIsNotNone(errors)
+        self.assertEqual(errors[0]["extensions"]["overlapType"], "company")
+
+    def test_can_reinvite_email_after_rejection(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(
+            future_employee_email,
+            self.company,
+            status=EmploymentRequestValidationStatus.REJECTED,
+        )
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        self.assertIsNone(response.json.get("errors"))
+        self.check_has_pending_invite_by_email(
+            future_employee_email, self.company
+        )
+
+    def test_can_reinvite_email_after_dismissal(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(
+            future_employee_email, self.company, dismissed=True
+        )
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        self.assertIsNone(response.json.get("errors"))
+        self.assertEqual(
+            len(
+                self.active_email_invites(future_employee_email, self.company)
+            ),
+            1,
+        )
+
+    def test_can_reinvite_email_after_termination(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(
+            future_employee_email, self.company, end_date=date(2000, 1, 1)
+        )
+
+        response = invite_user_by_email(
+            self.admin, future_employee_email, self.company
+        )
+
+        self.assertIsNone(response.json.get("errors"))
+        self.assertEqual(
+            len(
+                self.active_email_invites(future_employee_email, self.company)
+            ),
+            1,
+        )
+
+    def test_can_invite_same_email_in_different_companies(self):
+        future_employee_email = "future_employee@toto.com"
+        self.create_pending_email_invite(future_employee_email, self.company)
+
+        response = invite_user_by_email(
+            self.admin2, future_employee_email, self.company2
+        )
+
+        self.assertIsNone(response.json.get("errors"))
+        self.check_has_pending_invite_by_email(
+            future_employee_email, self.company2
+        )
 
     def test_invite_by_email_case_insensitive(self):
         future_employee_email = "future_employee@toto.com"

@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.activity import ActivityOutput
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.log_activities import log_activity
 from app.domain.mission_auto_validation import create_mission_auto_validation
 from app.jobs.break_alert import schedule_break_alert_if_needed
@@ -142,9 +143,11 @@ class LogActivity(AuthenticatedMutation):
             "mission": Mission.query.options(
                 selectinload(Mission.activities)
             ).get(kwargs["mission_id"]),
-            "user": User.query.get(kwargs["user_id"])
-            if "user_id" in kwargs
-            else None,
+            "user": (
+                User.query.get(kwargs["user_id"])
+                if "user_id" in kwargs
+                else None
+            ),
         },
         error_message="Actor is not authorized to log in the mission",
     )
@@ -264,10 +267,9 @@ def edit_activity(
                     reception_time,
                 )
             except Exception:
-                logger.warning(
-                    "Failed to reschedule break alert"
-                )
+                logger.warning("Failed to reschedule break alert")
 
+    invalidate_pending_validations_cache(mission.company_id)
     return activity_to_update
 
 
@@ -466,7 +468,10 @@ class DisputeActivity(AuthenticatedMutation):
                 raise AuthorizationError(
                     "Only the employee concerned by the activity can dispute it"
                 )
-            if activity.dispute and activity.dispute.get("status") == "created":
+            if (
+                activity.dispute
+                and activity.dispute.get("status") == "created"
+            ):
                 raise InvalidParamsError("Activity is already disputed")
             latest_admin_validation = max(
                 (
@@ -523,7 +528,10 @@ class CancelDispute(AuthenticatedMutation):
             activity = Activity.query.get(cancel_input["activity_id"])
             if not activity:
                 raise InvalidParamsError("Activity not found")
-            if not activity.dispute or activity.dispute.get("status") != "created":
+            if (
+                not activity.dispute
+                or activity.dispute.get("status") != "created"
+            ):
                 raise InvalidParamsError("No active dispute on this activity")
             if current_user.id != activity.dispute.get("submitter_id"):
                 raise AuthorizationError(

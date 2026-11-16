@@ -3,6 +3,7 @@ import graphene
 from app import db, mailer, app
 from app.controllers.utils import atomic_transaction
 from app.data_access.company import CompanyOutput
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
 from app.domain.permissions import company_admin
 from app.domain.team import populate_team, handle_mail_to_admin_users
 from app.helpers.authentication import AuthenticatedMutation
@@ -50,6 +51,7 @@ class DeleteTeam(AuthenticatedMutation):
             except Exception as e:
                 app.logger.exception(e)
 
+        invalidate_pending_validations_cache(company_id)
         return Company.query.get(company_id)
 
 
@@ -130,6 +132,7 @@ class CreateTeam(AuthenticatedMutation):
             except Exception as e:
                 app.logger.exception(e)
 
+        invalidate_pending_validations_cache(company_id)
         return Company.query.get(company_id)
 
 
@@ -207,4 +210,5 @@ class UpdateTeam(AuthenticatedMutation):
             except Exception as e:
                 app.logger.exception(e)
 
+        invalidate_pending_validations_cache(team_to_update.company_id)
         return Company.query.get(team_to_update.company_id)

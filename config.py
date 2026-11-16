@@ -50,6 +50,10 @@ class Config:
         "https://matrix.agent.dev-durable.tchap.gouv.fr",
     )
     COMPLIANCE_ALERT_EMAIL = os.environ.get("COMPLIANCE_ALERT_EMAIL")
+    API_HOST = os.environ.get("API_HOST")
+    TCHAP_PLATFORM_ALERTS_ROOM_ID = os.environ.get(
+        "TCHAP_PLATFORM_ALERTS_ROOM_ID"
+    )
     OVH_LDP_TOKEN = os.environ.get("OVH_LDP_TOKEN")
     MAXIMUM_TIME_AHEAD_FOR_EVENT = timedelta(minutes=5)
     SIREN_API_KEY = os.environ.get("SIREN_API_KEY")

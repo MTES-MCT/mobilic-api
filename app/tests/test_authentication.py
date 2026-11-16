@@ -582,9 +582,8 @@ class TestDisablePasswordCheckParsing(TestCase):
 
 
 class TestOW8LoginUnknownEmail(BaseTest):
-    @expectedFailure
-    def test_unknown_email_returns_generic_error(self):
-        """LoginMutation crashes with AttributeError on None."""
+    def test_unknown_email_returns_authentication_error(self):
+        """Unknown email must yield AUTHENTICATION_ERROR, not an AttributeError crash."""
         response = test_post_graphql(
             query=ApiRequests.login_query,
             variables=dict(

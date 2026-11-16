@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta, timezone
 
+from app import db
 from app.models.activity import ActivityType
 from app.models.queries import query_work_day_stats
 from app.seed import CompanyFactory, UserFactory
@@ -39,9 +40,10 @@ class TestWorkDayStatsMissionWindow(BaseTest):
         return mission
 
     def _worked_user_ids(self, start_date, end_date):
-        rows, _ = query_work_day_stats(
+        work_days_query = query_work_day_stats(
             self.company.id, start_date=start_date, end_date=end_date
         )
+        rows = db.session.query(work_days_query).all()
         return {r.user_id for r in rows if r.service_duration > 0}
 
     def test_in_window_mission_is_returned(self):

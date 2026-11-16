@@ -11,7 +11,11 @@ from app.controllers.user import TIMEZONE_DESC
 from app.controllers.utils import atomic_transaction, Void
 from app.data_access.company import CompanyOutput
 from app.data_access.employment import EmploymentOutput
-from app.domain.employment import create_employment_by_third_party_if_needed
+from app.domain.dashboard_summary import invalidate_pending_validations_cache
+from app.domain.employment import (
+    create_employment_by_third_party_if_needed,
+    get_already_invited_emails,
+)
 from app.domain.permissions import (
     company_admin,
     only_self_employment,
@@ -48,6 +52,7 @@ from app.helpers.errors import (
     UserSelfTerminateEmploymentError,
     ActivityExistAfterEmploymentEndDate,
     EmploymentAlreadyTerminated,
+    OverlappingEmploymentsError,
 )
 from app.helpers.graphene_types import Email
 from app.helpers.mail import MailjetError
@@ -271,6 +276,26 @@ class CreateEmployment(AuthenticatedMutation):
                         company_id=company.id,
                     )
 
+            if user_email:
+                blocking_status = get_already_invited_emails(
+                    company.id, [user_email]
+                ).get(user_email)
+                if (
+                    blocking_status
+                    == EmploymentRequestValidationStatus.APPROVED
+                ):
+                    raise OverlappingEmploymentsError(
+                        "The employee is already attached to the company",
+                        overlap_type="company",
+                        should_alert_team=False,
+                    )
+                if blocking_status is not None:
+                    raise OverlappingEmploymentsError(
+                        "An invitation has already been sent to this email address",
+                        overlap_type="pending_invite",
+                        should_alert_team=False,
+                    )
+
             start_date = employment_input.get("start_date", date.today())
 
             employment = Employment(
@@ -349,7 +374,13 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
         get_target_from_args=lambda *args, **kwargs: kwargs["company_id"],
     )
     def mutate(cls, _, info, company_id, mails=None, user_ids=None):
-        mails = mails or []
+        seen_emails = set()
+        deduped_mails = []
+        for mail in mails or []:
+            if mail.lower() not in seen_emails:
+                seen_emails.add(mail.lower())
+                deduped_mails.append(mail)
+        mails = deduped_mails
         user_ids = list(dict.fromkeys(user_ids or []))
         total_count = len(mails) + len(user_ids)
 
@@ -379,6 +410,13 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
                     u.email.lower() for u in users_by_id.values() if u.email
                 }
                 mails = [m for m in mails if m.lower() not in existing_emails]
+
+            if mails:
+                already_invited = get_already_invited_emails(company.id, mails)
+                if already_invited:
+                    mails = [
+                        m for m in mails if m.lower() not in already_invited
+                    ]
 
             email_employments = [
                 Employment(
@@ -929,6 +967,7 @@ class ChangeEmployeeTeam(AuthenticatedMutation):
                         employment_id=employment_id, team_id=team_id
                     )
 
+        invalidate_pending_validations_cache(company_id)
         return Company.query.get(company_id)
 
 
