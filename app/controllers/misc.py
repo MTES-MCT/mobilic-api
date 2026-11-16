@@ -92,35 +92,56 @@ def _tally_field_text(field):
     return value
 
 
+def _tally_field_attribute(field_type, label, value, field):
+    """Map one answered Tally field to a (attribute_name, value) pair.
+
+    Returns ("email", address) for the respondent email, or None for a field
+    that maps to nothing. Questions are matched by field type plus a keyword in
+    the label, so the mapping survives a label reword.
+    """
+    if field_type == "INPUT_EMAIL" or "email" in label:
+        return ("email", value) if isinstance(value, str) else None
+    if field_type in ("RATING", "LINEAR_SCALE"):
+        if "satisf" in label:
+            return "CSAT_SUPPORT_SATISFACTION", value
+        if "quali" in label or "accompagn" in label:
+            return "CSAT_SUPPORT_QUALITY", value
+        return None
+    if field_type in ("MULTIPLE_CHOICE", "DROPDOWN", "CHECKBOXES"):
+        if "résol" in label or "resol" in label:
+            return "CSAT_SUPPORT_RESOLVED", _tally_field_text(field)
+        return None
+    if field_type in ("TEXTAREA", "INPUT_TEXT"):
+        return "CSAT_SUPPORT_COMMENT", value
+    return None
+
+
 def parse_tally_csat(payload):
     """Map a Tally C-SAT webhook payload to (email, Brevo attributes).
 
-    Questions are matched by field type plus a keyword in the label, so the
-    mapping survives a label reword. The respondent email comes from an email
-    question or a hidden field filled by the Brevo link.
+    The respondent email comes from an email question or a hidden field filled
+    by the Brevo link.
     """
     data = (payload or {}).get("data") or {}
     email = None
     attributes = {}
     for field in data.get("fields") or []:
-        field_type = (field.get("type") or "").upper()
-        label = (field.get("label") or "").lower()
         value = field.get("value")
         if value in (None, "", []):
             continue
-        if field_type == "INPUT_EMAIL" or "email" in label:
-            if isinstance(value, str):
-                email = value
-        elif field_type in ("RATING", "LINEAR_SCALE"):
-            if "satisf" in label:
-                attributes["CSAT_SUPPORT_SATISFACTION"] = value
-            elif "quali" in label or "accompagn" in label:
-                attributes["CSAT_SUPPORT_QUALITY"] = value
-        elif field_type in ("MULTIPLE_CHOICE", "DROPDOWN", "CHECKBOXES"):
-            if "résol" in label or "resol" in label:
-                attributes["CSAT_SUPPORT_RESOLVED"] = _tally_field_text(field)
-        elif field_type in ("TEXTAREA", "INPUT_TEXT"):
-            attributes["CSAT_SUPPORT_COMMENT"] = value
+        mapping = _tally_field_attribute(
+            (field.get("type") or "").upper(),
+            (field.get("label") or "").lower(),
+            value,
+            field,
+        )
+        if not mapping:
+            continue
+        key, mapped = mapping
+        if key == "email":
+            email = mapped
+        else:
+            attributes[key] = mapped
 
     created_at = data.get("createdAt") or (payload or {}).get("createdAt")
     if isinstance(created_at, str) and created_at:
@@ -131,8 +152,11 @@ def parse_tally_csat(payload):
 @app.route("/webhooks/tally-csat", methods=["POST"])
 def tally_csat_webhook():
     # RGPD: keep the respondent email and free-text comment out of access logs.
+    # store_time_and_request_params copies the payload into both 'vars' and
+    # 'json', so redact both.
     if hasattr(g, "log_info"):
         g.log_info["vars"] = "[redacted: tally-csat]"
+        g.log_info["json"] = "[redacted: tally-csat]"
 
     secret = app.config.get("TALLY_WEBHOOK_SECRET")
     if not secret:

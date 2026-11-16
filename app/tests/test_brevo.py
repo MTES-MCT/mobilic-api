@@ -213,6 +213,16 @@ class TestTallyCsatWebhook(TestCase):
         self.assertEqual(403, resp.status_code)
         upsert.assert_not_called()
 
+    def test_payload_is_redacted_from_request_log(self):
+        body = json.dumps(_tally_csat_payload()).encode()
+        with patch.dict(app.config, {"TALLY_WEBHOOK_SECRET": self.SECRET}):
+            with patch.object(brevo, "upsert_contact_attributes"):
+                with patch.object(app.logger, "info") as log_info:
+                    self._post(body, self._sign(body))
+        extra = log_info.call_args.kwargs["extra"]
+        self.assertEqual("[redacted: tally-csat]", extra["vars"])
+        self.assertEqual("[redacted: tally-csat]", extra["json"])
+
     def test_incomplete_payload_returns_422_without_upsert(self):
         payload = _tally_csat_payload()
         payload["data"]["fields"] = [
