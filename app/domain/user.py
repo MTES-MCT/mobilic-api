@@ -7,6 +7,7 @@ from app import app, db, mailer
 from app.models import User, Employment, Company
 from app.models.email import Email
 from app.models.user import UserAccountStatus
+from app.helpers.errors import InvalidParamsError
 from app.helpers.mail_type import EmailType
 
 HIDDEN_EMAIL = "***"
@@ -81,8 +82,13 @@ def create_user(
         # we found the employment, let's accept it for the user
         else:
             employment_to_validate.bind(user)
-            employment_to_validate.validate_by(user)
-            company = employment_to_validate.company
+            try:
+                employment_to_validate.validate_by(user)
+                company = employment_to_validate.company
+            except InvalidParamsError:
+                app.logger.warning(
+                    f"Could not validate employment {employment_to_validate.id} for new user: invitation expired"
+                )
 
     # in case we don't have an invite_token, let's try to find an employment based on the user email
     else:

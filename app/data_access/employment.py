@@ -45,6 +45,7 @@ class EmploymentOutput(BaseSQLAlchemyObjectType):
             "is_active",
             "is_terminated",
             "is_inactive",
+            "is_temporary",
             "status",
             "detachment_request",
         )

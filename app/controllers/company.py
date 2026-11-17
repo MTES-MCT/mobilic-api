@@ -26,6 +26,7 @@ from app.domain.company import (
     get_siren_registration_status,
     link_company_to_software,
     apply_business_type_to_company_employees,
+    has_active_temporary_employments,
 )
 from app.domain.permissions import (
     is_employed_by_company_over_period,
@@ -578,6 +579,10 @@ class EditCompanySettings(AuthenticatedMutation):
             required=False,
             description="Sous-titre de l'activité de type 'Autre tâche'",
         )
+        allow_temporary_employees = graphene.Boolean(
+            required=False,
+            description="Active ou désactive la possibilité d'inviter des salariés temporaires",
+        )
 
     Output = CompanyOutput
 
@@ -592,6 +597,16 @@ class EditCompanySettings(AuthenticatedMutation):
     def mutate(cls, _, info, company_id, **kwargs):
         with atomic_transaction(commit_at_end=True):
             company = Company.query.get(company_id)
+
+            if (
+                kwargs.get("allow_temporary_employees") is False
+                and company.allow_temporary_employees
+                and has_active_temporary_employments(company_id)
+            ):
+                raise InvalidParamsError(
+                    "Cannot disable temporary employees while active temporary employments exist."
+                )
+
             is_there_something_updated = False
             updated_fields = []
 

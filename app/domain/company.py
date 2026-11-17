@@ -21,6 +21,20 @@ from app.models.employment import EmploymentRequestValidationStatus
 from app.models.user_agreement import UserAgreementStatus
 
 
+def has_active_temporary_employments(company_id):
+    return (
+        Employment.query.filter(
+            Employment.company_id == company_id,
+            Employment.is_temporary.is_(True),
+            ~Employment.is_dismissed,
+            Employment.validation_status
+            != EmploymentRequestValidationStatus.REJECTED,
+            Employment.end_date > datetime.date.today(),
+        ).count()
+        > 0
+    )
+
+
 class SirenRegistrationStatus(str, Enum):
     UNREGISTERED = "unregistered"
     FULLY_REGISTERED = "fully_registered"
@@ -311,7 +325,8 @@ def find_admins_of_companies_still_without_activity_for_reminder(
         exists().where(
             and_(
                 Email.employment_id == Employment.id,
-                Email.type == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
+                Email.type
+                == EmailType.COMPANY_WITH_EMPLOYEE_BUT_WITHOUT_ACTIVITY,
                 Email.creation_time
                 <= datetime.datetime.combine(
                     received_first_email_before_date,
