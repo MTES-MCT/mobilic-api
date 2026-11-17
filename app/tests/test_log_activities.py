@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
+from app.domain.log_activities import past_registration_requires_motif
 from app.helpers.errors import OverlappingMissionsError
-from app.models import Mission
+from app.models import Mission, ActivityVersion
 from app.models.activity import (
     ActivityType,
     Activity,
@@ -64,9 +65,11 @@ class TestLogActivities(BaseTest):
             },
         )
         with test_db_changes(
-            expected_db_changes
-            if not should_fail
-            else {"mission": expected_db_changes["mission"]},
+            (
+                expected_db_changes
+                if not should_fail
+                else {"mission": expected_db_changes["mission"]}
+            ),
             watch_models=[Activity, Mission],
         ):
             create_mission_response = make_authenticated_request(
@@ -147,9 +150,11 @@ class TestLogActivities(BaseTest):
                         model=Activity,
                         before=None,
                         after=dict(
-                            type=ActivityType.DRIVE
-                            if team_mate_id == self.team_leader.id
-                            else ActivityType.SUPPORT,
+                            type=(
+                                ActivityType.DRIVE
+                                if team_mate_id == self.team_leader.id
+                                else ActivityType.SUPPORT
+                            ),
                             reception_time=second_event_time,
                             start_time=second_event_time,
                             end_time=third_event_time,
@@ -215,9 +220,11 @@ class TestLogActivities(BaseTest):
                     submitter_id=self.team_leader.id,
                     query=ApiRequests.log_activity,
                     variables=dict(
-                        type=ActivityType.DRIVE
-                        if team_mate_id == self.team_leader.id
-                        else ActivityType.SUPPORT,
+                        type=(
+                            ActivityType.DRIVE
+                            if team_mate_id == self.team_leader.id
+                            else ActivityType.SUPPORT
+                        ),
                         start_time=second_event_time,
                         mission_id=mission_id,
                         user_id=team_mate_id,
@@ -398,3 +405,127 @@ class TestLogActivities(BaseTest):
         self.assertEqual(
             errors[0]["extensions"]["code"], OverlappingMissionsError.code
         )
+
+
+class TestPastRegistrationMotif(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.worker = UserFactory.create(post__company=self.company)
+
+    def _create_mission(self, time, past_registration_justification=None):
+        variables = {"company_id": self.company.id}
+        if past_registration_justification is not None:
+            variables["past_registration_justification"] = (
+                past_registration_justification
+            )
+        response = make_authenticated_request(
+            time=time,
+            submitter_id=self.worker.id,
+            query=ApiRequests.create_mission,
+            variables=variables,
+        )
+        return response["data"]["activities"]["createMission"]["id"]
+
+    def _log_own_activity(self, now, start_time, mission_id, context=None):
+        return make_authenticated_request(
+            time=now,
+            submitter_id=self.worker.id,
+            query=ApiRequests.log_activity,
+            variables=dict(
+                start_time=start_time,
+                mission_id=mission_id,
+                type=ActivityType.WORK,
+                switch=True,
+                context=context,
+            ),
+        )
+
+    def _assert_error_code(self, response, code):
+        errors = response.get("errors")
+        self.assertTrue(errors)
+        self.assertEqual(errors[0]["extensions"]["code"], code)
+
+    def test_motif_required_in_window_without_motif_is_rejected(self):
+        now = datetime(2020, 2, 7, 10)
+        mission_id = self._create_mission(now)
+        response = self._log_own_activity(
+            now, start_time=datetime(2020, 2, 7, 9), mission_id=mission_id
+        )
+        self._assert_error_code(response, "MISSING_PAST_REGISTRATION_MOTIF")
+
+    def test_motif_valid_in_window_is_accepted_and_stored(self):
+        now = datetime(2020, 2, 7, 10)
+        mission_id = self._create_mission(now)
+        with test_db_changes(
+            {
+                "version": DBEntryUpdate(
+                    model=ActivityVersion,
+                    before=None,
+                    after=dict(context={"comment": "oubli"}),
+                )
+            },
+            watch_models=[ActivityVersion],
+        ):
+            response = self._log_own_activity(
+                now,
+                start_time=datetime(2020, 2, 7, 9),
+                mission_id=mission_id,
+                context={"comment": "oubli"},
+            )
+        self.assertIsNone(response.get("errors"))
+
+    def test_motif_outside_enum_is_rejected(self):
+        now = datetime(2020, 2, 7, 10)
+        mission_id = self._create_mission(now)
+        response = self._log_own_activity(
+            now,
+            start_time=datetime(2020, 2, 7, 9),
+            mission_id=mission_id,
+            context={"comment": "not_a_motif"},
+        )
+        self._assert_error_code(response, "INVALID_PAST_REGISTRATION_MOTIF")
+
+    def test_no_motif_required_beyond_24h(self):
+        now = datetime(2020, 2, 7, 10)
+        mission_id = self._create_mission(now)
+        response = self._log_own_activity(
+            now, start_time=datetime(2020, 2, 6, 3), mission_id=mission_id
+        )
+        self.assertIsNone(response.get("errors"))
+
+    def test_window_boundaries(self):
+        ref = datetime(2020, 2, 7, 10)
+        self.assertFalse(
+            past_registration_requires_motif(ref, ref - timedelta(minutes=3))
+        )
+        self.assertFalse(
+            past_registration_requires_motif(ref, ref - timedelta(minutes=5))
+        )
+        self.assertTrue(
+            past_registration_requires_motif(
+                ref, ref - timedelta(minutes=5, seconds=1)
+            )
+        )
+        self.assertTrue(
+            past_registration_requires_motif(ref, ref - timedelta(hours=1))
+        )
+        self.assertTrue(
+            past_registration_requires_motif(ref, ref - timedelta(hours=24))
+        )
+        self.assertFalse(
+            past_registration_requires_motif(
+                ref, ref - timedelta(hours=24, seconds=1)
+            )
+        )
+        self.assertFalse(past_registration_requires_motif(ref, None))
+
+    def test_no_motif_required_when_mission_already_justified(self):
+        now = datetime(2020, 2, 7, 10)
+        mission_id = self._create_mission(
+            now, past_registration_justification="oubli"
+        )
+        response = self._log_own_activity(
+            now, start_time=datetime(2020, 2, 7, 9), mission_id=mission_id
+        )
+        self.assertIsNone(response.get("errors"))
