@@ -833,6 +833,7 @@ class TestTemporaryEmployment(BaseTest):
         emp = Employment.query.get(self.employment_id)
         emp.is_temporary = False
         emp.end_date = end_date
+        emp.has_admin_rights = True
         db.session.commit()
 
     def _update_end_date(self, end_date, user=None, employment_id=None):
@@ -1019,6 +1020,7 @@ class TestTemporaryEmployment(BaseTest):
         emp = Employment.query.get(self.employment_id)
         emp.is_temporary = False
         emp.end_date = None
+        emp.has_admin_rights = True
         emp.dismissed_at = datetime.now()
         emp.dismiss_author_id = self.admin.id
         db.session.commit()
@@ -1110,6 +1112,18 @@ class TestTemporaryEmployment(BaseTest):
             ),
             InvalidParamsError.code,
             "today or later",
+        )
+
+    def test_temporary_end_date_before_start_date_refused(self):
+        self._assert_error(
+            self._invite(
+                mail="temp@test.com",
+                isTemporary=True,
+                startDate=str(date.today() + timedelta(days=10)),
+                endDate=str(date.today() + timedelta(days=5)),
+            ),
+            InvalidParamsError.code,
+            "on or after the start date",
         )
 
     def test_temporary_valid_invitation_succeeds(self):

@@ -195,21 +195,94 @@ def _has_activities_after(employment, end_date):
     )
 
 
-def _check_temporary_employment(company, end_date, has_admin_rights=False):
+def _check_temporary_employment(
+    company, end_date, has_admin_rights=False, start_date=None
+):
+    if not company.allow_temporary_employees:
+        raise InvalidParamsError(
+            "Temporary employees are not enabled for this company."
+        )
     if not end_date:
         raise InvalidParamsError(
             "A temporary employment requires an end date."
         )
     if end_date < date.today():
         raise InvalidParamsError("End date must be today or later.")
-    if not company.allow_temporary_employees:
+    if start_date and end_date < start_date:
         raise InvalidParamsError(
-            "Temporary employees are not enabled for this company."
+            "End date must be on or after the start date."
         )
     if has_admin_rights:
         raise InvalidParamsError(
             "A temporary employee cannot have admin rights."
         )
+
+
+def _check_employment_end_date(
+    company, is_temporary, end_date, has_admin_rights=False
+):
+    if is_temporary:
+        _check_temporary_employment(company, end_date, has_admin_rights)
+    elif end_date:
+        raise InvalidParamsError(
+            "End date is only allowed for temporary employments."
+        )
+
+
+def _build_invite_entries(mails, user_ids, entries):
+    defaults = {"has_admin_rights": False, "is_temporary": False}
+    all_entries = [{"mail": mail.lower(), **defaults} for mail in mails or []]
+    all_entries += [
+        {"user_id": uid, **defaults} for uid in dict.fromkeys(user_ids or [])
+    ]
+    all_entries += [
+        {
+            "mail": entry.get("mail") and entry["mail"].lower(),
+            "user_id": entry.get("user_id"),
+            "has_admin_rights": entry.get("has_admin_rights", False),
+            "is_temporary": entry.get("is_temporary", False),
+            "end_date": entry.get("end_date"),
+        }
+        for entry in entries or []
+    ]
+    return all_entries
+
+
+def _check_invite_entry(company, entry):
+    if (entry.get("mail") is None) == (entry.get("user_id") is None):
+        raise InvalidParamsError(
+            "Exactly one of userId or mail should be provided."
+        )
+    _check_employment_end_date(
+        company,
+        entry.get("is_temporary"),
+        entry.get("end_date"),
+        entry.get("has_admin_rights"),
+    )
+
+
+def _find_invited_users(entries):
+    user_ids = {e["user_id"] for e in entries if e.get("user_id")}
+    if not user_ids:
+        return {}
+    return {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()}
+
+
+def _dedupe_invite_entries(entries):
+    seen = {}
+    for e in entries:
+        key = e.get("mail") or f"uid:{e.get('user_id')}"
+        prev = seen.get(key)
+        if prev is None:
+            seen[key] = e
+        elif any(
+            prev.get(option) != e.get(option)
+            for option in ("has_admin_rights", "is_temporary", "end_date")
+        ):
+            raise InvalidParamsError(
+                f"Duplicate entry for {key} with conflicting options."
+            )
+    return list(seen.values())
 
 
 class CreateEmployment(AuthenticatedMutation):
@@ -335,12 +408,11 @@ class CreateEmployment(AuthenticatedMutation):
             end_date = employment_input.get("end_date")
             if is_temporary:
                 _check_temporary_employment(
-                    company, end_date, employment_input.get("has_admin_rights")
+                    company,
+                    end_date,
+                    employment_input.get("has_admin_rights"),
+                    start_date,
                 )
-                if end_date < start_date:
-                    raise InvalidParamsError(
-                        "End date must be on or after the start date."
-                    )
 
             employment = Employment(
                 reception_time=reception_time,
@@ -453,37 +525,7 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
     def mutate(
         cls, _, info, company_id, mails=None, user_ids=None, entries=None
     ):
-        mails = mails or []
-        user_ids = list(dict.fromkeys(user_ids or []))
-        entries = entries or []
-
-        all_entries = []
-        for mail in mails:
-            all_entries.append(
-                {
-                    "mail": mail,
-                    "has_admin_rights": False,
-                    "is_temporary": False,
-                }
-            )
-        for uid in user_ids:
-            all_entries.append(
-                {
-                    "user_id": uid,
-                    "has_admin_rights": False,
-                    "is_temporary": False,
-                }
-            )
-        for entry in entries:
-            all_entries.append(
-                {
-                    "mail": entry.get("mail"),
-                    "user_id": entry.get("user_id"),
-                    "has_admin_rights": entry.get("has_admin_rights", False),
-                    "is_temporary": entry.get("is_temporary", False),
-                    "end_date": entry.get("end_date"),
-                }
-            )
+        all_entries = _build_invite_entries(mails, user_ids, entries)
 
         if len(all_entries) == 0:
             raise InvalidParamsError(
@@ -500,38 +542,9 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
             company = Company.query.get(company_id)
             today = reception_time.date()
 
-            for e in all_entries:
-                if e.get("mail"):
-                    e["mail"] = e["mail"].lower()
+            deduped_entries = _dedupe_invite_entries(all_entries)
 
-            seen = {}
-            for e in all_entries:
-                key = e.get("mail") or f"uid:{e.get('user_id')}"
-                if key in seen:
-                    prev = seen[key]
-                    if (
-                        prev.get("has_admin_rights")
-                        == e.get("has_admin_rights")
-                        and prev.get("is_temporary") == e.get("is_temporary")
-                        and prev.get("end_date") == e.get("end_date")
-                    ):
-                        continue
-                    raise InvalidParamsError(
-                        f"Duplicate entry for {key} with conflicting options."
-                    )
-                seen[key] = e
-
-            deduped_entries = list(seen.values())
-
-            id_user_ids = {
-                e["user_id"] for e in deduped_entries if e.get("user_id")
-            }
-            users_by_id = {}
-            if id_user_ids:
-                users_by_id = {
-                    u.id: u
-                    for u in User.query.filter(User.id.in_(id_user_ids)).all()
-                }
+            users_by_id = _find_invited_users(deduped_entries)
             id_emails = {
                 u.email.lower() for u in users_by_id.values() if u.email
             }
@@ -546,31 +559,14 @@ class CreateWorkerEmploymentsFromEmails(AuthenticatedMutation):
             ]
 
             for e in deduped_entries:
-                has_mail = e.get("mail") is not None
-                has_uid = e.get("user_id") is not None
-                if has_mail == has_uid:
-                    raise InvalidParamsError(
-                        "Exactly one of userId or mail should be provided."
-                    )
-                if e.get("is_temporary"):
-                    _check_temporary_employment(
-                        company, e.get("end_date"), e.get("has_admin_rights")
-                    )
-                elif e.get("end_date"):
-                    raise InvalidParamsError(
-                        "End date is only allowed for temporary employments."
-                    )
+                _check_invite_entry(company, e)
 
             employments = []
             for e in deduped_entries:
                 mail = e.get("mail")
-                uid = e.get("user_id")
-                user = None
-
-                if uid:
-                    user = users_by_id.get(uid)
-                    if not user:
-                        continue
+                user = users_by_id.get(e.get("user_id"))
+                if e.get("user_id") and not user:
+                    continue
 
                 emp = Employment(
                     reception_time=reception_time,
@@ -1244,6 +1240,22 @@ class SnoozeNbWorkerInfo(AuthenticatedMutation):
         return Void(success=True)
 
 
+def _set_reattached_contract(employment, is_temporary, end_date):
+    employment.is_temporary = is_temporary
+    employment.end_date = end_date if is_temporary else None
+    if is_temporary:
+        employment.has_admin_rights = False
+
+
+def _send_reattachment_email(employment):
+    try:
+        mailer.send_employment_reattachment_email(employment)
+    except Exception as e:
+        app.logger.exception(e)
+        return False
+    return True
+
+
 class ReattachEmployment(AuthenticatedMutation):
     """
     Réattachement d'un salarié précédemment détaché à une entreprise.
@@ -1294,12 +1306,7 @@ class ReattachEmployment(AuthenticatedMutation):
             if not company:
                 raise InvalidResourceError("Company not found")
 
-            if is_temporary:
-                _check_temporary_employment(company, end_date)
-            elif end_date:
-                raise InvalidParamsError(
-                    "End date is only allowed for temporary employments."
-                )
+            _check_employment_end_date(company, is_temporary, end_date)
 
             dismissed_employment = (
                 Employment.query.filter(
@@ -1323,25 +1330,14 @@ class ReattachEmployment(AuthenticatedMutation):
                     EmploymentRequestValidationStatus.APPROVED
                 )
                 dismissed_employment.validation_time = datetime.now()
-                dismissed_employment.is_temporary = is_temporary
-                dismissed_employment.end_date = (
-                    end_date if is_temporary else None
+                _set_reattached_contract(
+                    dismissed_employment, is_temporary, end_date
                 )
-                if is_temporary:
-                    dismissed_employment.has_admin_rights = False
                 db.session.flush()
 
-                email_sent = True
-                try:
-                    mailer.send_employment_reattachment_email(
-                        dismissed_employment
-                    )
-                except Exception as e:
-                    app.logger.exception(e)
-                    email_sent = False
-
                 return ReattachEmployment(
-                    employment=dismissed_employment, email_sent=email_sent
+                    employment=dismissed_employment,
+                    email_sent=_send_reattachment_email(dismissed_employment),
                 )
 
             terminated_employment = (
@@ -1380,26 +1376,15 @@ class ReattachEmployment(AuthenticatedMutation):
 
             # Case 1: Same-day termination → Cancel the termination (error correction)
             if terminated_employment.end_date == date.today():
-                terminated_employment.end_date = (
-                    end_date if is_temporary else None
+                _set_reattached_contract(
+                    terminated_employment, is_temporary, end_date
                 )
-                terminated_employment.is_temporary = is_temporary
-                if is_temporary:
-                    terminated_employment.has_admin_rights = False
                 terminated_employment.detachment_request = None
                 db.session.flush()
 
-                email_sent = True
-                try:
-                    mailer.send_employment_reattachment_email(
-                        terminated_employment
-                    )
-                except Exception as e:
-                    app.logger.exception(e)
-                    email_sent = False
-
                 return ReattachEmployment(
-                    employment=terminated_employment, email_sent=email_sent
+                    employment=terminated_employment,
+                    email_sent=_send_reattachment_email(terminated_employment),
                 )
 
             # Case 2: Termination with days gap → Create new employment
@@ -1409,29 +1394,18 @@ class ReattachEmployment(AuthenticatedMutation):
                 validation_status=EmploymentRequestValidationStatus.APPROVED,
                 validation_time=datetime.now(),
                 start_date=date.today(),
-                end_date=end_date if is_temporary else None,
-                is_temporary=is_temporary,
                 company=company,
                 user=user,
                 user_id=user_id,
-                has_admin_rights=(
-                    False
-                    if is_temporary
-                    else terminated_employment.has_admin_rights
-                ),
+                has_admin_rights=terminated_employment.has_admin_rights,
                 team_id=terminated_employment.team_id,
                 hide_email=terminated_employment.hide_email,
                 business=company.business,
             )
+            _set_reattached_contract(new_employment, is_temporary, end_date)
             db.session.add(new_employment)
             db.session.flush()
-
-            email_sent = True
-            try:
-                mailer.send_employment_reattachment_email(new_employment)
-            except Exception as e:
-                app.logger.exception(e)
-                email_sent = False
+            email_sent = _send_reattachment_email(new_employment)
 
         return ReattachEmployment(
             employment=new_employment, email_sent=email_sent
