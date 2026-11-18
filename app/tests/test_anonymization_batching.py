@@ -3,8 +3,10 @@ from unittest.mock import patch
 
 from app import app, db
 from app.helpers.notification_type import NotificationType
+from app.helpers.oauth.models import OAuth2Client, ThirdPartyClientCompany
 from app.models import (
     Activity,
+    Company,
     CompanyCertification,
     Mission,
     MissionAutoValidation,
@@ -291,6 +293,31 @@ class TestAnonymizationBatching(BaseTest):
         self.assertEqual(anon.compliancy, 3)
         # certification_level_int is populated by the before_insert event
         self.assertIsNotNone(anon.certification_level_int)
+
+    def test_inactive_company_with_third_party_client_is_deleted(self):
+        old_company = CompanyFactory.create(
+            usual_name="Third Party Old Co", siren="999888666"
+        )
+        old_company.creation_time = datetime(2021, 1, 1)
+        client = OAuth2Client.create_client(
+            name="old software", redirect_uris="http://localhost:3000"
+        )
+        db.session.add(
+            ThirdPartyClientCompany(client=client, company=old_company)
+        )
+        db.session.commit()
+        old_company_id = old_company.id
+
+        anonymize_expired_data(dry_run=True)
+        anonymize_expired_data(delete_only=True)
+
+        self.assertEqual(Company.query.filter_by(id=old_company_id).count(), 0)
+        self.assertEqual(
+            ThirdPartyClientCompany.query.filter_by(
+                company_id=old_company_id
+            ).count(),
+            0,
+        )
 
     def test_test_mode_leaves_no_trace(self):
         DataFinder(db.session, dry_run=True).anonymize_standalone_data(
