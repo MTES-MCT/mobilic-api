@@ -265,8 +265,9 @@ class TestSoftwareComplianceSnapshot(BaseTest):
         with patch.dict(app.config, {"COMPLIANCE_ALERT_EMAIL": None}), patch(
             "app.jobs.software_compliance_report.send_tchap_message",
             return_value=True,
-        ):
+        ) as send_tchap:
             _send_consolidated_alert(alerts, date.today())
+        self.assertEqual(send_tchap.call_args[0][1], "interfacage")
 
 
 class TestOW13ComplianceAlertHtmlEscaping(TestCase):

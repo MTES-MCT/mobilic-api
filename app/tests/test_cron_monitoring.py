@@ -56,6 +56,7 @@ class TestCronMonitoring(unittest.TestCase):
                 failing_cron()
         send_tchap.assert_called_once()
         self.assertIn("send_daily_emails", send_tchap.call_args[0][0])
+        self.assertEqual(send_tchap.call_args[0][1], "crons")
 
     def test_no_tchap_alert_on_success(self):
         @cron_monitor("send_daily_emails")

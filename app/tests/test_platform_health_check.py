@@ -7,8 +7,14 @@ from app.jobs import platform_health_check
 from app.jobs.platform_health_check import (
     job_purge_healthcheck_bot_missions,
     job_run_platform_health_checks,
+    job_send_platform_health_summary,
 )
-from app.models import Activity, Mission, RegulationComputation
+from app.models import (
+    Activity,
+    Mission,
+    PlatformHealthCheckRun,
+    RegulationComputation,
+)
 from app.seed import UserFactory, CompanyFactory, EmploymentFactory
 from app.tests import BaseTest
 from app.tests.healthcheck_http import route_bot_http_to_test_client
@@ -84,6 +90,85 @@ class TestPlatformHealthCheck(BaseTest):
             job_run_platform_health_checks()
         mock_tchap.assert_called_once()
         self.assertIn("API_HOST", mock_tchap.call_args[0][0])
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_alert_sent_once_while_failing(self, mock_tchap):
+        mock_tchap.return_value = True
+        with patch.object(platform_health_check, "EXPECTED_EMPLOYEES", 5):
+            job_run_platform_health_checks()
+            job_run_platform_health_checks()
+        mock_tchap.assert_called_once()
+        self.assertEqual(mock_tchap.call_args[0][1], "healthcheck")
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_recovery_message_after_failure(self, mock_tchap):
+        mock_tchap.return_value = True
+        with patch.object(platform_health_check, "EXPECTED_EMPLOYEES", 5):
+            job_run_platform_health_checks()
+        job_run_platform_health_checks()
+        job_run_platform_health_checks()
+        self.assertEqual(mock_tchap.call_count, 2)
+        self.assertIn("rétabli", mock_tchap.call_args[0][0])
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_run_recorded_when_alert_delivery_fails(self, mock_tchap):
+        mock_tchap.return_value = False
+        with patch.object(platform_health_check, "EXPECTED_EMPLOYEES", 5):
+            with self.assertRaises(RuntimeError):
+                job_run_platform_health_checks()
+        run = PlatformHealthCheckRun.query.one()
+        self.assertTrue(run.failures)
+
+    def _add_run(self, hours_ago, failures=()):
+        db.session.add(
+            PlatformHealthCheckRun(
+                creation_time=datetime.now() - timedelta(hours=hours_ago),
+                failures=[list(failure) for failure in failures],
+            )
+        )
+        db.session.commit()
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_summary_when_everything_works(self, mock_tchap):
+        mock_tchap.return_value = True
+        for hours_ago in (3, 2, 1):
+            self._add_run(hours_ago)
+        job_send_platform_health_summary()
+        message = mock_tchap.call_args[0][0]
+        self.assertIn("✅", message)
+        self.assertIn("3/3", message)
+        self.assertEqual(mock_tchap.call_args[0][1], "healthcheck")
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_summary_lists_interruptions(self, mock_tchap):
+        mock_tchap.return_value = True
+        self._add_run(30, [("Ancienne panne", "x")])
+        self._add_run(5)
+        self._add_run(4, [("Exports KO", "x")])
+        self._add_run(3, [("Exports KO", "x"), ("Gestionnaire KO", "y")])
+        self._add_run(2)
+        self._add_run(1, [("Saisie KO", "z")])
+        job_send_platform_health_summary()
+        message = mock_tchap.call_args[0][0]
+        self.assertIn("2 interruption(s)", message)
+        self.assertIn("2/5", message)
+        self.assertIn("Exports KO, Gestionnaire KO", message)
+        self.assertIn("Saisie KO", message)
+        self.assertNotIn("Ancienne panne", message)
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_summary_without_runs(self, mock_tchap):
+        mock_tchap.return_value = True
+        self._add_run(30)
+        job_send_platform_health_summary()
+        self.assertIn("aucun passage", mock_tchap.call_args[0][0])
+
+    @patch("app.jobs.platform_health_check.send_tchap_message")
+    def test_old_runs_are_purged(self, mock_tchap):
+        self._add_run(24 * 8)
+        self._add_run(1)
+        job_purge_healthcheck_bot_missions()
+        self.assertEqual(PlatformHealthCheckRun.query.count(), 1)
 
     @patch("app.jobs.platform_health_check.send_tchap_message")
     def test_bot_missions_are_purged(self, mock_tchap):
