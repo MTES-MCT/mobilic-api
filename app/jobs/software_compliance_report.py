@@ -321,7 +321,7 @@ def _send_consolidated_alert(alerts_by_client, today):
         lines.append(f"\n🚨 {client_name} (client_id={client_id})")
         for v in violations:
             lines.append(f"  {v}")
-    tchap_sent = send_tchap_message("\n".join(lines))
+    tchap_sent = send_tchap_message("\n".join(lines), "interfacage")
 
     if not email_sent and not tchap_sent:
         raise RuntimeError(

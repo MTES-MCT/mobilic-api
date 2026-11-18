@@ -104,6 +104,21 @@ CRON_MONITORS = {
         "max_runtime": 15,
         "checkin_margin": 20,
     },
+    "run_platform_health_checks": {
+        "schedule": {"type": "crontab", "value": "*/10 * * * *"},
+        "max_runtime": 8,
+        "checkin_margin": 5,
+    },
+    "send_platform_health_summary": {
+        "schedule": {"type": "crontab", "value": "0 7 * * *"},
+        "max_runtime": 5,
+        "checkin_margin": 30,
+    },
+    "purge_healthcheck_bot_missions": {
+        "schedule": {"type": "crontab", "value": "30 4 * * *"},
+        "max_runtime": 15,
+        "checkin_margin": 30,
+    },
 }
 
 _DEFAULT_TIMEZONE = "Etc/UTC"
@@ -124,7 +139,8 @@ def cron_monitor(command_name):
                 return monitored(*args, **kwargs)
             except Exception as e:
                 send_tchap_message(
-                    f"🚨 Cron en échec : {command_name}\n{type(e).__name__}: {e}"
+                    f"🚨 Cron en échec : {command_name}\n{type(e).__name__}: {e}",
+                    "crons",
                 )
                 raise
 

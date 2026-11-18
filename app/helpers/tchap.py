@@ -1,3 +1,4 @@
+import json
 import uuid
 
 import requests
@@ -5,18 +6,41 @@ import requests
 from app import app
 
 DEFAULT_TCHAP_HOMESERVER = "https://matrix.agent.dev-durable.tchap.gouv.fr"
+CHANNELS = {"healthcheck", "interfacage", "crons"}
 
 
-def send_tchap_message(text, html=None, room_id=None):
+def _room_for(channel):
+    raw_rooms = app.config.get("TCHAP_ROOM_ID")
+    if not raw_rooms:
+        return None
+    try:
+        rooms = json.loads(raw_rooms)
+    except ValueError:
+        rooms = None
+    if not isinstance(rooms, dict):
+        app.logger.error(
+            'TCHAP_ROOM_ID must be a JSON object such as {"healthcheck": "!room:server"}'
+        )
+        return None
+    unknown = set(rooms) - CHANNELS
+    if unknown:
+        app.logger.error(
+            f"TCHAP_ROOM_ID has unknown channels {sorted(unknown)}, expected {sorted(CHANNELS)}"
+        )
+    return rooms.get(channel)
+
+
+def send_tchap_message(text, channel, html=None):
+    # channel is a key of the TCHAP_ROOM_ID map ("healthcheck", "interfacage",
+    # "crons"); a channel without a room is off on this environment.
     # Returns True if the message was actually delivered, False otherwise.
-    # room_id overrides the default TCHAP_ROOM_ID.
     access_token = app.config.get("TCHAP_ACCESS_TOKEN")
-    room_id = room_id or app.config.get("TCHAP_ROOM_ID")
+    room_id = _room_for(channel)
     homeserver = app.config.get("TCHAP_HOMESERVER", DEFAULT_TCHAP_HOMESERVER)
 
     if not access_token or not room_id:
-        app.logger.error(
-            "Tchap notification not sent: TCHAP_ACCESS_TOKEN or TCHAP_ROOM_ID not configured"
+        app.logger.info(
+            f"Tchap notification not sent: no token or no room for channel {channel}"
         )
         return False
 
@@ -33,7 +57,7 @@ def send_tchap_message(text, html=None, room_id=None):
             json=content,
             timeout=10,
         )
-        if not response.ok:
+        if not response.ok or not response.json().get("event_id"):
             app.logger.error(
                 f"Tchap notification failed: {response.status_code} {response.text}"
             )

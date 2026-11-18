@@ -399,19 +399,31 @@ def compute_software_compliance_snapshot(for_date=None):
 
 
 @app.cli.command("run_platform_health_checks", with_appcontext=True)
+@cron_monitor("run_platform_health_checks")
 def run_platform_health_checks():
     """
     The healthcheck bot (a dedicated test user/company) checks activity logging,
-    employees listed for the manager and in exports. Alerts on Tchap on failure.
+    employees listed for the manager and in exports. Alerts on Tchap when the
+    platform goes down or comes back.
     """
     from app.jobs.platform_health_check import job_run_platform_health_checks
 
     job_run_platform_health_checks()
 
 
+@app.cli.command("send_platform_health_summary", with_appcontext=True)
+@cron_monitor("send_platform_health_summary")
+def send_platform_health_summary():
+    """Posts on Tchap the healthcheck results of the last 24 hours."""
+    from app.jobs.platform_health_check import job_send_platform_health_summary
+
+    job_send_platform_health_summary()
+
+
 @app.cli.command("purge_healthcheck_bot_missions", with_appcontext=True)
+@cron_monitor("purge_healthcheck_bot_missions")
 def purge_healthcheck_bot_missions():
-    """Deletes the test missions created by the platform healthcheck bot."""
+    """Deletes the bot test missions and the old healthcheck runs."""
     from app.jobs.platform_health_check import (
         job_purge_healthcheck_bot_missions,
     )
