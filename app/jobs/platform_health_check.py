@@ -1,10 +1,12 @@
 import time
 from datetime import date, datetime, timedelta
+from itertools import groupby
 
 import requests
 from flask_jwt_extended import create_access_token
 
 from app import app, db
+from config import MOBILIC_ENV
 from app.helpers.tchap import send_tchap_message
 from app.jobs import log_execution
 from app.models import (
@@ -17,6 +19,7 @@ from app.models import (
     MissionAutoValidation,
     MissionEnd,
     MissionValidation,
+    PlatformHealthCheckRun,
     RegulationComputation,
     User,
 )
@@ -27,6 +30,7 @@ RETRY_DELAY_SECONDS = 20
 BOT_MISSION_NAME = "[bot] health check"
 BOT_USER_EMAIL = "bot-healthcheck@mobilic.beta.gouv.fr"
 EXPECTED_EMPLOYEES = 2
+RUN_RETENTION_DAYS = 7
 # Tables with a mission_id column, to be deleted before the mission itself.
 # ActivityVersion is handled apart: it hangs off Activity, not Mission.
 MISSION_CHILD_MODELS = (
@@ -163,44 +167,30 @@ def _run_with_retries(check):
     return last_error
 
 
-def _send_alert(failures):
-    lines = [
-        f"🚨 Mobilic — healthcheck en échec ({datetime.now().strftime('%d/%m/%Y %H:%M')})"
-    ]
-    for label, error in failures:
-        lines.append(f"- {label} : {error}")
-    room_id = app.config.get("TCHAP_PLATFORM_ALERTS_ROOM_ID")
-    if not send_tchap_message("\n".join(lines), room_id=room_id):
+def _send(text):
+    if not send_tchap_message(text, "healthcheck"):
         raise RuntimeError("Healthcheck alert could not be delivered on Tchap")
 
 
-@log_execution
-def job_run_platform_health_checks():
+def _run_checks():
     bot_user = User.query.filter(User.email == BOT_USER_EMAIL).one_or_none()
     company_ids = (
         bot_user.current_company_ids_with_admin_rights if bot_user else []
     )
     if not company_ids:
-        _send_alert(
-            [
-                (
-                    "Bot de healthcheck mal configuré",
-                    f"compte {BOT_USER_EMAIL} introuvable ou sans entreprise gérée",
-                )
-            ]
-        )
-        return
-
+        return [
+            (
+                "Bot de healthcheck mal configuré",
+                f"compte {BOT_USER_EMAIL} introuvable ou sans entreprise gérée",
+            )
+        ]
     if not app.config.get("API_HOST"):
-        _send_alert(
-            [
-                (
-                    "Bot de healthcheck mal configuré",
-                    "variable d'environnement API_HOST non définie",
-                )
-            ]
-        )
-        return
+        return [
+            (
+                "Bot de healthcheck mal configuré",
+                "variable d'environnement API_HOST non définie",
+            )
+        ]
 
     user_id, company_id = bot_user.id, company_ids[0]
     expected_employees = EXPECTED_EMPLOYEES
@@ -228,19 +218,91 @@ def job_run_platform_health_checks():
     for label, check in checks:
         error = _run_with_retries(check)
         if error:
-            failures.append((label, error))
-
-    if failures:
-        _send_alert(failures)
+            failures.append((label, str(error)))
     app.logger.info(
         f"Healthcheck bot done: {len(checks) - len(failures)}/{len(checks)} ok"
     )
+    return failures
+
+
+@log_execution
+def job_run_platform_health_checks():
+    failures = _run_checks()
+    previous = PlatformHealthCheckRun.query.order_by(
+        PlatformHealthCheckRun.creation_time.desc()
+    ).first()
+    was_failing = bool(previous and previous.failures)
+
+    # Recorded before alerting so the morning summary stays truthful even if
+    # Tchap is down; a lost alert surfaces as a Sentry Crons error instead.
+    db.session.add(
+        PlatformHealthCheckRun(
+            failures=[list(failure) for failure in failures]
+        )
+    )
+    db.session.commit()
+
+    stamp = datetime.now().strftime("%d/%m/%Y %H:%M")
+    # ponytail: alert on OK/KO transitions only; a change in which checks fail
+    # during an outage is not re-alerted, the morning summary lists it.
+    if failures and not was_failing:
+        lines = [
+            f"🚨 [{MOBILIC_ENV}] Mobilic — healthcheck en échec ({stamp})"
+        ]
+        lines += [f"- {label} : {error}" for label, error in failures]
+        _send("\n".join(lines))
+    elif not failures and was_failing:
+        _send(f"✅ [{MOBILIC_ENV}] Mobilic — healthcheck rétabli ({stamp})")
+
+
+@log_execution
+def job_send_platform_health_summary():
+    runs = (
+        PlatformHealthCheckRun.query.filter(
+            PlatformHealthCheckRun.creation_time
+            >= datetime.now() - timedelta(hours=24)
+        )
+        .order_by(PlatformHealthCheckRun.creation_time)
+        .all()
+    )
+    if not runs:
+        _send(
+            f"⚠️ [{MOBILIC_ENV}] Mobilic — healthcheck 24 h : aucun passage du bot"
+        )
+        return
+
+    ok_runs = sum(1 for run in runs if not run.failures)
+    interruptions = [
+        list(group)
+        for failing, group in groupby(runs, key=lambda run: bool(run.failures))
+        if failing
+    ]
+    if not interruptions:
+        _send(
+            f"✅ [{MOBILIC_ENV}] Mobilic — healthcheck 24 h : {ok_runs}/{len(runs)} passages OK, aucune interruption"
+        )
+        return
+
+    lines = [
+        f"⚠️ [{MOBILIC_ENV}] Mobilic — healthcheck 24 h : {len(interruptions)} interruption(s), {ok_runs}/{len(runs)} passages OK"
+    ]
+    for group in interruptions:
+        labels = sorted({label for run in group for label, _ in run.failures})
+        lines.append(
+            f"- {group[0].creation_time.strftime('%d/%m %H:%M')} → {group[-1].creation_time.strftime('%H:%M')} : {', '.join(labels)}"
+        )
+    _send("\n".join(lines))
 
 
 @log_execution
 def job_purge_healthcheck_bot_missions(max_age_hours=24):
     """Hard-deletes the missions created by the healthcheck bot and their data."""
     cutoff = datetime.now() - timedelta(hours=max_age_hours)
+    PlatformHealthCheckRun.query.filter(
+        PlatformHealthCheckRun.creation_time
+        < datetime.now() - timedelta(days=RUN_RETENTION_DAYS)
+    ).delete(synchronize_session=False)
+    db.session.commit()
     bot_user = User.query.filter(User.email == BOT_USER_EMAIL).one_or_none()
     bot_company_ids = (
         bot_user.current_company_ids_with_admin_rights if bot_user else []

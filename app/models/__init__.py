@@ -43,4 +43,5 @@ from .push_banner_config import PushBannerConfig
 from .global_banner_config import GlobalBannerConfig
 from .software_compliance_snapshot import SoftwareComplianceSnapshot
 from .software_compliance_alert_state import SoftwareComplianceAlertState
+from .platform_health_check_run import PlatformHealthCheckRun
 from .technical_incident import TechnicalIncident
