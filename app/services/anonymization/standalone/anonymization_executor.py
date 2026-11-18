@@ -794,6 +794,7 @@ class AnonymizationExecutor:
         self.delete_company_stats(company_ids)
         self.delete_company_vehicles(company_ids)
         self.delete_company_known_addresses(company_ids)
+        self.delete_company_third_party_client_links(company_ids)
         self.delete_companies(company_ids)
 
     def anonymize_companies(self, company_ids: Set[int]) -> None:
@@ -924,6 +925,18 @@ class AnonymizationExecutor:
         ).delete(synchronize_session=False)
 
         self.log_deletion(deleted, "company known address")
+
+    def delete_company_third_party_client_links(
+        self, company_ids: Set[int]
+    ) -> None:
+        if not company_ids:
+            return
+
+        deleted = ThirdPartyClientCompany.query.filter(
+            ThirdPartyClientCompany.company_id.in_(company_ids)
+        ).delete(synchronize_session=False)
+
+        self.log_deletion(deleted, "third party client company")
 
     def anonymize_user_dependencies(self, user_ids: Set[int]) -> None:
         """
