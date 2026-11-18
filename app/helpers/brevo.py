@@ -131,6 +131,18 @@ class BrevoApiClient:
             raise BrevoRequestError(f"Request to Brevo API failed: {e}")
 
     @check_api_key
+    def upsert_contact_attributes(self, email: str, attributes: dict):
+        try:
+            create_contact = sib_api_v3_sdk.CreateContact(
+                email=email,
+                update_enabled=True,
+                attributes=attributes,
+            )
+            self._contacts_api.create_contact(create_contact)
+        except ApiException as e:
+            raise BrevoRequestError(f"Request to Brevo API failed: {e}")
+
+    @check_api_key
     def create_company(self, data: CreateCompanyData):
         try:
             url = f"{self.BASE_URL}/companies"

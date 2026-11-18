@@ -66,6 +66,7 @@ class Config:
     S3_ENDPOINT = os.environ.get("S3_ENDPOINT")
     EXPORT_STORAGE_BACKEND = os.environ.get("EXPORT_STORAGE_BACKEND", "s3")
     BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
+    TALLY_WEBHOOK_SECRET = os.environ.get("TALLY_WEBHOOK_SECRET")
     TOTP_ENCRYPTION_KEY = os.environ.get("TOTP_ENCRYPTION_KEY")
     VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
     VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
