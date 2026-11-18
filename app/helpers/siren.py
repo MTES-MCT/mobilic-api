@@ -41,6 +41,8 @@ class NoSirenAPICredentialsError(MobilicError):
 SIREN_API_SIREN_INFO_ENDPOINT = "https://api.insee.fr/api-sirene/3.11/siret"
 SIREN_API_PAGE_SIZE = 1000
 SIREN_API_MAX_PAGES = 30
+# INSEE allows 30 requests per minute per API key
+SIREN_API_MIN_SECONDS_BETWEEN_REQUESTS = 2
 
 
 ADDRESS_STREET_TYPE_TO_LABEL = {
