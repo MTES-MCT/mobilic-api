@@ -578,14 +578,38 @@ class TestEmploymentStatusProperties(BaseTest):
         self.assertFalse(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "ACTIVE")
 
-    def test_employment_never_active_is_inactive(self):
+    def test_employment_never_active_attached_long_ago_is_inactive(self):
         """An employment that never had any activity (last_active_at is
-        None) should be considered INACTIVE, not ACTIVE."""
+        None) and started more than 3 months ago should be INACTIVE."""
+        self.employment.start_date = date.today() - timedelta(days=91)
+        db.session.commit()
         self.assertIsNone(self.employment.last_active_at)
 
         self.assertTrue(self.employment.is_active)
         self.assertTrue(self.employment.is_inactive)
         self.assertEqual(self.employment.status, "INACTIVE")
+
+    def test_employment_never_active_attached_recently_is_active(self):
+        self.employment.start_date = date.today() - timedelta(days=89)
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_inactive)
+        self.assertEqual(self.employment.status, "ACTIVE")
+
+    def test_employment_never_active_invitation_accepted_recently_is_active(
+        self,
+    ):
+        self.employment.start_date = date.today() - timedelta(days=120)
+        self.employment.validation_time = datetime.now() - timedelta(days=89)
+        db.session.commit()
+
+        self.assertFalse(self.employment.is_inactive)
+
+    def test_admin_employment_never_active_is_not_inactive(self):
+        admin_employment = self.user_admin.employments[0]
+        self.assertIsNone(admin_employment.last_active_at)
+
+        self.assertFalse(admin_employment.is_inactive)
 
     def test_terminated_employment_status(self):
         """An employment with end_date in the past should be TERMINATED."""
