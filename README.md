@@ -27,7 +27,7 @@ les packages python3-dev et libpq-dev pour pouvoir installer psycopg2
 
 ```sh
 # Lancer tous les services (API, base de données, Redis, Celery)
-docker-compose up -d
+docker compose up -d
 ```
 
 Cette méthode lance automatiquement :
@@ -46,7 +46,7 @@ pre-commit install
 
 Puis lancer la base de données avec Docker :
 ```sh
-docker-compose up -d mobilic-db redis
+docker compose up -d mobilic-db redis
 ```
 
 ## Variables d'environnement
@@ -73,19 +73,25 @@ Un [fichier d'exemple](./.env.example) détaille la structure attendue pour ce f
 
 ### Avec Docker
 
+Créer un fichier dans `.env/.env.local` avec :
+
+```text
+DATABASE_URL=postgresql://mobilic:mobilic@mobilic-db:5432/mobilic
+```
+
 ```sh
 # Si des volumes sont déja présents et  que l'on souhaite les reset
-docker-compose down -v
+docker compose down -v
 
 # Pour rebuild l'image flask (si nouvelles librairies par exemple)
-docker-compose up --build
+docker compose up --build
 
 # Lancer tous les services
-docker-compose up
+docker compose up
 
 # A la suite d'un premier lancement (création de volume)
 # Pour lancer les migrations et les seeds
-docker exec -it mobilic-flask flask db upgrade && flask db seed
+docker compose exec mobilic-api flask db upgrade && docker compose exec mobilic-api flask seed
 ```
 
 L'API sera accessible sur http://localhost:5000
@@ -115,7 +121,7 @@ DOTENV_FILE=.env/.env.local flask run --host 0.0.0.0
 ### Avec Docker
 
 ```sh
-docker-compose exec mobilic-api flask test
+docker compose exec mobilic-api flask test
 ```
 
 ### Avec pipenv
@@ -135,19 +141,19 @@ Les fichiers de migration sont situés [ici](./migrations/versions).
 Pour ajouter une migration :
 
 ```sh
-docker-compose exec mobilic-api flask db migrate -m "message de migration"
+docker compose exec mobilic-api flask db migrate -m "message de migration"
 ```
 
 ou pour créer un fichier vide de migration :
 
 ```sh
-docker-compose exec mobilic-api flask db revision -m "message de migration"
+docker compose exec mobilic-api flask db revision -m "message de migration"
 ```
 
 Pour mettre à jour la DB avec les dernières migrations :
 
 ```sh
-docker-compose exec mobilic-api flask db upgrade
+docker compose exec mobilic-api flask db upgrade
 ```
 
 ### Avec pipenv
@@ -178,12 +184,12 @@ flask db upgrade
 
 Pour injecter des données en base :
 ```sh
-docker-compose exec mobilic-api flask seed
+docker compose exec mobilic-api flask seed
 ```
 
 Pour vider la base :
 ```sh
-docker-compose exec mobilic-api flask clean
+docker compose exec mobilic-api flask clean
 ```
 
 ### Avec pipenv
@@ -278,10 +284,10 @@ Par exemple l'envoi des exports excel gestionnaire (envoi de l'export par email 
 
 ### Avec Docker
 
-Le worker Celery est automatiquement lancé avec `docker-compose up`. Vous pouvez voir ses logs avec :
+Le worker Celery est automatiquement lancé avec `docker compose up`. Vous pouvez voir ses logs avec :
 
 ```sh
-docker-compose logs -f celery-worker
+docker compose logs -f celery-worker
 ```
 
 ### Avec pipenv
