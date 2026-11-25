@@ -2,10 +2,12 @@ import datetime
 from datetime import timedelta
 
 import graphene
+from botocore.exceptions import BotoCoreError, ClientError
 from graphene import ObjectType
 from graphene.types.generic import GenericScalar
 from sqlalchemy import Interval, func, literal
 
+from app import app
 from app.data_access.business import BusinessOutput
 from app.data_access.control_bulletin import ControlBulletinFields
 from app.data_access.employment import EmploymentOutput
@@ -438,7 +440,13 @@ class ControllerControlOutput(BaseSQLAlchemyObjectType):
         return self.creation_time.date() == datetime.datetime.now().date()
 
     def resolve_pictures(self, info):
-        pictures = S3Client.list_pictures_for_control(self.id)
+        try:
+            pictures = S3Client.list_pictures_for_control(self.id)
+        except (BotoCoreError, ClientError):
+            app.logger.exception(
+                f"Could not list pictures for control {self.id}"
+            )
+            return []
         urls = [
             S3Client.generate_presigned_url_to_get_picture(picture)
             for picture in pictures
