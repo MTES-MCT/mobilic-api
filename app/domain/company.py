@@ -1,4 +1,5 @@
 import datetime
+import time
 from enum import Enum
 
 from sqlalchemy import desc, asc, nullsfirst
@@ -9,6 +10,7 @@ from sqlalchemy.orm import joinedload
 
 from app import db, siren_api_client, app
 from app.helpers.mail_type import EmailType
+from app.helpers.siren import SIREN_API_MIN_SECONDS_BETWEEN_REQUESTS
 from app.jobs import log_execution
 from app.models import Company, CompanyCertification, UserAgreement
 from app.models import (
@@ -565,3 +567,4 @@ def job_update_ceased_activity_status():
 
         company.siren_api_info = siren_info
         db.session.commit()
+        time.sleep(SIREN_API_MIN_SECONDS_BETWEEN_REQUESTS)
