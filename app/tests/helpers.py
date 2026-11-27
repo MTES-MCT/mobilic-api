@@ -882,6 +882,21 @@ class ApiRequests:
       }
     """
 
+    query_company_missions = """
+      query CompanyMissions($id: Int!, $userIds: [Int]) {
+        company(id: $id) {
+          missions(userIds: $userIds) {
+            edges {
+              node {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    """
+
     query_company_work_days = """
       query CompanyWorkDays(
         $id: Int!

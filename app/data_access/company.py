@@ -238,6 +238,9 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             required=False,
             description="Ne retourne que les missions qui sont terminées par tous leurs utilisateurs.",
         ),
+        user_ids=graphene.List(
+            lambda: graphene.Int, description="Identifiants des utilisateurs"
+        ),
     )
     missions_deleted = graphene.Field(
         MissionConnection,
@@ -452,6 +455,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
         only_ended_missions=False,
         first=None,
         after=None,
+        user_ids=None,
     ):
         return query_company_missions(
             [self.id],
@@ -460,6 +464,7 @@ class CompanyOutput(BaseSQLAlchemyObjectType):
             first=first,
             after=after,
             only_ended_missions=only_ended_missions,
+            user_ids=user_ids,
         )
 
     @with_authorization_policy(

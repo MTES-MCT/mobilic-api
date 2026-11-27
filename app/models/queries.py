@@ -187,6 +187,7 @@ def query_company_missions(
     first=None,
     after=None,
     only_ended_missions=False,
+    user_ids=None,
 ):
     from app.data_access.mission import MissionConnection
 
@@ -221,9 +222,12 @@ def query_company_missions(
         end_time = min(max_time, end_time) if end_time else max_time
 
     # This query yields the ids of the missions that are in the requested period scope, on top of being in the requested company scope
+    activity_query = query_activities(start_time=start_time, end_time=end_time)
+    if user_ids:
+        activity_query = activity_query.filter(Activity.user_id.in_(user_ids))
+
     mission_id_query = (
-        query_activities(start_time=start_time, end_time=end_time)
-        .join(company_mission_subq, Activity.mission)
+        activity_query.join(company_mission_subq, Activity.mission)
         .group_by(Activity.mission_id)
         .with_entities(
             Activity.mission_id.label("mission_id"),
