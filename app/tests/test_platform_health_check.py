@@ -197,3 +197,69 @@ class TestPlatformHealthCheck(BaseTest):
         self.assertEqual(RegulationComputation.query.count(), 0)
         self.assertEqual(bot_missions.count(), 0)
         self.assertEqual(Activity.query.count(), 0)
+
+
+@patch.dict(app.config, {"HEALTHCHECK_TOKEN": "s3cret"})
+@patch("app.controllers.misc._consumed_queues")
+@patch("app.controllers.misc.get_redis_client")
+class TestHealthEndpoint(BaseTest):
+    def _get(self, token="s3cret"):
+        headers = {"X-Health-Token": token} if token else {}
+        return app.test_client().get("/health", headers=headers)
+
+    def test_all_services_up(self, mock_redis, mock_queues):
+        mock_queues.return_value = {"celery", "exports"}
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json, {"postgres": "ok", "redis": "ok", "celery": "ok"}
+        )
+
+    def test_redis_down_skips_celery_and_hides_error(
+        self, mock_redis, mock_queues
+    ):
+        mock_redis.return_value.ping.side_effect = ConnectionError(
+            "redis.internal:6379 refused"
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json, {"postgres": "ok", "redis": "ko", "celery": "ko"}
+        )
+        self.assertNotIn(b"redis.internal", response.data)
+        mock_queues.assert_not_called()
+
+    def test_queue_without_worker_returns_503(self, mock_redis, mock_queues):
+        mock_queues.return_value = {"celery"}
+        response = self._get()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json["celery"], "ko")
+
+    def test_postgres_down_returns_503(self, mock_redis, mock_queues):
+        mock_queues.return_value = {"celery", "exports"}
+        with patch(
+            "app.controllers.misc.db.session.execute",
+            side_effect=Exception("db down"),
+        ):
+            response = self._get()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json, {"postgres": "ko", "redis": "ok", "celery": "ok"}
+        )
+
+    def test_rejects_missing_or_wrong_token_before_checks(
+        self, mock_redis, mock_queues
+    ):
+        for token in (None, "wrong"):
+            response = self._get(token)
+            self.assertEqual(response.status_code, 401)
+        mock_queues.assert_not_called()
+        mock_redis.assert_not_called()
+
+    def test_rejects_when_token_not_configured(self, mock_redis, mock_queues):
+        with patch.dict(app.config, {"HEALTHCHECK_TOKEN": None}):
+            response = self._get("")
+            self.assertEqual(response.status_code, 401)
+            response = self._get("None")
+            self.assertEqual(response.status_code, 401)
+        mock_queues.assert_not_called()

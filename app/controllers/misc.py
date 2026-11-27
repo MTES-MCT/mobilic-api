@@ -4,6 +4,7 @@ import logging
 
 import redis as redis_module
 from flask import jsonify, request
+from sqlalchemy import text
 
 from app import app, db
 from app.helpers.livestorm import livestorm, NoLivestormCredentialsError
@@ -77,6 +78,49 @@ def get_webinars_list():
         logger.warning("Redis unavailable, skipping cache read for webinars")
 
     return jsonify([]), 200
+
+
+HEALTH_CELERY_QUEUES = {"celery", "exports"}
+
+
+def _is_up(name, check):
+    try:
+        return bool(check())
+    except Exception:
+        logger.warning(f"Health check failed: {name}", exc_info=True)
+        return False
+
+
+def _consumed_queues(celery):
+    workers = celery.control.inspect(timeout=1).active_queues() or {}
+    return {queue["name"] for queues in workers.values() for queue in queues}
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    expected = app.config["HEALTHCHECK_TOKEN"]
+    token = request.headers.get("X-Health-Token", "")
+    if not expected or not hmac.compare_digest(
+        token.encode(), expected.encode()
+    ):
+        return "", 401
+
+    from app.helpers.celery import celery
+
+    statuses = {
+        "postgres": _is_up(
+            "postgres", lambda: db.session.execute(text("SELECT 1"))
+        ),
+        "redis": _is_up("redis", lambda: get_redis_client().ping()),
+    }
+    # The broker is this same Redis: inspecting workers without it would hang.
+    statuses["celery"] = statuses["redis"] and _is_up(
+        "celery", lambda: HEALTH_CELERY_QUEUES <= _consumed_queues(celery)
+    )
+    return (
+        jsonify({k: "ok" if up else "ko" for k, up in statuses.items()}),
+        200 if all(statuses.values()) else 503,
+    )
 
 
 @app.route("/campaign-click", methods=["GET"])
