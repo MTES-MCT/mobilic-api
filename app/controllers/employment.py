@@ -26,6 +26,7 @@ from app.domain.third_party_employment import (
     create_third_party_employment_link_if_needed,
 )
 from app.domain.user import create_user_by_third_party_if_needed
+from app.jobs.emails.detachment_request import send_detachment_request_email
 from app.jobs.emails.third_party_sync import send_third_party_sync_emails
 from app.helpers.api_key_authentication import (
     check_protected_client_id_company_id,
@@ -1468,13 +1469,24 @@ class RequestDetachment(AuthenticatedMutation):
                 request_date = datetime.fromtimestamp(
                     existing["requested_at"]
                 ).strftime("%d/%m/%Y")
-                mailer.send_detachment_relance_email(employment, request_date)
             else:
                 employment.detachment_request = {
                     "requested_at": now_ts,
                     "last_sent_at": now_ts,
                 }
-                mailer.send_detachment_request_email(employment)
+                request_date = None
 
+            admin_ids = [
+                e.user_id
+                for e in employment.company.employments
+                if e.has_admin_rights and e.is_active
+            ]
             db.session.add(employment)
-            return employment
+
+        if not app.config["DISABLE_EMAIL"]:
+            for admin_id in admin_ids:
+                send_detachment_request_email.delay(
+                    employment.id, admin_id, request_date
+                )
+
+        return employment

@@ -1,6 +1,9 @@
 from datetime import date, datetime, timedelta
+from unittest.mock import patch
 
-from app import db
+from app import app, db, mailer
+from app.helpers.mail import InvalidEmailAddressError
+from app.jobs.emails.detachment_request import send_detachment_request_email
 from app.domain.user import HIDDEN_EMAIL
 from app.helpers.errors import (
     AuthorizationError,
@@ -810,6 +813,83 @@ class TestRequestDetachment(BaseTest):
             InvalidParamsError.code,
             response["errors"][0]["extensions"]["code"],
         )
+
+    def _request_detachment_with_emails_enabled(self):
+        app.config["DISABLE_EMAIL"] = False
+        try:
+            with patch(
+                "app.controllers.employment.send_detachment_request_email"
+            ) as mock_task:
+                response = make_authenticated_request(
+                    time=datetime.now(),
+                    submitter_id=self.worker_id,
+                    query=ApiRequests.request_detachment,
+                    variables=dict(employment_id=self.worker_employment_id),
+                )
+        finally:
+            app.config["DISABLE_EMAIL"] = True
+        return response, mock_task
+
+    def test_request_enqueues_one_task_per_admin(self):
+        second_admin = UserFactory.create(
+            post__company=self.company, post__has_admin_rights=True
+        )
+        response, mock_task = self._request_detachment_with_emails_enabled()
+
+        self.assertNotIn("errors", response)
+        self.assertCountEqual(
+            [c.args for c in mock_task.delay.call_args_list],
+            [
+                (self.worker_employment_id, self.admin_id, None),
+                (self.worker_employment_id, second_admin.id, None),
+            ],
+        )
+
+    def test_relance_enqueues_task_with_request_date(self):
+        past = datetime.now() - timedelta(hours=49)
+        employment = Employment.query.get(self.worker_employment_id)
+        employment.detachment_request = {
+            "requested_at": int(past.timestamp()),
+            "last_sent_at": int(past.timestamp()),
+        }
+        db.session.commit()
+
+        _, mock_task = self._request_detachment_with_emails_enabled()
+
+        mock_task.delay.assert_called_once_with(
+            self.worker_employment_id,
+            self.admin_id,
+            past.strftime("%d/%m/%Y"),
+        )
+
+    def test_task_sends_to_single_admin(self):
+        with patch.object(
+            mailer, "send_detachment_request_email"
+        ) as mock_request, patch.object(
+            mailer, "send_detachment_relance_email"
+        ) as mock_relance:
+            send_detachment_request_email(
+                self.worker_employment_id, self.admin_id
+            )
+            send_detachment_request_email(
+                self.worker_employment_id, self.admin_id, "01/01/2026"
+            )
+
+        mock_request.assert_called_once()
+        self.assertEqual(mock_request.call_args.args[1].id, self.admin_id)
+        mock_relance.assert_called_once()
+        self.assertEqual(mock_relance.call_args.args[2], "01/01/2026")
+
+    def test_task_does_not_retry_on_invalid_address(self):
+        with patch.object(
+            mailer,
+            "send_detachment_request_email",
+            side_effect=InvalidEmailAddressError("invalid"),
+        ):
+            # Must not raise, otherwise Celery would retry
+            send_detachment_request_email(
+                self.worker_employment_id, self.admin_id
+            )
 
 
 class TestTemporaryEmployment(BaseTest):
