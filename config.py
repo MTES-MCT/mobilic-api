@@ -140,6 +140,7 @@ class Config:
     APISPEC_FORMAT_RESPONSE = lambda x: x
 
     LIVESTORM_API_TOKEN = os.environ.get("LIVESTORM_API_TOKEN", None)
+    HEALTHCHECK_TOKEN = os.environ.get("HEALTHCHECK_TOKEN")
     DISABLE_EMAIL = os.environ.get("DISABLE_EMAIL", False)
     CONTROL_SIGNING_KEY = os.environ.get("CONTROL_SIGNING_KEY")
     CERTIFICATION_API_KEY = os.environ.get("CERTIFICATION_API_KEY")
