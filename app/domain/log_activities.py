@@ -10,11 +10,40 @@ from app.helpers.errors import (
     OverlappingMissionsError,
     UnavailableSwitchModeError,
     ActivityInFutureError,
+    MissingPastRegistrationMotifError,
+    InvalidPastRegistrationMotifError,
 )
 from app.helpers.impersonate_listener import sanitize_support_context
 from app.models.activity import Activity, ActivityType
 from app.models import Mission, ActivityVersion
 from app.models.mission_end import MissionEnd
+from app.models.past_registration_justification import MOTIF_VALUES
+
+MOTIF_MIN_GAP = 5 * 60
+MOTIF_MAX_GAP = 24 * 60 * 60
+
+
+def past_registration_requires_motif(reception_time, event_time):
+    if not event_time:
+        return False
+    gap = (reception_time - event_time).total_seconds()
+    return MOTIF_MIN_GAP < gap <= MOTIF_MAX_GAP
+
+
+def check_past_registration_motif(
+    submitter, user, mission, reception_time, event_time, context
+):
+    if not submitter or not user or submitter.id != user.id:
+        return
+    if mission is not None and mission.past_registration_justification:
+        return
+    if not past_registration_requires_motif(reception_time, event_time):
+        return
+    motif = context.get("comment") if isinstance(context, dict) else None
+    if not motif:
+        raise MissingPastRegistrationMotifError()
+    if motif not in MOTIF_VALUES:
+        raise InvalidPastRegistrationMotifError()
 
 
 def check_event_time_is_not_in_the_future(

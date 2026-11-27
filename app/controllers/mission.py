@@ -47,6 +47,7 @@ from app.helpers.errors import (
     MissionAlreadyEndedError,
     UnavailableSwitchModeError,
     MissingJustificationForAdminValidation,
+    InvalidPastRegistrationMotifError,
 )
 from app.helpers.graphene_types import TimeStamp, graphene_enum_type
 from app.helpers.submitter_type import SubmitterType
@@ -54,7 +55,13 @@ from app.models import Company, User, Activity
 from app.models.mission import Mission
 from app.models.mission_end import MissionEnd
 from app.models.mission_validation import OverValidationJustification
+from app.models.past_registration_justification import MOTIF_VALUES
 from app.models.vehicle import VehicleOutput
+
+
+def check_past_registration_justification(value):
+    if value and value not in MOTIF_VALUES:
+        raise InvalidPastRegistrationMotifError()
 
 
 class MissionInput:
@@ -140,6 +147,10 @@ class CreateMission(AuthenticatedMutation):
                 else None
             )
 
+            check_past_registration_justification(
+                mission_input.get("past_registration_justification")
+            )
+
             mission = Mission(
                 name=mission_input.get("name"),
                 company=company,
@@ -223,6 +234,10 @@ class EndMission(AuthenticatedMutation):
 
             end_time = args["end_time"]
             creation_time = args.get("creation_time")
+
+            check_past_registration_justification(
+                args.get("past_registration_justification")
+            )
 
             end_mission_for_user(
                 user=user,

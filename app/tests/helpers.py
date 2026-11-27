@@ -120,9 +120,9 @@ class ApiRequests:
     """
 
     create_mission = """
-        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int, $vehicleRegistrationNumber: String) {
+        mutation ($name: String, $companyId: Int!, $context: GenericScalar, $vehicleId: Int, $vehicleRegistrationNumber: String, $pastRegistrationJustification: String) {
             activities {
-                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber) {
+                createMission (name: $name, companyId: $companyId, context: $context, vehicleId: $vehicleId, vehicleRegistrationNumber: $vehicleRegistrationNumber, pastRegistrationJustification: $pastRegistrationJustification) {
                     id
                     name
                 }
@@ -131,9 +131,9 @@ class ApiRequests:
     """
 
     end_mission = """
-        mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int) {
+        mutation ($missionId: Int!, $endTime: TimeStamp!, $userId: Int, $pastRegistrationJustification: String) {
             activities {
-                endMission (missionId: $missionId, endTime: $endTime, userId: $userId) {
+                endMission (missionId: $missionId, endTime: $endTime, userId: $userId, pastRegistrationJustification: $pastRegistrationJustification) {
                     id
                     name
                 }

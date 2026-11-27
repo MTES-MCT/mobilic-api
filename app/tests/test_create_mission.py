@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app import db
+from app.models.activity import ActivityType
 from app.models.vehicle import Vehicle
 from app.seed import UserFactory, CompanyFactory
 from app.seed.factories import TeamFactory
@@ -180,3 +181,83 @@ class TestCreateMission(BaseTest):
         # Then vehicle is still linked to a team
         team_id = _get_team_for_vehicle(existing_vehicle.id)
         self.assertIsNotNone(team_id)
+
+
+class TestMissionPastRegistrationMotif(BaseTest):
+    def setUp(self):
+        super().setUp()
+        self.company = CompanyFactory.create()
+        self.worker = UserFactory.create(post__company=self.company)
+
+    def _create_mission(self, time, motif=None):
+        variables = {"company_id": self.company.id}
+        if motif is not None:
+            variables["past_registration_justification"] = motif
+        return make_authenticated_request(
+            time=time,
+            submitter_id=self.worker.id,
+            query=ApiRequests.create_mission,
+            variables=variables,
+        )
+
+    def _mission_id(self, response):
+        return response["data"]["activities"]["createMission"]["id"]
+
+    def _assert_error_code(self, response, code):
+        errors = response.get("errors")
+        self.assertTrue(errors)
+        self.assertEqual(errors[0]["extensions"]["code"], code)
+
+    def _log_activity(self, time, mission_id):
+        return make_authenticated_request(
+            time=time,
+            submitter_id=self.worker.id,
+            query=ApiRequests.log_activity,
+            variables=dict(
+                start_time=time,
+                mission_id=mission_id,
+                type=ActivityType.WORK,
+                switch=True,
+            ),
+        )
+
+    def _end_mission(self, time, mission_id, motif):
+        return make_authenticated_request(
+            time=time,
+            submitter_id=self.worker.id,
+            query=ApiRequests.end_mission,
+            variables=dict(
+                mission_id=mission_id,
+                end_time=time,
+                past_registration_justification=motif,
+            ),
+        )
+
+    def test_create_mission_rejects_motif_outside_enum(self):
+        response = self._create_mission(
+            datetime(2023, 1, 1), motif="not_a_motif"
+        )
+        self._assert_error_code(response, "INVALID_PAST_REGISTRATION_MOTIF")
+
+    def test_create_mission_accepts_valid_motif(self):
+        response = self._create_mission(datetime(2023, 1, 1), motif="oubli")
+        self.assertIsNone(response.get("errors"))
+        self.assertIsNotNone(self._mission_id(response))
+
+    def test_end_mission_rejects_motif_outside_enum(self):
+        now = datetime(2023, 1, 1, 10)
+        mission_id = self._mission_id(self._create_mission(now))
+        self._log_activity(now, mission_id)
+        response = self._end_mission(
+            datetime(2023, 1, 1, 11), mission_id, "not_a_motif"
+        )
+        self._assert_error_code(response, "INVALID_PAST_REGISTRATION_MOTIF")
+
+    def test_end_mission_accepts_valid_motif(self):
+        now = datetime(2023, 1, 1, 10)
+        mission_id = self._mission_id(self._create_mission(now))
+        self._log_activity(now, mission_id)
+        response = self._end_mission(
+            datetime(2023, 1, 1, 11), mission_id, "oubli"
+        )
+        self.assertIsNone(response.get("errors"))
